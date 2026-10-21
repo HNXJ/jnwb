@@ -248,12 +248,13 @@ copy or backup behind. The first five also come from `check_ragged_indices`.
 
 ## Warnings, not errors
 
-Three conditions warn rather than raise, because in each case the caller gets something
+Four conditions warn rather than raise, because in each case the caller gets something
 usable and the risk is that it is silently wrong.
 
 | Condition | Raised by | What you get |
 |---|---|---|
 | A length-1 array attribute was collapsed to its scalar: `SqueezedAttributeWarning` | any read | The repaired value. The warning names the attributes, once per read, so a record written from the read can say the file needed repairing |
+| A container's declared `neurodata_type` disagrees with what the file stores under it: `ContainerTypeContradictionWarning` | `inspect` | The container as stored. The warning names the container and each contradiction, once per container; the typing is the file's to correct |
 | No `codes` column | `events` | The onsets, without codes. `event_onsets` returns them without the warning |
 | Most epochs entirely outside the data, under `boundary_policy="nan"` | `epoch_continuous` | An array of the right shape and entirely `NaN`, which is what onsets in milliseconds look like when read as seconds. The warning names both spans. See [Common mistakes §11](common_mistakes.md) |
 

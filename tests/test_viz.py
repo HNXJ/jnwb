@@ -122,6 +122,14 @@ class TestRasterPsth:
         peak_bin = np.argmax(mean)
         assert abs(centers[peak_bin] - 25.0) < 15.0
 
+    def test_a_nan_onset_is_refused_not_a_zero_trial(self):
+        """A NaN onset selected no spike and joined the mean as a zero-rate trial."""
+        st = np.array([0.01, 0.02])
+        with pytest.raises(ValueError, match=r"raster_psth: onsets\[1\] is nan"):
+            raster_psth(st, np.array([0.0, np.nan]), (0, 100), bin_ms=50.0)
+        _, mean, _ = raster_psth(st, np.array([0.0, 1.0]), (0, 100), bin_ms=50.0)
+        assert mean[0] == pytest.approx(20.0)  # 2 spikes in 50 ms, averaged over 2 trials
+
     STEADY_1KHZ = np.arange(0.0005, 3.0, 0.001)  # one spike per ms, off the bin edges
 
     def test_a_window_of_partial_bins_is_refused_with_the_nearest_valid_windows(self):

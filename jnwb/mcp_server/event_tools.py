@@ -58,7 +58,9 @@ def _events_to_mcp_payload(et) -> Dict[str, Any]:
 
 
 @mcp.tool()
-def get_event_codes_and_timings(file_path: str, event_group_path: Optional[str] = None) -> Dict[str, Any]:
+def get_event_codes_and_timings(
+    file_path: str, event_group_path: Optional[str] = None, code_column: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Extract all event/trial codes and their corresponding sample timestamps from an NWB file using jnwb.
 
@@ -67,6 +69,10 @@ def get_event_codes_and_timings(file_path: str, event_group_path: Optional[str] 
         event_group_path: HDF5 path to the events/trials group, e.g. '/intervals/trials'.
             When omitted: '/intervals/trials', else the file's only interval table, else an
             AmbiguousPath error listing the tables.
+        code_column: Column holding the codes, e.g. 'orientation'. When omitted, the first of
+            'codes', 'code', 'event_code', 'event_codes', 'value', 'type', else a column
+            whose name contains 'code'; a ParseError listing the columns when none matches.
+            A column named here that the table lacks is a ParseError.
 
     Returns:
         Structured JSON metadata and list of events or error dictionary.
@@ -89,10 +95,11 @@ def get_event_codes_and_timings(file_path: str, event_group_path: Optional[str] 
                 }
             table = resolve_interval_table(nwb, table_arg)
             df = nwb.intervals[table].to_dataframe()
-            code_col = _mcp_code_column(df.columns)
+            code_col = code_column if code_column is not None else _mcp_code_column(df.columns)
             if code_col is None:
                 return {
-                    "error": f"Could not find a code column in /intervals/{table}",
+                    "error": f"Could not find a code column in /intervals/{table}; its "
+                             f"columns are {list(df.columns)}. Pass code_column=<name>.",
                     "error_type": "ParseError",
                 }
             et = events(nwb, table=table, code_column=code_col)

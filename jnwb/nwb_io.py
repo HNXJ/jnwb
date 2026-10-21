@@ -153,7 +153,7 @@ def _repair_builder(builder: Any, orig_construct: Any) -> Tuple[str, ...]:
             # Belt and braces for the same defect: a bare string here would otherwise be
             # iterated character by character, whatever put it there.
             raw_colnames = [raw_colnames]
-        colnames = list(raw_colnames)
+        colnames = [c.decode("utf-8") if isinstance(c, bytes) else c for c in raw_colnames]
         for index_col in (
             "spike_times_index",
             "waveform_mean_index",

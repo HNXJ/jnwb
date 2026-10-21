@@ -3,7 +3,7 @@ jnwb.vis.state_space -- Decoding and representational similarity panels in pure 
 
 - ``plot_decoding_timecourse``: a cross-validated decoding time course with a CI ribbon and
   bars over caller-supplied significant clusters.
-- ``plot_rsm_heatmap``: a representational similarity or dissimilarity matrix heatmap.
+- ``plot_rsm_heatmap``: a representational dissimilarity matrix (RDM) heatmap.
 """
 
 from __future__ import annotations
@@ -134,7 +134,7 @@ def plot_decoding_timecourse(
             y=y_bar,
             xref=x_axis,
             yref=y_axis,
-            text="<b>p < 0.05 (Cluster)</b>",
+            text="<b>cluster</b>",
             showarrow=False,
             xanchor="left",
             yanchor="bottom",
@@ -173,25 +173,34 @@ def plot_rsm_heatmap(
     rsm_matrix: np.ndarray,
     condition_labels: Sequence[str],
     cmap: str = "Viridis",
-    title: Optional[str] = "Representational Similarity Matrix (RSM)",
+    title: Optional[str] = "Representational Dissimilarity Matrix (RDM)",
     colorbar_title: str = "Dissimilarity",
 ) -> None:
     """
-    Render a Representational Similarity Matrix (RSM / RDM) heatmap.
+    Render a representational dissimilarity matrix (RDM) heatmap.
 
     Args:
         canvas: PlotlyPublicationCanvas instance.
         row: Grid row index.
         col: Grid column index.
-        rsm_matrix: 2D symmetric array of shape [n_conditions, n_conditions].
+        rsm_matrix: 2D symmetric dissimilarity matrix (RDM) of shape [n_conditions, n_conditions].
         condition_labels: List of condition names.
         cmap: Colormap name.
         title: Panel title.
         colorbar_title: Title for colorbar.
+
+    Raises:
+        ValueError: ``rsm_matrix`` is not [len(condition_labels), len(condition_labels)].
     """
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     rsm_matrix = np.asarray(rsm_matrix, dtype=float)
+    n_labels = len(condition_labels)
+    if rsm_matrix.shape != (n_labels, n_labels):
+        raise ValueError(
+            f"plot_rsm_heatmap: rsm_matrix shape {rsm_matrix.shape} does not match condition_labels "
+            f"({n_labels} labels); expected ({n_labels}, {n_labels})."
+        )
 
     cb_cfg = canvas.get_colorbar_config(row, col, title=colorbar_title)
     heatmap = go.Heatmap(

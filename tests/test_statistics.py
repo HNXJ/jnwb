@@ -98,13 +98,13 @@ class TestFireIndicator:
 
 
 class TestPairedFireProbTest:
-    def test_too_few_trials_returns_nan_and_p_one(self):
+    def test_too_few_trials_returns_nan_p(self):
         result = paired_fire_prob_test(
             np.array([True]), np.array([False]), n_shuffles=10, n_bootstrap=10,
             rng=np.random.default_rng(0),
         )
         assert np.isnan(result["risk_difference"])
-        assert result["p_value_fire_shuffle"] == 1.0
+        assert np.isnan(result["p_value_fire_shuffle"]), result["p_value_fire_shuffle"]
 
     def test_all_target_none_null_has_max_risk_difference(self):
         rng = np.random.default_rng(0)
@@ -190,6 +190,13 @@ class TestDetectTrialCycles:
         assert cycles[2] != cycles[0]
         assert cycles[0] == cycles[1] == cycles[3]
 
+    def test_a_nan_start_time_is_refused_not_merged_into_one_cycle(self):
+        # One NaN start made the median gap NaN, so no gap read as a break and all six trials
+        # fell into cycle 0.
+        df = pd.DataFrame({"start_time": [0.0, 1.0, np.nan, 1000.0, 1001.0, 1002.0]})
+        with pytest.raises(ValueError, match=r"detect_trial_cycles: start_time\[2\] is nan"):
+            detect_trial_cycles(df, gap_factor=5.0)
+
 
 class TestAssignSubblockQuartiles:
     def test_splits_into_requested_number_of_buckets(self):
@@ -236,6 +243,7 @@ class TestShuffleR2Ci:
         varying and reported r2 0.0 and p 1.0; 0.5, whose std is exactly 0, gave NaN."""
         y = np.array([0, 1] * 10, dtype=float)
         res = shuffle_r2_ci(y, np.full(y.size, const), n_shuffle=20, rng=0)
+        assert any(k != "n_shuffle" for k in res), "the result holds no statistic, so the check below passes on nothing"
         assert all(np.isnan(v) for k, v in res.items() if k != "n_shuffle"), res
         # The same guard covers the label.
         res = shuffle_r2_ci(np.full(20, const), np.arange(20.0), n_shuffle=20, rng=0)
@@ -428,6 +436,16 @@ class TestExactSignFlip:
         obs, p_lt, _ = exact_sign_flip([1.0, 2.0, 3.0], alternative="less")
         assert p_lt == pytest.approx(1.0, abs=1e-12)
 
+    def test_the_monte_carlo_two_sided_floor_is_the_smallest_attainable_p(self):
+        # 25 equal positive differences: no sign flip but the identity reaches the observed mean,
+        # so each p is its smallest attainable value, and the floor must equal it.
+        diffs = np.ones(25)
+        assert diffs.size > 20, "fixture must take the Monte Carlo branch"
+        for alt, expected in (("two-sided", 2.0 / 1001.0), ("greater", 1.0 / 1001.0)):
+            _, p, p_floor = exact_sign_flip(diffs, alternative=alt, n_mc=1000, rng=0)
+            assert p == pytest.approx(expected, rel=1e-12)
+            assert p_floor == pytest.approx(expected, rel=1e-12)
+
     def test_direct_enumeration_with_zeros_and_ties(self):
         # diffs with zero and ties
         diffs = np.array([0.0, 2.0, -2.0, 4.0])
@@ -473,7 +491,7 @@ class TestExactSignFlip:
         assert obs == pytest.approx(np.mean(diffs), abs=1e-12)
         # With all positive differences, null sign flips will rarely match obs
         assert p_val < 0.01
-        assert p_floor == pytest.approx(1.0 / 1001.0, abs=1e-12)
+        assert p_floor == pytest.approx(2.0 / 1001.0, abs=1e-12)
 
     def test_statistical_analysis_method_equivalence(self):
         res1 = exact_sign_flip([1.0, 2.0, 3.0])
@@ -1069,8 +1087,10 @@ def test_one_observation_per_group_has_no_anova_but_an_eta_squared_of_one():
     assert np.isnan(res["df_between"]) and np.isnan(res["df_within"])
     assert res["effect_size_name"] == "eta_squared" and res["effect_size"] == 1.0
 
-    changelog = (pathlib.Path(__file__).resolve().parents[1] / "CHANGELOG.md").read_text(
-        encoding="utf-8")
+    # Released blocks move from CHANGELOG.md to the archive, so both are read.
+    root = pathlib.Path(__file__).resolve().parents[1]
+    changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8") + (
+        root / "artifacts" / "archive" / "changelog_0.1.0-0.2.9.md").read_text(encoding="utf-8")
     entry = changelog.split("  - `compare_multiple_groups` and `exploratory_multi`", 1)[1]
     entry = entry.split("\n  - ", 1)[0]
     assert "`eta_squared` is 1.0" in " ".join(entry.split()), entry
@@ -1248,8 +1268,8 @@ def test_the_source_list_follows_definitions_into_the_package_submodules():
     from tests._sources import _defining_file, public_definition_files
 
     assert {p.name for p in public_definition_files("jnwb.statistics")} == {
-        "_analysis.py", "_cluster.py", "_firing.py", "_regression.py", "_tests.py",
-        "_trials.py"}
+        "_analysis.py", "_autocorrelation.py", "_cluster.py", "_firing.py", "_regression.py",
+        "_tests.py", "_trials.py"}
     assert StatisticalAnalysis.__module__ == "jnwb.statistics"
     assert _defining_file(StatisticalAnalysis).name == "_analysis.py"
 
@@ -1352,4 +1372,57 @@ def test_bootstrap_ci_draws_the_resamples_a_per_resample_loop_draws(statistic_fu
                                    float(np.percentile(stats_ref, (1 - alpha) * 100)))
     assert res["bootstrap_std"] == float(np.std(stats_ref))
     assert rng.random() == reference.random()
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+def test_an_unpaired_non_finite_value_is_excluded_like_a_paired_one(bad):
+    rng = np.random.default_rng(21)
+    g1, g2 = rng.normal(size=12), rng.normal(0.5, size=12)
+    with_bad = np.append(g1, bad)
+    res = StatisticalAnalysis.compare_groups(with_bad, g2, paired=False, n_bootstrap=200)
+    ref = StatisticalAnalysis.compare_groups(g1, g2, paired=False, n_bootstrap=200)
+    assert res["n1"] == 12
+    assert np.isfinite(res["mean1"]) and res["mean1"] == ref["mean1"]
+    assert res["mean_diff_ci"]["bootstrap_ci"] == ref["mean_diff_ci"]["bootstrap_ci"]
+    multi = StatisticalAnalysis.compare_multiple_groups({"a": with_bad, "b": g2, "c": g1})
+    assert multi == StatisticalAnalysis.compare_multiple_groups({"a": g1, "b": g2, "c": g1})
+    assert StatisticalAnalysis.bootstrap_ci(with_bad, n_bootstrap=200) == \
+        StatisticalAnalysis.bootstrap_ci(g1, n_bootstrap=200)
+
+
+class TestExploratoryAndConfirmatoryTakeAnRng:
+    """Both entry points draw their bootstrap interval from `rng`, as compare_groups does. The
+    default is the seed compare_groups uses, so the default interval is unchanged."""
+
+    G1 = np.random.default_rng(3).normal(size=30)
+    G2 = np.random.default_rng(4).normal(0.4, size=30)
+
+    def test_exploratory_compare_passes_rng_to_the_bootstrap(self):
+        ci = {
+            seed: StatisticalAnalysis.exploratory_compare(
+                self.G1, self.G2, n_bootstrap=300, rng=seed)["mean_diff_ci"]["bootstrap_ci"]
+            for seed in (1, 2)
+        }
+        assert ci[1] != ci[2], ci
+
+    def test_confirmatory_compare_passes_rng_to_the_bootstrap(self):
+        ci = {
+            seed: StatisticalAnalysis.confirmatory_compare(
+                self.G1, self.G2, "mean A > mean B", n_bootstrap=300, rng=seed
+            )["mean_diff_ci"]["bootstrap_ci"]
+            for seed in (1, 2)
+        }
+        assert ci[1] != ci[2], ci
+
+    def test_the_default_reproduces_the_compare_groups_interval(self):
+        ref = StatisticalAnalysis.compare_groups(
+            self.G1, self.G2, n_bootstrap=300)["mean_diff_ci"]["bootstrap_ci"]
+        explore = StatisticalAnalysis.exploratory_compare(self.G1, self.G2, n_bootstrap=300)
+        confirm = StatisticalAnalysis.confirmatory_compare(
+            self.G1, self.G2, "mean A > mean B", n_bootstrap=300)
+        explicit = StatisticalAnalysis.exploratory_compare(
+            self.G1, self.G2, n_bootstrap=300, rng=42)
+        assert explore["mean_diff_ci"]["bootstrap_ci"] == ref
+        assert confirm["mean_diff_ci"]["bootstrap_ci"] == ref
+        assert explicit["mean_diff_ci"]["bootstrap_ci"] == ref
 

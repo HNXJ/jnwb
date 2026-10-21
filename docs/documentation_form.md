@@ -151,16 +151,16 @@ sentence the rule asks for:
 | Page | Words | Why the excess stands |
 |---|---|---|
 | `common_mistakes` | 3183 | twelve failure modes, each with a wrong form, a correct form and the reason, and the nine-row table of coupling and direction pitfalls; cutting one removes a failure mode rather than words; the causal-step and narrowband-PSI figures and their captions add 154 words |
-| `02_paths_addressing_metadata` | 1732 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls, and the curated-labels section states what a grade licenses and the one-sheet limit |
-| `03_representational_similarity_jrsa` | 1414 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, the standalone RDM section says its p is not a relatedness test, and the save paragraph says what each file format holds; the RDM and jRSA-trace figure and its caption add 75 words |
-| `04_spectral_analysis_and_tfr` | 1371 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number; the spectra and band-profile figures and their captions add 161 words |
+| `02_paths_addressing_metadata` | 1832 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls, and the curated-labels section states what a grade licenses and the one-sheet limit |
+| `03_representational_similarity_jrsa` | 1496 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, the standalone RDM section says its p is not a relatedness test, and the save paragraph says what each file format holds; the RDM and jRSA-trace figure and its caption add 75 words |
+| `04_spectral_analysis_and_tfr` | 1397 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number; the spectra and band-profile figures and their captions add 161 words |
 | `06_spikes_psth_and_onset_dynamics` | 1705 | PSTH and response tests, phase locking, onset fitting, trajectories, unit quality measures and WaveMAP share a page, and the page sat at 1199 words before the unit quality table; the phase-locking and causal-step figures and their captions add 170 words |
-| `07_statistical_inference_and_nulls` | 1313 | the cluster-permutation figure and its caption add 114 words; the section's limit on what a significant cluster licenses applies to the cluster the figure outlines |
+| `07_statistical_inference_and_nulls` | 1314 | the cluster-permutation figure and its caption add 114 words; the section's limit on what a significant cluster licenses applies to the cluster the figure outlines |
 | `08_directed_connectivity_and_information` | 1348 | the spectral Granger and phase-slope figures and their captions add 150 words, each showing one directional estimate on a synthetic pair |
-| `architecture` | 1904 | two pages merged: the module map is a 651-word reference table, and the prose states the boundary, the invariants and the claim table once each |
-| `install` | 932 | the pandas 3 override is the one install step hdmf's cap makes necessary, and the page sat at 889 words before it |
+| `architecture` | 1905 | two pages merged: the module map is a 651-word reference table, and the prose states the boundary, the invariants and the claim table once each |
+| `install` | 938 | the pandas 3 override is the one install step hdmf's cap makes necessary, and the page sat at 889 words before it |
 | `index` | 419 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
-| `errors` | 2040 | twelve error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, and the sixteen ragged-index check and repair messages. The messages are pinned to the source, so they are not paraphrasable |
+| `errors` | 2080 | twelve error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, and the sixteen ragged-index check and repair messages. The messages are pinned to the source, so they are not paraphrasable |
 
 ## Navigation
 
@@ -218,5 +218,5 @@ Kept here so they are not re-proposed as improvements.
 |---|---|
 | A global word ceiling across all pages | fails the reference pages for being long, which is what a reference is |
 | "Prefer active voice" | not checkable twice with the same answer |
-| "Every page opens with a summary paragraph" | would add words to the four pages already over their ceiling |
+| "Every page opens with a summary paragraph" | would add words to the eleven pages already over their ceiling |
 | "Figures are inline SVG, never raster" | forbids what nine pages do today, which is the signal that the rule is wrong rather than the pages |

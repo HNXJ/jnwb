@@ -2,11 +2,14 @@
 Unit tests for GPU-accelerated PCA in jnwb.gpu_pca & jnwb.trajectory.
 """
 
+import os
 import sys
 
 import numpy as np
 import pytest
 from jnwb.gpu_pca import gpu_pca
+
+pytestmark = pytest.mark.filterwarnings("ignore:gpu_pca is deprecated:DeprecationWarning")
 
 
 def _eigh_reference(X, k):
@@ -137,3 +140,15 @@ def test_the_svd_fallback_helper_is_the_explicit_svd_bit_for_bit():
     np.testing.assert_array_equal(V_top, Vt[:3, :])
     np.testing.assert_array_equal(proj, scaled @ Vt[:3, :].T)
     np.testing.assert_array_equal(S, S_ref)
+
+
+def test_gpu_pca_is_deprecated_and_its_warning_names_the_replacement_and_the_caller():
+    X = np.random.default_rng(0).normal(size=(30, 5))
+    with pytest.warns(DeprecationWarning, match="removed in 0.2.14") as record:
+        gpu_pca(X, n_components=2, device="cpu")
+    hits = [w for w in record if "gpu_pca is deprecated" in str(w.message)]
+    assert len(hits) == 1, [str(w.message) for w in record]
+    assert "compute_population_trajectory" in str(hits[0].message)
+    assert "z-scored" in str(hits[0].message)
+    assert os.path.basename(hits[0].filename) == "test_gpu_pca.py"
+    assert gpu_pca.__doc__.startswith("Deprecated; removed in 0.2.14.")

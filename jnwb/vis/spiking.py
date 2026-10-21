@@ -58,7 +58,8 @@ def plot_multi_condition_raster_psth(
 
     Raises:
         ValueError: If the span of ``win_ms`` is not a whole multiple of ``bin_ms``, before
-            anything is drawn; the message names the nearest valid windows.
+            anything is drawn; the message names the nearest valid windows. Also raised when
+            ``colors`` is None and there are more conditions than default colours.
     """
     n_bins = whole_bin_count(win_ms, bin_ms, "plot_multi_condition_raster_psth")
     st = np.asarray(st, dtype=float)
@@ -67,7 +68,12 @@ def plot_multi_condition_raster_psth(
 
     default_palette = ["#2980B9", "#C0392B", "#27AE60", "#8E44AD", "#D35400"]
     if colors is None:
-        colors = {cond: default_palette[i % len(default_palette)] for i, cond in enumerate(onsets.keys())}
+        if len(onsets) > len(default_palette):
+            raise ValueError(
+                f"plot_multi_condition_raster_psth: {len(onsets)} conditions but the default palette "
+                f"holds {len(default_palette)} colours; pass colors with one colour per condition."
+            )
+        colors = {cond: default_palette[i] for i, cond in enumerate(onsets.keys())}
 
     # Synchronize x-axes between raster and PSTH
     xaxis_psth_name = "xaxis" if x_psth == "x" else f"xaxis{x_psth[1:]}"
@@ -271,7 +277,8 @@ def plot_sorted_heatmap(
 
     Raises:
         ValueError: ``value_unit`` is not a non-empty string, ``colorbar_title`` is blank or
-            names ``value_unit``, or ``category_labels`` is given.
+            names ``value_unit``, ``category_labels`` is given, or ``time_ms`` does not hold one
+            value per column of ``rate_matrix``.
     """
     colorbar_label = checked_colorbar_label(colorbar_title, value_unit)
     if category_labels is not None:
@@ -283,6 +290,11 @@ def plot_sorted_heatmap(
 
     rate_matrix = np.asarray(rate_matrix, dtype=float)
     time_ms = np.asarray(time_ms, dtype=float)
+    if rate_matrix.ndim != 2 or rate_matrix.shape[1] != time_ms.size:
+        raise ValueError(
+            f"plot_sorted_heatmap: time_ms has {time_ms.size} time points but rate_matrix has shape "
+            f"{rate_matrix.shape}; expected [n_units, {time_ms.size}]."
+        )
 
     if sort_idx is not None:
         rate_matrix = rate_matrix[sort_idx, :]

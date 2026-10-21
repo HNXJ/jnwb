@@ -41,6 +41,7 @@ from ._backends import (
     _get_backend,
     _to_backend,
     _ensure_np,
+    _refuse_complex_input,
 )
 from ._metrics import (
     _pearson,
@@ -80,6 +81,7 @@ from ._stages import (
     _drop_reduced_observation_axis,
     _apply_preprocessing,
     _make_windows,
+    _sliding_windows,
     _apply_lag,
     _metric_kwargs,
 )
@@ -89,6 +91,8 @@ from ._inference import (
     _null_index,
     _check_null_axis,
     _permutation_test,
+    _sliding_null,
+    _family_wise_p,
     ALTERNATIVES,
     _UPPER_TAIL_PARAMETRIC_P,
     _require_alternative_exact,
@@ -111,13 +115,13 @@ def jrsa(
     adim=Default(-1),
     labels=None,
     align="auto",
-    align_mode=Default("fraction"),
     reduction=None,
     # analysis
     metric="rsa",
     lag=0,
     window=None,
     sliding=False,
+    step=None,
     # preprocessing
     normalize=False,
     standardize=False,
@@ -127,7 +131,7 @@ def jrsa(
     stats=True,
     permutations=1000,
     bootstrap=0,
-    correction="fdr_bh",
+    correction=Default("fdr_bh"),
     alpha=0.05,
     alternative="two-sided",
     null=None,
@@ -170,9 +174,6 @@ def jrsa(
         Alignment algorithm: auto | none | downsample | upsample |
         interpolate | nearest | linear | cubic | dtw. Any other value raises ValueError,
         also when the lengths already agree and nothing is resampled.
-    align_mode : str
-        Deprecated; it has no effect. Passing it emits a DeprecationWarning, and it will be
-        removed in 0.2.13. Alignment is set by `align`.
     reduction : dict or None
         Dimension reductions, e.g. {"trial": "mean"}. The operation is one of
         mean | median | sum | max | min; anything else raises rather than defaulting.
@@ -217,11 +218,23 @@ def jrsa(
         metrics, and axis 0 for rsa, cka, rv, hsic, distance_correlation and procrustes, so ``jrsa(x, y, metric='cka',
         window=(0, 20))`` on (200, 40) input keeps 20 of the 200 observations and all 40
         features. A passed `adim` names the axis instead: ``adim=-1`` windows the features
-        of those six metrics, as the default did before this release.
+        of those six metrics, as the default did before this release. With ``sliding=True``,
+        `window` is the width of each window, an int; see `sliding`.
     sliding : bool
-        Only ``False`` is supported. ``True`` raises NotImplementedError: it used to be
-        accepted and ignored. For a sliding-window analysis, call ``jrsa`` once per
-        window, e.g. ``[jrsa(x1, x2, window=(s, s + w)) for s in range(0, n - w + 1, step)]``.
+        ``False`` analyses one window per call. ``True`` analyses every window in one call:
+        `window` is the width and `step` the stride, in samples along the aligned axis.
+        Windows start at 0, `step`, 2 `step`, ... while ``start + window <= n``. Each output
+        holds one entry per window along axis 0: `value`, `statistic`, `effect`, `p` and `df`.
+        `p` is the window's raw permutation p and `q` its family-wise p (see `correction`).
+        One label shuffle per permutation serves every window, and each window's null uses only
+        its own samples, so the raw p of window k equals that of a single-window call with the
+        same `rng`. The null is the maximum statistic over windows (the minimum for
+        ``alternative='less'``). ``execution['windows']`` lists the windows. The permutation
+        null is required: `stats` true and `permutations` above 0. `lag` takes one value, and
+        `bootstrap` is 0.
+    step : int or None
+        Stride in samples for ``sliding=True``, which requires it: there is no default. Any
+        other use raises ValueError.
     normalize : bool
         Normalise each input to [0, 1].
     standardize : bool
@@ -249,15 +262,19 @@ def jrsa(
         holm-sidak | fdr_bh | fdr_by.
         Any other value raises `ValueError`; there is no fallback. This list used to end
         "| cluster | maxT", neither of which was ever implemented -- both raised -- so the
-        docstring advertised two methods a caller could not use.
+        docstring advertised two methods a caller could not use. The default is ``'fdr_bh'``,
+        or ``'max_statistic'`` with ``sliding=True``, the family-wise p over the windows, which
+        ``sliding=True`` takes as its only value. ``'max_statistic'`` needs ``sliding=True``.
     alpha : float
         Significance threshold for the multiple-comparison correction. It does not set
         the width of `ci`, which is a fixed 95% percentile bootstrap interval.
     alternative : str
         two-sided | greater | less; anything else raises before any computation. It sets
         the tail of `p`. With a permutation null (`stats=True`, `permutations > 0`) the tail
-        is counted on the null. Without one, `p` is the metric's parametric p, which is
-        two-sided; a one-sided alternative halves it when `value` lies on the requested
+        is counted on the null; two-sided is twice the smaller tail's p, capped at 1, so a
+        non-negative metric gets its lower tail too. Without a null, `p` is the metric's
+        parametric p, which is two-sided; a one-sided alternative halves it when `value`
+        lies on the requested
         side and gives ``1 - p/2`` otherwise. The `granger_ssr_ftest` parametric p is an
         upper-tail F-test of a non-negative F, which has no side to halve on, so that metric
         raises for a one-sided alternative without a permutation null.
@@ -402,28 +419,13 @@ def jrsa(
     random_state = resolve_seed_alias(rng, Default(None), alias_name="seed",
                                       func_name="jrsa")
 
-    if sliding:
-        raise NotImplementedError(
-            "jrsa(sliding=True) is not implemented; it used to be accepted and ignored. "
-            "Loop over windows instead, one call per window: "
-            "[jrsa(x1, x2, window=(s, s + w), ...) for s in range(0, n - w + 1, step)], "
-            "where `window` is in sample indices along the aligned axis."
-        )
-
     # Whether `adim` was passed decides the axis `window` applies to (see `window`).
     adim_given = not isinstance(adim, Default)
     if not adim_given:
         adim = adim.value
-    # `align_mode` has no effect; alignment is set by `align`. A passed value warns, and the
-    # sentinel tells it apart from the default, which is unwrapped here.
-    if isinstance(align_mode, Default):
-        align_mode = align_mode.value
-    else:
-        warnings.warn(
-            "align_mode has no effect and will be removed in 0.2.13; alignment is set by `align`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+    # `correction` defaults to 'fdr_bh', or to 'max_statistic' with `sliding=True`.
+    if isinstance(correction, Default):
+        correction = "max_statistic" if sliding else correction.value
     # `_align_dimensions` resamples only an axis whose lengths differ, so an unknown `align`
     # on equal lengths reached no check and ran while `parameters['align']` echoed it.
     if align not in ALIGN_MODES + ("none", "dtw"):
@@ -446,11 +448,38 @@ def jrsa(
             "alternative='two-sided', or a permutation null (stats=True, permutations > 0)."
         )
 
+    # --- sliding windows ------------------------------------------------------
+    if sliding:
+        if str(correction).lower() != "max_statistic":
+            raise ValueError(
+                "jrsa: sliding=True takes correction='max_statistic', the family-wise p over the "
+                f"windows; got correction={correction!r}."
+            )
+        if not permutation_p:
+            raise ValueError(
+                "jrsa: sliding=True needs a permutation null (stats=True, permutations > 0), "
+                f"since the family-wise p is taken over it; got stats={stats!r}, "
+                f"permutations={permutations!r}."
+            )
+        if np.size(lag) > 1:
+            raise ValueError(
+                "jrsa: sliding=True takes one lag or none, applied inside each window; "
+                f"got lag={lag!r}."
+            )
+        if bootstrap > 0:
+            raise ValueError(
+                f"jrsa: sliding=True does not take bootstrap > 0; got bootstrap={bootstrap!r}."
+            )
+    elif step is not None:
+        raise ValueError(f"jrsa: step={step!r} applies only to sliding=True; got sliding=False.")
+    elif str(correction).lower() == "max_statistic":
+        raise ValueError("jrsa: correction='max_statistic' needs sliding=True; got sliding=False.")
+
     # --- collect parameter snapshot -------------------------------------------
     params = dict(
-        adim=adim, labels=labels, align=align, align_mode=align_mode,
+        adim=adim, labels=labels, align=align,
         reduction=reduction, metric=metric, lag=lag, window=window,
-        sliding=sliding, normalize=normalize, standardize=standardize,
+        sliding=sliding, step=step, normalize=normalize, standardize=standardize,
         detrend=detrend, nan_policy=nan_policy, stats=stats,
         permutations=permutations, bootstrap=bootstrap, correction=correction,
         alpha=alpha, alternative=alternative, null=null, block_len=block_len,
@@ -485,12 +514,14 @@ def jrsa(
         resolved_device = CPU
     bk = _get_backend(backend, resolved_device)
 
+    _refuse_complex_input("x1", x1)
+    _refuse_complex_input("x2", x2)
     x1, x2 = _prepare_inputs(x1, x2, bk)
     x1, x2 = _validate_inputs(x1, x2, nan_policy, metric)
     x1, x2, axis_map = _standardize_dimensions(x1, x2, adim, labels)
     ndim_in = x1.ndim
     x1, x2, aligned_axes = _align_dimensions(
-        x1, x2, axis_map, align, align_mode, verbose
+        x1, x2, axis_map, align, verbose
     )
     window_axes = axis_map
     if reduction is not None:
@@ -505,7 +536,10 @@ def jrsa(
         # observations; it now cuts the observations.
         window_axes = {"observations": 0}
     x1, x2 = _apply_preprocessing(x1, x2, normalize, standardize, detrend)
-    x1, x2, windows = _make_windows(x1, x2, window_axes, window, sliding)
+    if sliding:
+        x1_wins, x2_wins, windows = _sliding_windows(x1, x2, window_axes, window, step)
+    else:
+        x1, x2, windows = _make_windows(x1, x2, window_axes, window, sliding)
     # --- dispatch metric ------------------------------------------------------
     _LEGACY_JRSA_METRIC_NAMES = {
         "granger": "granger_ssr_ftest",
@@ -545,6 +579,14 @@ def jrsa(
         metric, adim, axis_map, ndim_in, x1.ndim < ndim_in, perm_axis,
         permutation_p=permutation_p, bootstrap=bootstrap, lag=lag,
     )
+    if sliding:
+        window_ax = window_axes[_window_axis_name(window_axes)] % x1.ndim
+        if window_ax != perm_axis % x1.ndim:
+            raise ValueError(
+                f"jrsa(adim={adim!r}): sliding=True cuts windows on axis {window_ax} but the null "
+                f"permutes axis {perm_axis % x1.ndim}. One index of the window length serves every "
+                "window, so both must be one axis: drop `adim`, or name the permuted axis in it."
+            )
     # Paired metrics compare samples along the aligned axis, usually time, where single
     # samples are not exchangeable: an i.i.d. shuffle there rejected about half of
     # independent AR(1) pairs at phi = 0.9.
@@ -574,8 +616,34 @@ def jrsa(
     # --- temporal lag iteration -----------------------------------------------
     # np.ndim, not isinstance(int): a NumPy integer or 0-d array is one lag.
     lags = [lag] if np.ndim(lag) == 0 else list(np.asarray(lag).ravel())
+    xp = _get_xp(x1)
+    # Helper to stack along axis=0 if components are arrays/tensors or numeric values
+    def _stack_lags(lst):
+        if all(item is None for item in lst):
+            return None
+        # If items are numeric scalars or arrays, stack them
+        first = next(item for item in lst if item is not None)
+        if isinstance(first, (int, float, np.number)) or (hasattr(first, "ndim") and first.ndim == 0):
+            return xp.array([float(item) if item is not None else np.nan for item in lst])
+        # Filter None to prevent stack crash, although they should all be same shape
+        return xp.stack([item if item is not None else xp.full_like(first, xp.nan) for item in lst], axis=0)
 
-    if len(lags) <= 1:
+    if sliding:
+        # One window at a time, each lagged on its own samples; the null is shared by the windows.
+        lagged = [_apply_lag(a, b, axis_map, lag, axis=perm_axis) for a, b in zip(x1_wins, x2_wins)]
+        observed = [metric_fn(a, b, axis=-1, **kwargs) for a, b in lagged]
+        null_dist = _sliding_null(lagged, metric_fn, permutations, rng, axis=perm_axis,
+                                  n_jobs=n_jobs, scheme=null_scheme, block_len=block_len, **kwargs)
+        value_list = [out[0] for out in observed]
+        value = _stack_lags(value_list)
+        statistic = _stack_lags([out[1] for out in observed])
+        effect = _stack_lags([out[2] for out in observed])
+        df = _stack_lags([out[4] for out in observed])
+        p_raw = _stack_lags([_p_from_null(v, null_dist[:, k], alternative)
+                             for k, v in enumerate(value_list)])
+        q_corrected = _family_wise_p(value_list, null_dist, alternative)
+        ci = None
+    elif len(lags) <= 1:
         x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, lag, axis=perm_axis)
         value, statistic, effect, p_raw, df = metric_fn(
             x1_lagged, x2_lagged, axis=-1, **kwargs
@@ -647,17 +715,6 @@ def jrsa(
                 )
                 ci_list.append(c_val)
         
-        xp = _get_xp(x1)
-        # Helper to stack along axis=0 if components are arrays/tensors or numeric values
-        def _stack_lags(lst):
-            if all(item is None for item in lst):
-                return None
-            # If items are numeric scalars or arrays, stack them
-            first = next(item for item in lst if item is not None)
-            if isinstance(first, (int, float, np.number)) or (hasattr(first, "ndim") and first.ndim == 0):
-                return xp.array([float(item) if item is not None else np.nan for item in lst])
-            # Filter None to prevent stack crash, although they should all be same shape
-            return xp.stack([item if item is not None else xp.full_like(first, xp.nan) for item in lst], axis=0)
             
         value = _stack_lags(val_list)
         statistic = _stack_lags(stat_list)
@@ -675,9 +732,18 @@ def jrsa(
     exec_meta = _make_exec_meta(bk, resolved_device, t0, random_state)
     exec_meta["null"] = null_scheme if permutation_p else None
     exec_meta["null_block_len"] = block_len if permutation_p and null_scheme == "block" else None
+    if permutation_p:
+        # NaN draws are left out of n. This counts them over every lag or window the null
+        # was formed for.
+        exec_meta["n_null_nan"] = int(np.count_nonzero(np.isnan(np.asarray(null_dist, dtype=float))))
     _n_axis = x1.shape[perm_axis]
     _overlap = [_n_axis - abs(int(l)) if x2 is not None else _n_axis for l in lags]
     exec_meta["n_overlap"] = _overlap[0] if len(lags) <= 1 else _overlap
+    if sliding:
+        width = windows[0][1] - windows[0][0]
+        exec_meta["n_overlap"] = width - abs(int(lags[0])) if x2 is not None else width
+        exec_meta["windows"] = windows
+        exec_meta["correction"] = "max_statistic"
 
     result = _make_result(
         value=value,

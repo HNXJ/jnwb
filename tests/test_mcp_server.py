@@ -48,9 +48,10 @@ class TestMCPServer(unittest.TestCase):
         nwbfile.add_electrode(x=0.0, y=0.0, z=0.0, imp=0.0, location="V1", filtering="none", group=eg)
         region = nwbfile.create_electrode_table_region(region=[0], description="all electrodes")
 
+        rng = np.random.default_rng(24)
         es = pynwb.ecephys.ElectricalSeries(
             name="ElectricalSeries",
-            data=np.random.randn(100, 1).astype(np.float32),
+            data=rng.standard_normal((100, 1)).astype(np.float32),
             electrodes=region,
             starting_time=0.0,
             rate=1000.0

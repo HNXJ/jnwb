@@ -7,7 +7,7 @@ from typing import Sequence, Tuple, Union
 import numpy as np
 from .._rng import DEFAULT_SEED, RNGLike, resolve_rng
 from scipy import stats
-from ..permutation import _count_at_least_as_extreme
+from ..permutation import _count_at_least_as_extreme, _p_from_count
 
 
 def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
@@ -123,7 +123,7 @@ def exact_sign_flip(
 
     Args:
         diffs: 1D array-like of paired differences (e.g. condition A - condition B).
-        alternative: "two-sided" (|mean_null| >= |mean_obs|),
+        alternative: "two-sided" (twice the smaller tail's p, capped at 1),
                      "greater" (mean_null >= mean_obs), or
                      "less" (mean_null <= mean_obs).
         n_mc: Number of Monte Carlo sign-flip resamples when N > 20 (default 10,000).
@@ -177,7 +177,8 @@ def exact_sign_flip(
         # Exact direct enumeration of all 2^N combinations
         n_total = 1 << n
         chunk_size = min(n_total, 65536)
-        count = 0
+        upper = 0
+        lower = 0
 
         for start in range(0, n_total, chunk_size):
             end = min(start + chunk_size, n_total)
@@ -185,9 +186,14 @@ def exact_sign_flip(
             bits = (indices >> np.arange(n, dtype=np.uint32)) & 1
             signs = np.where(bits, 1.0, -1.0)
             null_means = (signs @ arr) / float(n)
-            count += _count_at_least_as_extreme(null_means, obs_mean, alt, atol=tol)
+            upper += _count_at_least_as_extreme(null_means, obs_mean, "greater", atol=tol)
+            lower += _count_at_least_as_extreme(null_means, obs_mean, "less", atol=tol)
 
-        p_value = float(count / n_total)
+        # The observed split is one of the 2^N draws, so each tail's p is its count over 2^N.
+        if alt == "two-sided":
+            p_value = float(min(1.0, 2.0 * min(upper, lower) / n_total))
+        else:
+            p_value = float((upper if alt == "greater" else lower) / n_total)
     else:
         # Monte Carlo sign-flip permutations
         if n_mc <= 0:
@@ -201,8 +207,8 @@ def exact_sign_flip(
         # Exact finite Monte Carlo p-value with (1 + k) / (B + 1)
         k = _count_at_least_as_extreme(null_means, obs_mean, alt, atol=tol)
 
-        p_value = float((1.0 + k) / (float(n_mc) + 1.0))
-        p_floor = float(1.0 / (float(n_mc) + 1.0))
+        p_value = float(_p_from_count(k, n_mc, alt))
+        p_floor = float(_p_from_count(0, n_mc, alt))
 
     return (obs_mean, p_value, float(p_floor))
 
@@ -293,7 +299,7 @@ def shuffle_pvalue_paired(
     flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
     null = flips @ diff / n
     k = _count_at_least_as_extreme(null, obs, alt, atol=_tie_tolerance(diff))
-    return obs, float((1.0 + k) / (n_shuffles + 1.0))
+    return obs, _p_from_count(k, n_shuffles, alt)
 
 
 def _require_alternative_casefold(alternative: str, func_name: str) -> str:
@@ -356,4 +362,4 @@ def shuffle_pvalue_unpaired(
         rng.shuffle(pooled)
         null[i] = float(np.mean(pooled[:n_a]) - np.mean(pooled[n_a:]))
     k = _count_at_least_as_extreme(null, obs, alt, atol=_tie_tolerance(pooled))
-    return obs, float((1.0 + k) / (n_shuffles + 1.0))
+    return obs, _p_from_count(k, n_shuffles, alt)

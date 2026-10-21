@@ -2,7 +2,7 @@
 
     python scripts/calibrate_xflip.py [--n-seeds 30] [--n-surrogates 200]
 
-Writes ``artifacts/benchmarks/xflip_calibration_0.2.5.md`` and
+Writes ``artifacts/benchmarks/calibration/xflip_calibration_0.2.5.md`` and
 ``xflip_calibration_0.2.5_raw.json``. The JSON records a SHA-256 over the code of ``xflip``
 and every top-level function, class and constant it can reach in any jnwb module, with
 docstrings and comments removed, so ``tests/test_xflip_calibration_receipt.py`` fails when
@@ -66,7 +66,11 @@ import numpy as np
 import scipy
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
+# Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
+if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+    if str(ROOT) not in sys.path:
+        sys.path.append(str(ROOT))
+elif str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import jnwb  # noqa: E402
@@ -79,6 +83,8 @@ from jnwb.testing import (  # noqa: E402
 )
 
 N_SAMPLES = 400
+#: The AR(1) row draws more samples than the others.
+AR_N_SAMPLES = 600
 FS = 1000.0
 MIN_BLOCK_SIZE = 3
 ALPHA = float(inspect.signature(xflip).parameters["alpha"].default)
@@ -87,7 +93,10 @@ ALPHA = float(inspect.signature(xflip).parameters["alpha"].default)
 def _module_table(modname: str):
     """(source, {name: top-level def or assignment node}, {name: (module, name)} imported
     from another jnwb module) for the module ``modname``."""
-    source = inspect.getsource(importlib.import_module(modname))
+    module = importlib.import_module(modname)
+    source = inspect.getsource(module)
+    # A package resolves its relative imports against itself, a module against its parent.
+    package = modname if hasattr(module, "__path__") else modname.rpartition(".")[0]
     tree = ast.parse(source)
     nodes, imported = {}, {}
     for node in tree.body:
@@ -101,7 +110,7 @@ def _module_table(modname: str):
             nodes[node.target.id] = node
         elif isinstance(node, ast.ImportFrom):
             origin = importlib.util.resolve_name(
-                "." * node.level + (node.module or ""), modname.rpartition(".")[0]
+                "." * node.level + (node.module or ""), package
             ) if node.level else (node.module or "")
             if origin == "jnwb" or origin.startswith("jnwb."):
                 for alias in node.names:
@@ -228,7 +237,7 @@ def _white_noise(seed: int, n_ch: int = 16):
 
 
 def _ar_noise(seed: int, n_ch: int = 16):
-    data = synth_ar_noise(600, n_channels=n_ch, fs=FS, tau_s=0.030, rng=seed + 700)
+    data = synth_ar_noise(AR_N_SAMPLES, n_channels=n_ch, fs=FS, tau_s=0.030, rng=seed + 700)
     return data, {"surrogate_method": "autocorr_preserving"}
 
 
@@ -402,7 +411,7 @@ def render(raw: dict) -> str:
         f"| surrogates | {raw['n_surrogates']} |",
         f"| `min_block_size` | {MIN_BLOCK_SIZE} |",
         f"| `alpha` | {raw['alpha']} |",
-        f"| samples per channel | {N_SAMPLES} |",
+        f"| samples per channel | {N_SAMPLES}; {AR_N_SAMPLES} in the `ar_noise` row |",
         f"| `contiguous` | default (`True`) |",
         "",
         f"A rate of 0 over {n} seeds bounds the true rate at roughly "
@@ -513,7 +522,7 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=os.cpu_count(),
                     help="worker processes for the automatic-count rows; changes no number")
     ap.add_argument("--out-dir", type=pathlib.Path,
-                    default=ROOT / "artifacts" / "benchmarks")
+                    default=ROOT / "artifacts" / "benchmarks" / "calibration")
     args = ap.parse_args()
 
     t0 = time.perf_counter()

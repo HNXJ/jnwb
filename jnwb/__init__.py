@@ -11,8 +11,8 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.2.12'
-__release_date__ = '2026-10-14'
+__version__ = '0.2.13'
+__release_date__ = '2026-10-20'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
@@ -60,7 +60,13 @@ from .tfr_accumulator import TFRAccumulator, assert_mergeable
 
 # NWB fp32 compression.
 from .compression import compress_fp32
-from .nwb_io import MissingRequiredNWBFieldError, SqueezedAttributeWarning, nwb_read_io, read_nwb
+from .nwb_io import (
+    ContainerTypeContradictionWarning,
+    MissingRequiredNWBFieldError,
+    SqueezedAttributeWarning,
+    nwb_read_io,
+    read_nwb,
+)
 from .nwb_inspect import (
     AcquisitionNotFoundError,
     AmbiguousAcquisitionError,
@@ -94,7 +100,7 @@ from .nwb_integrity import (
     repair_ragged_index,
 )
 from .nwb_validate import NWBValidationReport, validate_nwb
-from .continuous import epoch_continuous
+from .continuous import TickClock, derive_tick_clock, epoch_continuous
 from .addressing import (
     map_peak_channel_to_area,
     classify_layer_from_depth,
@@ -312,6 +318,7 @@ __all__ = [
     'read_nwb',
     'nwb_read_io',
     'SqueezedAttributeWarning',
+    'ContainerTypeContradictionWarning',
     'events',
     'event_onsets',
     'EventTable',
@@ -331,6 +338,8 @@ __all__ = [
     'validate_nwb',
     'NWBValidationReport',
     'epoch_continuous',
+    'TickClock',
+    'derive_tick_clock',
 
     # Addressing
     'map_peak_channel_to_area',
@@ -379,6 +388,7 @@ __all__ = [
     'assign_subblock_quartiles',
     'shuffle_r2_ci',
     'cross_modal_comparison',
+    'effective_sample_size',
 
     # Visual QC
     'visual_qc',

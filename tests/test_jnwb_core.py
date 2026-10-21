@@ -69,8 +69,9 @@ class TestStatisticalAnalysis(unittest.TestCase):
 
     def test_correlate_no_correlation(self):
         """Test exploratory_correlate with uncorrelated data."""
-        x = np.random.randn(100)
-        y = np.random.randn(100)
+        rng = np.random.default_rng(9)
+        x = rng.standard_normal(100)
+        y = rng.standard_normal(100)
         result = StatisticalAnalysis.exploratory_correlate(x, y)
         self.assertIsInstance(result, dict)
         self.assertNotIn('error', result)
@@ -80,7 +81,8 @@ class TestStatisticalAnalysis(unittest.TestCase):
 
     def test_bootstrap_ci_valid_data(self):
         """Test bootstrap confidence interval."""
-        data = np.random.randn(100)
+        rng = np.random.default_rng(10)
+        data = rng.standard_normal(100)
         result = StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=100)
         self.assertIsInstance(result, dict)
         # Result should have bootstrap_ci tuple
@@ -101,7 +103,8 @@ class TestTFRAnalyzer(unittest.TestCase):
 
     def test_extract_band_alpha(self):
         """Test extracting alpha band."""
-        tfr_data = np.random.randn(10, 128, 50, 100)
+        rng = np.random.default_rng(11)
+        tfr_data = rng.standard_normal((10, 128, 50, 100))
         freqs = np.linspace(1.0, 100.0, 128)
         result = TFRAnalyzer.extract_band(tfr_data, 'alpha', freqs=freqs)
         self.assertIsNotNone(result)
@@ -110,7 +113,8 @@ class TestTFRAnalyzer(unittest.TestCase):
 
     def test_extract_band_beta(self):
         """Test extracting beta band."""
-        tfr_data = np.random.randn(10, 128, 50, 100)
+        rng = np.random.default_rng(12)
+        tfr_data = rng.standard_normal((10, 128, 50, 100))
         freqs = np.linspace(1.0, 100.0, 128)
         result = TFRAnalyzer.extract_band(tfr_data, 'beta', freqs=freqs)
         self.assertIsNotNone(result)
@@ -118,7 +122,8 @@ class TestTFRAnalyzer(unittest.TestCase):
 
     def test_extract_band_theta(self):
         """Test extracting theta band."""
-        tfr_data = np.random.randn(15, 128, 99, 500)
+        rng = np.random.default_rng(13)
+        tfr_data = rng.standard_normal((15, 128, 99, 500))
         freqs = np.linspace(1.0, 100.0, 128)
         result = TFRAnalyzer.extract_band(tfr_data, 'theta', freqs=freqs)
         self.assertIsNotNone(result)
@@ -127,13 +132,15 @@ class TestTFRAnalyzer(unittest.TestCase):
 
     def test_extract_band_invalid_band(self):
         """Test extracting invalid band raises error."""
-        tfr_data = np.random.randn(10, 128, 50, 100)
+        rng = np.random.default_rng(14)
+        tfr_data = rng.standard_normal((10, 128, 50, 100))
         freqs = np.linspace(1.0, 100.0, 128)
         with self.assertRaises(ValueError):
             TFRAnalyzer.extract_band(tfr_data, 'invalid_band', freqs=freqs)
 
     def _assert_channel_average_shape(self, n_channels):
-        band_power = np.random.randn(n_channels, 99, 500)
+        rng = np.random.default_rng(15)
+        band_power = rng.standard_normal((n_channels, 99, 500))
         result = TFRAnalyzer.average_across_channels(band_power)
         # Should be (time, trials)
         self.assertEqual(result.shape, (99, 500))
@@ -163,14 +170,16 @@ class TestUnitAnalyzer(unittest.TestCase):
 
     def test_autocorrelogram_valid_spikes_returns_dict(self):
         """Test autocorrelogram with valid spike times returns dict."""
-        spike_times = np.sort(np.random.uniform(0, 10, 1000))  # Shorter duration
+        rng = np.random.default_rng(16)
+        spike_times = np.sort(rng.uniform(0, 10, 1000))  # Shorter duration
         result = UnitAnalyzer.autocorrelogram(spike_times, bin_size_ms=0.1, max_lag_ms=5)
         self.assertIsInstance(result, dict)
         self.assertNotIn('error', result)
 
     def test_quality_metrics_returns_dict(self):
         """Test quality_metrics returns dict."""
-        spike_times = np.sort(np.random.uniform(0, 10, 1000))
+        rng = np.random.default_rng(17)
+        spike_times = np.sort(rng.uniform(0, 10, 1000))
         result = UnitAnalyzer.quality_metrics(
             spike_times, waveform_duration_us=400.0, firing_rate=100.0
         )
@@ -239,8 +248,9 @@ class TestTFRDataPipeline(unittest.TestCase):
     def test_channel_averaging_handles_variable_channels(self):
         """Test channel averaging with variable channel counts."""
         # Simulate two files with different channel counts
-        file1 = np.random.randn(44, 128, 99, 500)
-        file2 = np.random.randn(3, 128, 99, 500)
+        rng = np.random.default_rng(18)
+        file1 = rng.standard_normal((44, 128, 99, 500))
+        file2 = rng.standard_normal((3, 128, 99, 500))
         freqs = np.linspace(1.0, 100.0, 128)
 
         band1 = TFRAnalyzer.extract_band(file1, 'alpha', freqs=freqs)
@@ -280,7 +290,8 @@ class TestRobustness(unittest.TestCase):
 
     def test_extract_band_with_small_array(self):
         """Test extract_band with small array."""
-        tfr_data = np.random.randn(1, 128, 5, 10)
+        rng = np.random.default_rng(19)
+        tfr_data = rng.standard_normal((1, 128, 5, 10))
         freqs = np.linspace(1.0, 100.0, 128)
         result = TFRAnalyzer.extract_band(tfr_data, 'alpha', freqs=freqs)
         self.assertIsNotNone(result)

@@ -57,12 +57,14 @@ def test_planted_and_null_share_their_background(lfps):
     So planted(SNR) - null = 2 * (planted(SNR/2) - null) holds only when all three calls draw
     one background, the null's included; the residual is background(planted) - background(null).
     """
+    assert len(lfps) == 10, "the subset must hold the ten seeds of SEEDS[:10]"
     for seed, (planted, null, half) in lfps.items():
         assert np.allclose(planted - null, 2.0 * (half - null), rtol=1e-9, atol=1e-12), seed
 
 
 def test_planted_component_carries_the_band_gradient(lfps):
     """Planted minus null (the motif alone): gamma higher on rows 0..c, beta higher on rows c+1..last."""
+    assert len(lfps) == 10, "the subset must hold the ten seeds of SEEDS[:10]"
     for seed, (planted, null, _) in lfps.items():
         component = planted - null
         assert np.abs(component).max() > 0, seed
@@ -75,6 +77,7 @@ def test_planted_component_carries_the_band_gradient(lfps):
 def test_null_probes_have_no_larger_gradient_than_noise_allows(lfps):
     """For each null probe and band: |Pearson r(row index, log10 band power)| < 3 / sqrt(n_rows)."""
     rows = np.arange(sim.N_CONTACTS, dtype=float)
+    assert len(lfps) == 10, "the subset must hold the ten seeds of SEEDS[:10]"
     for seed, (_, null, _) in lfps.items():
         for name, band in zip(("gamma", "beta"), sim.band_rows(null)):
             r = np.corrcoef(rows, np.log10(band))[0, 1]

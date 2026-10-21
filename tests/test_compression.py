@@ -1205,16 +1205,37 @@ class TestALinkAliasIsTheDatasetItNames:
             assert f["aliases/ext_self"] == f[OTHER]
         stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False,
                                    select=["aliases/ext_self"])
-        assert stats["cast_paths"] == ["/" + OTHER]
-        assert _cast_notes(tmp_path / "ok.nwb") == {OTHER: np.dtype(np.float32)}
+        # The fixture's hard alias of the same dataset is re-pointed at the cast.
+        assert stats["cast_paths"] == sorted(["/" + OTHER, "/aliases/hard_other"])
+        notes = _cast_notes(tmp_path / "ok.nwb")  # one entry: the two names open one object
+        assert list(notes.values()) == [np.dtype(np.float32)]
+        assert set(notes) <= {OTHER, "aliases/hard_other"}, notes
+        with h5py.File(tmp_path / "ok.nwb", "r") as f:
+            assert f[OTHER] == f["aliases/hard_other"]
 
-    @pytest.mark.parametrize("link", ["hard", "soft"])
-    def test_an_alias_of_a_castable_dataset_is_still_cast(self, src, tmp_path, link):
-        alias = f"aliases/{link}_other"
+    def test_a_soft_alias_of_a_castable_dataset_is_cast_under_its_own_name(self, src, tmp_path):
+        alias = "aliases/soft_other"
         self._assert_alias(src, alias, OTHER)
         stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False, select=[alias])
         assert stats["cast_paths"] == ["/" + alias]
         assert _cast_notes(tmp_path / "ok.nwb") == {alias: np.dtype(np.float32)}
+
+    @pytest.mark.parametrize("named", ["alias", "target", "both"])
+    def test_every_hard_link_name_opens_the_one_cast_dataset(self, src, tmp_path, named):
+        """Ruled 2026-10-18: casting under one name left the other hard link at float64, and
+        `verify` checked only the named one. Each name now opens the same float32 dataset."""
+        alias = "aliases/hard_other"
+        self._assert_alias(src, alias, OTHER)
+        with h5py.File(src, "r") as f:
+            source = f[OTHER][()]
+        select = {"alias": [alias], "target": [OTHER], "both": [alias, OTHER]}[named]
+        stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=True, select=select)
+        assert stats["cast_paths"] == sorted(["/" + alias, "/" + OTHER])
+        assert stats["verification"]["ok"]
+        with h5py.File(tmp_path / "ok.nwb", "r") as f:
+            assert f[alias] == f[OTHER], "both names must open one dataset"
+            assert f[alias].dtype == np.float32
+            np.testing.assert_array_equal(f[alias][()], source.astype(np.float32))
 
     @pytest.mark.parametrize("link", ["hard", "soft"])
     def test_a_regular_timestamps_array_another_link_opens_is_kept(self, src, tmp_path, link):
@@ -1572,3 +1593,113 @@ class TestTheSoftLinkedRegularTimestampsMessage:
             "it cannot be cast to float32. Remove it from select=."
         )
         assert list(out.iterdir()) == []
+
+
+class TestARelativeSoftLinkResolvesToItsTargetWhenCompressed:
+    """A relative soft link opens a path from the group that holds it, through a component below
+    that group (`sub/timestamps`). After compression the alias reads the target's values, and the
+    target stays linked. The resolver is `_soft_link_targets`; the target is found through it.
+
+    The proxy to avoid: an alias at the root or in the target's own group, which a root-relative
+    resolver also reads. The fixture asserts the path does not resolve from the root.
+    """
+
+    def test_the_alias_reads_the_target_values_after_compression(self, tmp_path):
+        src = _selectable_file(tmp_path / "rel_multi.nwb")
+        stamps = np.arange(400) / 1000.0
+        with h5py.File(src, "a") as f:
+            f.create_dataset("acquisition/a/sub/timestamps", data=stamps)
+            f["acquisition/a/alias"] = h5py.SoftLink("sub/timestamps")
+            assert f.get("sub/timestamps") is None  # the path does not resolve from the root
+            assert f["acquisition/a/alias"] == f["acquisition/a/sub/timestamps"]
+        dst = tmp_path / "ok.nwb"
+        stats = jnwb.compress_fp32(src, dst, verify=False, select=[OTHER])
+        assert stats["timestamps_kept_linked"] == ["acquisition/a/sub/timestamps"]
+        assert stats["timestamps_collapsed"] == []
+        with h5py.File(dst, "r") as f:
+            np.testing.assert_array_equal(f["acquisition/a/alias"][:], stamps)
+
+
+class TestNamingASoftLinkToAGuardedDatasetNamesItsTarget:
+    """`select=` naming a soft link to `convolved_spike_train` is refused, and the message names
+    the link and the guarded array it opens, as the refusal in `_resolve_selection` states.
+
+    The proxy to avoid: `match="source dtype"` alone, which any refusal of a guarded path passes.
+    """
+
+    def test_the_message_names_the_link_and_its_target(self, tmp_path):
+        from jnwb.compression import CONVOLVED_PATH
+
+        src = _file_with_aliases(tmp_path / "alias.nwb")
+        with h5py.File(src, "r") as f:
+            assert isinstance(f.get("aliases/soft_conv", getlink=True), h5py.SoftLink)
+            assert f["aliases/soft_conv"] == f[CONVOLVED_PATH]
+        out = tmp_path / "out"
+        out.mkdir()
+        stable = (
+            "select= names aliases/soft_conv, a link to " + CONVOLVED_PATH
+            + ", which compress_fp32 always rewrites at its source dtype"
+        )
+        with pytest.raises(ValueError, match=re.escape(stable)):
+            jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=["aliases/soft_conv"])
+        assert list(out.iterdir()) == []
+
+
+def _reference_file(path, dangling=False):
+    """A real group, a top-level soft link to it, and references held under both names."""
+    with h5py.File(path, "w") as f:
+        real = f.create_group("real")
+        real.create_dataset("holder", data=np.arange(5.0))
+        real.create_dataset("target", data=np.arange(3.0))
+        real["holder"].attrs["ref"] = real["target"].ref
+        real["holder"].attrs.create("refs", np.array([real["target"].ref, real["holder"].ref],
+                                                    dtype=h5py.ref_dtype), dtype=h5py.ref_dtype)
+        real.create_dataset("refds", data=np.array([real["target"].ref, real["holder"].ref],
+                                                   dtype=h5py.ref_dtype), dtype=h5py.ref_dtype)
+        f["alias"] = h5py.SoftLink("/real")
+        assert isinstance(f.get("alias", getlink=True), h5py.SoftLink), "fixture must hold a soft link"
+        f.create_dataset("processing/spike_train/spike_train_data/data",
+                         data=np.zeros((4, 2), dtype=np.int16))
+        f.create_dataset("processing/convolved_spike_train/convolved_spike_train_data/data",
+                         data=np.zeros((4, 2)))
+        if dangling:
+            gone = real.create_dataset("gone", data=np.arange(2.0))
+            real["holder"].attrs["gone"] = gone.ref
+            del real["gone"]
+
+
+class TestReferencesUnderATopLevelAlias:
+    """`compress_fp32` repairs a reference at its alias path, and removes one whose target is gone."""
+
+    def test_a_reference_attribute_under_the_alias_resolves_in_the_output(self, tmp_path):
+        src, dst = tmp_path / "refs.nwb", tmp_path / "refs.fp32.nwb"
+        _reference_file(src)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[])
+        with h5py.File(dst, "r") as d:
+            assert d[d["alias/holder"].attrs["ref"]].name == "/real/target"
+            assert d[d["real/holder"].attrs["ref"]].name == "/real/target"
+
+    def test_an_array_of_references_under_the_alias_resolves_in_the_output(self, tmp_path):
+        src, dst = tmp_path / "refs.nwb", tmp_path / "refs.fp32.nwb"
+        _reference_file(src)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[])
+        with h5py.File(dst, "r") as d:
+            names = [d[r].name for r in d["alias/holder"].attrs["refs"]]
+        assert names == ["/real/target", "/real/holder"], names
+
+    def test_dataset_content_references_under_the_alias_resolve_in_the_output(self, tmp_path):
+        src, dst = tmp_path / "refs.nwb", tmp_path / "refs.fp32.nwb"
+        _reference_file(src)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[])
+        with h5py.File(dst, "r") as d:
+            names = [d[r].name for r in d["alias/refds"][:]]
+        assert names == ["/real/target", "/real/holder"], names
+
+    def test_a_reference_to_a_deleted_object_is_removed_with_a_warning(self, tmp_path):
+        src, dst = tmp_path / "dangling.nwb", tmp_path / "dangling.fp32.nwb"
+        _reference_file(src, dangling=True)
+        with pytest.warns(UserWarning, match=r"attribute 'gone' on /real/holder"):
+            jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[])
+        with h5py.File(dst, "r") as d:
+            assert "gone" not in d["real/holder"].attrs
+            assert d[d["real/holder"].attrs["ref"]].name == "/real/target"

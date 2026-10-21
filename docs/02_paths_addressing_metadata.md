@@ -17,6 +17,8 @@ import jnwb
 area_name = jnwb.map_peak_channel_to_area(peak_channel_id=0, electrodes_df=electrodes_df)
 ```
 
+A probe is named by its `group_name` column, else `group`, else `probe`, else `device` (each names probe hardware), and a location never names one, so a multi-area label on a table with none of them is refused. Every comma or slash in `location` separates areas, so a sub-label such as a layer belongs in its own column.
+
 ### Geometric Depth Class (`classify_layer_from_depth`)
 
 Thresholds probe electrode depth ($z$-coordinate) into a geometric depth class, with explicit unit safety. The class is a cut on depth, not a cortical layer; the electrophysiological laminar identity is `jnwb.label_layers`.
@@ -34,6 +36,8 @@ Attaches standardized `unit_id`, `area`, and `depth_class` columns directly to u
 ```python
 enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df)
 ```
+
+The join needs a `peak_channel_id` column on `units_df`. Without one, every row gets `area=None`, `group_name=None` and `depth_class='Unknown'`, and a `UserWarning` names the filled columns when `electrodes_df` has rows.
 
 `jnwb.get_all_units_metadata` emits `depth_class` the same way, and `jnwb.unit_census_report` with `group_by=None` groups by it. None of these writes a `layer` column.
 
@@ -165,7 +169,8 @@ nwb_files = ["sub-01_ses-01.nwb", "sub-01_ses-02.nwb"]
 units_df = jnwb.get_all_units_metadata(nwb_files, filter_quality=False)
 
 # Attaches quality_class ('Good'|'Fair'|'Poor'|'Unknown'), is_valid, issue_flags.
-# A missing or non-numeric metric makes the unit 'Unknown'; the thresholds have no cited source.
+# A missing or non-numeric metric makes the unit 'Unknown', unless a measured quality or snr below
+# its cut-off makes it 'Poor'; the thresholds have no cited source.
 classified_units = jnwb.classify_unit_quality(units_df)
 
 # Generate a census summary grouped by brain area
@@ -282,4 +287,4 @@ succeeds. Treat the contained lists, dicts and frames as read-only.
 
 **Deprecated.** `create_aligned_dataset`, `create_result` and `create_figure` forward to the
 constructor of the same name and add nothing. They were never exported in `__all__`; they
-now warn, and will be removed. Call the dataclass, or `Dataset.with_alignment`, directly.
+now warn, and will be removed in 0.2.14. Call the dataclass, or `Dataset.with_alignment`, directly.

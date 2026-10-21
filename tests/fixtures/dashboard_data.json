@@ -8,8 +8,8 @@
     "releases": ["CHANGELOG.md"],
     "ci": [".github/workflows/workflow.yml"],
     "api": ["jnwb/__init__.py"],
-    "verified": ["artifacts/frozen_validated.json"],
-    "performance": ["artifacts/benchmarks/baseline_performance.json"],
+    "verified": ["artifacts/process/frozen_validated.json"],
+    "performance": ["artifacts/benchmarks/performance/baseline_performance.json"],
     "order": ["artifacts/computational_order.json"],
     "references": ["docs/references.md"],
     "figures": ["docs/assets/figures"]

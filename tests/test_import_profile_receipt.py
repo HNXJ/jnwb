@@ -2,7 +2,7 @@
 
 Two separate failures were shipped together.
 
-The receipt went five releases stale -- ``artifacts/benchmarks/import_profile.txt`` still
+The receipt went five releases stale -- ``artifacts/benchmarks/performance/import_profile.txt`` still
 announced "jnwb 0.1.6 (111 public symbols)" while 0.2.4 exported 155 -- because nothing
 gated it, unlike ``tests/test_vflip_calibration_receipt.py``.
 

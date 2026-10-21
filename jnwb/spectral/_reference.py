@@ -166,7 +166,7 @@ def voltage_curvature_1d(
         (interior channels 1 to N-2).
 
     Raises:
-        ValueError: If `pitch_um <= 0` or number of channels along `axis` is less than 3.
+        ValueError: If `pitch_um` is NaN, infinite or `<= 0`, or number of channels along `axis` is less than 3.
 
     References:
         Nicholson, C., & Freeman, J. A. (1975). Theory of current source-density analysis
@@ -174,8 +174,10 @@ def voltage_curvature_1d(
         doi:10.1152/jn.1975.38.2.356 -- the second spatial derivative of the potential
         that current source density scales by -sigma, here as the three-point difference.
     """
-    if pitch_um <= 0:
-        raise ValueError(f"Electrode pitch must be strictly positive; got {pitch_um} um.")
+    if not np.isfinite(pitch_um) or pitch_um <= 0:
+        raise ValueError(
+            f"voltage_curvature_1d: pitch_um must be finite and strictly positive (um); got {pitch_um!r}."
+        )
     arr = np.asarray(lfp_matrix, dtype=float)
     # Before the count is read as a contact count, check it can be one. `bandpass_filter`
     # defaults axis=-1 and this function defaults axis=0, so the obvious two-call chain hands
@@ -239,7 +241,8 @@ def current_source_density_1d(
         Array of physical Current Source Density in A/m^3, with 2 fewer channels along `axis`.
 
     Raises:
-        ValueError: If `pitch_um <= 0`, `conductivity_s_per_m <= 0`, or channel count < 3.
+        ValueError: If `pitch_um` or `conductivity_s_per_m` is NaN, infinite or `<= 0`, or
+            channel count < 3.
 
     References:
         Nicholson, C., & Freeman, J. A. (1975). Theory of current source-density analysis
@@ -247,9 +250,10 @@ def current_source_density_1d(
         doi:10.1152/jn.1975.38.2.356 -- current source density as -sigma times the second
         spatial derivative of the potential, in one dimension with homogeneous conductivity.
     """
-    if conductivity_s_per_m <= 0:
+    if not np.isfinite(conductivity_s_per_m) or conductivity_s_per_m <= 0:
         raise ValueError(
-            f"Tissue conductivity must be strictly positive; got {conductivity_s_per_m} S/m. "
+            "current_source_density_1d: conductivity_s_per_m must be finite and strictly positive "
+            f"(S/m); got {conductivity_s_per_m!r}. "
             "CSD is physically undefined without positive conductivity."
         )
     curvature = voltage_curvature_1d(lfp_matrix, pitch_um=pitch_um, axis=axis)

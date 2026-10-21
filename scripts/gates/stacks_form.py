@@ -12,7 +12,7 @@ from scripts.stack_parse import item_spans, stack_items as _stack_items
 #: The two coordination stacks gate 15 reads. Both are tracked; a missing one is a broken
 #: sweep rather than a clean tree, and is reported as such.
 TODO_STACK = "artifacts/todo_stack.md"
-PROBLEM_STACK = "artifacts/problem_stack.md"
+OPEN_STACK = "artifacts/open_stack.md"
 
 
 def _code_span_mask(text: str) -> bytearray:

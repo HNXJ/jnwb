@@ -78,6 +78,7 @@ from ._regression import (
 from ._cluster import (
     cluster_permutation_test,
 )
+from ._autocorrelation import effective_sample_size
 
 
 # Public classes keep the module path they had before the split, so pickles and reprs

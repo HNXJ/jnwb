@@ -7,6 +7,7 @@ jnwb.vis.hierarchy -- Cortical hierarchy panels in pure Plotly.
 
 from __future__ import annotations
 
+import warnings
 from typing import Optional, Sequence, Tuple
 
 import numpy as np
@@ -39,6 +40,10 @@ def plot_hierarchy_regression(
     Render a cortical hierarchy regression panel with caller-supplied error bars and null.
 
     The error bars, ``p_perm`` and ``null_ribbon`` are drawn as given; nothing here computes them.
+    A point with a non-finite rank or value is left out of the linear fit, with a UserWarning
+    that counts it. A confidence interval that does not bracket its value (a percentile bootstrap
+    interval can miss its estimate) is drawn as a segment between its own bounds, with no error
+    bar from the value, and a UserWarning names its index.
 
     Args:
         canvas: PlotlyPublicationCanvas instance.
@@ -71,12 +76,32 @@ def plot_hierarchy_regression(
     ci_low = np.asarray(ci_low, dtype=float)
     ci_high = np.asarray(ci_high, dtype=float)
 
+    usable = np.isfinite(hierarchy_ranks) & np.isfinite(values)
+    n_left_out = int(np.count_nonzero(~usable))
+    if n_left_out:
+        warnings.warn(
+            f"plot_hierarchy_regression: {n_left_out} point(s) with a non-finite rank or value "
+            "are left out of the linear fit.",
+            UserWarning,
+            stacklevel=2,
+        )
+    finite_ci = np.isfinite(values) & np.isfinite(ci_low) & np.isfinite(ci_high)
+    outside_ci = finite_ci & ((values < ci_low) | (values > ci_high))
+    if outside_ci.any():
+        warnings.warn(
+            "plot_hierarchy_regression: the confidence interval(s) at indices "
+            f"{np.flatnonzero(outside_ci).tolist()} do not bracket their value; each is drawn "
+            "from its own bounds, with no error bar from the value.",
+            UserWarning,
+            stacklevel=2,
+        )
+
     # 1. Null permutation confidence ribbon (if provided)
     if null_ribbon is not None:
         canvas.fig.add_shape(
             type="rect",
-            x0=np.min(hierarchy_ranks) - 0.5,
-            x1=np.max(hierarchy_ranks) + 0.5,
+            x0=np.nanmin(hierarchy_ranks) - 0.5,
+            x1=np.nanmax(hierarchy_ranks) + 0.5,
             y0=null_ribbon[0],
             y1=null_ribbon[1],
             fillcolor="rgba(127, 140, 141, 0.15)",
@@ -90,7 +115,7 @@ def plot_hierarchy_regression(
     if null_line is not None:
         canvas.fig.add_trace(
             go.Scatter(
-                x=[np.min(hierarchy_ranks) - 0.5, np.max(hierarchy_ranks) + 0.5],
+                x=[np.nanmin(hierarchy_ranks) - 0.5, np.nanmax(hierarchy_ranks) + 0.5],
                 y=[null_line, null_line],
                 mode="lines",
                 name="5% Reference Ceiling",
@@ -102,10 +127,12 @@ def plot_hierarchy_regression(
             )
         )
 
-    # 3. Robust Linear Fit Line
-    if len(hierarchy_ranks) >= 3:
-        slope, intercept = np.polyfit(hierarchy_ranks, values, 1)
-        fit_x = np.linspace(np.min(hierarchy_ranks), np.max(hierarchy_ranks), 50)
+    # 3. Least-squares linear fit line (np.polyfit, degree 1) through the usable points
+    fit_y = np.empty(0)
+    if np.count_nonzero(usable) >= 3:
+        fit_ranks = hierarchy_ranks[usable]
+        slope, intercept = np.polyfit(fit_ranks, values[usable], 1)
+        fit_x = np.linspace(np.min(fit_ranks), np.max(fit_ranks), 50)
         fit_y = slope * fit_x + intercept
 
         canvas.fig.add_trace(
@@ -122,9 +149,27 @@ def plot_hierarchy_regression(
             )
         )
 
-    # 4. Data points with explicit error bars (error_y)
-    error_plus = ci_high - values
-    error_minus = values - ci_low
+    # 4. Data points with explicit error bars (error_y); an interval that does not bracket its
+    # value has no bar from the value and is drawn as a segment between its own bounds.
+    if outside_ci.any():
+        seg_x, seg_y = [], []
+        for i in np.flatnonzero(outside_ci):
+            seg_x += [hierarchy_ranks[i], hierarchy_ranks[i], None]
+            seg_y += [ci_low[i], ci_high[i], None]
+        canvas.fig.add_trace(
+            go.Scatter(
+                x=seg_x,
+                y=seg_y,
+                mode="lines",
+                line=dict(color=marker_color, width=1.2),
+                xaxis=x_axis,
+                yaxis=y_axis,
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+    error_plus = np.where(outside_ci, 0.0, ci_high - values)
+    error_minus = np.where(outside_ci, 0.0, values - ci_low)
 
     canvas.fig.add_trace(
         go.Scatter(
@@ -166,9 +211,18 @@ def plot_hierarchy_regression(
 
     if stat_text_parts:
         stat_str = " | ".join(stat_text_parts)
+        # Placed above the highest finite level drawn: points, intervals, fit and null lines.
+        drawn = [values, ci_low, ci_high, fit_y]
+        if null_line is not None:
+            drawn.append(np.array([null_line], dtype=float))
+        if null_ribbon is not None:
+            drawn.append(np.asarray(null_ribbon, dtype=float))
+        levels = np.concatenate([np.ravel(d) for d in drawn])
+        levels = levels[np.isfinite(levels)]
+        top = float(levels.max()) if levels.size else 0.0
         canvas.fig.add_annotation(
-            x=np.min(hierarchy_ranks),
-            y=np.max(ci_high) * 1.05,
+            x=np.nanmin(hierarchy_ranks),
+            y=top + 0.05 * abs(top),
             xref=x_axis,
             yref=y_axis,
             text=f"<b>{stat_str}</b>",
@@ -185,8 +239,8 @@ def plot_hierarchy_regression(
     x_dict = getattr(canvas.fig.layout, xaxis_name)
     configure_axis(x_dict, title="Anatomical Hierarchy Rank", showgrid=False)
     x_dict["tickvals"] = list(hierarchy_ranks)
-    x_dict["ticktext"] = [str(int(r)) for r in hierarchy_ranks]
-    x_dict["range"] = [np.min(hierarchy_ranks) - 0.6, np.max(hierarchy_ranks) + 0.6]
+    x_dict["ticktext"] = [f"{r:g}" for r in hierarchy_ranks]
+    x_dict["range"] = [np.nanmin(hierarchy_ranks) - 0.6, np.nanmax(hierarchy_ranks) + 0.6]
 
     y_dict = getattr(canvas.fig.layout, yaxis_name)
     configure_axis(y_dict, title=y_label, showgrid=True)

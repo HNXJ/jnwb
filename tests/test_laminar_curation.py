@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import dataclasses
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -10,6 +11,8 @@ from scipy import signal
 from scipy.ndimage import gaussian_filter1d
 
 import jnwb
+from jnwb.laminar import vflip2_from_lfp
+from jnwb.testing import synth_vflip2_crossover
 
 FS = 500.0
 PITCH = 25.0
@@ -142,6 +145,45 @@ def _sink_erp(n=32, pitch=PITCH, at=20, sigma_um=75.0, t_peak=60.0):
     return spatial[:, None] * temporal[None, :], t
 
 
+class TestUndefinedScales:
+    def test_a_dead_contact_is_flagged_without_a_warning(self):
+        x = np.random.default_rng(0).normal(size=(16, 4000))
+        x[2] = 0.0
+        assert not x[2].any(), "fixture must hold a dead contact"
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            out = jnwb.detect_bad_channels(x, FS)
+        assert np.flatnonzero(out["bad_mask"]).tolist() == [2]
+        assert out["log_power"][2] == -np.inf
+        assert np.isfinite(np.delete(out["log_power"], 2)).all()
+
+    @pytest.mark.parametrize("n", [4, 6, 8, 16])
+    def test_a_dead_contact_flags_only_itself_on_a_short_probe(self, n):
+        rng = np.random.default_rng(1)
+        x = 2.0 * rng.normal(size=4000)[None, :] + rng.normal(size=(n, 4000))
+        x[2] = 0.0
+        assert np.corrcoef(x[[0, 1]])[0, 1] > 0.5, "fixture must correlate its live contacts"
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            out = jnwb.detect_bad_channels(x, FS, max_iterations=1)
+        assert np.flatnonzero(out["bad_mask"]).tolist() == [2]
+
+    def test_a_flat_baseline_leaves_the_sink_undefined(self):
+        erp, t = _sink_erp()
+        found = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH)["strongest_contact"]
+        assert abs(found - 20) <= 1, "fixture must hold a sink the baseline can scale"
+        erp[:, t < 0] = 0.0
+        out = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH)
+        assert all(np.isnan(v) for v in out.values()), out
+
+    def test_the_robust_z_fallbacks(self):
+        from jnwb.laminar_curation import _robust_z_std_fallback as z
+        assert np.isnan(z(np.full(8, np.nan))).all()
+        np.testing.assert_array_equal(z(np.full(5, 3.0)), np.zeros(5))
+        v = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 10.0])
+        assert z(v)[-1] == pytest.approx(10.0 / np.std(v), rel=1e-12)
+
+
 class TestEvokedCsdSink:
     def test_locates_a_planted_sink(self):
         erp, t = _sink_erp()
@@ -196,6 +238,7 @@ class TestEvokedCsdSink:
         mask = np.zeros(erp.shape[0], bool)
         mask[:5] = True
         out = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH, usable_mask=mask)
+        assert out, "the result holds no values, so the check below passes on nothing"
         assert all(np.isnan(v) for v in out.values())
 
     def test_exactly_min_contacts_usable_is_enough(self):
@@ -205,6 +248,7 @@ class TestEvokedCsdSink:
         out = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH, usable_mask=mask, min_contacts=16)
         assert abs(out["strongest_contact"] - 20) <= 1
         short = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH, usable_mask=mask, min_contacts=17)
+        assert short, "the result holds no values, so the check below passes on nothing"
         assert all(np.isnan(v) for v in short.values())
 
     def test_refuses_no_baseline_and_bad_pitch(self):
@@ -278,7 +322,8 @@ class TestFuseLaminarAnchors:
         out = jnwb.fuse_laminar_anchors(vflip_um=610.0, vflip2_um=600.0, window_um=self.WIN,
                                         consistency_deep=0.9, consistency_superficial=0.8)
         assert out["anchor_source"] == "vflip2" and out["anchor_um"] == 600.0
-        assert out["grade"] == "A"
+        # 15-18: both landmarks present reads 'unresolved' and caps the grade at 'B'.
+        assert out["agreement"] == "unresolved" and out["grade"] == "B"
         assert out["distance_um"]["vflip"] == 10.0 and out["distance_um"]["vflip2"] == 0.0
 
     @pytest.mark.parametrize("kwargs, source, anchor", [
@@ -586,6 +631,7 @@ class TestParametersReachTheirConsumers:
         at = jnwb.curate_and_label(x, FS, min_contacts=k, **kw)
         assert np.isfinite(at.csd["strongest_contact"])
         over = jnwb.curate_and_label(x, FS, min_contacts=k + 1, **kw)
+        assert over.csd, "the CSD holds no values, so the check below passes on nothing"
         assert all(np.isnan(v) for v in over.csd.values())
 
     def test_min_contacts_reaches_every_vflip_call(self, monkeypatch):
@@ -762,3 +808,72 @@ class TestMapPeakChannelToLayer:
         assert np.ndim(cell[0]) == 1, "fixture must hold an array-like id"
         with pytest.raises(ValueError, match=f"map_peak_channel_to_layer: {where} holds .* not an integer electrode id"):
             jnwb.map_peak_channel_to_layer(units, curation, ids)
+
+
+def _planted_vflip2(fs=1000.0, trial_samples=1000, n_trials=5):
+    """`synth_vflip2_crossover` (crossover at contact 16 of 32), cut into epochs: (channels, epochs, samples)."""
+    rec = synth_vflip2_crossover(n_channels=32, n_samples=n_trials * trial_samples, fs=fs, z0=16, rng=0)
+    return rec.lfp.reshape(32, n_trials, trial_samples)
+
+
+class TestVFlip2Report:
+    """vFLIP2 is run and reported beside the anchor when its bounds hold; it never becomes the anchor."""
+
+    @pytest.fixture(scope="class")
+    def probe(self):
+        lfp = _planted_vflip2()
+        return lfp, jnwb.curate_and_label(lfp, 1000.0, pitch_um=100.0, compute_xflip=False)
+
+    def test_vflip2_is_reported_and_the_anchor_and_labels_are_unchanged(self, probe):
+        lfp, r = probe
+        # Grade, anchor and labels pinned from the call before vFLIP2 was reported.
+        assert r.grade == "C" and r.anchor_source == "vflip"
+        np.testing.assert_allclose(r.anchor_um, 1749.4858612830053, rtol=1e-12)
+        assert word(r) == "......ssssssssssiiiidddddddddddd"
+        # Precondition: the probe gives vFLIP2 an accepted crossover on the same trials.
+        direct = vflip2_from_lfp(lfp.transpose(0, 2, 1), 1000.0, contact_spacing=100.0)
+        assert direct.accepted and direct.crossover_channel == 17
+        assert r.vflip2 is not None and r.vflip2_skipped is None
+        assert r.vflip2.crossover_channel == direct.crossover_channel
+        np.testing.assert_allclose(r.vflip2.omega, direct.omega, rtol=1e-12)
+        # The distance is absolute and follows distance_um of fuse_laminar_anchors; the crossover
+        # (row 17, 1700 um) lies above the anchor, so the signed difference would be negative.
+        crossover_um = r.vflip2.crossover_channel * 100.0
+        fused = jnwb.fuse_laminar_anchors(vflip_um=r.anchor_um, xflip_um=crossover_um)
+        np.testing.assert_allclose(r.vflip2_distance_um, fused["distance_um"]["xflip"], rtol=1e-12)
+        assert r.vflip2_distance_um > 0
+        assert r.to_dict()["vflip2"]["accepted"] is True and r.to_dict()["vflip2_skipped"] is None
+
+    def test_a_probe_below_300_hz_skips_vflip2_and_names_the_bound(self):
+        lfp = _planted_vflip2(fs=250.0, trial_samples=250)
+        assert lfp.shape[2] >= 250, "fixture must hold trials of at least fs samples"
+        r = jnwb.curate_and_label(lfp, 250.0, pitch_um=100.0, compute_xflip=False,
+                                  band_high_hz=(75.0, 120.0), power_band_hz=(1.0, 120.0))
+        assert r.vflip2 is None and np.isnan(r.vflip2_distance_um)
+        assert "300 Hz" in r.vflip2_skipped
+
+    def test_a_contact_spacing_above_200_um_skips_vflip2_and_names_the_bound(self):
+        lfp = _planted_vflip2()
+        r = jnwb.curate_and_label(lfp, 1000.0, pitch_um=250.0, compute_xflip=False)
+        assert r.vflip2 is None and np.isnan(r.vflip2_distance_um)
+        assert "200 um" in r.vflip2_skipped
+        assert r.anchor_source == "vflip"
+
+    def test_a_trial_shorter_than_fs_skips_vflip2_and_names_the_bound(self):
+        lfp = _planted_vflip2(trial_samples=600, n_trials=10)
+        assert lfp.shape[2] < 1000, "fixture must hold trials shorter than fs"
+        r = jnwb.curate_and_label(lfp, 1000.0, pitch_um=100.0, compute_xflip=False)
+        assert r.vflip2 is None and np.isnan(r.vflip2_distance_um)
+        assert "600 samples" in r.vflip2_skipped and "1000" in r.vflip2_skipped
+
+    def test_a_rejected_vflip2_reports_its_result_and_no_distance(self):
+        lfp = np.random.default_rng(12).normal(size=(32, 5, 1000))
+        direct = vflip2_from_lfp(lfp.transpose(0, 2, 1), 1000.0, contact_spacing=100.0)
+        # Precondition: vFLIP2 rejects this probe while still finding a crossover, and curation
+        # has a finite anchor, so a distance would be defined were it not for the rejection.
+        assert not direct.accepted and direct.crossover_channel is not None
+        r = jnwb.curate_and_label(lfp, 1000.0, pitch_um=100.0, compute_xflip=False)
+        assert np.isfinite(r.anchor_um), "fixture must give curation an anchor"
+        assert r.vflip2 is not None and r.vflip2.accepted is False
+        assert r.vflip2_skipped is None
+        assert np.isnan(r.vflip2_distance_um)

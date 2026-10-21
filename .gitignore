@@ -26,6 +26,8 @@ omission/
 data/
 outputs/
 output/
+# The 10-06 evidence outputs are tracked receipts, not generated output.
+!artifacts/evidence/0.2.10/10-06/output/
 reports/
 checkpoints/
 scratch/
@@ -77,9 +79,14 @@ gallery_src/
 
 # non-source formats (repo is code + ipynb + markdown only)
 *.json
-!artifacts/benchmarks/*.json
+!artifacts/benchmarks/*/*.json
 !examples/data/*.provenance.json
-!artifacts/frozen_validated.json
+!artifacts/process/frozen_validated.json
+!artifacts/evidence/0.2.13/vflip2_oracle.json
+!artifacts/evidence/0.2.13/vflip2_recovery.json
+!artifacts/evidence/0.2.13/compress_scaling.json
+!artifacts/evidence/0.2.13/vflip2_nuisance.json
+!artifacts/evidence/0.2.13/xflip_nuisance.json
 # The dashboard's template and data contract; its built data.json stays out.
 !scripts/dashboard/index.html
 !scripts/dashboard/data.schema.json

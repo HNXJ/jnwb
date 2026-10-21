@@ -406,6 +406,7 @@ class TestNestedCvGroups:
         for call, (train, _test) in zip(inner, outer_folds):
             assert call["n"] == train.size
             inner_ids = ids[train]
+            assert len(call["folds"]) == call["n_splits"], "the inner search must draw n_splits folds"
             for i_train, i_test in call["folds"]:
                 assert not set(inner_ids[i_train]) & set(inner_ids[i_test])
 

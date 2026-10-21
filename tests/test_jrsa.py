@@ -22,6 +22,7 @@ literal list on both sides is a fixed point that agrees with itself whatever the
 """
 
 import contextlib
+import inspect
 import io
 import re
 import warnings
@@ -228,12 +229,37 @@ def test_the_docstring_parser_finds_a_plausible_list():
     assert len(set(listed)) == len(listed), f"duplicate entries: {listed}"
 
 
+def _independent_q(p, method):
+    """Adjusted p-values from the textbook formulas: scipy for the two FDR methods, the
+    closed forms for the rest. Not the statsmodels call `jrsa` makes."""
+    from scipy.stats import false_discovery_control
+
+    p = np.asarray(p, dtype=float)
+    m = p.size
+    if method in ("fdr_bh", "fdr_by"):
+        return false_discovery_control(p, method=method[len("fdr_"):])
+    if method == "bonferroni":
+        return np.minimum(1.0, m * p)
+    if method in ("holm", "holm-sidak"):
+        out = np.empty(m)
+        running = 0.0
+        for rank, idx in enumerate(np.argsort(p)):
+            factor = m - rank
+            adj = 1.0 - (1.0 - p[idx]) ** factor if method == "holm-sidak" else factor * p[idx]
+            running = max(running, min(1.0, adj))
+            out[idx] = running
+        return out
+    raise AssertionError(f"no independent formula for correction {method!r}")
+
+
 @pytest.mark.parametrize("method", _documented_corrections())
 def test_every_documented_correction_is_actually_accepted(method):
     """Discriminator for P-85, run against behaviour rather than against the map.
 
     `cluster` and `maxT` were documented and raised `ValueError`. Parametrised over the
     parsed docstring, so a future addition to the prose is checked the moment it is made.
+    The second half asks for a q on three p-values, since one p gives q = p for every
+    method and proves nothing about which one ran.
     """
     rng = np.random.default_rng(0)
     X = rng.normal(size=(6, 8, 20))
@@ -242,6 +268,18 @@ def test_every_documented_correction_is_actually_accepted(method):
         X, Y, metric="rsa", stats=True, permutations=10, null="iid", rng=0, correction=method
     )
     assert res.parameters["correction"] == method
+
+    x = np.random.default_rng(1).normal(size=60)
+    y = x + np.random.default_rng(2).normal(size=60)
+    res = jnwb.jrsa(x, y, metric="pearson", lag=[0, 1, 2], null="iid", permutations=200,
+                    rng=0, correction=method)
+    p = np.asarray(res.p, dtype=float).ravel()
+    assert p.size == 3, f"precondition: three lags give three p-values, got {p.size}"
+    if method == "none":
+        assert res.q is None
+        return
+    q = np.asarray(res.q, dtype=float).ravel()
+    np.testing.assert_allclose(q, _independent_q(p, method), rtol=1e-12, atol=0)
 
 
 def test_every_implemented_correction_is_documented():
@@ -277,38 +315,12 @@ def test_the_withdrawn_methods_raise_rather_than_falling_back(method):
 
 
 # ---------------------------------------------------------------------------
-# align_mode -- accepted, ignored and deprecated
+# align_mode -- removed in 0.2.13, as the 0.2.11 deprecation announced
 # ---------------------------------------------------------------------------
 
-def _pair():
-    """Equal-length vectors. jrsa refuses unequal shapes before alignment, so no input it
-    accepts reaches the resampler and `align_mode` has no effect on any of them."""
+def test_align_mode_is_gone_and_passing_it_raises():
+    assert "align_mode" not in inspect.signature(jnwb.jrsa).parameters
     rng = np.random.default_rng(0)
-    return rng.normal(size=30), rng.normal(size=30)
-
-
-def test_passing_align_mode_warns_deprecation():
-    a, b = _pair()
-    with pytest.warns(DeprecationWarning,
-                      match="align_mode has no effect and will be removed in 0.2.13"):
+    a, b = rng.normal(size=30), rng.normal(size=30)
+    with pytest.raises(TypeError, match="align_mode"):
         jnwb.jrsa(a, b, metric="pearson", stats=False, align_mode="sample")
-
-
-def test_align_mode_leaves_the_result_unchanged():
-    a, b = _pair()
-    kwargs = dict(metric="pearson", stats=True, permutations=10, null="iid", rng=0)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        given = jnwb.jrsa(a, b, align_mode="sample", **kwargs)
-    plain = jnwb.jrsa(a, b, **kwargs)
-    np.testing.assert_allclose(given.value, plain.value, rtol=1e-12)
-    np.testing.assert_allclose(given.p, plain.p, rtol=1e-12)
-
-
-def test_not_passing_align_mode_emits_no_deprecation_warning():
-    a, b = _pair()
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        jnwb.jrsa(a, b, metric="pearson", stats=False)
-    deprecations = [w for w in caught if issubclass(w.category, DeprecationWarning)]
-    assert deprecations == [], [str(w.message) for w in deprecations]

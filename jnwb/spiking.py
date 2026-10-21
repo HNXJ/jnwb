@@ -11,7 +11,7 @@ import warnings
 from typing import Any, Optional, Tuple, Dict, List, Union
 import numpy as np
 
-from ._bins import onset_window, whole_bin_count
+from ._bins import onset_window, refuse_nonfinite_times, whole_bin_count
 from ._spread import is_constant
 from ._units import resolve_unit_alias
 from scipy import stats
@@ -68,7 +68,8 @@ def compute_response_metrics(
         - baseline_duration_s, response_duration_s: each window's length in seconds.
 
     Raises:
-        ValueError: a window whose start is at or after its stop.
+        ValueError: a window whose start is at or after its stop, or an ``epoch_onsets``
+            entry that is not finite; the message names the index.
 
     Example:
         >>> metrics = compute_response_metrics(spike_times, epoch_onsets)
@@ -119,6 +120,8 @@ def compute_response_metrics(
     metrics['baseline_duration_s'] = float(baseline_duration)
     metrics['response_duration_s'] = float(response_duration)
 
+    # Checked before the empty-train return, which would otherwise give every onset a zero row.
+    refuse_nonfinite_times(epoch_onsets, "compute_response_metrics", "epoch_onsets")
     if len(epoch_onsets) == 0 or len(spike_times) == 0:
         return metrics
 
@@ -400,6 +403,18 @@ def phase_locking_index(
         'n_spikes': len(unit_spike_times)
     }
 
+    lfp_timestamps = np.asarray(lfp_timestamps, dtype=float)
+    steps = np.diff(lfp_timestamps)
+    if np.any(steps <= 0):
+        # Descending timestamps made the window t_lo > t_hi, so every spike was excluded and
+        # the warning printed the reversed window.
+        bad = int(np.argmax(steps <= 0))
+        raise ValueError(
+            "phase_locking_index: lfp_timestamps must be strictly increasing; sample "
+            f"{bad + 1} ({lfp_timestamps[bad + 1]:g} s) does not come after sample {bad} "
+            f"({lfp_timestamps[bad]:g} s)."
+        )
+
     if len(unit_spike_times) == 0:
         return result
 
@@ -420,7 +435,6 @@ def phase_locking_index(
     # maximal resultant -- with p = 0.0; mixing five of them with five in-range spikes
     # gave p = 0.0234 where the five real spikes alone give p = 0.8335.
     unit_spike_times = np.asarray(unit_spike_times, dtype=float)
-    lfp_timestamps = np.asarray(lfp_timestamps, dtype=float)
     t_lo, t_hi = float(lfp_timestamps[0]), float(lfp_timestamps[-1])
     in_range = (unit_spike_times >= t_lo) & (unit_spike_times <= t_hi)
     n_excluded = int((~in_range).sum())
@@ -572,7 +586,8 @@ def gaussian_smooth_rate(
         silent. Mask or interpolate before calling if the spread is unacceptable.
 
     Returns:
-        Smoothed array of the same shape and float dtype as `rate`.
+        Smoothed float64 array of the same shape as `rate`. The input is converted to float64
+        first, so a float32 `rate` returns float64.
 
     Raises:
         ValueError: If `bin_ms` is not finite and positive, or `sigma_ms` is not finite.

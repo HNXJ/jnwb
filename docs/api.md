@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 202 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 206 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -16,7 +16,7 @@ All 202 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.io | module | *Streaming array slice reader for NPZ archives without full-file RAM allocation.* |
 | jnwb.paths | module | *Central path resolution for jnwb.* |
 | jnwb.vis | module | *jnwb.vis -- Publication-grade electrophysiology visualization engine in pure Plotly.* |
-| jnwb.visual_qc | module | *Visual Quality Control and Multi-Session Inspection* |
+| jnwb.visual_qc | module | *Visual quality control and multi-session inspection.* |
 
 ## Module: jnwb.addressing
 
@@ -83,6 +83,8 @@ All 202 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
+| jnwb.TickClock | class | *Map from timestamp ticks to seconds on a spike clock, built by `derive_tick_clock`.* |
+| jnwb.derive_tick_clock | function | `(tick_segments: 'Sequence[np.ndarray]', spike_times) -> 'TickClock'`<br>*Derive the map from acquisition ticks to spike-clock seconds from one recording.* |
 | jnwb.epoch_continuous | function | `(data: 'np.ndarray', onsets: 'np.ndarray | Sequence[float]', *, win_s: 'tuple[float, float]', fs: 'float', onset_unit: 'OnsetUnit' = 'seconds', boundary_policy: 'BoundaryPolicy' = 'nan', return_indices: 'bool' = False) -> 'tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]'`<br>*Extract fixed-duration epochs from a continuous signal aligned to event onsets.* |
 
 ## Module: jnwb.decoding
@@ -114,7 +116,7 @@ All 202 core functions, classes, and constants exported in the top-level jnwb na
 | Symbol | Type | Signature / Description |
 |---|---|---|
 | jnwb.JRSAResult | class | *Container returned by jrsa().* |
-| jnwb.jrsa | function | `(x1, x2 = None, adim = -1, labels = None, align = 'auto', align_mode = 'fraction', reduction = None, metric = 'rsa', lag = 0, window = None, sliding = False, normalize = False, standardize = False, detrend = False, nan_policy = 'omit', stats = True, permutations = 1000, bootstrap = 0, correction = 'fdr_bh', alpha = 0.05, alternative = 'two-sided', null = None, block_len = None, backend = 'auto', device = 'auto', n_jobs = 1, batch_size = None, rng: 'RNGLike' = None, return_type = 'result', return_null = False, return_input = False, verbose = False, **kwargs) -> 'JRSAResult'`<br>*Unified representational similarity / cross-area analysis.* |
+| jnwb.jrsa | function | `(x1, x2 = None, adim = -1, labels = None, align = 'auto', reduction = None, metric = 'rsa', lag = 0, window = None, sliding = False, step = None, normalize = False, standardize = False, detrend = False, nan_policy = 'omit', stats = True, permutations = 1000, bootstrap = 0, correction = 'fdr_bh', alpha = 0.05, alternative = 'two-sided', null = None, block_len = None, backend = 'auto', device = 'auto', n_jobs = 1, batch_size = None, rng: 'RNGLike' = None, return_type = 'result', return_null = False, return_input = False, verbose = False, **kwargs) -> 'JRSAResult'`<br>*Unified representational similarity / cross-area analysis.* |
 
 ## Module: jnwb.laminar
 
@@ -140,7 +142,7 @@ All 202 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.curate_and_label | function | `(lfp: 'np.ndarray', fs: 'float', *, pitch_um: 'float', erp: 'Optional[np.ndarray]' = None, erp_times_ms: 'Optional[np.ndarray]' = None, n_windows: 'int' = 4, band_low_hz: 'Tuple[float, float]' = (10.0, 19.0), band_high_hz: 'Tuple[float, float]' = (75.0, 150.0), granular_thickness_um: 'float' = 400.0, max_superficial_um: 'float' = 1200.0, max_deep_um: 'float' = 1600.0, silent_threshold: 'float' = 0.12, smooth_um: 'float' = 50.0, min_lobe_um: 'float' = 150.0, min_lobe_amplitude: 'float' = 0.2, bad_zone_contacts: 'int' = 6, bad_zone_fraction: 'float' = 0.6, edge_fraction: 'float' = 0.1, edge_jump_z: 'float' = 6.0, stable_sd_um: 'float' = 75.0, min_ok_windows: 'int' = 3, consistency_a: 'float' = 0.75, consistency_b: 'float' = 0.6, compute_xflip: 'bool' = True, xflip_n_surrogates: 'int' = 50, rng: 'RNGLike' = 42, max_interpolate_run: 'int' = 3, min_contacts: 'int' = 8, min_edge_contacts: 'int' = 11, nperseg: 'int' = 512, **bad_channel_kwargs: 'Any') -> 'LaminarCurationResult'`<br>*Curate a laminar LFP recording and label every contact by cortical compartment.* |
 | jnwb.detect_bad_channels | function | `(data: 'np.ndarray', fs: 'float', *, neighbor_contacts: 'int' = 2, min_neighbor_corr_z: 'float' = -4.0, max_power_z: 'float' = 5.0, power_band_hz: 'Tuple[float, float]' = (1.0, 150.0), correlation_fs_hz: 'float' = 100.0, max_iterations: 'int' = 4, nperseg: 'int' = 512) -> 'Dict[str, Any]'`<br>*Flag contacts that decorrelate from their neighbors or have outlying power.* |
 | jnwb.evoked_csd_sink | function | `(erp: 'np.ndarray', times_ms: 'np.ndarray', *, pitch_um: 'float', usable_mask: 'Optional[np.ndarray]' = None, smooth_um: 'float' = 50.0, sink_window_ms: 'Tuple[float, float]' = (40.0, 150.0), min_sink_z: 'float' = 3.0, onset_z: 'float' = 3.0, onset_min_duration_ms: 'float' = 5.0, onset_earliest_ms: 'float' = 25.0, min_contacts: 'int' = 8) -> 'Dict[str, Any]'`<br>*Locate the evoked current-source-density sink along the shaft.* |
-| jnwb.fuse_laminar_anchors | function | `(*, vflip_um: 'Optional[float]' = None, vflip2_um: 'Optional[float]' = None, motif_um: 'Optional[float]' = None, xflip_um: 'Optional[float]' = None, csd_um: 'Optional[float]' = None, window_um: 'Optional[np.ndarray]' = None, consistency_deep: 'float' = nan, consistency_superficial: 'float' = nan, stable_sd_um: 'float' = 75.0, min_ok_windows: 'int' = 3, consistency_a: 'float' = 0.75, consistency_b: 'float' = 0.6) -> 'Dict[str, Any]'`<br>*Choose the laminar anchor and grade it; report how the other estimates sit against it.* |
+| jnwb.fuse_laminar_anchors | function | `(*, vflip_um: 'Optional[float]' = None, vflip2_um: 'Optional[float]' = None, motif_um: 'Optional[float]' = None, xflip_um: 'Optional[float]' = None, csd_um: 'Optional[float]' = None, window_um: 'Optional[np.ndarray]' = None, consistency_deep: 'float' = nan, consistency_superficial: 'float' = nan, stable_sd_um: 'float' = 75.0, min_ok_windows: 'int' = 3, consistency_a: 'float' = 0.75, consistency_b: 'float' = 0.6, contact_spacing_um: 'Optional[float]' = None) -> 'Dict[str, Any]'`<br>*Choose the laminar anchor and grade it; report how the other estimates sit against it.* |
 | jnwb.interpolate_channel_runs | function | `(data: 'np.ndarray', bad_mask: 'np.ndarray', *, max_run: 'int' = 3, blocked_mask: 'Optional[np.ndarray]' = None) -> 'Dict[str, Any]'`<br>*Linearly interpolate runs of at most ``max_run`` adjacent bad contacts.* |
 | jnwb.map_peak_channel_to_layer | function | `(units_df: 'pd.DataFrame', curation: 'LaminarCurationResult', channel_ids: 'Sequence') -> 'np.ndarray'`<br>*One curated layer label per unit: the label of the unit's peak channel.* |
 
@@ -203,6 +205,7 @@ All 202 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
+| jnwb.ContainerTypeContradictionWarning | class | *A container's declared ``neurodata_type`` disagrees with what the file stores under it.* |
 | jnwb.MissingRequiredNWBFieldError | class | *A required NWB field is absent from the on-disk builder tree.* |
 | jnwb.SqueezedAttributeWarning | class | *A length-1 array attribute was collapsed to a scalar while reading a malformed file.* |
 | jnwb.nwb_read_io | function | `(path: 'Any', mode: 'str' = 'r', allow_missing: 'Union[Sequence[str], str, None]' = None, **kwargs: 'Any') -> 'Iterator[NWBHDF5IO]'`<br>*Open an NWB file for reading, with jnwb's builder repairs applied.* |
@@ -246,7 +249,7 @@ All 202 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.build_permutation_plan | function | `(labels: 'Iterable[object]', groups: 'Iterable[object]', *, n_permutations: 'int', rng: 'RNGLike' = <required>, seed: 'Any' = <required>) -> 'dict'`<br>*Create an explicit within-group null plan (a manifest of digested draws); no model fitting occurs.* |
+| jnwb.build_permutation_plan | function | `(labels: 'Iterable[object]', groups: 'Iterable[object]', *, n_permutations: 'int', rng: 'RNGLike' = <required>, seed: 'Any' = <required>, blocks: 'Optional[Iterable[object]]' = None) -> 'dict'`<br>*Create an explicit within-group null plan (a manifest of digested draws); no model fitting occurs.* |
 | jnwb.permute_labels | function | `(y, *, groups = None, scheme: 'str', rng: 'RNGLike')`<br>*Permute labels under an explicitly named exchangeability scheme.* |
 
 ## Module: jnwb.rsa
@@ -302,6 +305,7 @@ All 202 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.cluster_permutation_test | function | `(X: 'np.ndarray', Y: 'np.ndarray', *, paired: 'bool' = False, groups: 'Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]' = None, scheme: 'Optional[str]' = None, threshold: 'float' = 2.0, n_permutations: 'int' = 1000, tail: 'str' = 'both', rng: 'RNGLike' = 0, n_jobs: 'int' = 1) -> 'Dict[str, Union[np.ndarray, List[Dict[str, Union[float, np.ndarray]]]]]'`<br>*Non-parametric cluster-based permutation test for multidimensional signals (Maris & Oostenveld, 2007).* |
 | jnwb.cross_modal_comparison | function | `(tfr_data: 'np.ndarray', spike_data: 'np.ndarray', lag_range_ms: 'Tuple[int, int]' = (-500, 500), bin_ms: 'Optional[float]' = None, n_permutations: 'int' = 1000, rng: 'RNGLike' = None, *, seed: 'Any' = None) -> 'Dict'`<br>*Trial-averaged correlation between a TFR-derived signal and a spike-count signal.* |
 | jnwb.detect_trial_cycles | function | `(epochs_df: 'pd.DataFrame', gap_factor: 'float' = 10.0) -> 'np.ndarray'`<br>*Detect temporal cluster ("cycle") boundaries in a trial table via a gap threshold.* |
+| jnwb.effective_sample_size | function | `(x: 'np.ndarray') -> 'float'`<br>*Effective number of independent samples in autocorrelated data.* |
 | jnwb.exact_sign_flip | function | `(diffs: 'Union[Sequence[float], np.ndarray]', alternative: 'str' = 'two-sided', n_mc: 'int' = 10000, rng: 'RNGLike' = 42) -> 'Tuple[float, float, float]'`<br>*Exact paired sign-flip permutation test for paired sample differences.* |
 | jnwb.fdr_correct | function | `(p_values: 'Union[Sequence[float], np.ndarray]', method: 'str' = 'bh') -> 'np.ndarray'`<br>*Benjamini-Hochberg (or compatible) FDR across a hypothesis family.* |
 | jnwb.fire_indicator | function | `(spike_times: 'np.ndarray', onsets_s: 'np.ndarray', window_ms) -> 'np.ndarray'`<br>*Vectorized boolean fire indicator, one entry per onset, constant window.* |
@@ -370,3 +374,12 @@ All 202 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.normalize_waveforms | function | `(waveforms, *, subtract_mean: 'bool' = True) -> 'np.ndarray'`<br>*Scale each row so its largest absolute value is 1, after removing its mean.* |
 | jnwb.wavemap | function | `(waveforms, *, resolution: 'float', n_neighbors: 'int' = 20, min_dist: 'float' = 0.1, metric: 'str' = 'euclidean', embedding: 'bool' = True, rng: 'RNGLike' = 42) -> 'WaveMAPResult'`<br>*Cluster normalized mean waveforms on their UMAP graph with Louvain (Lee et al. 2021).* |
 | jnwb.wavemap_resolution_sweep | function | `(waveforms, resolutions: 'Sequence[float]', *, n_runs: 'int' = 25, fraction: 'float' = 0.8, n_neighbors: 'int' = 20, metric: 'str' = 'euclidean', rng: 'RNGLike' = 42) -> 'Dict[str, np.ndarray]'`<br>*Modularity and cluster count across resolutions, over random subsets of units.* |
+
+## Experimental
+
+Outside `jnwb.__all__`, imported by name, with no stability promise: a release may change or remove them without a deprecation.
+
+| Symbol | Type | Description |
+|---|---|---|
+| `jnwb.bilinear` | module | *Optional/experimental: bilinear (rank-K) logistic regression for 2D neural decoding.* |
+| `jnwb.nam` | module | *Optional/experimental: Neural Additive Model (NAM) for (N x T) decoding.* |

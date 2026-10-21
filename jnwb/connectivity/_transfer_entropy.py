@@ -295,6 +295,10 @@ def transfer_entropy(
         raise ValueError(f"estimator must be quantile|uniform|discrete; got {estimator!r}")
     if min(k, l) < 1 or delay < 1:
         raise ValueError(f"k, l, delay must all be >= 1; got k={k}, l={l}, delay={delay}")
+    if bias_correction not in ("mm", None):
+        raise ValueError(
+            f"transfer_entropy: bias_correction must be 'mm' or None; got {bias_correction!r}."
+        )
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
     # The embedding consumes max(k, delay * l) leading samples per trial.

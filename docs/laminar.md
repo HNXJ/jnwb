@@ -73,8 +73,11 @@ reproduces rather than fixes. It searches every window of rows at least one laye
 (0.586 mm by default), finds a low band (4-70 Hz) and a high band (40-150 Hz) where the two
 halves of the window differ, and scores the window by omega. The window is accepted when
 omega exceeds `omega_cut`, 6 by default; a rejected window keeps its values so they can be
-read. Omega counts frequency bins, so it changes with the bin width and frequency range of
-the PSD.
+read. The cut matches vFLIP2.m; on noise-only synthetic probes it accepts 18 of 100, and
+24 of 100 (95% CI 0.16 to 0.34) at matched SNR 0, so an accepted fit is not by itself evidence
+of a crossover. At matched SNR 0 it accepts, by contact spacing, 0 of 100 at 25 and
+50 um, 24 at 100 um, 37 at 150 um and 39 at 200 um. Omega counts frequency bins, so it changes with the bin width and
+frequency range of the PSD.
 
 Rows are 0-based PSD rows in shaft order. `orientation` is `"upright"` when the deep group,
 with more alpha-beta power, lies in the window's higher rows, and `"inverted"` when it lies
@@ -82,15 +85,37 @@ in the lower rows. `vflip2_from_lfp` computes vFLIP2.m's Hanning-window PSD from
 LFP (cut into 1 s trials) or from trials, then calls `vflip2`.
 
 ```python
-fit2 = jnwb.vflip2_from_lfp(rec.lfp, fs, contact_spacing=100.0)
+import numpy as np
+
+import jnwb
+import jnwb.testing
+
+fs = 1000.0
+rec = jnwb.testing.synth_laminar_motif(24, 5000, fs, c_crossover=11.5, pitch_um=100.0,
+                                       snr=20.0, rng=0)
+gen = np.random.default_rng(0)
+f = np.fft.rfftfreq(5000, 1 / fs)
+# Notch the motif's per-contact beta (10-25 Hz); share one waveform per probe half and
+# run a 15-35 Hz wave across the contacts, 5 ms per contact.
+motif = np.fft.irfft(np.fft.rfft(rec.lfp, axis=-1) * ((f < 10.0) | (f > 25.0)), n=5000,
+                     axis=-1)
+shared = gen.normal(size=(2, 5000))
+spectrum = np.fft.rfft(gen.normal(size=5000)) * ((f >= 15.0) & (f <= 35.0))
+wave = np.array([np.fft.irfft(spectrum * np.exp(-2j * np.pi * f * 0.005 * k), n=5000)
+                 for k in range(24)])
+lfp = motif + 3.0 * np.repeat(shared, 12, axis=0) + 12.0 * wave
+fit2 = jnwb.vflip2_from_lfp(lfp, fs, contact_spacing=100.0)
 assert fit2.accepted
 # fit2.crossover_channel is where the relative band powers cross, which need not be the
-# generator's amplitude-weight crossover (artifacts/evidence/0.2.12/vflip2_simulation.md).
+# generator's amplitude-weight crossover.
 
 # The accepted window restricts xflip and zflip to its rows; its orientation names
 # zflip's depth direction.
-blocks2 = jnwb.xflip(rec.lfp, window=fit2, contact_spacing=100.0, rng=0)
-delay2 = jnwb.zflip(rec.lfp, fs, orientation=fit2, window=fit2, rng=0)
+blocks2 = jnwb.xflip(lfp, window=fit2, contact_spacing=100.0, rng=0)
+delay2 = jnwb.zflip(lfp, fs, orientation=fit2, window=fit2, rng=0)
+assert blocks2.accepted and blocks2.boundaries == (12,)
+assert fit2.orientation == "upright" and delay2.accepted
+assert delay2.directionality == "superficial_to_deep"
 ```
 
 `xflip` given `contact_spacing` reports `boundaries_um` from row 0 and sets its shortest

@@ -291,7 +291,7 @@ class TestAnAbsentCodeColumnIsNotSilent:
         path = self._foreign(tmp_path)
         with pytest.warns(UserWarning) as record:
             et = events(path)
-        message = str(record[0].message)
+        message = str([w for w in record if issubclass(w.category, UserWarning)][0].message)
         assert "stimulus" in message, message
         assert "code_column" in message, message
         assert et.code_column is None
@@ -330,4 +330,22 @@ class TestAnAbsentCodeColumnIsNotSilent:
         np.testing.assert_allclose(
             event_onsets(path, codes=["grating"], code_column="stimulus"), [1.0]
         )
+
+
+class TestTablePathNamesTheTable:
+    """`/intervals/<t>/codes` used to resolve to the table `codes`, so the error named the
+    wrong table. The path names one table; a further segment is refused under the name the
+    caller gave."""
+
+    def test_extra_segment_is_refused_under_the_callers_name(self, canonical_path):
+        path, _ = canonical_path
+        with pytest.raises(IntervalTableNotFoundError) as info:
+            resolve_interval_table(path, f"/intervals/{TASK_TABLE}/codes")
+        message = str(info.value)
+        assert f"'{TASK_TABLE}/codes'" in message, message
+        assert "'codes'" not in message, message
+
+    def test_table_path_still_resolves_to_its_table(self, canonical_path):
+        path, _ = canonical_path
+        assert resolve_interval_table(path, f"/intervals/{TASK_TABLE}") == TASK_TABLE
 

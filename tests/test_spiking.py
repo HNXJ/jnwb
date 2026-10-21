@@ -25,6 +25,17 @@ class TestComputeResponseMetrics:
         assert metrics["response_rate"] == 0.0
         assert metrics["latency"] is None
 
+    def test_a_nan_epoch_onset_is_refused_not_a_zero_spike_trial(self):
+        # A NaN onset selected no spike, so its trial counted zero and diluted the rate. The
+        # empty-train return must not bypass the check: it also returned zeros for every onset.
+        spikes = np.array([0.05, 0.10, 1.05, 1.10])
+        with pytest.raises(ValueError, match=r"compute_response_metrics: epoch_onsets\[1\] is nan"):
+            compute_response_metrics(spikes, np.array([0.0, np.nan]))
+        with pytest.raises(ValueError, match=r"compute_response_metrics: epoch_onsets\[0\] is nan"):
+            compute_response_metrics(np.array([]), np.array([np.nan]))
+        m = compute_response_metrics(spikes, np.array([0.0, 1.0]))
+        assert m["response_count"] == 4 and m["response_counts"].tolist() == [2, 2]
+
     def test_known_rates_computed_exactly(self):
         # 2 spikes per trial in baseline window (-0.25,-0.05 -> 0.2s), 4 spikes per trial in
         # response window (0.0,0.15 -> 0.15s), across 3 trials.
@@ -335,6 +346,17 @@ class TestPhaseLockingIndex:
         assert result["rayleigh_z"] > 1000.0
         assert result["rayleigh_pvalue"] >= 0.0
         assert not str(result["rayleigh_pvalue"]).startswith("-")
+
+    def test_descending_lfp_timestamps_are_refused(self):
+        """Descending timestamps made the window t_lo > t_hi, so every spike was excluded and
+        the warning printed the reversed window. Refuse them, also with no spikes."""
+        lfp_timestamps = np.linspace(10.0, 0.0, 10000)
+        lfp_phase = np.mod(2 * np.pi * 5 * lfp_timestamps, 2 * np.pi) - np.pi
+        spikes = np.linspace(0.5, 9.5, 40)
+        with pytest.raises(ValueError, match="phase_locking_index.*lfp_timestamps"):
+            phase_locking_index(spikes, lfp_phase, lfp_timestamps)
+        with pytest.raises(ValueError, match="lfp_timestamps"):
+            phase_locking_index(np.array([]), lfp_phase, lfp_timestamps)
 
 
 class TestPairwisePhaseConsistency:

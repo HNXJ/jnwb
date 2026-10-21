@@ -23,7 +23,7 @@ import plotly.graph_objects as go
 # 1. Colorblind-Safe Palettes & Scientific Accents
 # ==============================================================================
 
-# Paul Tol Muted (Qualitative 8-color palette, colorblind safe)
+# Paul Tol Muted (Qualitative 9-color palette, colorblind safe)
 TOL_MUTED = [
     "#88CCEE",  # Cyan
     "#44AA99",  # Teal

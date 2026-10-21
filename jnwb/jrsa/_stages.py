@@ -123,7 +123,7 @@ def _standardize_dimensions(x1, x2, adim, labels):
     return x1, x2, axis_map
 
 
-def _align_dimensions(x1, x2, axis_map, align, align_mode, verbose):
+def _align_dimensions(x1, x2, axis_map, align, verbose):
     """Align x1 and x2 along each axis in axis_map."""
     aligned_axes = ()
     if x2 is None:
@@ -148,7 +148,7 @@ def _align_dimensions(x1, x2, axis_map, align, align_mode, verbose):
         n1, n2 = x1.shape[ax], x2.shape[ax]
         if n1 == n2:
             continue
-        x1, x2 = _resample_axis(x1, x2, ax, n1, n2, align, align_mode)
+        x1, x2 = _resample_axis(x1, x2, ax, n1, n2, align)
         aligned_axes_list.append(ax)
         if verbose:
             print(f"[jrsa] aligned axis {ax} ({name}): {n1} → {n2 if n2 < n1 else n1}")
@@ -160,7 +160,7 @@ def _align_dimensions(x1, x2, axis_map, align, align_mode, verbose):
 ALIGN_MODES = ("auto", "downsample", "upsample", "nearest", "interpolate", "linear", "cubic")
 
 
-def _resample_axis(x1, x2, axis, n1, n2, align, align_mode):
+def _resample_axis(x1, x2, axis, n1, n2, align):
     """Resample one array along *axis* to match the other, respecting GPU/CPU."""
     xp1 = _get_xp(x1)
     xp2 = _get_xp(x2)
@@ -348,7 +348,8 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
     if normalize and standardize:
         warnings.warn(
             "Both normalize=True and standardize=True are enabled simultaneously. "
-            "Standardize (Z-scoring) overrides and negates standard range normalization [0, 1].",
+            "Standardize (Z-scoring) runs first, then normalize rescales its output to [0, 1] "
+            "along the last axis, so the result is not a z-score.",
             UserWarning
         )
     def _prep(arr):
@@ -388,7 +389,7 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
 
 
 def _make_windows(x1, x2, axis_map, window, sliding):
-    """Extract the analysis window. `jrsa` refuses `sliding=True` before this runs.
+    """Extract the analysis window. `jrsa` calls `_sliding_windows` instead when `sliding=True`.
 
     `window` is in sample indices along the aligned axis. The clamping below used to be
     silent in both directions: `(-500, 500)` on a 6-sample axis became `(0, 6)` -- the
@@ -401,9 +402,25 @@ def _make_windows(x1, x2, axis_map, window, sliding):
     ax = axis_map[_window_axis_name(axis_map)]
     n = x1.shape[ax]
     if isinstance(window, (int, float)):
-        half = int(window) // 2
+        # The width is kept whole: start where the centred window starts, stop `width` samples
+        # later. The stop used to be center + width // 2, one sample short for an odd width
+        # (window=5 gave 4 samples) and an empty slice for window=1.
+        width = int(window)
+        if width < 1:
+            raise ValueError(
+                f"jrsa: window={window!r} is a width in samples, so it must be at least 1."
+            )
+        if width > n:
+            warnings.warn(
+                f"jrsa: window={window!r} is longer than the {n}-sample aligned axis, so it covers "
+                "the whole axis and no windowing was applied. `window` is in sample indices, "
+                "not milliseconds.",
+                UserWarning,
+                stacklevel=3,
+            )
         center = n // 2
-        start, stop = max(0, center - half), min(n, center + half)
+        start = max(0, center - width // 2)
+        stop = min(n, start + width)
     else:
         requested = (int(window[0]), int(window[1]))
         start, stop = requested
@@ -432,6 +449,41 @@ def _make_windows(x1, x2, axis_map, window, sliding):
     if x2 is not None:
         x2 = x2[tuple(slices)]
     return x1, x2, (start, stop)
+
+
+def _sliding_windows(x1, x2, axis_map, window, step):
+    """Windows of `window` samples along the window axis, one starting every `step` samples.
+
+    Windows start at 0, step, 2 * step, ... while ``start + window <= n``. `window` and `step`
+    must be ints, `window` no longer than the axis; `jrsa` checks them here, before any work.
+    Returns the windowed x1 and x2 of each window, and each ``(start, stop)``.
+    """
+    ax = axis_map[_window_axis_name(axis_map)]
+    n = x1.shape[ax]
+    if not _is_axis_index(window) or window < 1:
+        raise ValueError(
+            "jrsa: sliding=True needs window to be an int width in samples, at least 1; "
+            f"got window={window!r}."
+        )
+    if window > n:
+        raise ValueError(
+            f"jrsa: window={window} is longer than the {n}-sample window axis; sliding=True "
+            "needs window <= n."
+        )
+    if not _is_axis_index(step) or step < 1:
+        raise ValueError(
+            "jrsa: sliding=True needs step to be an int stride in samples, at least 1; "
+            f"got step={step!r}. There is no default stride."
+        )
+    x1_list, x2_list, windows = [], [], []
+    for start in range(0, n - window + 1, step):
+        stop = start + window
+        slices = [slice(None)] * x1.ndim
+        slices[ax] = slice(start, stop)
+        x1_list.append(x1[tuple(slices)])
+        x2_list.append(None if x2 is None else x2[tuple(slices)])
+        windows.append((start, stop))
+    return x1_list, x2_list, windows
 
 
 def _apply_lag(x1, x2, axis_map, lag, axis=-1):

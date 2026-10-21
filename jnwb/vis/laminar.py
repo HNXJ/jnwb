@@ -9,11 +9,13 @@ jnwb.vis.laminar -- Laminar electrophysiology panels in pure Plotly.
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+import warnings
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import plotly.graph_objects as go
 
+from ..laminar._vflip import CANONICAL_VFLIP_BANDS
 from .canvas import PlotlyPublicationCanvas
 from .theme import COLORS, FONT_FAMILY, FONT_SIZES, checked_colorbar_label, configure_axis
 
@@ -29,6 +31,36 @@ def _depth_axis_title(depth_unit: str) -> str:
     if not isinstance(depth_unit, str) or depth_unit not in _DEPTH_AXIS_TITLES:
         raise ValueError(f"depth_unit must be 'mm', 'um' or 'relative'; got {depth_unit!r}")
     return _DEPTH_AXIS_TITLES[depth_unit]
+
+
+def _warn_if_outside_depths(what: str, value, depths: np.ndarray) -> None:
+    """Warn when a depth-valued marker lies outside the depth range, where nothing is drawn for it."""
+    if value is None or not np.isfinite(value) or np.min(depths) <= value <= np.max(depths):
+        return
+    warnings.warn(
+        f"{what} {value:g} lies outside the depth range [{np.min(depths):g}, {np.max(depths):g}], "
+        "so nothing is drawn for it. A unit mismatch is the likely cause, for example micrometres "
+        "given for millimetre depths.",
+        UserWarning,
+        stacklevel=3,
+    )
+
+
+def _hz_band_text(argument: str, band) -> str:
+    """The Hz range a legend names, e.g. ``'8–30 Hz'``; refuses a band that is not two finite
+    numbers with low < high."""
+    values = np.asarray(band)
+    if values.shape != (2,) or values.dtype.kind not in "iuf":
+        raise ValueError(
+            f"plot_opposing_gradients: {argument} must be two numbers (low, high) in Hz; got {band!r}."
+        )
+    low, high = (float(v) for v in values)
+    if not (np.isfinite(low) and np.isfinite(high) and low < high):
+        raise ValueError(
+            f"plot_opposing_gradients: {argument} must be two finite numbers with low < high, in Hz; "
+            f"got {band!r}."
+        )
+    return f"{low:g}–{high:g} Hz"
 
 
 def plot_spectrolaminar_map(
@@ -63,7 +95,8 @@ def plot_spectrolaminar_map(
         crossover_depth: Depth of the gamma/alpha-beta crossover, computed from this
             recording (for example with ``jnwb.vflip``), in the units of ``depths``. No
             marker is drawn when None; there is no default value because the depth is
-            a property of each recording, not a constant.
+            a property of each recording, not a constant. A depth outside the range of
+            ``depths`` draws no marker and warns with a UserWarning.
         cmap: Plotly colormap name (default 'Magma').
         log_freq: If True, set frequency axis to log scale.
         title: Panel title.
@@ -74,9 +107,10 @@ def plot_spectrolaminar_map(
             white matter.
 
     Raises:
-        ValueError: ``depth_unit`` is not one of the three units, ``rel_power`` is empty or
-            does not match ``freqs`` and ``depths``, ``rel_power`` holds an infinite value, or
-            a finite value of ``rel_power`` lies outside [0, 1].
+        ValueError: ``depth_unit`` is not one of the three units, ``rel_power`` is empty, square
+            (its orientation is not stated) or does not match ``freqs`` and ``depths``,
+            ``rel_power`` holds an infinite value, or a finite value of ``rel_power`` lies
+            outside [0, 1].
     """
     depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
@@ -88,9 +122,17 @@ def plot_spectrolaminar_map(
         raise ValueError("rel_power is empty; pass one fraction in [0, 1] per frequency and depth.")
 
     # Ensure shape is [depths, freqs] for heatmap display (x=freqs, y=depths)
-    if rel_power.shape == (len(freqs), len(depths)):
+    fits_freq_depth = rel_power.shape == (len(freqs), len(depths))
+    fits_depth_freq = rel_power.shape == (len(depths), len(freqs))
+    if fits_freq_depth and fits_depth_freq:
+        raise ValueError(
+            f"plot_spectrolaminar_map: rel_power is square {rel_power.shape} for {len(freqs)} freqs and "
+            f"{len(depths)} depths, so its orientation cannot be read from the shape; pass non-square "
+            "data, or transpose it to [n_depths, n_freqs] yourself."
+        )
+    if fits_freq_depth:
         z_data = rel_power.T
-    elif rel_power.shape == (len(depths), len(freqs)):
+    elif fits_depth_freq:
         z_data = rel_power
     else:
         raise ValueError(
@@ -147,6 +189,7 @@ def plot_spectrolaminar_map(
     y_dict["autorange"] = "reversed"
 
     # Layer 4 crossover dashed reference line
+    _warn_if_outside_depths("plot_spectrolaminar_map: crossover_depth", crossover_depth, depths)
     if crossover_depth is not None and np.min(depths) <= crossover_depth <= np.max(depths):
         line_trace = go.Scatter(
             x=[np.min(freqs), np.max(freqs)],
@@ -203,6 +246,8 @@ def plot_opposing_gradients(
     title: Optional[str] = "Opposing Laminar Gradients",
     *,
     depth_unit: str,
+    gamma_band: Tuple[float, float] = CANONICAL_VFLIP_BANDS["high"],
+    alphabeta_band: Tuple[float, float] = CANONICAL_VFLIP_BANDS["low"],
 ) -> None:
     """
     Render opposing gamma vs. alpha/beta laminar power gradients with caller-supplied intervals.
@@ -228,20 +273,39 @@ def plot_opposing_gradients(
             1 = white matter). Required; it labels the depth axis. Depths are drawn as given:
             ``'relative'`` values outside [0, 1] are channels above the pia or below the
             white matter.
+        gamma_band: Frequency band of the gamma profile, (low, high) in Hz; the legend names it.
+            Defaults to the vFLIP high band.
+        alphabeta_band: Frequency band of the alpha/beta profile, (low, high) in Hz; the legend
+            names it. Defaults to the vFLIP low band.
 
     Raises:
-        ValueError: ``depth_unit`` is not one of the three units.
+        ValueError: ``depth_unit`` is not one of the three units, a profile's shape is not
+            the shape of ``depths``, an interval array is not [n_depths, 2], or a band is not
+            two finite numbers with low < high.
     """
     depth_title = _depth_axis_title(depth_unit)
+    gamma_text = _hz_band_text("gamma_band", gamma_band)
+    alphabeta_text = _hz_band_text("alphabeta_band", alphabeta_band)
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     gamma_power = np.asarray(gamma_power, dtype=float)
     alphabeta_power = np.asarray(alphabeta_power, dtype=float)
     depths = np.asarray(depths, dtype=float)
+    for name, profile in (("gamma_power", gamma_power), ("alphabeta_power", alphabeta_power)):
+        if profile.shape != depths.shape:
+            raise ValueError(
+                f"plot_opposing_gradients: {name} shape {profile.shape} does not match depths shape "
+                f"{depths.shape}; pass one value per depth."
+            )
 
     # Gamma CI envelope (fill='tonexty')
     if ci_gamma is not None:
         ci_gamma = np.asarray(ci_gamma, dtype=float)
+        if ci_gamma.shape != (depths.size, 2):
+            raise ValueError(
+                f"plot_opposing_gradients: ci_gamma shape {ci_gamma.shape} does not match depths shape "
+                f"{depths.shape}; expected {(depths.size, 2)}, one [lower, upper] pair per depth."
+            )
         # Lower bound
         canvas.fig.add_trace(
             go.Scatter(
@@ -274,6 +338,11 @@ def plot_opposing_gradients(
     # Alpha/Beta CI envelope
     if ci_alphabeta is not None:
         ci_alphabeta = np.asarray(ci_alphabeta, dtype=float)
+        if ci_alphabeta.shape != (depths.size, 2):
+            raise ValueError(
+                f"plot_opposing_gradients: ci_alphabeta shape {ci_alphabeta.shape} does not match depths "
+                f"shape {depths.shape}; expected {(depths.size, 2)}, one [lower, upper] pair per depth."
+            )
         canvas.fig.add_trace(
             go.Scatter(
                 x=ci_alphabeta[:, 0],
@@ -307,11 +376,11 @@ def plot_opposing_gradients(
             x=gamma_power,
             y=depths,
             mode="lines",
-            name="Gamma (50–150 Hz)",
+            name=f"Gamma ({gamma_text})",
             line=dict(color=gamma_color, width=1.5),
             xaxis=x_axis,
             yaxis=y_axis,
-            hovertemplate="Gamma: %{x:.3f}<br>Depth: %{y:.3f}<extra></extra>",
+            hovertemplate=f"Gamma ({gamma_text}): %{{x:.3f}}<br>Depth: %{{y:.3f}}<extra></extra>",
         )
     )
     canvas.fig.add_trace(
@@ -319,17 +388,18 @@ def plot_opposing_gradients(
             x=alphabeta_power,
             y=depths,
             mode="lines",
-            name="Alpha/Beta (10–30 Hz)",
+            name=f"Alpha/Beta ({alphabeta_text})",
             line=dict(color=alphabeta_color, width=1.5),
             xaxis=x_axis,
             yaxis=y_axis,
-            hovertemplate="Alpha/Beta: %{x:.3f}<br>Depth: %{y:.3f}<extra></extra>",
+            hovertemplate=f"Alpha/Beta ({alphabeta_text}): %{{x:.3f}}<br>Depth: %{{y:.3f}}<extra></extra>",
         )
     )
 
     # Layer 4 crossover dashed reference line
+    _warn_if_outside_depths("plot_opposing_gradients: crossover_depth", crossover_depth, depths)
     if crossover_depth is not None and np.min(depths) <= crossover_depth <= np.max(depths):
-        x_max = max(np.max(gamma_power), np.max(alphabeta_power)) * 1.05
+        x_max = np.nanmax([np.nanmax(gamma_power), np.nanmax(alphabeta_power)]) * 1.05
         canvas.fig.add_trace(
             go.Scatter(
                 x=[0, x_max],
@@ -400,6 +470,7 @@ def plot_csd(
         time_ms: 1D array of time points relative to event (ms).
         depths: 1D array of cortical depths, in ``depth_unit``.
         layer_boundaries: Dictionary mapping layer names (e.g. 'L4', 'L5/6') to depth coordinates.
+            A boundary outside the range of ``depths`` is not drawn and warns with a UserWarning.
         cmap: Diverging colormap name (default 'RdBu_r' where blue is sink, red is source).
         title: Panel title, for example ``"Current Source Density"``. None draws no title.
         colorbar_title: Name of the quantity on the colorbar, for example ``"CSD"``; the
@@ -415,7 +486,8 @@ def plot_csd(
 
     Raises:
         ValueError: ``value_unit`` is not a non-empty string, ``colorbar_title`` is blank or
-            names ``value_unit``, or ``depth_unit`` is not one of the three units.
+            names ``value_unit``, ``depth_unit`` is not one of the three units, or ``csd_matrix``
+            does not have shape [len(depths), len(time_ms)] or holds no finite value.
     """
     colorbar_label = checked_colorbar_label(colorbar_title, value_unit)
     depth_title = _depth_axis_title(depth_unit)
@@ -424,9 +496,17 @@ def plot_csd(
     csd_matrix = np.asarray(csd_matrix, dtype=float)
     time_ms = np.asarray(time_ms, dtype=float)
     depths = np.asarray(depths, dtype=float)
+    if csd_matrix.shape != (len(depths), len(time_ms)):
+        raise ValueError(
+            f"plot_csd: csd_matrix shape {csd_matrix.shape} does not match depths and time_ms; "
+            f"expected ({len(depths)}, {len(time_ms)})."
+        )
 
-    # Robust symmetric scale centered at 0
-    vmax = float(np.percentile(np.abs(csd_matrix), 98))
+    # Robust symmetric scale centered at 0, from the finite values only (a NaN is drawn as a gap)
+    finite_abs = np.where(np.isfinite(csd_matrix), np.abs(csd_matrix), np.nan)
+    if np.isnan(finite_abs).all():
+        raise ValueError("plot_csd: csd_matrix holds no finite value; the colour range needs at least one.")
+    vmax = float(np.nanpercentile(finite_abs, 98))
     vmin = -vmax
 
     cb_cfg = canvas.get_colorbar_config(row, col, title=colorbar_label)
@@ -450,6 +530,7 @@ def plot_csd(
     # Layer boundary lines and labels
     if layer_boundaries:
         for layer_name, layer_depth in layer_boundaries.items():
+            _warn_if_outside_depths(f"plot_csd: layer boundary {layer_name!r}", layer_depth, depths)
             if np.min(depths) <= layer_depth <= np.max(depths):
                 canvas.fig.add_trace(
                     go.Scatter(

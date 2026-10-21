@@ -43,7 +43,8 @@ from scripts.reconstruct_state import (  # noqa: E402
     run,
 )
 
-_TIMESTAMP_RE = re.compile(r"^Regenerated .*$", re.MULTILINE)
+# The CI row reads the network, where a run can finish between two builds.
+_TIMESTAMP_RE = re.compile(r"^(Regenerated .*|\| Newest CI run on `dev` \|.*)$", re.MULTILINE)
 
 
 def _without_timestamp(text: str) -> str:
@@ -142,7 +143,7 @@ def test_it_reports_the_slots_a_packet_needs(generated: str):
         "| Skills |",
         "| Agent roles |",
         "ALL HARNESS GATES PASSED",
-        "problem rows",
+        "table rows",
     ):
         assert expected in generated, f"state.md no longer reports {expected!r}"
 
@@ -244,3 +245,62 @@ def test_the_cli_check_runs_without_probing(generated: str):
     )
     assert "PASS" in proc.stdout or "ERROR" in proc.stdout, proc.stdout + proc.stderr
     assert "harness_gate" not in proc.stdout, "--check ran the gate; it must not"
+
+
+@pytest.mark.requires_git_checkout
+def test_it_reports_worktrees_branches_the_dev_run_and_open_defect_classes(generated: str):
+    assert "## Awareness" in generated
+    assert f"| `{REPO_ROOT.as_posix()}` |" in generated, "the main worktree must be listed"
+    assert "| `dev` |" in generated or "(detached)" in generated
+    assert "| Newest CI run on `dev` |" in generated
+    assert "| Open defect classes |" in generated
+
+
+def test_a_failed_dev_run_reads_red(monkeypatch: pytest.MonkeyPatch):
+    from scripts import reconstruct_state
+
+    failed = '[{"headSha":"' + "a" * 40 + '","status":"completed","conclusion":"failure",' \
+             '"workflowName":"CI/CD"}]'
+    monkeypatch.setattr(reconstruct_state, "run", lambda *cmd, **kw: failed)
+    assert reconstruct_state.newest_dev_run().startswith("RED: `aaaaaaaaaaaa` CI/CD completed")
+    passed = failed.replace("failure", "success")
+    monkeypatch.setattr(reconstruct_state, "run", lambda *cmd, **kw: passed)
+    assert reconstruct_state.newest_dev_run() == "`aaaaaaaaaaaa` CI/CD completed success"
+    monkeypatch.setattr(reconstruct_state, "run", lambda *cmd, **kw: "UNRESOLVED (exit 4: gh)")
+    assert reconstruct_state.newest_dev_run() == "UNRESOLVED (exit 4: gh)"
+
+
+def test_a_prunable_worktree_and_a_merged_branch_are_named(monkeypatch: pytest.MonkeyPatch):
+    from scripts import reconstruct_state
+
+    outputs = {
+        ("git", "worktree", "list", "--porcelain"):
+            "worktree C:/a\nHEAD " + "1" * 40 + "\nbranch refs/heads/dev\n\n"
+            "worktree C:/gone\nHEAD " + "2" * 40 + "\ndetached\nprunable gitdir file missing",
+        ("git", "for-each-ref", "refs/heads", "--format=%(refname:short) %(objectname)"):
+            "dev " + "1" * 40 + "\nlane-done " + "3" * 40 + "\nlane-open " + "4" * 40,
+        ("git", "cherry", "dev", "lane-done"): "- " + "3" * 40,
+        ("git", "cherry", "dev", "lane-open"): "- " + "5" * 40 + "\n+ " + "4" * 40,
+    }
+    monkeypatch.setattr(reconstruct_state, "run", lambda *cmd, **kw: outputs[cmd])
+    worktrees = reconstruct_state.worktree_rows()
+    assert worktrees == ["| `C:/a` | `111111111111` | `dev` |  |",
+                         "| `C:/gone` | `222222222222` | `(detached)` | prunable |"]
+    branches = {row.split("`")[1]: row for row in reconstruct_state.branch_rows()}
+    assert set(branches) == {"dev", "lane-done", "lane-open"}
+    assert "stale" in branches["lane-done"]
+    assert "stale" not in branches["lane-open"] and "stale" not in branches["dev"]
+
+
+def test_open_defect_classes_are_the_rows_with_no_landed_check(tmp_path: pathlib.Path):
+    from scripts import reconstruct_state
+
+    ledger = tmp_path / "defect_classes.md"
+    ledger.write_text(
+        "| Class | Seen | Instances | Caught by | Repair | Status |\n|---|---|---|---|---|---|\n"
+        "| once-seen: a | 1 | x | y | z | watch |\n"
+        "| twice-seen: b | 2 | x | y | z | gate proposed |\n"
+        "| checked: c | 3 | x | y | z | check landed: a test |\n"
+        "| ruled: d | 2 | x | y | z | rule: a line |\n", encoding="utf-8")
+    assert reconstruct_state.open_defect_classes(ledger) == "twice-seen (seen 2); once-seen (seen 1)"
+    assert reconstruct_state.open_defect_classes(tmp_path / "absent.md").startswith("UNRESOLVED (")

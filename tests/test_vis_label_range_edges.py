@@ -19,7 +19,7 @@ import plotly.graph_objects as go  # noqa: E402
 
 from jnwb.vis.canvas import PlotlyPublicationCanvas  # noqa: E402
 from jnwb.vis.hierarchy import plot_hierarchy_regression  # noqa: E402
-from jnwb.vis.laminar import plot_csd, plot_spectrolaminar_map  # noqa: E402
+from jnwb.vis.laminar import plot_csd, plot_opposing_gradients, plot_spectrolaminar_map  # noqa: E402
 
 
 def _canvas():
@@ -93,3 +93,53 @@ def test_hierarchy_hover_adds_no_literal_percent_to_the_value():
     assert "Value: %{y:.2f}" in points.hovertemplate  # precondition: the value field is present
     literal = re.sub(r"%\{[^}]*\}", "", points.hovertemplate)  # drop plotly's %{...} fields
     assert "%" not in literal
+
+
+def test_spectrolaminar_map_refuses_a_square_rel_power():
+    """A square rel_power was read as [n_freqs, n_depths] although both layouts are documented."""
+    freqs, depths = np.arange(1.0, 5.0), np.linspace(0.0, 1.0, 4)
+    plot_spectrolaminar_map(_canvas(), 0, 0, rel_power=np.full((4, 3), 0.5), freqs=freqs,
+                            depths=np.linspace(0.0, 1.0, 3), depth_unit="relative")  # precondition: non-square is accepted
+    with pytest.raises(ValueError, match=r"rel_power.*square"):
+        plot_spectrolaminar_map(_canvas(), 0, 0, rel_power=np.full((4, 4), 0.5), freqs=freqs,
+                                depths=depths, depth_unit="relative")
+
+
+def test_opposing_gradients_refuses_profiles_that_do_not_match_the_depths():
+    depths = np.linspace(0.0, 1.0, 4)
+    ok = np.linspace(1.0, 0.0, 4)
+    plot_opposing_gradients(_canvas(), 0, 0, gamma_power=ok, alphabeta_power=ok, depths=depths,
+                            depth_unit="relative")  # precondition: matching lengths are accepted
+    with pytest.raises(ValueError, match=r"gamma_power shape \(5,\).*depths shape \(4,\)"):
+        plot_opposing_gradients(_canvas(), 0, 0, gamma_power=np.linspace(1.0, 0.0, 5),
+                                alphabeta_power=ok, depths=depths, depth_unit="relative")
+    with pytest.raises(ValueError, match=r"alphabeta_power shape \(5,\).*depths shape \(4,\)"):
+        plot_opposing_gradients(_canvas(), 0, 0, gamma_power=ok, alphabeta_power=np.linspace(0.0, 1.0, 5),
+                                depths=depths, depth_unit="relative")
+
+
+def test_csd_refuses_a_matrix_that_does_not_match_depths_and_time():
+    """A transposed matrix was drawn against the wrong axes without a word."""
+    def draw(csd):
+        plot_csd(_canvas(), 0, 0, csd_matrix=csd, time_ms=np.arange(4.0), depths=np.arange(3.0),
+                 value_unit="A/m³", depth_unit="mm")
+
+    draw(np.ones((3, 4)))  # precondition: [n_depths, n_times] is accepted
+    with pytest.raises(ValueError, match=r"csd_matrix shape \(4, 3\).*expected \(3, 4\)"):
+        draw(np.ones((4, 3)))
+
+
+def test_csd_colour_range_ignores_a_nan_and_refuses_an_all_non_finite_matrix():
+    """One NaN made the 98th percentile NaN, so the colour range had no limits."""
+    csd = np.array([[1.0, 2.0, 3.0, 4.0], [np.nan, 2.0, 1.0, 0.5], [0.1, 0.2, 0.3, 0.4]])
+    assert np.isnan(csd).sum() == 1  # precondition: one NaN
+    canvas = _canvas()
+    plot_csd(canvas, 0, 0, csd_matrix=csd, time_ms=np.arange(4.0), depths=np.arange(3.0),
+             value_unit="A/m³", depth_unit="mm")
+    (heatmap,) = [t for t in canvas.fig.data if isinstance(t, go.Heatmap)]
+    assert np.isfinite(heatmap.zmax) and heatmap.zmax > 0
+    assert heatmap.zmin == -heatmap.zmax
+    for fill in (np.nan, np.inf):
+        with pytest.raises(ValueError, match="csd_matrix"):
+            plot_csd(_canvas(), 0, 0, csd_matrix=np.full((3, 4), fill), time_ms=np.arange(4.0),
+                     depths=np.arange(3.0), value_unit="A/m³", depth_unit="mm")

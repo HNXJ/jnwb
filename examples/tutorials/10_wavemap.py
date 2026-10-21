@@ -12,7 +12,8 @@ whose smallest cluster holds more than 20 units in every run, and take the highe
 decimals goes to the smaller resolution.
 
 The unit 'volts' is the source's label for `units/waveform_mean`, kept as the source states it.
-The peak-to-peak values read as microvolts; that reading is unverified.
+The peak-to-peak values (31 to 483) are the range of extracellular spikes in microvolts, not volts,
+so they are read as microvolts; the script prints the range it reads.
 
 A cluster is a group of units whose normalized mean waveforms share a shape at this resolution.
 It is not a cell type. This excerpt holds no ground truth for one, and the classifier and SHAP
@@ -79,8 +80,9 @@ def main() -> None:
     unit = provenance["waveform_mean"]["unit_label_in_source"]
 
     raw, unit_ids = read_mean_waveforms(EXCERPT)
-    print(f"{raw.shape[0]} units, {raw.shape[1]} samples each, in the source's unit '{unit}' "
-          "(the label comes from the source; the values read as microvolts, unverified)")
+    p2p = np.ptp(raw, axis=1)
+    print(f"{raw.shape[0]} units, {raw.shape[1]} samples each, labelled '{unit}' by the source; "
+          f"peak-to-peak {p2p.min():.0f} to {p2p.max():.0f}, read as microvolts")
 
     # 1. Align on the trough. A unit whose window leaves the stored samples is marked invalid,
     #    and a row that does not normalize (a flat trace) is dropped. Nothing is padded.

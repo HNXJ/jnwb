@@ -44,6 +44,7 @@ ERRORS = [
     "AmbiguousLayoutError",
     "ChannelIndexError",
     "ColumnNotFoundError",
+    "ContainerTypeContradictionWarning",
     "IntervalTableNotFoundError",
     "InvalidOnsetValueError",
     "MissingRequiredNWBFieldError",
@@ -72,6 +73,7 @@ ONTOLOGY = [
 # mapping below is checked against the live return annotation.
 RETURNED_BY = {
     "AperiodicFitResult": ["aperiodic_fit"],
+    "TickClock": ["derive_tick_clock"],
     "ComplexTFR": ["complex_tfr"],
     "DirectedResult": ["granger", "granger_spectral", "phase_slope_index", "transfer_entropy",
                        "directed_connectivity"],

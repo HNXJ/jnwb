@@ -198,3 +198,27 @@ class TestTheScalarRepairStillDoesItsJob:
         gb = GroupBuilder(name="units", attributes={"colnames": "spike_times"})
         _repair_builder(gb, None)
         assert list(gb.attributes["colnames"]) == ["spike_times"]
+
+    def test_bytes_and_str_colnames_repair_to_the_same_names(self):
+        """Bytes column names used to stay bytes, so each data column was appended again as str:
+        9 names for 3 columns. Decoded first, both storages give the same three names."""
+        from hdmf.build import DatasetBuilder, GroupBuilder
+
+        from jnwb.nwb_io import _repair_builder
+
+        data_cols = ["spike_times", "waveform_mean", "spike_amplitudes"]
+        index_cols = [c + "_index" for c in data_cols]
+        repaired = {}
+        for label, encode in (("str", lambda s: s), ("bytes", lambda s: s.encode("utf-8"))):
+            gb = GroupBuilder(
+                name="units",
+                attributes={"colnames": np.array([encode(c) for c in data_cols + index_cols],
+                                                 dtype=object)},
+                datasets={c: DatasetBuilder(c, data=[]) for c in data_cols},
+            )
+            assert isinstance(gb.attributes["colnames"][0], bytes) == (label == "bytes"), (
+                "fixture must store the column names as " + label)
+            _repair_builder(gb, None)
+            repaired[label] = list(gb.attributes["colnames"])
+        assert repaired["str"] == data_cols
+        assert repaired["bytes"] == repaired["str"]

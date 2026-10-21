@@ -50,7 +50,7 @@ def _exhaustive_unpaired_p(a, b, alternative: str) -> float:
         return float(np.mean(null >= obs))
     if alternative == "less":
         return float(np.mean(null <= obs))
-    return float(np.mean(np.abs(null) >= abs(obs)))
+    return min(1.0, 2.0 * min(float(np.mean(null >= obs)), float(np.mean(null <= obs))))
 
 
 class TestThePairedPValueIsTheRankItClaimsToBe:
@@ -211,7 +211,8 @@ class TestTheTieRuleCountsRoundOffAndNothingWider:
         null = np.array([np.nextafter(obs, 0.0), obs * (1 - 1e-12), obs])
         assert _count_at_least_as_extreme(null, obs, "greater") == 2
         assert _count_at_least_as_extreme(-null, -obs, "less") == 2
-        assert _count_at_least_as_extreme(-null, obs, "two-sided") == 2
+        # Two-sided counts the smaller tail: 2 draws reach 0.3 from above, 3 from below.
+        assert _count_at_least_as_extreme(null, obs, "two-sided") == 2
 
     def test_the_sorted_count_for_every_element_is_the_rule_applied_to_each(self):
         from jnwb.permutation import _count_at_least_as_extreme, _count_each_at_least_as_extreme
@@ -233,8 +234,48 @@ class TestTheTieRuleCountsRoundOffAndNothingWider:
             obs = float(rng.normal())
             assert _count_at_least_as_extreme(null, obs, "greater") == int(np.sum(null >= obs))
             assert _count_at_least_as_extreme(null, obs, "two-sided") == int(
-                np.sum(np.abs(null) >= abs(obs))
+                min(np.sum(null >= obs), np.sum(null <= obs))
             )
+
+
+class TestTheTwoSidedPValueIsTwiceTheSmallerTail:
+    """Two-sided p is min(1, 2 min(p_greater, p_less)), each side (1 + k) / (B + 1) with the
+    same tie width. A sign-flip null is symmetric about zero, so there this rule and the old
+    |null| >= |observed| count agree. A non-negative metric has no lower side: the old count
+    gave p = 1 for an observed value below every draw."""
+
+    def test_a_non_negative_metric_gets_twice_its_lower_tail(self):
+        from jnwb.jrsa._inference import _p_from_null
+
+        n = 999
+        null = np.random.default_rng(7).uniform(0.70, 0.95, size=n)
+        assert null.min() >= 0.70
+        p = float(_p_from_null(0.62, null, "two-sided"))
+        p_less = float(_p_from_null(0.62, null, "less"))
+        assert p_less == pytest.approx(1 / (n + 1), rel=0, abs=1e-12), p_less
+        assert p == pytest.approx(2 * p_less, rel=0, abs=1e-12), p
+        assert p == pytest.approx(2 / (n + 1), rel=0, abs=1e-12), p
+
+    def test_the_connectivity_surrogate_p_follows_the_same_rule(self):
+        from jnwb.connectivity._common import _surrogate_p
+
+        n = 999
+        null = np.random.default_rng(7).uniform(0.70, 0.95, size=n)
+        p = _surrogate_p(null, 0.62, "two-sided")
+        assert p == pytest.approx(2 / (n + 1), rel=0, abs=1e-12), p
+
+    def test_a_symmetric_null_moves_the_p_by_one_draw_at_most(self):
+        """Zero-centred and exactly symmetric: the old count of |null| >= |observed| is twice
+        the greater-tail count, so the new p differs from the old by 1 / (B + 1)."""
+        from jnwb.jrsa._inference import _p_from_null
+
+        x = np.random.default_rng(3).normal(size=499)
+        null = np.concatenate([x, -x])
+        n = null.size
+        obs = 2.5
+        old = (1 + int(np.sum(np.abs(null) >= abs(obs)))) / (n + 1)
+        new = float(_p_from_null(obs, null, "two-sided"))
+        assert abs(new - old) <= 2 / (n + 1), (new, old)
 
 
 class TestEveryNullCountsTheDrawsThatReproduceTheObservedStatistic:

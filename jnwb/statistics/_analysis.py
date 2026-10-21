@@ -8,7 +8,7 @@ import numpy as np
 from .._rng import DEFAULT_SEED, RNGLike, resolve_rng
 from .._spread import is_constant as _is_constant
 from scipy import stats
-from ..permutation import _count_at_least_as_extreme
+from ..permutation import _count_at_least_as_extreme, _p_from_count
 from ._tests import clopper_pearson, mann_whitney_p_floor, exact_sign_flip, _tie_tolerance, _zero_spread_t
 
 
@@ -27,7 +27,8 @@ def fdr_correct(
         method: Passed to ``scipy.stats.false_discovery_control``. Default "bh".
 
     Returns:
-        np.ndarray: FDR-adjusted q-values, same shape as input (flattened 1-D).
+        np.ndarray: FDR-adjusted q-values, a 1-D array of ``p_values.size`` entries. A 2-D
+        input is flattened in C order first, so the result is not the input's shape.
 
     References:
         Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. J. R.
@@ -93,7 +94,8 @@ class StatisticalAnalysis:
             method: passed to ``scipy.stats.false_discovery_control``
 
         Returns:
-            FDR-adjusted q-values, same shape as input (flattened 1-D)
+            FDR-adjusted q-values, a 1-D array of ``p_values.size`` entries. A 2-D input is
+            flattened in C order first, so the result is not the input's shape.
 
         References:
             Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. J. R.
@@ -239,11 +241,11 @@ class StatisticalAnalysis:
             if len(valid1) < 2:
                 raise ValueError(
                     "compare_groups(paired=True) requires at least two paired observations "
-                    f"after NaN exclusion; got n={len(valid1)}"
+                    f"after excluding non-finite values; got n={len(valid1)}"
                 )
         else:
-            valid1 = group1[~np.isnan(group1)]
-            valid2 = group2[~np.isnan(group2)]
+            valid1 = group1[np.isfinite(group1)]
+            valid2 = group2[np.isfinite(group2)]
 
         result: Dict = {
             "n1": len(valid1),
@@ -373,7 +375,7 @@ class StatisticalAnalysis:
         run_param, run_nonparam = _resolve_test_choice(test, "compare_multiple_groups")
 
         group_data = [np.asarray(g).flatten() for g in groups.values()]
-        group_data = [g[~np.isnan(g)] for g in group_data]
+        group_data = [g[np.isfinite(g)] for g in group_data]
         group_names = list(groups.keys())
 
         k = len(group_data)
@@ -518,7 +520,7 @@ class StatisticalAnalysis:
         rng = resolve_rng(rng, func_name="bootstrap_ci")
 
         data = np.asarray(data).flatten()
-        data = data[~np.isnan(data)]
+        data = data[np.isfinite(data)]
 
         mean = np.mean(data)
         sem = stats.sem(data)
@@ -633,7 +635,7 @@ class StatisticalAnalysis:
 
         k = _count_at_least_as_extreme(perm_diffs, obs_diff, "two-sided",
                                        atol=_tie_tolerance(combined))
-        p_value = (1 + k) / (n_permutations + 1)
+        p_value = _p_from_count(k, n_permutations, "two-sided")
 
         return {
             "observed_difference": float(obs_diff),
@@ -655,6 +657,7 @@ class StatisticalAnalysis:
         group2: np.ndarray,
         paired: bool = False,
         n_bootstrap: int = 2000,
+        rng: RNGLike = DEFAULT_SEED,
         *,
         test: str = "both",
     ) -> Dict:
@@ -663,6 +666,8 @@ class StatisticalAnalysis:
 
         Pass ``test="parametric"`` or ``test="nonparametric"`` to name one primary test;
         only that one is computed and only its keys are returned. The default runs both.
+        ``rng`` seeds the bootstrap interval, as in ``compare_groups``; its default is the
+        seed ``compare_groups`` uses.
 
         Every p-value in the result is raw. No key in it is FDR-corrected, and no key
         claims to be: corrected values are spelled ``q_`` and are returned only by
@@ -686,7 +691,7 @@ class StatisticalAnalysis:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             result = StatisticalAnalysis.compare_groups(
-                group1, group2, paired=paired, n_bootstrap=n_bootstrap, test=test
+                group1, group2, paired=paired, n_bootstrap=n_bootstrap, rng=rng, test=test
             )
         result.pop("multiple_comparison", None)
         result["api"] = "exploratory"
@@ -742,6 +747,7 @@ class StatisticalAnalysis:
         alpha: float = 0.05,
         paired: bool = False,
         n_bootstrap: int = 2000,
+        rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
         """
         **Confirmatory** two-group comparison.
@@ -767,6 +773,7 @@ class StatisticalAnalysis:
             alpha: Significance threshold (default 0.05).
             paired: Whether to use a paired test.
             n_bootstrap: Bootstrap iterations for CI.
+            rng: Int seed or ``Generator`` for the bootstrap interval, as in ``compare_groups``.
 
         Returns:
             Dict with all exploratory_compare keys plus:
@@ -789,7 +796,7 @@ class StatisticalAnalysis:
                 f"confirmatory_compare: alpha must be in (0, 1), got {alpha}."
             )
         result = StatisticalAnalysis.exploratory_compare(
-            group1, group2, paired=paired, n_bootstrap=n_bootstrap
+            group1, group2, paired=paired, n_bootstrap=n_bootstrap, rng=rng
         )
         param_p = result["parametric"]["pval"]
         nonparam_p = result["non_parametric"]["pval"]

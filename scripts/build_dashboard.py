@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -34,11 +35,11 @@ PYPROJECT = REPO_ROOT / "pyproject.toml"
 INIT_PATH = REPO_ROOT / "jnwb" / "__init__.py"
 CHANGELOG = REPO_ROOT / "CHANGELOG.md"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "workflow.yml"
-FROZEN = REPO_ROOT / "artifacts" / "frozen_validated.json"
+FROZEN = REPO_ROOT / "artifacts" / "process" / "frozen_validated.json"
 BENCHMARKS = REPO_ROOT / "artifacts" / "benchmarks"
-BASELINE = BENCHMARKS / "baseline_performance.json"
-PEAK_MEMORY = BENCHMARKS / "peak_memory.json"
-IMPORT_BREAKDOWN = BENCHMARKS / "import_breakdown.json"
+BASELINE = BENCHMARKS / "performance" / "baseline_performance.json"
+PEAK_MEMORY = BENCHMARKS / "performance" / "peak_memory.json"
+IMPORT_BREAKDOWN = BENCHMARKS / "performance" / "import_breakdown.json"
 REFERENCES = REPO_ROOT / "docs" / "references.md"
 ASSETS = REPO_ROOT / "docs" / "assets"
 FIGURES = ASSETS / "figures"
@@ -229,7 +230,11 @@ def ci_section() -> dict | None:
 
 
 def api_section() -> dict | None:
-    if str(REPO_ROOT) not in sys.path:
+    # Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
+    if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))
+    elif str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
     try:
         import jnwb

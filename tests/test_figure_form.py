@@ -807,6 +807,8 @@ AWAITING.update({("displayed size at the mobile width", embed): _MOBILE_TEXT_TOO
     "08_directed_connectivity_and_information.md:fig18_psi_narrowband_trap.png",
     "09_decoding_and_visual_qc.md:fig07_population_decoding.png",
     "09_open_data.md:fig21_open_data_psth_db.png",
+    "03_spiking.md:fig27_spiking_psth_onset.png",
+    "04_lfp_and_spectral.md:fig28_lfp_spectral_wpli.png",
     "05_statistics.md:fig24_statistics_groups_cluster.png",
     "06_laminar.md:fig25_laminar_csd_flips.png",
     "07_ensembles.md:fig26_ensembles_rdm_decoding.png",
@@ -1772,6 +1774,7 @@ def test_the_drawn_colours_stay_apart_under_colour_vision_deficiency(drawn, name
 
 
 def test_the_palette_stays_apart_under_colour_vision_deficiency():
+    assert STYLE.HIGHLIGHT, "the palette names no highlight colour"
     for theme, highlight in STYLE.HIGHLIGHT.items():
         assert not _cvd_failures([*STYLE.SERIES, highlight, STYLE.NEUTRAL]), theme
 

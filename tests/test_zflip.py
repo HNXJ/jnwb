@@ -69,8 +69,9 @@ def test_wpli_input_shapes_and_aliases():
     with pytest.raises(ValueError, match="empty"):
         jnwb.wpli([], [], fs=1000.0)
 
-    x = np.random.randn(500)
-    y = np.random.randn(500)
+    rng = np.random.default_rng(4)
+    x = rng.standard_normal(500)
+    y = rng.standard_normal(500)
     res = jnwb.wpli(x, y, sampling_rate=1000.0)
     assert "wpli" in res
     assert res["n_segments"] > 0
@@ -78,30 +79,32 @@ def test_wpli_input_shapes_and_aliases():
 
 def test_zflip_input_validation():
     """zflip validates shapes, channel counts, and sampling rate."""
+    rng = np.random.default_rng(5)
     # 1D array
     with pytest.raises(ValueError, match="2D array"):
-        jnwb.zflip(np.random.randn(100), orientation="superficial_to_deep", fs=1000.0)
+        jnwb.zflip(rng.standard_normal(100), orientation="superficial_to_deep", fs=1000.0)
 
     # 3D array (e.g. pre-averaged C x C x F tensor)
     with pytest.raises(ValueError, match="2D array"):
-        jnwb.zflip(np.random.randn(8, 8, 50), orientation="superficial_to_deep", fs=1000.0)
+        jnwb.zflip(rng.standard_normal((8, 8, 50)), orientation="superficial_to_deep", fs=1000.0)
 
     # Fewer than 3 channels
     with pytest.raises(ValueError, match="at least 3 channels"):
-        jnwb.zflip(np.random.randn(2, 1000), orientation="superficial_to_deep", fs=1000.0)
+        jnwb.zflip(rng.standard_normal((2, 1000)), orientation="superficial_to_deep", fs=1000.0)
 
     # Invalid fs
     with pytest.raises(ValueError, match="fs must be strictly positive"):
-        jnwb.zflip(np.random.randn(8, 1000), orientation="superficial_to_deep", fs=-10.0)
+        jnwb.zflip(rng.standard_normal((8, 1000)), orientation="superficial_to_deep", fs=-10.0)
 
     # Invalid pitch
     with pytest.raises(ValueError, match="pitch_um must be strictly positive"):
-        jnwb.zflip(np.random.randn(8, 1000), orientation="superficial_to_deep", fs=1000.0, pitch_um=-50.0)
+        jnwb.zflip(rng.standard_normal((8, 1000)), orientation="superficial_to_deep", fs=1000.0, pitch_um=-50.0)
 
 
 def test_zflip_insufficient_freq_bins():
     """Narrow band with < 3 bins fails gracefully with unidentifiable status."""
-    data = np.random.randn(8, 1000)
+    rng = np.random.default_rng(6)
+    data = rng.standard_normal((8, 1000))
     res = jnwb.zflip(data, orientation="superficial_to_deep", fs=1000.0, freq_range=(20.0, 21.0), nperseg=128)
     assert not res.accepted
     assert not res.delay_identifiable
@@ -726,7 +729,8 @@ def test_zflip_adversarial_opposing_waves():
 
 def test_zflip_container_access_and_to_dict():
     """ZFlipResult supports dataclass attributes, dict access, and serialization."""
-    data = np.random.randn(5, 1000)
+    rng = np.random.default_rng(7)
+    data = rng.standard_normal((5, 1000))
     res = jnwb.zflip(data, orientation="superficial_to_deep", fs=1000.0, freq_range=(15.0, 35.0), n_surrogates=5, seed=42)
 
     # Attribute access

@@ -63,6 +63,15 @@ class TestGrangerCausality:
         assert "F_2_to_1" in result
         assert "F_1_to_2" in result
 
+    def test_a_constant_target_gives_nan_not_zero_influence(self):
+        """A zero residual variance means the fit failed, as `granger` reports it."""
+        noise = np.random.default_rng(3).standard_normal(500)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = granger_causality(np.ones(500), noise, order=2)
+        assert np.isnan(result["F_2_to_1"]), result["F_2_to_1"]
+        assert np.isfinite(result["F_1_to_2"]), result["F_1_to_2"]
+
 
 class TestNetworkTopology:
     def test_thresholds_and_counts_edges(self):
@@ -145,6 +154,17 @@ class TestBinSpikes:
             bin_spikes([np.array([0.1])], window=(0.5, 0.5))
         with pytest.raises(ValueError, match="yields 1 bins; need >= 2"):
             bin_spikes([np.array([0.1])], window=(0.0, 0.1), bin_size_ms=100.0)
+
+    def test_a_nan_trial_start_is_refused_not_an_all_zero_trial(self):
+        # The NaN start made every spike of its trial NaN after the subtraction, so the trial
+        # counted zero spikes and no error was raised.
+        spikes = np.array([0.05, 0.15, 0.25, 0.35])
+        with pytest.raises(ValueError, match=r"bin_spikes: trial_starts\[1\] is nan"):
+            bin_spikes(spikes, window_s=(0.0, 0.2), bin_size_ms=100.0,
+                       trial_starts=[0.0, np.nan])
+        counts = bin_spikes(spikes, window_s=(0.0, 0.2), bin_size_ms=100.0,
+                            trial_starts=[0.0, 0.2])
+        assert counts.shape == (2, 2) and counts.sum() == 4
 
     STEADY_1KHZ = np.arange(0.0005, 3.0, 0.001)  # one spike per ms, off the bin edges
 
@@ -371,6 +391,13 @@ class TestPhaseSlopeIndex:
         rev = phase_slope_index(y, x, fs=1000.0, bands=(14, 30), nperseg=256)
         assert fwd.net == pytest.approx(-rev.net, abs=1e-9)
 
+    @pytest.mark.parametrize("noverlap", [256, 300, -1])
+    def test_an_overlap_outside_the_segment_is_refused(self, noverlap):
+        x = np.random.default_rng(5).standard_normal(2000)
+        with pytest.raises(ValueError, match="noverlap must be in"):
+            phase_slope_index(x, np.roll(x, 3), fs=1000.0, bands=(14, 30), nperseg=256,
+                              noverlap=noverlap)
+
     def test_multiband_psi_omnibus_pvalue(self):
         """Multi-band PSI computes omnibus top-level p-value rather than extracting first band (0.2.3-REV-08)."""
         from scipy import signal, stats
@@ -411,6 +438,7 @@ class TestTransferEntropy:
         result = transfer_entropy(x.astype(float), y.astype(float), k=1, l=1, delay=1,
                                    bins=4, n_surrogates=20, seed=0)
         assert isinstance(result, DirectedResult)
+        assert result.x_to_y > 0
 
     def test_the_symbolic_estimator_is_refused_and_points_to_quantile(self):
         """06-202: two noisy copies of one white source tested significant both ways under
@@ -420,6 +448,13 @@ class TestTransferEntropy:
         with pytest.raises(ValueError, match=r"not calibrated under zero-lag mixing.*"
                                              r"estimator='quantile'"):
             transfer_entropy(x[0], x[1], estimator="symbolic", n_surrogates=0)
+
+    def test_an_unknown_bias_correction_is_refused_and_names_the_accepted_values(self):
+        """'miller' used to fall through to the plug-in value with no error."""
+        x = np.random.default_rng(0).normal(size=(2, 200))
+        for bad in ("miller", "MM"):
+            with pytest.raises(ValueError, match=r"bias_correction.*'mm'.*None"):
+                transfer_entropy(x[0], x[1], bias_correction=bad, n_surrogates=0)
 
 
 def _zero_lag_pair(n, seed):
@@ -518,8 +553,18 @@ class TestDirectedConnectivityAndNetwork:
         rng = np.random.default_rng(6)
         x = rng.standard_normal((10, 200))
         y = rng.standard_normal((10, 200))
-        result = directed_connectivity(x, y, method="granger", order=2)
-        assert isinstance(result, DirectedResult)
+        cases = [("granger", jnwb.granger, {"order": 2}),
+                 ("psi", jnwb.phase_slope_index, {"fs": 1000.0, "bands": (14, 30)}),
+                 ("te", jnwb.transfer_entropy, {})]
+        methods = set()
+        for name, direct, kwargs in cases:
+            result = directed_connectivity(x, y, method=name, **kwargs)
+            expected = direct(x, y, **kwargs)
+            assert isinstance(result, DirectedResult)
+            assert result.method == expected.method, name
+            np.testing.assert_array_equal(result.x_to_y, expected.x_to_y)
+            methods.add(result.method)
+        assert len(methods) == len(cases), methods
 
     def test_directed_network_returns_all_pairs(self):
         rng = np.random.default_rng(7)
@@ -648,7 +693,8 @@ class TestFewTrialSurrogates:
         y = 0.3 * np.roll(x, 1, axis=1) + g.normal(size=(7, 200))
         res = granger(x, y, order=1, n_surrogates=19, rng=0)
         sur = res.diagnostics["surrogates"]
-        assert (res.p_x_to_y, res.p_y_to_x, res.p_net) == (0.05, 0.7, 0.05)
+        # p_net is two-sided: twice the smaller tail's 1 / 20. The 0.2.6 value was 0.05.
+        assert (res.p_x_to_y, res.p_y_to_x, res.p_net) == (0.05, 0.7, 0.1)
         np.testing.assert_allclose(
             [sur["null_mean_x_to_y"], sur["null_mean_y_to_x"]],
             [0.00035468224425054724, 0.0006370039765307248], rtol=1e-12, atol=0,
@@ -1016,6 +1062,7 @@ class TestPsiInferenceIsNotOverstated:
         with pytest.warns(RuntimeWarning, match="agree to rounding"):
             res = phase_slope_index(x, x.copy(), fs=100.0, nperseg=64, bands=bands)
         assert res.diagnostics["n_segments"] >= 8
+        assert res.per_band, "phase_slope_index reported no band to test for NaN"
         assert all(np.isnan(b["z"]) for b in res.per_band.values())
         assert res.p_net is None
         assert res.diagnostics["ok_for_interpretation"] is False
@@ -1146,6 +1193,16 @@ class TestGrangerNotTestedIsNotPassed:
         g = granger(constant, constant, order=3)
         te = transfer_entropy(constant, constant)
         assert g.diagnostics["ok_for_interpretation"] == te.diagnostics["ok_for_interpretation"] is False
+
+    def test_a_degenerate_fit_with_surrogates_reports_no_p_rather_than_the_floor(self):
+        """Every surrogate of a constant series is degenerate, so no draw is finite and no p
+        can be formed. The count used to be 1 / (n_surrogates + 1) = 1 / 21 for each direction."""
+        constant = np.ones(800)
+        g = granger(constant, constant, order=3, n_surrogates=20, rng=np.random.default_rng(0))
+        assert np.isnan(g.x_to_y)
+        assert np.isnan(g.p_x_to_y), g.p_x_to_y
+        assert np.isnan(g.p_y_to_x), g.p_y_to_x
+        assert g.p_net is None or np.isnan(g.p_net), g.p_net
 
 
 class TestDirectedEstimatorEdges:
@@ -1436,3 +1493,44 @@ class TestEstimatorEdgesRound2:
         cond = directed_network({"x": x, "y": y, "z": z}, method="gc", order=2, fdr=False,
                                 conditional=True)
         assert cond["matrix"].shape == (3, 3)
+
+
+class TestRidgeMustBeFinite:
+    @pytest.mark.parametrize("ridge", [float("nan"), float("inf")])
+    def test_a_non_finite_ridge_is_refused(self, ridge):
+        # NaN compared false against `ridge <= 0`, so it went to the solver as a NaN penalty.
+        rng = np.random.default_rng(0)
+        x, y = rng.normal(size=(2, 400))
+        with pytest.raises(ValueError, match="ridge"):
+            jnwb.granger(x, y, order=2, ridge=ridge, n_surrogates=0)
+
+
+class TestSurrogatePNaNDraws:
+    """`_surrogate_p` counts the draws that are not NaN in n; a null with none is refused."""
+
+    def test_nan_draws_are_left_out_of_n(self):
+        from jnwb.connectivity._common import _surrogate_p
+
+        null = np.array([np.nan, 0.1, 0.2, 0.3, np.nan])
+        assert np.count_nonzero(np.isnan(null)) == 2, "fixture must hold two NaN draws"
+        # Three draws, none at least 0.5: (1 + 0) / (3 + 1). With n = 5 it was 1 / 6.
+        np.testing.assert_allclose(_surrogate_p(null, 0.5, "greater"), 1 / 4, rtol=1e-12)
+
+    def test_an_infinite_draw_is_a_draw(self):
+        from jnwb.connectivity._common import _surrogate_p
+
+        null = np.array([np.inf, 0.1, 0.2])
+        assert np.isinf(null[0]), "fixture must hold a +inf draw"
+        np.testing.assert_allclose(_surrogate_p(null, 0.5, "greater"), 2 / 4, rtol=1e-12)
+
+    def test_a_null_with_no_non_nan_draw_is_refused(self):
+        from jnwb.connectivity._common import _surrogate_p
+
+        with pytest.raises(ValueError, match=r"_surrogate_p: .*every one is NaN"):
+            _surrogate_p(np.full(4, np.nan), 0.5, "greater")
+
+    def test_a_non_finite_observed_value_gives_nan_whatever_the_null(self):
+        from jnwb.connectivity._common import _surrogate_p
+
+        assert np.isnan(_surrogate_p(np.array([0.1, 0.2]), np.nan, "greater"))
+        assert np.isnan(_surrogate_p(np.full(4, np.nan), np.nan, "greater"))

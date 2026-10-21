@@ -129,6 +129,24 @@ def test_a_superseded_form_on_each_widened_surface_is_caught(label: str, text: s
     assert violations, f"a superseded form on {label} was not caught"
 
 
+REFERENCE_TABLE = (
+    "| Reference | Result implemented | Functions |\n"
+    "|---|---|---|\n"
+    "| Doe, J. (2002). Analysing flows. *J* 1, 1-2. | {claim} | `f` |\n"
+)
+
+
+def test_a_cited_title_keeps_its_spelling_and_the_claim_cell_does_not():
+    # The citation cell is the source's wording; the claim cell beside it is jnwb's prose.
+    assert "analysing" in str(_vocabulary()).lower(), "the planted form must be a superseded one"
+    title_only = REFERENCE_TABLE.format(claim="The estimate as written")
+    assert vocabulary_violations([("references.md", title_only)], _vocabulary()) == []
+    in_claim = REFERENCE_TABLE.format(claim="Analysing the estimate")
+    assert vocabulary_violations([("references.md", in_claim)], _vocabulary())
+    other_table = title_only.replace("| Reference |", "| Source |", 1)
+    assert vocabulary_violations([("references.md", other_table)], _vocabulary())
+
+
 def test_stripping_code_leaves_the_prose_behind():
     """Bypass: `_prose` eats the page, and there is nothing left to violate a rule in."""
     text = (DOCS / "common_mistakes.md").read_text(encoding="utf-8")
@@ -221,6 +239,7 @@ def test_a_reintroduced_superseded_term_is_named_with_its_page(row):
 def test_the_discriminator_would_not_fire_on_the_preferred_form():
     """The other half: the seeded check must be sensitive to the superseded form, not to
     any sentence at all."""
+    assert VOCABULARY, "the vocabulary contract parsed to no rows"
     for row in VOCABULARY:
         for good in row.preferred:
             clean = [("clean_page.md", f"A sentence using {good} in prose.")]

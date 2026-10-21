@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import inspect
 import pathlib
+import types
 
 import numpy as np
 import pandas as pd
@@ -524,6 +525,34 @@ class TestLabelLayers:
         # contacts 15..23 -> deep
         for ch_idx in range(15, 24):
             assert labels[f"ch_{ch_idx}"] == "deep"
+
+    def test_a_non_finite_pitch_is_refused_rather_than_labelling_every_contact_deep(self):
+        """NaN passed `pitch <= 0`; the half-span became NaN and every contact fell to 'deep'."""
+        n_ch = 24
+        geom = self._make_probe_geom(n_channels=n_ch, pitch_um=50.0)
+        res = VFlipResult(
+            crossover_contact=10.0,
+            crossover_depth_um=500.0,
+            support_score=10.0,
+            profile=np.zeros(n_ch),
+            low_peak_contact=18,
+            high_peak_contact=2,
+            orientation="superficial_to_deep",
+            accepted=True,
+            rejection_reason=None,
+            n_channels=n_ch,
+            n_missing=0,
+        )
+        for bad in (float("nan"), float("inf")):
+            duck = types.SimpleNamespace(
+                is_linear=True,
+                channel_ids=list(geom.channel_ids),
+                nominal_pitch=bad,
+                linear_order=geom.linear_order,
+                contact_positions=None,
+            )
+            with pytest.raises(ValueError, match="label_layers: probe_geometry.nominal_pitch"):
+                label_layers(res, duck, granular_thickness_um=400.0)
 
     def test_accepted_deep_to_superficial_layer_labels(self):
         """Accepted deep_to_superficial fit inverts superficial and deep relative to crossover."""
@@ -1354,7 +1383,7 @@ class TestVFlipNormalizationRepair:
         min-max range is taken from noisy extremes.
 
         `VFlipResult.crossover_contact` documents the shrinkage as a fitted slope, and
-        `artifacts/benchmarks/vflip_calibration_0.2.4.md` measures 0.703 at SNR 20, 0.804 at
+        `artifacts/benchmarks/calibration/vflip_calibration_0.2.4.md` measures 0.703 at SNR 20, 0.804 at
         SNR 100 and 0.864 at SNR 1000. This pins that claim so the docstring cannot go stale
         in either direction: a slope near 1 would mean the documentation now understates the
         estimator and must be rewritten, and a slope below the band would be a regression.
@@ -1433,7 +1462,7 @@ class TestVFlipNormalizationRepair:
 
         raw = strict_loads(
             (pathlib.Path(__file__).resolve().parents[1]
-             / "artifacts" / "benchmarks" / "vflip_calibration_0.2.4_raw.json"
+             / "artifacts" / "benchmarks" / "calibration" / "vflip_calibration_0.2.4_raw.json"
              ).read_text(encoding="utf-8")
         )
         assert DEFAULT_MIN_SUPPORT_SCORE != 6.0

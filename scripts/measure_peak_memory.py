@@ -24,7 +24,7 @@ The release gate runs this without ``--write`` and fails when an operation's pea
 refreshed before the closure pass.
 
     python scripts/measure_peak_memory.py            # print the record
-    python scripts/measure_peak_memory.py --write    # also write artifacts/benchmarks/peak_memory.json
+    python scripts/measure_peak_memory.py --write    # also write artifacts/benchmarks/performance/peak_memory.json
 """
 from __future__ import annotations
 
@@ -32,17 +32,19 @@ import argparse
 import json
 import platform
 import subprocess
+import os
 import sys
 from pathlib import Path
 from typing import Callable, Dict, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-RECORD_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "peak_memory.json"
+RECORD_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "performance" / "peak_memory.json"
 MIB = 2 ** 20
 CONTROL_BYTES = 256 * MIB
 PROC_STATUS = "/proc/self/status"
 PROC_CLEAR_REFS = "/proc/self/clear_refs"
-#: RP-7: the 0.2.7 record (commit 66766b2a, artifacts/benchmarks/peak_memory.json) holds the
+#: RP-7: the 0.2.7 record (commit 66766b2a; now
+#: artifacts/benchmarks/performance/peak_memory.json) holds the
 #: largest peak of the fixed set, its control row. The threshold is that peak plus the margin.
 PEAK_BASELINE_0_2_7_MIB = 404.7
 PEAK_MARGIN = 0.25
@@ -199,7 +201,11 @@ def _child(name: str, prepeak_mib: int = 0) -> None:
     ``prepeak_mib`` touches and frees that much first, so a test can put the peak above the
     operation's before it runs, as a large import would.
     """
-    if str(REPO_ROOT) not in sys.path:
+    # Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
+    if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))
+    elif str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
     import numpy as np
     import jnwb
@@ -223,8 +229,9 @@ def measure(name: str, prepeak_mib: int = 0) -> Dict[str, object]:
         raise RuntimeError(f"{name} failed in its child process:\n{proc.stderr[-2000:]}")
     out = json.loads(proc.stdout.strip().splitlines()[-1])
     package = Path(out["jnwb"]).resolve()
-    if REPO_ROOT not in package.parents:
-        raise RuntimeError(f"{name} measured jnwb from {package}, not from this checkout")
+    expected = Path(os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") or REPO_ROOT).resolve()
+    if expected not in package.parents:
+        raise RuntimeError(f"{name} measured jnwb from {package}, not from {expected}")
     added, added_is = added_bytes(out)
     return {"peak_mib": round(max(out["peak_start"], out["after"]) / MIB, 1),
             "added_mib": round(added / MIB, 1),

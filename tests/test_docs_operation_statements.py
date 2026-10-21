@@ -102,7 +102,8 @@ def test_only_events_warns_on_a_table_without_a_codes_column():
     np.testing.assert_allclose(onsets, [1.5, 3.5])
     with pytest.warns(UserWarning, match="No 'codes' column") as record:
         jnwb.events(nwb)
-    assert "Columns: [" in str(record[0].message), "the warning no longer names the columns"
+    message = str([w for w in record if issubclass(w.category, UserWarning)][0].message)
+    assert "Columns: [" in message, "the warning no longer names the columns"
 
     row = _table_row(_page("docs/errors.md"), "No `codes` column")
     assert _ticked(row[1]) == ["events"], row[1]
@@ -296,7 +297,11 @@ def _rng_probes():
         "StatisticalAnalysis.bootstrap_ci": lambda r: sa.bootstrap_ci(a, n_bootstrap=20, rng=r),
         "StatisticalAnalysis.compare_groups": lambda r: sa.compare_groups(a, b, n_bootstrap=20,
                                                                           rng=r),
+        "StatisticalAnalysis.confirmatory_compare": lambda r: sa.confirmatory_compare(
+            a, b, "mean A > mean B", n_bootstrap=20, rng=r),
         "StatisticalAnalysis.exact_sign_flip": lambda r: sa.exact_sign_flip(a, n_mc=20, rng=r),
+        "StatisticalAnalysis.exploratory_compare": lambda r: sa.exploratory_compare(
+            a, b, n_bootstrap=20, rng=r),
         "StatisticalAnalysis.permutation_test": lambda r: sa.permutation_test(
             a, b, n_permutations=20, rng=r),
         "cluster_permutation_test": lambda r: jnwb.cluster_permutation_test(
@@ -337,6 +342,8 @@ def _rng_probes():
         "synth.synth_phase_gradient": lambda r: synth.synth_phase_gradient(3, 100, 1000.0, rng=r),
         "synth.synth_unequal_groups": lambda r: synth.synth_unequal_groups(3, 4, 2, rng=r),
         "synth.synth_laminar_motif": lambda r: synth.synth_laminar_motif(16, 2000, rng=r),
+        "synth.synth_vflip2_crossover": lambda r: synth.synth_vflip2_crossover(
+            32, 500, 1000.0, z0=12, rng=r),
         "synth.build_canonical_tutorial_nwb": lambda r: synth.build_canonical_tutorial_nwb(
             seed=r, duration_s=2.0, n_trials=2),
         "testing.SynthNWBBuildOptions": lambda r: build_synth_nwb(
@@ -403,7 +410,8 @@ def test_the_statistics_page_states_the_default_seed_and_links_the_table():
     assert "(10_operation_specifications.md#1-rng-convention)" in text
     defaults = {q: p.default for q, p in _public_rng_parameters()
                 if q.startswith("StatisticalAnalysis.")}
-    assert len(defaults) == 4 and all(d == 42 for d in defaults.values()), defaults
+    # Four methods took `rng` first; exploratory_compare and confirmatory_compare take it too.
+    assert len(defaults) == 6 and all(d == 42 for d in defaults.values()), defaults
 
 
 # --------------------------------------------------------------- structured returns
@@ -753,8 +761,11 @@ def test_the_sliding_window_recipe_states_the_floor_its_null_imposes():
     lag = int(re.search(r"lag=(\d+)", recipe)[1])
     n = width - lag
     text = _flat(recipe)
-    assert f"runs on {n} and p cannot fall below about 1/{n}, which is above 0.05" in text
-    assert 1 / n > 0.05
+    # The shift rotates the whole window, so the identity is one of `width` rotations, and the
+    # two-sided p is twice the greater tail's 1 / width.
+    assert f"leaving {n} pairs. The circular-shift null rotates all {width}, so p cannot fall " \
+           f"below about 2/{width}, which is above 0.05" in text
+    assert 2 / width > 0.05
 
     # x2 is x1 moved back by the lag, so the lagged pairs are identical and the observed
     # value is the largest any shift can give: p sits at the floor.
@@ -762,7 +773,7 @@ def test_the_sliding_window_recipe_states_the_floor_its_null_imposes():
     x2 = np.roll(x1, -lag, axis=-1)
     res = jnwb.jrsa(x1, x2, metric="pearson", window=(0, width), lag=lag, rng=0)
     assert res.execution["n_overlap"] == n
-    assert res.p > 0.05 and abs(res.p - 1 / n) < 0.03, res.p
+    assert res.p > 0.05 and abs(res.p - 2 / width) < 0.03, res.p
 
 
 # --------------------------------------------------------------- directed jrsa metrics
@@ -807,13 +818,13 @@ def test_the_jrsa_direction_table_matches_the_connectivity_functions():
     assert jnwb.phase_slope_index(d, f, **kw).x_to_y > 0
 
 
-# --------------------------------------------------------------- the loop that replaces sliding=True
+# --------------------------------------------- the loop and the one-call sliding analysis
 
 
-def test_the_sliding_window_loop_gives_one_value_per_window_and_sliding_raises():
+def test_the_sliding_window_loop_and_the_one_call_analysis_agree():
     page = _page("docs/03_representational_similarity_jrsa.md")
     section = page.split("### Sliding Windows", 1)[1].split("## 4.", 1)[0]
-    assert "`sliding=True` raises `NotImplementedError`" in _flat(section)
+    assert "every window in one call with `sliding=True`" in _flat(section)
     code = re.search(r"```python\n(.*?)```", section, re.S)[1]
 
     x1 = np.random.default_rng(2).normal(size=(12, 10, 50))
@@ -823,13 +834,20 @@ def test_the_sliding_window_loop_gives_one_value_per_window_and_sliding_raises()
     width, step, lag = scope["width"], scope["step"], 5
     values = scope["values"]
     assert values.shape == (len(range(0, 50 - width + 1, step)),) == (7,)
+    assert len(scope["starts"]) == values.shape[0], "the docs loop must yield one start per window"
+    ps = []
     for s, value in zip(scope["starts"], values):
         sliced = jnwb.jrsa(x1[..., s:s + width], x2[..., s:s + width], metric="pearson",
                            lag=lag, rng=0)
         assert value == float(sliced.value), s
+        ps.append(float(sliced.p))
     assert len({round(float(v), 12) for v in values}) == len(values), "windows repeat one value"
-    with pytest.raises(NotImplementedError):
-        jnwb.jrsa(x1, x2, metric="pearson", sliding=True)
+    one_call = jnwb.jrsa(x1, x2, metric="pearson", window=width, step=step, sliding=True,
+                         lag=lag, rng=0)
+    np.testing.assert_allclose(one_call.value, values, rtol=1e-12)
+    np.testing.assert_array_equal(one_call.p, ps)
+    with pytest.raises(ValueError, match="sliding=True needs window to be an int width"):
+        jnwb.jrsa(x1, x2, metric="pearson", window=(0, width), sliding=True)
 
 
 # --------------------------------------------------------------- transfer entropy source window

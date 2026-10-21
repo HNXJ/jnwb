@@ -74,6 +74,7 @@ def test_the_excerpt_is_the_published_data_and_ships_outside_the_wheel(provenanc
         "the provenance describes a different excerpt; rebuild both together")
     assert provenance["dandiset"]["license"] == "CC-BY-4.0"
     assert provenance["dandiset"]["doi"] == "10.48324/dandi.000253/0.240503.0152"
+    assert provenance["assets"], "the provenance lists no source assets"
     for asset in provenance["assets"].values():
         assert UUID.match(asset["asset_id"]), asset
         assert asset["sha256_verified_locally"] == asset["sha256"], (
@@ -155,7 +156,10 @@ def test_every_rate_the_analysis_uses_is_the_one_derived_from_the_file(
     assert {name for name, _ in seen} == {"band_power", "epoch_continuous", "xcorr_lag"}
     wrong = [(name, fs) for name, fs in seen if fs != pytest.approx(expected, rel=1e-9)]
     assert not wrong, f"{len(wrong)} calls used a rate other than the derived one: {wrong[:3]}"
-    n_expected = round(tutorial.POST_S[1] * expected) - round(tutorial.POST_S[0] * expected)
+    # The window edges are containment bounds, as epoch_continuous computes them.
+    from jnwb.continuous import _containment_sample
+    n_expected = (_containment_sample(tutorial.POST_S[1], expected)
+                  - _containment_sample(tutorial.POST_S[0], expected))
     assert res["lfp"]["epoch_n_samples"] == n_expected
 
 
@@ -164,6 +168,7 @@ def test_the_clock_check_refuses_an_offset_beyond_its_bound(tutorial):
     clock = tutorial.derive_clock(data["lfp"], data["trains"])
     good = data["quality"] == "good"
     lags = tutorial.check_clock(clock, data, good)["lags_s"]
+    assert lags, "the clock check returned no lags, so the check below passes on nothing"
     assert all(abs(lag) <= tutorial.OFFSET_BOUND_S for lag, _ in lags.values())
 
     shifted = dataclasses.replace(clock, offset_s=clock.offset_s + 3 * tutorial.OFFSET_BOUND_S)

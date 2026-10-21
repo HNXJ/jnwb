@@ -20,7 +20,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
 SCHEMA_PATH = REPO_ROOT / "scripts" / "dashboard" / "data.schema.json"
-PEAK_MEMORY_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "peak_memory.json"
+PEAK_MEMORY_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "performance" / "peak_memory.json"
 ORDER_RECORD_PATH = REPO_ROOT / "artifacts" / "evidence" / "0.2.6" / "computational_order.md"
 SHOWCASE_RECORD_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "showcase_record.json"
 DASHBOARD_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "dashboard_data.json"

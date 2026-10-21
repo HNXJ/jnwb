@@ -136,6 +136,24 @@ def test_refuses_a_wrong_shape(lfp, match):
 
 
 def test_refuses_an_fs_that_puts_150_hz_past_the_fft():
-    # At 100 Hz, 100-sample trials pad to 128 points and 150 Hz maps to bin 193.
+    # At 100 Hz, 100-sample trials pad to 128 points and 150 Hz maps to bin 193. The public
+    # call refuses fs below 300 Hz first, so this guard is reached through the PSD helper.
     with pytest.raises(ValueError, match="150 Hz"):
-        vflip2_from_lfp(np.ones((4, 100, 2)), 100.0, contact_spacing=100.0)
+        _vflip2._psd_hanning(np.ones((4, 100, 2)), 100.0)
+
+
+def test_refuses_an_fs_below_300_hz():
+    # Below 300 Hz the Nyquist frequency fs / 2 lies under the 150 Hz band edge.
+    with pytest.raises(ValueError, match="at least 300 Hz"):
+        vflip2_from_lfp(np.ones((4, 256, 2)), 250.0, contact_spacing=100.0)
+
+
+def test_refuses_trials_too_short_for_a_1_hz_grid():
+    # A 512-point FFT at 1000 Hz has bins 1.95 Hz wide. A 1024-point one has bins 0.98 Hz.
+    with pytest.raises(ValueError, match="at least 513 samples"):
+        vflip2_from_lfp(np.ones((4, 512, 2)), 1000.0, contact_spacing=100.0)
+
+
+def test_accepts_the_shortest_trial_on_a_1_hz_grid():
+    psd = _vflip2._psd_hanning(np.random.default_rng(0).normal(size=(4, 513, 2)), 1000.0)
+    assert psd.shape == (4, 150) and np.all(np.isfinite(psd))

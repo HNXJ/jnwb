@@ -1,0 +1,413 @@
+{
+  "estimator_sha256": "88dc86fcef7ca90dbf28ab7fc1b466a919a44f3410a6c20cd7a61f7e45bf8523",
+  "estimator_functions": [
+    "XFlipResult",
+    "_compute_contrast",
+    "_compute_correlation_matrix",
+    "_homogeneous_factor",
+    "_in_probe_rows",
+    "_label_change_boundaries",
+    "_optimal_contiguous_partition",
+    "_partition_is_contiguous",
+    "_refuse_short_window",
+    "_select_count_by_min_p",
+    "_surrogate_homogeneous",
+    "_surrogate_phase_randomize",
+    "_surrogate_wishart",
+    "_unrestricted_partition",
+    "_window_rows",
+    "jnwb._dictlike.DictAccessMixin",
+    "jnwb._rng.RNGLike",
+    "jnwb._rng.recorded_rng",
+    "jnwb._rng.resolve_rng",
+    "jnwb._rng.surrogate_rng",
+    "jnwb.laminar._vflip2.LAYER4_THICKNESS_MM",
+    "jnwb.laminar._vflip2.VFlip2Result",
+    "jnwb.permutation._TAILS",
+    "jnwb.permutation._TIE_RTOL",
+    "jnwb.permutation._count_at_least_as_extreme",
+    "jnwb.permutation._count_each_at_least_as_extreme",
+    "jnwb.permutation._tie_width",
+    "xflip"
+  ],
+  "n_seeds": 30,
+  "n_surrogates": 200,
+  "min_block_size": 3,
+  "alpha": 0.05,
+  "n_samples": 400,
+  "nulls": {
+    "white_noise": {
+      "n_seeds": 30,
+      "false_positive_rate": 0.0,
+      "n_rejected_by_surrogates": 30,
+      "n_rejected_by_boundary_drop": 21,
+      "median_p": 0.6044776119402985,
+      "min_p": 0.08955223880597014,
+      "max_p": 0.9701492537313433,
+      "median_modularity": -0.00011664401149449075
+    },
+    "ar_noise": {
+      "n_seeds": 30,
+      "false_positive_rate": 0.06666666666666667,
+      "n_rejected_by_surrogates": 28,
+      "n_rejected_by_boundary_drop": 15,
+      "median_p": 0.44527363184079605,
+      "min_p": 0.004975124378109453,
+      "max_p": 0.9751243781094527,
+      "median_modularity": 0.020837939735006257
+    },
+    "periodic_common_response": {
+      "n_seeds": 30,
+      "false_positive_rate": 0.0,
+      "n_rejected_by_surrogates": 30,
+      "n_rejected_by_boundary_drop": 30,
+      "median_p": 0.6517412935323383,
+      "min_p": 0.5522388059701493,
+      "max_p": 0.7611940298507462,
+      "median_modularity": 0.006751805168236924
+    },
+    "smooth_spatial_gradient": {
+      "n_seeds": 30,
+      "false_positive_rate": 0.0,
+      "n_rejected_by_surrogates": 30,
+      "n_rejected_by_boundary_drop": 29,
+      "median_p": 0.5024875621890548,
+      "min_p": 0.13930348258706468,
+      "max_p": 0.9104477611940298,
+      "median_modularity": 0.31965560204979354
+    }
+  },
+  "alternatives": {
+    "within_corr_sweep": [
+      {
+        "block_sizes": [
+          8,
+          8
+        ],
+        "true_boundaries": [
+          8
+        ],
+        "within_corr": 0.2,
+        "between_corr": 0.0,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0
+        ],
+        "median_modularity": 0.19993885121494542
+      },
+      {
+        "block_sizes": [
+          8,
+          8
+        ],
+        "true_boundaries": [
+          8
+        ],
+        "within_corr": 0.4,
+        "between_corr": 0.0,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0
+        ],
+        "median_modularity": 0.4038507484466537
+      },
+      {
+        "block_sizes": [
+          8,
+          8
+        ],
+        "true_boundaries": [
+          8
+        ],
+        "within_corr": 0.6,
+        "between_corr": 0.0,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0
+        ],
+        "median_modularity": 0.6072532021807053
+      },
+      {
+        "block_sizes": [
+          8,
+          8
+        ],
+        "true_boundaries": [
+          8
+        ],
+        "within_corr": 0.8,
+        "between_corr": 0.0,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0
+        ],
+        "median_modularity": 0.8115157433023663
+      }
+    ],
+    "unequal_blocks": [
+      {
+        "block_sizes": [
+          4,
+          12
+        ],
+        "true_boundaries": [
+          4
+        ],
+        "within_corr": 0.6,
+        "between_corr": 0.0,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0
+        ],
+        "median_modularity": 0.5848201080887232
+      },
+      {
+        "block_sizes": [
+          12,
+          4
+        ],
+        "true_boundaries": [
+          12
+        ],
+        "within_corr": 0.6,
+        "between_corr": 0.0,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0
+        ],
+        "median_modularity": 0.6023014397692261
+      },
+      {
+        "block_sizes": [
+          6,
+          18
+        ],
+        "true_boundaries": [
+          6
+        ],
+        "within_corr": 0.6,
+        "between_corr": 0.0,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0
+        ],
+        "median_modularity": 0.5960767944155564
+      }
+    ],
+    "three_block": [
+      {
+        "block_sizes": [
+          6,
+          6,
+          6
+        ],
+        "true_boundaries": [
+          6,
+          12
+        ],
+        "within_corr": 0.6,
+        "between_corr": 0.0,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0,
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0,
+          0.0
+        ],
+        "median_modularity": 0.5993348218443868
+      },
+      {
+        "block_sizes": [
+          4,
+          8,
+          4
+        ],
+        "true_boundaries": [
+          4,
+          12
+        ],
+        "within_corr": 0.6,
+        "between_corr": 0.0,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0,
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0,
+          0.0
+        ],
+        "median_modularity": 0.594629155436611
+      }
+    ],
+    "channel_count_sweep": [
+      {
+        "block_sizes": [
+          4,
+          4
+        ],
+        "true_boundaries": [
+          4
+        ],
+        "within_corr": 0.7,
+        "between_corr": 0.1,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0
+        ],
+        "median_modularity": 0.5831032723649427
+      },
+      {
+        "block_sizes": [
+          6,
+          6
+        ],
+        "true_boundaries": [
+          6
+        ],
+        "within_corr": 0.7,
+        "between_corr": 0.1,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0
+        ],
+        "median_modularity": 0.5989159091500442
+      },
+      {
+        "block_sizes": [
+          8,
+          8
+        ],
+        "true_boundaries": [
+          8
+        ],
+        "within_corr": 0.7,
+        "between_corr": 0.1,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0
+        ],
+        "median_modularity": 0.6041334894604102
+      },
+      {
+        "block_sizes": [
+          12,
+          12
+        ],
+        "true_boundaries": [
+          12
+        ],
+        "within_corr": 0.7,
+        "between_corr": 0.1,
+        "n_seeds": 30,
+        "true_positive_rate": 1.0,
+        "n_localized": 30,
+        "median_error_per_boundary": [
+          0.0
+        ],
+        "max_error_per_boundary": [
+          0.0
+        ],
+        "median_modularity": 0.6058142995563095
+      }
+    ]
+  },
+  "auto_count": {
+    "n_seeds": 1000,
+    "n_surrogates": 200,
+    "rows": [
+      {
+        "null": "white_noise",
+        "contiguous": true,
+        "n_seeds": 1000,
+        "rate_n_blocks_2": 0.006,
+        "rate_n_blocks_None": 0.003
+      },
+      {
+        "null": "white_noise",
+        "contiguous": false,
+        "n_seeds": 1000,
+        "rate_n_blocks_2": 0.026,
+        "rate_n_blocks_None": 0.015
+      },
+      {
+        "null": "ar_noise",
+        "contiguous": true,
+        "n_seeds": 1000,
+        "rate_n_blocks_2": 0.054,
+        "rate_n_blocks_None": 0.06
+      },
+      {
+        "null": "ar_noise",
+        "contiguous": false,
+        "n_seeds": 1000,
+        "rate_n_blocks_2": 0.061,
+        "rate_n_blocks_None": 0.054
+      }
+    ]
+  },
+  "environment": {
+    "jnwb": "0.2.12",
+    "python": "3.14.3",
+    "numpy": "2.4.6",
+    "scipy": "1.18.0",
+    "platform": "Windows-11-10.0.26300-SP0"
+  },
+  "elapsed_s": 345.1
+}

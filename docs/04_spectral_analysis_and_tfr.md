@@ -49,8 +49,8 @@ mask = (freqs >= 14.0) & (freqs <= 30.0)
 beta_power_integrated = np.trapezoid(psd[mask], freqs[mask])  # input-units^2
 ```
 
-With `normalize=True` the per-Hz factor cancels, because the result is a ratio of two
-densities over the same band.
+With `normalize=True` the result is in dB: `10 * log10` of a ratio of two densities over the
+same band, so the per-Hz factor cancels inside the ratio.
 
 ![Welch and multitaper PSDs with the canonical bands shaded](assets/figures/fig11_spectra_canonical_bands.png#only-light)
 ![Welch and multitaper PSDs with the canonical bands shaded](assets/figures/fig11_spectra_canonical_bands.dark.png#only-dark)
@@ -140,8 +140,9 @@ tilt_res = jnwb.spectral_tilt(lfp_trace, fs=1000.0, freq_range=(1.0, 100.0))
 slope = tilt_res["slope"]
 
 # Direct aperiodic fit on pre-computed spectrum (fixed or knee mode)
-# freqs: (n_freqs,) in Hz; psd: (..., n_freqs) in (U_in)^2/Hz
-fit_res = jnwb.aperiodic_fit(freqs, psd, freq_range=(2.0, 40.0), mode="fixed")
+# freqs: (n_freqs,) in Hz, strictly positive; psd: (..., n_freqs) in (U_in)^2/Hz
+keep = freqs > 0  # the 0 Hz bin from compute_psd is refused
+fit_res = jnwb.aperiodic_fit(freqs[keep], psd[..., keep], freq_range=(2.0, 40.0), mode="fixed")
 # Returns jnwb.AperiodicFitResult with offset, exponent (positive for 1/f decay), knee, r_squared, accepted
 
 # Harmonic distortion analysis

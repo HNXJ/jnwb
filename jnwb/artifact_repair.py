@@ -56,6 +56,8 @@ def flagged_to_intervals(flagged, fs, pad_ms=40.0, merge_gap_ms=100.0):
     deliberately distinct (see module docstring's METHOD section), so this pair is not a
     replacement for repair_lfp_trials, just its own canonical home.
     """
+    if flagged.size == 0:
+        return []
     d = np.diff(flagged.astype(np.int8))
     starts = list(np.where(d == 1)[0] + 1)
     ends = list(np.where(d == -1)[0] + 1)
@@ -89,10 +91,12 @@ def interpolate_intervals(seg, intervals):
     n = seg.shape[0]
     for s, e in intervals:
         s_req, e_req = int(s), int(e)
-        s = max(s_req, 1)
-        e = min(e_req, n - 1)
-        if e <= s:
+        # Skip only what covers no sample of the segment. Clipping to [1, n - 1] before this
+        # test dropped a one-sample interval on either edge sample without a word.
+        if e_req <= s_req or e_req <= 0 or s_req >= n:
             continue
+        s = max(s_req, 0)
+        e = min(e_req, n)
         # The anchors are the samples just outside the interval. Clamping used to pull them
         # *inside* it whenever the interval touched an edge, so the artifact became its own
         # repair reference: [100, 0, 0, 100, 100, 100, 0, 0, 0, 100] with the interval
@@ -438,7 +442,6 @@ if __name__ == "__main__":
 
     repaired, frac, diag = repair_lfp_trials(base, times_ms=None, reward_window_ms=None)
     assert diag["n_flagged_cells"] >= 1, "self-test FAILED: injected spike not flagged"
-    assert (7, ) or True
     flagged_here = np.abs(repaired[7, :, 100] - base[7, :, 100]).max() > 1.0
     assert flagged_here, "self-test FAILED: flagged cell was not substituted"
     untouched = np.allclose(repaired[0], base[0])

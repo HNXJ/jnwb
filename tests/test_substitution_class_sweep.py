@@ -740,11 +740,6 @@ ACCEPTED_HANDLER_RECOVERY = {
         "joblib absent -> serial list comprehension over the same fn, with a RuntimeWarning. "
         "Same results by the same function; only the scheduling differs, and n_jobs describes "
         "scheduling.",
-    ("addressing.py", "_resolve_electrode_row", "(ValueError, TypeError, OverflowError)",
-     (), True, 1):
-        "Returns (None, None) when the channel id will not convert to an integer. Absence: "
-        "_area_from_row returns None for a None row, so the unit gets area None and "
-        "depth_class 'Unknown'.",
     ("addressing.py", "_channel_key", "(ValueError, TypeError, OverflowError)", (), True, 1):
         "Returns None where _resolve_electrode_row would find nothing, the same conversion. "
         "Absence.",
@@ -754,6 +749,10 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("compression.py", "verify_roundtrip._try_pynwb_read", "Exception", (), True, 1):
         "Returns (False, '<ExcType>: msg') from a verification helper -- a reported failure "
         "carrying its own cause.",
+    ("compression.py", "_repaired_reference", "KeyError", ("target",), False, 1):
+        "The handler sets target = None when the reference no longer opens an object in the "
+        "source. Absence: the caller then removes the reference with a UserWarning; no path is "
+        "substituted for it.",
     ("connectivity/_granger.py", "_adf_pvalue", "_ADF_NUMERICAL_FAILURES", (), True, 1):
         "Returns float('nan') for a fit that could not run on the series (LinAlgError, "
         "ValueError); _series_diagnostics reports it as stationarity_not_tested. Absence. A "
@@ -790,6 +789,14 @@ ACCEPTED_HANDLER_RECOVERY = {
         "not a fabricated identifier.",
     ("nwb_inspect.py", "_h5_channel_count", "TypeError", (), True, 1):
         "Returns None when the HDF5 electrode region has no length. Absence.",
+    ("nwb_inspect.py", "_registered_types", "Exception", (), True, 1):
+        "Returns None when the file's namespaces cannot be loaded, and the caller then "
+        "claims nothing about any type. Absence: no warning is invented.",
+    ("nwb_inspect.py", "_unknown_type", "OSError", (), True, 1):
+        "Returns None when the file cannot be stat'ed: no type is called unknown. Absence.",
+    ("nwb_inspect.py", "_why_unread", "OSError", (), True, 1):
+        "Returns \"\" when the source file cannot be opened: the refusal keeps its plain "
+        "not-found text and adds no reason. Absence.",
     ("nwb_inspect.py", "_pynwb_channel_count", "TypeError", (), True, 1):
         "The pynwb twin of _h5_channel_count: None when series.electrodes has no length. "
         "Absence.",
@@ -1206,13 +1213,13 @@ class TestTheRepairsFoundByThisSweep:
         rng = np.random.default_rng(0)
         a1, a2 = rng.normal(size=(8, 40)), rng.normal(size=(8, 25))
         with pytest.raises(ValueError, match="bogus"):
-            _align_dimensions(a1, a2, {"aligned": 1}, "bogus", "fraction", False)
+            _align_dimensions(a1, a2, {"aligned": 1}, "bogus", False)
 
     def test_a_recognised_align_still_aligns(self):
         from jnwb.jrsa import _align_dimensions
         rng = np.random.default_rng(0)
         a1, a2 = rng.normal(size=(8, 40)), rng.normal(size=(8, 25))
-        o1, o2, axes = _align_dimensions(a1, a2, {"aligned": 1}, "downsample", "fraction", False)
+        o1, o2, axes = _align_dimensions(a1, a2, {"aligned": 1}, "downsample", False)
         assert o1.shape == o2.shape == (8, 25)
         assert axes == (1,)
 
@@ -1221,5 +1228,5 @@ class TestTheRepairsFoundByThisSweep:
         from jnwb.jrsa import _align_dimensions
         rng = np.random.default_rng(0)
         a1, a2 = rng.normal(size=(8, 40)), rng.normal(size=(8, 40))
-        o1, o2, axes = _align_dimensions(a1, a2, {"aligned": 1}, "downsample", "fraction", False)
+        o1, o2, axes = _align_dimensions(a1, a2, {"aligned": 1}, "downsample", False)
         assert axes == ()

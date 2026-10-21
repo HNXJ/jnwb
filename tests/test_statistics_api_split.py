@@ -152,7 +152,7 @@ class TestConfirmatoryCompare:
         )
         # With alpha=0.001 and same-distribution groups, confirmed should be False
         # (this is probabilistic; seed=0 makes it stable)
-        assert isinstance(r["confirmed_parametric"], bool)
+        assert r["confirmed_parametric"] is False
 
     def test_no_deprecated_keys(self):
         r = StatisticalAnalysis.confirmatory_compare(A, B, hypothesis=self.HYP)
@@ -443,6 +443,16 @@ class TestClusterPermutation:
         for bad in ("not_an_rng", 3.5, [0]):
             with pytest.raises(TypeError, match="rng must be an int seed"):
                 cluster_permutation_test(X, Y, rng=bad)
+
+    def test_a_non_finite_threshold_is_refused(self):
+        # NaN passed `threshold <= 0`; no point then clears the threshold, so the result
+        # had zero clusters and no error.
+        rng = np.random.default_rng(0)
+        X = rng.normal(size=(8, 10))
+        Y = rng.normal(size=(8, 10))
+        for bad in (np.nan, np.inf):
+            with pytest.raises(ValueError, match="cluster_permutation_test: threshold"):
+                cluster_permutation_test(X, Y, threshold=bad, n_permutations=10)
 
     def test_observed_clusters_are_unique(self):
         rng = np.random.default_rng(123)

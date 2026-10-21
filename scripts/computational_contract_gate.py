@@ -33,8 +33,9 @@ into callees inside the package. What they establish and what they do not:
   reaches a branch. They do not establish that each branch computes on the device it names,
   nor that every accepted value is delivered; ``tests/test_execution_switch.py`` and
   ``tests/test_precision_switch.py`` hold that behaviour live, export by export.
-* Aliases are tracked flow-insensitively: an argument overwritten before it reaches the
-  mechanism still counts as reaching it.
+* Aliases are tracked flow-insensitively, with one exception: an argument rebound by a
+  statement at the top level of the body, before any statement reads it, reaches nothing.
+  An overwrite inside a branch or a loop, or of an alias, still counts as reaching.
 * A guard counts when the argument appears in an ``if`` test and a ``raise`` or
   ``warnings.warn`` appears anywhere under that ``if``.
 * Under ``by_request`` one ``dtype=`` sink on one path passes; a second path that ignores
@@ -301,9 +302,34 @@ class _Analysis:
                 return False
         return any(self._reads(unit, child, aliases) for child in ast.iter_child_nodes(expr))
 
+    @staticmethod
+    def _rebound_before_read(unit: _Unit, name: str) -> bool:
+        """Is the parameter ``name`` rebound at the top level of the body before any read?
+
+        Names that are not parameters (a local bound to a mechanism's answer) are never dropped.
+        """
+        args = getattr(unit.node, "args", None)
+        if args is None or name not in {
+                a.arg for a in args.posonlyargs + args.args + args.kwonlyargs}:
+            return False
+        for stmt in getattr(unit.node, "body", []):
+            if isinstance(stmt, (ast.Assign, ast.AnnAssign)) and stmt.value is not None:
+                targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target]
+                if (any(isinstance(t, ast.Name) and t.id == name for t in targets)
+                        and name not in _names(stmt.value)):
+                    return True
+            if any(isinstance(n, ast.Name) and n.id == name and isinstance(n.ctx, ast.Load)
+                   for n in ast.walk(stmt)):
+                return False
+        return False
+
     def _aliases(self, unit: _Unit, start: Iterable[str]) -> Set[str]:
-        """Names bound, anywhere in the body, to the argument or a conversion of it."""
-        found = set(start)
+        """Names bound, anywhere in the body, to the argument or a conversion of it.
+
+        An argument rebound at the top level before any read is dropped: the value the
+        caller passed cannot reach anything after that statement.
+        """
+        found = {name for name in start if not self._rebound_before_read(unit, name)}
         changed = True
         while changed:
             changed = False
@@ -675,15 +701,21 @@ def check_recorded_order(exports: Sequence[str], record_text: str) -> Tuple[List
 
 def _checkout_jnwb():
     """This tree's jnwb, for the command line. A copy in site-packages would be measured
-    silently, so the checkout goes first and the import is verified to have used it."""
-    if str(REPO_ROOT) not in sys.path:
-        sys.path.insert(0, str(REPO_ROOT))
+    silently, so the checkout goes first and the import is verified to have used it. Under
+    JNWB_EXPECTED_PACKAGE_ROOT (CI's installed-wheel leg) the checkout stays off the path and
+    the import must come from there."""
+    import os
+
+    expected = os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT")
+    if not expected:
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.insert(0, str(REPO_ROOT))
     import jnwb
 
-    root = REPO_ROOT.resolve()
+    root = Path(expected or REPO_ROOT).resolve()
     location = Path(jnwb.__file__).resolve()
     if root not in location.parents:
-        raise RuntimeError(f"imported jnwb from {location}, not from this tree ({root})")
+        raise RuntimeError(f"imported jnwb from {location}, not from {root}")
     return jnwb
 
 

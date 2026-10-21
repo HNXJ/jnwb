@@ -104,6 +104,19 @@ class TestXFlipInputs:
         with pytest.raises(ValueError, match="n_blocks must be >= 1"):
             xflip(np.ones((8, 50)), n_blocks=0)
 
+    @pytest.mark.parametrize("n_surrogates", [float("nan"), float("inf"), 2.5, -1])
+    def test_invalid_n_surrogates_fails(self, n_surrogates):
+        # NaN passed `n_surrogates < 0` as False, so it reached the surrogate loop.
+        with pytest.raises(ValueError, match="n_surrogates"):
+            xflip(np.ones((8, 50)), n_surrogates=n_surrogates)
+
+    def test_integral_float_n_surrogates_is_accepted(self):
+        rng = np.random.default_rng(42)
+        raw = rng.normal(size=(8, 200))
+        res = xflip(raw, n_surrogates=3.0, rng=42)
+        assert isinstance(res, XFlipResult)
+        assert res.n_channels == 8
+
     def test_autocorr_preserving_surrogate_with_precomputed_matrix_fails(self):
         corr = np.eye(4)
         with pytest.raises(ValueError, match="requires raw time-series"):
@@ -186,6 +199,7 @@ class TestXFlipContiguousPartitioning:
             rng=300,
         )
         res = xflip(data, n_blocks=2, min_block_size=5, n_surrogates=0)
+        assert len(res.block_bounds) >= 2, res.block_bounds
         for st, en in res.block_bounds:
             assert (en - st) >= 5
 

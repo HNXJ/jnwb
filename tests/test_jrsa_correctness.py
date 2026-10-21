@@ -965,7 +965,7 @@ class TestAlternativeWithoutPermutations:
         greater = oa.jrsa(self.x1, self.x2, metric="pearson", alternative="greater", rng=0,
                           **kw)
         assert float(less.p) == pytest.approx(p2 / 2, rel=1e-9) and float(less.p) < 1e-50
-        assert float(greater.p) == 1.0 - p2 / 2
+        assert float(greater.p) == pytest.approx(1.0 - p2 / 2, rel=1e-12)
         # Per lag, on each lag's own sign. The fixture needs lags of both signs: with one
         # sign throughout, taking every lag's side from the first lag would pass too.
         g = np.random.default_rng(11)
@@ -989,15 +989,128 @@ class TestAlternativeWithoutPermutations:
         assert "upper-tail F-test" in str(err.value) and "halving" in str(err.value)
 
 
-def test_sliding_windows_are_refused_and_the_loop_is_named():
-    """`sliding=True` was accepted and ignored: value and p were identical to
-    `sliding=False`, with no warning. It is refused, and the message names the loop."""
+def test_sliding_windows_take_an_int_width_not_a_pair():
+    """`sliding=True` was accepted and ignored: value and p were identical to `sliding=False`,
+    with no warning. A pair is a window, not a width, so `sliding=True` refuses it and the
+    message names `window`; `sliding=False` takes the pair as before."""
     rng = np.random.default_rng(0)
     x1 = rng.normal(size=(6, 8, 40))
     x2 = x1 + rng.normal(size=(6, 8, 40))
-    with pytest.raises(NotImplementedError, match=r"sliding=True.*window=\(s, s \+ w\)"):
-        oa.jrsa(x1, x2, metric="pearson", window=(10, 30), sliding=True, stats=False)
+    with pytest.raises(ValueError, match=r"sliding=True needs window to be an int width"):
+        oa.jrsa(x1, x2, metric="pearson", window=(10, 30), sliding=True, permutations=9)
     oa.jrsa(x1, x2, metric="pearson", window=(10, 30), sliding=False, stats=False)
+
+
+def test_complex_input_is_refused_and_named():
+    """Complex input was cast to float64 with the imaginary part dropped and only numpy's
+    ComplexWarning. jrsa refuses it, names the argument and asks for a real quantity."""
+    rng = np.random.default_rng(0)
+    z = rng.normal(size=40) + 1j * rng.normal(size=40)
+    assert np.iscomplexobj(z), "fixture must be complex"
+    with pytest.raises(ValueError, match=r"jrsa: x1 .*complex") as err:
+        oa.jrsa(z, z.real, metric="pearson", stats=False)
+    assert "real" in str(err.value) and "magnitude" in str(err.value)
+    with pytest.raises(ValueError, match=r"jrsa: x2 .*complex"):
+        oa.jrsa(z.real, z, metric="pearson", stats=False)
+
+
+class TestIntegerWindowWidth:
+    """An integer `window` is a width: `window=w` keeps w samples, centred on the axis."""
+
+    @pytest.mark.parametrize("width", [1, 2, 4, 5, 10])
+    def test_an_integer_width_keeps_exactly_that_many_samples(self, width):
+        from jnwb.jrsa._stages import _make_windows
+        n = 20
+        assert n > width, "fixture must window a longer axis"
+        x1 = np.arange(n, dtype=float)
+        got, _, (start, stop) = _make_windows(x1, None, {"aligned": 0}, width, False)
+        assert got.shape[0] == width == stop - start
+        assert start == n // 2 - width // 2
+
+    def test_sliding_windows_keep_exactly_the_width(self):
+        from jnwb.jrsa._stages import _sliding_windows
+        x1 = np.arange(20, dtype=float)
+        windows, _, spans = _sliding_windows(x1, None, {"aligned": 0}, 5, 3)
+        assert spans, "fixture must give windows"
+        assert all(stop - start == 5 for start, stop in spans)
+        assert all(len(w) == 5 for w in windows)
+
+    def test_an_integer_width_longer_than_the_axis_warns_and_names_both(self):
+        """An int width past the axis covers the whole axis, as before, and now says so."""
+        from jnwb.jrsa._stages import _make_windows
+        x1 = np.arange(6, dtype=float)
+        assert 9 > x1.shape[0], "fixture must make the width longer than the axis"
+        with pytest.warns(UserWarning, match=r"window=9 .*6-sample") as record:
+            got, _, span = _make_windows(x1, None, {"aligned": 0}, 9, False)
+        assert span == (0, 6) and got.shape[0] == 6
+        assert "no windowing was applied" in str(record[0].message)
+
+    @pytest.mark.parametrize("width", [0, -3, 0.5])
+    def test_an_integer_width_below_one_is_refused(self, width):
+        from jnwb.jrsa._stages import _make_windows
+        x1 = np.arange(20, dtype=float)
+        with pytest.raises(ValueError, match=rf"window={width!r} .*at least 1"):
+            _make_windows(x1, None, {"aligned": 0}, width, False)
+
+
+def test_standardize_and_normalize_warning_states_the_output_range():
+    """With both flags set, standardize runs first and normalize rescales its output to [0, 1].
+    The warning used to say standardize 'overrides and negates' normalize, which the code does
+    not do."""
+    from jnwb.jrsa._stages import _apply_preprocessing
+    rng = np.random.default_rng(0)
+    x1 = rng.normal(size=(6, 40))
+    with pytest.warns(UserWarning) as record:
+        out, _ = _apply_preprocessing(x1, None, True, True, False)
+    (message,) = [str(w.message) for w in record if "normalize" in str(w.message)]
+    assert "[0, 1]" in message
+    assert "overrides" not in message and "negates" not in message
+    assert 0.0 <= out.min() and out.max() <= 1.0
+
+
+class TestPerfectCorrelationStatistic:
+    """At |r| = 1 the t statistic is +-inf exactly. A 1e-12 offset in the denominator gave a
+    large finite t there instead."""
+
+    @pytest.mark.parametrize("name", ["_pearson", "_spearman"])
+    def test_r_of_one_gives_positive_infinite_t(self, name):
+        from jnwb.jrsa import _metrics
+        x = np.arange(12, dtype=float)
+        r, t, *_ = getattr(_metrics, name)(x, 2.0 * x + 1.0)
+        assert r == 1.0, "fixture must be a perfect correlation"
+        assert t == np.inf
+
+    @pytest.mark.parametrize("name", ["_pearson", "_spearman"])
+    def test_r_of_minus_one_gives_negative_infinite_t(self, name):
+        from jnwb.jrsa import _metrics
+        x = np.arange(12, dtype=float)
+        r, t, *_ = getattr(_metrics, name)(x, -2.0 * x + 1.0)
+        assert r == -1.0, "fixture must be a perfect anticorrelation"
+        assert t == -np.inf
+
+
+class TestMismatchedRowsRaise:
+    """The metric helpers truncated the longer input to the shorter one's rows. They raise."""
+
+    @pytest.mark.parametrize("name", ["_cka", "_rv", "_hsic", "_distance_correlation",
+                                      "_procrustes"])
+    def test_a_helper_refuses_unequal_row_counts(self, name):
+        from jnwb.jrsa import _metrics
+        rng = np.random.default_rng(0)
+        x1 = rng.normal(size=(12, 3))
+        x2 = rng.normal(size=(9, 3))
+        assert x1.shape[0] != x2.shape[0], "fixture must have unequal rows"
+        with pytest.raises(ValueError, match=name):
+            getattr(_metrics, name)(x1, x2)
+
+    def test_procrustes_refuses_unequal_feature_counts(self):
+        from jnwb.jrsa._metrics import _procrustes
+        rng = np.random.default_rng(0)
+        x1 = rng.normal(size=(12, 3))
+        x2 = rng.normal(size=(12, 4))
+        assert x1.shape[1] != x2.shape[1], "fixture must have unequal features"
+        with pytest.raises(ValueError, match="_procrustes"):
+            _procrustes(x1, x2)
 
 
 class TestDirectedMetricsStateTheDirectionTheyMeasure:
@@ -1108,12 +1221,13 @@ class TestTimeAxisNullKeepsAutocorrelation:
         assert len(np.unique(np.round(res.null_distribution, 12))) > 50
 
     def test_a_short_axis_cannot_report_p_below_one_in_n(self):
-        """x2 = x1 puts the observed value above every rotation, so the exact p is 1/6 on a
-        6-sample axis. Drawing shifts from 1..n-1 left the identity out and reported
-        1 / (permutations + 1) = 0.001."""
+        """x2 = x1 puts the observed value at the top of the rotations. The identity is one of
+        six, so the greater tail's exact p is 1/6 and the two-sided p, twice the smaller tail,
+        is 1/3 on a 6-sample axis. Drawing shifts from 1..n-1 left the identity out and
+        reported 1 / (permutations + 1) = 0.001."""
         x = np.random.default_rng(0).standard_normal(6)
         p = float(oa.jrsa(x, x, metric="cosine", permutations=999, rng=0).p)
-        assert 0.12 < p < 0.22, p
+        assert p == pytest.approx(1 / 3, abs=0.05), p
 
     def test_the_default_rotates_the_time_axis_of_every_row(self):
         """(trials, time): the shift runs along time, the same for every row. Rotating the
@@ -1173,7 +1287,9 @@ class TestTimeAxisNullKeepsAutocorrelation:
         x = rng.normal(size=80)
         y = 0.5 * x + rng.normal(size=80)
         res = oa.jrsa(x, y, metric="pearson", permutations=99, bootstrap=200, rng=3, null="iid")
-        assert float(res.p) == 0.01
+        # Two-sided floor: twice 1 / (permutations + 1). The 0.2.6 value was 0.01; the interval
+        # below is unchanged.
+        assert float(res.p) == 0.02
         np.testing.assert_allclose(res.ci, [0.20568213024810308, 0.5753485564085722],
                                    rtol=1e-12, atol=0)
 
@@ -1241,7 +1357,7 @@ class TestSimilarityEdges:
 
         t10, t7 = np.linspace(0.0, 1.0, 10), np.linspace(0.0, 1.0, 7)
         x1, x2 = np.stack([t10 ** power, 2.0 - t10 ** power]), np.zeros((2, 7))
-        out1, out2 = _resample_axis(x1, x2, 1, 10, 7, align, "fraction")
+        out1, out2 = _resample_axis(x1, x2, 1, 10, 7, align)
         np.testing.assert_allclose(out1, np.stack([t7 ** power, 2.0 - t7 ** power]),
                                    rtol=0, atol=1e-12)
         assert out2 is x2
@@ -1283,7 +1399,7 @@ class TestSimilarityEdges:
         monkeypatch.setitem(sys.modules, "scipy.interpolate", None)
         x1, x2 = np.arange(10.0)[None], np.arange(7.0)[None]
         with pytest.raises(ImportError):
-            _resample_axis(x1, x2, 1, 10, 7, align, "fraction")
+            _resample_axis(x1, x2, 1, 10, 7, align)
 
     def test_no_metric_or_resampler_holds_a_cupy_branch(self):
         """IB-48: `_to_backend` hands every metric a NumPy array, so the CuPy branches of
@@ -1294,3 +1410,76 @@ class TestSimilarityEdges:
                 if source.path.name in ("_metrics.py", "_inference.py")
                 and "cupy" in source.text]
         assert held == []
+
+
+# ---------------------------------------------------------------------------
+# Permutation p: a NaN null draw is not counted in n; +/-inf is a draw; an all-NaN null is refused
+# ---------------------------------------------------------------------------
+
+def _pearson_with_null(monkeypatch, offsets, **kwargs):
+    """Public jrsa on a fixed pair, its permutation null replaced by the observed r plus
+    `offsets`, so every count the test relies on is known in advance."""
+    import sys
+    pair = np.random.default_rng(3)
+    x = pair.normal(size=40)
+    y = x + pair.normal(size=40)
+    r = float(oa.jrsa(x, y, metric="pearson", stats=False).value)
+    assert np.isfinite(r), "precondition: the observed r is finite"
+    draws = np.array([r + d for d in offsets], dtype=float)
+    monkeypatch.setattr(sys.modules["jnwb.jrsa"], "_permutation_test",
+                        lambda *args, **kw: draws.copy())
+    return oa.jrsa(x, y, metric="pearson", null="iid", permutations=draws.size,
+                   alternative="greater", **kwargs)
+
+
+def test_p_from_null_leaves_a_nan_draw_out_of_n():
+    from jnwb.jrsa._inference import _p_from_null
+
+    null = np.array([0.1, 0.2, 0.9, np.nan])
+    np.testing.assert_allclose(float(_p_from_null(0.5, null, "greater")), 0.5, rtol=1e-12)
+    np.testing.assert_allclose(float(_p_from_null(0.5, np.append(null, np.inf), "greater")),
+                               0.6, rtol=1e-12)
+
+
+def test_a_nan_null_draw_leaves_n_and_is_recorded_in_execution(monkeypatch):
+    res = _pearson_with_null(monkeypatch, [-1.0, -0.5, 0.5, np.nan])
+    np.testing.assert_allclose(float(res.p), 0.5, rtol=1e-12)
+    assert res.execution["n_null_nan"] == 1
+
+
+def test_a_plus_inf_null_draw_is_a_draw_and_stays_in_n(monkeypatch):
+    res = _pearson_with_null(monkeypatch, [-1.0, -0.5, 0.5, np.inf])
+    np.testing.assert_allclose(float(res.p), 0.6, rtol=1e-12)
+    assert res.execution["n_null_nan"] == 0
+
+
+def test_an_all_nan_null_is_refused_for_a_finite_observed_value(monkeypatch):
+    with pytest.raises(ValueError, match="none is finite"):
+        _pearson_with_null(monkeypatch, [np.nan] * 5)
+
+
+def test_a_metric_undefined_on_every_permutation_gives_nan_p_and_counts_each_draw():
+    x = np.full(20, 1.0)
+    y = np.random.default_rng(0).normal(size=20)
+    res = oa.jrsa(x, y, metric="pearson", null="iid", permutations=25, rng=0)
+    assert np.isnan(float(res.value)), "precondition: a constant input has no r"
+    assert np.isnan(float(res.p))
+    assert res.execution["n_null_nan"] == 25
+
+
+def test_n_null_nan_sums_over_lags():
+    x = np.full(30, 1.0)
+    y = np.random.default_rng(0).normal(size=30)
+    res = oa.jrsa(x, y, metric="pearson", lag=[0, 1, 2], null="iid", permutations=5, rng=0)
+    assert res.execution["n_null_nan"] == 3 * 5
+
+
+def test_n_null_nan_totals_over_windows_on_the_sliding_path():
+    rng = np.random.default_rng(4)
+    x1 = rng.normal(size=(60, 5))
+    x2 = rng.normal(size=(60, 5))
+    x1[12:24] = 1.0  # window 1 holds one repeated row, so every draw of its CKA is NaN
+    res = oa.jrsa(x1, x2, metric="cka", window=12, step=12, sliding=True, null="iid",
+                  permutations=99, rng=2)
+    assert not np.isfinite(res.value[1]), "precondition: window 1 has a non-finite value"
+    assert res.execution["n_null_nan"] == 99

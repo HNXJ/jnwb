@@ -606,9 +606,11 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
             matched = next((j for j in range(n_rows) if dev[j] <= limit), None)
             finite = np.isfinite(ptp)
             largest = int(np.argmax(np.where(finite, ptp, -np.inf))) if finite.any() else None
+            # Over the finite rows only: one NaN row would otherwise make the minimum NaN.
+            best = float(dev[finite].min()) if finite.any() else float(dev.min())
             units.append(WaveformBlockCheck(
                 i, int(uid), "owned" if matched is not None else "unowned", matched,
-                largest, n_rows, a, float(dev.min()), prow))
+                largest, n_rows, a, best, prow))
         if ratios:
             median = float(np.median(ratios))
             if median >= 1000 or median <= 1 / 1000:

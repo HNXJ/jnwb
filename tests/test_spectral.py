@@ -768,6 +768,13 @@ class TestComputeMultitaperPsd:
         with pytest.raises(ValueError, match="finite"):
             compute_multitaper_psd(x, fs=1000.0)
 
+    def test_a_non_finite_fs_is_refused(self):
+        # NaN passed `fs <= 0` and returned a non-finite PSD; inf raised ZeroDivisionError.
+        x = np.random.default_rng(0).normal(size=200)
+        for bad in (np.nan, np.inf, -np.inf):
+            with pytest.raises(ValueError, match="compute_multitaper_psd: fs"):
+                compute_multitaper_psd(x, fs=bad)
+
 
 class TestVoltageCurvatureAndCSD:
     def test_known_quadratic_potential_curvature(self):
@@ -813,6 +820,15 @@ class TestVoltageCurvatureAndCSD:
             current_source_density_1d(lfp, pitch_um=50.0, conductivity_s_per_m=0.0)
         with pytest.raises(ValueError, match="strictly positive"):
             current_source_density_1d(lfp, pitch_um=50.0, conductivity_s_per_m=-0.3)
+
+    def test_a_nan_or_infinite_pitch_or_conductivity_is_refused(self):
+        # NaN passes `<= 0`, so both functions returned an all-NaN array with no error.
+        lfp = np.ones((5, 10))
+        for bad in (np.nan, np.inf, -np.inf):
+            with pytest.raises(ValueError, match="voltage_curvature_1d: pitch_um"):
+                voltage_curvature_1d(lfp, pitch_um=bad)
+            with pytest.raises(ValueError, match="current_source_density_1d: conductivity_s_per_m"):
+                current_source_density_1d(lfp, pitch_um=50.0, conductivity_s_per_m=bad)
 
     def test_too_few_channels_raises(self):
         lfp = np.ones((2, 10))
@@ -1237,6 +1253,50 @@ class TestAperiodicFit:
         assert res.freq_range == (2.0, 50.0)
 
 
+class TestAperiodicFitRSquaredOnFlatSpectrum:
+    """A flat log power has no variance for the fit to explain, so r_squared is NaN. Round-off
+    in the total sum of squares was reported as a fit quality (0.8 in fixed mode, -1e9 in knee)."""
+
+    @staticmethod
+    def _log_power_ss_and_tol(psd):
+        log_power = np.log10(psd)
+        ss_tot = float(np.sum((log_power - log_power.mean()) ** 2))
+        tol = log_power.size * np.finfo(float).eps * max(1.0, float(np.max(np.abs(log_power)))) ** 2
+        return ss_tot, tol
+
+    @pytest.mark.parametrize("mode", ["fixed", "knee"])
+    def test_round_off_flat_spectrum_has_nan_r_squared(self, mode):
+        freqs = np.arange(1.0, 51.0)
+        psd = np.random.default_rng(0).uniform(1.0, 1.0 + 1e-15, size=freqs.size)
+        ss_tot, tol = self._log_power_ss_and_tol(psd)
+        assert 0.0 < ss_tot <= tol, "fixture must be flat to round-off, not exactly flat"
+        res = aperiodic_fit(freqs, psd, freq_range=(1.0, 50.0), mode=mode)
+        assert res.accepted
+        assert np.isnan(res.r_squared)
+
+    @pytest.mark.parametrize("mode", ["fixed", "knee"])
+    def test_exactly_flat_spectrum_has_nan_r_squared(self, mode):
+        freqs = np.arange(1.0, 51.0)
+        psd = np.full(freqs.size, 0.37)
+        ss_tot, tol = self._log_power_ss_and_tol(psd)
+        assert ss_tot == 0.0, "fixture must be exactly flat"
+        res = aperiodic_fit(freqs, psd, freq_range=(1.0, 50.0), mode=mode)
+        assert res.accepted
+        assert np.isnan(res.r_squared)
+
+    @pytest.mark.parametrize("mode, expected", [("fixed", 0.9976468465367427),
+                                                ("knee", 0.9976468465367426)])
+    def test_one_over_f_with_noise_keeps_its_r_squared(self, mode, expected):
+        """Pinned on the unmodified code: a fit with variance to explain keeps its value."""
+        rng = np.random.default_rng(3)
+        freqs = np.arange(1.0, 101.0)
+        psd = 10.0 ** (0.5 - 1.2 * np.log10(freqs)) * (1.0 + 0.05 * rng.normal(size=freqs.size))
+        ss_tot, tol = self._log_power_ss_and_tol(psd)
+        assert ss_tot > tol, "fixture must have variance to explain"
+        res = aperiodic_fit(freqs, psd, freq_range=(1.0, 100.0), mode=mode)
+        np.testing.assert_allclose(res.r_squared, expected, rtol=1e-12)
+
+
 class TestRelativePower:
     def test_numerical_distinction_under_unequal_baselines(self):
         """Under unequal baselines, mean of ratios, ratio of means, and mean dB strictly diverge."""
@@ -1376,17 +1436,14 @@ class TestRelativePower:
     def test_device_fallback_warning_on_cuda_unavailability(self):
         """Requesting device='cuda' when unavailable emits RuntimeWarning and computes on CPU."""
         import warnings
-        import jnwb._backend as backend
         power = np.array([2.0, 4.0])
         baseline = np.array([1.0, 2.0])
         with warnings.catch_warnings(record=True) as record:
             warnings.simplefilter("always")
             res = relative_power(power, baseline, model="mean_of_ratios", axis=0, device="cuda")
-            # If CUDA is unavailable, RuntimeWarning is emitted by resolve_device
-            cuda_warnings = [r for r in record if issubclass(r.category, RuntimeWarning)]
-            if not backend.gpu_available():
-                assert len(cuda_warnings) >= 1
-                assert "device='cuda' was requested" in str(cuda_warnings[0].message)
+        cuda_warnings = [r for r in record if issubclass(r.category, RuntimeWarning)]
+        assert len(cuda_warnings) >= 1
+        assert "device='cuda' was requested" in str(cuda_warnings[0].message)
         assert res == pytest.approx(2.0)
 
 
@@ -1450,7 +1507,8 @@ class TestWelchCsdGpuParity:
             pytest.skip("CUDA GPU not available")
         from jnwb.spectral import _welch_csd_gpu
 
-        x = np.random.randn(50)
+        rng = np.random.default_rng(23)
+        x = rng.standard_normal(50)
         f_gpu, p_gpu, py_gpu, csd_gpu = _welch_csd_gpu(x, x, fs=100.0, nperseg=64)
         assert len(f_gpu) == len(p_gpu) == 33
         assert np.all(np.isfinite(p_gpu))
@@ -1729,7 +1787,10 @@ class TestCrossSpectralRatioFamilyIdentifiability:
             out = jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0))
             values.append(np.nanmean(out["wpli_debiased_sq"]))
         mean_null = float(np.mean(values))
-        assert abs(mean_null) < 0.05, f"debiased wPLI null mean {mean_null:.4f}"
+        # Plain wPLI squared has a null mean near 0.02 here, so 0.01 separates the two; a
+        # constant output has no spread across seeds.
+        assert abs(mean_null) < 0.01, f"debiased wPLI null mean {mean_null:.4f}"
+        assert np.std(values) > 0, values
 
     def test_plain_wpli_null_bias_falls_as_segment_count_rises(self):
         means = []
@@ -2229,7 +2290,10 @@ class TestAperiodicFitRobust:
         default = aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), mode=mode)
         robust = aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), mode=mode, robust=True)
         assert default.exponent - 2.0 > 0.15, default
-        assert abs(robust.exponent - 2.0) < 0.03 if mode == "fixed" else robust.exponent < 2.2
+        # The knee fit trades exponent for knee, so its tolerance is wider; it must still beat
+        # the default fit.
+        tolerance = 0.03 if mode == "fixed" else 0.15
+        assert abs(robust.exponent - 2.0) < min(tolerance, abs(default.exponent - 2.0)), robust
         assert robust.accepted and robust.mode == mode
         on_clean = aperiodic_fit(self.FREQS, clean, (2.0, 40.0), mode=mode, robust=True)
         assert abs(on_clean.exponent - 2.0) < 0.01, on_clean
@@ -2307,4 +2371,5 @@ class TestCoherenceWithAConstantChannel:
         rng = np.random.default_rng(1)
         x, y = rng.standard_normal(4000), rng.standard_normal(4000)
         out = cross_area_coherence(x, y, **self.KW)
+        assert out["band_coherence"], "the result holds no band values, so the check below passes on nothing"
         assert all(np.isfinite(v) for v in out["band_coherence"].values())

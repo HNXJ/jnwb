@@ -34,10 +34,7 @@ ALLOWED = {
     # jnwb_ext/unit_inclusion.py imports it and classify_units_omission_inclusion_v1.py calls
     # it, promoted out of that repo 2026-08-23. tests/test_metadata.py now calls it to pin its
     # refusals, so the exemption is spent; the downstream callers are still real.
-    "old_new_summary_table": (
-        "Downstream: same importer and pipeline as compare_old_new_criteria, called "
-        "with group_cols=('area', 'quality_tier')."
-    ),
+    # old_new_summary_table's exemption is spent the same way: tests/test_metadata.py calls it.
     # coef_rows was exempted here as reachable only from downstream repositories. 05-83
     # measured that swapping its ci_lo for its ci_hi changed a returned number and survived
     # the whole suite, so tests/test_estimator_values_are_pinned.py now calls it and the

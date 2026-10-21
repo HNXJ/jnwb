@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 from pynwb import NWBFile
 from jnwb.addressing import (
-    _STABLE_QUALITY_LABELS, _finite_cutoff, _passes_cutoff, _quality_is_stable,
+    _STABLE_QUALITY_LABELS, _area_from_row, _finite_cutoff, _passes_cutoff, _quality_is_stable,
     _refuse_repeated_columns, _stable_label_set,
 )
 from jnwb.nwb_io import WAIVED_REQUIREMENTS_ATTR, _normalise_allow_missing, nwb_read_io
@@ -162,8 +162,9 @@ def get_all_units_metadata(
         filter_quality: If True, filter to units with a finite quality >= quality_threshold,
             or, when a file's quality holds text labels, to units whose label is in
             ``stable_labels``.
-        quality_threshold: numeric quality cut-off. The default 1.0 is a convention with no
-            cited source: pass the cut-off your sorter's codes follow.
+        quality_threshold: numeric quality cut-off; NaN or infinite raises ``ValueError``. The
+            default 1.0 is a convention with no cited source: pass the cut-off your sorter's
+            codes follow.
         on_read_error: ``"skip"`` logs and continues on per-file read failures (default);
             ``"raise"`` re-raises the first read/processing error.
         stable_threshold, stable_labels: the ``is_stable`` rule, passed to
@@ -200,6 +201,8 @@ def get_all_units_metadata(
         {'incomplete.nwb': ('session_description',)}
     """
     _stable_label_set(stable_labels, "get_all_units_metadata")
+    quality_threshold = _finite_cutoff(quality_threshold, "quality_threshold",
+                                       "get_all_units_metadata")
     # Validated up front so a typo raises even when every input is an open handle,
     # for which there is no file to open.
     _normalise_allow_missing(allow_missing)
@@ -511,13 +514,14 @@ def get_snr_analysis(
         a missing, non-numeric or infinite SNR is undefined and left out of every entry.
 
     Raises:
-        ValueError: ``snr``, or with ``detail=True`` ``session_id``, occurs more than once in
-            ``units_df``.
+        ValueError: ``snr_threshold`` is NaN or infinite, or ``snr``, or with ``detail=True``
+            ``session_id``, occurs more than once in ``units_df``.
 
     Example:
         >>> snr_stats = get_snr_analysis(units_df, snr_threshold=1.0)
         >>> print(f"Units with SNR>=1.0: {snr_stats['pass_rate']:.1%}")
     """
+    snr_threshold = _finite_cutoff(snr_threshold, "snr_threshold", "get_snr_analysis")
     _refuse_repeated_columns(units_df, ("snr", "session_id") if detail else ("snr",),
                              "get_snr_analysis")
     if 'snr' not in units_df.columns:
@@ -785,10 +789,16 @@ def audit_electrodes(elec_df: pd.DataFrame, units_df: Optional[pd.DataFrame] = N
         'units_assigned': 0,
     }
 
-    # Area representation
+    # Area representation: each contact takes the area the addressing rule gives its position on
+    # its probe, so a multi-area probe splits by position, a sub-label after a comma counts as
+    # an area, and a missing probe key raises.
     if 'location' in elec_df.columns:
-        areas = elec_df['location'].apply(lambda x: str(x).split(',')[0].strip() if pd.notna(x) else 'Unknown')
-        area_counts = areas.value_counts()
+        probe_cache: dict = {}
+        areas = pd.Series(
+            [_area_from_row(idx, idx, row, elec_df, probe_cache) for idx, row in elec_df.iterrows()],
+            index=elec_df.index, dtype=object,
+        )
+        area_counts = areas.fillna('Unknown').value_counts()
         result['areas_represented'] = area_counts.to_dict()
 
     # Unit assignments
@@ -1069,7 +1079,8 @@ def old_new_summary_table(
     curation pipelines. Not exported in top-level jnwb namespace.
     """
     cols = list(group_cols) + ["transition"]
-    summary = compared.groupby(cols).size().reset_index(name="n_units")
+    # dropna=False keeps a unit with a missing class in its own group, so the counts sum to the units.
+    summary = compared.groupby(cols, dropna=False).size().reset_index(name="n_units")
     return summary
 
 

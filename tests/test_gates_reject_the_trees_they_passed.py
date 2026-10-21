@@ -11,7 +11,9 @@ accepted -- because a gate that rejects everything is as useless as one that rej
 from __future__ import annotations
 
 import importlib.util
+import os
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -392,6 +394,10 @@ class TestGate13ChecksBehaviourNotPresence:
         shutil.copytree(REPO_ROOT / "skills", root / "skills")
         shutil.copy(REPO_ROOT / "README.md", root / "README.md")
         shutil.copy(REPO_ROOT / "mkdocs.yml", root / "mkdocs.yml")
+        # copytree copies each directory's attributes, and on Windows rmtree cannot delete a
+        # copy of a read-only directory, so the copy is made writable.
+        for directory, _, _ in os.walk(root):
+            os.chmod(directory, stat.S_IRWXU)
         return root
 
     def test_the_unmodified_copy_passes(self, tmp_path: Path):

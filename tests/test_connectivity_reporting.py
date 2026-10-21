@@ -125,6 +125,7 @@ def test_no_reported_bias_correction_ever_equals_the_raw_estimate(pair):
     """The substitution this repair closes: a corrected name holding a raw value."""
     x, y = pair
     res = transfer_entropy(x, y, n_surrogates=0, seed=1)
+    assert res.diagnostics["surrogates"], "the surrogates dict is empty, so the loop below checks nothing"
     for container in (res.diagnostics, res.diagnostics["surrogates"]):
         for key, value in container.items():
             if key.startswith("bias_corrected"):

@@ -621,8 +621,9 @@ def refractory_contamination(spike_times, *, duration_s: float, refractory_ms: f
     Returns:
         Dict with ``contamination`` (``f``), ``n_violations`` (``r``), ``n_spikes`` (``N``)
         and ``reason``. ``contamination`` is NaN, and ``reason`` names why, for an empty
-        train, a duration of 0, and when ``2 r T / ((tau_R - tau_C) N^2)`` exceeds 1, so that
-        the equation has no real root; ``reason`` is ``None`` otherwise. A NaN drops out of a
+        train, fewer than three spikes, a duration of 0, and when
+        ``2 r T / ((tau_R - tau_C) N^2)`` exceeds 1, so that the equation has no real root;
+        ``reason`` is ``None`` otherwise. A NaN drops out of a
         ``nanmean`` over units and fails a ``c < threshold`` check.
 
     Raises:
@@ -672,6 +673,10 @@ def refractory_contamination(spike_times, *, duration_s: float, refractory_ms: f
     result["n_violations"] = n_v
     if total == 0:
         result["reason"] = "the duration T is not positive"
+        return result
+    if n < 3:
+        result["reason"] = (f"fewer than three spikes ({n}): the estimate needs two intervals, "
+                            "and one or two spikes leave at most one")
         return result
     discriminant = 1.0 - 2.0 * n_v * total / ((tau_r - tau_c) * n * n)
     if discriminant < 0:

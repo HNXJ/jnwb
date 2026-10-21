@@ -18,10 +18,6 @@ whose `cross_convention_hops` is a static scan over source text: it executes not
 `current_source_density_1d` only as a producer, never as a consumer. These tests execute the
 pair on arrays instead.
 
-**Legs that fail today carry `xfail(strict=True)`**, so repairing the defect makes the test fail
-and forces the marker off. A non-strict marker would let the repair land unnoticed; a weakened
-assertion would let the defect land unnoticed.
-
 Provenance: which `jnwb` this suite imported is asserted once, in
 `test_import_provenance.py`, which is the only module allowed to make that assertion because it
 is the only one that honours `JNWB_EXPECTED_PACKAGE_ROOT` and so works both for this checkout
@@ -151,8 +147,7 @@ def test_h2_naming_each_axis_makes_the_two_layouts_agree(consumer: str) -> None:
     """Both layouts are computable; only the *defaults* disagree.
 
     This separates the defect from a capability gap: the functions can do the right thing on
-    a time-major array, so the xfail below is about the silent default, not about a missing
-    feature.
+    a time-major array, so the defect was the silent default, not a missing feature.
 
     Passes while the invariant is violated if: both sides computed the same wrong thing. The
     test above pins the channel-major side to hand arithmetic, so that is covered.

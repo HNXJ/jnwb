@@ -23,8 +23,8 @@ protected paths to skill-tree uniqueness without the list noticing.
   14. Internal process vocabulary kept out of public documentation and CHANGELOG.md, the
       CHANGELOG held to its entry template, and item or problem identifiers out of jnwb/,
       docs/ and the files its pages include.
-  15. Stack form consistency: declared write sets are comparable, problem rows keep shape, and
-      the problem stack's Open section holds only its table.
+  15. Stack form consistency: declared write sets are comparable, and table rows, the open
+      stack's included, keep their header's shape.
   16. Line ending consistency: no tracked text file carries both conventions at once.
   17. Stack pointers resolve: Skill, Role and Blocked by name something on this tree.
   18. API member types: each docs/api.md Type cell, and each signature's parameter kinds, are
@@ -50,7 +50,11 @@ from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Union
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
+# Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
+if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.append(str(REPO_ROOT))
+elif str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 # The one stack reader, shared with STEP 0a (scripts/stack_parse.py): gates 15 and 17 read the
 # same items, at any heading depth, that STEP 0a reads.
@@ -111,7 +115,6 @@ from scripts.gates.docs import (
 
 from scripts.gates.vocabulary import (
     PROJECT_IDENTIFIERS,
-    PROJECT_IDENTIFIER_ALLOWED,
     check_no_project_identifiers_in_code,
     INTERNAL_PROCESS_TERMS,
     _internal_term_pattern,
@@ -144,7 +147,7 @@ from scripts.gates.vocabulary import (
 
 from scripts.gates.stacks_form import (
     TODO_STACK,
-    PROBLEM_STACK,
+    OPEN_STACK,
     _code_span_mask,
     _writes_fields,
     _writes_field_spans,
@@ -174,7 +177,6 @@ from scripts.gates.stacks_form import (
 from scripts.gates.stacks_closure import (
     _ESCAPED_PIPE,
     GENERATED_FROM,
-    _CANONICAL_OPEN_ROW,
     _row_delimiters,
     check_stack_form_consistency,
 )
@@ -328,8 +330,7 @@ GATES: List[Tuple[int, Any, Any]] = [
              "is not truncated by a stray full stop; no 'Blocked by: none' is contradicted by "
              "its own item's text; every summary count agrees with the items it names; "
              "no summary states an item total the stack does not hold; "
-             "every problem row carries its own table's column count; "
-             "'## Open' holds only its header, separator and well-formed rows; "
+             "every table row in the open stack carries its own table's column count; "
              "every GENERATED_FROM entry resolves against the tree)."),
     (16, _one(check_line_ending_consistency,
               "FAIL: Tracked files carry both line-ending conventions:"),

@@ -2,16 +2,16 @@
 
 Everything you need to make a change and get it merged: the mechanics first, then the
 rules a change is held to. The working rules for agents and the repository map live in
-[`AGENTS.md`](AGENTS.md). The contracts a *caller* can rely on -- randomness, devices,
+[`AGENTS.md`](../AGENTS.md). The contracts a *caller* can rely on -- randomness, devices,
 shapes, units, and what each operation does when it cannot support a fit -- are
 documentation, in
-[`docs/10_operation_specifications.md`](docs/10_operation_specifications.md).
+[`docs/10_operation_specifications.md`](../docs/10_operation_specifications.md).
 
 ## Setup
 
-Python 3.12 or newer. CI runs every declared version on both Ubuntu and Windows — six legs, and
-`pyproject.toml` is where the declared set lives — so a change must work across the whole range,
-not only at its ends.
+Python 3.12 or newer. CI runs every declared version on Ubuntu and every one but 3.15 on Windows,
+which has no h5py wheel for it yet — seven legs, and `pyproject.toml` is where the declared set
+lives — so a change must work across the whole range, not only at its ends.
 
 ```bash
 git clone https://github.com/HNXJ/jnwb.git     # with a GitHub SSH key: git@github.com:HNXJ/jnwb.git
@@ -87,7 +87,7 @@ python scripts/docs_build.py
   (VIOLATED fails; `artifacts/fact_graph.json` is that graph written out, and is never
   committed). It fails on structure, not behaviour.
 
-**Frozen-validated functions.** `artifacts/frozen_validated.json` lists functions whose body
+**Frozen-validated functions.** `artifacts/process/frozen_validated.json` lists functions whose body
 was verified by someone other than its author and had a mutant killed by the tests it names.
 Each entry records the SHA-256 of the function's syntax tree without docstrings or comments,
 so rewording a docstring or reformatting leaves it frozen and any change to the code does not.
@@ -106,9 +106,9 @@ python scripts/release_gate.py
 
 - **`release_gate.py`** — first refuses the release while `artifacts/state.md` is present and
   records another HEAD, the working tree has an uncommitted
-  change, the problem stack holds a row, a todo item is still required for this cycle, or the
+  change, the open stack holds a row, a todo item is still required for this cycle, or the
   closure receipt is missing or nonzero (`AGENTS.md` §11, condition 3), or while the committed
-  `artifacts/benchmarks/peak_memory.json` names a version other than the one the tree declares.
+  `artifacts/benchmarks/performance/peak_memory.json` names a version other than the one the tree declares.
   It then runs every check that takes minutes, and the suite last, so a failure costs minutes
   rather than a full run: the harness gate, builds the wheel, installs it in a clean venv,
   smoke-tests the installed package and runs the tutorials against it. It catches packaging
@@ -236,7 +236,7 @@ produced six false kills in 0.2.5 and hid a real gap behind them.
 ## Documentation rule
 
 - **Truth Precedence**: Code and direct empirical receipts define implemented behavior. Documentation must describe actual behavior without claiming stronger scientific capabilities than what is implemented and verified.
-- **Form**: every page follows [`docs/documentation_form.md`](docs/documentation_form.md), the
+- **Form**: every page follows [`docs/documentation_form.md`](../docs/documentation_form.md), the
   contract for tables, vocabulary, length, navigation and figures. It is kept off the
   published site.
 - **Dashboard**: `scripts/build_dashboard.py` builds the site from committed records, and
@@ -396,7 +396,7 @@ Every contributor adheres to these scientific invariants:
 
 ## Where the work is queued
 
-[`artifacts/todo_stack.md`](artifacts/todo_stack.md) holds the remaining work, grouped by
+[`artifacts/todo_stack.md`](../artifacts/todo_stack.md) holds the remaining work, grouped by
 the version that will carry it, most consequential first. It holds only what is not yet
 done — a finished item is deleted, because git and the changelog already record it. If you
 finish something, delete it from the stack in the same commit.
@@ -423,7 +423,7 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    YYYY-MM-DD`, which inserts the section below `[Unreleased]` and deletes the fragments it used
    (`--dry-run` prints the section only), and commit. Then, on that clean tree, run
    `python scripts/measure_peak_memory.py --write` and commit
-   `artifacts/benchmarks/peak_memory.json`. All of this lands before the closure pass, whose
+   `artifacts/benchmarks/performance/peak_memory.json`. All of this lands before the closure pass, whose
    receipt then covers the record; `release_gate.py` refuses a record that names another
    version.
 2. Commit to `dev`, push, and wait for CI to pass on that exact commit. `release_gate.py`

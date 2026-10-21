@@ -273,9 +273,12 @@ DIRECTED = {
 
 
 def _null_of(res):
-    """Every surrogate-derived number the result carries."""
+    """Every surrogate-derived number the result carries. The coupling p of phase_slope_index
+    is one: at few surrogates the per-band p values sit on a coarse grid and can agree across
+    seeds, so the coupling p is what tells two nulls apart."""
     return (res.p_x_to_y, res.p_y_to_x, res.p_net,
             tuple(sorted((k, v.get("p_surrogate")) for k, v in (res.per_band or {}).items())),
+            res.diagnostics.get("p_coupling_surrogate"),
             tuple(sorted((k, v) for k, v in res.diagnostics.get("surrogates", {}).items())))
 
 

@@ -48,6 +48,10 @@ class XFlipResult(DictAccessMixin):
             `corr_matrix`, `labels` and `n_channels` cover the window's rows only.
         boundaries_um: `boundaries` times `contact_spacing`, in um from probe row 0, or None
             when no `contact_spacing` was given.
+        null_method: The surrogate null that produced `p_values`: `'homogeneous'`,
+            `'autocorr_preserving'` or `'permute_channels'` (`'auto'` records what it
+            resolved to). None when no surrogate test ran (a refusal before the null,
+            or `n_surrogates=0`).
     """
 
     corr_matrix: np.ndarray
@@ -65,6 +69,7 @@ class XFlipResult(DictAccessMixin):
     surrogate_seed_entropy: Optional[int] = None
     window: Optional[Tuple[int, int]] = None
     boundaries_um: Optional[Tuple[float, ...]] = None
+    null_method: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -84,6 +89,7 @@ class XFlipResult(DictAccessMixin):
             "surrogate_seed_entropy": self.surrogate_seed_entropy,
             "window": self.window,
             "boundaries_um": self.boundaries_um,
+            "null_method": self.null_method,
         }
 
 
@@ -609,7 +615,8 @@ def xflip(
             matrices as described under `surrogate_method`; without it a matrix has no sample count
             and its surrogates permute channels. The Wishart draw treats the samples as
             independent, so for autocorrelated data such as LFP pass the effective number of
-            independent samples: the raw count makes the null too narrow and the test too liberal.
+            independent samples (e.g. `n_samples=effective_sample_size(lfp)`): the raw count makes
+            the null too narrow and the test too liberal.
         rng: An int seed, a NumPy Generator, or None for fresh OS entropy. A `Generator`
             gives up one draw, a child seed the surrogates run on. The seed used is
             returned as `surrogate_seed_entropy`.
@@ -629,8 +636,8 @@ def xflip(
 
     Returns:
         XFlipResult container with `block_bounds`, `boundaries`, `labels`, `modularity`,
-        `p_values`, `accepted`, `rejection_reason`, `surrogate_seed_entropy`, `window` and
-        `boundaries_um`.
+        `p_values`, `accepted`, `rejection_reason`, `surrogate_seed_entropy`, `window`,
+        `boundaries_um` and `null_method`.
 
     Raises:
         ValueError: If data is non-2D, non-finite, ill-conditioned/non-symmetric precomputed
@@ -663,8 +670,11 @@ def xflip(
         raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
     if n_blocks is not None and n_blocks < 1:
         raise ValueError(f"n_blocks must be >= 1, got {n_blocks}")
-    if n_surrogates < 0:
-        raise ValueError(f"n_surrogates must be >= 0, got {n_surrogates}")
+    # NaN compared false against `< 0`, so it reached the surrogate loop. Non-finite is tested
+    # first because int() of NaN or Inf raises a different error.
+    if not np.isfinite(n_surrogates) or int(n_surrogates) != n_surrogates or n_surrogates < 0:
+        raise ValueError(f"n_surrogates must be an integer >= 0, got {n_surrogates}")
+    n_surrogates = int(n_surrogates)
     if n_samples is not None and n_samples < 2:
         raise ValueError(f"n_samples must be >= 2, got {n_samples}")
     # `is_sig = p <= alpha` is vacuously true for alpha >= 1, and the two thresholds were
@@ -759,6 +769,7 @@ def xflip(
                 method=resolved_method,
                 n_channels=n_channels,
                 n_blocks=1,
+                null_method=None,
             ), rows, contact_spacing)
     else:
         raw_data = None
@@ -826,6 +837,7 @@ def xflip(
             method=resolved_method,
             n_channels=n_channels,
             n_blocks=1,
+            null_method=None,
         ), rows, contact_spacing)
 
     def partition(matrix: np.ndarray, k: int):
@@ -1006,4 +1018,5 @@ def xflip(
         n_blocks=target_k if accepted else 1,
         boundary_drops=boundary_drops,
         surrogate_seed_entropy=seed_entropy if surrogates_run else None,
+        null_method=eff_surrogate_method if surrogates_run else None,
     ), rows, contact_spacing)

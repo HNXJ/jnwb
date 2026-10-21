@@ -82,6 +82,38 @@ class TestPermuteLabelsContract:
             )
 
 
+class TestMissingGroupLabelIsRefused:
+    """A missing group id matches no group, so its samples would keep their labels unpermuted
+    and no call would say so."""
+
+    def test_permute_labels_refuses_a_nan_group_and_counts_it(self):
+        labels = np.array([0, 1, 0, 1, 0, 1])
+        groups = np.array([0.0, 0.0, 1.0, 1.0, 1.0, np.nan])
+        assert int(np.isnan(groups).sum()) == 1, "fixture must hold one NaN group"
+        with pytest.raises(ValueError, match=r"permute_labels.*groups.*1 missing"):
+            permute_labels(labels, groups=groups, scheme="within_group", rng=np.random.default_rng(0))
+
+    def test_permute_labels_refuses_a_none_group_in_an_object_array(self):
+        labels = np.array([0, 1, 0, 1, 0, 1])
+        groups = np.array([0, 0, 1, 1, None, 1], dtype=object)
+        assert sum(g is None for g in groups) == 1, "fixture must hold one None group"
+        with pytest.raises(ValueError, match=r"permute_labels.*groups.*1 missing"):
+            permute_labels(labels, groups=groups, scheme="within_group", rng=np.random.default_rng(0))
+
+    def test_build_permutation_plan_refuses_missing_groups_and_counts_them(self):
+        labels, groups = [0, 1, 0, 1, 0, 1], [0.0, 0.0, 1.0, 1.0, np.nan, np.nan]
+        with pytest.raises(ValueError, match=r"build_permutation_plan.*groups.*2 missing"):
+            build_permutation_plan(labels, groups, n_permutations=2, rng=0)
+
+    def test_all_finite_groups_are_unchanged(self):
+        labels = np.array([0, 1, 0, 1, 0, 1])
+        groups = np.array([0.0, 0.0, 1.0, 1.0, 1.0, 1.0])
+        out = permute_labels(labels, groups=groups, scheme="within_group",
+                             rng=np.random.default_rng(0))
+        # Pinned on the unmodified code: the finite-group path is untouched.
+        assert out.tolist() == [0, 1, 0, 0, 1, 1]
+
+
 class TestWithinGroupPreservesGroupComposition:
     def test_per_group_label_counts_unchanged(self):
         rng = np.random.default_rng(42)
@@ -213,3 +245,108 @@ class TestBuildPermutationPlan:
         for draw in seen:
             assert draw[4:] == (1, 1)
             assert sorted(draw[:2]) == [0, 1] and sorted(draw[2:4]) == [0, 1]
+
+
+PINNED_DIGESTS = [
+    "bec1dd85c215d41388e8e833a18c55e8da5e03f9a5f37da4a43af8fda7afe0f3",
+    "829cd95f8f1c19c1379090b96272d2725a8f122b21dc81488ac6832a10c620c7",
+    "2cf957cd4274e9510653480c3a5bbd2ddd00cb11390826d3ad89651ca60ad5bd",
+]
+
+
+class TestBlocksNoneKeepsEveryDraw:
+    def test_manifest_digests_match_the_pinned_draws(self):
+        """Pinned on the code before `blocks` existed. Without blocks, each draw must still
+        hash to the same bytes for the same seed."""
+        plan = build_permutation_plan(
+            [0, 0, 1, 1, 0, 1, 1, 1], [0, 0, 0, 0, 1, 1, 1, 1], n_permutations=3, seed=1
+        )
+        assert plan["draw_manifest"]["label_digest"].tolist() == PINNED_DIGESTS
+
+    def test_explicit_blocks_none_gives_the_pinned_draws(self):
+        plan = build_permutation_plan(
+            [0, 0, 1, 1, 0, 1, 1, 1], [0, 0, 0, 0, 1, 1, 1, 1], n_permutations=3, seed=1,
+            blocks=None,
+        )
+        assert plan["draw_manifest"]["label_digest"].tolist() == PINNED_DIGESTS
+
+
+def _block_fixture():
+    """Eight blocks of two samples. Blocks 0 to 3 sit in group 0 with block labels
+    [0, 0, 1, 1]; blocks 4 to 7 sit in group 1 with [0, 1, 1, 1]."""
+    blocks = np.repeat(np.arange(8), 2)
+    groups = np.repeat([0, 1], 8)
+    block_labels = np.array([0, 0, 1, 1, 0, 1, 1, 1])
+    return block_labels[blocks], groups, blocks
+
+
+class TestBlockConstantPermutation:
+    def test_labels_stay_constant_inside_each_block_in_every_draw(self):
+        from jnwb.permutation import _block_structure, _permute_blocks
+
+        labels, groups, blocks = _block_fixture()
+        codes, first = _block_structure(labels, groups, blocks)
+        draws = [_permute_blocks(labels, groups, codes, first, np.random.default_rng(i))
+                 for i in range(50)]
+        assert len({tuple(d) for d in draws}) > 1, "the fixture must permute"
+        for draw in draws:
+            for block in range(8):
+                assert len(np.unique(draw[codes == block])) == 1
+
+    def test_each_group_keeps_the_multiset_of_its_block_labels(self):
+        from jnwb.permutation import _block_structure, _permute_blocks
+
+        labels, groups, blocks = _block_fixture()
+        codes, first = _block_structure(labels, groups, blocks)
+        block_groups = groups[first]
+        for i in range(50):
+            draw = _permute_blocks(labels, groups, codes, first, np.random.default_rng(i))
+            for group in (0, 1):
+                before = sorted(labels[first][block_groups == group].tolist())
+                after = sorted(draw[first][block_groups == group].tolist())
+                assert after == before
+
+    def test_a_block_holding_two_labels_is_refused_by_name(self):
+        with pytest.raises(ValueError,
+                           match="build_permutation_plan: blocks=0 holds more than one label"):
+            build_permutation_plan(
+                [0, 1, 1, 1, 0, 0, 1, 1], [0, 0, 0, 0, 1, 1, 1, 1], n_permutations=2, seed=0,
+                blocks=[0, 0, 1, 1, 2, 2, 3, 3],
+            )
+
+    def test_a_block_spanning_two_groups_is_refused_by_name(self):
+        with pytest.raises(ValueError,
+                           match="build_permutation_plan: blocks=0 spans more than one group"):
+            build_permutation_plan(
+                [0, 0, 1, 1], [0, 1, 0, 0], n_permutations=2, seed=0, blocks=[0, 0, 1, 1]
+            )
+
+    def test_blocks_of_the_wrong_length_are_refused_by_name(self):
+        with pytest.raises(ValueError, match="build_permutation_plan: blocks"):
+            build_permutation_plan(
+                [0, 0, 1, 1], [0, 0, 1, 1], n_permutations=2, seed=0, blocks=[0, 0, 1]
+            )
+
+    def test_manifest_digests_are_the_block_draws_and_its_columns_are_unchanged(self):
+        import hashlib
+        from jnwb.permutation import _block_structure, _permute_blocks
+
+        labels, groups, blocks = _block_fixture()
+        plan = build_permutation_plan(labels, groups, n_permutations=5, seed=11, blocks=blocks)
+        codes, first = _block_structure(labels, groups, blocks)
+        expected = [
+            hashlib.sha256(np.ascontiguousarray(
+                _permute_blocks(labels, groups, codes, first, np.random.default_rng(11 + i))
+            )).hexdigest()
+            for i in range(5)
+        ]
+        assert plan["draw_manifest"]["label_digest"].tolist() == expected
+        assert list(plan["draw_manifest"].columns) == [
+            "permutation", "seed", "label_digest", "n_samples", "n_groups"]
+
+    def test_blocks_is_keyword_only_and_defaults_to_none(self):
+        import inspect
+
+        param = inspect.signature(build_permutation_plan).parameters["blocks"]
+        assert param.kind is inspect.Parameter.KEYWORD_ONLY
+        assert param.default is None

@@ -13,6 +13,7 @@ from ._common import (
     _require_finite_nonempty_trace,
     _require_two_samples,
     _flat_as_zero,
+    _require_positive_fs,
     _resolve_fs,
 )
 
@@ -403,6 +404,7 @@ class AperiodicFitResult(DictAccessMixin):
         exponent: Aperiodic spectral slope / exponent `chi` (positive for 1/f decay), or None if fit rejected.
         knee: Knee parameter `k` (>0.0 for knee mode, None for fixed mode or rejected fit).
         r_squared: Coefficient of determination (R^2) of the fit in log10 space, or None if fit rejected.
+            NaN when the log power is flat to round-off (no variance to explain).
         freq_range: Evaluated frequency range `(f_min, f_max)` in Hz.
         mode: Fitting model (`'fixed'` or `'knee'`).
         accepted: Whether the optimization successfully converged to a valid fit.
@@ -583,7 +585,10 @@ def aperiodic_fit(
             k = float(popt[2])
             fitted = _knee_model(f_sel, b, chi, k)
         ss_res = float(np.sum((log_power - fitted) ** 2))
-        r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > 0 else 0.0
+        # A total at or below len * eps * max(1, max|log_power|)**2 is round-off over round-off:
+        # a flat spectrum has no variance to explain, so r2 is NaN there.
+        flat_tol = log_power.size * np.finfo(float).eps * max(1.0, float(np.max(np.abs(log_power)))) ** 2
+        r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > flat_tol else float("nan")
         return b, chi, k, r2, fitted
 
     def _fit_single_1d(p_1d: np.ndarray) -> AperiodicFitResult:
@@ -750,7 +755,7 @@ def compute_multitaper_psd(
 
     Args:
         data: Continuous time series array of arbitrary shape.
-        fs: Sampling frequency in Hz. Must be strictly positive.
+        fs: Sampling frequency in Hz. Must be finite and strictly positive.
         nw: Time-halfbandwidth product (default: 3.0). Must be strictly positive.
         k_tapers: Number of DPSS tapers to average (default: max(1, int(2 * nw - 1))).
             Must be in range [1, N] where N is length of `data` along `axis`.
@@ -763,15 +768,14 @@ def compute_multitaper_psd(
                 A finite trace constant along `axis` has an exactly zero PSD.
 
     Raises:
-        ValueError: If `fs <= 0`, `nw <= 0`, `k_tapers` is out of bounds, or `data` contains non-finite values (NaN or Inf).
+        ValueError: If `fs` is NaN, infinite or `<= 0`, `nw <= 0`, `k_tapers` is out of bounds, or `data` contains non-finite values (NaN or Inf).
 
     References:
         Thomson, D. J. (1982). Spectrum estimation and harmonic analysis. Proc. IEEE.
         doi:10.1109/PROC.1982.12433 -- the multitaper estimate from DPSS tapers. The K
         eigenspectra are averaged with equal weight; no adaptive weighting is applied.
     """
-    if fs <= 0:
-        raise ValueError(f"Sampling frequency fs must be strictly positive; got {fs}.")
+    _require_positive_fs(fs, "compute_multitaper_psd")
     if nw <= 0:
         raise ValueError(f"Time-halfbandwidth product nw must be strictly positive; got {nw}.")
 

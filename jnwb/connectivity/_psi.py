@@ -212,7 +212,7 @@ def phase_slope_index(
             at the default overlap, but not below 16 samples: one trial of 2000 samples
             gets 190 (20 segments), 10 trials of 400 keep 100 (70 segments). Frequency
             resolution is ``fs / nperseg``.
-        noverlap: segment overlap (default nperseg // 2)
+        noverlap: segment overlap in [0, nperseg) (default nperseg // 2)
         window: ``'hann'`` | ``'hamming'`` | ``'boxcar'``
         detrend: per-trial preprocessing, default ``'demean'``
         jackknife: estimate the standard deviation of PSI by leaving out one trial (three
@@ -266,7 +266,10 @@ def phase_slope_index(
         raise ValueError(f"nperseg={nperseg} too small for a usable spectrum")
     if noverlap is None:
         noverlap = nperseg // 2
-    noverlap = int(min(noverlap, nperseg - 1))
+    elif not 0 <= noverlap < nperseg:
+        raise ValueError(
+            f"phase_slope_index: noverlap must be in [0, nperseg={nperseg}); got {noverlap!r}")
+    noverlap = int(noverlap)
 
     win_fn = {"hann": np.hanning, "hamming": np.hamming, "boxcar": np.ones}
     if window not in win_fn:

@@ -78,6 +78,7 @@ def test_every_declared_test_dependency_has_a_caller() -> None:
     declared = _declared("test")
     corpus = _tracked_text()
     uncalled = []
+    assert declared, "the test extra declares nothing, so the loop below checks nothing"
     for name in declared:
         token = TEST_EXTRA_CALLERS.get(name)
         assert token is not None, (

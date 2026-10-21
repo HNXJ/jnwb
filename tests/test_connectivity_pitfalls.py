@@ -1442,6 +1442,7 @@ class TestEveryPitfallRowIsHeldOrNamesItsGap:
         the operations that answer it, so the holding class must actually call them: a row
         whose test never calls the guard's operation is held by name only."""
         symbols = re.compile(r"`([a-z_][a-z0-9_]*)`")
+        assert self._documented_rows(), "the pitfalls table has no rows to bind to a holder"
         for row, guard, holder in self._documented_rows_with_guards():
             tests_source = "".join(
                 inspect.getsource(getattr(holder, name))

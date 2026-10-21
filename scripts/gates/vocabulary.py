@@ -12,9 +12,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 #: Projects built on jnwb. A code string or identifier in jnwb/ containing one gives that
 #: project privileged meaning in the library.
 PROJECT_IDENTIFIERS = ("omission",)
-#: The deprecated OMISSION_*_DIR environment variables that jnwb.paths still reads, with a
-#: DeprecationWarning. The only project names jnwb/ code may contain.
-PROJECT_IDENTIFIER_ALLOWED = re.compile(r"^OMISSION_[A-Z]+_DIR$")
 
 
 def check_no_project_identifiers_in_code(repo_root: Optional[Path] = None) -> List[str]:
@@ -54,8 +51,6 @@ def check_no_project_identifiers_in_code(repo_root: Optional[Path] = None) -> Li
             elif isinstance(node, ast.alias):
                 text = node.name
             else:
-                continue
-            if PROJECT_IDENTIFIER_ALLOWED.match(text):
                 continue
             for project in PROJECT_IDENTIFIERS:
                 if project in text.lower():
@@ -108,6 +103,8 @@ INTERNAL_PROCESS_TERMS: Tuple[str, ...] = (
     "todo_stack.md",
     "problem stack",
     "problem_stack.md",
+    "open stack",
+    "open_stack.md",
     "fact_stack.md",
     "harness gate",
     "harness_gate.py",
@@ -229,8 +226,8 @@ CHANGELOG_PROCESS_TERMS: Tuple[str, ...] = (
 #: A file or test name: `vis.py`, `pyproject.toml`, `docs/api.md`, `test_csd`.
 CHANGELOG_NAME = re.compile(r"[\w./-]+\.(?:py|md|json|ya?ml|toml|txt|cff|ipynb)(?!\w)|\btest_\w+")
 
-#: The seed kinds a `[results change]` marker may name.
-CHANGELOG_SEED_KINDS: Tuple[str, ...] = ("int seed", "Generator")
+#: The seed kinds a `[results change]` marker may name; `deterministic` for a change no seed drives.
+CHANGELOG_SEED_KINDS: Tuple[str, ...] = ("int seed", "Generator", "deterministic")
 
 #: Entries under a release heading at or after this version meet the full template. Older entries
 #: are checked for process phrases and kind headings only. `[Unreleased]` is the next release.
@@ -287,10 +284,11 @@ def _changelog_entry_violations(root: Path, lineno: int, line: str) -> List[str]
             found.append(f"CHANGELOG.md:{lineno} names {name!r}, which is not in the tree.")
         elif name.startswith("test_") and "." not in name and not (root / "tests" / f"{name}.py").is_file():
             found.append(f"CHANGELOG.md:{lineno} names the test {name!r}, which is not in tests/.")
-    if "[results change]" in line and not any(kind in line for kind in CHANGELOG_SEED_KINDS):
+    if "[results change]" in line and not any(
+            re.search(rf"\b{re.escape(kind)}\b", line) for kind in CHANGELOG_SEED_KINDS):
         found.append(
-            f"CHANGELOG.md:{lineno} carries [results change] but names neither 'int seed' nor "
-            "'Generator'."
+            f"CHANGELOG.md:{lineno} carries [results change] but names neither 'int seed', "
+            "'Generator' nor 'deterministic'."
         )
     return found
 

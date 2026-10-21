@@ -108,6 +108,13 @@ class TestIntervalHelpers:
         assert len(intervals) == 1
         assert intervals[0][0] <= 100 and intervals[0][1] >= 160
 
+    def test_empty_flagged_array_gives_the_same_empty_result_as_no_flags(self):
+        empty = np.zeros(0, dtype=bool)
+        assert empty.size == 0, "fixture must be empty"
+        no_flags = flagged_to_intervals(np.zeros(5, dtype=bool), fs=1000.0)
+        assert no_flags == []
+        assert flagged_to_intervals(empty, fs=1000.0) == no_flags
+
     def test_interpolate_intervals_ramps_between_anchors(self):
         seg = np.zeros((20, 2))
         seg[0:5, :] = 1.0
@@ -117,6 +124,20 @@ class TestIntervalHelpers:
         assert np.isclose(out[5, 0], seg[4, 0], atol=0.5)
         assert np.allclose(out[0:5], seg[0:5])
         assert np.allclose(out[15:], seg[15:])
+
+    def test_one_sample_interval_at_left_edge_is_repaired(self):
+        # A one-sample interval on the first sample used to be clipped to nothing and skipped.
+        seg = np.array([[100.0], [1.0], [2.0], [3.0]])
+        out = interpolate_intervals(seg, [(0, 1)])
+        assert out[0, 0] == 1.0, out[:, 0]
+        assert np.allclose(out[1:], seg[1:])
+
+    def test_one_sample_interval_at_right_edge_is_repaired(self):
+        # Same for the last sample: it is held to the last good sample.
+        seg = np.array([[1.0], [2.0], [3.0], [100.0]])
+        out = interpolate_intervals(seg, [(3, 4)])
+        assert out[3, 0] == 3.0, out[:, 0]
+        assert np.allclose(out[:3], seg[:3])
 
 
 class TestDetectBandOutliers:
@@ -206,6 +227,7 @@ class TestRepairBandArtifactsShapeContract:
         power, freqs = self._power()
         _, frac_upper = repair_band_artifacts(power, freqs)
         _, frac_both = repair_band_artifacts(power, freqs, sided="both")
+        assert frac_upper, "the default bands must report a flagged fraction for each band"
         for band in frac_upper:
             assert frac_both[band] >= frac_upper[band]
 

@@ -256,9 +256,10 @@ def fit_exponential_onset(
         def resid3(params):
             tau, amp, base = params
             return onset_model(t_ms, t0_fixed, tau, amp, base) - rate
-        x0 = [min(max(30.0, tau_lo), tau_hi), amp0, baseline0]
         lb = [tau_lo, min_amplitude, -np.inf]
         ub = [tau_hi, np.inf, np.inf]
+        # A guess outside its bounds is refused by scipy, so each guess is clipped into its own.
+        x0 = np.clip([min(max(30.0, tau_lo), tau_hi), amp0, baseline0], lb, ub)
         r = least_squares(resid3, x0=x0, bounds=(lb, ub))
         return r
 
@@ -283,9 +284,9 @@ def fit_exponential_onset(
         t0, tau, amp, base = params
         return onset_model(t_ms, t0, tau, amp, base) - rate
 
-    x0 = [best_t0, tau0, amp0_r, base0_r]
     lb = [refine_lo, tau_lo, min_amplitude, -np.inf]
     ub = [refine_hi, tau_hi, np.inf, np.inf]
+    x0 = np.clip([best_t0, tau0, amp0_r, base0_r], lb, ub)
     res = least_squares(resid4, x0=x0, bounds=(lb, ub))
 
     t0, tau, amp, base = (float(v) for v in res.x)

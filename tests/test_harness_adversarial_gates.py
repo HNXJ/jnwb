@@ -609,18 +609,23 @@ class TestProjectIdentifierGate:
         repo = self._repo(tmp_path, "omission_window = (0, 1)\n")
         assert len(check_no_project_identifiers_in_code(repo)) == 1
 
-    def test_docstrings_comments_and_deprecated_env_vars_pass(self, tmp_path):
+    def test_docstrings_and_comments_pass(self, tmp_path):
         from scripts.harness_gate import check_no_project_identifiers_in_code
 
         source = (
             '"""Promoted from omission.jnwb_ext."""\n'
             "# history: came from the omission project\n"
-            "LEGACY = 'OMISSION_NWB_DIR'\n"
             "def f():\n"
             '    """Omission-era helper."""\n'
             "    return 1\n"
         )
         assert check_no_project_identifiers_in_code(self._repo(tmp_path, source)) == []
+
+    def test_the_removed_legacy_env_name_in_code_is_a_violation(self, tmp_path):
+        from scripts.harness_gate import check_no_project_identifiers_in_code
+
+        v = check_no_project_identifiers_in_code(self._repo(tmp_path, "LEGACY = 'OMISSION_NWB_DIR'\n"))
+        assert len(v) == 1 and "OMISSION_NWB_DIR" in v[0]
 
     def test_live_package_is_clean(self):
         from scripts.harness_gate import check_no_project_identifiers_in_code
@@ -744,7 +749,7 @@ class TestHarnessResetContracts:
             "artifacts/goal.md",
             "artifacts/fact_stack.md",
             "artifacts/state.md",
-            "artifacts/problem_stack.md",
+            "artifacts/open_stack.md",
             "artifacts/todo_stack.md",
         ]
         positions = {}
@@ -1540,9 +1545,9 @@ class TestDeclaredEnvironmentPreflight:
 
 # ------------------------------------------------- gate 15: coordination stack form
 
-#: A problem stack with both tables well formed and of different widths, so a row moving
-#: between them acquires the wrong shape. `## Open` carries its pinned header.
-CLEAN_PROBLEM_STACK = """# Problem stack
+#: An open stack with both tables well formed and of different widths, so a row moving
+#: between them acquires the wrong shape.
+CLEAN_OPEN_STACK = """# Open stack
 
 ## Open
 
@@ -1572,7 +1577,7 @@ def _stack_tree(tmp_path: Path, todo: str, problem: str) -> Path:
     root = tmp_path / "tree"
     (root / "artifacts").mkdir(parents=True)
     (root / "artifacts" / "todo_stack.md").write_text(todo, encoding="utf-8")
-    (root / "artifacts" / "problem_stack.md").write_text(problem, encoding="utf-8")
+    (root / "artifacts" / "open_stack.md").write_text(problem, encoding="utf-8")
 
     # Gate 15 also resolves the generation closure against the tree, so a tree carrying only the
     # two stacks reports four closure violations and every table-shape test here counts five
@@ -1611,7 +1616,7 @@ class TestGate15DeclaredWriteSetsAreComparable:
 
     def test_a_bare_directory_in_a_writes_field_is_rejected(self, tmp_path: Path):
         seeded = CLEAN_TODO_STACK.replace("`tests/test_one.py`", "`tests/`")
-        found = check_stack_form_consistency(_stack_tree(tmp_path, seeded, CLEAN_PROBLEM_STACK))
+        found = check_stack_form_consistency(_stack_tree(tmp_path, seeded, CLEAN_OPEN_STACK))
         assert len(found) == 1, found
         # The line number is asserted too: a report that cannot point at the field is not
         # actionable, and the field starts on the stack's sixth line.
@@ -1620,7 +1625,7 @@ class TestGate15DeclaredWriteSetsAreComparable:
     def test_a_glob_is_not_a_bare_directory(self, tmp_path: Path):
         """`docs/*.md` conflicts honestly with `docs/api.md`; `docs/` conflicts with everything."""
         seeded = CLEAN_TODO_STACK.replace("`tests/test_one.py`", "`docs/*.md`")
-        assert check_stack_form_consistency(_stack_tree(tmp_path, seeded, CLEAN_PROBLEM_STACK)) == []
+        assert check_stack_form_consistency(_stack_tree(tmp_path, seeded, CLEAN_OPEN_STACK)) == []
 
     def test_a_directory_named_in_prose_is_not_reported(self, tmp_path: Path):
         """The false positive a fixed-width field boundary produced, kept as a live case.
@@ -1639,7 +1644,7 @@ Writes: `scripts/release_gate.py`.
 This item discusses `tests/` at length, and names the `artifacts/developer/.cache/`
 directory that it exists to exclude. Neither is a declared write set.
 """
-        assert check_stack_form_consistency(_stack_tree(tmp_path, prose, CLEAN_PROBLEM_STACK)) == []
+        assert check_stack_form_consistency(_stack_tree(tmp_path, prose, CLEAN_OPEN_STACK)) == []
 
     def test_the_rule_quoted_in_a_code_span_is_not_read_as_a_field(self, tmp_path: Path):
         """The defect this check shipped with, found before it was committed.
@@ -1667,31 +1672,32 @@ directory such as `docs/` cannot be compared against `docs/api.md`.
         # And neither ran past its own paragraph into the sentence that states the rule.
         assert all("Check A" not in text for _, text in fields), fields
         assert check_stack_form_consistency(
-            _stack_tree(tmp_path, quoting, CLEAN_PROBLEM_STACK)
+            _stack_tree(tmp_path, quoting, CLEAN_OPEN_STACK)
         ) == []
 
     def test_a_missing_todo_stack_is_reported_rather_than_passing(self, tmp_path: Path):
-        root = _stack_tree(tmp_path, CLEAN_TODO_STACK, CLEAN_PROBLEM_STACK)
+        root = _stack_tree(tmp_path, CLEAN_TODO_STACK, CLEAN_OPEN_STACK)
         (root / "artifacts" / "todo_stack.md").unlink()
         found = check_stack_form_consistency(root)
         assert any("todo_stack.md is missing" in line for line in found), found
 
     def test_a_stack_with_no_fields_is_reported_rather_than_passing(self, tmp_path: Path):
         """A sweep that finds nothing reads exactly like a clean stack."""
-        root = _stack_tree(tmp_path, "# 0.2.6\n\nNo items.\n", CLEAN_PROBLEM_STACK)
+        root = _stack_tree(tmp_path, "# 0.2.6\n\nNo items.\n", CLEAN_OPEN_STACK)
         found = check_stack_form_consistency(root)
         assert any("the sweep is broken" in line for line in found), found
 
-    def test_a_missing_problem_stack_is_reported_rather_than_passing(self, tmp_path: Path):
-        root = _stack_tree(tmp_path, CLEAN_TODO_STACK, CLEAN_PROBLEM_STACK)
-        (root / "artifacts" / "problem_stack.md").unlink()
+    def test_a_missing_open_stack_is_reported_rather_than_passing(self, tmp_path: Path):
+        root = _stack_tree(tmp_path, CLEAN_TODO_STACK, CLEAN_OPEN_STACK)
+        (root / "artifacts" / "open_stack.md").unlink()
         found = check_stack_form_consistency(root)
-        assert any("problem_stack.md is missing" in line for line in found), found
+        assert any("open_stack.md is missing" in line for line in found), found
 
-    def test_a_problem_stack_with_no_rows_is_reported_rather_than_passing(self, tmp_path: Path):
-        root = _stack_tree(tmp_path, CLEAN_TODO_STACK, "# Problem stack\n\nNothing yet.\n")
-        found = check_stack_form_consistency(root)
-        assert any("no table row found" in line for line in found), found
+    def test_an_open_stack_with_prose_and_no_table_passes(self, tmp_path: Path):
+        """The release state: no table row. Gate 15 checks the shape of tables, not that one
+        exists, so an open stack of prose alone is clean."""
+        root = _stack_tree(tmp_path, CLEAN_TODO_STACK, "# Open stack\n\nNothing open.\n")
+        assert check_stack_form_consistency(root) == []
 
 
 class TestGate15ProblemRowsKeepTheirTableShape:
@@ -1704,7 +1710,7 @@ class TestGate15ProblemRowsKeepTheirTableShape:
     """
 
     def test_a_row_missing_a_cell_is_rejected(self, tmp_path: Path):
-        seeded = CLEAN_PROBLEM_STACK.replace(
+        seeded = CLEAN_OPEN_STACK.replace(
             "| P-1 | A defect | this session |",
             "| P-1 | A defect |",
         )
@@ -1714,7 +1720,7 @@ class TestGate15ProblemRowsKeepTheirTableShape:
 
     def test_an_unescaped_pipe_inside_a_code_span_is_rejected(self, tmp_path: Path):
         """GFM splits a row into cells before it parses inline code, so backticks do not protect."""
-        seeded = CLEAN_PROBLEM_STACK.replace(
+        seeded = CLEAN_OPEN_STACK.replace(
             "| P-1 | A defect |", "| P-1 | A defect matching `a|b` |"
         )
         found = check_stack_form_consistency(_stack_tree(tmp_path, CLEAN_TODO_STACK, seeded))
@@ -1723,14 +1729,14 @@ class TestGate15ProblemRowsKeepTheirTableShape:
 
     def test_an_escaped_pipe_inside_a_code_span_is_content(self, tmp_path: Path):
         r"""The control for the case above: `a\|b` is one cell, and P-114 relies on it."""
-        clean = CLEAN_PROBLEM_STACK.replace(
+        clean = CLEAN_OPEN_STACK.replace(
             "| P-1 | A defect |", r"| P-1 | A defect matching `a\|b` |"
         )
         assert check_stack_form_consistency(_stack_tree(tmp_path, CLEAN_TODO_STACK, clean)) == []
 
     def test_each_table_is_held_to_its_own_header(self, tmp_path: Path):
         """A two-column table elsewhere in the file must not become the whole file's shape."""
-        with_small_table = CLEAN_PROBLEM_STACK.replace(
+        with_small_table = CLEAN_OPEN_STACK.replace(
             "## Open",
             "## The rule\n\n| Term | Meaning |\n|---|---|\n| open | unresolved |\n\n## Open",
         )
@@ -1769,14 +1775,14 @@ class TestGate15StatedItemTotals:
 
     def test_a_stale_total_fails_the_gate(self, tmp_path: Path):
         todo = _summary_then_items("Measured today: 37 of the 57 items below have no blocker.")
-        found = check_stack_form_consistency(_stack_tree(tmp_path, todo, CLEAN_PROBLEM_STACK))
+        found = check_stack_form_consistency(_stack_tree(tmp_path, todo, CLEAN_OPEN_STACK))
         assert len(found) == 1, found
         assert "'57 items'" in found[0] and "the stack holds 2" in found[0], found
 
     def test_a_total_equal_to_the_live_count_passes(self, tmp_path: Path):
         todo = _summary_then_items("Measured today: 1 of the 2 items below has no blocker.")
         assert check_stack_form_consistency(
-            _stack_tree(tmp_path, todo, CLEAN_PROBLEM_STACK)
+            _stack_tree(tmp_path, todo, CLEAN_OPEN_STACK)
         ) == []
 
     @pytest.mark.parametrize("summary", [

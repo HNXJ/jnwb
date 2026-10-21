@@ -1339,3 +1339,15 @@ def test_an_installed_copy_resolves_only_when_the_run_names_it(tmp_path, monkeyp
     monkeypatch.setenv("JNWB_EXPECTED_PACKAGE_ROOT", str(site))
     assert source_path("probe") == "jnwb/__init__.py"
     assert source_path("probe", repo=REPO_ROOT) == "jnwb/__init__.py"
+
+
+def test_a_parametrized_id_with_a_space_is_collected(tmp_path: Path) -> None:
+    """Every line with a space was dropped, so `test_p[a b]` could not be named in a selector."""
+    from scripts.mutation_harness import collect_selector
+
+    _write(tmp_path / "tests" / "test_sp.py",
+           'import pytest\n\n@pytest.mark.parametrize("x", ["a b", "c"])\n'
+           "def test_p(x):\n    assert x\n")
+    collected, output = collect_selector(tmp_path, ["tests/test_sp.py"])
+    assert "2 tests collected" in output, output
+    assert collected == ("tests/test_sp.py::test_p[a b]", "tests/test_sp.py::test_p[c]"), output

@@ -6,7 +6,7 @@ Enforces:
    - "1col": 89 mm (~336 px at 96 DPI)
    - "1.5col": 136 mm (~514 px at 96 DPI)
    - "2col": 183 mm (~692 px at 96 DPI)
-   - Custom mm or pixel dimensions with height <= 235 mm (~888 px)
+   - Custom mm or pixel dimensions; a height above 235 mm (~888 px) logs a warning
 2. Collision-free relative domain coordinate geometry:
    - Normalized domains [x0, x1] x [y0, y1] calculated from explicit margins and gutters.
    - Panel tags ('A', 'B', 'C') anchored in paper coordinates: (x0 - delta_x, y1 + delta_y).
@@ -109,7 +109,7 @@ class PlotlyPublicationCanvas:
         Args:
             layout: Preset width ('1col': 89 mm, '1.5col': 136 mm, '2col': 183 mm).
             width_mm: Explicit width in mm (overrides layout preset).
-            height_mm: Explicit height in mm (maximum 235 mm).
+            height_mm: Explicit height in mm; a height above 235 mm logs a warning.
             rows: Number of panel rows.
             cols: Number of panel columns.
             row_height_ratios: Relative height weights for rows.

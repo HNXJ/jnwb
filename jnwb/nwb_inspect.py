@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import functools
+import os
 import warnings
 from pathlib import Path
 from typing import Any
 
 import h5py
 import numpy as np
-from pynwb import NWBFile
+from pynwb import NWBHDF5IO, NWBFile, get_type_map
 
 from jnwb.nwb_io import (
     ContainerTypeContradictionWarning,
@@ -291,6 +293,53 @@ def _starting_time_s(series: Any) -> float | None:
 _SCHEMA_FIXED_DATA_UNIT = {"ElectricalSeries": "volts"}
 
 
+@functools.lru_cache(maxsize=32)
+def _registered_types(path: str, _mtime_ns: int, _size: int) -> dict[str, frozenset] | None:
+    """Each namespace pynwb knows for the file at ``path``, with the types it registers.
+
+    pynwb's own namespaces plus every one the file embeds under ``/specifications``, which
+    is what a read of that file can open. ``None`` when the namespaces cannot be loaded, so
+    nothing is claimed about a type. Keyed on modification time and size, so a rewritten
+    file is read again.
+    """
+    catalog = get_type_map().namespace_catalog
+    try:
+        with h5py.File(path, "r") as f:
+            NWBHDF5IO.load_namespaces(catalog, file=f)
+    except Exception:
+        return None
+    return {ns: frozenset(catalog.get_namespace(ns).get_registered_types())
+            for ns in catalog.namespaces}
+
+
+def _unknown_type(obj: h5py.Group, ndt: str) -> str | None:
+    """The phrase for a declared type no namespace the reader loads defines, else ``None``.
+
+    pynwb leaves such a group out of the object model, so every jnwb read refuses it while
+    the file lists it. The type is looked up in the namespace the group names, or in every
+    namespace when it names none.
+    """
+    filename = obj.file.filename
+    try:
+        st = os.stat(filename)
+    except OSError:
+        return None
+    known = _registered_types(os.path.realpath(filename), st.st_mtime_ns, st.st_size)
+    if known is None:
+        return None
+    ns = _decode_bytes_replace(obj.attrs.get("namespace"))
+    if ns in known:
+        if ndt in known[ns]:
+            return None
+        where = f"namespace {ns!r}"
+    elif any(ndt in types for types in known.values()):
+        return None
+    else:
+        where = "any namespace pynwb or the file defines"
+    return (f"declares neurodata_type {ndt!r}, which {where} does not define, so pynwb "
+            "leaves it out of the object model and no jnwb read can open it")
+
+
 def _series_unit(data_ds: h5py.Dataset) -> str | None:
     """The `unit` recorded beside one series' `data`, or ``None`` when it carries none."""
     raw = data_ds.attrs.get("unit")
@@ -307,7 +356,9 @@ def _type_contradictions(
 
     * a declared type the schema fixes a data unit for, where the stored unit is a different
       one -- the container says extracellular voltage and holds something that is not;
-    * no declared type at all, where nothing in the file says what the series holds.
+    * no declared type at all, where nothing in the file says what the series holds;
+    * a declared type that no namespace pynwb or the file defines, which pynwb leaves out of
+      the object model.
 
     A series carrying no `unit` is deliberately not reported. An absent unit contradicts
     nothing, and a warning that also fires on every merely incomplete file carries no more
@@ -327,6 +378,10 @@ def _type_contradictions(
                 f"{label} declares no neurodata_type, so nothing in the file says what signal "
                 f"class it holds; it stores {stored} with dtype {data_ds.dtype}"
             )
+            continue
+        unknown = _unknown_type(owner, ndt)
+        if unknown is not None:
+            findings.append(f"{label} {unknown}")
             continue
         fixed = _SCHEMA_FIXED_DATA_UNIT.get(ndt)
         if fixed is not None and unit is not None and unit != fixed:
@@ -549,6 +604,26 @@ def _acquisition_nested_series(nwb: NWBFile) -> dict[str, list[Any]]:
     return found
 
 
+def _why_unread(nwb: NWBFile, name: str) -> str:
+    """Why the file holds ``acquisition/<name>`` while the object model does not, or ``""``."""
+    source = getattr(nwb, "container_source", None)
+    if not source or not os.path.exists(source):
+        return ""
+    try:
+        with h5py.File(source, "r") as f:
+            obj = f.get(f"acquisition/{name}")
+            if not isinstance(obj, h5py.Group):
+                return ""
+            ndt = _ndt(obj)
+            if ndt is None:
+                return (" in the object model: the file holds it but declares no "
+                        "neurodata_type, so pynwb leaves it out")
+            unknown = _unknown_type(obj, ndt)
+    except OSError:
+        return ""
+    return f" in the object model: the file holds it but {unknown}" if unknown else ""
+
+
 def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> str:
     """Resolve an acquisition or processing continuous series name.
 
@@ -600,7 +675,7 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
                 return name
             nested_names = sorted(k for k in nested if "/" in k)
             raise AcquisitionNotFoundError(
-                f"Series '{name}' not found. Available: {all_available}"
+                f"Series '{name}' not found{_why_unread(nwb, name)}. Available: {all_available}"
                 + (f"; series inside containers: {nested_names}" if nested_names else "")
             )
 

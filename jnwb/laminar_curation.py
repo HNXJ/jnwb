@@ -40,7 +40,7 @@ from scipy.ndimage import gaussian_filter1d
 
 from ._dictlike import DictAccessMixin
 from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
-from .laminar import VFlipResult, XFlipResult, vflip, xflip
+from .laminar import VFlip2Result, VFlipResult, XFlipResult, vflip, vflip2_from_lfp, xflip
 from .spectral import voltage_curvature_1d
 
 LABELS: Tuple[str, ...] = ("superficial", "input", "deep", "WM", "outside_cortex", "na")
@@ -66,7 +66,11 @@ def _robust_z_std_fallback(values: np.ndarray) -> np.ndarray:
     values = np.asarray(values, dtype=float)
     med = np.nanmedian(values)
     mad = np.nanmedian(np.abs(values - med)) * 1.4826
-    scale = mad if mad > 0 else (np.nanstd(values) or 1.0)
+    if mad > 0:
+        scale = mad
+    else:
+        sd = np.nanstd(values)
+        scale = sd if sd > 0 else 1.0  # constant values z to 0; all-NaN values stay NaN
     return (values - med) / scale
 
 
@@ -94,15 +98,20 @@ def _check_channels_first(data: np.ndarray, name: str, ndim: Tuple[int, ...]) ->
 
 
 def _local_neighbor_correlation(corr: np.ndarray, bad: np.ndarray, window: int) -> np.ndarray:
-    """Median correlation of each contact with the good contacts within ``window`` of it."""
+    """Median correlation of each contact with the good contacts within ``window`` of it.
+
+    A pair whose correlation is undefined (a constant contact) is left out of the median, so a
+    dead contact leaves its neighbours' values defined instead of making them NaN.
+    """
     n = len(corr)
     out = np.full(n, np.nan)
     for i in range(n):
         lo, hi = max(0, i - window), min(n, i + window + 1)
         if hi - lo < 2 * window + 1:  # near an end: take the nearest 2*window+1 contacts
             lo, hi = (0, min(n, 2 * window + 1)) if lo == 0 else (max(0, n - 2 * window - 1), n)
-        picks = [m for m in range(lo, hi) if m != i and not bad[m]]
-        out[i] = np.median(corr[i, picks]) if picks else np.nan
+        picks = corr[i, [m for m in range(lo, hi) if m != i and not bad[m]]]
+        picks = picks[np.isfinite(picks)]
+        out[i] = np.median(picks) if picks.size else np.nan
     return out
 
 
@@ -148,7 +157,8 @@ def detect_bad_channels(
     Returns:
         Dict with ``bad_mask`` (``(n_channels,)`` bool), ``neighbor_correlation`` (the last
         pass, ``(n_channels,)``) and ``log_power`` (``(n_channels,)``, log10 of the mean
-        PSD in the band, in the units of ``data`` squared per Hz).
+        PSD in the band, in the units of ``data`` squared per Hz; ``-inf`` for a contact with
+        no power in the band).
 
     Raises:
         ValueError: On a non-finite input, an invalid band or fewer than 3 contacts.
@@ -171,10 +181,12 @@ def detect_bad_channels(
     sel = (freqs >= lo_hz) & (freqs <= hi_hz)
     if not sel.any():
         raise ValueError("no PSD bin falls in power_band_hz; lengthen the epochs or widen the band")
-    log_power = np.log10(psd[:, sel].mean(axis=1))
-    q = max(1, int(round(fs / float(correlation_fs_hz))))
-    reduced = signal.decimate(epochs, q, axis=-1) if q > 1 else epochs
-    corr = np.corrcoef(reduced.reshape(n, -1))
+    reduced = _decimated_for_correlation(epochs, fs, correlation_fs_hz)
+    # A dead contact is the input this detector exists for: its log power is -inf and its
+    # correlation undefined, and both flag it below, so neither warns.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        log_power = np.log10(psd[:, sel].mean(axis=1))
+        corr = np.corrcoef(reduced.reshape(n, -1))
     bad = np.zeros(n, dtype=bool)
     local = np.full(n, np.nan)
     for _ in range(int(max_iterations)):
@@ -247,7 +259,7 @@ def _csd(erp: np.ndarray, times_ms: np.ndarray, usable: np.ndarray, sigma: float
     vu = gaussian_filter1d(v[idx], sigma, axis=0)
     vp = np.vstack([vu[:1], vu, vu[-1:]])
     c = -voltage_curvature_1d(vp, pitch, axis=0) * (pitch * 1e-6) ** 2
-    return c, idx, float(c[:, base].std() or 1.0)
+    return c, idx, float(c[:, base].std())
 
 
 def evoked_csd_sink(
@@ -299,7 +311,7 @@ def evoked_csd_sink(
         Dict with ``strongest_contact`` (index into the full shaft, NaN when below
         ``min_sink_z`` or too few contacts), ``strongest_z``, ``strongest_position_um``,
         ``earliest_contact``, ``earliest_onset_ms`` and ``earliest_position_um``; NaN where
-        undefined.
+        undefined, and all NaN when the baseline CSD is flat.
 
     Raises:
         ValueError: If the shapes disagree, no sample precedes 0 ms, or ``pitch_um`` is invalid.
@@ -325,6 +337,8 @@ def evoked_csd_sink(
     if usable.sum() < int(min_contacts):
         return out
     c, idx, base = _csd(e, t, usable, float(smooth_um) / pitch, pitch)
+    if not base > 0:
+        return out  # a flat baseline CSD leaves every z-score undefined
     win = (t >= sink_window_ms[0]) & (t < sink_window_ms[1])
     zc = c[:, win].min(axis=1) / base
     k = int(np.argmin(zc))
@@ -349,6 +363,12 @@ def evoked_csd_sink(
     return out
 
 
+def _distance_to_anchor(value: Optional[float], anchor: float) -> float:
+    """Absolute distance, um, from a landmark to the anchor; NaN when either is missing."""
+    present = value is not None and bool(np.isfinite(value))
+    return abs(float(value) - anchor) if present and np.isfinite(anchor) else float("nan")
+
+
 def fuse_laminar_anchors(
     *,
     vflip_um: Optional[float] = None,
@@ -363,6 +383,7 @@ def fuse_laminar_anchors(
     min_ok_windows: int = 3,
     consistency_a: float = 0.75,
     consistency_b: float = 0.60,
+    contact_spacing_um: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Choose the laminar anchor and grade it; report how the other estimates sit against it.
 
@@ -383,9 +404,20 @@ def fuse_laminar_anchors(
     - with only a motif anchor, ``"D"`` is stable with consistency at least
       ``consistency_a``, otherwise ``"F"``; with no anchor, ``"F"``.
 
-    A and B carry a laminar claim. C and D are sensitivity checks: C because the anchor is
+    A and B carry a laminar claim. An accepted vFLIP2 fit is not by itself evidence of a
+    crossover (``omega_cut`` 6 accepts 18 of 100 noise-only probes; see
+    :func:`~jnwb.laminar.vflip2`), so with a vFLIP2 anchor that claim rests on the stability and
+    consistency checks above. C and D are sensitivity checks: C because the anchor is
     unstable or inconsistent, D because neither vFLIP nor vFLIP2 gave an anchor and the motif
     crossing alone places it. F carries none.
+
+    When both the vFLIP2 and the vFLIP crossovers are present, the two landmarks are not yet
+    compared against a calibrated agreement threshold, so their agreement
+    reads ``"unresolved"`` and the grade is capped at ``"B"``: an ``"A"`` becomes a ``"B"``,
+    every other grade is unchanged, and a valid primary anchor is never rejected. B is then
+    a laminar claim on the primary anchor, not a consensus. The values ``"agree"`` and
+    ``"disagree"`` are reserved until that calibration and are never emitted now. With the
+    secondary landmark absent the agreement reads ``"unavailable"``.
 
     Args:
         vflip_um: vFLIP crossover position, um, NaN or None if rejected.
@@ -403,16 +435,33 @@ def fuse_laminar_anchors(
         min_ok_windows: Fewest windows with an estimate.
         consistency_a: Consistency needed for grades A and D.
         consistency_b: Consistency needed for grade B.
+        contact_spacing_um: Contact spacing, um, that the vFLIP2-vFLIP separation is read
+            in; ``separation_contacts`` is ``abs(vflip2_um - vflip_um) / contact_spacing_um``.
+            None (or a missing landmark) leaves it NaN. Must be finite and positive.
 
     Returns:
         Dict with ``anchor_um``, ``anchor_source`` (``"vflip2"``, ``"vflip"``, ``"motif"`` or
-        ``None``), ``grade``, ``stable``, ``window_sd_um``, ``n_windows_ok``, ``consistency``
+        ``None``), ``grade``, ``stable``, ``window_sd_um``, ``n_windows_ok``, ``consistency``,
+        ``agreement`` (``"unresolved"`` when both crossovers are present, else
+        ``"unavailable"``), ``separation_contacts`` (the crossover separation in contact
+        spacings, NaN without ``contact_spacing_um`` or with a landmark missing)
         and ``distance_um`` (a dict with ``vflip``, ``vflip2``, ``xflip`` and ``csd``, NaN where
         an estimate or the anchor is missing; 0.0 for a vFLIP or vFLIP2 estimate that is the
         anchor).
+
+    Raises:
+        ValueError: If ``contact_spacing_um`` is given but is not finite and positive.
     """
     def fin(x: Optional[float]) -> bool:
         return x is not None and bool(np.isfinite(x))
+
+    if contact_spacing_um is not None:
+        spacing = float(contact_spacing_um)
+        if not np.isfinite(spacing) or spacing <= 0:
+            raise ValueError(
+                f"contact_spacing_um must be positive and finite, got {contact_spacing_um!r}")
+    else:
+        spacing = None
 
     w = np.asarray([] if window_um is None else window_um, dtype=float)
     n_ok = int(np.isfinite(w).sum())
@@ -429,14 +478,29 @@ def fuse_laminar_anchors(
         grade = "D" if stable and cmin >= consistency_a else "F"
     else:
         anchor, source, grade = float("nan"), None, "F"
-    dist = {k: (abs(float(v) - anchor) if fin(v) and np.isfinite(anchor) else float("nan"))
+    dist = {k: _distance_to_anchor(v, anchor)
             for k, v in (("vflip", vflip_um), ("vflip2", vflip2_um), ("xflip", xflip_um),
                          ("csd", csd_um))}
+    both = fin(vflip2_um) and fin(vflip_um)
+    agreement = "unresolved" if both else "unavailable"
+    if both and spacing is not None:
+        separation = abs(float(vflip2_um) - float(vflip_um)) / spacing
+    else:
+        separation = float("nan")
+    if agreement == "unresolved" and grade == "A":
+        grade = "B"
     return {"anchor_um": anchor, "anchor_source": source, "grade": grade, "stable": bool(stable),
-            "window_sd_um": sd, "n_windows_ok": n_ok, "consistency": cmin, "distance_um": dist}
+            "window_sd_um": sd, "n_windows_ok": n_ok, "consistency": cmin,
+            "agreement": agreement, "separation_contacts": separation, "distance_um": dist}
 
 
 # ------------------------------------------------------------------- spectral profiles
+
+
+def _decimated_for_correlation(x: np.ndarray, fs: float, correlation_fs_hz: float) -> np.ndarray:
+    """``x`` decimated along its last axis to about ``correlation_fs_hz``; unchanged if already there."""
+    q = max(1, int(round(fs / float(correlation_fs_hz))))
+    return signal.decimate(x, q, axis=-1) if q > 1 else x
 
 
 def _band_profiles(psd: np.ndarray, freqs: np.ndarray, use: np.ndarray,
@@ -489,6 +553,23 @@ def _vflip_on(psd: np.ndarray, freqs: np.ndarray, use: np.ndarray, min_contacts:
     return (float(v.crossover_contact) if ok else float("nan")), v
 
 
+def _vflip2_unmet_bounds(fs: float, n_samples: int, pitch_um: float) -> List[str]:
+    """The vFLIP2 bounds the data miss, as reasons; an empty list when vFLIP2 may run.
+
+    These are the bounds `vflip2_from_lfp` and `vflip2` refuse on: ``fs`` of at least 300 Hz,
+    so 150 Hz lies below Nyquist, and contact spacing of at most 200 um. Trials of at least
+    ``fs`` samples keep its FFT padding at or above ``fs``.
+    """
+    reasons = []
+    if fs / 2.0 < 150.0:
+        reasons.append(f"fs {fs:g} Hz is below 300 Hz")
+    if n_samples < fs:
+        reasons.append(f"trials of {n_samples} samples are below fs = {fs:g} samples")
+    if pitch_um > 200.0:
+        reasons.append(f"contact spacing {pitch_um:g} um is above 200 um")
+    return reasons
+
+
 # ------------------------------------------------------------------- result and orchestrator
 
 
@@ -500,15 +581,17 @@ class LaminarCurationResult(DictAccessMixin):
         labels: ``(n_channels,)`` array of str from :data:`LABELS`, in the channel order given.
         grade: ``"A"``..``"D"`` or ``"F"`` from :func:`fuse_laminar_anchors`; every label is
             ``"na"`` for ``"F"``.
-        anchor_um: Anchor position from the first contact, um; NaN for grade F.
+        anchor_um: Anchor position from the first contact, um; NaN when no estimate exists. A
+            grade F with a motif crossing keeps that crossing here, but makes no claim on it.
         anchor_source: ``"vflip"``, ``"motif"`` or None; ``curate_and_label`` passes no vFLIP2 crossover.
         superficial_at_high_index: True when the superficial side is at the higher contact
             index; None when no anchor.
         pitch_um: Contact pitch used, um.
         bad_mask: Contacts :func:`detect_bad_channels` flagged.
         interpolated_mask: Bad contacts that were interpolated.
-        unusable_mask: Contacts excluded from every estimate: unresolved bad contacts, bad-dense
-            zones and silent runs at either end of the shaft.
+        unusable_mask: Contacts excluded from every estimate but the reported vFLIP2 fit, which
+            has no contact mask and reads every contact: unresolved bad contacts, bad-dense zones
+            and silent runs at either end of the shaft.
         window_anchor_um: ``(n_windows,)`` per-window anchor estimates, um.
         window_sd_um: SD of ``window_anchor_um`` over windows with an estimate.
         consistency_deep: Fraction of deep contacts that are alpha-beta dominant.
@@ -528,6 +611,13 @@ class LaminarCurationResult(DictAccessMixin):
             :func:`~jnwb.xflip` as ``rng`` reproduces its surrogates (None when none ran).
         xflip: The :class:`~jnwb.laminar.XFlipResult`, or None when it was not computed
             (``compute_xflip`` False, fewer than ``min_contacts`` usable or no anchor).
+        vflip2: The :class:`~jnwb.laminar.VFlip2Result` of :func:`~jnwb.laminar.vflip2_from_lfp`,
+            or None when its bounds were not met. Reported only; it never anchors. A rejected
+            result is kept here so it can be read.
+        vflip2_distance_um: Absolute distance, um, from the vFLIP2 crossover to ``anchor_um``, as
+            ``distance_um`` of :func:`fuse_laminar_anchors`. NaN unless vFLIP2 is accepted (a
+            rejected fit makes no crossover claim), and NaN when the anchor is missing. Reported only.
+        vflip2_skipped: None when vFLIP2 ran, else the bounds it did not meet.
     """
 
     labels: np.ndarray
@@ -551,6 +641,9 @@ class LaminarCurationResult(DictAccessMixin):
     csd: Optional[Dict[str, Any]]
     parameters: Dict[str, Any]
     xflip: Optional[XFlipResult] = None
+    vflip2: Optional[VFlip2Result] = None
+    vflip2_distance_um: float = float("nan")
+    vflip2_skipped: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the result to a dict; arrays are copied."""
@@ -571,6 +664,9 @@ class LaminarCurationResult(DictAccessMixin):
             "csd": None if self.csd is None else dict(self.csd),
             "parameters": dict(self.parameters),
             "xflip": None if self.xflip is None else self.xflip.to_dict(),
+            "vflip2": None if self.vflip2 is None else self.vflip2.to_dict(),
+            "vflip2_distance_um": float(self.vflip2_distance_um),
+            "vflip2_skipped": self.vflip2_skipped,
         }
 
 
@@ -618,7 +714,12 @@ def curate_and_label(
     the same estimates on ``n_windows`` consecutive blocks of epochs give the stability
     that :func:`fuse_laminar_anchors` grades. xFLIP and the evoked CSD
     (:func:`evoked_csd_sink`, with ``erp``) are reported as distances to the anchor and
-    never move it.
+    never move it. vFLIP2 (:func:`~jnwb.laminar.vflip2_from_lfp`) runs when ``fs`` is at least
+    300 Hz, the trials are at least ``fs`` samples long and ``pitch_um`` is at most 200 um. Its
+    result is reported in ``vflip2``, and its distance to the anchor in ``vflip2_distance_um``:
+    absolute, as in :func:`fuse_laminar_anchors`, and NaN unless vFLIP2 is accepted, since a
+    rejected fit makes no crossover claim. vFLIP2 never becomes the anchor, so the labels and the
+    grade do not depend on it. Otherwise ``vflip2_skipped`` names the bound.
 
     Labels, from the anchor: contacts within ``granular_thickness_um / 2`` of it are
     ``"input"``; the rest on the gamma side are ``"superficial"`` and on the alpha-beta
@@ -739,8 +840,13 @@ def curate_and_label(
     win_id = np.minimum((np.arange(n_ep) * n_windows) // n_ep, n_windows - 1)
     win_psd = [signal.welch(x[:, win_id == k], fs=fs, nperseg=seg, axis=-1)[1].mean(axis=1)
                for k in range(n_windows)]
-    q = max(1, int(round(fs / bad_channel_kwargs.get("correlation_fs_hz", CORRELATION_FS_HZ))))
-    reduced = (signal.decimate(x, q, axis=-1) if q > 1 else x).reshape(n, -1)
+    reduced = _decimated_for_correlation(
+        x, fs, bad_channel_kwargs.get("correlation_fs_hz", CORRELATION_FS_HZ)).reshape(n, -1)
+    # The rows are every contact in the order given, so the crossover row is a contact index
+    # in that order, as vFLIP's crossover is. Only the report reads it; the anchor does not.
+    v2_reasons = _vflip2_unmet_bounds(float(fs), x.shape[2], pitch)
+    v2_skipped = "; ".join(v2_reasons) if v2_reasons else None
+    v2 = None if v2_skipped else vflip2_from_lfp(x.transpose(0, 2, 1), float(fs), contact_spacing=pitch)
 
     smooth_ch, lobe_ch = ch(smooth_um), max(2, int(round(ch(min_lobe_um))))
     use = ~unusable
@@ -751,7 +857,8 @@ def curate_and_label(
         base = dict(grade=grade, anchor_um=nan, anchor_source=None, superficial_at_high_index=None,
                     pitch_um=pitch, unusable_mask=~use, window_anchor_um=np.full(n_windows, nan),
                     window_sd_um=nan, consistency_deep=nan, consistency_superficial=nan, n_crossings=0,
-                    crossings_um=(), vflip=None, xflip_distance_um=nan, csd_distance_um=nan, csd=None)
+                    crossings_um=(), vflip=None, xflip_distance_um=nan, csd_distance_um=nan, csd=None,
+                    vflip2=v2, vflip2_distance_um=nan, vflip2_skipped=v2_skipped)
         base.update(empty)
         base.update(kw)
         return LaminarCurationResult(**base)
@@ -852,9 +959,13 @@ def curate_and_label(
         csd_um=nan if csd is None else csd["strongest_position_um"],
         window_um=win * pitch, consistency_deep=consist_d, consistency_superficial=consist_s,
         stable_sd_um=stable_sd_um, min_ok_windows=min_ok_windows,
-        consistency_a=consistency_a, consistency_b=consistency_b)
+        consistency_a=consistency_a, consistency_b=consistency_b,
+        contact_spacing_um=pitch)
     if fused["grade"] == "F":
         labels[:] = "na"
+    # A rejected fit makes no crossover claim, so it has no distance.
+    v2_row = v2.crossover_channel if v2 is not None and v2.accepted else None
+    v2_dist = _distance_to_anchor(None if v2_row is None else v2_row * pitch, fused["anchor_um"])
     return finish(
         fused["grade"], labels=labels.astype(str), anchor_um=fused["anchor_um"],
         anchor_source=fused["anchor_source"], superficial_at_high_index=sup_up,
@@ -862,7 +973,7 @@ def curate_and_label(
         consistency_deep=consist_d, consistency_superficial=consist_s, n_crossings=len(crossings),
         crossings_um=tuple(c * pitch for c, _ in crossings), vflip=v,
         xflip_distance_um=fused["distance_um"]["xflip"], csd_distance_um=fused["distance_um"]["csd"], csd=csd,
-        xflip=xr)
+        xflip=xr, vflip2_distance_um=v2_dist)
 
 
 def _electrode_key(value: Any, name: str) -> Optional[int]:

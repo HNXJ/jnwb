@@ -6,7 +6,7 @@ is its full output. Seeds are `default_rng(s)` for `s` in `0..n-1`.
 
 ## PSI default segment count (D10(c))
 
-`calibrate_psi_default_segments.py <worktree> 4000` -> `psi_default_segments.out`. One trial of
+`scripts/calibrate_psi_default_segments.py <worktree> 4000` -> `output/psi_default_segments.out`. One trial of
 2000 samples at 1 kHz; lead p is the jackknife t test, rate is P(p < 0.05), se binomial.
 
 | Scenario | Bands | Old `n//4` (7 segments) | New default (20 segments) |
@@ -24,8 +24,8 @@ Observed: the new default moves the mixing rate over 5-100 Hz to 0.057, inside t
 
 ## jrsa block bootstrap coverage (IB-44): not met, not shipped
 
-`calibrate_jrsa_block_bootstrap.py <worktree> 1000 pearson 200:block:20 500:block:20
-500:block:50 1000:block:50 500:iid:-` -> `jrsa_block_bootstrap.out`. Independent AR(1) pairs,
+`scripts/calibrate_jrsa_block_bootstrap.py <worktree> 1000 pearson 200:block:20 500:block:20
+500:block:50 1000:block:50 500:iid:-` -> `output/jrsa_block_bootstrap.out`. Independent AR(1) pairs,
 coefficient 0.9; coverage is the share of 95% percentile intervals holding the true 0. The
 interval was a moving-block bootstrap (Kunsch 1989) of `block_len` samples, x1 and x2 resampled
 together, 999 draws.
@@ -45,8 +45,8 @@ ruling.
 ## PSI leave-one-trial-out jackknife (P-227, round 2)
 
 Ruled 2026-10-06: one trial left out from three trials on, else one segment with a warning.
-`calibrate_psi_trial_jackknife.py <worktree> 2000 3x400 5x400 10x400 30x200` ->
-`psi_trial_jackknife.out`. Band 5-100 Hz at fs 1000, default `nperseg`; 'segment' reruns the
+`scripts/calibrate_psi_trial_jackknife.py <worktree> 2000 3x400 5x400 10x400 30x200` ->
+`output/psi_trial_jackknife.out`. Band 5-100 Hz at fs 1000, default `nperseg`; 'segment' reruns the
 same data with the trial threshold raised, which is the old jackknife.
 
 | Trials x samples | Segments | Mixing, trial (se) | Mixing, segment | Independent, trial / segment | 5-sample lead, trial / segment |
@@ -63,8 +63,8 @@ on 3 trials, where t has 2 degrees of freedom, it detects the lead in 0.91 of pa
 ## jrsa studentized block bootstrap coverage (IB-44, round 2): not met, not shipped
 
 Ruled 2026-10-06: a studentized block bootstrap, shipped only at near-nominal coverage.
-`calibrate_jrsa_studentized_block_bootstrap.py 1000 200:20 500:20 500:50 1000:50 2000:50` ->
-`jrsa_studentized_block_bootstrap.out`, on baseline `a1f5f70a`. The interval is written in the
+`scripts/calibrate_jrsa_studentized_block_bootstrap.py 1000 200:20 500:20 500:50 1000:50 2000:50` ->
+`output/jrsa_studentized_block_bootstrap.out`, on baseline `a1f5f70a`. The interval is written in the
 script and calls no jnwb code; the pairs are those of the round-1 table. Agent choice within the
 ruling: the standard error that studentizes each sample is the delete-one-block jackknife over
 its blocks.
@@ -83,7 +83,7 @@ by n = 2000. Not shipped: the refusal of `bootstrap > 0` without `null='iid'` st
 
 ## Transfer entropy excess by n under zero-lag mixing
 
-`te_excess_by_n.py <worktree> 1500 500 2000 4000 8000 16000` -> `te_excess_by_n.out`.
+`scripts/te_excess_by_n.py <worktree> 1500 500 2000 4000 8000 16000` -> `output/te_excess_by_n.out`.
 `x = w + 0.5 e1`, `y = w + 0.5 e2`, `w` white; quantile bins 4, k = l = 1, 199 surrogates,
 X -> Y. The script rebuilds each null from the recorded child seed with the function's own
 surrogate scheme; its p matched the function's in every pair (max difference 0).
@@ -108,7 +108,7 @@ liberal), which decays as 1/N.
 
 ## bias_corrected_* under mixing
 
-`probe_bias.py` (40 seeds, n 2000, 49 surrogates; output quoted in the `transfer_entropy`
+`scripts/probe_bias.py` (40 seeds, n 2000, 49 surrogates; output quoted in the `transfer_entropy`
 docstring): TE `bias_corrected_x_to_y` mean 0.0014 bits (sd 0.0033) under mixing, 0.0001
 independent; Granger 0.00015 and 0.00009.
 

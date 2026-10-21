@@ -52,6 +52,8 @@ class EpistemicArgumentObject:
 
         if not isinstance(self.SOURCE_ARTIFACTS, (list, tuple)) or len(self.SOURCE_ARTIFACTS) == 0:
             raise ValueError("EpistemicArgumentObject: 'SOURCE ARTIFACTS' must be a non-empty list of paths/hashes.")
+        if any(not str(a).strip() for a in self.SOURCE_ARTIFACTS):
+            raise ValueError("EpistemicArgumentObject: 'SOURCE ARTIFACTS' entries must be non-empty strings.")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to canonical dictionary format."""
@@ -92,6 +94,15 @@ class EpistemicArgumentObject:
         bar_claim = d.get("BARRED CLAIM", d.get("BARRED_CLAIM", ""))
         src = d.get("SOURCE ARTIFACTS", d.get("SOURCE_ARTIFACTS", []))
         meta = d.get("METADATA", {})
+        if isinstance(src, str):
+            src = [src]
+        elif isinstance(src, (list, tuple)):
+            src = list(src)
+        else:
+            raise TypeError(
+                f"EpistemicArgumentObject.from_dict: 'SOURCE ARTIFACTS' must be a string or a list/tuple "
+                f"of paths/hashes; got {type(src).__name__}."
+            )
 
         return cls(
             QUESTION=q,
@@ -101,7 +112,7 @@ class EpistemicArgumentObject:
             RESULT=res,
             LICENSED_CLAIM=lic_claim,
             BARRED_CLAIM=bar_claim,
-            SOURCE_ARTIFACTS=list(src),
+            SOURCE_ARTIFACTS=src,
             METADATA=meta,
         )
 

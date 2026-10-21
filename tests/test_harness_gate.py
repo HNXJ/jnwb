@@ -125,12 +125,17 @@ def test_results_change_names_the_seed_kind(tmp_path):
     bare = "- [results change] `widget()` draws differently (tests/test_widget.py)."
     root = _tree(tmp_path / "bare", HEADER + _release("0.2.12", "### Changed\n\n" + bare + "\n"))
     violations = check_changelog_form(root)
-    assert len(violations) == 1 and "neither 'int seed' nor 'Generator'" in violations[0], violations
-    for seed in ("with an int seed", "with a Generator"):
+    assert len(violations) == 1 and "neither 'int seed', 'Generator' nor 'deterministic'" in violations[0], violations
+    for seed in ("with an int seed", "with a Generator", "deterministic, it", "(deterministic)",
+                 "is deterministic."):
         named = f"- [results change] `widget()` {seed} draws differently (tests/test_widget.py)."
         root = _tree(tmp_path / seed.replace(" ", "_"),
                      HEADER + _release("0.2.12", "### Changed\n\n" + named + "\n"))
         assert check_changelog_form(root) == [], seed
+    for i, inside in enumerate(("is nondeterministic", "with an int seeded draw", "Generators")):
+        line = f"- [results change] `widget()` {inside} (tests/test_widget.py)."
+        root = _tree(tmp_path / f"inside{i}", HEADER + _release("0.2.12", "### Changed\n\n" + line + "\n"))
+        assert len(check_changelog_form(root)) == 1, f"a kind inside another word is not named: {inside}"
 
 
 def test_a_process_term_is_refused(tmp_path):

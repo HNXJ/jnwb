@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 #: Functions whose body was independently verified and had a mutant killed; see CONTRIBUTING.md.
-FROZEN_REGISTER = "artifacts/frozen_validated.json"
+FROZEN_REGISTER = "artifacts/process/frozen_validated.json"
 
 
 def _canonical_ast(node: Any) -> Any:

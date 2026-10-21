@@ -1008,6 +1008,9 @@ def test_every_arrow_row_states_a_return_the_harness_executes():
 def test_all_referenced_docs_paths_exist():
     """Verify every referenced docs/*.md file exists in docs/."""
     pattern = re.compile(r"docs/(\d\d_[a-zA-Z0-9_]+\.md)")
+    assert any(pattern.findall(_skill_corpus(s)) for s in CANONICAL_SKILLS), (
+        "no canonical skill cites a docs page, so the check below passes on nothing"
+    )
 
     for skill_name in CANONICAL_SKILLS:
         content = _skill_corpus(skill_name)
@@ -1838,7 +1841,10 @@ class TestRowsAgainstTheLiveCall:
 
         a, b = np.arange(20.0) + 100.0, np.arange(20.0)
         for fn in (jnwb.shuffle_pvalue_paired, jnwb.shuffle_pvalue_unpaired):
-            assert fn(a, b, 49, np.random.default_rng(0))[1] == pytest.approx(1.0 / 50.0), fn
+            assert fn(a, b, 49, np.random.default_rng(0),
+                      alternative="greater")[1] == pytest.approx(1.0 / 50.0), fn
+            # Two-sided is twice the smaller tail's floor, so the default floor is 2 / (n + 1).
+            assert fn(a, b, 49, np.random.default_rng(0))[1] == pytest.approx(2.0 / 50.0), fn
 
         plan = jnwb.build_permutation_plan([0, 1, 0, 1], [1, 1, 2, 2], n_permutations=2, rng=3)
         digests = plan["draw_manifest"]["label_digest"]

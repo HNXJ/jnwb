@@ -25,8 +25,8 @@ PINNED_CLAIMS = [
 INIT = "jnwb/__init__.py"
 VERSION_RE = re.compile(rb"^(__version__ = (['\"]))([^'\"]+)(\2)", re.M)
 DATE_RE = re.compile(rb"^(__release_date__ = (['\"]))([^'\"]+)(\2)", re.M)
-PROFILE = "artifacts/benchmarks/import_profile.txt"
-BREAKDOWN = "artifacts/benchmarks/import_breakdown.json"
+PROFILE = "artifacts/benchmarks/performance/import_profile.txt"
+BREAKDOWN = "artifacts/benchmarks/performance/import_breakdown.json"
 PROFILE_RE = re.compile(r"^- jnwb (\S+) \(\d+ public symbols\)", re.M)
 
 

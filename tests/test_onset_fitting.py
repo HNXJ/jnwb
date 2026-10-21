@@ -150,6 +150,34 @@ class TestFitExponentialOnset:
         assert set(fit.keys()) == {"t0", "tau", "amplitude", "baseline", "r2", "converged", "cost", "bound_status"}
         assert fit["bound_status"] is None
 
+    def test_a_min_amplitude_above_a_small_rise_is_fitted_at_or_above_the_floor(self):
+        """The first guess is the observed rise, below the floor, and scipy refused that guess."""
+        t = np.arange(-100.0, 300.0, 5.0)
+        rate = onset_model(t, 0.0, 20.0, 0.5, 10.0)   # a 0.5 rise, no noise
+        assert rate.max() - 10.0 < 1.0, "fixture must rise by less than the floor"
+        fit = fit_exponential_onset(t, rate, t0_bounds=(0.0, 200.0), baseline_window=(-100.0, 0.0),
+                                    min_amplitude=1.0)
+        assert fit["amplitude"] >= 1.0
+
+    @pytest.mark.parametrize("kwargs, expected", [
+        ({}, {"t0": 50.61677191434483, "tau": 18.708745689080992, "amplitude": 30.249044665136744,
+              "baseline": 4.849864099102125, "r2": 0.9942184425037673}),
+        ({"min_amplitude": 5.0}, {"t0": 50.61677182218822, "tau": 18.708745854152,
+                                  "amplitude": 30.24904467263335, "baseline": 4.849864096458302,
+                                  "r2": 0.9942184425037668}),
+    ], ids=["default_floor", "floor_5"])
+    def test_a_call_that_worked_before_gives_the_same_fit(self, kwargs, expected):
+        """Pinned on the unmodified code: a guess already inside its bounds is not moved. The
+        optimizer stops at its own tolerance, so Linux and Windows BLAS agree to about 3e-9
+        relative (CI, 2026-10-19); the pin holds to 1e-7."""
+        rng = np.random.default_rng(0)
+        t = np.arange(-100.0, 600.0, 5.0)
+        rate = onset_model(t, 50.0, 20.0, 30.0, 5.0) + rng.normal(0.0, 1.0, size=t.size)
+        fit = fit_exponential_onset(t, rate, t0_bounds=(0.0, 600.0), baseline_window=(-100.0, 0.0),
+                                    **kwargs)
+        for key, value in expected.items():
+            np.testing.assert_allclose(fit[key], value, rtol=1e-7)
+
 
 class TestANoiseOnlyPSTH:
     """`bound_status` checks t0 alone, so a fit to a PSTH with no response usually reads

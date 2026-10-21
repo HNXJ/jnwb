@@ -13,9 +13,9 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Subject | Rule | Ruled | Held by |
 |---|---|---|---|
 | Autonomy and decisions | Grade each option 0 to 100 and act by grade; two defensible options with a material trade-off come to Hamm | 2026-09-25 | `AGENTS.md` §12 |
-| Problem stack | Empty for a release; a problem leaves repaired, shown false, or moved into the todo stack as `required-` or `deferred-` | 2026-09-23 | `AGENTS.md` §11, `tests/test_release_requires_an_empty_problem_stack.py` |
-| Concurrent agents | One integrator writes `dev`; workers execute claimed packets in their own clones; the project-state files are the only shared truth | 2026-09-25 | `artifacts/cooperation.md` |
-| Standard tasks | None runs on a schedule; each runs on request; the four on-demand tasks are T8 to T11, read-only, from a clone at a named SHA | 2026-09-25, 2026-09-29 | `artifacts/cooperation.md` |
+| Open stack | Holds no row for a release; a problem leaves repaired, shown false, or moved into the todo stack as `required-` or `deferred-` | 2026-09-23 | `AGENTS.md` §11, `tests/test_release_requires_an_empty_open_stack.py` |
+| Concurrent agents | One integrator writes `dev`; workers execute claimed packets in their own clones; the project-state files are the only shared truth | 2026-09-25 | `artifacts/process/cooperation.md` |
+| Standard tasks | None runs on a schedule; each runs on request; the four on-demand tasks are T8 to T11, read-only, from a clone at a named SHA | 2026-09-25, 2026-09-29 | `artifacts/process/cooperation.md` |
 | The agents' chat | `F:/cowork/jnwb-bus/jchat/jchat.py`, bound to 127.0.0.1, is the one chat center; a client that cannot reach it uses the room files | 2026-09-29 | the ruling (`2026-09-29.md`, "The agents' chat hub") |
 | Corpus access | Read the raw NWB on `D:` read-only; write only to `E:` or the scratchpad; no corpus identifier in `jnwb/`, `docs/`, `skills/` or `tests/` | 2026-09-22 | the ruling; gate 6 for the identifiers (`scripts/harness_gate.py`) |
 | Branches | Only `main`, `dev` and `gh-pages` stay on the remote; merged work is deleted | 2026-09-23 | the ruling |
@@ -45,7 +45,7 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Fact graph | Generated as `artifacts/fact_graph.json` by `scripts/build_fact_graph.py`, never committed; `scripts/fact_gate.py` reports each fact HELD, VIOLATED or UNHELD, and VIOLATED fails | 2026-09-29 | `scripts/fact_gate.py`, `tests/test_fact_gate.py` |
 | Fact constants and holders | The lexicons, categories, claim classes, forbidden vocabularies and k are owned in the fact stack; an item that lands a fact's holder replaces its `todo:` cell in the same merge, with a verifier's sign-off | 2026-09-29 | `artifacts/fact_stack.md` |
 | Capability order | Implemented, identity-verified where an execution switch exists, documented, tested, routed; a state holds only with every earlier one; performance evidence is not a state | 2026-09-29 | `artifacts/fact_stack.md` |
-| Fact schedule | 0.2.8 the tables and gate; 0.2.9 Science and Skills; 0.2.10 Identity and B3; 0.2.11 Design; 0.2.12 Release and B2, with no fact UNHELD by the end of 0.2.12 | 2026-09-29 | 09-04, 10-10, 11-03, 12-07 |
+| Fact schedule | Each UNHELD fact carries a disposition, an owner or dependency, an evidence requirement and a target cycle; UNHELD is never counted HELD, and a fact whose falsity would invalidate a shipped claim is escalated, not rescheduled (the 0.2.12 deadline passed with 32 UNHELD) | 2026-09-29, amended 2026-10-15 | `artifacts/evidence/0.2.13/fact_dispositions.md`; 09-04, 10-10, 11-03, 11-06, 11-07, 11-09, 12-07, 12-11 |
 | Identity tests | The fact stack owns the list of test modules whose reference establishes the identity-verified state | 2026-09-29 | `artifacts/fact_stack.md` (`identity tests`) |
 | Invariant checks | Figures call a public operation and draw no bare-literal reference line; the dB-averaging lexicon; randomness implies an `rng` parameter and no global seed; the computational-contract gate; a retype scan over docs generators, examples and skills, backed by review (S1, S2, S5, S6, S7) | 2026-09-29 | 09-04 |
 | Study vocabulary | Gate 6 widens to all of `jnwb/`, `docs/`, `skills/` and `tests/` | 2026-09-29 | 12-07 |
@@ -81,7 +81,7 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Gate 21 | Runs the computational-contract checks the suite runs | 2026-09-26 | `scripts/computational_contract_gate.py` |
 | Version literals | The live-version scan reads every string literal and skips versions after a comparison operator | 2026-09-26 | `tests/test_prose_version_claims_are_live.py` |
 | Package version | Bumped at the release step, with the CHANGELOG heading and the import profile; `dev` keeps the last release version until then | 2026-09-27 | `CONTRIBUTING.md` |
-| Release gate receipt | STEP 0a accepts the fixpoint receipt when only the receipt and the todo stack changed since its commit, refuses an item relabelled from `required-` after it, counts a deleted held item as done only when the receipt names it, and accepts `release-step-<cycle>` items | 2026-09-23, 2026-09-28 | `scripts/release_gate.py`, `tests/test_release_requires_an_empty_problem_stack.py` |
+| Release gate receipt | STEP 0a accepts the fixpoint receipt when only the receipt and the todo stack changed since its commit, refuses an item relabelled from `required-` after it, counts a deleted held item as done only when the receipt names it, and accepts `release-step-<cycle>` items | 2026-09-23, 2026-09-28 | `scripts/release_gate.py`, `tests/test_release_requires_an_empty_open_stack.py` |
 | Unparseable todo headings | An item-depth heading with no id and no release field is reported by the readiness step; `##` structure is exempt | 2026-09-28 | `scripts/release_gate.py` |
 | Peak memory | The release gate measures peak RSS without writing; the committed record is refreshed before the closure pass | 2026-09-27, 2026-09-28 | `scripts/measure_peak_memory.py`, `scripts/release_gate.py` |
 | Publication order | The tag push publishes to TestPyPI, a verify job checks it with the build job's smoke script, and PyPI requires that job | 2026-09-22, 2026-09-25, 2026-09-28 | `.github/workflows/workflow.yml`, `tests/test_workflow_release_policy.py` |
@@ -121,7 +121,7 @@ live item that will; a ruling held by nothing else says "the ruling".
 | `jrsa` nulls | `null=` is `'circular_shift'` (default), `'block'` or `'iid'`; row metrics raise without a named null only when a permutation null is formed; `bootstrap=` for paired metrics is refused unless `null='iid'` | 2026-09-25, 2026-09-26 | `jnwb/jrsa/`, `tests/test_jrsa_correctness.py` |
 | `jrsa` p | `p` and `q` are 0-d arrays; with no permutations a one-sided `alternative` comes from the parametric test | 2026-09-22, 2026-09-23 | `tests/test_jrsa_correctness.py` |
 | `jrsa` lag | Along axis 0 for the six observation-axis metrics, truncated to the overlap with the sample count recorded | 2026-09-25 | `jnwb/jrsa/`, `tests/test_jrsa_correctness.py` |
-| `jrsa` axes | `sliding=True` is refused; a row-metric reduction removes the observation axis; a `window` on the removed axis raises; `result.axes` keeps the input's numbering; an `adim` the resampling ignores is refused only when a null, bootstrap or lag acts on it; series metrics refuse more than one row | 2026-09-23, 2026-09-26, 2026-09-27, 2026-09-28 | `jnwb/jrsa/`, `tests/test_jrsa_correctness.py` |
+| `jrsa` axes | `sliding=True` takes an int `window` width and a required `step`, shares one within-window shuffle across windows and reports a max-statistic family-wise `q` (2026-10-19); a row-metric reduction removes the observation axis; a `window` on the removed axis raises; `result.axes` keeps the input's numbering; an `adim` the resampling ignores is refused only when a null, bootstrap or lag acts on it; series metrics refuse more than one row | 2026-09-23, 2026-09-26, 2026-09-27, 2026-09-28, 2026-10-19 | `jnwb/jrsa/`, `tests/test_jrsa_correctness.py` |
 | `jrsa` window default | Stated at the default `adim`; windowing the observation axis by default lands with the module split | 2026-09-28, 2026-09-29 | 10-06 (IB-58) |
 | Randomness | `rng=None` gives scikit-learn one int drawn from fresh entropy; `build_permutation_plan` takes a `Generator` or `None` and returns the base seed; `nested_cv_linear_svm` reports `seed`, `None` on early status | 2026-09-26 | `jnwb/_rng.py`, `tests/test_rng_control.py` |
 | Grouped decoding | `nested_cv_linear_svm(groups=)` uses `StratifiedGroupKFold` over seeded relabelled group ids, groups the inner search too, returns `"insufficient_groups_for_cv"` below two groups and raises on a one-class outer training fold | 2026-09-25 | `jnwb/decoding.py`, `tests/test_decoding.py` |
@@ -157,8 +157,10 @@ only when all three hold at once:
    admits, recorded where not obvious; 32/64-bit precision through one mechanism; CPU, parallel
    CPU, CUDA and JAX Metal through one mechanism; the first three exercised here, Metal
    implemented and declared unverified.
-3. **The problem stack is empty, no required item remains, and an independent blocker-focused
+3. **The open stack holds no row, no required item remains, and an independent blocker-focused
    closure pass finds no new blocker.** A finding that blocks nothing waits in the todo stack.
+   The closure pass checks each scientific claim the docs, skills and README advertise against the
+   deferred rows: a claim that rests on a deferred row makes that row required, or the claim is cut.
 
 A problem leaves the stack repaired, shown false (evidence that survives a hostile reader in the
 commit message), or moved to the todo stack marked `Release: required-<cycle>` if it meets the

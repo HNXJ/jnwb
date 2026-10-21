@@ -100,6 +100,35 @@ def _to_backend(arr, backend_ctx: dict) -> np.ndarray:
     return np.asarray(arr, dtype=np.float64)
 
 
+def _refuse_complex_input(name: str, arr) -> None:
+    """Raise ValueError when `arr` holds complex values, whatever library it comes from.
+
+    The conversion above keeps the real part and drops the imaginary part, so a complex input
+    would otherwise be analysed as its real part with only numpy's ComplexWarning. The dispatch
+    follows `_to_backend`.
+    """
+    if arr is None:
+        return
+    if callable(getattr(arr, "is_complex", None)):  # torch tensor
+        dtype, complex_input = arr.dtype, bool(arr.is_complex())
+    elif hasattr(arr, "dtype"):  # NumPy, CuPy, JAX, SciPy sparse, masked arrays
+        dtype, complex_input = arr.dtype, np.dtype(arr.dtype).kind == "c"
+    elif hasattr(arr, "__array__") or isinstance(arr, (list, tuple)) or np.isscalar(arr):
+        dtype = np.asarray(arr).dtype
+        complex_input = dtype.kind == "c"
+    elif hasattr(arr, "data"):  # a container, such as a pynwb TimeSeries
+        _refuse_complex_input(name, arr.data)
+        return
+    else:
+        return
+    if complex_input:
+        raise ValueError(
+            f"jrsa: {name} holds complex values (dtype {dtype}), and jrsa computes on real "
+            "values, so the imaginary part would be dropped. Pass a real quantity, for example "
+            "its magnitude or its power."
+        )
+
+
 # ===========================================================================
 # PRIVATE – metric implementations
 # ===========================================================================

@@ -50,12 +50,17 @@ def import_checkout_jnwb():
     Importing this module must not touch ``sys.path``: a test that imports it while qualifying an
     installed jnwb would otherwise start timing, or testing, the checkout instead.
     """
-    if str(ROOT) not in sys.path:
+    # Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
+    if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+        if str(ROOT) not in sys.path:
+            sys.path.append(str(ROOT))
+    elif str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     import jnwb
 
-    if ROOT not in Path(jnwb.__file__).resolve().parents:
-        raise SystemExit(f"jnwb imported from {jnwb.__file__}, not from {ROOT}; refusing to time it")
+    expected = Path(os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") or ROOT).resolve()
+    if expected not in Path(jnwb.__file__).resolve().parents:
+        raise SystemExit(f"jnwb imported from {jnwb.__file__}, not from {expected}; refusing to time it")
     return jnwb
 
 
@@ -203,6 +208,26 @@ def _vflip2_from_lfp(n_samples: int, _tmp: Path) -> Callable[[], object]:
     return lambda: jnwb.vflip2_from_lfp(lfp, 1000, contact_spacing=100.0)
 
 
+def _effective_sample_size(n_samples: int, _tmp: Path) -> Callable[[], object]:
+    """White noise on 8 channels; the count stays near n."""
+    import jnwb
+
+    x = np.random.default_rng(0).normal(size=(8, n_samples))
+    assert jnwb.effective_sample_size(x[:, :1000]) > 500, "fixture must be near-white"
+    return lambda: jnwb.effective_sample_size(x)
+
+
+def _derive_tick_clock(n_ticks: int, _tmp: Path) -> Callable[[], object]:
+    """Three segments of n/3 ticks at step 24, and 1000 spikes over the recording."""
+    import jnwb
+
+    third = max(1, n_ticks // 3)
+    segments = [24.0 * (np.arange(third) + k * 10 * third) for k in range(3)]
+    spikes = np.sort(np.random.default_rng(0).uniform(1.0, 2.0, 1000))
+    assert jnwb.derive_tick_clock(segments, spikes).tick_step == 24.0, "fixture must step"
+    return lambda: jnwb.derive_tick_clock(segments, spikes)
+
+
 def _cutoff(n: int, _tmp: Path) -> Callable[[], object]:
     from jnwb import unit_quality as uq
 
@@ -277,6 +302,16 @@ SPECS: Dict[str, Spec] = {
         "n_samples", (100_000, 400_000, 1_600_000, 6_400_000),
         "8 channels of white noise at fs=1000 (1 s trials, 1024-point FFT), contact_spacing=100 um",
         _vflip2_from_lfp,
+    ),
+    "derive_tick_clock[n_ticks]": Spec(
+        "n_ticks", (30_000, 300_000, 3_000_000, 12_000_000),
+        "three equal segments at tick step 24, 1000 spikes",
+        _derive_tick_clock,
+    ),
+    "effective_sample_size[n_samples]": Spec(
+        "n_samples", (10_000, 100_000, 1_000_000, 4_000_000),
+        "8 channels of white noise; one FFT of at least 2n - 1 points per channel",
+        _effective_sample_size,
     ),
     "fuse_laminar_anchors[n_windows]": Spec(
         "n_windows", (1_000, 10_000, 100_000, 1_000_000),

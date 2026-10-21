@@ -65,14 +65,16 @@ class TestTFRExtractBandRegressions:
 
     def test_mismatched_coordinates_raises_error(self):
         """Test that mismatched length between freqs and TFR freq axis raises ValueError."""
-        tfr_data = np.random.randn(2, 50, 10, 5)
+        rng = np.random.default_rng(25)
+        tfr_data = rng.standard_normal((2, 50, 10, 5))
         wrong_freqs = np.linspace(1.0, 100.0, 40)  # 40 != 50
         with pytest.raises(ValueError, match="freqs length.*must match"):
             TFRAnalyzer.extract_band(tfr_data, "alpha", freqs=wrong_freqs)
 
     def test_unsorted_coordinates_raises_error(self):
         """Test that unsorted or non-strictly-increasing freqs raises ValueError."""
-        tfr_data = np.random.randn(2, 5, 10, 5)
+        rng = np.random.default_rng(26)
+        tfr_data = rng.standard_normal((2, 5, 10, 5))
         unsorted_freqs = np.array([1.0, 5.0, 4.0, 8.0, 10.0])
         with pytest.raises(ValueError, match="strictly increasing"):
             TFRAnalyzer.extract_band(tfr_data, "alpha", freqs=unsorted_freqs)
@@ -83,7 +85,8 @@ class TestTFRExtractBandRegressions:
 
     def test_nonfinite_coordinates_raises_error(self):
         """Test that NaN or Inf in freqs raises ValueError."""
-        tfr_data = np.random.randn(2, 5, 10, 5)
+        rng = np.random.default_rng(27)
+        tfr_data = rng.standard_normal((2, 5, 10, 5))
         nan_freqs = np.array([1.0, 5.0, np.nan, 8.0, 10.0])
         with pytest.raises(ValueError, match="finite values"):
             TFRAnalyzer.extract_band(tfr_data, "alpha", freqs=nan_freqs)
@@ -94,7 +97,8 @@ class TestTFRExtractBandRegressions:
 
     def test_non_1d_coordinates_raises_error(self):
         """Test that non-1D freqs array raises ValueError."""
-        tfr_data = np.random.randn(2, 4, 10, 5)
+        rng = np.random.default_rng(28)
+        tfr_data = rng.standard_normal((2, 4, 10, 5))
         freqs_2d = np.ones((2, 2))
         with pytest.raises(ValueError, match="1D array"):
             TFRAnalyzer.extract_band(tfr_data, "alpha", freqs=freqs_2d)
@@ -103,7 +107,8 @@ class TestTFRExtractBandRegressions:
         """Test that a requested band with zero sampled frequencies fails fast with ValueError (never zero)."""
         # Frequencies only sampled between 50 and 100 Hz
         freqs = np.linspace(50.0, 100.0, 20)
-        tfr_data = np.random.randn(2, 20, 10, 5)
+        rng = np.random.default_rng(29)
+        tfr_data = rng.standard_normal((2, 20, 10, 5))
         
         # Theta (4-8 Hz) has zero samples in this coordinate span
         with pytest.raises(ValueError, match="No sampled frequencies fall within requested band 'theta'"):
@@ -146,8 +151,9 @@ class TestTFRExtractBandRegressions:
 
     def test_correlate_areas_with_explicit_freqs(self):
         """Verify TFRAnalyzer.correlate_areas passes freqs properly."""
-        tfr1 = np.random.randn(2, 20, 10, 15)
-        tfr2 = np.random.randn(2, 20, 10, 15)
+        rng = np.random.default_rng(30)
+        tfr1 = rng.standard_normal((2, 20, 10, 15))
+        tfr2 = rng.standard_normal((2, 20, 10, 15))
         freqs = np.linspace(1.0, 40.0, 20)
         
         res = TFRAnalyzer.correlate_areas(tfr1, tfr2, freqs=freqs, band="alpha")

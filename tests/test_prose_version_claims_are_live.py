@@ -103,7 +103,9 @@ EXTERNAL_MENTIONS = {
 # Mentions of a version not yet released: a plan or a removal date. Each is excused only while
 # the live version is below it; once the version reaches it the note is either done, and
 # rewritten as history, or late, and the release is not what the note promised.
-FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
+FORWARD_MENTIONS: dict[tuple[str, str], str] = {
+    ("docs/02_paths_addressing_metadata.md", "will be removed in 0.2.14"): "0.2.14",
+}
 
 # The same two lists for string literals in `jnwb/`: docstrings, and the messages a warning or
 # an error prints. A mention at or below the live version is history there (a break note, a
@@ -111,9 +113,11 @@ FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
 # expires when the version reaches it, or the record of a change the next release carries,
 # which needs no declaration once that release is live.
 SOURCE_FORWARD_MENTIONS: dict[tuple[str, str], str] = {
-    ("jnwb/jrsa/__init__.py", "removed in 0.2.13"): "0.2.13",
+    ("jnwb/gpu_pca.py", "removed in 0.2.14"): "0.2.14",
+    ("jnwb/ontology.py", "will be removed in 0.2.14"): "0.2.14",
 }
-SOURCE_UNRELEASED_RECORDS: dict[tuple[str, str], str] = {}
+SOURCE_UNRELEASED_RECORDS: dict[tuple[str, str], str] = {
+}
 
 # A version after a comparison operator is a dependency requirement, not a jnwb release.
 _REQUIREMENT = re.compile(r"(?:[<>=!~]=?)\s*$")

@@ -95,6 +95,21 @@ def test_sidecar_serialization(tmp_path, sample_argument_data):
     assert loaded.RESULT == sample_argument_data["RESULT"]
 
 
+def test_sidecar_source_artifacts_string_is_one_path(sample_argument_data):
+    """A bare string SOURCE ARTIFACTS value was split into one list entry per character."""
+    sample_argument_data["SOURCE ARTIFACTS"] = "receipt.json"  # precondition: a bare string
+    obj = EpistemicArgumentObject.from_dict(sample_argument_data)
+    assert obj.SOURCE_ARTIFACTS == ["receipt.json"]
+
+
+def test_sidecar_source_artifacts_accepts_a_tuple_and_refuses_other_types(sample_argument_data):
+    sample_argument_data["SOURCE ARTIFACTS"] = ("a.json", "b.json")
+    assert EpistemicArgumentObject.from_dict(sample_argument_data).SOURCE_ARTIFACTS == ["a.json", "b.json"]
+    sample_argument_data["SOURCE ARTIFACTS"] = 5
+    with pytest.raises(TypeError, match="SOURCE ARTIFACTS"):
+        EpistemicArgumentObject.from_dict(sample_argument_data)
+
+
 # ==============================================================================
 # 2. Canvas & Relative Domain Mathematics Tests
 # ==============================================================================
@@ -385,7 +400,8 @@ def test_spectrolaminar_map_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     freqs = np.linspace(1, 150, 150)
     depths = np.linspace(0.0, 1.0, 32)
-    rel_power = np.random.uniform(0.1, 1.0, size=(150, 32))
+    rng = np.random.default_rng(1)
+    rel_power = rng.uniform(0.1, 1.0, size=(150, 32))
 
     plot_spectrolaminar_map(
         canvas=canvas,
@@ -418,9 +434,10 @@ def test_spectrolaminar_map_refuses_values_outside_unit_range(bad):
 
 
 def test_spectrolaminar_map_accepts_the_closed_unit_range_with_gaps():
-    rel_power = np.array([[0.0, 1.0], [np.nan, 0.5]])
+    # Non-square on purpose: a square rel_power is refused because its layout is not stated.
+    rel_power = np.array([[0.0, 1.0], [np.nan, 0.5], [0.2, 0.3]])
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
-    plot_spectrolaminar_map(canvas, 0, 0, rel_power=rel_power, freqs=np.array([1.0, 2.0]),
+    plot_spectrolaminar_map(canvas, 0, 0, rel_power=rel_power, freqs=np.array([1.0, 2.0, 3.0]),
                             depths=np.array([0.0, 1.0]), depth_unit="relative")
     assert any(isinstance(t, go.Heatmap) for t in canvas.fig.data)
 
@@ -468,11 +485,57 @@ def test_opposing_gradients_primitive():
     assert len(traces) >= 6  # 2 bounds for gamma CI, 2 bounds for AB CI, 2 main lines
 
 
+def test_opposing_gradients_legend_names_the_bands_it_was_given():
+    """The legend names the vFLIP bands by default, and the bands the caller passes."""
+    depths = np.linspace(0.0, 1.0, 20)
+    default = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_opposing_gradients(default, 0, 0, gamma_power=1.0 - depths, alphabeta_power=depths,
+                            depths=depths, depth_unit="relative")
+    assert [t.name for t in default.fig.data if t.name] == ["Gamma (50–150 Hz)", "Alpha/Beta (8–30 Hz)"]
+
+    given = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_opposing_gradients(given, 0, 0, gamma_power=1.0 - depths, alphabeta_power=depths,
+                            depths=depths, depth_unit="relative", gamma_band=(40, 90))
+    assert [t.name for t in given.fig.data if t.name] == ["Gamma (40–90 Hz)", "Alpha/Beta (8–30 Hz)"]
+    assert any(t.hovertemplate and "Gamma (40–90 Hz)" in t.hovertemplate for t in given.fig.data)
+
+
+@pytest.mark.parametrize("arg", ["gamma_band", "alphabeta_band"])
+@pytest.mark.parametrize("band", [(40.0, 40.0), (90.0, 40.0), (float("nan"), 90.0),
+                                  (40.0, float("inf")), (40.0,), "40-90"])
+def test_opposing_gradients_refuses_a_band_that_is_not_two_finite_numbers_low_below_high(arg, band):
+    depths = np.linspace(0.0, 1.0, 20)
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    with pytest.raises(ValueError, match=arg):
+        plot_opposing_gradients(canvas, 0, 0, gamma_power=1.0 - depths, alphabeta_power=depths,
+                                depths=depths, depth_unit="relative", **{arg: band})
+    assert len(canvas.fig.data) == 0, "a refused band must draw nothing"
+
+
+def test_opposing_gradients_crossover_line_is_finite_with_a_nan_in_a_trace():
+    """The crossover line ends at the largest finite power of either trace, so one NaN sample
+    in a trace does not make the reference line end at NaN."""
+    depths = np.linspace(0.0, 1.0, 20)
+    gamma = 1.0 - depths
+    gamma[5] = np.nan
+    assert int(np.isnan(gamma).sum()) == 1, "fixture must hold one NaN sample"
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_opposing_gradients(canvas, 0, 0, gamma_power=gamma, alphabeta_power=depths,
+                            depths=depths, crossover_depth=0.4, depth_unit="relative")
+    crossover = [t for t in canvas.fig.data
+                 if t.y is not None and len(t.y) == 2 and all(v == 0.4 for v in t.y)]
+    assert len(crossover) == 1, "the crossover line must be drawn once"
+    x_max = crossover[0].x[1]
+    assert np.isfinite(x_max)
+    assert x_max == pytest.approx(1.05)
+
+
 def test_csd_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     depths = np.linspace(0.0, 1.0, 16)
     time_ms = np.linspace(-100, 300, 100)
-    csd = np.random.randn(16, 100)
+    rng = np.random.default_rng(2)
+    csd = rng.standard_normal((16, 100))
 
     plot_csd(
         canvas=canvas,
@@ -643,6 +706,15 @@ def test_rsm_heatmap_draws_the_inputs():
     assert canvas.fig.data[0].z[0][1] == 0.2
 
 
+def test_rsm_heatmap_default_title_names_the_dissimilarity_matrix():
+    """The input is a dissimilarity matrix, so the default title says so, as the colour bar does."""
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_rsm_heatmap(canvas, 0, 0, np.array([[0.0, 0.5], [0.5, 0.0]]), ["a", "b"])
+    assert canvas.fig.data[0].colorbar.title.text == "Dissimilarity"
+    assert "<b>Representational Dissimilarity Matrix (RDM)</b>" in [
+        a.text for a in canvas.fig.layout.annotations]
+
+
 def test_multi_condition_raster_psth_reads_a_steady_rate_to_the_last_bin_and_refuses_partial_bins():
     """The default window spanned 781 ms at 10 ms bins, so its last bin held 1 ms of spikes
     divided by 10 ms and a steady 1000 Hz train drew a dip to about 100 Hz at the end."""
@@ -658,11 +730,13 @@ def test_multi_condition_raster_psth_reads_a_steady_rate_to_the_last_bin_and_ref
 
 def test_multi_condition_raster_psth_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=120.0, rows=2, cols=1, row_height_ratios=[1.2, 1.0])
-    st = np.sort(np.random.uniform(0, 100, 500))
+    st = np.sort(np.random.default_rng(0).uniform(0, 100, 500))
     onsets = {
         "Condition A": np.array([5.0, 15.0, 25.0, 35.0]),
         "Condition B": np.array([45.0, 55.0, 65.0, 75.0]),
     }
+    for t0 in onsets.values():
+        assert any(((st > t - 0.1) & (st < t + 0.3)).any() for t in t0), "each condition needs a spike"
 
     plot_multi_condition_raster_psth(
         canvas=canvas,
@@ -760,6 +834,18 @@ def test_spectral_modulation_matrix_primitive():
     assert any(isinstance(t, go.Heatmap) for t in traces)
 
 
+def test_spectral_modulation_matrix_refuses_a_shape_that_does_not_match_its_axes():
+    """The matrix was drawn against area and band labels of another length without a word."""
+    bands = ["θ", "α", "β", "γ"]
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_spectral_modulation_matrix(canvas, 0, 0, delta_db_matrix=np.zeros((2, 4)),
+                                    areas=["A1", "A2"], bands=bands)  # precondition: shapes agree
+    fresh = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    with pytest.raises(ValueError, match=r"delta_db_matrix shape \(3, 4\).*expected \(2, 4\)"):
+        plot_spectral_modulation_matrix(fresh, 0, 0, delta_db_matrix=np.zeros((3, 4)),
+                                        areas=["A1", "A2"], bands=bands)
+
+
 def test_decoding_timecourse_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     time_ms = np.linspace(-100, 400, 100)
@@ -781,3 +867,13 @@ def test_decoding_timecourse_primitive():
 
     traces = canvas.fig.data
     assert len(traces) >= 3  # chance line, CI lower, CI upper fill, main line
+
+
+def test_decoding_cluster_annotation_names_no_p_value():
+    """The annotation read "p < 0.05" for every cluster, whatever test the caller ran."""
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    time_ms = np.linspace(-100, 400, 100)
+    plot_decoding_timecourse(canvas, 0, 0, time_ms=time_ms, accuracy=np.full(100, 0.6),
+                             sig_clusters=[(100.0, 220.0)])
+    (note,) = [a.text for a in canvas.fig.layout.annotations if a.text and "cluster" in a.text.lower()]
+    assert note == "<b>cluster</b>"

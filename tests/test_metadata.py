@@ -162,13 +162,40 @@ class TestAuditUnits:
 
 class TestAuditElectrodes:
     def test_counts_areas_and_unit_assignment(self):
-        elec_df = pd.DataFrame({"location": ["V1, layer4", "V1, layer2", "PFC, layer5"]})
+        # Two contacts share probe A, so "V1, layer4" splits them by position; the sub-label
+        # counts as an area of its own.
+        elec_df = pd.DataFrame({"location": ["V1, layer4", "V1, layer4", "PFC"],
+                                "group_name": ["A", "A", "B"]})
         units_df = pd.DataFrame({"peak_channel_id": [1, None, 3]})
         result = audit_electrodes(elec_df, units_df)
         assert result["total_electrodes"] == 3
-        assert result["areas_represented"] == {"V1": 2, "PFC": 1}
+        assert result["areas_represented"] == {"V1": 1, "layer4": 1, "PFC": 1}
         assert result["units_assigned"] == 2
         assert result["assignment_rate"] == pytest.approx(2 / 3)
+
+    def test_a_multi_area_probe_counts_each_contact_once_by_its_position(self):
+        elec_df = pd.DataFrame({"location": ["V1, V2"] * 4, "group_name": ["P"] * 4})
+        assert elec_df["group_name"].nunique() == 1, "the fixture must be one probe"
+        assert audit_electrodes(elec_df)["areas_represented"] == {"V1": 2, "V2": 2}
+
+    def test_a_sub_label_after_a_comma_counts_as_an_area(self):
+        elec_df = pd.DataFrame({"location": ["V1, layer4"] * 2, "group_name": ["P"] * 2})
+        assert audit_electrodes(elec_df)["areas_represented"] == {"V1": 1, "layer4": 1}
+
+    def test_a_multi_area_contact_with_no_probe_key_raises(self):
+        elec_df = pd.DataFrame({"location": ["V1, V2"] * 4})
+        with pytest.raises(ValueError, match="no probe is named"):
+            audit_electrodes(elec_df)
+
+    def test_a_multi_area_contact_with_a_missing_probe_value_raises(self):
+        elec_df = pd.DataFrame({"location": ["V1, V2"] * 4, "group_name": ["A", "A", "A", None]})
+        assert elec_df["group_name"].isna().sum() == 1, "the fixture must leave one contact unkeyed"
+        with pytest.raises(ValueError, match="'group_name'"):
+            audit_electrodes(elec_df)
+
+    def test_single_area_labels_and_missing_locations_count_as_before(self):
+        elec_df = pd.DataFrame({"location": ["V1", "PFC", None]})
+        assert audit_electrodes(elec_df)["areas_represented"] == {"V1": 1, "PFC": 1, "Unknown": 1}
 
     def test_missing_units_df_gives_zero_assignment(self):
         elec_df = pd.DataFrame({"location": ["V1"]})
@@ -676,6 +703,32 @@ class TestDegenerateCutOffs:
             for bad in (float("nan"), float("inf")):
                 with pytest.raises(ValueError, match=f"audit_units: {name} is"):
                     audit_units(frame, **{name: bad})
+
+    def test_snr_analysis_refuses_a_non_finite_cut_off(self):
+        """NaN passed `snr >= threshold` as False for every unit: no unit passed, no error."""
+        for bad in (float("nan"), float("inf")):
+            with pytest.raises(ValueError, match="get_snr_analysis: snr_threshold is"):
+                get_snr_analysis(_synthetic_units(), snr_threshold=bad)
+
+    def test_unit_metadata_refuses_a_non_finite_quality_threshold(self, tmp_path):
+        """NaN passed `quality >= threshold` as False for every unit: the filter kept none."""
+        import pynwb
+        from datetime import datetime, timezone
+
+        nwb = pynwb.NWBFile(session_description="q", identifier="q-nan",
+                            session_start_time=datetime.now(timezone.utc))
+        nwb.add_unit_column(name="quality", description="quality")
+        nwb.add_unit(spike_times=[0.1, 0.9], quality=1.0)
+        nwb.add_unit(spike_times=[0.2, 0.8], quality=2.0)
+        path = tmp_path / "ses-01_nan.nwb"
+        with pynwb.NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        for bad in (float("nan"), float("inf")):
+            with pytest.raises(ValueError, match="get_all_units_metadata: quality_threshold is"):
+                get_all_units_metadata(path, filter_quality=True, quality_threshold=bad)
+            # Refused with the filter off too: the cut-off is validated on every call.
+            with pytest.raises(ValueError, match="get_all_units_metadata: quality_threshold is"):
+                get_all_units_metadata(path, quality_threshold=bad)
 
     def test_stability_rule_refuses_a_degenerate_threshold_or_empty_labels(self):
         from jnwb.addressing import enrich_units_dataframe
@@ -1220,3 +1273,18 @@ class TestUnitsMetadataWaiverAndObjectInput:
     def test_a_non_path_non_object_still_raises_type_error(self):
         with pytest.raises(TypeError):
             get_all_units_metadata(42)
+
+
+class TestOldNewSummaryTable:
+    def test_a_unit_with_a_missing_area_or_tier_is_still_counted(self):
+        from jnwb.metadata import old_new_summary_table
+
+        compared = pd.DataFrame({
+            "area": ["V1", None, "V1", "PFC"],
+            "quality_tier": ["A", "A", None, "B"],
+            "transition": ["gained", "lost", "unchanged_included", "gained"],
+        })
+        assert compared[["area", "quality_tier"]].isna().any(axis=1).sum() == 2, \
+            "the fixture must hold two units with a missing class"
+        summary = old_new_summary_table(compared)
+        assert summary["n_units"].sum() == len(compared)

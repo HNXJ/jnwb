@@ -31,6 +31,8 @@ def _residual_variance(residuals: np.ndarray) -> float:
 
 def _ridge_lstsq(A: np.ndarray, b: np.ndarray, ridge: float) -> np.ndarray:
     """Least squares with optional ridge on non-intercept columns."""
+    if not np.isfinite(ridge):
+        raise ValueError(f"_ridge_lstsq: ridge must be finite, got {ridge}")
     if ridge <= 0:
         beta, _, _, _ = np.linalg.lstsq(A, b, rcond=None)
         return beta
@@ -406,8 +408,10 @@ def granger_causality(
         order_2_to_1, order_1_to_2, fit21, fit12 = _fit_all(CPU, None)
     var_r1, var_u1, res_r1, res_u1 = fit21
     var_r2, var_u2, res_r2, res_u2 = fit12
-    f_2_to_1 = np.log(var_r1 / var_u1) if var_u1 > 0 else 0.0
-    f_1_to_2 = np.log(var_r2 / var_u2) if var_u2 > 0 else 0.0
+    # A zero residual variance means the fit failed, not that the influence is zero, as in
+    # `granger`.
+    f_2_to_1 = np.log(var_r1 / var_u1) if var_u1 > 0 else float("nan")
+    f_1_to_2 = np.log(var_r2 / var_u2) if var_u2 > 0 else float("nan")
 
     diag_2_to_1 = _series_diagnostics(s1, res_u1, order_2_to_1)
     diag_1_to_2 = _series_diagnostics(s2, res_u2, order_1_to_2)
@@ -863,9 +867,10 @@ def granger_spectral(
     instantaneous-causality-normalized transfer function. The estimate is >= 0 at
     every frequency by construction.
 
-    Geweke's decomposition means the frequency average returns the time-domain
-    value, so ``x_to_y`` here is directly comparable to ``granger(X, Y).x_to_y``
-    — a large disagreement is a symptom (usually VAR misspecification), not noise.
+    Geweke's decomposition means the frequency average approaches the time-domain
+    value as the fitted past grows, so ``x_to_y`` here is comparable to
+    ``granger(X, Y).x_to_y``. In a finite fit the two differ slightly; a large
+    disagreement is a symptom (usually VAR misspecification), not noise.
 
     Args:
         X, Y: any signal accepted by :func:`as_trials`

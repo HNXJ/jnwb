@@ -4,14 +4,14 @@ Pipeline, in the order the steps run. The labels are names, not positions: the s
 the label 1 and runs last, because it is the one step that takes tens of minutes, and every
 cheaper check that can refuse the release runs before it.
   0a. Release readiness: artifacts/state.md is absent or records HEAD, the working tree is
-      clean, the problem stack is empty, no todo item is still required this cycle, every
+      clean, the open stack holds no row, no todo item is still required this cycle, every
       roadmap row is readable and deferred past this cycle, and the
       blocker-focused closure receipt reports zero for this commit
   0. Required release/test tooling is present in the active environment
   0b. The declared version is not one the package index already serves
   0c. Every declared dependency floor installs on the declared interpreter
   0d. The release body's version, Python support and install command match package metadata
-  0e. CI concluded success, per required leg, for the exact commit being qualified
+  0e. CI concluded success, per required leg, for the exact commit being qualified, on main
   2. Harness pre-flight gates
   2a. Recorded mutation gaps still hold at HEAD
   2b. API docs generator drift check, on this interpreter and on the Python floor
@@ -737,8 +737,12 @@ def required_ci_jobs(workflow: Optional[str] = None,
 
 
 def select_run_for_commit(sha: str, stdout: str) -> Tuple[Optional[dict], Optional[str]]:
-    """``(run, None)`` or ``(None, reason)`` for the newest concluded run whose head is ``sha``, or
-    the newest run of it when none has concluded.
+    """``(run, None)`` or ``(None, reason)`` for the newest concluded run of ``sha`` on ``main``, or
+    the newest such run when none has concluded.
+
+    A release is qualified by the ``main`` run at the tag's commit. A run on any other branch, a
+    ``dev`` push or a pull request, is not a candidate however it concluded, and the reason names
+    the branches the commit's runs are on.
 
     The SHA comparison is the whole point. ``gh run list --commit`` is asked for the right
     run, and the answer is checked anyway: a gate that trusts the query and reports on the
@@ -767,8 +771,15 @@ def select_run_for_commit(sha: str, stdout: str) -> Tuple[Optional[dict], Option
     # pull-request run in progress beside the push run that passed is not a failure. The newest
     # concluded run decides; a commit with none is held by its newest run. Newest first is gh's
     # order; databaseId is monotonic, so re-derive rather than assume.
-    concluded = [r for r in matching if r.get("status") == "completed"]
-    return max(concluded or matching, key=lambda r: r.get("databaseId") or 0), None
+    on_main = [run for run in matching if run.get("headBranch") == "main"]
+    if not on_main:
+        branches = sorted({str(r.get("headBranch") or "(no branch)") for r in matching})
+        return None, (
+            f"runs for {sha[:12]} exist only on {', '.join(branches)}; a release is qualified by "
+            "the main run at the tag SHA, so merge the commit to main and let CI run there"
+        )
+    concluded = [r for r in on_main if r.get("status") == "completed"]
+    return max(concluded or on_main, key=lambda r: r.get("databaseId") or 0), None
 
 
 class JobVerdict(NamedTuple):
@@ -828,7 +839,7 @@ def check_ci_conclusion(sha: str,
     """Resolve the CI verdict for exactly the commit ``sha``.
 
     Fails closed. Every way of not reaching an answer -- no ``gh`` on PATH, no
-    authentication, no network, no run for this SHA, a run still executing, unreadable
+    authentication, no network, no run of this SHA on main, a run still executing, unreadable
     output -- returns :data:`CI_UNRESOLVED` with a reason that says which, and the caller
     treats that as non-passing. The alternative fails hardest when the network is down,
     which is when a release is least verifiable.
@@ -866,7 +877,7 @@ def check_ci_conclusion(sha: str,
 
     stdout, error = invoke([
         "gh", "run", "list", "--commit", sha, "--limit", "20",
-        "--json", "databaseId,headSha,status,conclusion,workflowName",
+        "--json", "databaseId,headBranch,headSha,status,conclusion,workflowName",
     ])
     if error is not None:
         return CIOutcome(CI_UNRESOLVED, error, [], [])
@@ -1037,15 +1048,7 @@ def _api_md_check_commands() -> List[List[str]]:
     return commands
 
 
-PROBLEM_STACK = "artifacts/problem_stack.md"
-# A problem row as it would render in any section: a table line, optionally blockquoted, whose
-# first cell starts with a `P-` id in any case and under any inline markup. Matched however its
-# cells are counted, so a row under a stray heading or with a missing cell still counts.
-_PROBLEM_ROW = re.compile(r"^[ \t>]*\|[ \t*`_~]*P-\w", re.IGNORECASE)
-#: The header of the one table `## Open` may hold. Pinned, so a problem cannot stand in as it.
-OPEN_HEADER = ("ID", "Problem", "Found by")
-_OPEN_HEADING = re.compile(r"^ {0,3}##[ \t]+Open[ \t]*$")
-_SECTION_END = re.compile(r"^ {0,3}#{1,2}(?:[ \t]|$)")
+OPEN_STACK = "artifacts/open_stack.md"
 _SEPARATOR_CELL = re.compile(r"^:?-+:?$")
 
 
@@ -1056,59 +1059,52 @@ def _cells(line: str) -> Optional[List[str]]:
     return [cell.strip() for cell in stripped.strip("|").split("|")]
 
 
-def open_section_content(text: str) -> Optional[List[Tuple[int, str]]]:
-    """``(line number, line)`` for every line under ``## Open`` that is not blank and is not
-    the table's one header row or the separator row directly below it; ``None`` when the stack
-    has no ``## Open`` section.
+def _table_cells(line: str) -> Optional[List[str]]:
+    """The cells of a table line, blockquote markers removed; ``None`` for any other line."""
+    body = line.lstrip(" \t>").strip()
+    if not body.startswith("|"):
+        return None
+    return [cell.strip() for cell in body.strip("|").split("|")]
 
-    Under ``## Open`` anything else is an untriaged problem, whatever form it takes. Reading
-    only row-shaped lines let a bold, code-spanned or lower-case id, a blockquoted table, a
-    bullet, an id in the second column and a row with no id all stand in the section unseen.
+
+def _is_separator(cells: Optional[List[str]]) -> bool:
+    return bool(cells) and all(_SEPARATOR_CELL.match(cell) for cell in cells)
+
+
+def table_data_rows(text: str) -> List[Tuple[int, str]]:
+    """``(line number, line)`` for every table data row in ``text``.
+
+    A table line is one whose first non-blank character, after any blockquote marker, is a
+    ``|``. A data row is a table line that is neither a separator row nor a header; a header is
+    the table line directly above a separator row. Prose does not count, whatever it contains.
     """
-    found: Optional[List[Tuple[int, str]]] = None
-    in_open, expect = False, None
-    for lineno, line in enumerate(text.splitlines(), 1):
-        if _OPEN_HEADING.match(line):
-            found = [] if found is None else found
-            in_open, expect = True, "header"
+    lines = text.splitlines()
+    cells = [_table_cells(line) for line in lines]
+    rows = []
+    for index, line in enumerate(lines):
+        if cells[index] is None or _is_separator(cells[index]):
             continue
-        if in_open and _SECTION_END.match(line):
-            in_open = False
-        if not in_open or not line.strip():
+        if index + 1 < len(lines) and _is_separator(cells[index + 1]):
             continue
-        cells = _cells(line)
-        if expect == "header" and cells is not None and tuple(cells) == OPEN_HEADER:
-            expect = "separator"
-            continue
-        if expect == "separator" and cells and all(_SEPARATOR_CELL.match(c) for c in cells):
-            expect = None
-            continue
-        expect = None
-        found.append((lineno, line.strip()))
-    return found
+        rows.append((index + 1, line.strip()))
+    return rows
 
 
-def problem_rows(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]:
-    """Every problem in the problem stack, or ``None`` when the file is missing.
+def open_rows(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]:
+    """Every table data row in the open stack, or ``None`` when the file is missing.
 
-    That is every line under ``## Open`` other than its header and separator, and every
-    problem-shaped table row in any other section. A release requires the stack to hold none:
-    a problem leaves it by being repaired, by being shown false, or by moving into the todo
-    stack as an item.
+    A release requires none: a row leaves the stack by being repaired, by being shown false, or
+    by moving into the todo stack as an item.
     """
-    path = root / PROBLEM_STACK
+    path = root / OPEN_STACK
     if not path.is_file():
         return None
-    return _problem_rows_in(path.read_text(encoding="utf-8"))
+    return _open_rows_in(path.read_text(encoding="utf-8"))
 
 
-def _problem_rows_in(text: str) -> List[str]:
-    """:func:`problem_rows` for the text of a problem stack."""
-    rows = dict(open_section_content(text) or [])
-    for lineno, line in enumerate(text.splitlines(), 1):
-        if _PROBLEM_ROW.match(line):
-            rows.setdefault(lineno, line.strip())
-    return [rows[n][:120] for n in sorted(rows)]
+def _open_rows_in(text: str) -> List[str]:
+    """:func:`open_rows` for the text of an open stack."""
+    return [line[:120] for _, line in table_data_rows(text)]
 
 
 def remaining_todo_items(root: pathlib.Path = REPO_ROOT) -> List[str]:
@@ -1183,7 +1179,12 @@ RELEASE_CYCLE = jnwb_source_version()
 NEXT_CYCLE = "{}.{}.{}".format(
     *(int(p) + (i == 2) for i, p in enumerate(
         re.match(r"(\d+)\.(\d+)\.(\d+)", RELEASE_CYCLE).groups())))
-RECEIPT_PATH = "artifacts/blocker_fixpoint_receipt.md"
+RECEIPT_PATH = "artifacts/process/blocker_fixpoint_receipt.md"
+# The path before the move to artifacts/process/. Its commits are part of the receipt's history,
+# so the history reads take both paths: a single-path read starts at the move and loses the
+# commit that recorded the finished row.
+RECEIPT_PRE_MOVE_PATH = "artifacts/blocker_fixpoint_receipt.md"
+RECEIPT_PATHS = (RECEIPT_PATH, RECEIPT_PRE_MOVE_PATH)
 TODO_PATH = "artifacts/todo_stack.md"
 # The files a commit may change after the closure pass without invalidating it. A committed
 # receipt cannot name its own commit, so it names the one the pass ran against, and the commit
@@ -1338,10 +1339,12 @@ def _todo_stack_at(root: pathlib.Path, rev: str) -> Optional[str]:
 #: What STEP 0a reads. It reads each from HEAD, never from the working copy: an uncommitted edit
 #: that deletes required items and adds a receipt would otherwise pass condition 3 for a commit
 #: whose stacks still hold them.
-STEP_0A_PATHS = (PROBLEM_STACK, TODO_PATH, ROADMAP_PATH, RECEIPT_PATH)
+STEP_0A_PATHS = (OPEN_STACK, TODO_PATH, ROADMAP_PATH, RECEIPT_PATH)
 
 #: The committed peak-memory record, and the file that declares the version it must name.
-PEAK_MEMORY_PATH = "artifacts/benchmarks/peak_memory.json"
+PEAK_MEMORY_PATH = "artifacts/benchmarks/performance/peak_memory.json"
+#: Where releases up to v0.2.12 kept the record; read only for a previous release.
+PEAK_MEMORY_PATH_BEFORE_0_2_13 = "artifacts/benchmarks/peak_memory.json"
 VERSION_PATH = "jnwb/__init__.py"
 
 
@@ -1366,6 +1369,97 @@ def peak_memory_record_violation(root: pathlib.Path, rev: str = "HEAD") -> Optio
                 f"{declared.group(1)}; run `python scripts/measure_peak_memory.py --write` and "
                 "commit it with the version")
     return None
+
+
+#: An operation's added MiB may grow by more than this fraction of the previous release's value, and
+#: by at least the floor, only with a reason in the declared version's CHANGELOG.md section.
+PEAK_MEMORY_GROWTH_FRACTION = 0.20
+PEAK_MEMORY_GROWTH_FLOOR_MIB = 5.0
+_RELEASE_TAG_RE = re.compile(r"^v\d+\.\d+\.\d+$")
+
+
+def _previous_release_tag(root: pathlib.Path, rev: str, version: str) -> Optional[str]:
+    """The newest ``vX.Y.Z`` tag that is an ancestor of ``rev`` and names a version other than
+    ``version``, or ``None``."""
+    listed = subprocess.run(["git", "tag", "--list", "v*"], cwd=root, capture_output=True,
+                            text=True)
+    if listed.returncode != 0:
+        return None
+    candidates = sorted(
+        (tag for tag in listed.stdout.split() if _RELEASE_TAG_RE.match(tag) and tag[1:] != version),
+        key=lambda tag: _version_tuple(tag[1:]), reverse=True)
+    for tag in candidates:
+        ancestry = subprocess.run(["git", "merge-base", "--is-ancestor", tag, rev], cwd=root,
+                                  capture_output=True)
+        if ancestry.returncode == 0:
+            return tag
+    return None
+
+
+def _peak_rows(text: Optional[str]) -> Optional[dict]:
+    """Each operation's added MiB in a peak-memory record, or ``None`` when the record is absent or
+    holds no ``operations`` mapping with an ``added_mib`` for each operation."""
+    try:
+        operations = json.loads(text)["operations"]
+        return {str(name): float(row["added_mib"]) for name, row in operations.items()}
+    except (TypeError, ValueError, KeyError, AttributeError):
+        return None
+
+
+def _names_operation(section: str, name: str) -> bool:
+    """Whether ``section`` names ``name`` as a whole token, not as the start of a longer name."""
+    return re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", section) is not None
+
+
+def peak_memory_growth_violations(root: pathlib.Path, rev: str = "HEAD") -> List[str]:
+    """Why an operation's peak-memory growth since the previous release is unexplained; empty when
+    none is.
+
+    The previous release is the newest ``vX.Y.Z`` tag that is an ancestor of ``rev`` and names a
+    version other than the one ``rev`` declares. An operation in both records is a violation when
+    its added MiB rose by more than the fraction of the previous value and by at least the floor,
+    unless the declared version's CHANGELOG.md section names it. An operation added or removed is
+    not compared. Fails closed: when a record, the tag or the declared version cannot be read, the
+    comparison is reported as not made.
+    """
+    # Local import: scripts/release_body.py imports this module, so a top-level import would cycle.
+    from scripts.release_body import changelog_section
+
+    declared = _VERSION_RE.search(_text_at(root, rev, VERSION_PATH) or "")
+    if declared is None:
+        return [f"{VERSION_PATH} declares no __version__ at {rev}, so the peak-memory growth "
+                "against the previous release could not be compared"]
+    version = declared.group(1)
+    previous = _previous_release_tag(root, rev, version)
+    if previous is None:
+        return [f"no release tag v<X.Y.Z> other than {version} is an ancestor of {rev}, so the "
+                "peak-memory growth against the previous release could not be compared"]
+    before = _peak_rows(_text_at(root, previous, PEAK_MEMORY_PATH)
+                        or _text_at(root, previous, PEAK_MEMORY_PATH_BEFORE_0_2_13))
+    if before is None:
+        return [f"{PEAK_MEMORY_PATH} (or {PEAK_MEMORY_PATH_BEFORE_0_2_13}) is absent or "
+                f"unreadable at {previous}, the previous release, "
+                "so the peak-memory growth could not be compared"]
+    after = _peak_rows(_text_at(root, rev, PEAK_MEMORY_PATH))
+    if after is None:
+        return [f"{PEAK_MEMORY_PATH} is absent or unreadable at {rev}, so the peak-memory growth "
+                f"against {previous} could not be compared"]
+    changelog = _text_at(root, rev, "CHANGELOG.md")
+    section = (changelog_section(changelog, version) if changelog is not None else None) or ""
+    violations: List[str] = []
+    for name in sorted(set(before) & set(after)):
+        growth = after[name] - before[name]
+        if growth <= PEAK_MEMORY_GROWTH_FRACTION * before[name] or growth < PEAK_MEMORY_GROWTH_FLOOR_MIB:
+            continue
+        if _names_operation(section, name):
+            continue
+        share = f"+{100 * growth / before[name]:.1f}%" if before[name] > 0 else "from zero"
+        violations.append(
+            f"{name}: added {before[name]:.1f} MiB at {previous} and {after[name]:.1f} MiB at "
+            f"{rev}, {share} (the bound is {100 * PEAK_MEMORY_GROWTH_FRACTION:.0f}% and "
+            f"{PEAK_MEMORY_GROWTH_FLOOR_MIB:.0f} MiB); name the operation in CHANGELOG.md's "
+            f"{version} section with the reason")
+    return violations
 
 
 def uncommitted_paths(root: pathlib.Path) -> Optional[List[str]]:
@@ -1457,16 +1551,21 @@ def _finished_row_history(root: pathlib.Path, commit: str, head: str, finished: 
     # simplification follows one side of a merge, so a receipt written on both sides counted as
     # one write; and a merge that only takes one side's receipt is not a write of its own.
     listed = subprocess.run(["git", "rev-list", "--full-history", f"{commit}..{head}", "--",
-                             RECEIPT_PATH],
+                             *RECEIPT_PATHS],
                             cwd=root, capture_output=True, text=True)
     if listed.returncode != 0:
         return [f"the commits that changed {RECEIPT_PATH} after {commit[:12]} could not be "
                 f"listed: {listed.stderr.strip()[:120]}"]
 
     def blob(rev: str) -> str:
-        shown = subprocess.run(["git", "rev-parse", "-q", "--verify", f"{rev}:{RECEIPT_PATH}"],
-                               cwd=root, capture_output=True, text=True)
-        return shown.stdout.strip() if shown.returncode == 0 else ""
+        # The receipt's content at a commit, under whichever of its two paths holds it there. A
+        # move commit carries the same blob at the new path, so it is not a write.
+        for path in RECEIPT_PATHS:
+            shown = subprocess.run(["git", "rev-parse", "-q", "--verify", f"{rev}:{path}"],
+                                   cwd=root, capture_output=True, text=True)
+            if shown.returncode == 0:
+                return shown.stdout.strip()
+        return ""
 
     writes, parents_of = [], {}
     for rev in listed.stdout.split():
@@ -1554,12 +1653,11 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
                             head: Optional[str] = None) -> List[str]:
     """AGENTS.md section 11 condition 3, as amended 2026-09-23.
 
-    The problem stack holds only problems not yet triaged; the record of a triaged problem is
+    The open stack holds only problems not yet triaged; the record of a triaged problem is
     its repair, the commit that showed it false, or its todo entry. What is required,
     mechanically:
 
-      1. the problem stack exists, its ``## Open`` section holds nothing but the table header
-         and separator, and no other section holds a problem row;
+      1. the open stack exists and holds no table data row, in any section;
       2. no todo item is still required for this cycle, and every item's release is readable.
          An item is not required when it is deferred to the next cycle, or when it is this
          cycle's release step, which completes only after the tag; and no line inside such an
@@ -1569,7 +1667,8 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
          commit is HEAD or an ancestor of HEAD that differs from it only in the receipt and
          the todo stack, where no item held open at the receipt's commit changed its release,
          and every one deleted since is one the receipt records as finished;
-      4. the committed peak-memory record names the version HEAD declares;
+      4. the committed peak-memory record names the version HEAD declares, and no operation in it
+         grew past the bound since the previous release without a reason in CHANGELOG.md;
       5. ``artifacts/changelog.d/`` holds nothing but its README, so every fragment is in CHANGELOG.md.
       6. the workflow at HEAD exists, and no publication job in it continues on error, so a failed
          upload cannot read as a release.
@@ -1596,19 +1695,15 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
             + (" ..." if len(dirty) > 8 else "") + ". The release, and the stacks and receipt "
             "STEP 0a reads, are the commit at HEAD; commit or discard the changes")
 
-    # 1. the problem stack is empty
-    problems = _text_at(root, "HEAD", PROBLEM_STACK)
-    if problems is None:
+    # 1. the open stack holds no table data row
+    open_text = _text_at(root, "HEAD", OPEN_STACK)
+    if open_text is None:
         violations.append(
-            f"{PROBLEM_STACK} is missing at HEAD, so whether any problem is untriaged is unknown")
-    elif open_section_content(problems) is None:
+            f"{OPEN_STACK} is missing at HEAD, so whether any open row remains is unknown")
+    elif _open_rows_in(open_text):
+        rows = _open_rows_in(open_text)
         violations.append(
-            f"{PROBLEM_STACK} has no '## Open' section, so whether any problem is untriaged "
-            "is unknown")
-    elif _problem_rows_in(problems):
-        rows = _problem_rows_in(problems)
-        violations.append(
-            f"{len(rows)} problem row(s) remain in {PROBLEM_STACK}; each must be repaired, "
+            f"{len(rows)} table row(s) remain in {OPEN_STACK}; each must be repaired, "
             "shown false, or moved into the todo stack: " + "; ".join(r[:40] for r in rows[:8])
             + (" ..." if len(rows) > 8 else ""))
 
@@ -1670,10 +1765,12 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
             f"the closure pass found {found} new release-blocking problem(s); the fixpoint is "
             "zero NEW BLOCKERS, not zero new observations")
 
-    # 4. the peak-memory record is this version's
+    # 4. the peak-memory record is this version's, and no operation in it grew past the bound
     stale_record = peak_memory_record_violation(root)
     if stale_record:
         violations.append(stale_record)
+    else:
+        violations.extend(peak_memory_growth_violations(root))
 
     # 5. every changelog fragment has been assembled into CHANGELOG.md
     leftover = unassembled_fragments(root)
@@ -1827,7 +1924,7 @@ def main() -> None:
         sys.exit(1)
     releases = [r for _, _, r in _parse_todo_stack(_text_at(REPO_ROOT, "HEAD", TODO_PATH))[0]]
     log.info(
-        "PASS: the problem stack is empty and no required item remains; %d todo item(s) are "
+        "PASS: the open stack holds no table row and no required item remains; %d todo item(s) are "
         "deferred to %s and %d are %s, completing after the tag.",
         releases.count(DEFERRED_VALUE), NEXT_CYCLE, releases.count(RELEASE_STEP_VALUE),
         RELEASE_STEP_VALUE)
@@ -1924,7 +2021,8 @@ def main() -> None:
                 "A tag must name a commit whose pipeline ran and passed, leg by leg. An "
                 "aggregate 'no failure' is not that: a job with `needs:` reports `skipped` "
                 "when its dependency failed, so a red suite can leave the build job showing "
-                "no red at all. Push this commit, let CI finish green, then re-run. To tag "
+                "no red at all. Merge this commit to main, let CI finish green on main, then "
+                "re-run. To tag "
                 "without CI evidence anyway, set %s=1 -- deliberately, and knowing it is "
                 "recorded here as unverified.", SKIP_CI_ENV)
             sys.exit(1)
@@ -2064,7 +2162,7 @@ def main() -> None:
              "-p", "no:cacheprovider", "tests/"])
     log.info("Suite wall time: %.0f s", time.monotonic() - started)
     # Peak memory is the other cost measured before a release, logged here with no threshold.
-    # Nothing is written into the tree: the committed artifacts/benchmarks/peak_memory.json is
+    # Nothing is written into the tree: the committed artifacts/benchmarks/performance/peak_memory.json is
     # refreshed before the closure pass, so the receipt covers it.
     run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "measure_peak_memory.py")])
 

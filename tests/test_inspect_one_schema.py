@@ -254,6 +254,7 @@ class TestAnObjectWithNoFileBehindIt:
         from_file = jnwb.inspect(_write(tmp_path, "described.nwb"))
         for section in ("electrodes", "units"):
             for form in (from_memory, from_file):
+                assert form[section]["columns"], f"{section}: no columns to describe"
                 assert all("description" in c for c in form[section]["columns"]), section
         memory_cols = from_memory["interval_tables"][0]["columns"]
         file_cols = from_file["interval_tables"][0]["columns"]

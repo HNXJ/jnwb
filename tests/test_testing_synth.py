@@ -250,6 +250,7 @@ class TestElectrodeRegionInvariant:
             n_channels=n_channels, duration_s=2.0, n_trials=4, seed=7)
         n_rows = len(nwb.electrodes)
         assert n_rows == n_channels
+        assert self._unit_contacts(nwb), "the NWB holds no unit contact, so the check below passes on nothing"
         for idx in self._unit_contacts(nwb):
             assert 0 <= idx < n_rows, (
                 f"unit references electrode row {idx} but the table has {n_rows} rows")
@@ -319,6 +320,7 @@ class TestElectrodeRegionInvariant:
             assert n_rows == 12
             es = read_nwb.processing["ecephys"].data_interfaces["LFP"].electrical_series["lfp"]
             assert es.data.shape[1] == n_rows
+            assert len(read_nwb.units) > 0, "the file holds no unit, so the check below passes on nothing"
             for u in range(len(read_nwb.units)):
                 for idx in read_nwb.units["electrodes"][u].index:
                     assert 0 <= int(idx) < n_rows
@@ -345,3 +347,10 @@ def test_a_refused_seed_is_named_as_the_caller_spelled_it(builder, argument):
     message = str(info.value)
     assert f"{argument} must be an int seed" in message
     assert "rng must be" not in message
+
+
+@pytest.mark.parametrize("freq_hz", [float("nan"), float("inf")])
+def test_synth_periodic_response_refuses_a_non_finite_frequency(freq_hz):
+    # NaN compared false against both bounds of the Nyquist check, so it was synthesised.
+    with pytest.raises(ValueError, match="freq_hz"):
+        synth_periodic_response(5, 500, fs=1000.0, freq_hz=freq_hz, rng=0)

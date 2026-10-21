@@ -1,0 +1,9586 @@
+{
+ "entropy": 5393,
+ "frozen_count": {
+  "s1": 800,
+  "s2": 200
+ },
+ "measures": {
+  "control": {
+   "background_off": {
+    "accepted": 16,
+    "ci95": [
+     0.5435,
+     0.9595
+    ],
+    "indeterminate": 0,
+    "misses": [
+     {
+      "diff_contacts": 2,
+      "z0": 8
+     },
+     {
+      "diff_contacts": 2,
+      "z0": 9
+     },
+     {
+      "diff_contacts": 3,
+      "z0": 10
+     }
+    ],
+    "n": 16,
+    "no_crossover": 0,
+    "scored": 16,
+    "undefined": 0,
+    "within_one_contact": 13
+   },
+   "model_mismatch_background_on": {
+    "accepted": 16,
+    "ci95": [
+     0.4134,
+     0.8898
+    ],
+    "n": 16,
+    "scored": 16,
+    "within_one_contact": 11
+   },
+   "pair": {
+    "bands_mismatch": 552,
+    "bands_mismatch_defined": 538,
+    "count": 800,
+    "edge_shift_edges": 22276,
+    "edge_shift_max_hz": 62.0,
+    "edge_shift_median_hz": 0.0,
+    "indeterminate": 11,
+    "kind": "ctrl",
+    "n_defined": 5576,
+    "n_windows": 5616,
+    "passes": true,
+    "picked_bad": 10,
+    "picked_max": 1.0,
+    "plain_mismatches": 0,
+    "planted_bad": 0,
+    "planted_bad_per_depth": {
+     "10": 0,
+     "11": 0,
+     "12": 0,
+     "13": 0,
+     "14": 0,
+     "15": 0,
+     "16": 0,
+     "17": 0,
+     "18": 0,
+     "19": 0,
+     "20": 0,
+     "21": 0,
+     "22": 0,
+     "23": 0,
+     "8": 0,
+     "9": 0
+    },
+    "planted_max": 1.0,
+    "planted_nan_both": 101
+   }
+  },
+  "estimator_agrees_with_table": true,
+  "grid": {
+   "1_detection": {
+    "ci95": [
+     0.9638,
+     1.0
+    ],
+    "k": 100,
+    "n": 100
+   },
+   "2_conditional_localization": {
+    "accepted_indeterminate_oracle": 0,
+    "accepted_undefined_window": 0,
+    "band_edge_shift": {
+     "max_hz": 17.5,
+     "median_hz": 12.5,
+     "n": 100,
+     "within_1hz": {
+      "ci95": [
+       0.0,
+       0.0362
+      ],
+      "k": 0,
+      "n": 100
+     }
+    },
+    "ci95": [
+     0.5276,
+     0.7244
+    ],
+    "k": 63,
+    "n": 100,
+    "with_own_bands": {
+     "ci95": [
+      0.5276,
+      0.7244
+     ],
+     "k": 63,
+     "n": 100
+    }
+   },
+   "3_unconditional_recovery": {
+    "accepted_indeterminate_oracle": 0,
+    "accepted_undefined_window": 0,
+    "ci95": [
+     0.5276,
+     0.7244
+    ],
+    "k": 63,
+    "n": 100
+   },
+   "4_error_histogram": {
+    "0": 13,
+    "1": 17,
+    "2": 26,
+    "3": 26,
+    "4": 8,
+    "5": 10
+   },
+   "5_window_selection": {
+    "distinct_windows": 7,
+    "most_common": [
+     [
+      [
+       0,
+       31
+      ],
+      88
+     ],
+     [
+      [
+       0,
+       30
+      ],
+      4
+     ],
+     [
+      [
+       0,
+       29
+      ],
+      4
+     ]
+    ],
+    "n_with_window": 100,
+    "z0_inside": 100
+   }
+  },
+  "null": {
+   "6_null_acceptance": {
+    "ci95": [
+     0.1602,
+     0.3357
+    ],
+    "k": 24,
+    "n": 100,
+    "target": "at most 5 of 100 (descriptive)",
+    "target_met": false
+   }
+  },
+  "primary": {
+   "1_detection": {
+    "ci95": [
+     0.9638,
+     1.0
+    ],
+    "k": 100,
+    "n": 100
+   },
+   "2_conditional_localization": {
+    "accepted_indeterminate_oracle": 0,
+    "accepted_undefined_window": 0,
+    "band_edge_shift": {
+     "max_hz": 26.0,
+     "median_hz": 16.0,
+     "n": 100,
+     "within_1hz": {
+      "ci95": [
+       0.0,
+       0.0362
+      ],
+      "k": 0,
+      "n": 100
+     }
+    },
+    "ci95": [
+     0.2036,
+     0.3893
+    ],
+    "k": 29,
+    "n": 100,
+    "with_own_bands": {
+     "ci95": [
+      0.4276,
+      0.6306
+     ],
+     "k": 53,
+     "n": 100
+    }
+   },
+   "3_unconditional_recovery": {
+    "accepted_indeterminate_oracle": 0,
+    "accepted_undefined_window": 0,
+    "ci95": [
+     0.2036,
+     0.3893
+    ],
+    "k": 29,
+    "n": 100,
+    "target": "at least 90 of 100 (descriptive)",
+    "target_met": false
+   },
+   "4_error_histogram": {
+    "0": 9,
+    "1": 23,
+    "2": 27,
+    "3": 14,
+    "4": 15,
+    "5": 6,
+    "6": 5,
+    "7": 1
+   },
+   "5_window_selection": {
+    "distinct_windows": 8,
+    "most_common": [
+     [
+      [
+       0,
+       31
+      ],
+      81
+     ],
+     [
+      [
+       2,
+       31
+      ],
+      5
+     ],
+     [
+      [
+       0,
+       30
+      ],
+      5
+     ]
+    ],
+    "n_with_window": 100,
+    "z0_inside": 100
+   }
+  },
+  "reversal": {
+   "block": {
+    "1_detection": {
+     "ci95": [
+      0.9638,
+      1.0
+     ],
+     "k": 100,
+     "n": 100
+    },
+    "2_conditional_localization": {
+     "accepted_indeterminate_oracle": 0,
+     "accepted_undefined_window": 0,
+     "band_edge_shift": {
+      "max_hz": 26.0,
+      "median_hz": 16.0,
+      "n": 100,
+      "within_1hz": {
+       "ci95": [
+        0.0,
+        0.0362
+       ],
+       "k": 0,
+       "n": 100
+      }
+     },
+     "ci95": [
+      0.4178,
+      0.621
+     ],
+     "k": 52,
+     "n": 100,
+     "with_own_bands": {
+      "ci95": [
+       0.3694,
+       0.5724
+      ],
+      "k": 47,
+      "n": 100
+     }
+    },
+    "3_unconditional_recovery": {
+     "accepted_indeterminate_oracle": 0,
+     "accepted_undefined_window": 0,
+     "ci95": [
+      0.4178,
+      0.621
+     ],
+     "k": 52,
+     "n": 100
+    },
+    "4_error_histogram": {
+     "0": 5,
+     "1": 23,
+     "2": 23,
+     "3": 16,
+     "4": 18,
+     "5": 6,
+     "6": 7,
+     "7": 1,
+     "9": 1
+    },
+    "5_window_selection": {
+     "distinct_windows": 8,
+     "most_common": [
+      [
+       [
+        0,
+        31
+       ],
+       81
+      ],
+      [
+       [
+        0,
+        29
+       ],
+       5
+      ],
+      [
+       [
+        1,
+        31
+       ],
+       5
+      ]
+     ],
+     "n_with_window": 100,
+     "z0_inside": 100
+    }
+   },
+   "mirror": {
+    "ci95": [
+     0.9638,
+     1.0
+    ],
+    "k": 100,
+    "n": 100
+   },
+   "orientation_flipped": {
+    "ci95": [
+     0.9638,
+     1.0
+    ],
+    "k": 100,
+    "n": 100
+   },
+   "ties_primary": {
+    "k": 0,
+    "n": 100
+   },
+   "ties_reversal": {
+    "k": 0,
+    "n": 100
+   }
+  }
+ },
+ "n": 100,
+ "probes": {
+  "control": [
+   {
+    "accepted": true,
+    "child": 0,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 0,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.777731520189866,
+    "orientation": "upright",
+    "own_zstar": 12.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 1,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 1,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.801091918915748,
+    "orientation": "upright",
+    "own_zstar": 13.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 2,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 2,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.867770838150483,
+    "orientation": "upright",
+    "own_zstar": 14.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 3,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 3,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.82848118329474,
+    "orientation": "upright",
+    "own_zstar": 13.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 4,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 4,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.790578951993625,
+    "orientation": "upright",
+    "own_zstar": 13.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 5,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 5,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.835429368141229,
+    "orientation": "upright",
+    "own_zstar": 15.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 6,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 6,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.790608562465524,
+    "orientation": "upright",
+    "own_zstar": 15.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 7,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 7,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.779074246494446,
+    "orientation": "upright",
+    "own_zstar": 16.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 8,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 8,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.794250560426313,
+    "orientation": "upright",
+    "own_zstar": 17.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 9,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 9,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.85132740560211,
+    "orientation": "upright",
+    "own_zstar": 17.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 10,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 10,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.800653029840715,
+    "orientation": "upright",
+    "own_zstar": 17.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 11,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 11,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.751670669177715,
+    "orientation": "upright",
+    "own_zstar": 17.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 12,
+    "defined": true,
+    "high_hz": [
+     42.0,
+     149.0
+    ],
+    "index": 12,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     41.0
+    ],
+    "omega": 13.695448276975183,
+    "orientation": "upright",
+    "own_zstar": 18.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 13,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 13,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.6593981470213,
+    "orientation": "upright",
+    "own_zstar": 19.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 14,
+    "defined": true,
+    "high_hz": [
+     42.0,
+     149.0
+    ],
+    "index": 14,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     41.0
+    ],
+    "omega": 13.584003428842237,
+    "orientation": "upright",
+    "own_zstar": 19.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 15,
+    "defined": true,
+    "high_hz": [
+     41.0,
+     149.0
+    ],
+    "index": 15,
+    "kind": "noiseless",
+    "low_hz": [
+     5.0,
+     40.0
+    ],
+    "omega": 13.675639875996652,
+    "orientation": "upright",
+    "own_zstar": 20.0,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 20.0
+   }
+  ],
+  "grid": [
+   {
+    "accepted": true,
+    "child": 116,
+    "high_hz": [
+     56.0,
+     108.5
+    ],
+    "index": 0,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     33.0
+    ],
+    "n_ties": 1,
+    "omega": 12.107250394739552,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 8,
+    "zhat": 11.0
+   },
+   {
+    "accepted": true,
+    "child": 117,
+    "high_hz": [
+     48.5,
+     98.5
+    ],
+    "index": 1,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.781747575746747,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 118,
+    "high_hz": [
+     54.0,
+     103.5
+    ],
+    "index": 2,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     31.5
+    ],
+    "n_ties": 1,
+    "omega": 12.021070394923177,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 10,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 119,
+    "high_hz": [
+     52.5,
+     102.5
+    ],
+    "index": 3,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.967365566097296,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 120,
+    "high_hz": [
+     53.5,
+     105.5
+    ],
+    "index": 4,
+    "kind": "grid",
+    "low_hz": [
+     10.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 12.033780477493258,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 121,
+    "high_hz": [
+     49.5,
+     102.5
+    ],
+    "index": 5,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.783495844850304,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 122,
+    "high_hz": [
+     54.5,
+     103.5
+    ],
+    "index": 6,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.917914747708101,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 123,
+    "high_hz": [
+     50.5,
+     102.5
+    ],
+    "index": 7,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     38.0
+    ],
+    "n_ties": 1,
+    "omega": 12.223725072951643,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 15,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 124,
+    "high_hz": [
+     55.0,
+     102.5
+    ],
+    "index": 8,
+    "kind": "grid",
+    "low_hz": [
+     10.5,
+     27.5
+    ],
+    "n_ties": 1,
+    "omega": 11.881672544365635,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 125,
+    "high_hz": [
+     53.5,
+     100.0
+    ],
+    "index": 9,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.888211941335996,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 126,
+    "high_hz": [
+     50.5,
+     100.0
+    ],
+    "index": 10,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.912722615428446,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 127,
+    "high_hz": [
+     51.0,
+     103.5
+    ],
+    "index": 11,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     25.5
+    ],
+    "n_ties": 1,
+    "omega": 11.79731325352472,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 128,
+    "high_hz": [
+     52.0,
+     105.0
+    ],
+    "index": 12,
+    "kind": "grid",
+    "low_hz": [
+     10.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.852440757557245,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 129,
+    "high_hz": [
+     52.0,
+     104.0
+    ],
+    "index": 13,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     27.5
+    ],
+    "n_ties": 1,
+    "omega": 11.846373155869692,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 130,
+    "high_hz": [
+     51.5,
+     104.0
+    ],
+    "index": 14,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     29.0
+    ],
+    "n_ties": 1,
+    "omega": 11.735981906676953,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 131,
+    "high_hz": [
+     52.0,
+     100.5
+    ],
+    "index": 15,
+    "kind": "grid",
+    "low_hz": [
+     9.5,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.612907029848746,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 132,
+    "high_hz": [
+     47.0,
+     100.0
+    ],
+    "index": 16,
+    "kind": "grid",
+    "low_hz": [
+     8.5,
+     29.5
+    ],
+    "n_ties": 1,
+    "omega": 12.070683829320792,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 133,
+    "high_hz": [
+     43.0,
+     100.5
+    ],
+    "index": 17,
+    "kind": "grid",
+    "low_hz": [
+     5.5,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.805214321587885,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     5,
+     31
+    ],
+    "z0": 9,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 134,
+    "high_hz": [
+     54.5,
+     101.5
+    ],
+    "index": 18,
+    "kind": "grid",
+    "low_hz": [
+     12.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.833480076975304,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 135,
+    "high_hz": [
+     53.0,
+     104.0
+    ],
+    "index": 19,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.928198952255364,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 136,
+    "high_hz": [
+     51.5,
+     102.0
+    ],
+    "index": 20,
+    "kind": "grid",
+    "low_hz": [
+     10.0,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.991378633314547,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 137,
+    "high_hz": [
+     53.0,
+     104.0
+    ],
+    "index": 21,
+    "kind": "grid",
+    "low_hz": [
+     7.5,
+     27.5
+    ],
+    "n_ties": 1,
+    "omega": 11.985097789711187,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 138,
+    "high_hz": [
+     51.5,
+     106.5
+    ],
+    "index": 22,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 12.01065185667299,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 139,
+    "high_hz": [
+     54.0,
+     103.5
+    ],
+    "index": 23,
+    "kind": "grid",
+    "low_hz": [
+     7.0,
+     32.5
+    ],
+    "n_ties": 1,
+    "omega": 12.190594538619331,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 140,
+    "high_hz": [
+     50.0,
+     109.0
+    ],
+    "index": 24,
+    "kind": "grid",
+    "low_hz": [
+     10.0,
+     32.0
+    ],
+    "n_ties": 1,
+    "omega": 12.22524647147752,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 141,
+    "high_hz": [
+     52.0,
+     101.5
+    ],
+    "index": 25,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     28.5
+    ],
+    "n_ties": 1,
+    "omega": 11.910266738698837,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 142,
+    "high_hz": [
+     53.0,
+     114.5
+    ],
+    "index": 26,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     33.0
+    ],
+    "n_ties": 1,
+    "omega": 12.034589269351553,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 143,
+    "high_hz": [
+     52.5,
+     100.0
+    ],
+    "index": 27,
+    "kind": "grid",
+    "low_hz": [
+     8.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.747608176850887,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 144,
+    "high_hz": [
+     54.5,
+     101.0
+    ],
+    "index": 28,
+    "kind": "grid",
+    "low_hz": [
+     9.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.81285191955872,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 145,
+    "high_hz": [
+     54.5,
+     99.0
+    ],
+    "index": 29,
+    "kind": "grid",
+    "low_hz": [
+     6.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.79055752511804,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 146,
+    "high_hz": [
+     48.5,
+     110.0
+    ],
+    "index": 30,
+    "kind": "grid",
+    "low_hz": [
+     9.5,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.740522649149913,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     1,
+     31
+    ],
+    "z0": 22,
+    "zhat": 22.0
+   },
+   {
+    "accepted": true,
+    "child": 147,
+    "high_hz": [
+     47.0,
+     104.0
+    ],
+    "index": 31,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.686195237840218,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 148,
+    "high_hz": [
+     51.0,
+     106.0
+    ],
+    "index": 32,
+    "kind": "grid",
+    "low_hz": [
+     6.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.790473795949788,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     29
+    ],
+    "z0": 8,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 149,
+    "high_hz": [
+     54.0,
+     100.5
+    ],
+    "index": 33,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     25.5
+    ],
+    "n_ties": 1,
+    "omega": 11.846859701358564,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 150,
+    "high_hz": [
+     53.0,
+     102.5
+    ],
+    "index": 34,
+    "kind": "grid",
+    "low_hz": [
+     4.5,
+     34.5
+    ],
+    "n_ties": 1,
+    "omega": 12.357626562538558,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 151,
+    "high_hz": [
+     52.5,
+     101.0
+    ],
+    "index": 35,
+    "kind": "grid",
+    "low_hz": [
+     9.0,
+     27.5
+    ],
+    "n_ties": 1,
+    "omega": 12.059490004506893,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 152,
+    "high_hz": [
+     54.0,
+     104.5
+    ],
+    "index": 36,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     25.5
+    ],
+    "n_ties": 1,
+    "omega": 11.8844978174267,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 153,
+    "high_hz": [
+     54.0,
+     105.0
+    ],
+    "index": 37,
+    "kind": "grid",
+    "low_hz": [
+     4.5,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 12.091598125158777,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 154,
+    "high_hz": [
+     53.5,
+     110.0
+    ],
+    "index": 38,
+    "kind": "grid",
+    "low_hz": [
+     7.5,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 12.104331010801767,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 155,
+    "high_hz": [
+     55.0,
+     104.0
+    ],
+    "index": 39,
+    "kind": "grid",
+    "low_hz": [
+     7.5,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.983242226122625,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 156,
+    "high_hz": [
+     53.5,
+     101.0
+    ],
+    "index": 40,
+    "kind": "grid",
+    "low_hz": [
+     10.0,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.838633477360476,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 157,
+    "high_hz": [
+     51.0,
+     102.0
+    ],
+    "index": 41,
+    "kind": "grid",
+    "low_hz": [
+     8.5,
+     32.0
+    ],
+    "n_ties": 1,
+    "omega": 12.085898774336247,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 158,
+    "high_hz": [
+     54.0,
+     101.5
+    ],
+    "index": 42,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     32.0
+    ],
+    "n_ties": 1,
+    "omega": 11.92451480223899,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 159,
+    "high_hz": [
+     45.5,
+     105.0
+    ],
+    "index": 43,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     29.0
+    ],
+    "n_ties": 1,
+    "omega": 11.92598468735716,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 160,
+    "high_hz": [
+     55.0,
+     103.0
+    ],
+    "index": 44,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     48.0
+    ],
+    "n_ties": 1,
+    "omega": 11.982707553901857,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     3,
+     31
+    ],
+    "z0": 20,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 161,
+    "high_hz": [
+     55.5,
+     104.5
+    ],
+    "index": 45,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.6292504859287,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 162,
+    "high_hz": [
+     48.5,
+     101.0
+    ],
+    "index": 46,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.667936740005679,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 163,
+    "high_hz": [
+     53.0,
+     103.0
+    ],
+    "index": 47,
+    "kind": "grid",
+    "low_hz": [
+     12.0,
+     27.5
+    ],
+    "n_ties": 1,
+    "omega": 11.598493564651001,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 164,
+    "high_hz": [
+     54.0,
+     102.5
+    ],
+    "index": 48,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     27.5
+    ],
+    "n_ties": 1,
+    "omega": 11.959247250250053,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 165,
+    "high_hz": [
+     53.5,
+     101.0
+    ],
+    "index": 49,
+    "kind": "grid",
+    "low_hz": [
+     6.0,
+     32.0
+    ],
+    "n_ties": 1,
+    "omega": 12.150107905523223,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 10.0
+   },
+   {
+    "accepted": true,
+    "child": 166,
+    "high_hz": [
+     45.0,
+     99.5
+    ],
+    "index": 50,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.857476045078812,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 167,
+    "high_hz": [
+     51.0,
+     103.5
+    ],
+    "index": 51,
+    "kind": "grid",
+    "low_hz": [
+     12.5,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.734376766057528,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 168,
+    "high_hz": [
+     53.5,
+     105.0
+    ],
+    "index": 52,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.82589006657488,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 169,
+    "high_hz": [
+     53.0,
+     100.5
+    ],
+    "index": 53,
+    "kind": "grid",
+    "low_hz": [
+     10.5,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.908375984163238,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 170,
+    "high_hz": [
+     53.5,
+     106.0
+    ],
+    "index": 54,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.99255069813691,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 171,
+    "high_hz": [
+     50.5,
+     101.0
+    ],
+    "index": 55,
+    "kind": "grid",
+    "low_hz": [
+     10.0,
+     25.5
+    ],
+    "n_ties": 1,
+    "omega": 11.921896621478176,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 172,
+    "high_hz": [
+     45.0,
+     103.0
+    ],
+    "index": 56,
+    "kind": "grid",
+    "low_hz": [
+     9.5,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 12.04762925711045,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 173,
+    "high_hz": [
+     53.5,
+     103.5
+    ],
+    "index": 57,
+    "kind": "grid",
+    "low_hz": [
+     7.5,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.935980981183473,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 174,
+    "high_hz": [
+     54.5,
+     103.0
+    ],
+    "index": 58,
+    "kind": "grid",
+    "low_hz": [
+     8.0,
+     28.5
+    ],
+    "n_ties": 1,
+    "omega": 11.94868904047647,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 175,
+    "high_hz": [
+     53.0,
+     103.0
+    ],
+    "index": 59,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.752833673026373,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 176,
+    "high_hz": [
+     52.0,
+     101.5
+    ],
+    "index": 60,
+    "kind": "grid",
+    "low_hz": [
+     9.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.875352199552786,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 177,
+    "high_hz": [
+     49.0,
+     110.5
+    ],
+    "index": 61,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.92194811292395,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 178,
+    "high_hz": [
+     54.0,
+     102.0
+    ],
+    "index": 62,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     34.0
+    ],
+    "n_ties": 1,
+    "omega": 11.769521305825982,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     2,
+     31
+    ],
+    "z0": 22,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 179,
+    "high_hz": [
+     54.5,
+     100.5
+    ],
+    "index": 63,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     28.5
+    ],
+    "n_ties": 1,
+    "omega": 11.506024196514678,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 180,
+    "high_hz": [
+     53.5,
+     102.0
+    ],
+    "index": 64,
+    "kind": "grid",
+    "low_hz": [
+     12.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.830664518722962,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 11.0
+   },
+   {
+    "accepted": true,
+    "child": 181,
+    "high_hz": [
+     51.5,
+     101.5
+    ],
+    "index": 65,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     27.5
+    ],
+    "n_ties": 1,
+    "omega": 11.79966475961383,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 182,
+    "high_hz": [
+     51.5,
+     103.0
+    ],
+    "index": 66,
+    "kind": "grid",
+    "low_hz": [
+     7.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.87420429350812,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     29
+    ],
+    "z0": 10,
+    "zhat": 11.0
+   },
+   {
+    "accepted": true,
+    "child": 183,
+    "high_hz": [
+     53.0,
+     100.5
+    ],
+    "index": 67,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     31.5
+    ],
+    "n_ties": 1,
+    "omega": 12.068978157679702,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 184,
+    "high_hz": [
+     54.0,
+     102.0
+    ],
+    "index": 68,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.903572018245598,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 185,
+    "high_hz": [
+     54.5,
+     103.5
+    ],
+    "index": 69,
+    "kind": "grid",
+    "low_hz": [
+     9.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 12.03814307416373,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 186,
+    "high_hz": [
+     54.0,
+     112.0
+    ],
+    "index": 70,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.937971810604926,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 187,
+    "high_hz": [
+     54.5,
+     101.5
+    ],
+    "index": 71,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.886841204834193,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 188,
+    "high_hz": [
+     53.0,
+     102.5
+    ],
+    "index": 72,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     30.5
+    ],
+    "n_ties": 1,
+    "omega": 11.856925730463724,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 16,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 189,
+    "high_hz": [
+     54.5,
+     102.0
+    ],
+    "index": 73,
+    "kind": "grid",
+    "low_hz": [
+     10.5,
+     30.5
+    ],
+    "n_ties": 1,
+    "omega": 11.984741925199934,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 190,
+    "high_hz": [
+     54.5,
+     103.5
+    ],
+    "index": 74,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     29.5
+    ],
+    "n_ties": 1,
+    "omega": 11.88857911546009,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 191,
+    "high_hz": [
+     55.0,
+     103.0
+    ],
+    "index": 75,
+    "kind": "grid",
+    "low_hz": [
+     8.5,
+     28.5
+    ],
+    "n_ties": 1,
+    "omega": 11.817723814739203,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 192,
+    "high_hz": [
+     53.5,
+     101.5
+    ],
+    "index": 76,
+    "kind": "grid",
+    "low_hz": [
+     8.0,
+     28.5
+    ],
+    "n_ties": 1,
+    "omega": 11.976670190205388,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 193,
+    "high_hz": [
+     46.5,
+     102.0
+    ],
+    "index": 77,
+    "kind": "grid",
+    "low_hz": [
+     10.5,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.79122776821954,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 194,
+    "high_hz": [
+     53.0,
+     103.5
+    ],
+    "index": 78,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.666117326699425,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 195,
+    "high_hz": [
+     55.0,
+     101.5
+    ],
+    "index": 79,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.652508689444772,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 196,
+    "high_hz": [
+     54.0,
+     101.0
+    ],
+    "index": 80,
+    "kind": "grid",
+    "low_hz": [
+     9.5,
+     28.5
+    ],
+    "n_ties": 1,
+    "omega": 11.97971538534726,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 11.0
+   },
+   {
+    "accepted": true,
+    "child": 197,
+    "high_hz": [
+     50.5,
+     101.5
+    ],
+    "index": 81,
+    "kind": "grid",
+    "low_hz": [
+     5.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 12.17001101406763,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 198,
+    "high_hz": [
+     54.5,
+     103.5
+    ],
+    "index": 82,
+    "kind": "grid",
+    "low_hz": [
+     5.0,
+     28.5
+    ],
+    "n_ties": 1,
+    "omega": 12.24192149812486,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 199,
+    "high_hz": [
+     53.0,
+     111.5
+    ],
+    "index": 83,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.887626478134113,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 200,
+    "high_hz": [
+     54.5,
+     102.0
+    ],
+    "index": 84,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     29.5
+    ],
+    "n_ties": 1,
+    "omega": 12.007837939304206,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 201,
+    "high_hz": [
+     52.0,
+     108.0
+    ],
+    "index": 85,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     29.0
+    ],
+    "n_ties": 1,
+    "omega": 12.013885270424705,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 202,
+    "high_hz": [
+     54.5,
+     101.0
+    ],
+    "index": 86,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 12.02151012550553,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 203,
+    "high_hz": [
+     54.5,
+     103.5
+    ],
+    "index": 87,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     29.0
+    ],
+    "n_ties": 1,
+    "omega": 11.93990487637531,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 204,
+    "high_hz": [
+     52.5,
+     102.0
+    ],
+    "index": 88,
+    "kind": "grid",
+    "low_hz": [
+     9.0,
+     29.0
+    ],
+    "n_ties": 1,
+    "omega": 12.033032282778837,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 205,
+    "high_hz": [
+     53.0,
+     102.5
+    ],
+    "index": 89,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.895296710651492,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 206,
+    "high_hz": [
+     54.0,
+     103.0
+    ],
+    "index": 90,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.842021164839949,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 207,
+    "high_hz": [
+     55.0,
+     104.5
+    ],
+    "index": 91,
+    "kind": "grid",
+    "low_hz": [
+     8.5,
+     30.5
+    ],
+    "n_ties": 1,
+    "omega": 11.927798245253609,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 208,
+    "high_hz": [
+     55.5,
+     102.5
+    ],
+    "index": 92,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     26.5
+    ],
+    "n_ties": 1,
+    "omega": 11.705098002672742,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 209,
+    "high_hz": [
+     53.0,
+     107.0
+    ],
+    "index": 93,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     27.5
+    ],
+    "n_ties": 1,
+    "omega": 11.802558072483345,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 210,
+    "high_hz": [
+     53.0,
+     101.5
+    ],
+    "index": 94,
+    "kind": "grid",
+    "low_hz": [
+     11.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.611477461037278,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 211,
+    "high_hz": [
+     55.5,
+     102.5
+    ],
+    "index": 95,
+    "kind": "grid",
+    "low_hz": [
+     8.5,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.566177618991183,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 212,
+    "high_hz": [
+     53.5,
+     105.0
+    ],
+    "index": 96,
+    "kind": "grid",
+    "low_hz": [
+     11.5,
+     35.0
+    ],
+    "n_ties": 1,
+    "omega": 12.167209015799457,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 213,
+    "high_hz": [
+     47.0,
+     99.5
+    ],
+    "index": 97,
+    "kind": "grid",
+    "low_hz": [
+     5.5,
+     32.5
+    ],
+    "n_ties": 1,
+    "omega": 12.091912927015638,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     29
+    ],
+    "z0": 9,
+    "zhat": 11.0
+   },
+   {
+    "accepted": true,
+    "child": 214,
+    "high_hz": [
+     52.0,
+     106.0
+    ],
+    "index": 98,
+    "kind": "grid",
+    "low_hz": [
+     6.0,
+     31.5
+    ],
+    "n_ties": 1,
+    "omega": 12.083246405394258,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     29
+    ],
+    "z0": 10,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 215,
+    "high_hz": [
+     52.0,
+     103.0
+    ],
+    "index": 99,
+    "kind": "grid",
+    "low_hz": [
+     8.5,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 12.200107470763692,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 12.0
+   }
+  ],
+  "null": [
+   {
+    "accepted": false,
+    "child": 16,
+    "high_hz": null,
+    "index": 0,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 8,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 17,
+    "high_hz": null,
+    "index": 1,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 9,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 18,
+    "high_hz": null,
+    "index": 2,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 10,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 19,
+    "high_hz": null,
+    "index": 3,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 11,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 20,
+    "high_hz": null,
+    "index": 4,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 12,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 21,
+    "high_hz": [
+     94.0,
+     132.0
+    ],
+    "index": 5,
+    "kind": "null",
+    "low_hz": [
+     5.0,
+     14.0
+    ],
+    "omega": 7.08746516382023,
+    "orientation": "inverted",
+    "window": [
+     17,
+     28
+    ],
+    "z0": 13,
+    "zhat": 24.0
+   },
+   {
+    "accepted": false,
+    "child": 22,
+    "high_hz": null,
+    "index": 6,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 14,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 23,
+    "high_hz": [
+     128.0,
+     147.0
+    ],
+    "index": 7,
+    "kind": "null",
+    "low_hz": [
+     11.0,
+     25.0
+    ],
+    "omega": 5.351836647198702,
+    "orientation": "inverted",
+    "window": [
+     12,
+     31
+    ],
+    "z0": 15,
+    "zhat": 26.0
+   },
+   {
+    "accepted": false,
+    "child": 24,
+    "high_hz": null,
+    "index": 8,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 16,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 25,
+    "high_hz": null,
+    "index": 9,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 17,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 26,
+    "high_hz": null,
+    "index": 10,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 18,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 27,
+    "high_hz": null,
+    "index": 11,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 19,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 28,
+    "high_hz": [
+     52.0,
+     75.0
+    ],
+    "index": 12,
+    "kind": "null",
+    "low_hz": [
+     27.0,
+     36.0
+    ],
+    "omega": 5.724738923554302,
+    "orientation": "inverted",
+    "window": [
+     1,
+     15
+    ],
+    "z0": 20,
+    "zhat": 10.0
+   },
+   {
+    "accepted": false,
+    "child": 29,
+    "high_hz": null,
+    "index": 13,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 21,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 30,
+    "high_hz": null,
+    "index": 14,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 22,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 31,
+    "high_hz": null,
+    "index": 15,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 23,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 32,
+    "high_hz": [
+     41.0,
+     71.0
+    ],
+    "index": 16,
+    "kind": "null",
+    "low_hz": [
+     23.0,
+     36.0
+    ],
+    "omega": 7.334040611402027,
+    "orientation": "inverted",
+    "window": [
+     4,
+     15
+    ],
+    "z0": 8,
+    "zhat": 8.0
+   },
+   {
+    "accepted": false,
+    "child": 33,
+    "high_hz": null,
+    "index": 17,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 9,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 34,
+    "high_hz": null,
+    "index": 18,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 10,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 35,
+    "high_hz": null,
+    "index": 19,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 11,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 36,
+    "high_hz": null,
+    "index": 20,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 12,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 37,
+    "high_hz": [
+     113.0,
+     132.0
+    ],
+    "index": 21,
+    "kind": "null",
+    "low_hz": [
+     15.0,
+     28.0
+    ],
+    "omega": 5.800281139311231,
+    "orientation": "inverted",
+    "window": [
+     5,
+     27
+    ],
+    "z0": 13,
+    "zhat": 24.0
+   },
+   {
+    "accepted": false,
+    "child": 38,
+    "high_hz": null,
+    "index": 22,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 14,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 39,
+    "high_hz": null,
+    "index": 23,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 15,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 40,
+    "high_hz": [
+     50.0,
+     70.0
+    ],
+    "index": 24,
+    "kind": "null",
+    "low_hz": [
+     38.0,
+     49.0
+    ],
+    "omega": 6.709766580565278,
+    "orientation": "upright",
+    "window": [
+     4,
+     15
+    ],
+    "z0": 16,
+    "zhat": 8.0
+   },
+   {
+    "accepted": false,
+    "child": 41,
+    "high_hz": null,
+    "index": 25,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 17,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 42,
+    "high_hz": [
+     63.0,
+     92.0
+    ],
+    "index": 26,
+    "kind": "null",
+    "low_hz": [
+     45.0,
+     62.0
+    ],
+    "omega": 6.159924289781553,
+    "orientation": "inverted",
+    "window": [
+     5,
+     29
+    ],
+    "z0": 18,
+    "zhat": 23.0
+   },
+   {
+    "accepted": false,
+    "child": 43,
+    "high_hz": [
+     77.0,
+     96.0
+    ],
+    "index": 27,
+    "kind": "null",
+    "low_hz": [
+     8.0,
+     22.0
+    ],
+    "omega": 5.474296840412891,
+    "orientation": "inverted",
+    "window": [
+     0,
+     23
+    ],
+    "z0": 19,
+    "zhat": 20.0
+   },
+   {
+    "accepted": false,
+    "child": 44,
+    "high_hz": null,
+    "index": 28,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 20,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 45,
+    "high_hz": null,
+    "index": 29,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 21,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 46,
+    "high_hz": [
+     91.0,
+     131.0
+    ],
+    "index": 30,
+    "kind": "null",
+    "low_hz": [
+     16.0,
+     29.0
+    ],
+    "omega": 6.447238254404715,
+    "orientation": "upright",
+    "window": [
+     3,
+     22
+    ],
+    "z0": 22,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 47,
+    "high_hz": [
+     60.0,
+     85.0
+    ],
+    "index": 31,
+    "kind": "null",
+    "low_hz": [
+     6.0,
+     38.0
+    ],
+    "omega": 7.608260927383066,
+    "orientation": "inverted",
+    "window": [
+     7,
+     18
+    ],
+    "z0": 23,
+    "zhat": 13.0
+   },
+   {
+    "accepted": false,
+    "child": 48,
+    "high_hz": null,
+    "index": 32,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 8,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 49,
+    "high_hz": null,
+    "index": 33,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 9,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 50,
+    "high_hz": [
+     92.0,
+     115.0
+    ],
+    "index": 34,
+    "kind": "null",
+    "low_hz": [
+     13.0,
+     22.0
+    ],
+    "omega": 5.49528570684844,
+    "orientation": "inverted",
+    "window": [
+     13,
+     29
+    ],
+    "z0": 10,
+    "zhat": 22.0
+   },
+   {
+    "accepted": false,
+    "child": 51,
+    "high_hz": null,
+    "index": 35,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 11,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 52,
+    "high_hz": null,
+    "index": 36,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 12,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 53,
+    "high_hz": null,
+    "index": 37,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 13,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 54,
+    "high_hz": null,
+    "index": 38,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 14,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 55,
+    "high_hz": null,
+    "index": 39,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 15,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 56,
+    "high_hz": null,
+    "index": 40,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 16,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 57,
+    "high_hz": null,
+    "index": 41,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 17,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 58,
+    "high_hz": null,
+    "index": 42,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 18,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 59,
+    "high_hz": null,
+    "index": 43,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 19,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 60,
+    "high_hz": null,
+    "index": 44,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 20,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 61,
+    "high_hz": [
+     54.0,
+     74.0
+    ],
+    "index": 45,
+    "kind": "null",
+    "low_hz": [
+     5.0,
+     16.0
+    ],
+    "omega": 6.225752454462686,
+    "orientation": "inverted",
+    "window": [
+     15,
+     30
+    ],
+    "z0": 21,
+    "zhat": 27.0
+   },
+   {
+    "accepted": false,
+    "child": 62,
+    "high_hz": [
+     66.0,
+     96.0
+    ],
+    "index": 46,
+    "kind": "null",
+    "low_hz": [
+     5.0,
+     17.0
+    ],
+    "omega": 5.74971929633588,
+    "orientation": "upright",
+    "window": [
+     5,
+     26
+    ],
+    "z0": 22,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 63,
+    "high_hz": [
+     91.0,
+     110.0
+    ],
+    "index": 47,
+    "kind": "null",
+    "low_hz": [
+     12.0,
+     39.0
+    ],
+    "omega": 6.832479555897667,
+    "orientation": "inverted",
+    "window": [
+     6,
+     22
+    ],
+    "z0": 23,
+    "zhat": 16.0
+   },
+   {
+    "accepted": false,
+    "child": 64,
+    "high_hz": [
+     64.0,
+     83.0
+    ],
+    "index": 48,
+    "kind": "null",
+    "low_hz": [
+     13.0,
+     33.0
+    ],
+    "omega": 5.626387709938152,
+    "orientation": "upright",
+    "window": [
+     7,
+     23
+    ],
+    "z0": 8,
+    "zhat": 19.0
+   },
+   {
+    "accepted": false,
+    "child": 65,
+    "high_hz": [
+     129.0,
+     149.0
+    ],
+    "index": 49,
+    "kind": "null",
+    "low_hz": [
+     5.0,
+     18.0
+    ],
+    "omega": 5.776172358855593,
+    "orientation": "inverted",
+    "window": [
+     6,
+     29
+    ],
+    "z0": 9,
+    "zhat": 22.0
+   },
+   {
+    "accepted": true,
+    "child": 66,
+    "high_hz": [
+     98.0,
+     134.0
+    ],
+    "index": 50,
+    "kind": "null",
+    "low_hz": [
+     5.0,
+     24.0
+    ],
+    "omega": 7.455651277866422,
+    "orientation": "inverted",
+    "window": [
+     2,
+     14
+    ],
+    "z0": 10,
+    "zhat": 8.0
+   },
+   {
+    "accepted": false,
+    "child": 67,
+    "high_hz": null,
+    "index": 51,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 11,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 68,
+    "high_hz": null,
+    "index": 52,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 12,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 69,
+    "high_hz": null,
+    "index": 53,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 13,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 70,
+    "high_hz": null,
+    "index": 54,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 14,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 71,
+    "high_hz": [
+     49.0,
+     80.0
+    ],
+    "index": 55,
+    "kind": "null",
+    "low_hz": [
+     19.0,
+     23.0
+    ],
+    "omega": 5.830355414866447,
+    "orientation": "inverted",
+    "window": [
+     9,
+     18
+    ],
+    "z0": 15,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 72,
+    "high_hz": [
+     41.0,
+     101.0
+    ],
+    "index": 56,
+    "kind": "null",
+    "low_hz": [
+     10.0,
+     19.0
+    ],
+    "omega": 7.572294067281945,
+    "orientation": "inverted",
+    "window": [
+     0,
+     16
+    ],
+    "z0": 16,
+    "zhat": 8.0
+   },
+   {
+    "accepted": true,
+    "child": 73,
+    "high_hz": [
+     63.0,
+     83.0
+    ],
+    "index": 57,
+    "kind": "null",
+    "low_hz": [
+     5.0,
+     17.0
+    ],
+    "omega": 6.650820630203147,
+    "orientation": "upright",
+    "window": [
+     4,
+     14
+    ],
+    "z0": 17,
+    "zhat": 10.0
+   },
+   {
+    "accepted": false,
+    "child": 74,
+    "high_hz": null,
+    "index": 58,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 18,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 75,
+    "high_hz": null,
+    "index": 59,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 19,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 76,
+    "high_hz": [
+     52.0,
+     75.0
+    ],
+    "index": 60,
+    "kind": "null",
+    "low_hz": [
+     32.0,
+     51.0
+    ],
+    "omega": 7.0635294654823015,
+    "orientation": "upright",
+    "window": [
+     13,
+     23
+    ],
+    "z0": 20,
+    "zhat": 18.0
+   },
+   {
+    "accepted": false,
+    "child": 77,
+    "high_hz": null,
+    "index": 61,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 21,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 78,
+    "high_hz": null,
+    "index": 62,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 22,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 79,
+    "high_hz": null,
+    "index": 63,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 23,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 80,
+    "high_hz": null,
+    "index": 64,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 8,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 81,
+    "high_hz": [
+     85.0,
+     107.0
+    ],
+    "index": 65,
+    "kind": "null",
+    "low_hz": [
+     22.0,
+     45.0
+    ],
+    "omega": 7.349759595595645,
+    "orientation": "upright",
+    "window": [
+     12,
+     21
+    ],
+    "z0": 9,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 82,
+    "high_hz": [
+     116.0,
+     140.0
+    ],
+    "index": 66,
+    "kind": "null",
+    "low_hz": [
+     10.0,
+     30.0
+    ],
+    "omega": 7.232376999855977,
+    "orientation": "upright",
+    "window": [
+     16,
+     24
+    ],
+    "z0": 10,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 83,
+    "high_hz": [
+     76.0,
+     105.0
+    ],
+    "index": 67,
+    "kind": "null",
+    "low_hz": [
+     5.0,
+     29.0
+    ],
+    "omega": 6.167959847977556,
+    "orientation": "upright",
+    "window": [
+     8,
+     30
+    ],
+    "z0": 11,
+    "zhat": 20.0
+   },
+   {
+    "accepted": false,
+    "child": 84,
+    "high_hz": null,
+    "index": 68,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 12,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 85,
+    "high_hz": null,
+    "index": 69,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 13,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 86,
+    "high_hz": null,
+    "index": 70,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 14,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 87,
+    "high_hz": null,
+    "index": 71,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 15,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 88,
+    "high_hz": null,
+    "index": 72,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 16,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 89,
+    "high_hz": [
+     109.0,
+     149.0
+    ],
+    "index": 73,
+    "kind": "null",
+    "low_hz": [
+     13.0,
+     26.0
+    ],
+    "omega": 6.021095087471562,
+    "orientation": "inverted",
+    "window": [
+     4,
+     25
+    ],
+    "z0": 17,
+    "zhat": 13.0
+   },
+   {
+    "accepted": false,
+    "child": 90,
+    "high_hz": null,
+    "index": 74,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 18,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 91,
+    "high_hz": null,
+    "index": 75,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 19,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 92,
+    "high_hz": null,
+    "index": 76,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 20,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 93,
+    "high_hz": null,
+    "index": 77,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 21,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 94,
+    "high_hz": null,
+    "index": 78,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 22,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 95,
+    "high_hz": [
+     96.0,
+     130.0
+    ],
+    "index": 79,
+    "kind": "null",
+    "low_hz": [
+     32.0,
+     40.0
+    ],
+    "omega": 6.404849317349973,
+    "orientation": "inverted",
+    "window": [
+     8,
+     27
+    ],
+    "z0": 23,
+    "zhat": 25.0
+   },
+   {
+    "accepted": false,
+    "child": 96,
+    "high_hz": null,
+    "index": 80,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 8,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 97,
+    "high_hz": [
+     44.0,
+     73.0
+    ],
+    "index": 81,
+    "kind": "null",
+    "low_hz": [
+     14.0,
+     27.0
+    ],
+    "omega": 6.610863600919069,
+    "orientation": "inverted",
+    "window": [
+     1,
+     22
+    ],
+    "z0": 9,
+    "zhat": 17.0
+   },
+   {
+    "accepted": false,
+    "child": 98,
+    "high_hz": null,
+    "index": 82,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 10,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 99,
+    "high_hz": null,
+    "index": 83,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 11,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 100,
+    "high_hz": [
+     85.0,
+     104.0
+    ],
+    "index": 84,
+    "kind": "null",
+    "low_hz": [
+     24.0,
+     47.0
+    ],
+    "omega": 7.1170788876795115,
+    "orientation": "inverted",
+    "window": [
+     10,
+     20
+    ],
+    "z0": 12,
+    "zhat": 16.0
+   },
+   {
+    "accepted": false,
+    "child": 101,
+    "high_hz": null,
+    "index": 85,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 13,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 102,
+    "high_hz": [
+     62.0,
+     84.0
+    ],
+    "index": 86,
+    "kind": "null",
+    "low_hz": [
+     9.0,
+     18.0
+    ],
+    "omega": 6.073035043085052,
+    "orientation": "upright",
+    "window": [
+     21,
+     31
+    ],
+    "z0": 14,
+    "zhat": 26.0
+   },
+   {
+    "accepted": false,
+    "child": 103,
+    "high_hz": null,
+    "index": 87,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 15,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 104,
+    "high_hz": [
+     130.0,
+     149.0
+    ],
+    "index": 88,
+    "kind": "null",
+    "low_hz": [
+     17.0,
+     40.0
+    ],
+    "omega": 6.3279494296509355,
+    "orientation": "upright",
+    "window": [
+     15,
+     30
+    ],
+    "z0": 16,
+    "zhat": 23.0
+   },
+   {
+    "accepted": false,
+    "child": 105,
+    "high_hz": null,
+    "index": 89,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 17,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 106,
+    "high_hz": null,
+    "index": 90,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 18,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 107,
+    "high_hz": null,
+    "index": 91,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 19,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 108,
+    "high_hz": null,
+    "index": 92,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 20,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 109,
+    "high_hz": [
+     99.0,
+     123.0
+    ],
+    "index": 93,
+    "kind": "null",
+    "low_hz": [
+     34.0,
+     49.0
+    ],
+    "omega": 6.294805313497509,
+    "orientation": "upright",
+    "window": [
+     5,
+     18
+    ],
+    "z0": 21,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 110,
+    "high_hz": [
+     41.0,
+     74.0
+    ],
+    "index": 94,
+    "kind": "null",
+    "low_hz": [
+     5.0,
+     13.0
+    ],
+    "omega": 6.504622808504164,
+    "orientation": "inverted",
+    "window": [
+     2,
+     21
+    ],
+    "z0": 22,
+    "zhat": 14.0
+   },
+   {
+    "accepted": false,
+    "child": 111,
+    "high_hz": null,
+    "index": 95,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 23,
+    "zhat": null
+   },
+   {
+    "accepted": true,
+    "child": 112,
+    "high_hz": [
+     77.0,
+     110.0
+    ],
+    "index": 96,
+    "kind": "null",
+    "low_hz": [
+     32.0,
+     43.0
+    ],
+    "omega": 6.422903476620123,
+    "orientation": "inverted",
+    "window": [
+     0,
+     25
+    ],
+    "z0": 8,
+    "zhat": 19.0
+   },
+   {
+    "accepted": false,
+    "child": 113,
+    "high_hz": null,
+    "index": 97,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 9,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 114,
+    "high_hz": null,
+    "index": 98,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 10,
+    "zhat": null
+   },
+   {
+    "accepted": false,
+    "child": 115,
+    "high_hz": null,
+    "index": 99,
+    "kind": "null",
+    "low_hz": null,
+    "omega": null,
+    "orientation": null,
+    "window": null,
+    "z0": 11,
+    "zhat": null
+   }
+  ],
+  "primary": [
+   {
+    "accepted": true,
+    "child": 16,
+    "high_hz": [
+     54.0,
+     101.0
+    ],
+    "index": 0,
+    "kind": "primary",
+    "low_hz": [
+     9.0,
+     29.0
+    ],
+    "n_ties": 1,
+    "omega": 11.465359115395978,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 10.0
+   },
+   {
+    "accepted": true,
+    "child": 17,
+    "high_hz": [
+     46.0,
+     106.0
+    ],
+    "index": 1,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.5049910190256,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     2,
+     31
+    ],
+    "z0": 9,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 18,
+    "high_hz": [
+     53.0,
+     109.0
+    ],
+    "index": 2,
+    "kind": "primary",
+    "low_hz": [
+     7.0,
+     42.0
+    ],
+    "n_ties": 1,
+    "omega": 12.104454734828428,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 19,
+    "high_hz": [
+     54.0,
+     108.0
+    ],
+    "index": 3,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     33.0
+    ],
+    "n_ties": 1,
+    "omega": 11.96674878535335,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 10.0
+   },
+   {
+    "accepted": true,
+    "child": 20,
+    "high_hz": [
+     54.0,
+     100.0
+    ],
+    "index": 4,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.447029135723863,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     29
+    ],
+    "z0": 12,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 21,
+    "high_hz": [
+     51.0,
+     100.0
+    ],
+    "index": 5,
+    "kind": "primary",
+    "low_hz": [
+     12.0,
+     32.0
+    ],
+    "n_ties": 1,
+    "omega": 11.686787888550741,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 22,
+    "high_hz": [
+     46.0,
+     113.0
+    ],
+    "index": 6,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     25.0
+    ],
+    "n_ties": 1,
+    "omega": 11.495765180356408,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 23,
+    "high_hz": [
+     56.0,
+     102.0
+    ],
+    "index": 7,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.81238434401362,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 24,
+    "high_hz": [
+     55.0,
+     111.0
+    ],
+    "index": 8,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.799996050072696,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 25,
+    "high_hz": [
+     51.0,
+     112.0
+    ],
+    "index": 9,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     50.0
+    ],
+    "n_ties": 1,
+    "omega": 11.86234717344392,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     2,
+     31
+    ],
+    "z0": 17,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 26,
+    "high_hz": [
+     47.0,
+     107.0
+    ],
+    "index": 10,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     46.0
+    ],
+    "n_ties": 1,
+    "omega": 11.94864845297883,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     2,
+     31
+    ],
+    "z0": 18,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 27,
+    "high_hz": [
+     44.0,
+     106.0
+    ],
+    "index": 11,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.509620839177758,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 28,
+    "high_hz": [
+     54.0,
+     105.0
+    ],
+    "index": 12,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.454686356818051,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 29,
+    "high_hz": [
+     51.0,
+     114.0
+    ],
+    "index": 13,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     40.0
+    ],
+    "n_ties": 1,
+    "omega": 11.551422676195703,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     1,
+     31
+    ],
+    "z0": 21,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 30,
+    "high_hz": [
+     55.0,
+     105.0
+    ],
+    "index": 14,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.251359577550591,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 31,
+    "high_hz": [
+     51.0,
+     118.0
+    ],
+    "index": 15,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.401732270650966,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 23,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 32,
+    "high_hz": [
+     46.0,
+     103.0
+    ],
+    "index": 16,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     45.0
+    ],
+    "n_ties": 1,
+    "omega": 11.944211746960066,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 8,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 33,
+    "high_hz": [
+     53.0,
+     112.0
+    ],
+    "index": 17,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.659863454468702,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 34,
+    "high_hz": [
+     54.0,
+     116.0
+    ],
+    "index": 18,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.473602770439573,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 35,
+    "high_hz": [
+     41.0,
+     101.0
+    ],
+    "index": 19,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.623229355642955,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 36,
+    "high_hz": [
+     54.0,
+     102.0
+    ],
+    "index": 20,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     29.0
+    ],
+    "n_ties": 1,
+    "omega": 11.507933733088342,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 37,
+    "high_hz": [
+     53.0,
+     109.0
+    ],
+    "index": 21,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     47.0
+    ],
+    "n_ties": 1,
+    "omega": 11.838775682144458,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     27
+    ],
+    "z0": 13,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 38,
+    "high_hz": [
+     55.0,
+     101.0
+    ],
+    "index": 22,
+    "kind": "primary",
+    "low_hz": [
+     8.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.574955160112749,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 39,
+    "high_hz": [
+     52.0,
+     100.0
+    ],
+    "index": 23,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     38.0
+    ],
+    "n_ties": 1,
+    "omega": 11.929040438746348,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 40,
+    "high_hz": [
+     50.0,
+     103.0
+    ],
+    "index": 24,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.572835474624043,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 41,
+    "high_hz": [
+     54.0,
+     103.0
+    ],
+    "index": 25,
+    "kind": "primary",
+    "low_hz": [
+     8.0,
+     33.0
+    ],
+    "n_ties": 1,
+    "omega": 11.70926608231982,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 42,
+    "high_hz": [
+     47.0,
+     103.0
+    ],
+    "index": 26,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.530293405777538,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 43,
+    "high_hz": [
+     49.0,
+     111.0
+    ],
+    "index": 27,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     37.0
+    ],
+    "n_ties": 1,
+    "omega": 11.740120823052852,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     1,
+     31
+    ],
+    "z0": 19,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 44,
+    "high_hz": [
+     52.0,
+     98.0
+    ],
+    "index": 28,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.391200697068275,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 45,
+    "high_hz": [
+     53.0,
+     110.0
+    ],
+    "index": 29,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.404699503177028,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 46,
+    "high_hz": [
+     41.0,
+     120.0
+    ],
+    "index": 30,
+    "kind": "primary",
+    "low_hz": [
+     9.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.544184614342887,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     1,
+     31
+    ],
+    "z0": 22,
+    "zhat": 22.0
+   },
+   {
+    "accepted": true,
+    "child": 47,
+    "high_hz": [
+     52.0,
+     105.0
+    ],
+    "index": 31,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.141439310682873,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 48,
+    "high_hz": [
+     50.0,
+     101.0
+    ],
+    "index": 32,
+    "kind": "primary",
+    "low_hz": [
+     6.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.2628701770458,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     28
+    ],
+    "z0": 8,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 49,
+    "high_hz": [
+     54.0,
+     106.0
+    ],
+    "index": 33,
+    "kind": "primary",
+    "low_hz": [
+     7.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.535082754149407,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 50,
+    "high_hz": [
+     41.0,
+     100.0
+    ],
+    "index": 34,
+    "kind": "primary",
+    "low_hz": [
+     9.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.677833465245898,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 51,
+    "high_hz": [
+     52.0,
+     109.0
+    ],
+    "index": 35,
+    "kind": "primary",
+    "low_hz": [
+     7.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.55647443188006,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 52,
+    "high_hz": [
+     53.0,
+     100.0
+    ],
+    "index": 36,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     43.0
+    ],
+    "n_ties": 1,
+    "omega": 11.682098122884067,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     4,
+     31
+    ],
+    "z0": 12,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 53,
+    "high_hz": [
+     47.0,
+     104.0
+    ],
+    "index": 37,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     40.0
+    ],
+    "n_ties": 1,
+    "omega": 11.898642572976508,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 54,
+    "high_hz": [
+     54.0,
+     106.0
+    ],
+    "index": 38,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     53.0
+    ],
+    "n_ties": 1,
+    "omega": 11.99259320264695,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 14,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 55,
+    "high_hz": [
+     56.0,
+     108.0
+    ],
+    "index": 39,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     55.0
+    ],
+    "n_ties": 1,
+    "omega": 11.913029365895037,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     2,
+     31
+    ],
+    "z0": 15,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 56,
+    "high_hz": [
+     52.0,
+     107.0
+    ],
+    "index": 40,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     34.0
+    ],
+    "n_ties": 1,
+    "omega": 11.807010011566636,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 57,
+    "high_hz": [
+     52.0,
+     102.0
+    ],
+    "index": 41,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     35.0
+    ],
+    "n_ties": 1,
+    "omega": 11.62866929744336,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 58,
+    "high_hz": [
+     54.0,
+     110.0
+    ],
+    "index": 42,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     53.0
+    ],
+    "n_ties": 1,
+    "omega": 11.958522467446869,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 59,
+    "high_hz": [
+     54.0,
+     100.0
+    ],
+    "index": 43,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.593179704050167,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 60,
+    "high_hz": [
+     52.0,
+     102.0
+    ],
+    "index": 44,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.686800746565563,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 61,
+    "high_hz": [
+     54.0,
+     104.0
+    ],
+    "index": 45,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.334082643454236,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 62,
+    "high_hz": [
+     53.0,
+     103.0
+    ],
+    "index": 46,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.295164616043479,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 63,
+    "high_hz": [
+     52.0,
+     103.0
+    ],
+    "index": 47,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.330001113184352,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 64,
+    "high_hz": [
+     49.0,
+     103.0
+    ],
+    "index": 48,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.684615398380373,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 11.0
+   },
+   {
+    "accepted": true,
+    "child": 65,
+    "high_hz": [
+     53.0,
+     104.0
+    ],
+    "index": 49,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.592458189238942,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 11.0
+   },
+   {
+    "accepted": true,
+    "child": 66,
+    "high_hz": [
+     54.0,
+     115.0
+    ],
+    "index": 50,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     29.0
+    ],
+    "n_ties": 1,
+    "omega": 11.599650778960315,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 67,
+    "high_hz": [
+     53.0,
+     101.0
+    ],
+    "index": 51,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.662972250408167,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 68,
+    "high_hz": [
+     55.0,
+     103.0
+    ],
+    "index": 52,
+    "kind": "primary",
+    "low_hz": [
+     6.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.436464542828007,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 69,
+    "high_hz": [
+     54.0,
+     101.0
+    ],
+    "index": 53,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.56722084638115,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 70,
+    "high_hz": [
+     54.0,
+     104.0
+    ],
+    "index": 54,
+    "kind": "primary",
+    "low_hz": [
+     7.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.66699974290382,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 71,
+    "high_hz": [
+     55.0,
+     105.0
+    ],
+    "index": 55,
+    "kind": "primary",
+    "low_hz": [
+     8.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.713585791911239,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 72,
+    "high_hz": [
+     55.0,
+     105.0
+    ],
+    "index": 56,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.657207046702142,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 73,
+    "high_hz": [
+     51.0,
+     101.0
+    ],
+    "index": 57,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.571178242543418,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 74,
+    "high_hz": [
+     46.0,
+     102.0
+    ],
+    "index": 58,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.526987435170104,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 75,
+    "high_hz": [
+     53.0,
+     108.0
+    ],
+    "index": 59,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     44.0
+    ],
+    "n_ties": 1,
+    "omega": 11.746860077871595,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 76,
+    "high_hz": [
+     53.0,
+     104.0
+    ],
+    "index": 60,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     52.0
+    ],
+    "n_ties": 1,
+    "omega": 11.704975665857198,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     1,
+     31
+    ],
+    "z0": 20,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 77,
+    "high_hz": [
+     54.0,
+     101.0
+    ],
+    "index": 61,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     32.0
+    ],
+    "n_ties": 1,
+    "omega": 11.254074179008546,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 78,
+    "high_hz": [
+     45.0,
+     112.0
+    ],
+    "index": 62,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     35.0
+    ],
+    "n_ties": 1,
+    "omega": 11.533992430151851,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 79,
+    "high_hz": [
+     55.0,
+     102.0
+    ],
+    "index": 63,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.185884030769607,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 80,
+    "high_hz": [
+     49.0,
+     102.0
+    ],
+    "index": 64,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.471643038309137,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 8,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 81,
+    "high_hz": [
+     42.0,
+     119.0
+    ],
+    "index": 65,
+    "kind": "primary",
+    "low_hz": [
+     12.0,
+     41.0
+    ],
+    "n_ties": 1,
+    "omega": 12.05907307497145,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 8.0
+   },
+   {
+    "accepted": true,
+    "child": 82,
+    "high_hz": [
+     46.0,
+     105.0
+    ],
+    "index": 66,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     34.0
+    ],
+    "n_ties": 1,
+    "omega": 11.688154039478817,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 11.0
+   },
+   {
+    "accepted": true,
+    "child": 83,
+    "high_hz": [
+     54.0,
+     105.0
+    ],
+    "index": 67,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.828267407930694,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 84,
+    "high_hz": [
+     46.0,
+     104.0
+    ],
+    "index": 68,
+    "kind": "primary",
+    "low_hz": [
+     12.0,
+     38.0
+    ],
+    "n_ties": 1,
+    "omega": 11.769050688262148,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 85,
+    "high_hz": [
+     54.0,
+     110.0
+    ],
+    "index": 69,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.590203915357172,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 86,
+    "high_hz": [
+     53.0,
+     101.0
+    ],
+    "index": 70,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     36.0
+    ],
+    "n_ties": 1,
+    "omega": 11.750768435457118,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 87,
+    "high_hz": [
+     55.0,
+     100.0
+    ],
+    "index": 71,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     33.0
+    ],
+    "n_ties": 1,
+    "omega": 11.716049836440982,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 88,
+    "high_hz": [
+     53.0,
+     107.0
+    ],
+    "index": 72,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.614548879710885,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 89,
+    "high_hz": [
+     52.0,
+     107.0
+    ],
+    "index": 73,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     49.0
+    ],
+    "n_ties": 1,
+    "omega": 12.175554428210322,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 90,
+    "high_hz": [
+     54.0,
+     105.0
+    ],
+    "index": 74,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.528898608716355,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 91,
+    "high_hz": [
+     54.0,
+     122.0
+    ],
+    "index": 75,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.667650504244689,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 92,
+    "high_hz": [
+     51.0,
+     106.0
+    ],
+    "index": 76,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.420115400801954,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 93,
+    "high_hz": [
+     53.0,
+     110.0
+    ],
+    "index": 77,
+    "kind": "primary",
+    "low_hz": [
+     6.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.564594208036796,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 94,
+    "high_hz": [
+     48.0,
+     102.0
+    ],
+    "index": 78,
+    "kind": "primary",
+    "low_hz": [
+     7.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.480013249619104,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 95,
+    "high_hz": [
+     54.0,
+     103.0
+    ],
+    "index": 79,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.264797426808903,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 96,
+    "high_hz": [
+     53.0,
+     104.0
+    ],
+    "index": 80,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.770639290944711,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 10.0
+   },
+   {
+    "accepted": true,
+    "child": 97,
+    "high_hz": [
+     54.0,
+     101.0
+    ],
+    "index": 81,
+    "kind": "primary",
+    "low_hz": [
+     7.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.773738192975939,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 10.0
+   },
+   {
+    "accepted": true,
+    "child": 98,
+    "high_hz": [
+     54.0,
+     104.0
+    ],
+    "index": 82,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.362231771973914,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     29
+    ],
+    "z0": 10,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 99,
+    "high_hz": [
+     53.0,
+     105.0
+    ],
+    "index": 83,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.500804957898888,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 100,
+    "high_hz": [
+     54.0,
+     101.0
+    ],
+    "index": 84,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.52383558875837,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 101,
+    "high_hz": [
+     52.0,
+     103.0
+    ],
+    "index": 85,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.580418806836846,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 102,
+    "high_hz": [
+     54.0,
+     103.0
+    ],
+    "index": 86,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     34.0
+    ],
+    "n_ties": 1,
+    "omega": 11.986598432042163,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 103,
+    "high_hz": [
+     53.0,
+     103.0
+    ],
+    "index": 87,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.604045814353125,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 104,
+    "high_hz": [
+     54.0,
+     105.0
+    ],
+    "index": 88,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     36.0
+    ],
+    "n_ties": 1,
+    "omega": 11.718718855267985,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     2,
+     31
+    ],
+    "z0": 16,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 105,
+    "high_hz": [
+     49.0,
+     102.0
+    ],
+    "index": 89,
+    "kind": "primary",
+    "low_hz": [
+     10.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.505068936630291,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 106,
+    "high_hz": [
+     52.0,
+     109.0
+    ],
+    "index": 90,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.425286423510533,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 107,
+    "high_hz": [
+     48.0,
+     111.0
+    ],
+    "index": 91,
+    "kind": "primary",
+    "low_hz": [
+     12.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.4513522068663,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 19,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 108,
+    "high_hz": [
+     55.0,
+     100.0
+    ],
+    "index": 92,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.196887181576503,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 109,
+    "high_hz": [
+     51.0,
+     112.0
+    ],
+    "index": 93,
+    "kind": "primary",
+    "low_hz": [
+     9.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.371806132681536,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 110,
+    "high_hz": [
+     52.0,
+     104.0
+    ],
+    "index": 94,
+    "kind": "primary",
+    "low_hz": [
+     12.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.19906958948592,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 21.0
+   },
+   {
+    "accepted": true,
+    "child": 111,
+    "high_hz": [
+     54.0,
+     103.0
+    ],
+    "index": 95,
+    "kind": "primary",
+    "low_hz": [
+     11.0,
+     38.0
+    ],
+    "n_ties": 1,
+    "omega": 11.344743828572577,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 21.0
+   },
+   {
+    "accepted": true,
+    "child": 112,
+    "high_hz": [
+     53.0,
+     103.0
+    ],
+    "index": 96,
+    "kind": "primary",
+    "low_hz": [
+     8.0,
+     35.0
+    ],
+    "n_ties": 1,
+    "omega": 11.637796828352107,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 113,
+    "high_hz": [
+     53.0,
+     104.0
+    ],
+    "index": 97,
+    "kind": "primary",
+    "low_hz": [
+     12.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.370659077420115,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 114,
+    "high_hz": [
+     46.0,
+     106.0
+    ],
+    "index": 98,
+    "kind": "primary",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.603769101520697,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 115,
+    "high_hz": [
+     47.0,
+     106.0
+    ],
+    "index": 99,
+    "kind": "primary",
+    "low_hz": [
+     7.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.779903713457635,
+    "orientation": "upright",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 13.0
+   }
+  ],
+  "reversal": [
+   {
+    "accepted": true,
+    "child": 16,
+    "high_hz": [
+     54.0,
+     101.0
+    ],
+    "index": 0,
+    "kind": "reversal",
+    "low_hz": [
+     9.0,
+     29.0
+    ],
+    "n_ties": 1,
+    "omega": 11.465359115395978,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 21.0
+   },
+   {
+    "accepted": true,
+    "child": 17,
+    "high_hz": [
+     46.0,
+     106.0
+    ],
+    "index": 1,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.5049910190256,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     29
+    ],
+    "z0": 9,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 18,
+    "high_hz": [
+     53.0,
+     109.0
+    ],
+    "index": 2,
+    "kind": "reversal",
+    "low_hz": [
+     7.0,
+     42.0
+    ],
+    "n_ties": 1,
+    "omega": 12.104454734828428,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 19,
+    "high_hz": [
+     54.0,
+     108.0
+    ],
+    "index": 3,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     33.0
+    ],
+    "n_ties": 1,
+    "omega": 11.96674878535335,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 21.0
+   },
+   {
+    "accepted": true,
+    "child": 20,
+    "high_hz": [
+     54.0,
+     100.0
+    ],
+    "index": 4,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.447029135723863,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     2,
+     31
+    ],
+    "z0": 12,
+    "zhat": 21.0
+   },
+   {
+    "accepted": true,
+    "child": 21,
+    "high_hz": [
+     51.0,
+     100.0
+    ],
+    "index": 5,
+    "kind": "reversal",
+    "low_hz": [
+     12.0,
+     32.0
+    ],
+    "n_ties": 1,
+    "omega": 11.686787888550741,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 22,
+    "high_hz": [
+     46.0,
+     113.0
+    ],
+    "index": 6,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     25.0
+    ],
+    "n_ties": 1,
+    "omega": 11.495765180356408,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 23,
+    "high_hz": [
+     56.0,
+     102.0
+    ],
+    "index": 7,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.81238434401362,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 24,
+    "high_hz": [
+     55.0,
+     111.0
+    ],
+    "index": 8,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.799996050072696,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 25,
+    "high_hz": [
+     51.0,
+     112.0
+    ],
+    "index": 9,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     50.0
+    ],
+    "n_ties": 1,
+    "omega": 11.86234717344392,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     29
+    ],
+    "z0": 17,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 26,
+    "high_hz": [
+     47.0,
+     107.0
+    ],
+    "index": 10,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     46.0
+    ],
+    "n_ties": 1,
+    "omega": 11.94864845297883,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     29
+    ],
+    "z0": 18,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 27,
+    "high_hz": [
+     44.0,
+     106.0
+    ],
+    "index": 11,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.509620839177758,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 28,
+    "high_hz": [
+     54.0,
+     105.0
+    ],
+    "index": 12,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.454686356818051,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 29,
+    "high_hz": [
+     51.0,
+     114.0
+    ],
+    "index": 13,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     40.0
+    ],
+    "n_ties": 1,
+    "omega": 11.551422676195703,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 21,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 30,
+    "high_hz": [
+     55.0,
+     105.0
+    ],
+    "index": 14,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.251359577550591,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 31,
+    "high_hz": [
+     51.0,
+     118.0
+    ],
+    "index": 15,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.401732270650966,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     1,
+     31
+    ],
+    "z0": 23,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 32,
+    "high_hz": [
+     46.0,
+     103.0
+    ],
+    "index": 16,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     45.0
+    ],
+    "n_ties": 1,
+    "omega": 11.944211746960066,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     1,
+     31
+    ],
+    "z0": 8,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 33,
+    "high_hz": [
+     53.0,
+     112.0
+    ],
+    "index": 17,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.6598634544687,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 21.0
+   },
+   {
+    "accepted": true,
+    "child": 34,
+    "high_hz": [
+     54.0,
+     116.0
+    ],
+    "index": 18,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.473602770439573,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 35,
+    "high_hz": [
+     41.0,
+     101.0
+    ],
+    "index": 19,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.623229355642955,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 36,
+    "high_hz": [
+     54.0,
+     102.0
+    ],
+    "index": 20,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     29.0
+    ],
+    "n_ties": 1,
+    "omega": 11.507933733088342,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 37,
+    "high_hz": [
+     53.0,
+     109.0
+    ],
+    "index": 21,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     47.0
+    ],
+    "n_ties": 1,
+    "omega": 11.838775682144458,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     4,
+     31
+    ],
+    "z0": 13,
+    "zhat": 22.0
+   },
+   {
+    "accepted": true,
+    "child": 38,
+    "high_hz": [
+     55.0,
+     101.0
+    ],
+    "index": 22,
+    "kind": "reversal",
+    "low_hz": [
+     8.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.574955160112749,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 39,
+    "high_hz": [
+     52.0,
+     100.0
+    ],
+    "index": 23,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     38.0
+    ],
+    "n_ties": 1,
+    "omega": 11.929040438746346,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 40,
+    "high_hz": [
+     50.0,
+     103.0
+    ],
+    "index": 24,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.572835474624043,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 41,
+    "high_hz": [
+     54.0,
+     103.0
+    ],
+    "index": 25,
+    "kind": "reversal",
+    "low_hz": [
+     8.0,
+     33.0
+    ],
+    "n_ties": 1,
+    "omega": 11.70926608231982,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 42,
+    "high_hz": [
+     47.0,
+     103.0
+    ],
+    "index": 26,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.530293405777538,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 43,
+    "high_hz": [
+     49.0,
+     111.0
+    ],
+    "index": 27,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     37.0
+    ],
+    "n_ties": 1,
+    "omega": 11.740120823052852,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 19,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 44,
+    "high_hz": [
+     52.0,
+     98.0
+    ],
+    "index": 28,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.391200697068276,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 45,
+    "high_hz": [
+     53.0,
+     110.0
+    ],
+    "index": 29,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.404699503177028,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 46,
+    "high_hz": [
+     41.0,
+     120.0
+    ],
+    "index": 30,
+    "kind": "reversal",
+    "low_hz": [
+     9.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.544184614342887,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 22,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 47,
+    "high_hz": [
+     52.0,
+     105.0
+    ],
+    "index": 31,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.141439310682873,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 48,
+    "high_hz": [
+     50.0,
+     101.0
+    ],
+    "index": 32,
+    "kind": "reversal",
+    "low_hz": [
+     6.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.2628701770458,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     3,
+     31
+    ],
+    "z0": 8,
+    "zhat": 22.0
+   },
+   {
+    "accepted": true,
+    "child": 49,
+    "high_hz": [
+     54.0,
+     106.0
+    ],
+    "index": 33,
+    "kind": "reversal",
+    "low_hz": [
+     7.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.535082754149407,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 50,
+    "high_hz": [
+     41.0,
+     100.0
+    ],
+    "index": 34,
+    "kind": "reversal",
+    "low_hz": [
+     9.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.677833465245898,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 51,
+    "high_hz": [
+     52.0,
+     109.0
+    ],
+    "index": 35,
+    "kind": "reversal",
+    "low_hz": [
+     7.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.55647443188006,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 52,
+    "high_hz": [
+     53.0,
+     100.0
+    ],
+    "index": 36,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     43.0
+    ],
+    "n_ties": 1,
+    "omega": 11.682098122884067,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     27
+    ],
+    "z0": 12,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 53,
+    "high_hz": [
+     47.0,
+     104.0
+    ],
+    "index": 37,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     40.0
+    ],
+    "n_ties": 1,
+    "omega": 11.898642572976508,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 54,
+    "high_hz": [
+     54.0,
+     106.0
+    ],
+    "index": 38,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     53.0
+    ],
+    "n_ties": 1,
+    "omega": 11.99259320264695,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     1,
+     31
+    ],
+    "z0": 14,
+    "zhat": 24.0
+   },
+   {
+    "accepted": true,
+    "child": 55,
+    "high_hz": [
+     56.0,
+     108.0
+    ],
+    "index": 39,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     55.0
+    ],
+    "n_ties": 1,
+    "omega": 11.913029365895037,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     29
+    ],
+    "z0": 15,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 56,
+    "high_hz": [
+     52.0,
+     107.0
+    ],
+    "index": 40,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     34.0
+    ],
+    "n_ties": 1,
+    "omega": 11.807010011566636,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 57,
+    "high_hz": [
+     52.0,
+     102.0
+    ],
+    "index": 41,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     35.0
+    ],
+    "n_ties": 1,
+    "omega": 11.62866929744336,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 58,
+    "high_hz": [
+     54.0,
+     110.0
+    ],
+    "index": 42,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     53.0
+    ],
+    "n_ties": 1,
+    "omega": 11.958522467446869,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 59,
+    "high_hz": [
+     54.0,
+     100.0
+    ],
+    "index": 43,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.593179704050167,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 60,
+    "high_hz": [
+     52.0,
+     102.0
+    ],
+    "index": 44,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.686800746565563,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 61,
+    "high_hz": [
+     54.0,
+     104.0
+    ],
+    "index": 45,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.334082643454236,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 13.0
+   },
+   {
+    "accepted": true,
+    "child": 62,
+    "high_hz": [
+     53.0,
+     103.0
+    ],
+    "index": 46,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.295164616043479,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 63,
+    "high_hz": [
+     52.0,
+     103.0
+    ],
+    "index": 47,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.330001113184352,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 64,
+    "high_hz": [
+     49.0,
+     103.0
+    ],
+    "index": 48,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.684615398380373,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 65,
+    "high_hz": [
+     53.0,
+     104.0
+    ],
+    "index": 49,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.592458189238942,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 66,
+    "high_hz": [
+     54.0,
+     115.0
+    ],
+    "index": 50,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     29.0
+    ],
+    "n_ties": 1,
+    "omega": 11.599650778960315,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 67,
+    "high_hz": [
+     53.0,
+     101.0
+    ],
+    "index": 51,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.662972250408167,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 68,
+    "high_hz": [
+     55.0,
+     103.0
+    ],
+    "index": 52,
+    "kind": "reversal",
+    "low_hz": [
+     6.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.436464542828007,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 69,
+    "high_hz": [
+     54.0,
+     101.0
+    ],
+    "index": 53,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.56722084638115,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 70,
+    "high_hz": [
+     54.0,
+     104.0
+    ],
+    "index": 54,
+    "kind": "reversal",
+    "low_hz": [
+     7.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.66699974290382,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 71,
+    "high_hz": [
+     55.0,
+     105.0
+    ],
+    "index": 55,
+    "kind": "reversal",
+    "low_hz": [
+     8.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.713585791911239,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 72,
+    "high_hz": [
+     55.0,
+     105.0
+    ],
+    "index": 56,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.657207046702142,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 73,
+    "high_hz": [
+     51.0,
+     101.0
+    ],
+    "index": 57,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.571178242543418,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 74,
+    "high_hz": [
+     46.0,
+     102.0
+    ],
+    "index": 58,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.526987435170104,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 75,
+    "high_hz": [
+     53.0,
+     108.0
+    ],
+    "index": 59,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     44.0
+    ],
+    "n_ties": 1,
+    "omega": 11.746860077871595,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 76,
+    "high_hz": [
+     53.0,
+     104.0
+    ],
+    "index": 60,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     52.0
+    ],
+    "n_ties": 1,
+    "omega": 11.704975665857198,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     30
+    ],
+    "z0": 20,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 77,
+    "high_hz": [
+     54.0,
+     101.0
+    ],
+    "index": 61,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     32.0
+    ],
+    "n_ties": 1,
+    "omega": 11.254074179008546,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 78,
+    "high_hz": [
+     45.0,
+     112.0
+    ],
+    "index": 62,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     35.0
+    ],
+    "n_ties": 1,
+    "omega": 11.533992430151853,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 79,
+    "high_hz": [
+     55.0,
+     102.0
+    ],
+    "index": 63,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.185884030769607,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 80,
+    "high_hz": [
+     49.0,
+     102.0
+    ],
+    "index": 64,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.471643038309137,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     1,
+     31
+    ],
+    "z0": 8,
+    "zhat": 22.0
+   },
+   {
+    "accepted": true,
+    "child": 81,
+    "high_hz": [
+     42.0,
+     119.0
+    ],
+    "index": 65,
+    "kind": "reversal",
+    "low_hz": [
+     12.0,
+     41.0
+    ],
+    "n_ties": 1,
+    "omega": 12.05907307497145,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 23.0
+   },
+   {
+    "accepted": true,
+    "child": 82,
+    "high_hz": [
+     46.0,
+     105.0
+    ],
+    "index": 66,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     34.0
+    ],
+    "n_ties": 1,
+    "omega": 11.688154039478817,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 83,
+    "high_hz": [
+     54.0,
+     105.0
+    ],
+    "index": 67,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.828267407930694,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 84,
+    "high_hz": [
+     46.0,
+     104.0
+    ],
+    "index": 68,
+    "kind": "reversal",
+    "low_hz": [
+     12.0,
+     38.0
+    ],
+    "n_ties": 1,
+    "omega": 11.769050688262148,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 85,
+    "high_hz": [
+     54.0,
+     110.0
+    ],
+    "index": 69,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.590203915357172,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 20.0
+   },
+   {
+    "accepted": true,
+    "child": 86,
+    "high_hz": [
+     53.0,
+     101.0
+    ],
+    "index": 70,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     36.0
+    ],
+    "n_ties": 1,
+    "omega": 11.750768435457118,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 87,
+    "high_hz": [
+     55.0,
+     100.0
+    ],
+    "index": 71,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     33.0
+    ],
+    "n_ties": 1,
+    "omega": 11.716049836440982,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 88,
+    "high_hz": [
+     53.0,
+     107.0
+    ],
+    "index": 72,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.614548879710885,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 16,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 89,
+    "high_hz": [
+     52.0,
+     107.0
+    ],
+    "index": 73,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     49.0
+    ],
+    "n_ties": 1,
+    "omega": 12.175554428210322,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 90,
+    "high_hz": [
+     54.0,
+     105.0
+    ],
+    "index": 74,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.528898608716355,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 91,
+    "high_hz": [
+     54.0,
+     122.0
+    ],
+    "index": 75,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.667650504244689,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 19,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 92,
+    "high_hz": [
+     51.0,
+     106.0
+    ],
+    "index": 76,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.420115400801954,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 14.0
+   },
+   {
+    "accepted": true,
+    "child": 93,
+    "high_hz": [
+     53.0,
+     110.0
+    ],
+    "index": 77,
+    "kind": "reversal",
+    "low_hz": [
+     6.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.564594208036796,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 94,
+    "high_hz": [
+     48.0,
+     102.0
+    ],
+    "index": 78,
+    "kind": "reversal",
+    "low_hz": [
+     7.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.480013249619104,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 95,
+    "high_hz": [
+     54.0,
+     103.0
+    ],
+    "index": 79,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     28.0
+    ],
+    "n_ties": 1,
+    "omega": 11.264797426808903,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 11.0
+   },
+   {
+    "accepted": true,
+    "child": 96,
+    "high_hz": [
+     53.0,
+     104.0
+    ],
+    "index": 80,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.770639290944711,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 21.0
+   },
+   {
+    "accepted": true,
+    "child": 97,
+    "high_hz": [
+     54.0,
+     101.0
+    ],
+    "index": 81,
+    "kind": "reversal",
+    "low_hz": [
+     7.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.773738192975939,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 21.0
+   },
+   {
+    "accepted": true,
+    "child": 98,
+    "high_hz": [
+     54.0,
+     104.0
+    ],
+    "index": 82,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.362231771973914,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     2,
+     31
+    ],
+    "z0": 10,
+    "zhat": 21.0
+   },
+   {
+    "accepted": true,
+    "child": 99,
+    "high_hz": [
+     53.0,
+     105.0
+    ],
+    "index": 83,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.500804957898888,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 21.0
+   },
+   {
+    "accepted": true,
+    "child": 100,
+    "high_hz": [
+     54.0,
+     101.0
+    ],
+    "index": 84,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.52383558875837,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 12,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 101,
+    "high_hz": [
+     52.0,
+     103.0
+    ],
+    "index": 85,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.580418806836846,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 13,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 102,
+    "high_hz": [
+     54.0,
+     103.0
+    ],
+    "index": 86,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     34.0
+    ],
+    "n_ties": 1,
+    "omega": 11.986598432042163,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 14,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 103,
+    "high_hz": [
+     53.0,
+     103.0
+    ],
+    "index": 87,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.604045814353125,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 15,
+    "zhat": 17.0
+   },
+   {
+    "accepted": true,
+    "child": 104,
+    "high_hz": [
+     54.0,
+     105.0
+    ],
+    "index": 88,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     36.0
+    ],
+    "n_ties": 1,
+    "omega": 11.718718855267987,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     29
+    ],
+    "z0": 16,
+    "zhat": 18.0
+   },
+   {
+    "accepted": true,
+    "child": 105,
+    "high_hz": [
+     49.0,
+     102.0
+    ],
+    "index": 89,
+    "kind": "reversal",
+    "low_hz": [
+     10.0,
+     31.0
+    ],
+    "n_ties": 1,
+    "omega": 11.505068936630291,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 17,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 106,
+    "high_hz": [
+     52.0,
+     109.0
+    ],
+    "index": 90,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.425286423510533,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 18,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 107,
+    "high_hz": [
+     48.0,
+     111.0
+    ],
+    "index": 91,
+    "kind": "reversal",
+    "low_hz": [
+     12.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.4513522068663,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     1,
+     31
+    ],
+    "z0": 19,
+    "zhat": 16.0
+   },
+   {
+    "accepted": true,
+    "child": 108,
+    "high_hz": [
+     55.0,
+     100.0
+    ],
+    "index": 92,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.196887181576503,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 20,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 109,
+    "high_hz": [
+     51.0,
+     112.0
+    ],
+    "index": 93,
+    "kind": "reversal",
+    "low_hz": [
+     9.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.371806132681536,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 21,
+    "zhat": 15.0
+   },
+   {
+    "accepted": true,
+    "child": 110,
+    "high_hz": [
+     52.0,
+     104.0
+    ],
+    "index": 94,
+    "kind": "reversal",
+    "low_hz": [
+     12.0,
+     26.0
+    ],
+    "n_ties": 1,
+    "omega": 11.19906958948592,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 22,
+    "zhat": 10.0
+   },
+   {
+    "accepted": true,
+    "child": 111,
+    "high_hz": [
+     54.0,
+     103.0
+    ],
+    "index": 95,
+    "kind": "reversal",
+    "low_hz": [
+     11.0,
+     38.0
+    ],
+    "n_ties": 1,
+    "omega": 11.344743828572577,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 23,
+    "zhat": 12.0
+   },
+   {
+    "accepted": true,
+    "child": 112,
+    "high_hz": [
+     53.0,
+     103.0
+    ],
+    "index": 96,
+    "kind": "reversal",
+    "low_hz": [
+     8.0,
+     35.0
+    ],
+    "n_ties": 1,
+    "omega": 11.637796828352107,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 8,
+    "zhat": 19.0
+   },
+   {
+    "accepted": true,
+    "child": 113,
+    "high_hz": [
+     53.0,
+     104.0
+    ],
+    "index": 97,
+    "kind": "reversal",
+    "low_hz": [
+     12.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.370659077420115,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 9,
+    "zhat": 21.0
+   },
+   {
+    "accepted": true,
+    "child": 114,
+    "high_hz": [
+     46.0,
+     106.0
+    ],
+    "index": 98,
+    "kind": "reversal",
+    "low_hz": [
+     5.0,
+     27.0
+    ],
+    "n_ties": 1,
+    "omega": 11.603769101520697,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 10,
+    "zhat": 23.0
+   },
+   {
+    "accepted": true,
+    "child": 115,
+    "high_hz": [
+     47.0,
+     106.0
+    ],
+    "index": 99,
+    "kind": "reversal",
+    "low_hz": [
+     7.0,
+     30.0
+    ],
+    "n_ties": 1,
+    "omega": 11.779903713457635,
+    "orientation": "inverted",
+    "table_agrees": true,
+    "window": [
+     0,
+     31
+    ],
+    "z0": 11,
+    "zhat": 21.0
+   }
+  ]
+ }
+}
