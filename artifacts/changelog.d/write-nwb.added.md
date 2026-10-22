@@ -1,0 +1,1 @@
+- `write_nwb`: writes a caller-built NWB file after schema validation (`jnwb/nwb_write.py`).
