@@ -496,23 +496,33 @@ def _snr_pair(mult, seed=SEED, lag=8, base=1.0, n=N_TIMES):
     added to y alone, so the two channels' signal-to-noise ratios differ while the
     direction under test does not.
     """
-    rng = np.random.default_rng(seed)
-    x = _ar_pair(n, seed) + base * rng.normal(size=n)
+    x = _ar_pair(n, seed) + base * np.random.default_rng([seed, 1]).normal(size=n)
     y = np.zeros(n)
     y[lag:] = 0.8 * x[: n - lag]
-    y = y + base * rng.normal(size=n) + mult * base * rng.normal(size=n)
+    y = (
+        y
+        + base * np.random.default_rng([seed, 2]).normal(size=n)
+        + mult * base * np.random.default_rng([seed, 3]).normal(size=n)
+    )
     return x, y
 
 
 def _asymmetric_noise_pair(mult, seed=SEED, n=N_TIMES):
-    """Two channels with NO coupling between them, and only one carrying extra noise.
+    """One AR(2) source seen twice at zero lag, with unequal observation noise.
 
-    Ground truth, the case the row names: x and y are independent AR(2) processes, so no
-    direction exists between them at any noise level. `mult` sets the extra noise added to
-    y alone.
+    Ground truth, the pitfall Bastos and Schoffelen describe: x and y are two observations of
+    the same source, so no direction exists between them at any noise level, but the channel
+    with less noise carries the source more faithfully. `mult` sets the extra noise added to y
+    alone, so `mult=0` is the matched case. Every noise draw has its own stream, so none
+    repeats the source's innovations.
     """
-    x = _ar_pair(n, seed)
-    y = _ar_pair(n, seed + 1) + mult * np.random.default_rng(seed).normal(size=n)
+    source = _ar_pair(n, seed)
+    x = source + np.random.default_rng([seed, 1]).normal(size=n)
+    y = (
+        source
+        + np.random.default_rng([seed, 2]).normal(size=n)
+        + mult * np.random.default_rng([seed, 3]).normal(size=n)
+    )
     return x, y
 
 
@@ -521,117 +531,108 @@ class TestSignalToNoiseAsymmetry:
     lead, so a Granger direction can be spurious (Bastos and Schoffelen 2016 table 2,
     SNR-asymmetry row).
 
-    Recorded here, on two channels that do not couple at all with extra noise on one of them:
-    `granger` reports a significant direction (p = 0.005 at order 8) while none exists.
-    What the measurements establish is narrower than "a false positive", and the class is
-    written to that width.
+    Recorded here on one AR(2) source observed twice at zero lag, with unequal observation
+    noise and no interaction. Each channel is the source plus noise, so neither is a finite
+    VAR, and the past of each improves the prediction of the other: with matched noise both
+    directions are significant at orders 1, 2 and 8 in 20 of 20 seeds, and the net sign is
+    not consistent. Unequal noise sets it: with 6x noise on y the net runs x to y in 20 of 20
+    seeds at each of those orders, and with the noise on x it runs y to x in 20 of 20. The
+    row's "the better channel appears to lead" is what happens here.
 
-    The surrogate null is not simply mis-calibrated. Against a null that phase-randomises y
-    and so destroys cross-dependence while preserving both marginals, the observed F of
-    12.70 sits against a null mean of 1.93 and a 95th percentile of 3.69, and p is 0.005
-    under both nulls at 10 of 10 seeds. What that does NOT show is why the asymmetry is
-    there: the null cannot separate unequal observation noise from VAR order, latent
-    structure, or another modelling assumption, and this class attributes it to none of
-    them.
+    The surrogate null is not simply mis-calibrated: against a null that phase-randomises y,
+    destroying cross-dependence while preserving both marginals, the observed F of 8.59 sits
+    against a null mean of 1.04 and a 95th percentile of 2.02.
 
-    It needs the asymmetry: with matched noise the same pair reports nothing at any order
-    from 1 to 20, at 10 of 10 seeds.
-
-    The direction is set by the order, not by the signal-to-noise ratio. At order 1 the
-    credit runs y to x at 7 of 10 seeds; at every order from 2 to 20 it runs x to y at 9 or
-    10 of 10. Reversing the asymmetry (noise on x instead) removes the effect at order 8
-    entirely. So the row's "the better channel appears to lead" is the wrong description of
-    what happens here: neither channel leads, and which one is credited is a property of the
-    fitted order.
-
-    The gap item 11-04 closes is the second estimator in its bullet: a time-reversed
-    Granger control, which separates a strong from a weak asymmetry. `jnwb` has no
-    time-reversal or power-stratification control today, and no proposal for either, so
-    comparing power between the channels is the caller's only step.
+    A time-reversed control separates a strong asymmetry from a weak one: `granger(...,
+    reversal_control=True)` reports whether the net direction keeps its sign under time
+    reversal. The reversal tests below read its verdict on a coupled pair and on
+    the common-source pair, with the same noise asymmetry. `jnwb` has no power-stratification
+    control, so comparing power between the channels is still the caller's step.
     """
 
-    #: `diagnostics['f_x_to_y']` on the uncoupled pair, order 8, at 6x noise on y, and
+    #: `diagnostics['f_x_to_y']` on the common-source pair, order 8, at 6x noise on y, and
     #: `diagnostics['f_x_to_y']` on the coupled pair at 0.5x and 4x noise, order 12, lag 8.
-    F_XY_UNCOUPLED_NOISY = 12.70
-    F_XY_CLEAN = 714.54
-    F_XY_NOISY = 60.57
+    F_XY_UNCOUPLED_NOISY = 8.589
+    F_XY_CLEAN = 439.10
+    F_XY_NOISY = 34.28
 
-    def test_an_uncoupled_pair_gains_a_reported_direction_from_the_noise_asymmetry(
-        self,
-    ):
-        """The case the row names. The two channels are independent, so there is no
-        direction to report, and one of them is noisier than the other."""
-        clean = jnwb.granger(
-            *_asymmetric_noise_pair(0.0), order=8, n_surrogates=99, rng=0
-        )
+    def test_the_reversal_control_calls_a_coupled_lag_8_direction_strong(self):
+        """The same noise asymmetry on a pair that couples x to y at lag 8. Reversal turns
+        the lag into a lead from y, so the net direction changes sign and both p-values clear
+        0.05, at eight or more of ten seeds. The bound is a power bound: the measured count
+        was 10 of 10, and the test pins that count less 2."""
+        verdicts = [
+            jnwb.granger(
+                *_snr_pair(6.0, seed=seed, lag=8),
+                order=8,
+                n_surrogates=99,
+                rng=0,
+                reversal_control=True,
+            ).diagnostics["reversal_verdict"]
+            for seed in range(10)
+        ]
+        assert verdicts.count("strong") >= 8, verdicts
+
+    def test_the_reversal_control_does_not_call_a_common_source_pair_strong(self):
+        """The null for the reversal verdict: one source seen twice with unequal noise, so no
+        direction exists to report. "Strong" needs both p-values below 0.05, so its count over
+        40 seeds is a binomial rate at 5%. The bound is the smallest k with
+        binom.sf(k, 40, 0.05) < 0.001, which is 7 (sf 0.00071; sf at 6 is 0.0034)."""
+        verdicts = [
+            jnwb.granger(
+                *_asymmetric_noise_pair(6.0, seed=seed),
+                order=8,
+                n_surrogates=99,
+                rng=0,
+                reversal_control=True,
+            ).diagnostics["reversal_verdict"]
+            for seed in range(40)
+        ]
+        assert verdicts.count("strong") <= 7, verdicts
+
+    def test_a_common_source_pair_gains_a_direction_from_the_noise_asymmetry(self):
+        """The case the row names. The two channels observe one source and do not interact,
+        so there is no direction to report, and y is the noisier one."""
         noisy = jnwb.granger(
             *_asymmetric_noise_pair(6.0), order=8, n_surrogates=99, rng=0
-        )
-
-        assert clean.p_x_to_y == pytest.approx(0.65), (
-            "with matched noise the pair is correctly not significant"
         )
         f_noisy = noisy.diagnostics["f_x_to_y"]
         assert f_noisy == pytest.approx(self.F_XY_UNCOUPLED_NOISY, rel=0.05), (
             f"the asymmetric fixture no longer reproduces: {f_noisy!r}"
         )
-        assert noisy.p_x_to_y == pytest.approx(0.01), (
-            "the direction reads significant although no coupling exists"
+        assert noisy.p_x_to_y < 0.05, (
+            "the direction reads significant although no interaction exists"
         )
-        assert noisy.net > 0.0, "and at this order the credit runs x to y"
-        matched_noise = jnwb.granger(
-            *_asymmetric_noise_pair(1.0), order=8, n_surrogates=99, rng=0
-        )
-        assert f_noisy < matched_noise.diagnostics["f_x_to_y"], (
-            "the inflation must come from the asymmetry, not from the noise alone"
-        )
+        assert noisy.net > 0.0, "and the net credits the cleaner channel, x"
 
-    def test_the_credited_direction_is_set_by_the_order_not_by_the_noise_ratio(self):
-        """The finding that revises the row's own description. At order 1 the credit runs
-        y to x; at every order from 2 up it runs x to y. Which channel is credited is a
-        property of the fitted order, so "the better-signal channel appears to lead" is
-        not what happens on this fixture -- neither channel leads."""
-        by_order = {}
+    def test_matched_noise_reads_significant_both_ways(self):
+        """Without any asymmetry the same pair is not silent: a source seen through noise
+        is not a finite VAR, so each channel's past predicts the other at every order
+        tested. What the asymmetry adds is a consistent net sign."""
         for order in (1, 2, 8):
-            credits = set()
-            for seed in range(10):
-                result = jnwb.granger(
-                    *_asymmetric_noise_pair(6.0, seed=seed),
-                    order=order,
-                    n_surrogates=99,
-                    rng=0,
-                )
-                if result.p_x_to_y < 0.05 and result.p_y_to_x >= 0.05:
-                    credits.add("x_to_y")
-                elif result.p_y_to_x < 0.05 and result.p_x_to_y >= 0.05:
-                    credits.add("y_to_x")
-            by_order[order] = credits
-        assert by_order[1] == {"y_to_x"}, (
-            f"order 1 must credit the reverse direction, got {by_order[1]}"
-        )
-        assert by_order[2] == {"x_to_y"}, (
-            f"order 2 must credit x to y, got {by_order[2]}"
-        )
-        assert by_order[8] == {"x_to_y"}, (
-            f"order 8 must credit x to y, got {by_order[8]}"
-        )
-
-    def test_matched_noise_reports_nothing_at_any_order(self):
-        """The control that makes the asymmetry necessary rather than incidental: the same
-        pair with matched noise is silent at every order tested."""
-        for order in (1, 2, 4, 8, 20):
             result = jnwb.granger(
                 *_asymmetric_noise_pair(0.0), order=order, n_surrogates=99, rng=0
             )
-            assert result.p_x_to_y > 0.05, f"order {order} must not credit x to y"
-            assert result.p_y_to_x > 0.05, f"order {order} must not credit y to x"
+            assert result.p_x_to_y < 0.05, f"order {order}: x to y must read significant"
+            assert result.p_y_to_x < 0.05, f"order {order}: y to x must read significant"
+
+    def test_the_cleaner_channel_is_credited_at_every_order(self):
+        """The net sign follows the noise, not the fitted order: with 6x noise on y the net
+        runs x to y at orders 1, 2 and 8 in 10 of 10 seeds (20 of 20 when measured)."""
+        for order in (1, 2, 8):
+            nets = [
+                jnwb.granger(
+                    *_asymmetric_noise_pair(6.0, seed=seed), order=order, n_surrogates=0
+                ).net
+                for seed in range(10)
+            ]
+            assert all(net > 0.0 for net in nets), f"order {order}: {nets}"
 
     def test_the_significance_survives_a_null_that_preserves_both_marginals(self):
         """Rules out one alternative and no more. The shipped surrogate null could have been
         mis-calibrated; against a null that phase-randomises y, destroying cross-dependence
         while leaving each series' power spectrum intact, the observed F still sits far
-        outside it. That the asymmetry comes from unequal observation noise rather than
-        from VAR order or latent structure is not settled here and is not claimed."""
+        outside it."""
         x, y = _asymmetric_noise_pair(6.0)
         observed = jnwb.granger(x, y, order=8, n_surrogates=0, rng=0).diagnostics[
             "f_x_to_y"
@@ -666,7 +667,7 @@ class TestSignalToNoiseAsymmetry:
     def test_a_real_coupling_survives_the_same_asymmetry(self):
         """The complement, on a pair that does couple one way at a lag. Here the reported
         direction is the true one at every noise level and what the noise destroys is the
-        effect size: `f_x_to_y` falls from about 715 to about 61 between 0.5x and 4x. The
+        effect size: `f_x_to_y` falls from about 439 to about 34 between 0.5x and 4x. The
         F statistic is invariant to per-channel rescaling, so added noise weakens both
         directions rather than swapping them.
         """
@@ -681,8 +682,8 @@ class TestSignalToNoiseAsymmetry:
         assert result.p_x_to_y == pytest.approx(0.05), (
             "x to y is credited, at the floor"
         )
-        assert result.p_y_to_x > 0.5, "y to x is not credited"
-        assert f_xy > 50.0
+        assert result.p_y_to_x > 0.05, "y to x is not credited"
+        assert f_xy > 10.0 * result.diagnostics["f_y_to_x"]
         assert result.diagnostics["f_y_to_x"] < 2.0
 
     def test_the_effect_size_collapses_while_the_direction_holds(self):
@@ -723,37 +724,38 @@ class TestSignalToNoiseAsymmetry:
         assert powers_y[1] > powers_y[0], "y's power rises with its noise"
         assert (
             jnwb.granger(*_snr_pair(0.5), order=12, n_surrogates=19, rng=0).p_y_to_x
-            > 0.5
+            > 0.05
             and jnwb.granger(*_snr_pair(4.0), order=12, n_surrogates=19, rng=0).p_y_to_x
-            > 0.5
+            > 0.05
         ), "and the direction is credited the same way at both"
 
 
-def _routed_influence_pair(seed=3, n=N_TIMES, lag=5, gain=0.7):
+def _routed_influence_pair(seed=3, n=N_TIMES, lag=3, gain=0.7):
     """x drives z, z drives y, and x never drives y directly.
 
-    Ground truth: the only path from x to y runs through z, so a bivariate fit that
-    credits x is crediting an influence that a third signal carries. Returns (x, y, z),
-    each (n_times,).
+    Ground truth: the only path from x to y runs through z, so a bivariate fit credits x
+    with an influence that a third signal carries. Each link has lag
+    `lag` (3 by default), so the path from x to y has lag 6, within order 8. Each noise
+    draw has its own stream, so none repeats x's innovations. Returns (x, y, z), each
+    (n_times,).
     """
-    rng = np.random.default_rng(seed)
     x = _ar_pair(n, seed, phi1=0.5, phi2=0.0)
     z = np.zeros(n)
     y = np.zeros(n)
-    e_z = rng.normal(size=n)
-    e_y = rng.normal(size=n)
+    e_z = np.random.default_rng([seed, 1]).normal(size=n)
+    e_y = np.random.default_rng([seed, 2]).normal(size=n)
     for i in range(lag, n):
         z[i] = gain * x[i - lag] + e_z[i]
         y[i] = gain * z[i - lag] + e_y[i]
     return x, y, z
 
 
-def _direct_influence_pair(seed=3, n=N_TIMES, lag=5, gain=0.7):
-    """x drives y directly, as the control for the class above."""
-    rng = np.random.default_rng(seed)
+def _direct_influence_pair(seed=3, n=N_TIMES, lag=3, gain=0.7):
+    """x drives y directly at lag `lag` (3 by default), as the control for the class below.
+    The noise draw has its own stream, so it does not repeat x's innovations."""
     x = _ar_pair(n, seed, phi1=0.5, phi2=0.0)
     y = np.zeros(n)
-    e_y = rng.normal(size=n)
+    e_y = np.random.default_rng([seed, 1]).normal(size=n)
     for i in range(lag, n):
         y[i] = gain * x[i - lag] + e_y[i]
     unrelated = np.random.default_rng(seed + 9).normal(size=n)
@@ -773,10 +775,10 @@ class TestBivariateAgainstConditionalGranger:
     """
 
     #: Bivariate vs conditional `f_x_to_y` at order 8, and the direct-influence control.
-    ROUTED_BIVARIATE_F = 216.69
-    ROUTED_CONDITIONAL_F = 0.10071
-    DIRECT_BIVARIATE_F = 132.20
-    DIRECT_CONDITIONAL_F = 131.88
+    ROUTED_BIVARIATE_F = 105.86
+    ROUTED_CONDITIONAL_F = 0.3945
+    DIRECT_BIVARIATE_F = 280.57
+    DIRECT_CONDITIONAL_F = 279.56
 
     def test_a_bivariate_fit_credits_an_influence_routed_through_a_third_signal(self):
         """The row's case. x does not drive y; z does. The bivariate fit sees only x and y
@@ -793,11 +795,11 @@ class TestBivariateAgainstConditionalGranger:
         assert bivariate.p_x_to_y < 0.05, (
             "the bivariate fit calls the influence significant"
         )
-        assert conditional.p_x_to_y > 0.2, (
-            "while conditioning on the signal that carries the path does not"
+        assert conditional.p_x_to_y > 0.05, (
+            "while conditioning on the signal that carries the path leaves it at the null level"
         )
 
-    def test_conditioning_removes_the_routed_influence_by_orders_of_magnitude(self):
+    def test_conditioning_shrinks_the_routed_influence_by_more_than_an_order_of_magnitude(self):
         x, y, z = _routed_influence_pair()
         bivariate = jnwb.granger(x, y, order=8, n_surrogates=99, rng=0)
         conditional = jnwb.granger(x, y, order=8, Z=z, n_surrogates=99, rng=0)
@@ -807,8 +809,8 @@ class TestBivariateAgainstConditionalGranger:
         assert f_conditional == pytest.approx(self.ROUTED_CONDITIONAL_F, rel=0.05), (
             f"the conditional fixture no longer reproduces: {f_conditional!r}"
         )
-        assert f_conditional < f_bivariate / 100.0, (
-            "conditioning must remove the routed influence, not merely shrink it"
+        assert f_conditional < f_bivariate / 20.0, (
+            "conditioning must shrink the routed influence more than twentyfold"
         )
 
     def test_a_direct_influence_survives_conditioning(self):

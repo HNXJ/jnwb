@@ -59,6 +59,11 @@ print(f"Net: {result.net:.4f}")
 `granger_causality` raise `ValueError` on `0`, a fraction or a bool rather than fitting a model
 with no history, which would read as no coupling.
 
+`granger(..., reversal_control=True)` with `n_surrogates > 0` refits both directions on the
+time-reversed trials at the same orders and reports `reversal_verdict`: `strong` when the net
+direction changes sign under reversal and both net p-values are below 0.05, `not supported` when
+the sign does not change, and `weak` otherwise (Winkler et al., 2016). The verdict is predictive, as the rest of `granger` is.
+
 ### Spectral Granger (`granger_spectral`)
 
 Frequency-resolved Granger with optional band summaries in `per_band`:
@@ -76,8 +81,10 @@ assert spectral_res.spectrum is not None
 print("Beta-band summary:", spectral_res.per_band.get("beta"))
 ```
 
-`granger_spectral` is parametric. Published values from nonparametric Granger, as in
-[Vezoli et al. (2021)](references.md#pitfalls), are not directly comparable. The
+`granger_spectral` is parametric by default. `method="nonparametric"` factorizes the Welch
+cross-spectrum by Wilson's (1972) iteration and fits no VAR. It is not the multitaper estimate of
+[Vezoli et al. (2021)](references.md#pitfalls), so its values are not directly comparable with
+published multitaper values. The
 [pitfalls of coupling and direction](common_mistakes.md#interpretational-pitfalls-of-coupling-and-direction)
 are stated once there.
 

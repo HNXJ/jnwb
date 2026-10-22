@@ -1534,3 +1534,139 @@ class TestSurrogatePNaNDraws:
 
         assert np.isnan(_surrogate_p(np.array([0.1, 0.2]), np.nan, "greater"))
         assert np.isnan(_surrogate_p(np.full(4, np.nan), np.nan, "greater"))
+
+
+def _var2_x_to_y(seed, n=4000):
+    """x drives y at lags 1 and 2; y does not drive x. A stable VAR(2) (companion spectral
+    radius 0.55) with unit innovations, so the parametric fit at order 2 is the true model."""
+    rng = np.random.default_rng(seed)
+    e = rng.normal(size=(n, 2))
+    x = np.zeros(n)
+    y = np.zeros(n)
+    for t in range(2, n):
+        x[t] = 0.5 * x[t - 1] - 0.3 * x[t - 2] + e[t, 0]
+        y[t] = 0.4 * y[t - 1] - 0.2 * y[t - 2] + 0.5 * x[t - 1] + 0.3 * x[t - 2] + e[t, 1]
+    return x, y
+
+
+#: Median relative difference over frequencies between the Wilson-factorized and the parametric
+#: x-to-y spectrum at the true order (N = 4000, nperseg = 64, the same 33-point grid). Measured
+#: 0.1406, 0.1367 and 0.2008 at seeds 0, 1, 2; pinned at 1.5 x the worst.
+NONPARAMETRIC_TOLERANCE = 0.30125
+
+
+class TestDefaultPathIsUnchanged:
+    """The default path of each estimator still gives the value it gave before the
+    nonparametric branch and the reversal control were added."""
+
+    def test_granger_default_x_to_y_is_pinned(self):
+        x, y = _var2_x_to_y(0)
+        result = granger(x, y, order=2)
+        np.testing.assert_allclose(result.x_to_y, 0.4295609166523047, rtol=1e-12)
+
+    def test_granger_spectral_default_x_to_y_is_pinned(self):
+        x, y = _var2_x_to_y(0)
+        result = granger_spectral(x, y, fs=500.0, order=2)
+        np.testing.assert_allclose(result.x_to_y, 0.4289358751148893, rtol=1e-12)
+
+
+class TestNonparametricArgumentsAreRefusedNotIgnored:
+    """An argument the chosen route would not read is refused, not accepted and dropped."""
+
+    @pytest.mark.parametrize("kwargs", [
+        {"order": 2}, {"max_lag": 5}, {"criterion": "aic"}, {"n_freqs": 64},
+    ])
+    def test_nonparametric_refuses_a_parametric_only_argument(self, kwargs):
+        x, y = _var2_x_to_y(0)
+        with pytest.raises(ValueError, match=next(iter(kwargs))):
+            granger_spectral(x, y, fs=500.0, method="nonparametric", nperseg=500, **kwargs)
+
+    @pytest.mark.parametrize("kwargs", [
+        {"nperseg": 500}, {"noverlap": 250}, {"max_iter": 10}, {"tol": 1e-6},
+    ])
+    def test_parametric_refuses_a_nonparametric_only_argument(self, kwargs):
+        x, y = _var2_x_to_y(0)
+        with pytest.raises(ValueError, match=next(iter(kwargs))):
+            granger_spectral(x, y, fs=500.0, **kwargs)
+
+    def test_an_unknown_method_is_refused(self):
+        x, y = _var2_x_to_y(0)
+        with pytest.raises(ValueError, match="method"):
+            granger_spectral(x, y, fs=500.0, method="multitaper")
+
+    def test_reversal_control_without_surrogates_is_refused(self):
+        x, y = _var2_x_to_y(0)
+        with pytest.raises(ValueError, match="n_surrogates"):
+            granger(x, y, order=2, reversal_control=True)
+
+    def test_non_convergence_is_raised_and_names_the_count_and_the_residual(self):
+        x, y = _var2_x_to_y(0)
+        with pytest.raises(RuntimeError, match=r"in 1 iteration.*residual"):
+            granger_spectral(x, y, fs=500.0, method="nonparametric", nperseg=500, max_iter=1)
+
+
+class TestNonparametricSpectrum:
+    def test_the_x_to_y_spectrum_stays_within_its_pinned_gap_of_the_parametric_at_the_true_order(self):
+        worst = 0.0
+        for seed in (0, 1, 2):
+            x, y = _var2_x_to_y(seed)
+            parametric = granger_spectral(x, y, fs=500.0, order=2, n_freqs=33)
+            nonparametric = granger_spectral(x, y, fs=500.0, method="nonparametric", nperseg=64)
+            np.testing.assert_allclose(
+                nonparametric.spectrum["freqs"], parametric.spectrum["freqs"]
+            )
+            ref = parametric.spectrum["gc_x_to_y"]
+            assert parametric.x_to_y > 0.2, "fixture must carry the x-to-y coupling"
+            assert np.all(ref > 0.0), "the relative difference needs a non-zero reference"
+            rel = np.abs(nonparametric.spectrum["gc_x_to_y"] - ref) / np.abs(ref)
+            worst = max(worst, float(np.median(rel)))
+        assert worst <= NONPARAMETRIC_TOLERANCE, (
+            f"median relative difference {worst:.4f} exceeds the pinned {NONPARAMETRIC_TOLERANCE}"
+        )
+
+    def test_wilson_recovers_a_known_var2_factor_exactly(self):
+        """The factorization with no estimation error. The spectral matrix of the VAR(2) that
+        `_var2_x_to_y` simulates, sampled on a 64-point grid, is factorized by Wilson's iteration;
+        the innovation covariance and the transfer matrices come back to rtol 1e-6."""
+        from jnwb.connectivity._granger import _wilson_factor
+
+        a1 = np.array([[0.5, 0.0], [0.5, 0.4]])
+        a2 = np.array([[-0.3, 0.0], [0.3, -0.2]])
+        n = 64
+        eye = np.eye(2)
+        h_true = np.empty((n, 2, 2), dtype=complex)
+        for k in range(n):
+            w = 2.0 * np.pi * k / n
+            h_true[k] = np.linalg.inv(eye - a1 * np.exp(-1j * w) - a2 * np.exp(-2j * w))
+        assert np.max(np.abs(h_true - eye)) > 0.1, "the transfer must be non-trivial"
+        s_true = h_true @ np.conj(np.swapaxes(h_true, -1, -2))
+        psi, _, residual = _wilson_factor(s_true, 500, 1e-10)
+        assert residual < 1e-10
+        psi0 = np.fft.ifft(psi, axis=0)[0]
+        sigma = (psi0 @ np.conj(psi0.T)).real
+        h = psi[: n // 2 + 1] @ np.linalg.inv(psi0)
+        np.testing.assert_allclose(sigma, eye, rtol=1e-6, atol=1e-12)
+        np.testing.assert_allclose(
+            h, h_true[: n // 2 + 1], rtol=1e-6, atol=1e-6 * np.max(np.abs(h_true))
+        )
+
+    def test_y_to_x_stays_below_its_surrogate_95th_percentile(self):
+        x, y = _var2_x_to_y(0)
+        n = len(y)
+        shifts = np.random.default_rng(0).integers(n // 10, n - n // 10, size=99)
+        observed = granger_spectral(x, y, fs=500.0, method="nonparametric", nperseg=500)
+        null_yx = np.array([
+            granger_spectral(x, np.roll(y, s), fs=500.0, method="nonparametric", nperseg=500).y_to_x
+            for s in shifts
+        ])
+        null_xy = np.array([
+            granger_spectral(np.roll(x, s), y, fs=500.0, method="nonparametric", nperseg=500).x_to_y
+            for s in shifts
+        ])
+        assert np.ptp(null_yx) > 0.0, "the surrogate null must not be degenerate"
+        assert observed.x_to_y > np.percentile(null_xy, 95), (
+            "the coupled direction must sit above its own surrogate null"
+        )
+        assert observed.y_to_x < np.percentile(null_yx, 95), (
+            "y to x must stay below its surrogate 95th percentile"
+        )

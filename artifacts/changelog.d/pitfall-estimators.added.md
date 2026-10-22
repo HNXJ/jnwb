@@ -1,0 +1,2 @@
+- `granger_spectral(method="nonparametric")`: Welch and Wilson factorization, no VAR order (`_granger.py`).
+- `granger(reversal_control=True)`: a `reversal_verdict` of strong, weak or not supported (`_granger.py`).

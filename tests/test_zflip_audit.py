@@ -108,7 +108,7 @@ class TestDocumentedEstimatorLimits:
     """The docstring states what the delay measures; these check those statements."""
 
     def test_equal_power_zero_lag_mixing_halves_the_delay(self):
-        rng = np.random.default_rng(7)
+        rng = np.random.default_rng([7, 1])
         s, common = _source(0), _source(7)
         lfp = np.array([_shift(s, c * DT) + common + 0.05 * rng.normal(size=N) for c in range(12)])
         res = _zflip(lfp)
