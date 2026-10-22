@@ -321,7 +321,8 @@ class TestCommonInput:
     """Common input: an unrecorded source drives both signals and leaves a Granger
     direction between
     them (Bastos and Schoffelen 2016 table 2, common-input row). No estimator removes it;
-    recording the driver and conditioning on it does."""
+    recording the driver and conditioning on it does, and `cross_area_coherence(condition_on=...)`
+    is that conditioning for coherence, which the last test of the class reads."""
 
     #: `diagnostics['f_x_to_y']` bivariate vs conditional at order 3, which must be at
     #: least the larger delay d2 = 3. The ratio is about 1680.
@@ -372,6 +373,23 @@ class TestCommonInput:
             > 0.5 * bivariate.diagnostics["f_x_to_y"]
         ), "an order below the delay difference cannot condition the driver away"
 
+    def test_partial_coherence_given_the_driver_reads_as_no_coupling(self):
+        """The coherence form of the repair. The driver reaches both channels, so their alpha
+        coherence is high and significant; conditioning the coherence on the recorded driver
+        leaves the partial coherence at the circular-shift null."""
+        driver, x, y = _common_input_pair()
+        result = jnwb.cross_area_coherence(
+            x, y, fs=FS, freq_bands=ALPHA_BAND, n_surrogates=49, rng=0, condition_on=driver
+        )
+        coherence = result["band_coherence"]["alpha"]
+        assert coherence > 0.5, f"the driven band must read as coupled: {coherence!r}"
+        assert result["band_significance"]["alpha"] < 0.05, (
+            "and the coherence is significant against the circular-shift null"
+        )
+        assert result["partial_band_significance"]["alpha"] > 0.05, (
+            "conditioning on the driver removes it, so the partial coherence is at the null level"
+        )
+
 
 def _independent_pair(seed=0, n=N_TIMES):
     """Two uncoupled noise sources: the null every bias-free measure is read against."""
@@ -401,11 +419,37 @@ def _ppc_over_segments(x, y, nperseg, freq_range=(8.0, 14.0)):
     return jnwb.pairwise_phase_consistency(np.array(segment_phases))
 
 
+N_TRIALS = 20
+N_TRIAL_TIMES = 1000
+
+
+def _stream_trials(seed, rhythm=False):
+    """Independent trials, each channel drawn from its own stream so no trial repeats
+    another's noise. With `rhythm`, a 24 Hz oscillation shared by x and y rides on each trial
+    at its own random phase. Returns (x, y), each (N_TRIALS, N_TRIAL_TIMES)."""
+    t = np.arange(N_TRIAL_TIMES) / FS
+    x = np.empty((N_TRIALS, N_TRIAL_TIMES))
+    y = np.empty((N_TRIALS, N_TRIAL_TIMES))
+    for k in range(N_TRIALS):
+        rng_x = np.random.default_rng([seed, 0, k])
+        rng_y = np.random.default_rng([seed, 1, k])
+        shared = 0.0
+        if rhythm:
+            phase = rng_x.uniform(0.0, 2.0 * np.pi)
+            shared = np.sin(2.0 * np.pi * 24.0 * t + phase)
+        x[k] = shared + rng_x.normal(size=N_TRIAL_TIMES)
+        y[k] = shared + rng_y.normal(size=N_TRIAL_TIMES)
+    assert x.shape == (N_TRIALS, N_TRIAL_TIMES), "fixture must build the trials it is named after"
+    return x, y
+
+
 class TestSampleSizeBias:
     """Sample-size bias: coherence sits near 1/K for K Welch segments under no coupling.
     The bias-free
     measures are `pairwise_phase_consistency` and `wpli`'s debiased value; both stay near
-    zero at every segment count (Bastos and Schoffelen 2016 table 2, sample-size row)."""
+    zero at every segment count (Bastos and Schoffelen 2016 table 2, sample-size row).
+    The coherence form of the repair is `cross_area_coherence(bias_floor="paired_epochs")`,
+    whose trial-level floor the last test of the class reads against the observed coherence."""
 
     #: (nperseg, coherence, wpli, wpli_debiased_sq, ppc) at seed 0, K = 4, 8, 16, 32.
     ROWS = (
@@ -473,6 +517,27 @@ class TestSampleSizeBias:
         assert few["wpli"] > 2.0 * many["wpli"], "plain wPLI is the biased one"
         assert abs(few["wpli_debiased_sq"]) < abs(many["wpli"]), (
             "the debiased value must not carry the bias"
+        )
+
+    def test_the_paired_epoch_floor_holds_independent_trials_and_a_shared_rhythm_clears_it(self):
+        """The coherence form of the repair. On independent trials every band's observed
+        coherence sits at or below its paired-epoch floor; a 24 Hz rhythm shared by the two
+        channels lifts the beta band above its floor, so the floor does not hide coupling."""
+        bands = {"alpha": (8.0, 14.0), "beta": (14.0, 30.0)}
+        x, y = _stream_trials(SEED)
+        null = jnwb.cross_area_coherence(
+            x, y, fs=FS, freq_bands=bands, bias_floor="paired_epochs", rng=0, n_pairings=50
+        )
+        for band in bands:
+            observed, floor = null["band_coherence"][band], null["floor_q95"][band]
+            assert observed <= floor, f"{band}: observed {observed} above floor_q95 {floor}"
+
+        x, y = _stream_trials(SEED, rhythm=True)
+        rhythm = jnwb.cross_area_coherence(
+            x, y, fs=FS, freq_bands=bands, bias_floor="paired_epochs", rng=0, n_pairings=50
+        )
+        assert rhythm["band_coherence"]["beta"] > rhythm["floor_q95"]["beta"], (
+            "a shared 24 Hz rhythm must lift beta above its paired-epoch floor"
         )
 
 
