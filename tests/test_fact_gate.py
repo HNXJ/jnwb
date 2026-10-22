@@ -167,6 +167,42 @@ def test_a_graph_with_no_routing_targets_is_not_held():
     assert status(g, "computed:routed_citations")[0] == "VIOLATED"
 
 
+def test_a_routed_export_outside_the_exclusion_list_is_flagged():
+    g = cited_graph([])
+    assert ["jnwb-demo", "op"] in g["relations"]["routes"], "the planted export must be routed"
+    assert all(name != "op" for name, _ in g["relations"].get("cites", [])), (
+        "the planted export must have no cites edge")
+    assert "op" not in build_fact_graph.routed_citation_exclusions(), (
+        "the planted export must not be on the exclusion list")
+    found, reasons = status(g, "computed:routed_citations")
+    assert found == "VIOLATED"
+    assert reasons == ["computed:routed_citations: op: routed by jnwb-demo and cites no reference"]
+
+
+def test_a_routed_export_on_the_exclusion_list_is_held_without_a_citation(monkeypatch):
+    g = cited_graph([])
+    assert ["jnwb-demo", "op"] in g["relations"]["routes"], "the planted export must be routed"
+    assert all(name != "op" for name, _ in g["relations"].get("cites", [])), (
+        "the planted export must have no cites edge")
+    monkeypatch.setattr(build_fact_graph, "routed_citation_exclusions", lambda *a, **k: {"op"})
+    assert status(g, "computed:routed_citations") == ("HELD", [])
+
+
+def test_the_exclusion_list_holds_72_names_beside_its_header():
+    excluded = build_fact_graph.routed_citation_exclusions()
+    assert len(excluded) == 72, sorted(excluded)
+    assert all(name and not name.startswith("#") for name in excluded)
+
+
+def test_the_exclusion_list_covers_every_live_uncited_routed_export(live):
+    _, g = live
+    uncited = build_fact_graph.uncited_routed_heads(g)
+    assert uncited, "the live graph must hold uncited routed exports"
+    excluded = build_fact_graph.routed_citation_exclusions()
+    assert set(uncited) <= excluded, sorted(set(uncited) - excluded)
+    assert fact_gate.routed_citations(g, CONSTANTS) == []
+
+
 def test_every_live_citation_names_an_export(live):
     import jnwb
 

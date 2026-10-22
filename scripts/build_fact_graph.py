@@ -356,6 +356,29 @@ def read_references(text: str) -> Tuple[Dict[str, Dict[str, Any]], List[List[str
             [list(pair) for pair in sorted(concerned)])
 
 
+def routed_citation_exclusions(root: Path = REPO_ROOT) -> set:
+    """The exclusion-list names: every non-blank line of the ruled list that is not its ``#``
+    header. The list is ruled in ``artifacts/rulings/2026-10-13.md`` (row "Uncited routed
+    exports")."""
+    path = root / "artifacts" / "evidence" / "0.2.14" / "routed_citation_exclusions.txt"
+    return {line.strip() for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.startswith("#")}
+
+
+def uncited_routed_heads(graph: Dict[str, Any]) -> List[str]:
+    """The distinct routed exports with no ``cites`` edge, in sorted order: each routing target
+    that is a public function (export kind function/class) and uncited, reduced to the head of
+    its dotted path. A class is cited through any of its methods."""
+    exports = graph["entities"].get("export", {})
+    targets = graph["entities"].get("route_target", {})
+    cited = {name for name, _ in graph["relations"].get("cites", [])}
+    cited |= {name.split(".")[0] for name in cited if "." in name}
+    return sorted({target.split(".")[0] for target in targets
+                   if exports.get(targets[target].get("export"), {}).get("kind")
+                   in ("function", "class")
+                   and target not in cited})
+
+
 # ------------------------------------------------------------------------ source scans
 
 #: The global random state's seed, under the dotted names NumPy and the standard library export.

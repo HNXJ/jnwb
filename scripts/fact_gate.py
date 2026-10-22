@@ -35,9 +35,10 @@ Computed predicates:
   partition   no routed operation belongs to two shipped domain skills (every skill but the
               router, ``jnwb``), and each owns at least ``k`` of them. A router row naming an
               operation does not share it with the domain skill that owns it.
-   routed_citations  every routing target that is a public function (export kind
-               function/class) is cited by a reference: it has a ``cites`` edge. Utility
-               exports are listed like the rest; no name is excluded.
+   routed_citations  no routed export goes uncited unless it is on the recorded
+               exclusion list (``artifacts/evidence/0.2.14/routed_citation_exclusions.txt``):
+               the unit is distinct routed export names, not routing targets, and only
+               function/class exports are checked. It does not check that methods cite.
 
   global_seeds     no tracked file seeds the global random state (the graph's ``global_seeds``)
   rng_parameters   every function in ``jnwb/`` or ``scripts/`` that draws from a random module
@@ -306,29 +307,20 @@ def wrapper_defaults(graph: Graph, constants: Constants) -> List[str]:
 
 
 def routed_citations(graph: Graph, constants: Constants) -> List[str]:
-    """Each routing target that is a public function (export kind function/class) and has no
-    ``cites`` edge, with the skills that route it. Utility exports are listed like the rest;
-    no name is excluded."""
-    exports = graph["entities"].get("export", {})
+    """Each distinct routed export with no ``cites`` edge that the ruled exclusion list does
+    not name. The check is that no routed export goes uncited unless it is on the recorded
+    list; it does not check that methods cite."""
     targets = graph["entities"].get("route_target", {})
     if not targets:
         return ["the graph has no routing targets, so no citation could be checked"]
-    cited = {name for name, _ in graph["relations"].get("cites", [])}
-    # A class is cited through any of its methods (`StatisticalAnalysis.fdr_correct`).
-    cited |= {name.split(".")[0] for name in cited if "." in name}
+    excluded = build_fact_graph.routed_citation_exclusions()
+    uncited = build_fact_graph.uncited_routed_heads(graph)
     skills: Dict[str, List[str]] = {}
     for skill, target in graph["relations"].get("routes", []):
-        skills.setdefault(target, []).append(skill)
-    found = []
-    for target in sorted(targets):
-        head = targets[target].get("export")
-        if head is None or exports.get(head, {}).get("kind") not in ("function", "class"):
-            continue
-        if target in cited:
-            continue
-        found.append(f"{target}: routed by {', '.join(sorted(skills.get(target, [])))} "
-                     "and cites no reference")
-    return found
+        skills.setdefault(target.split(".")[0], []).append(skill)
+    return [f"{head}: routed by {', '.join(sorted(set(skills.get(head, []))))} "
+            "and cites no reference"
+            for head in uncited if head not in excluded]
 
 
 COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
