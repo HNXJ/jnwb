@@ -43,7 +43,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
 | 1 | M mutation | 07-21 (the core five), then 07-22 | Muse | nothing |
 | 1 | R reading | 11-02 (D10, ruled 2026-09-29: a declared shallow end) | Haiku | nothing |
-| 1 | S estimators | 14-07, then 14-06 | Muse | wave-0 rulings |
+| 1 | S estimators | 14-06 | Muse | wave-0 rulings |
 | 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-04 to 16-07, 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-18, 13-04, 15-22 (a draft to Hamm) | Muse | 13-04's ruling |
 | 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; when neither exists, the item stops and goes to Hamm, never to 0.2.15 |
@@ -106,14 +106,6 @@ Accept: the 0.2.14 receipt and its test pass; defaults change only where a sweep
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 - 15-20: Goal 10 bounds the apparatus ("a new gate or process replaces one") with no check; nothing lists each gate's purpose, runtime, unique failure detection, duplicated assertions and maintenance burden (external review, 2026-10-15). Accept (ruled 2026-10-15): that inventory first, then a measurable constraint proposed to Hamm that does not reward deleting valuable tests; no universal gate-count ceiling. Two candidate checks were built and not integrated (2026-10-15), each to land only by replacing a check the inventory shows weaker: warning reads filter by category (it found one site beyond 51a29bb7's seven), and every artifact path code names is tracked. Check: that inventory first, then a measurable constraint proposed to Hamm that does not reward deleting valuable tests; no universal gate-count ceiling. Waits: Ruled 2026-10-19 with 12-05: the inventory and a prune proposal land in 0.2.14.
-
-### 14-07 A trial-based noise correlation, if a user needs it
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: nothing.
-Writes: `jnwb/spiking.py`, `tests/test_spiking.py`, `skills/jnwb-spiking/SKILL.md`.
-- 14-07: A trial-based noise correlation (Cohen and Kohn's $r_{sc}$) is absent beside the time-bin form, if jaxfne or a study needs it; Hamm rules whether it is a mode or a function. Check: Hamm rules whether it is a mode or a function. Waits: Ruled 2026-10-19: a function, `noise_correlation`, whose signature goes to Hamm first.
-Accept: the ruled form closed with a test, or the item deleted when no user needs it.
 
 ### 13-04 A screen fitted to caller-supplied curation labels
 
@@ -336,6 +328,6 @@ Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutan
 ### 16-19 A manifest of the public surface (goal F2)
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 07-21, 07-22, 14-06, 14-07, 13-04.
+Role: jnwb-developer. Skill: none. Blocked by: 07-21, 07-22, 14-06, 13-04.
 Writes: `tests/test_public_surface_manifest.py`, `artifacts/process/public_surface.json`.
 - 16-19: After 0.2.14 a public symbol, module or skill enters only by a ruling that names it (goal F2, ruled 2026-10-21), and nothing records the surface to compare against. Check: a test that compares `jnwb.__all__`, the `jnwb/` module list and `skills/` with the manifest and fails, naming the entry, on an addition or removal the manifest does not record; a planted extra symbol fails it.
