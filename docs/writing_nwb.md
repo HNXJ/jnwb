@@ -27,3 +27,21 @@ difference would be unexplained.
 
 A failed check is `ok=False` in the returned `MutationReport`; writers turn it into an
 error and leave the file for inspection.
+
+## Writing a caller-built file
+
+`jnwb.write_nwb` writes a caller-built `NWBFile` to `dst` and reports the write. Its
+signature is `write_nwb(nwbfile, *, dst, overwrite=False, verify=True)`, and it returns
+a `MutationReport`.
+
+| Refusal | Error | What is left behind |
+|---|---|---|
+| `nwbfile` is not a `NWBFile` | `TypeError` | nothing written |
+| a required field left empty | `MissingRequiredNWBFieldError` | nothing written |
+| `dst` exists and `overwrite=False` | `FileExistsError` | nothing written |
+| the object fails schema validation before writing | `NWBMutationError` | nothing written |
+| a post-write check fails with `verify=True` | `NWBVerificationError` | the file is left in place |
+
+The other error classes, `AmbiguousMappingError`, `UnidentifiableRepairError` and
+`UndeclaredUnitError`, subclass `NWBMutationError`. They are reserved for mutation operations
+that are not yet in jnwb; `write_nwb` does not raise them.
