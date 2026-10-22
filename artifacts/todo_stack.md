@@ -42,7 +42,6 @@ elsewhere as `python -m pytest tests/ -q`.
 |---|---|---|---|---|
 | 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
 | 1 | M mutation | 07-21 (the core five), then 07-22 | Muse | nothing |
-| 1 | R reading | 11-02 (fact I2's scan) | Haiku | nothing |
 | 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-05 to 16-07, 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-18, 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; when neither exists, the item stops and goes to Hamm, never to 0.2.15 |
@@ -59,7 +58,7 @@ What holds when 0.2.14 is released, against the goal in `artifacts/goal.md` (rul
 | 1 | The NWB mutation API: the core five, then the execution and cache API, each signature ruled by Hamm before code | `docs/api.md`, `CHANGELOG.md` and the `skills/` routing rows name each symbol; `tests/test_skills_validation.py` passes; each function has a round-trip test on a written file | 07-21, 07-22 |
 | 2 | The four pitfall estimators, `noise_correlation` and `screen_units_against_labels`, as ruled 2026-10-20 | each has a planted-case test that recovers the planted value and one that refuses the documented bad input; each cites its source in `docs/references.md` | 14-06, 14-07, 13-04 |
 | 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | 16-01, 16-02 |
-| 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | 11-01, 11-02 |
+| 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | 11-01 |
 | 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 16-05 to 16-07, 16-10, 11-07, 12-11, 10-10, 11-06, 09-04, 11-09, 12-08, 11-03, 12-07 |
 | 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 16-03, 15-18, 15-22 |
 | 7 | Work that needs outside code lands (ruled 2026-10-21: nothing in this cycle is deferred) | each item is gone from this file | 12-21, 14-08 |
@@ -144,14 +143,6 @@ Writes: `jnwb/execution.py`, `tests/test_execution_api.py`, `docs/execution.md`,
 - 07-22: No public execution and cache API exists. Check: a test that fails before the repair and passes after. Waits: After 07-21; surface ruled 2026-09-29 (per-call `device=` and `n_jobs=` plus one recorded execution field); 0.2.14's theme by the 2026-10-19 ruling.
 Accept: a cache key includes input hash, parameters and version, with an invalidation test; no control changes a number.
 
-### 11-02 The I2 scan
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/build_fact_graph.py`, `scripts/fact_gate.py`, `tests/test_fact_gate.py`, the modules a repair touches and their tests, the I2 cell of `artifacts/fact_stack.md`.
-- 11-02: Fact I2 (a unit change, or a wrapper or default that changes the estimand, is a named parameter or fails) has no scan with a planted case; D10's declared shallow end landed in e4433366. Check: a scan reports a planted silent unit conversion and a planted estimand-changing default as VIOLATED, and I2's holder cell names the scan (cells authorized 2026-10-20, 11-32).
-Accept: each check passes.
-
 ### 10-10 Signature types that compose
 
 Release: deferred-0.2.14.
@@ -220,7 +211,7 @@ Accept: the fact gate reports the row HELD, or it waits with Hamm's reason.
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-- 15-18: The `'unavailable'`/`'unresolved'` status, the `B` cap and `contact_spacing_um` landed (ruled 2026-10-15); `fuse_laminar_anchors` emits `'agree'` and `'disagree'` only once a calibrated separation threshold exists. Check: a test that fails before the repair and passes after. Waits: 15-19's calibration, done in 7ea17995. Moved to 0.2.14 by the 2026-10-19 theme ruling.
+- 15-18: The `'unavailable'`/`'unresolved'` status, the `B` cap and `contact_spacing_um` landed (ruled 2026-10-15); `fuse_laminar_anchors` emits `'agree'` and `'disagree'` only once a calibrated separation threshold exists. Check: a test that fails before the repair and passes after. Waits: a vFLIP-vFLIP2 separation calibration, which does not exist: 15-19 (7ea17995) calibrated vFLIP2's null acceptance by spacing, not the separation of the two crossovers; the generator and percentile for that threshold go to Hamm. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 
 ### 15-22 A `jnwb-sim-benchmark` skill
 
@@ -269,7 +260,7 @@ Accept: each check is red on the instance its bullet names and green on the live
 ### 07-05 A downstream paper agent can consume jnwb
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 11-02, 07-22.
+Role: jnwb-developer. Skill: none. Blocked by: 07-22.
 Writes: `jnwb/ontology.py`, `jnwb/paths.py`, `tests/test_ontology.py`, `tests/test_paths.py`, `tests/test_paths_identity.py`, `skills/jnwb/SKILL.md`, `CONTRIBUTING.md`.
 - 07-05: `jnwb.preflight` outcomes are not scored as data, results do not name their input's sha256 and object path (IA-27's tests for `resolve_nwb_path`, `sha256_file` and `require` land with it), `CONTRIBUTING.md` states no intake, and P-335's review (`artifacts/evidence/0.2.13/p335_laminar_curation_review.md`) leaves the working-value defaults uncited and the inner stages unexposed, for a ruling. Check: a test per outcome reads those three from the returned object (`tests/test_ontology.py`); a round trip by path and hash passes; `CONTRIBUTING.md` holds that sentence; the packet reports a pass or fail for each of the four. Waits: After 11-02; new downstream capability, not a defect. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: a test per outcome in (a); a round trip in (b) by path and hash; gate 6 passes.
