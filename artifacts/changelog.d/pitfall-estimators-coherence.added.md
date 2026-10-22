@@ -1,2 +1,2 @@
-- `cross_area_coherence(condition_on=...)` reports `partial_coherence` per band beside `band_coherence`, with a circular-shift `partial_band_significance` and `partial_coherence_spectrum` (`jnwb/spectral/_coupling.py`).
-- `cross_area_coherence(bias_floor="paired_epochs")` reports `floor_mean` and `floor_q95` per band, the coherence of randomly paired trials from uniform derangements (`jnwb/spectral/_coupling.py`).
+- `cross_area_coherence(condition_on=...)` adds band `partial_coherence` and a p-value (`jnwb/spectral/_coupling.py`).
+- `cross_area_coherence(bias_floor="paired_epochs")` adds a per-band trial-pairing floor (`jnwb/spectral/_coupling.py`).

@@ -686,6 +686,9 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("spectral/_coupling.py", "cross_area_coherence", "Exception", ("computed",), False, 1):
         "GPU coherence -> CPU wholesale; the handler rebinds device_used = 'cpu', so the "
         "recorded device follows the value.",
+    ("spectral/_coupling.py", "_paired_epoch_floor", "Exception", ("floors", "frequencies", "observed"), False, 1):
+        "GPU paired-epoch floor -> CPU wholesale, announced by warn_device_fallback; the "
+        "handler rebinds device_used = 'cpu', so the recorded device follows the value.",
     ("jrsa/_stages.py", "_reduce_one", "AttributeError", (), True, 1):
         "cupy.median -> cupy.percentile(50) inside _reduce_one. The 50th percentile with "
         "linear interpolation IS the median; same number, different call. The label stays "

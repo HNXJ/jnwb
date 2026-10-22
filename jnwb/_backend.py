@@ -2,7 +2,7 @@
 
 Private module.
 
-Eighteen call sites across eight modules route through here. Each used to carry its own
+Nineteen call sites across eight modules route through here. Each used to carry its own
 probe and fallback policy, which caused two problems:
 
 * **The sites asked different questions.** Some treated a bare ``import cupy`` as proof
