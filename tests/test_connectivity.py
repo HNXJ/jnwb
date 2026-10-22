@@ -1750,3 +1750,19 @@ class TestTimeReversedControl:
         )
         assert first.diagnostics["p_net_forward"] == again.diagnostics["p_net_forward"]
         assert first.diagnostics["p_net_reversed"] == again.diagnostics["p_net_reversed"]
+
+
+def test_a_zero_spectral_denominator_is_undefined_not_zero_influence():
+    """A transfer matrix whose partialled diagonal is zero leaves Geweke's ratio undefined at
+    that frequency; it reads NaN, never the 0 of no influence."""
+    from jnwb.connectivity._granger import _geweke_gc
+
+    sigma = np.eye(2)
+    degenerate = np.zeros((1, 2, 2), dtype=complex)
+    degenerate[0, 1, 1] = 1.0
+    assert abs(degenerate[0, 0, 0] + sigma[0, 1] / sigma[0, 0] * degenerate[0, 0, 1]) == 0, (
+        "fixture must zero the Y->X denominator"
+    )
+    y_to_x, x_to_y = _geweke_gc(degenerate, sigma)
+    assert np.isnan(y_to_x[0])
+    assert np.isfinite(x_to_y[0])

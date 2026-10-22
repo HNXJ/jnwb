@@ -859,12 +859,12 @@ def _geweke_gc(h_grid: np.ndarray, sigma: np.ndarray) -> Tuple[np.ndarray, np.nd
         # Y -> X : partial out X's noise contribution to Y's innovation
         h11_t = h[0, 0] + (s12 / s11) * h[0, 1]
         denom_x = (abs(h11_t) ** 2) * s11
-        gc_y_to_x[fi] = np.log(s[0, 0].real / denom_x) if denom_x > 0 else 0.0
+        gc_y_to_x[fi] = np.log(s[0, 0].real / denom_x) if denom_x > 0 else np.nan
 
         # X -> Y
         h22_t = h[1, 1] + (s12 / s22) * h[1, 0]
         denom_y = (abs(h22_t) ** 2) * s22
-        gc_x_to_y[fi] = np.log(s[1, 1].real / denom_y) if denom_y > 0 else 0.0
+        gc_x_to_y[fi] = np.log(s[1, 1].real / denom_y) if denom_y > 0 else np.nan
     return gc_y_to_x, gc_x_to_y
 
 
@@ -1094,12 +1094,12 @@ def granger_spectral(
         # Y -> X : partial out X's noise contribution to Y's innovation
         h11_t = h[0, 0] + (s12 / s11) * h[0, 1]
         denom_x = (abs(h11_t) ** 2) * s11
-        gc_y_to_x[fi] = np.log(s[0, 0].real / denom_x) if denom_x > 0 else 0.0
+        gc_y_to_x[fi] = np.log(s[0, 0].real / denom_x) if denom_x > 0 else np.nan
 
         # X -> Y
         h22_t = h[1, 1] + (s12 / s22) * h[1, 0]
         denom_y = (abs(h22_t) ** 2) * s22
-        gc_x_to_y[fi] = np.log(s[1, 1].real / denom_y) if denom_y > 0 else 0.0
+        gc_x_to_y[fi] = np.log(s[1, 1].real / denom_y) if denom_y > 0 else np.nan
 
     warnings_all: List[str] = []
     min_val = float(min(gc_x_to_y.min(), gc_y_to_x.min()))
@@ -1646,6 +1646,6 @@ def _spectral_gc_from_var(
         s = h @ sigma @ h.conj().T
         d_x = (abs(h[0, 0] + (s12 / s11) * h[0, 1]) ** 2) * s11
         d_y = (abs(h[1, 1] + (s12 / s22) * h[1, 0]) ** 2) * s22
-        out_yx[fi] = max(np.log(s[0, 0].real / d_x), 0.0) if d_x > 0 else 0.0
-        out_xy[fi] = max(np.log(s[1, 1].real / d_y), 0.0) if d_y > 0 else 0.0
+        out_yx[fi] = max(np.log(s[0, 0].real / d_x), 0.0) if d_x > 0 else np.nan
+        out_xy[fi] = max(np.log(s[1, 1].real / d_y), 0.0) if d_y > 0 else np.nan
     return out_yx, out_xy

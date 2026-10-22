@@ -1,0 +1,1 @@
+- A spectral Granger ratio with a zero denominator is NaN, not the 0 of no influence (`jnwb/connectivity/_granger.py`).
