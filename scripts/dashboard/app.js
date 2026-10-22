@@ -677,6 +677,67 @@
     box.appendChild(list);
   }
 
+  // ---- validation cards ---------------------------------------------------
+
+  // One row per card: its section and title, the fields its receipt states, its path, the
+  // commit that wrote it and its digest, both shortened, and the HTML output when there is one.
+  function cardFields(card) {
+    return Object.keys(card.fields || {}).map(function (key) {
+      var value = card.fields[key];
+      return key + ': ' + (Array.isArray(value) ? value.join(', ') : String(value));
+    }).join('; ');
+  }
+
+  // The title over the receipt's path, and a link to the HTML output when there is one.
+  function cardReceipt(card) {
+    var box = make('div');
+    box.appendChild(make('div', '', String(card.title)));
+    var path = make('div');
+    textInto(path, card.path, true);
+    box.appendChild(path);
+    if (!isBlank(card.html)) {
+      var output = make('div');
+      linkOrText(output, 'HTML output', card.html);
+      box.appendChild(output);
+    }
+    return box;
+  }
+
+  // The commit git last changed the receipt in, the commit it states, and its digest.
+  function cardDigest(card) {
+    var box = make('div');
+    var commit = make('div');
+    textInto(commit, String(card.commit).slice(0, 7), true);
+    box.appendChild(commit);
+    if (!isBlank(card.recorded_commit)) {
+      box.appendChild(make('div', '', 'states ' + String(card.recorded_commit).slice(0, 7)));
+    }
+    var digest = make('div');
+    textInto(digest, String(card.sha256).slice(0, 12), true);
+    box.appendChild(digest);
+    return box;
+  }
+
+  function renderValidations(data) {
+    var cards = lookup(data, 'validations');
+    var columns = [
+      { label: 'Section', sort: field('section'), cell: field('section') },
+      { label: 'Receipt', sort: field('title'), cell: cardReceipt },
+      { label: 'States', sort: cardFields, cell: cardFields },
+      { label: 'Commit, SHA-256', sort: field('commit'), cell: cardDigest }
+    ];
+    makeTable(
+      document.getElementById('validation-table'),
+      document.getElementById('validation-search'),
+      columns,
+      Array.isArray(cards) ? cards : null,
+      function (card, query) {
+        return (String(card.section) + ' ' + String(card.title) + ' ' + String(card.path))
+          .toLowerCase().indexOf(query) !== -1;
+      }
+    );
+  }
+
   // ---- performance and computational order -------------------------------
 
   function renderOrder(data) {
@@ -1279,6 +1340,7 @@
     renderCi(data);
     renderVerified(data);
     renderReferences(data);
+    renderValidations(data);
     renderPerformance(data);
     renderOrder(data);
     renderApi(data);

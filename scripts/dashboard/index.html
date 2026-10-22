@@ -68,6 +68,9 @@ table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 th { color: var(--muted); font-weight: 500; cursor: pointer; user-select: none; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+#validation-table th:first-child, #validation-table td:first-child,
+#validation-table th:last-child, #validation-table td:last-child { white-space: nowrap; }
+#validation-table td:nth-child(3) { max-width: 32em; }
 .chart { width: 100%; min-height: 320px; }
 .tag { display: inline-block; padding: 0 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); font-size: 12px; }
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); }
@@ -137,6 +140,10 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 24px
     <p class="lede">Each was verified at the commit shown; the listed tests fail if its behaviour changes.</p>
     <div class="toolbar"><input id="verified-search" type="search" placeholder="Filter by file or function" aria-label="Filter verified functions"></div>
     <div class="panel table-wrap"><table id="verified-table"></table></div>
+    <h2>Validations</h2>
+    <p class="lede">Each receipt the dashboard reads, with the commit that last changed it and its SHA-256.</p>
+    <div class="toolbar"><input id="validation-search" type="search" placeholder="Filter by section, receipt or path" aria-label="Filter validation receipts"></div>
+    <div class="panel table-wrap"><table id="validation-table"></table></div>
     <h2>References</h2>
     <div id="references" class="panel"></div>
   </section>

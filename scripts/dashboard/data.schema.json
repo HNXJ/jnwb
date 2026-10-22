@@ -3,7 +3,7 @@
   "title": "jnwb dashboard data",
   "description": "Written by scripts/build_dashboard.py from committed records only. The page renders this file and computes no value of its own; a section whose source is missing is null, never filled in.",
   "type": "object",
-  "required": ["generated", "sources", "release", "releases", "ci", "api", "verified", "performance", "order", "references", "figures", "showcases"],
+  "required": ["generated", "sources", "release", "releases", "ci", "api", "verified", "performance", "order", "references", "figures", "showcases", "validations"],
   "properties": {
     "generated": {
       "type": "object",
@@ -167,6 +167,11 @@
         }
       }
     },
+    "validations": {
+      "type": "array",
+      "description": "Validation cards, one per receipt the build reads. Each names the file, the commit git last changed it in, its SHA-256 and the fields it states; a receipt that states its own commit also gives recorded_commit. html is the HTML output copied for the card, or null.",
+      "items": {"$ref": "#/$defs/validation"}
+    },
     "showcases": {
       "type": ["object", "null"],
       "description": "artifacts/showcases/openscope_glo.json, as recorded; null while no record exists. Figure paths are relative to the built site.",
@@ -180,6 +185,25 @@
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "validation": {
+      "type": "object",
+      "required": ["id", "section", "title", "path", "commit", "sha256", "fields", "html"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "section": {"enum": ["calibration", "performance", "frozen", "studies", "closure"]},
+        "title": {"type": "string"},
+        "path": {"type": "string", "description": "repository-relative path of the receipt"},
+        "commit": {"$ref": "#/$defs/commit"},
+        "recorded_commit": {"$ref": "#/$defs/commit", "description": "the commit the receipt states"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "fields": {
+          "type": "object",
+          "additionalProperties": {"type": ["string", "integer", "array"], "items": {"type": "string"}}
+        },
+        "html": {"type": ["string", "null"]}
+      }
+    },
     "figure_file": {"type": "string", "pattern": "^assets/showcases/[A-Za-z0-9_.-]+\\.png$", "description": "a path under assets/showcases/ in the built site"},
     "showcase": {
       "type": "object",

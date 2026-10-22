@@ -9,11 +9,16 @@ sections the data schema does not allow to be null (``generated``, ``release``, 
 each with the module of the ``jnwb.x`` heading above its table. The record's other tables are
 keyed by ``spec`` and ``parameter`` and are not read.
 
+``validations`` has one card per receipt the build reads: its path, the commit that last changed
+it, its SHA-256 and the fields it states. ``verify_validations`` checks a built site against the
+repository.
+
     python scripts/build_dashboard.py --out <dir>    # writes <dir>/data.json and the page
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -46,8 +51,21 @@ FIGURES = ASSETS / "figures"
 DOCS = REPO_ROOT / "docs"
 ORDER_RECORD = REPO_ROOT / "artifacts" / "evidence" / "0.2.6" / "computational_order.md"
 SHOWCASE_RECORD = REPO_ROOT / "artifacts" / "showcases" / "openscope_glo.json"
+CALIBRATION = BENCHMARKS / "calibration"
+#: The calibration receipts a card reads. Their raw records are not read, so they get no card.
+CALIBRATION_RECEIPTS = (CALIBRATION / "xflip_calibration_0.2.5.md",
+                        CALIBRATION / "vflip_calibration_0.2.4.md",
+                        CALIBRATION / "curation_calibration_0.2.13.md",
+                        CALIBRATION / "cuda_parity_0.2.4.md")
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+# The closure receipt is read by the release gate's own parser, which this module calls.
+from scripts.release_gate import (RECEIPT_PATH as CLOSURE_RECEIPT_PATH,  # noqa: E402
+                                  blocker_fixpoint_receipt)
+CLOSURE_RECEIPT = REPO_ROOT / CLOSURE_RECEIPT_PATH
+VALIDATION_HTML = ASSETS / "validations"
 SECTIONS =("generated", "release", "releases", "ci", "api", "verified", "performance",
-            "order", "references", "figures", "showcases")
+            "order", "references", "figures", "showcases", "validations")
 
 _VERSION_LINE = re.compile(r"^## \[(?P<version>[^\]]+)\](?: - (?P<date>\S+))?$")
 _INIT_VERSION = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
@@ -56,6 +74,11 @@ _RULE_CELL = re.compile(r":?-{3,}:?")
 _ORDER_COLUMNS = ["spec", "parameter", "sizes", "median times (ms)", "exp", "r2", "t-span",
                   "achieved", "admissible", "cls", "gap"]
 _MODULE_HEADING = re.compile(r"^### `(jnwb\.[^`]+)`")
+_STUDY_COLUMNS = ["Reference", "Result reproduced", "Receipt"]
+_TEST_ID = re.compile(r"test_\w+\.py::\w+(?:::\w+)*")
+_STATED_COMMIT = re.compile(r"\b[0-9a-f]{40}\b")
+_STATED_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
+_RESULT_HEADING = re.compile(r"^#+\s*(?:result|verdict|summary)\b", re.IGNORECASE)
 #: The Read the Docs version the dashboard links: the newest build of the default branch.
 DOCS_VERSION_PATH = "en/latest/"
 
@@ -465,6 +488,218 @@ def showcases_section() -> dict | None:
     return record
 
 
+def _digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _tracked(rel: str) -> bool:
+    proc = subprocess.run(["git", "ls-files", "--error-unmatch", "--", rel], cwd=REPO_ROOT,
+                          capture_output=True, text=True, check=False)
+    return proc.returncode == 0
+
+
+def _uncommitted(rel: str) -> bool:
+    """True when the file differs from HEAD, so its bytes are not the committed ones."""
+    proc = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", rel], cwd=REPO_ROOT,
+                          capture_output=True, text=True, check=False)
+    return proc.returncode != 0
+
+
+def _receipt(path: Path, card: str) -> str:
+    """The repository-relative path of a file a card reads. Refused before anything is read: a
+    path outside the repository, a missing file, a file git does not track, and a tracked file
+    with uncommitted changes."""
+    resolved = path.resolve()
+    if REPO_ROOT not in resolved.parents:
+        raise ValueError(f"validations: {path} is outside REPO_ROOT")
+    rel = resolved.relative_to(REPO_ROOT).as_posix()
+    if not resolved.is_file():
+        raise FileNotFoundError(f"validations: {rel} is missing; {card} cannot be built")
+    if not _tracked(rel):
+        raise RuntimeError(f"validations: {rel} is not tracked by git")
+    if _uncommitted(rel):
+        raise RuntimeError(f"validations: {rel} has uncommitted changes")
+    return rel
+
+
+def _record(path: Path, card: str) -> dict:
+    """A JSON receipt, read once :func:`_receipt` has accepted its path."""
+    _receipt(path, card)
+    return json.loads(_read(path))
+
+
+def _card(card: str, section: str, path: Path, title: str, fields: dict,
+          recorded_commit: str | None = None) -> dict:
+    """One card: the receipt's path, the commit git last changed it in, its SHA-256 and the fields
+    read from it. ``recorded_commit`` is the commit the receipt itself states, when it states one."""
+    rel = _receipt(path, card)
+    commit = _git("log", "-1", "--format=%H", "--", rel)
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise RuntimeError(f"validations: {rel} has no commit in git history: {commit!r}")
+    entry = {"id": card, "section": section, "title": title, "path": rel, "commit": commit,
+             "sha256": _digest(path), "fields": fields, "html": None}
+    if recorded_commit is not None:
+        if not re.fullmatch(r"[0-9a-f]{40}", recorded_commit):
+            raise ValueError(f"validations: {rel} states no 40-digit commit: {recorded_commit!r}")
+        entry["recorded_commit"] = recorded_commit
+    return entry
+
+
+def _title_line(text: str) -> str | None:
+    """The text of the first ``# `` heading, or None."""
+    return next((line[2:].strip() for line in text.splitlines() if line.startswith("# ")), None)
+
+
+def _result_summary(text: str) -> str | None:
+    """The first bullet under a heading that begins Result, Verdict or Summary, or None."""
+    under = False
+    for line in text.splitlines():
+        if line.startswith("#"):
+            under = _RESULT_HEADING.match(line) is not None
+        elif under and line.startswith("- "):
+            return line[2:].strip()
+    return None
+
+
+def _calibration_fields(text: str) -> dict:
+    """What a calibration receipt states: a commit or a date written out in it, and the first
+    bullet under its Result heading. A field the receipt does not state is left out."""
+    fields: dict = {}
+    commit = _STATED_COMMIT.search(text)
+    if commit:
+        fields["stated_commit"] = commit.group(0)
+    date = _STATED_DATE.search(text)
+    if date:
+        fields["stated_date"] = date.group(0)
+    summary = _result_summary(text)
+    if summary is not None:
+        fields["summary"] = summary
+    return fields
+
+
+def _calibration_card(path: Path) -> dict:
+    rel = _receipt(path, path.stem)
+    text = _read(path)
+    title = _title_line(text)
+    if title is None:
+        raise ValueError(f"validations: {rel} has no title line")
+    return _card(path.stem, "calibration", path, title, _calibration_fields(text))
+
+
+def _performance_cards() -> list[dict]:
+    baseline = _record(BASELINE, "baseline_performance")
+    peak = _record(PEAK_MEMORY, "peak_memory")
+    imports = _record(IMPORT_BREAKDOWN, "import_breakdown")
+    return [
+        _card("baseline_performance", "performance", BASELINE, "Baseline timings",
+              {"rows": sum(not name.startswith("_") for name in baseline)}),
+        _card("peak_memory", "performance", PEAK_MEMORY, "Peak memory",
+              {"operations": len(peak["operations"])}, recorded_commit=peak.get("commit")),
+        _card("import_breakdown", "performance", IMPORT_BREAKDOWN, "Import cost",
+              {"version": imports["version"], "python": imports["python"],
+               "warm_median_ms": round(imports["warm_median_ms"]), "runs": imports["runs"]}),
+    ]
+
+
+def _frozen_card() -> dict:
+    record = _record(FROZEN, "frozen_validated")
+    return _card("frozen_validated", "frozen", FROZEN, "Independently verified functions",
+                 {"functions": len(record["functions"])})
+
+
+def _study_cards() -> list[dict]:
+    """One card per row of the studies table. Each card's digest is the digest of the whole
+    references page, the file the row sits in."""
+    _receipt(REFERENCES, "studies")
+    rows, in_table = [], False
+    for raw in _read(REFERENCES).splitlines():
+        line = raw.strip()
+        if not line.startswith("|"):
+            in_table = False
+            continue
+        cells = _cells(line)
+        if cells == _STUDY_COLUMNS:
+            in_table = True
+        elif in_table and not all(_RULE_CELL.fullmatch(c) for c in cells):
+            if len(cells) != len(_STUDY_COLUMNS):
+                raise ValueError(f"{_rel(REFERENCES)}: a studies row has {len(cells)} cells, not "
+                                 f"{len(_STUDY_COLUMNS)}: {line[:60]!r}")
+            rows.append(cells)
+    if not rows:
+        raise ValueError(f"{_rel(REFERENCES)} has no studies table rows")
+    return [_card(f"studies-{number}", "studies", REFERENCES, cells[0],
+                  {"result": cells[1], "tests": _TEST_ID.findall(cells[2])})
+            for number, cells in enumerate(rows, 1)]
+
+
+def _closure_card() -> dict:
+    _receipt(CLOSURE_RECEIPT, "blocker_fixpoint_receipt")
+    commit, blockers = blocker_fixpoint_receipt(REPO_ROOT)
+    if commit is None or blockers is None:
+        raise ValueError(f"validations: {_rel(CLOSURE_RECEIPT)} states no commit or no blocker "
+                         "count")
+    title = _title_line(_read(CLOSURE_RECEIPT))
+    if title is None:
+        raise ValueError(f"validations: {_rel(CLOSURE_RECEIPT)} has no title line")
+    return _card("blocker_fixpoint_receipt", "closure", CLOSURE_RECEIPT, title,
+                 {"new_blockers": blockers}, recorded_commit=commit)
+
+
+def _validation_html() -> list[Path]:
+    """The HTML outputs in docs/assets/validations/; an empty or missing directory gives none."""
+    if not VALIDATION_HTML.is_dir():
+        return []
+    return sorted(VALIDATION_HTML.glob("*.html"))
+
+
+def validations_section() -> list[dict]:
+    """The validation cards, in section order. An HTML output named for a card's id is linked
+    from that card."""
+    cards = [*(_calibration_card(path) for path in CALIBRATION_RECEIPTS),
+             *_performance_cards(), _frozen_card(), *_study_cards(), _closure_card()]
+    for card in cards:
+        name = f"{card['id']}.html"
+        if (VALIDATION_HTML / name).is_file():
+            card["html"] = f"assets/validations/{name}"
+    return cards
+
+
+def _copy_validation_figures(out: Path) -> None:
+    """Copies each HTML output to assets/validations/ beside the page."""
+    files = _validation_html()
+    if not files:
+        return
+    target = out / "assets" / "validations"
+    target.mkdir(parents=True, exist_ok=True)
+    for source in files:
+        shutil.copy2(source, target / source.name)
+
+
+def verify_validations(out_dir: Path) -> list[str]:
+    """One message per card in a built site's data.json whose receipt is missing, untracked, has
+    uncommitted changes or lies outside the repository, or whose bytes no longer match the
+    recorded digest. [] when every card holds."""
+    cards = json.loads(_read(out_dir / "data.json"))["validations"]
+    messages = []
+    for card in cards:
+        rel = card["path"]
+        path = (REPO_ROOT / rel).resolve()
+        if REPO_ROOT not in path.parents:
+            messages.append(f"validations: {rel} is outside REPO_ROOT")
+        elif not path.is_file():
+            messages.append(f"validations: {rel} is missing")
+        elif not _tracked(rel):
+            messages.append(f"validations: {rel} is not tracked by git")
+        elif _uncommitted(rel):
+            messages.append(f"validations: {rel} has uncommitted changes")
+        else:
+            actual = _digest(path)
+            if actual != card["sha256"]:
+                messages.append(f"validations: {rel} digest {actual} != recorded "
+                                f"{card['sha256']}")
+    return messages
+
+
 def build_data() -> dict:
     """The data.json object. A section whose source is absent is null, as its docstring says."""
     releases = parse_changelog(CHANGELOG)
@@ -476,6 +711,7 @@ def build_data() -> dict:
     order = order_section()
     figures = figures_section()
     showcases = showcases_section()
+    validations = validations_section()
     pages = sorted({_rel(page) for figure in figures
                     if (page := _explaining_page(Path(figure["light"]).name))})
     sources = {
@@ -490,6 +726,7 @@ def build_data() -> dict:
         "references": _present(REFERENCES) if references is not None else [],
         "figures": [_rel(FIGURES), *pages],
         "showcases": _present(SHOWCASE_RECORD) if showcases else [],
+        "validations": list(dict.fromkeys(card["path"] for card in validations)),
     }
     return {
         "generated": generated_section(),
@@ -504,6 +741,7 @@ def build_data() -> dict:
         "references": references,
         "figures": figures,
         "showcases": showcases,
+        "validations": validations,
     }
 
 
@@ -525,6 +763,7 @@ def write_dashboard(out: Path) -> dict:
             shutil.copy2(FIGURES / name, out / "assets" / name)
     if data["showcases"]:
         _copy_showcase_figures(data["showcases"], out)
+    _copy_validation_figures(out)
     shutil.copy2(TEMPLATE_PATH, out / "index.html")
     if APP_PATH.is_file():
         shutil.copy2(APP_PATH, out / "app.js")
@@ -555,6 +794,8 @@ def _size(name: str, value) -> str:
         return f"{len(value)} rows"
     if name == "showcases":
         return f"{len(value['entries'])} entries"
+    if name == "validations":
+        return f"{len(value)} cards"
     return "present"
 
 

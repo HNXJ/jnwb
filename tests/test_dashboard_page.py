@@ -225,3 +225,19 @@ def test_the_page_renders_the_origin_line():
     assert "'Origin: '" in source, "each card must label its origin line"
     for key in sorted(origin):
         assert f"origin.{key}" in source, f"the origin line must read origin.{key}"
+
+
+def test_the_validations_panel_renders_every_card():
+    cards = json.loads(FIXTURE.read_text(encoding="utf-8"))["validations"]
+    assert cards, "the fixture must hold validation cards"
+    shown = ("title", "path", "commit", "sha256", "fields", "html", "recorded_commit")
+    carried = {key for card in cards for key in card} - {"id", "section"}
+    assert carried <= set(shown), f"cards carry fields the panel does not show: {carried - set(shown)}"
+    source = RENDERER.read_text(encoding="utf-8")
+    assert "renderValidations(data);" in source, "render() must call renderValidations"
+    assert "document.getElementById('validation-table')" in source, "the panel container"
+    assert "lookup(data, 'validations')" in source, "the panel reads the validations section"
+    assert "Array.isArray(cards) ? cards : null" in source, "the table gets every card as a row"
+    for key in shown:
+        assert f"card.{key}" in source or f"field('{key}')" in source, (
+            f"the panel must read card.{key}")
