@@ -1065,6 +1065,24 @@ def test_the_live_tree_has_no_unnamed_null(live):
     assert g["relations"]["permutation_schemes"] == []
 
 
+def test_an_unnamed_null_planted_in_the_live_graph_fails_s10(live):
+    source, g = live
+    excused = {f"{module}.{qualname}" for module, qualname in build_fact_graph.S10_EXCUSED}
+    modules = {export: path[:-len(".py")].replace("/", ".")
+               for path, export in g["relations"]["implements"]}
+    planted_name = next(f"{modules[export]}.{export}" for export in sorted(g["entities"]["export"])
+                        if f"{modules[export]}.{export}" not in excused)
+    assert planted_name.rpartition(".")[2] in g["entities"]["export"], (
+        "the planted callable must be present in the graph")
+    planted = copy.deepcopy(g)
+    planted["relations"]["permutation_schemes"] = [
+        [planted_name, "planted: draws permutation and names no scheme key"]]
+    clean = {fact: state for fact, state, _ in fact_gate.run(facts_path=source, graph=g)[1]}
+    dirty = {fact: state for fact, state, _ in fact_gate.run(facts_path=source, graph=planted)[1]}
+    assert clean["S10"] == fact_gate.HELD
+    assert dirty["S10"] == fact_gate.VIOLATED
+
+
 # ------------------------------------------------------------------------ fact S11: rng reports
 
 
@@ -1171,6 +1189,24 @@ def test_the_live_rng_scan_examines_every_public_callable(live):
 def test_the_live_tree_has_no_unnamed_randomness(live):
     _, g = live
     assert g["relations"]["rng_reports"] == []
+
+
+def test_unnamed_randomness_planted_in_the_live_graph_fails_s11(live):
+    source, g = live
+    excused = {f"{module}.{qualname}" for module, qualname in build_fact_graph.S11_EXCUSED}
+    modules = {export: path[:-len(".py")].replace("/", ".")
+               for path, export in g["relations"]["implements"]}
+    planted_name = next(f"{modules[export]}.{export}" for export in sorted(g["entities"]["export"])
+                        if f"{modules[export]}.{export}" not in excused)
+    assert planted_name.rpartition(".")[2] in g["entities"]["export"], (
+        "the planted callable must be present in the graph")
+    planted = copy.deepcopy(g)
+    planted["relations"]["rng_reports"] = [
+        [planted_name, "planted: consumes randomness (resolve_rng) and reports no rng key"]]
+    clean = {fact: state for fact, state, _ in fact_gate.run(facts_path=source, graph=g)[1]}
+    dirty = {fact: state for fact, state, _ in fact_gate.run(facts_path=source, graph=planted)[1]}
+    assert clean["S11"] == fact_gate.HELD
+    assert dirty["S11"] == fact_gate.VIOLATED
 
 
 # ------------------------------------------------------------------------ fact I2: named units and defaults
