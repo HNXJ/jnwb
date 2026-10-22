@@ -117,6 +117,14 @@ def _spiking(n_bins: int, which: str) -> Callable[[], object]:
                                             min_duration_ms=3.0)
 
 
+def _noise(n_units: int, n_trials: int) -> Callable[[], object]:
+    import jnwb
+
+    counts = np.random.default_rng(0).poisson(4.0, size=(n_units, n_trials)).astype(float)
+    condition = np.arange(n_trials) % 2
+    return lambda: jnwb.noise_correlation(counts, condition, min_trials=2)
+
+
 def _curation(which: str, n: int) -> Callable[[], object]:
     import jnwb
 
@@ -272,6 +280,16 @@ SPECS: Dict[str, Spec] = {
         "n_bins", (10_000, 100_000, 1_000_000, 4_000_000),
         "8 units, 2000 uniform spikes each, bin_ms=1, threshold_hz=5000, min_duration_ms=3",
         lambda n, _tmp: _spiking(n, "burst"),
+    ),
+    "noise_correlation[n_trials]": Spec(
+        "n_trials", (1_000, 10_000, 100_000, 1_000_000),
+        "8 units, Poisson(4) counts, 2 alternating conditions, min_trials=2",
+        lambda n, _tmp: _noise(8, n),
+    ),
+    "noise_correlation[n_units]": Spec(
+        "n_units", (16, 64, 256, 1024),
+        "1000 trials, Poisson(4) counts, 2 alternating conditions, min_trials=2",
+        lambda n, _tmp: _noise(n, 1000),
     ),
     "fano_factor[n_trials]": Spec(
         "n_trials", (1_000, 10_000, 100_000, 1_000_000),

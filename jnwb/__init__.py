@@ -266,6 +266,7 @@ from .spiking import (
     gaussian_smooth_rate,
     fleiss_kappa,
     spike_count_correlation,
+    noise_correlation,
     fano_factor,
     network_burst_index,
 )
@@ -510,6 +511,7 @@ __all__ = [
     'gaussian_smooth_rate',
     'fleiss_kappa',
     'spike_count_correlation',
+    'noise_correlation',
     'fano_factor',
     'network_burst_index',
 

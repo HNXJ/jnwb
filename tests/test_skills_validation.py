@@ -761,6 +761,9 @@ _RETURN_CONTENT_PROBES = {
     "fleiss_kappa": lambda: jnwb.fleiss_kappa(np.array([[4, 2], [1, 5], [6, 0]])),
     "spike_count_correlation": lambda: jnwb.spike_count_correlation(
         [np.array([0.01, 0.02, 0.5]), np.array([0.015, 0.6])], (0.0, 1.0), bin_ms=100.0),
+    "noise_correlation": lambda: jnwb.noise_correlation(
+        np.array([[1.0, 2.0, 4.0, 1.0, 3.0, 5.0], [2.0, 1.0, 3.0, 4.0, 2.0, 6.0]]),
+        np.array([0, 0, 0, 1, 1, 1]), min_trials=3),
     "fano_factor": lambda: jnwb.fano_factor(
         [np.array([0.1, 1.1, 1.2])], np.array([0.0, 1.0]), (0.0, 0.5), summary="mean"),
     "network_burst_index": lambda: jnwb.network_burst_index(

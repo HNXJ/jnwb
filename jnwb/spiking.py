@@ -795,6 +795,135 @@ def spike_count_correlation(
     }
 
 
+def noise_correlation(
+    counts,
+    condition_id,
+    *,
+    min_trials: int,
+) -> Dict[str, Any]:
+    """Trial-based noise correlation: Pearson r of within-condition residual counts (Cohen and Kohn 2011).
+
+    `counts` holds one row per unit and one column per trial, binned by the caller, so the
+    counting window is the caller's choice. For each unit and condition, the counts are
+    z-scored across that condition's trials: the condition mean is subtracted and the sample SD
+    (ddof=1) divided out. The residuals are pooled over conditions, and the Pearson r of each
+    pair of units is taken across the pooled trials. Subtracting each condition's mean removes
+    the rate change that two units share from one condition to another, so that signal
+    correlation does not enter r. A rate drift shared within one condition still enters r.
+
+    The function draws nothing, so it takes no `rng`.
+
+    Pitfall: at a fixed underlying correlation, r rises with the firing rate and with the
+    counting window (de la Rocha et al. 2007). Report each pair's geometric-mean count beside
+    r, as `geometric_mean_count` does; divide it by the window length for a rate. No
+    correction is applied here.
+
+    Args:
+        counts: ``(n_units, n_trials)`` spike counts per trial window, int or float.
+        condition_id: ``(n_trials,)`` condition label of each trial.
+        min_trials: Fewest trials a condition may hold; required, no default.
+
+    Returns:
+        Dict with ``mean_r`` (NaN with fewer than two usable units), ``r`` (the
+        ``(n_units, n_units)`` correlation matrix, NaN in excluded units' rows and columns and on
+        the diagonal), ``n_pairs``, ``n_units``, ``n_trials``, ``excluded_units`` (indices of
+        units with zero SD in some condition), ``n_excluded``, ``n_trials_per_condition`` (the
+        trial count of each condition, aligned with ``conditions``), ``conditions`` (every label,
+        in sorted order), and ``geometric_mean_count`` (the ``(n_units, n_units)`` matrix of
+        sqrt(mean count of unit i * mean count of unit j) over all trials, in counts per trial
+        window, NaN wherever ``r`` is NaN).
+
+    Raises:
+        ValueError: If `counts` is not 2-D or holds no trials, `condition_id` does not give one
+            label per trial, `min_trials` is not a positive integer, a count is NaN or infinite
+            (the unit is named), a condition has fewer than `min_trials` trials (the condition
+            and its count are named), a condition has fewer than two trials, or fewer than three
+            trials are pooled over the kept conditions.
+
+    References:
+        Cohen, M. R., and Kohn, A. (2011). Measuring and interpreting neuronal correlations.
+        Nature Neuroscience 14(7), 811-819. doi:10.1038/nn.2842
+        de la Rocha, J., Doiron, B., Shea-Brown, E., Josić, K., and Reyes, A. (2007).
+        Correlation between neural spike trains increases with firing rate. Nature 448(7155), 802-806.
+        doi:10.1038/nature06028
+    """
+    arr = np.asarray(counts, dtype=float)
+    if arr.ndim != 2:
+        raise ValueError(
+            f"noise_correlation: counts must be 2-D (n_units, n_trials), got shape {arr.shape}."
+        )
+    n_units, n_trials = arr.shape
+    if n_trials == 0:
+        raise ValueError("noise_correlation: counts holds no trials.")
+    labels = np.asarray(condition_id)
+    if labels.ndim != 1 or labels.shape[0] != n_trials:
+        raise ValueError(
+            f"noise_correlation: condition_id must give one label per trial; counts has "
+            f"{n_trials} trials, condition_id has shape {labels.shape}."
+        )
+    nonfinite = np.flatnonzero(~np.all(np.isfinite(arr), axis=1))
+    if nonfinite.size:
+        raise ValueError(
+            f"noise_correlation: unit {int(nonfinite[0])} has a non-finite count (NaN or inf)."
+        )
+    if isinstance(min_trials, bool) or not isinstance(min_trials, (int, np.integer)) or min_trials < 1:
+        raise ValueError(
+            f"noise_correlation: min_trials must be a positive integer, got {min_trials!r}."
+        )
+    conditions = np.unique(labels)
+    n_per = np.array([int(np.sum(labels == c)) for c in conditions], dtype=int)
+    for c, n in zip(conditions, n_per):
+        if n < min_trials:
+            raise ValueError(
+                f"noise_correlation: condition {c} has {n} trials, fewer than min_trials="
+                f"{min_trials}."
+            )
+        if n < 2:
+            raise ValueError(
+                f"noise_correlation: condition {c} has {n} trial; a within-condition SD "
+                "needs at least 2."
+            )
+    if n_trials < 3:
+        # As in spike_count_correlation: with 2 points every Pearson r is +1 or -1.
+        raise ValueError(
+            f"noise_correlation: {n_trials} pooled trials over the kept conditions; a Pearson r "
+            "needs at least 3, because with 2 every r is +1 or -1."
+        )
+    z = np.empty_like(arr)
+    constant = np.zeros(n_units, dtype=bool)
+    for c in conditions:
+        idx = np.flatnonzero(labels == c)
+        block = arr[:, idx]
+        const_c = np.all(block == block[:, :1], axis=1)
+        constant |= const_c
+        # A constant unit is excluded below; its SD is set to 1 here only to avoid 0/0.
+        sd = np.where(const_c, 1.0, block.std(axis=1, ddof=1))
+        z[:, idx] = (block - block.mean(axis=1, keepdims=True)) / sd[:, None]
+    excluded = np.flatnonzero(constant)
+    keep = np.flatnonzero(~constant)
+    r = np.full((n_units, n_units), np.nan)
+    if keep.size >= 2:
+        r[np.ix_(keep, keep)] = np.corrcoef(z[keep])
+    np.fill_diagonal(r, np.nan)
+    iu = np.triu_indices(keep.size, k=1)
+    pair_r = r[np.ix_(keep, keep)][iu] if keep.size >= 2 else np.array([])
+    mean_count = arr.mean(axis=1)
+    geometric_mean_count = np.sqrt(np.outer(mean_count, mean_count))
+    geometric_mean_count[np.isnan(r)] = np.nan
+    return {
+        "mean_r": float(pair_r.mean()) if pair_r.size else float("nan"),
+        "r": r,
+        "n_pairs": int(pair_r.size),
+        "n_units": n_units,
+        "n_trials": int(n_trials),
+        "excluded_units": np.asarray(excluded, dtype=int),
+        "n_excluded": int(excluded.size),
+        "n_trials_per_condition": n_per,
+        "conditions": conditions,
+        "geometric_mean_count": geometric_mean_count,
+    }
+
+
 def _count_fano(counts) -> np.ndarray:
     """Fano factor of each row of a count array ``(n_rows, n_counts)``: the unbiased
     (ddof=1) variance over the mean, NaN where the mean is 0. The one Fano rule of the

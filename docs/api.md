@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 206 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 207 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -291,6 +291,7 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.fleiss_kappa | function | `(counts: numpy.ndarray) -> float`<br>*Fleiss' kappa: chance-corrected agreement of many raters on nominal categories (Fleiss 1971).* |
 | jnwb.gaussian_smooth_rate | function | `(rate: numpy.ndarray, bin_ms: float, sigma_ms: float = 20.0, axis: int = -1) -> numpy.ndarray`<br>*Apply symmetrical, acausal Gaussian smoothing to a binned firing rate trace.* |
 | jnwb.network_burst_index | function | `(spike_times, window_s: Tuple[float, float], *, bin_ms: float, threshold_hz: float, min_duration_ms: float) -> Dict[str, typing.Any]`<br>*Fraction of spikes inside network bursts found from the population rate (Wagenaar et al. 2006).* |
+| jnwb.noise_correlation | function | `(counts, condition_id, *, min_trials: int) -> Dict[str, typing.Any]`<br>*Trial-based noise correlation: Pearson r of within-condition residual counts (Cohen and Kohn 2011).* |
 | jnwb.pairwise_phase_consistency | function | `(phases: numpy.ndarray, axis: int = -1) -> float | numpy.ndarray`<br>*Compute the Pairwise Phase Consistency (PPC) across angular samples (Vinck et al., 2010).* |
 | jnwb.phase_locking_index | function | `(unit_spike_times: numpy.ndarray, lfp_phase: numpy.ndarray, lfp_timestamps: numpy.ndarray, n_bins: int = 18) -> Dict[str, float | numpy.ndarray]`<br>*Compute circular phase distribution and Rayleigh non-uniformity test of spikes relative to LFP phase.* |
 | jnwb.spike_count_correlation | function | `(spike_times, window_s: Tuple[float, float], *, bin_ms: float) -> Dict[str, typing.Any]`<br>*Mean pairwise Pearson correlation of binned spike counts (Cohen and Kohn 2011).* |

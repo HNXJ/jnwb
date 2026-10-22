@@ -646,6 +646,116 @@ class TestSpikeCountCorrelation:
         assert spike_count_correlation(units, (0.0, 0.9), bin_ms=300.0)["n_bins"] == 3
 
 
+class TestNoiseCorrelation:
+    @staticmethod
+    def _gain_fixture(seed, n_units=8, n_per_cond=300, lam=4.0, s=0.25):
+        # Per-trial gain g ~ N(1, s), shared by all units; given g, each count is an
+        # independent Poisson(lam * g). So E[X] = lam, Var(X) = E[lam g] + Var(lam g) =
+        # lam + lam^2 s^2, and Cov(X_i, X_j) = Var(lam g) = lam^2 s^2 (the conditional
+        # covariance is zero). The population correlation is
+        # rho = lam^2 s^2 / (lam + lam^2 s^2) = lam s^2 / (1 + lam s^2).
+        rng = np.random.default_rng(seed)
+        g = rng.normal(1.0, s, size=2 * n_per_cond)
+        assert np.all(g > 0), "fixture must keep the Poisson rate positive"
+        counts = rng.poisson(lam * g[None, :] * np.ones((n_units, 1)))
+        cond = np.repeat([0, 1], n_per_cond)
+        return counts, cond, lam * s * s / (1 + lam * s * s)
+
+    def test_a_shared_gain_gives_the_expected_noise_correlation(self):
+        from jnwb.spiking import noise_correlation
+        counts, cond, rho = self._gain_fixture(0)
+        assert rho == pytest.approx(0.2)
+        res = noise_correlation(counts, cond, min_trials=100)
+        # SE of one sample r at true rho over n trials: (1 - rho^2) / sqrt(n - 1). The
+        # tolerance is 3 SE of one pair. Seeds 0-9 measured: all ten within it, with
+        # |mean_r - rho| at most 0.022 against a tolerance of 0.118.
+        se = (1 - rho ** 2) / np.sqrt(counts.shape[1] - 1)
+        assert abs(res["mean_r"] - rho) <= 3 * se
+        assert res["n_pairs"] == 28 and res["n_excluded"] == 0
+
+    def test_a_shared_rate_change_between_conditions_is_not_noise_correlation(self):
+        from jnwb.spiking import noise_correlation
+        rng = np.random.default_rng(100)
+        n_units, n_per = 8, 300
+        rates = np.repeat([2.0, 8.0], n_per)
+        counts = rng.poisson(np.ones((n_units, 1)) * rates[None, :])
+        cond = np.repeat([0, 1], n_per)
+        # The raw pooled counts carry the condition-mean rate change as signal correlation.
+        raw = np.corrcoef(counts)
+        raw_mean = raw[np.triu_indices(n_units, k=1)].mean()
+        assert raw_mean > 0.5, "fixture must carry a signal correlation"
+        res = noise_correlation(counts, cond, min_trials=100)
+        # Trials are independent Poisson, so the true r is 0. Fisher z: SE = 1 / sqrt(n - 3).
+        # The bound is 3 SE, not 1 SE: a bound of one SE is exceeded by chance in about a third
+        # of independent draws, so it would test the seed rather than the estimand.
+        se = 1 / np.sqrt(counts.shape[1] - 3)
+        assert abs(res["mean_r"]) < 3 * se
+
+    def test_refuses_a_nan_a_short_condition_a_shape_mismatch_and_a_1d_table(self):
+        from jnwb.spiking import noise_correlation
+        counts, cond, _ = self._gain_fixture(0, n_per_cond=20)
+        nan_counts = counts.astype(float)
+        nan_counts[3, 5] = np.nan
+        with pytest.raises(ValueError, match="unit 3 has a non-finite count"):
+            noise_correlation(nan_counts, cond, min_trials=5)
+        short = np.array([0] * 36 + [1] * 4)
+        with pytest.raises(ValueError, match="condition 1 has 4 trials, fewer than min_trials=5"):
+            noise_correlation(np.zeros((2, 40)) + np.arange(40), short, min_trials=5)
+        with pytest.raises(ValueError, match="condition 1 has 1 trial"):
+            noise_correlation(np.zeros((2, 3)) + np.arange(3), np.array([0, 0, 1]), min_trials=1)
+        with pytest.raises(ValueError, match="one label per trial"):
+            noise_correlation(counts, cond[:-1], min_trials=5)
+        with pytest.raises(ValueError, match="2-D"):
+            noise_correlation(counts[0], cond, min_trials=5)
+        with pytest.raises(TypeError):
+            noise_correlation(counts, cond)
+
+    def test_a_zero_sd_unit_is_excluded_and_reported_not_scored_zero(self):
+        from jnwb.spiking import noise_correlation
+        counts, cond, _ = self._gain_fixture(0, n_per_cond=50)
+        counts = counts.astype(float)
+        counts[2, cond == 0] = 3.0  # unit 2 is constant within condition 0
+        res = noise_correlation(counts, cond, min_trials=10)
+        assert list(res["excluded_units"]) == [2] and res["n_excluded"] == 1
+        assert res["n_pairs"] == 21
+        assert np.all(np.isnan(res["r"][2])) and np.all(np.isnan(res["r"][:, 2]))
+        # The other seven units score exactly as they do without unit 2.
+        kept = np.delete(counts, 2, axis=0)
+        ref = noise_correlation(kept, cond, min_trials=10)
+        assert res["mean_r"] == pytest.approx(ref["mean_r"], abs=1e-12)
+
+    def test_the_returned_keys_hold_the_counts_and_the_geometric_mean(self):
+        from jnwb.spiking import noise_correlation
+        counts, cond, _ = self._gain_fixture(1, n_units=4, n_per_cond=30)
+        res = noise_correlation(counts, cond, min_trials=10)
+        assert res["n_trials"] == 60 and res["n_units"] == 4
+        assert list(res["conditions"]) == [0, 1]
+        assert list(res["n_trials_per_condition"]) == [30, 30]
+        m = counts.mean(axis=1)
+        gm = np.sqrt(np.outer(m, m))
+        iu = np.triu_indices(4, k=1)
+        np.testing.assert_allclose(res["geometric_mean_count"][iu], gm[iu], rtol=1e-12)
+        assert np.all(np.isnan(np.diag(res["geometric_mean_count"])))
+
+    def test_fewer_than_three_pooled_trials_is_refused(self):
+        from jnwb.spiking import noise_correlation
+        # Two pooled trials give one pair of points, so every r is +1 or -1.
+        with pytest.raises(ValueError, match="2 pooled trials.*at least 3"):
+            noise_correlation(np.array([[1.0, 2.0], [2.0, 1.0]]), np.array([0, 0]), min_trials=2)
+        # Three is the first count that is refused no more: one pair is scored.
+        res = noise_correlation(np.array([[1.0, 2.0, 4.0], [2.0, 5.0, 3.0]]),
+                                np.array([0, 0, 0]), min_trials=3)
+        assert res["n_pairs"] == 1 and res["n_trials"] == 3
+
+    def test_no_rng_parameter_and_min_trials_has_no_default(self):
+        import inspect
+        from jnwb.spiking import noise_correlation
+        params = inspect.signature(noise_correlation).parameters
+        assert "rng" not in params
+        assert params["min_trials"].default is inspect.Parameter.empty
+        assert params["min_trials"].kind is inspect.Parameter.KEYWORD_ONLY
+
+
 class TestFanoFactor:
     ONSETS = np.arange(200) * 2.0
 

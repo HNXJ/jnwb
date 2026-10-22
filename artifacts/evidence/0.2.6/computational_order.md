@@ -16,11 +16,11 @@ more than one input dimension and the orders differ between them.
 
 | Category | Exports | Evidence |
 |---|---|---|
-| `jnwb.__all__` | 160 | runtime probe with a provenance assertion |
-| Cost grows with input size -- measured | 106 | 189 sweeps, 189 completed |
+| `jnwb.__all__` | 161 | runtime probe with a provenance assertion |
+| Cost grows with input size -- measured | 107 | 191 sweeps, 191 completed |
 | Cost does not grow with input size -- excluded | 50 | section 7, one reason each |
 | Cost grows, input not buildable from this repository | 4 | section 8 |
-| **Total** | **160** | partition checked exact against a live `jnwb.__all__` |
+| **Total** | **161** | partition checked exact against a live `jnwb.__all__` |
 
 The three categories are disjoint and their union is `jnwb.__all__`; no export is in two,
 and none is in none. `classification: observed`.
@@ -389,10 +389,23 @@ contradicts a written claim it appears in section 6.
 | `pairwise_phase_consistency[n_samples]` | n_samples | 200000, 1000000, 5000000, 20000000 | 7.17, 31.0, 172.4, 646.9 | +0.99 | 0.999 | 90x | O(n) | T(n) | derived | agree |
 | `fleiss_kappa[n_items]` | n_items | 10000, 100000, 1000000, 4000000 | 0.5625, 8.878, 102.9, 401 | +1.10 | 0.998 | 713x | O(n) | T(N*C) | derived | agree |
 | `spike_count_correlation[n_bins]` | n_bins | 10000, 100000, 1000000, 4000000 | 3.27, 31.2, 426, 1654 | +1.05 | 0.999 | 506x | O(n) | T(U*(S + B) + U^2*B) | derived | agree |
+| `noise_correlation[n_trials]` | n_trials | 1000, 10000, 100000, 1000000 | 0.9307, 2.82, 42.39, 428.9 | +0.92 | 0.975 | 461x | O(n) | T(U*N + U^2*N) | derived | agree |
+| `noise_correlation[n_units]` | n_units | 16, 64, 256, 1024 | 1.118, 1.881, 13.15, 105.5 | +1.12 | 0.946 | 94x | O(n) | T(U^2*N) | derived | NOT REACHED (top-decade slope +1.50) |
 | `network_burst_index[n_bins]` | n_bins | 10000, 100000, 1000000, 4000000 | 0.8922, 5.1, 63.4, 248.6 | +0.95 | 0.994 | 279x | O(n) | T(U*S + B) | derived | agree |
 | `fano_factor[n_trials]` | n_trials | 1000, 10000, 100000, 1000000 | 1.094, 11.77, 133.4, 1635 | +1.06 | 1.000 | 1494x | O(n) | T(U*(S log S + T log S)), S = 5T here | derived | agree |
 | `phase_locking_index[n_lfp_samples]` | n_lfp_samples | 100000, 1000000, 5000000, 20000000 | 5.99, 48.7, 188.4, 660.5 | +0.88 | 1.000 | 110x | O(n) | T(1) in m with a uniform grid; T(log m) per spike by binary search | derived | ORDER |
 | `phase_locking_index[n_spikes]` | n_spikes | 50000, 200000, 1000000, 5000000 | 11.7, 28.1, 89.0, 492.1 | +0.80 | 0.985 | 42x | O(n) | T(S) | derived | ORDER |
+
+`noise_correlation` (two rows above; trials from `min_trials=2`, two conditions, `ddof=1`). Per
+condition the z-scoring is O(U*N) and the label masks are O(N*K), K the number of conditions
+(K = 2 in both sweeps). The pair correlations are one Gram product of the (U, N) residual matrix,
+O(U^2*N). The geometric-mean matrix is O(U^2) on top. The labels are sorted by `np.unique`, an
+O(N log N) term that the U^2*N product dominates once U^2 exceeds log N. So the admissible order
+is T(U*N + U^2*N): degree 1 in N and degree 2 in U. The N sweep agrees (+0.92 against 1). The U
+sweep does not reach the U^2 regime on this ladder: its local slope over the top decade is +1.50,
+and the fitted +1.12 is pulled down by the lower sizes, whose local slope over 16 to 64 is +0.38;
+that flatness is consistent with a fixed per-call cost, which this run did not isolate. The row
+is recorded as not reached, not as agreeing.
 
 ### `jnwb.statistics`
 
