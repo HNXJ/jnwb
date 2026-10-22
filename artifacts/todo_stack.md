@@ -45,7 +45,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 1 | R reading | 11-02 (D10, ruled 2026-09-29: a declared shallow end) | Haiku | nothing |
 | 1 | S estimators | 14-06 | Muse | wave-0 rulings |
 | 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-05 to 16-07, 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
-| 2 | L laminar | 16-03, 15-18, 13-04, 15-22 (a draft to Hamm) | Muse | 13-04's ruling |
+| 2 | L laminar | 16-03, 15-18, 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; when neither exists, the item stops and goes to Hamm, never to 0.2.15 |
 | 2 | D docs and dashboard | 16-17, then 16-12 (ruled 2026-10-21: light docs with inline figures; HTML and proof of work on the dashboard) | Haiku for figures and pages, Muse for the dashboard design | nothing; 16-12 waits on its receipts |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 | Haiku | 07-22 and wave 2 merged |
@@ -106,14 +106,6 @@ Accept: the 0.2.14 receipt and its test pass; defaults change only where a sweep
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 - 15-20: Goal 10 bounds the apparatus ("a new gate or process replaces one") with no check; nothing lists each gate's purpose, runtime, unique failure detection, duplicated assertions and maintenance burden (external review, 2026-10-15). Accept (ruled 2026-10-15): that inventory first, then a measurable constraint proposed to Hamm that does not reward deleting valuable tests; no universal gate-count ceiling. Two candidate checks were built and not integrated (2026-10-15), each to land only by replacing a check the inventory shows weaker: warning reads filter by category (it found one site beyond 51a29bb7's seven), and every artifact path code names is tracked. Check: that inventory first, then a measurable constraint proposed to Hamm that does not reward deleting valuable tests; no universal gate-count ceiling. Waits: Ruled 2026-10-19 with 12-05: the inventory and a prune proposal land in 0.2.14.
-
-### 13-04 A screen fitted to caller-supplied curation labels
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: nothing.
-Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_unit_quality_screen.py`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `examples/notebooks/unit_quality.ipynb`, `artifacts/changelog.d/unit-quality-screen.added.md`.
-- 13-04: No screen reports held-out agreement per session with a curator's labels, declines on degenerate inputs, or names its estimand. Check: on a synthetic corpus whose sessions differ in label rate the pooled and per-session values differ, asserted in `tests/test_unit_quality_screen.py`; one test per refusal in `tests/test_unit_quality_screen.py`; the docstring and skill row say so, and a test reads the result's `estimand` field; `examples/notebooks/unit_quality.ipynb` applies the screen and shows held-out agreement per session, and runs under `tests/test_notebooks.py`. Waits: Ruled 2026-10-19: a signature and estimand go to Hamm in 0.2.14's wave 0; built in 0.2.14 after the ruling.
-Accept: the suite and harness pass; the downstream evaluation on the curated datasets is recorded downstream, with only its summary numbers in `artifacts/evidence/0.2.9/`.
 
 ### 11-07 The S1, S2 and S5 scans
 
@@ -237,13 +229,13 @@ Accept: the fact gate reports the row HELD, or it waits with Hamm's reason.
 ### 15-18 Fusion agreement that can say `agree` or `disagree`
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: 13-04.
+Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
 - 15-18: The `'unavailable'`/`'unresolved'` status, the `B` cap and `contact_spacing_um` landed (ruled 2026-10-15); `fuse_laminar_anchors` emits `'agree'` and `'disagree'` only once a calibrated separation threshold exists. Check: a test that fails before the repair and passes after. Waits: 15-19's calibration, done in 7ea17995. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 
 ### 15-22 A `jnwb-sim-benchmark` skill
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 13-04.
+Role: jnwb-developer. Skill: none. Blocked by: none.
 - 15-22: No skill routes agents to the synthetic ground-truth generators (`synth_vflip2_crossover` of 15-11) and their recovery runs. Check: a test that fails before the repair and passes after. Waits: Ruled 2026-10-19: a draft comes for amendment once the P-335 calibration and the 15-11 generators are stable.
 
 ### 12-21 A jaxfne simulation as jnwb ground truth
@@ -322,6 +314,6 @@ Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutan
 ### 16-19 A manifest of the public surface (goal F2)
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 07-21, 07-22, 14-06, 13-04.
+Role: jnwb-developer. Skill: none. Blocked by: 07-21, 07-22, 14-06.
 Writes: `tests/test_public_surface_manifest.py`, `artifacts/process/public_surface.json`.
 - 16-19: After 0.2.14 a public symbol, module or skill enters only by a ruling that names it (goal F2, ruled 2026-10-21), and nothing records the surface to compare against. Check: a test that compares `jnwb.__all__`, the `jnwb/` module list and `skills/` with the manifest and fails, naming the entry, on an addition or removal the manifest does not record; a planted extra symbol fails it.
