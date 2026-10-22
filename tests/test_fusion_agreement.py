@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import math
 import pathlib
+import sys
 
 import numpy as np
 import pytest
@@ -20,15 +21,19 @@ from scipy.ndimage import gaussian_filter1d
 
 import jnwb
 from jnwb.laminar_curation import VFLIP2_VFLIP_AGREEMENT_T_CONTACTS as T
-from scripts.calibrate_vflip2_separation import gap_for_seed, run, threshold
 
 FS = 500.0
 PITCH = 25.0
 WIN = np.array([600.0, 610.0, 590.0, 605.0])
 # Stable windows with consistency 0.8: grades 'A' at baseline with one landmark.
 A_KW = dict(window_um=WIN, consistency_deep=0.9, consistency_superficial=0.8)
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-RAW = ROOT / "artifacts" / "benchmarks" / "calibration" / "vflip2_separation_0.2.14_raw.json"
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from scripts.calibrate_vflip2_separation import gap_for_seed, run, threshold  # noqa: E402
+
+RAW = REPO_ROOT / "artifacts" / "benchmarks" / "calibration" / "vflip2_separation_0.2.14_raw.json"
 
 
 def _band(rng, shape, lo, hi):
