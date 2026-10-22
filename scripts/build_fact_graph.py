@@ -1010,9 +1010,11 @@ S10_EXCUSED: Dict[Tuple[str, str], str] = {
 
 def _public_callables(package: Any) -> List[Tuple[str, Any, Any]]:
     """Each callable the package exports, and each public method of an exported class, as
-    (qualified name, function, owning class or None), in sorted order."""
+    (qualified name, function, owning class or None), in sorted order. An exported submodule
+    is no callable and is not imported: one behind an optional extra raises on import."""
     found = []
-    for name in sorted(package.__all__):
+    submodules = set(getattr(package, "SUBMODULES", ()))
+    for name in sorted(set(package.__all__) - submodules):
         obj = getattr(package, name, None)
         if inspect.isclass(obj):
             for mname, meth in sorted(vars(obj).items()):

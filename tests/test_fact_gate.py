@@ -957,6 +957,26 @@ def planted_package(*functions):
                                  **{f.__name__: f for f in functions})
 
 
+def test_the_callable_walk_never_imports_an_exported_submodule():
+    """A submodule behind a missing optional extra raises ImportError on access; the walk
+    must not touch it (the distribution build has no Plotly for ``jnwb.vis``)."""
+    def planted_callable(x):
+        return x
+
+    class Package(types.SimpleNamespace):
+        def __getattribute__(self, name):
+            if name == "vis":
+                raise ImportError("planted: the optional extra is not installed")
+            return super().__getattribute__(name)
+
+    package = Package(__all__=["planted_callable", "vis"], SUBMODULES=("vis",),
+                      planted_callable=planted_callable)
+    with pytest.raises(ImportError):
+        package.vis
+    walked = build_fact_graph._public_callables(package)
+    assert [name for name, _, _ in walked] == ["planted_callable"]
+
+
 def reported(found):
     """The findings keyed by their planted function name."""
     return {name.rpartition(".")[2]: reason for name, reason in found}
