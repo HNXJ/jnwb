@@ -113,7 +113,9 @@ def _sha256(path: Path) -> str:
 def _version(dist: str) -> str | None:
     try:
         return metadata.version(dist)
-    except metadata.PackageNotFoundError:
+    except metadata.PackageNotFoundError as exc:
+        warnings.warn(f"{dist!r} is not installed ({exc}); recording None",
+                      UserWarning, stacklevel=2)
         return None
 
 
@@ -187,7 +189,9 @@ def _stored_refs(dataset: h5py.Dataset, n_check: int) -> np.ndarray:
 def _is_null(ref) -> bool:
     try:
         return not ref
-    except Exception:
+    except Exception as exc:
+        warnings.warn(f"unreadable reference ({type(exc).__name__}); treating it as non-null",
+                      UserWarning, stacklevel=2)
         return False
 
 
@@ -282,11 +286,15 @@ def _attr_scalar_equal(handle_first: h5py.File, one, handle_second: h5py.File,
             return False
         try:
             return _targets_equal(handle_first, one, handle_second, other, n_check)
-        except Exception:
+        except Exception as exc:
+            warnings.warn(f"reference target unreadable ({type(exc).__name__}); "
+                          "comparing as different", UserWarning, stacklevel=2)
             return False
     try:
         return bool(one == other)
-    except Exception:
+    except Exception as exc:
+        warnings.warn(f"attribute comparison failed ({type(exc).__name__}); comparing reprs",
+                      UserWarning, stacklevel=2)
         return repr(one) == repr(other)
 
 

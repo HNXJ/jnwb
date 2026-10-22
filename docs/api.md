@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 212 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 213 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -219,6 +219,12 @@ All 212 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.NWBValidationReport | class | *All layers of one file, plus the versions that produced them.* |
 | jnwb.validate_nwb | function | `(path: 'str | Path', *, layers: 'Sequence[str] | None' = None, dandi_ignore: 'Sequence[str]' = ('DANDI.NO_DANDISET_FOUND',), max_messages: 'int' = 50) -> 'NWBValidationReport'`<br>*Validate one NWB file and report every layer. Read-only; nothing is written.* |
+
+## Module: jnwb.nwb_write
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.verify_nwb | function | `(dst: 'str | Path', *, against: 'str | Path | None' = None, report: 'MutationReport | None' = None, n_check: 'int' = 200000) -> 'MutationReport'`<br>*Re-read one written NWB file and check it, with or without its source.* |
 
 ## Module: jnwb.onset_fitting
 

@@ -21,6 +21,9 @@ from jnwb.nwb_write import (
     MutationCheck,
     MutationIssue,
     MutationReport,
+    _attr_scalar_equal,
+    _is_null,
+    _version,
     verify_nwb,
 )
 from jnwb.ontology import Lineage, Provenance
@@ -306,3 +309,52 @@ def test_identical_nan_content_passes(tmp_path):
             "the non-NaN values must match"
     rep = verify_nwb(dst, against=src, report=_hand_report())
     assert rep.ok, _failing(rep)
+
+
+def test_missing_distribution_warns_and_records_none():
+    with pytest.warns(UserWarning, match="not installed"):
+        assert _version("jnwb-no-such-distribution") is None
+
+
+def test_unreadable_reference_warns_and_counts_as_non_null():
+    class _Unreadable:
+        def __bool__(self):
+            raise RuntimeError("planted")
+
+    with pytest.warns(UserWarning, match="unreadable reference"):
+        assert _is_null(_Unreadable()) is False
+
+
+def test_unreadable_reference_target_warns_and_counts_as_different(tmp_path, monkeypatch):
+    import jnwb.nwb_write as module
+
+    path = tmp_path / "ref.h5"
+    with h5py.File(path, "w") as handle:
+        data = handle.create_dataset("data", data=np.arange(4))
+        ref = data.ref
+    assert isinstance(ref, h5py.h5r.Reference), "the fixture must hold a real reference"
+
+    def _planted(*args, **kwargs):
+        raise RuntimeError("planted")
+
+    monkeypatch.setattr(module, "_targets_equal", _planted)
+    with pytest.warns(UserWarning, match="unreadable"):
+        assert module._attr_scalar_equal(None, ref, None, ref, 200000) is False
+
+
+class _NoEq:
+    def __init__(self, tag):
+        self.tag = tag
+
+    def __eq__(self, other):
+        raise RuntimeError("planted")
+
+    def __repr__(self):
+        return f"_NoEq({self.tag})"
+
+
+def test_failing_equality_warns_and_falls_back_to_repr():
+    with pytest.warns(UserWarning, match="comparing reprs"):
+        assert _attr_scalar_equal(None, _NoEq("a"), None, _NoEq("a"), 200000) is True
+    with pytest.warns(UserWarning, match="comparing reprs"):
+        assert _attr_scalar_equal(None, _NoEq("a"), None, _NoEq("b"), 200000) is False
