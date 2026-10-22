@@ -60,6 +60,8 @@ CLAIMS = [
     ("jnwb", "The default is 1 everywhere", None, "n_jobs", 1),
     ("jnwb-spiking", "`bin_ms` sets the timescale and has no default",
      jnwb.spike_count_correlation, "bin_ms", NO_DEFAULT),
+    ("jnwb-spiking", "`min_trials` has no default", jnwb.noise_correlation, "min_trials",
+     NO_DEFAULT),
     ("jnwb-spiking", "(`summary` has no default)", jnwb.fano_factor, "summary", NO_DEFAULT),
     ("jnwb-spiking", "All three set what a burst is and have no default",
      jnwb.network_burst_index, "bin_ms", NO_DEFAULT),

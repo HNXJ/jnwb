@@ -118,6 +118,13 @@ class TestSpikingPopulationMeasures:
         out = jnwb.spike_count_correlation(units, (0.0, 1.0), bin_ms=100.0)
         assert out["r"].shape == (3, 3)
 
+    def test_noise_correlation_declares_and_returns_units_by_units(self):
+        assert ("n_units", "n_units") in declared_shapes(jnwb.noise_correlation)
+        counts = np.random.default_rng(0).poisson(5.0, size=(3, 8))
+        out = jnwb.noise_correlation(counts, np.repeat([0, 1], 4), min_trials=4)
+        assert out["r"].shape == (3, 3)
+        assert out["geometric_mean_count"].shape == (3, 3)
+
     def test_fano_factor_declares_and_returns_units_by_trials(self):
         assert ("n_units", "n_trials") in declared_shapes(jnwb.fano_factor)
         units = [np.array([0.1, 1.1, 1.2]), np.array([2.2])]
@@ -168,7 +175,7 @@ class TestTheListOfDeclaringFunctionsIsComplete:
     def test_every_function_declaring_a_return_shape_is_accounted_for(self):
         """A new declaration must be covered or named, not silently join the gap."""
         covered = {"bin_spikes", "detect_band_outliers", "laplacian_reference",
-                   "spike_count_correlation", "fano_factor", "normalize_waveforms",
+                   "spike_count_correlation", "noise_correlation", "fano_factor", "normalize_waveforms",
                    "wavemap_resolution_sweep", *NEEDS_A_SESSION}
         declaring = declaring_functions()
         assert declaring <= covered, (
