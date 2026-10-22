@@ -181,13 +181,13 @@ Accept: the Science and Skills tables report no UNHELD fact.
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-- 16-05: No scan reports fact S10 (a permutation null names its exchangeability scheme) on a planted case, so it reports UNHELD. Check: a test that fails before the repair and passes after. Waits: Ruled 2026-10-20 (11-32): one check item per fact; nothing public claims it before the scan lands.
+- 16-05: The S10 scan (`scheme_scan` in `scripts/build_fact_graph.py`) reports 0 findings over 217 callables (f4afdcff), but excuses by name six that carry no scheme key: `wavemap_resolution_sweep` and five that return a bare value (`permute_labels`, both `exact_sign_flip`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`). Check: Hamm rules whether named exceptions hold the fact or the bare returns become result dicts (breaking); then the S10 holder cell names the scan. Waits: that ruling.
 
 ### 16-06 The S11 check
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-- 16-06: No scan reports fact S11 (a result reports the `rng` it used) on a planted case, so it reports UNHELD. Check: a test that fails before the repair and passes after. Waits: Ruled 2026-10-20 (11-32): one check item per fact; nothing public claims it before the scan lands.
+Role: jnwb-developer. Skill: none. Blocked by: 16-05.
+- 16-06: The S11 scan (`rng_scan` in `scripts/build_fact_graph.py`) reports 0 findings over 217 callables (f4afdcff), but excuses by name six that cannot carry `surrogate_seed_entropy`: `resample_onsets` and the five bare returns of 16-05. Check: the ruling of 16-05 applied to S11; then the S11 holder cell names the scan. Waits: the 16-05 ruling.
 
 ### 16-07 The S12 check
 
