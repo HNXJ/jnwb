@@ -2,7 +2,7 @@
  "release": "0.2.13",
  "declared_version": "0.2.13",
  "estimator": "curate_and_label",
- "estimator_sha256": "6388826e135645fe481c07b801a2b783f0a09545d891621b81a76d66e1ee79a4",
+ "estimator_sha256": "658e11574ed54814d95ed3c4569a0175ac182a748188eac2b88e5afd7e5855e4",
  "estimator_functions": [
   "CORRELATION_FS_HZ",
   "LaminarCurationResult",
@@ -503,6 +503,7 @@
   "max_deep_um": 1600.0,
   "compute_xflip": false,
   "xflip_n_surrogates": 50,
+  "xflip_n_blocks": null,
   "rng": 42,
   "min_contacts": 8,
   "min_edge_contacts": 11,
