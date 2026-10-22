@@ -1066,3 +1066,97 @@ class TestNonnumericIntervalColumnsSurvive:
             v.decode("utf-8") if isinstance(v, (bytes, np.bytes_)) else str(v)
             for v in got["label"]["sample_values"]
         ] == ["", "beta"]
+
+
+class TestNoConstantRateNamesTheSeries:
+    """A series stored with explicit timestamps is refused by name, and the message says why."""
+
+    def test_the_refusal_names_the_series_and_the_timestamps(self, tmp_path):
+        from pynwb import TimeSeries
+
+        nwb = _nwb("stamped")
+        nwb.add_acquisition(TimeSeries(name="stamped_es", data=np.zeros((50, 2)), unit="a.u.",
+                                       timestamps=np.arange(50) * 0.01))
+        path = _written(tmp_path / "stamped.nwb", nwb)
+        with pytest.raises(AcquisitionNotFoundError) as info:
+            acquisition_channel(path, name="stamped_es", channel=0)
+        assert type(info.value) is AcquisitionNotFoundError
+        message = str(info.value)
+        assert "'stamped_es'" in message
+        assert "stores explicit timestamps" in message
+        assert "Epoching by sample index needs a constant rate" in message
+
+
+class TestContainerTypeContradictionHeadlines:
+    """A unit-scale contradiction and a type contradiction each open the warning with their own
+    first sentence, so a reader can tell which of the two a file has."""
+
+    @staticmethod
+    def _first_sentence(path):
+        import warnings
+
+        from jnwb.nwb_io import ContainerTypeContradictionWarning
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            inspect(path)
+        found = [str(w.message) for w in caught
+                 if issubclass(w.category, ContainerTypeContradictionWarning)]
+        assert len(found) == 1, found
+        return found[0].split(". ", 1)[0]
+
+    @staticmethod
+    def _lfp_file(tmp_path, name):
+        from pynwb.ecephys import LFP, ElectricalSeries
+
+        nwb = _nwb(name)
+        region = _region(nwb, 2)
+        nwb.add_acquisition(LFP(name="probe_lfp", electrical_series=ElectricalSeries(
+            name="lfp_uv", data=np.zeros((50, 2), dtype=np.int16), electrodes=region,
+            rate=1000.0)))
+        return _written(tmp_path / f"{name}.nwb", nwb)
+
+    def _both_cases(self, tmp_path):
+        unit_path = self._lfp_file(tmp_path, "unit_case")
+        with h5py.File(unit_path, "r+") as f:
+            f["acquisition/probe_lfp/lfp_uv/data"].attrs["unit"] = "uV"
+        type_path = self._lfp_file(tmp_path, "type_case")
+        with h5py.File(type_path, "r+") as f:
+            del f["acquisition/probe_lfp/lfp_uv"].attrs["neurodata_type"]
+        return self._first_sentence(unit_path), self._first_sentence(type_path)
+
+    def test_a_unit_scale_contradiction_names_the_unit(self, tmp_path):
+        unit_head, type_head = self._both_cases(tmp_path)
+        assert unit_head != type_head
+        assert unit_head.endswith(
+            "declared unit disagrees with the unit the NWB schema fixes for the declared "
+            "neurodata_type")
+        assert "declared type disagrees" not in unit_head
+
+    def test_a_type_contradiction_names_the_type(self, tmp_path):
+        unit_head, type_head = self._both_cases(tmp_path)
+        assert unit_head != type_head
+        assert type_head.endswith("declared type disagrees with what the file stores")
+        assert "declared unit disagrees" not in type_head
+
+
+class TestPackagingLabelIsTheWrappedOne:
+    """A container that wraps its series is `wrapped`, an LFP is `lfp_wrapped`, and a series with
+    its own data is `direct`; a file and the object model it was written from agree."""
+
+    def test_the_same_label_from_a_file_and_from_memory(self, tmp_path):
+        expected = {
+            "EyeTracking": "wrapped",
+            "BehavioralEvents": "wrapped",
+            "BehavioralEpochs": "wrapped",
+            "probe_lfp": "lfp_wrapped",
+            "direct": "direct",
+        }
+
+        def labels(info):
+            return {e["name"]: e["packaging"]
+                    for e in info["acquisitions"] + info["processing_continuous"]}
+
+        path = _written(tmp_path / "mixed.nwb", _mixed())
+        assert labels(inspect(path)) == expected
+        assert labels(inspect(_mixed())) == expected

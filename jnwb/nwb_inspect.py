@@ -350,22 +350,23 @@ def _series_unit(data_ds: h5py.Dataset) -> str | None:
 def _type_contradictions(
     container: h5py.Group,
     members: list[tuple[str | None, str, h5py.Dataset, float | None]],
-) -> list[str]:
-    """One phrase per series whose own declared type disagrees with what it stores.
+) -> list[tuple[str, str]]:
+    """One ``(case, phrase)`` per series whose own declared type disagrees with what it stores.
 
     Two shapes are reported and nothing else is:
 
     * a declared type the schema fixes a data unit for, where the stored unit is a different
-      one -- the container says extracellular voltage and holds something that is not;
-    * no declared type at all, where nothing in the file says what the series holds;
-    * a declared type that no namespace pynwb or the file defines, which pynwb leaves out of
-      the object model.
+      one -- the container says extracellular voltage and holds something that is not; the case
+      is ``"unit"``;
+    * no declared type at all, where nothing in the file says what the series holds; or a
+      declared type that no namespace pynwb or the file defines, which pynwb leaves out of the
+      object model. The case is ``"type"``.
 
     A series carrying no `unit` is deliberately not reported. An absent unit contradicts
     nothing, and a warning that also fires on every merely incomplete file carries no more
     information than one that fires on all of them.
     """
-    findings: list[str] = []
+    findings: list[tuple[str, str]] = []
     for series_name, relpath, data_ds, _rate in members:
         owner = _series_group(container, relpath)
         if owner is None:
@@ -375,22 +376,22 @@ def _type_contradictions(
         unit = _series_unit(data_ds)
         if ndt is None:
             stored = f"unit {unit!r}" if unit is not None else "no unit"
-            findings.append(
+            findings.append(("type", (
                 f"{label} declares no neurodata_type, so nothing in the file says what signal "
                 f"class it holds; it stores {stored} with dtype {data_ds.dtype}"
-            )
+            )))
             continue
         unknown = _unknown_type(owner, ndt)
         if unknown is not None:
-            findings.append(f"{label} {unknown}")
+            findings.append(("type", f"{label} {unknown}"))
             continue
         fixed = _SCHEMA_FIXED_DATA_UNIT.get(ndt)
         if fixed is not None and unit is not None and unit != fixed:
-            findings.append(
+            findings.append(("unit", (
                 f"{label} declares neurodata_type {ndt!r}, for which the NWB schema fixes the "
                 f"data unit to {fixed!r}, but it stores unit {unit!r} with dtype "
                 f"{data_ds.dtype}"
-            )
+            )))
     return findings
 
 
@@ -403,18 +404,37 @@ def _warn_type_contradiction(
 
     Warn, never refuse. The warning is the whole signal; no jnwb
     operation branches on it and the container is read exactly as it would have been.
+    The first sentence names the case: a container whose only contradictions are unit-scale
+    ones is headed as a unit contradiction, every other one as a type contradiction.
     """
     findings = _type_contradictions(container, members)
     if not findings:
         return
+    if all(case == "unit" for case, _ in findings):
+        head = (f"{path}: declared unit disagrees with the unit the NWB schema fixes for the "
+                "declared neurodata_type.")
+    else:
+        head = f"{path}: declared type disagrees with what the file stores."
     warnings.warn(
-        f"{path}: declared type disagrees with what the file stores. "
-        + "; ".join(findings)
+        head + " "
+        + "; ".join(phrase for _, phrase in findings)
         + ". jnwb reads the container unchanged and nothing downstream branches on this "
         "warning; the typing is the file's to correct.",
         ContainerTypeContradictionWarning,
         stacklevel=2,
     )
+
+
+def _packaging_label(ndt: str | None, wraps_series: bool) -> str:
+    """The `packaging` of one continuous entry: `lfp_wrapped` for an LFP, `wrapped` for any other
+    container that holds its series, and `direct` for a series that holds its own data.
+
+    Both call forms of `inspect` take their label here, so a file and the object model it was
+    written from name each container the same way.
+    """
+    if ndt == "LFP":
+        return "lfp_wrapped"
+    return "wrapped" if wraps_series else "direct"
 
 
 def _continuous_entry_h5py(group: h5py.Group, name: str, path: str) -> dict[str, Any]:
@@ -435,7 +455,7 @@ def _continuous_entry_h5py(group: h5py.Group, name: str, path: str) -> dict[str,
         "name": name,
         "path": path,
         "neurodata_type": ndt,
-        "packaging": "lfp_wrapped" if ndt == "LFP" else "direct",
+        "packaging": _packaging_label(ndt, any(m[0] is not None for m in members)),
         "series": [m[0] for m in members if m[0] is not None] or None,
         "data_path": None,
         "data_shape": None,
@@ -962,7 +982,11 @@ def acquisition_channel(
 
         rate = getattr(series, "rate", None)
         if rate is None:
-            raise AcquisitionNotFoundError(f"Series '{acq_name}' has no constant sampling rate")
+            raise AcquisitionNotFoundError(
+                f"Series '{acq_name}' has no constant sampling rate: it stores explicit "
+                "timestamps. Epoching by sample index needs a constant rate, so read its "
+                "timestamps instead"
+            )
         if not (np.isfinite(rate) and rate > 0):
             raise AcquisitionNotFoundError(
                 f"Series '{acq_name}' has sampling rate {float(rate)!r} Hz, which is not a finite "
@@ -1003,11 +1027,13 @@ def _continuous_entry_pynwb(obj: Any, name: str, path: str) -> dict[str, Any]:
     two call forms of `inspect` do not describe the same file with two vocabularies.
     """
     ndt = getattr(obj, "neurodata_type", type(obj).__name__)
+    # Every container that holds series unwraps by `_object_members`, as the file walk does.
+    members = _object_members(obj)
     entry: dict[str, Any] = {
         "name": name,
         "path": path,
         "neurodata_type": ndt,
-        "packaging": "lfp_wrapped" if ndt == "LFP" else "direct",
+        "packaging": _packaging_label(ndt, any(m[0] is not None for m in members)),
         "series": None,
         "data_path": None,
         "data_shape": None,
@@ -1016,8 +1042,6 @@ def _continuous_entry_pynwb(obj: Any, name: str, path: str) -> dict[str, Any]:
         "rate_hz": None,
         "starting_time": None,
     }
-    # Every container that holds series unwraps by `_object_members`, as the file walk does.
-    members = _object_members(obj)
     if not members:
         return entry
     if members[0][0] is None:

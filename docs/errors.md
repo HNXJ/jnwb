@@ -179,11 +179,11 @@ nwbfile.jnwb_waived_requirements   # ("session_description",)
 
 `jnwb_waived_requirements` records the waivers the read used, not the ones it was offered. A
 file that has the field reads `()` under the same `allow_missing`, so a corpus-wide waiver still
-tells each waived file apart from one that recorded an empty description.
+tells each waived file apart from one with an empty description.
 
-`read_nwb` closes the file before it returns, so its object holds metadata and no readable data
-arrays. To read data from a waived file, read inside `nwb_read_io`, which takes the same
-`allow_missing` and sets the same attribute:
+`read_nwb` closes the file before it returns, so its object holds metadata, not data arrays. To
+read data from a waived file, read inside `nwb_read_io`, which takes the same `allow_missing` and
+sets the same attribute:
 
 ```python
 with jnwb.nwb_read_io("session.nwb", allow_missing=("session_description",)) as io:
@@ -204,6 +204,7 @@ keyed by input name.
 | On disk | Default | Waived |
 |---|---|---|
 | Absent | Raises `MissingRequiredNWBFieldError` | `""`, flag `("session_description",)` |
+| A group, not a dataset | Raises `MissingRequiredNWBFieldError` | Raises `MissingRequiredNWBFieldError` |
 | Explicit null: null dataspace, zero-length array or null reference | Raises an HDMF or h5py error | Raises the same error |
 | Empty string | `""`, flag `()` | `""`, flag `()` |
 | One-element string array | The element, flag `()`, no warning | The same |

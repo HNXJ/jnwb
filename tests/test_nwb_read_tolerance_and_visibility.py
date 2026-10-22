@@ -261,6 +261,26 @@ def test_missingness_row_absent(base_file, tmp_path):
     assert getattr(nwbfile, WAIVED_REQUIREMENTS_ATTR) == _WAIVE
 
 
+def test_missingness_row_group_named_session_description(base_file, tmp_path):
+    """A group under the name is present, not absent, so the waiver cannot stand in for it: the
+    waived read refuses by the same class, naming why, and returns no object."""
+    path = tmp_path / "group.nwb"
+    shutil.copy(base_file, path)
+    with h5py.File(path, "a") as handle:
+        del handle[_SD]
+        handle.create_group(_SD)
+    with h5py.File(path, "r") as handle:
+        assert isinstance(handle[_SD], h5py.Group)
+
+    default, _ = _refusal(path)
+    assert type(default) is MissingRequiredNWBFieldError
+    waived, _ = _refusal(path, _WAIVE)
+    assert type(waived) is MissingRequiredNWBFieldError
+    assert waived.field_name == _SD
+    assert "as a group, not a dataset" in str(waived)
+    assert "cannot be waived" in str(waived)
+
+
 _NULL_ENCODINGS = {
     "null_dataspace": lambda handle, original: handle.create_dataset(
         _SD, data=h5py.Empty(h5py.string_dtype())),
