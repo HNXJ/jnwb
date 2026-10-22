@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -548,3 +549,317 @@ def test_the_live_graph_reads_the_python_files_the_scans_need(live):
     _, g = live
     python = g["entities"]["python"]
     assert python and any(p.startswith("jnwb/") for p in python), "the graph read no jnwb file"
+
+
+LIVE_IMMUNITY = LIVE_CONSTANTS["immunity vocabulary"]
+IMMUNITY_TEXT = "Reduced sensitivity is immune to volume conduction.\n"
+IMMUNITY_NEAR_MISS = ("Immune cells were counted in the lab.\n"
+                      "The result is immune to noise; volume conduction is excluded.\n")
+IMMUNITY_PYTHON = (
+    "def f(x):\n"
+    '    """Reduced sensitivity to zero-phase coupling; immune to volume conduction."""\n'
+    "    # complete suppression of the reference signal\n"
+    "    immune = x  # no volume conduction here\n"
+    "    return immune\n"
+)
+
+
+@pytest.mark.parametrize("text, expected", [
+    (IMMUNITY_TEXT, ["line 1: immune"]),
+    ("Complete suppression follows zero-phase coupling.\n", ["line 1: complete suppression"]),
+])
+def test_an_immune_sentence_beside_a_context_term_is_violated(text, expected):
+    assert "volume conduction" in text or "zero-phase" in text, "fixture must name a context term"
+    assert build_fact_graph.immunity_violations(text, LIVE_IMMUNITY) == expected
+
+
+def test_an_immune_word_about_something_else_is_not_flagged():
+    assert "immune" in IMMUNITY_NEAR_MISS.lower(), "fixture must name the vocabulary"
+    assert build_fact_graph.immunity_violations(IMMUNITY_NEAR_MISS, LIVE_IMMUNITY) == []
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("It does not confer immunity to volume conduction.\n", []),
+    ("It is immune to volume conduction.\n", ["line 1: immune"]),
+    ("No cell is clean, but the signal is immune to volume conduction.\n", ["line 1: immune"]),
+])
+def test_a_value_negated_in_its_clause_passes_and_an_asserted_one_fails(text, expected):
+    assert build_fact_graph.immunity_violations(text, LIVE_IMMUNITY) == expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("It does not\nconfer immunity to volume conduction.\n", []),
+    ("It is\nimmune to volume conduction.\n", ["line 2: immune"]),
+])
+def test_a_negation_ending_one_line_reaches_the_value_on_the_next(text, expected):
+    assert build_fact_graph.immunity_violations(text, LIVE_IMMUNITY) == expected
+
+
+def test_a_comment_or_docstring_is_prose_and_code_is_not():
+    assert "immune = x" in IMMUNITY_PYTHON, "fixture must hold a code identifier"
+    prose = build_fact_graph.python_prose(IMMUNITY_PYTHON)
+    assert prose.count("\n") == IMMUNITY_PYTHON.count("\n"), "prose must keep the line numbers"
+    assert "immune = x" not in prose
+    assert build_fact_graph.immunity_violations(prose, LIVE_IMMUNITY) == [
+        "line 2: immune", "line 3: complete suppression"]
+
+
+def test_the_immunity_rule_needs_its_vocabulary_constant():
+    with pytest.raises(ValueError, match="immunity vocabulary"):
+        build_fact_graph.immunity_violations(IMMUNITY_TEXT, [])
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("It does not hold: the signal is immune to volume conduction.\n", ["line 1: immune"]),
+    ("The filter (not the reference) is immune to volume conduction.\n", ["line 1: immune"]),
+])
+def test_a_colon_or_parenthesis_ends_a_negation_clause(text, expected):
+    assert build_fact_graph.immunity_violations(text, LIVE_IMMUNITY) == expected
+
+
+def test_a_list_item_is_its_own_sentence():
+    text = "- It does not\n- confer immunity to volume conduction.\n"
+    assert build_fact_graph.immunity_violations(text, LIVE_IMMUNITY) == ["line 2: immunity"]
+
+
+@pytest.mark.parametrize("text", [
+    "It is not only immune to volume conduction.\n",
+    "It is not just immune to volume conduction.\n",
+    "It is not merely immune to volume conduction.\n",
+])
+def test_not_only_not_just_and_not_merely_are_no_negation(text):
+    assert build_fact_graph.immunity_violations(text, LIVE_IMMUNITY) == ["line 1: immune"]
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("The estimate is robust to volume conduction.\n", ["line 1: robust to"]),
+    ("The estimate is insensitive to field spread.\n", ["line 1: insensitive to"]),
+    ("Coupling is unaffected by common-average referencing.\n", ["line 1: unaffected by"]),
+    ("The method eliminates reference contamination.\n", ["line 1: eliminates"]),
+    ("The filter completely suppresses volume conduction.\n", ["line 1: completely suppresses"]),
+    ("Estimates are free of volume conduction.\n", ["line 1: free of"]),
+    ("Coupling is immune to re-referencing.\n", ["line 1: immune"]),
+])
+def test_the_repaired_vocabulary_is_violated_beside_a_context_term(text, expected):
+    assert build_fact_graph.immunity_violations(text, LIVE_IMMUNITY) == expected
+
+
+IMMUNITY_NOTEBOOK = json.dumps({"cells": [
+    {"cell_type": "markdown", "source": ["Reduced sensitivity is\n", "immune to volume conduction.\n"]},
+    {"cell_type": "code", "source": ["x = 1  # immune to volume conduction\n", "y = 2\n"]},
+]})
+
+
+def test_a_script_comment_and_a_notebook_cell_are_prose():
+    script = "x = 1  # immune to volume conduction\n"
+    assert build_fact_graph.immunity_scan("scripts/s.py", script, LIVE_IMMUNITY) == ["line 1: immune"]
+    assert build_fact_graph.immunity_scan("examples/n.ipynb", IMMUNITY_NOTEBOOK, LIVE_IMMUNITY) == [
+        "cell 0 line 2: immune", "cell 1 line 1: immune"]
+
+
+def test_the_scan_reads_every_tracked_text_file_outside_tests_and_artifacts():
+    tracked = ["AGENTS.md", "CHANGELOG.md", "README.md", "docs/a.md", ".github/workflows/w.yml",
+               "examples/n.ipynb", "jnwb/a.py", "notes/a.txt", "scripts/s.py", "skills/x/SKILL.md",
+               "skills/x/run.sh", "data/x.csv", "tests/t.py", "tests/t.md", "artifacts/a.md"]
+    assert build_fact_graph._prose_files(tracked) == [
+        "AGENTS.md", "CHANGELOG.md", "README.md", "docs/a.md", ".github/workflows/w.yml",
+        "examples/n.ipynb", "jnwb/a.py", "notes/a.txt", "scripts/s.py", "skills/x/SKILL.md",
+        "skills/x/run.sh"]
+
+
+def test_the_two_rule_files_are_exempt_but_a_sibling_rule_file_is_still_scanned():
+    tracked = ["scripts/build_fact_graph.py", "scripts/fact_gate.py", "scripts/fact_gate_rules.py",
+               "scripts/gates/stacks_form.py", "scripts/fact_gate.py.bak.md"]
+    assert build_fact_graph._prose_files(tracked) == [
+        "scripts/fact_gate_rules.py", "scripts/gates/stacks_form.py", "scripts/fact_gate.py.bak.md"]
+
+
+def test_the_gate_prints_the_examined_count_and_the_exempt_trees():
+    assert fact_gate.scope_line(text_scanned()) == (
+        "immunity_vocabulary examined 2 text files; exempt: tests/, artifacts/, "
+        "scripts/build_fact_graph.py, scripts/fact_gate.py")
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("The skill must write a manifest that lists each contract field.\n", ["line 1: manifest"]),
+    ("The receipt has required fields for each run.\n", ["line 1: receipt"]),
+    ("A MANIFEST must produce the schema.\n", ["line 1: manifest"]),
+])
+def test_a_skill_naming_a_manifest_beside_a_contract_is_violated(text, expected):
+    assert build_fact_graph.skill_contract_violations(text) == expected
+
+
+@pytest.mark.parametrize("text", [
+    "The contract is carried by the Result, whose manifest lists the fields.\n",
+    "The receipt contract extends Lineage, so its manifest lists only new fields.\n",
+    "Write the manifest to the output folder.\n",
+])
+def test_a_skill_naming_a_carrier_or_no_contract_is_not_flagged(text):
+    assert build_fact_graph.skill_contract_violations(text) == []
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("Each call returns a Result whose manifest lists the contract fields.\n", ["line 1: manifest"]),
+    ("Use inspect to read the receipt, whose schema the contract defines.\n", ["line 1: receipt"]),
+])
+def test_a_carrier_exempts_a_sentence_only_when_it_extends_or_carries_the_contract(text, expected):
+    assert build_fact_graph.skill_contract_violations(text) == expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("Each run writes receipts that the contract defines.\n", ["line 1: receipt"]),
+    ("The receipt must contain the run fields.\n", ["line 1: receipt"]),
+    ("The receipt lists required-fields for each run.\n", ["line 1: receipt"]),
+    ("A receipt must include the fields of each run.\n", ["line 1: receipt"]),
+    ("The manifests must produce each contract.\n", ["line 1: manifest"]),
+])
+def test_plurals_and_field_triggers_are_read(text, expected):
+    assert build_fact_graph.skill_contract_violations(text) == expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("The skill defines a manifest\nthat lists the contract fields.\n", ["line 1: manifest"]),
+    ("The skill defines a manifest that\nlists the contract fields.\n", ["line 1: manifest"]),
+])
+def test_a_sentence_wrapped_across_lines_is_read_whole(text, expected):
+    assert build_fact_graph.skill_contract_violations(text) == expected
+
+
+SILENT_HANDLER = ("def f(p):\n    try:\n        return int(p)\n"
+                  "    except ValueError:\n        return None\n")
+SILENT_DEBUG = ("import logging\nlogger = logging.getLogger(__name__)\n\ndef f(p):\n"
+                "    try:\n        return int(p)\n    except ValueError:\n"
+                "        logger.debug('bad')\n        return None\n")
+SILENT_BARE = "def f(p):\n    try:\n        return int(p)\n    except:\n        return None\n"
+SILENT_MIXED_IMPORT = "try:\n    import scipy\nexcept (ImportError, OSError):\n    scipy = None\n"
+KEPT_ON_SELF = ("def f(p):\n    try:\n        return int(p)\n    except ValueError as exc:\n"
+                      "        self.error = exc\n    return None\n")
+WARNED_HANDLER = ("import warnings\n\ndef f(p):\n    try:\n        return int(p)\n"
+                  "    except ValueError:\n        warnings.warn('bad')\n        return None\n")
+LOGGED_HANDLER = ("import logging\nlogger = logging.getLogger(__name__)\n\ndef f(p):\n"
+                  "    try:\n        return int(p)\n    except ValueError:\n"
+                  "        logger.warning('bad')\n        return None\n")
+RAISED_HANDLER = ("def f(p):\n    try:\n        return int(p)\n    except ValueError as exc:\n"
+                  "        raise RuntimeError('bad') from exc\n")
+OPTIONAL_IMPORT = "try:\n    import scipy\nexcept ImportError:\n    scipy = None\n"
+MISSING_MODULE = "try:\n    import scipy\nexcept ModuleNotFoundError:\n    scipy = None\n"
+KEPT_READ = ("def f(p):\n    try:\n        return int(p)\n    except ValueError as exc:\n"
+             "        self.error = exc\n    return self.error\n")
+KEPT_IN_CONTAINER_READ = ("def f(p):\n    try:\n        return int(p)\n"
+                          "    except ValueError as exc:\n        FAILURES[p] = exc\n"
+                          "    return FAILURES\n")
+KEPT_IN_CONTAINER_UNRETURNED = ("def f(p):\n    try:\n        return int(p)\n"
+                            "    except ValueError as exc:\n        FAILURES[p] = exc\n"
+                            "    return None\n")
+
+
+SILENT_BOUND_UNUSED = ("def f(p):\n    try:\n        return int(p)\n"
+                       "    except ValueError as exc:\n        return None\n")
+USES_IN_RETURN = ("def f(p):\n    try:\n        return int(p)\n    except ValueError as exc:\n"
+                  "        return {'error': str(exc)}\n")
+SAME_MODULE_REPORTS = ("import warnings\n\ndef _fallback(p):\n    warnings.warn('bad')\n"
+                       "    return None\n\ndef f(p):\n    try:\n        return int(p)\n"
+                       "    except ValueError:\n        return _fallback(p)\n")
+SAME_MODULE_SILENT = ("import warnings\n\ndef _fallback(p):\n    return None\n\n"
+                      "def f(p):\n    try:\n        return int(p)\n    except ValueError:\n"
+                      "        return _fallback(p)\n")
+SAME_MODULE_RAISES = ("def _fallback(p):\n    raise ValueError(p)\n\ndef f(p):\n    try:\n"
+                      "        return int(p)\n    except ValueError:\n        return _fallback(p)\n")
+TWO_LEVELS = ("import warnings\n\ndef _inner(p):\n    warnings.warn('bad')\n    return None\n\n"
+              "def _outer(p):\n    return _inner(p)\n\ndef f(p):\n    try:\n        return int(p)\n"
+              "    except ValueError:\n        return _outer(p)\n")
+IMPORTED_CALL = ("from .helpers import fallback\n\ndef f(p):\n    try:\n        return int(p)\n"
+                 "    except ValueError:\n        return fallback(p)\n")
+ALIASED_CALL = ("from .helpers import fallback as fb\n\ndef f(p):\n    try:\n        return int(p)\n"
+                "    except ValueError:\n        return fb(p)\n")
+HELPERS_REPORT = {"jnwb/pkg/helpers.py": "import logging\n\nlog = logging.getLogger(__name__)\n\n"
+                  "def fallback(p):\n    log.error('bad')\n    return None\n"}
+HELPERS_SILENT = {"jnwb/pkg/helpers.py": "def fallback(p):\n    return None\n"}
+LEVEL_TWO_CALL = ("from ..helpers import fallback\n\ndef f(p):\n    try:\n        return int(p)\n"
+                  "    except ValueError:\n        return fallback(p)\n")
+LEVEL_TWO_HELPERS = {"jnwb/helpers.py": HELPERS_REPORT["jnwb/pkg/helpers.py"]}
+
+
+def handlers_in(source, read=None):
+    """The silent handlers of a module at ``jnwb/pkg/a.py``, whose relative imports read ``read``."""
+    return build_fact_graph.silent_handler_violations(source, "jnwb/pkg/a.py", (read or {}).get)
+
+
+@pytest.mark.parametrize("source, expected", [
+    (SILENT_HANDLER, ["line 5: except ValueError: return None"]),
+    (SILENT_DEBUG, ["line 8: except ValueError: logger.debug('bad')"]),
+    (SILENT_BARE, ["line 5: except (bare): return None"]),
+    (SILENT_MIXED_IMPORT, ["line 4: except (ImportError, OSError): scipy = None"]),
+    (SILENT_BOUND_UNUSED, ["line 5: except ValueError: return None"]),
+])
+def test_a_silent_handler_is_violated(source, expected):
+    assert handlers_in(source) == expected
+
+
+@pytest.mark.parametrize("source, read, expected", [
+    (SAME_MODULE_SILENT, {}, ["line 10: except ValueError: return _fallback(p)"]),
+    (SAME_MODULE_REPORTS, {}, []),
+    (SAME_MODULE_RAISES, {}, []),
+    (TWO_LEVELS, {}, ["line 14: except ValueError: return _outer(p)"]),
+    (IMPORTED_CALL, {}, ["line 7: except ValueError: return fallback(p)"]),
+    (IMPORTED_CALL, HELPERS_SILENT, ["line 7: except ValueError: return fallback(p)"]),
+    (IMPORTED_CALL, HELPERS_REPORT, []),
+    (ALIASED_CALL, HELPERS_REPORT, []),
+    (LEVEL_TWO_CALL, LEVEL_TWO_HELPERS, []),
+    (LEVEL_TWO_CALL, HELPERS_REPORT, ["line 7: except ValueError: return fallback(p)"]),
+])
+def test_a_handler_is_loud_when_its_called_function_reports_one_level_deep(source, read, expected):
+    assert handlers_in(source, read) == expected
+
+
+@pytest.mark.parametrize("source", [
+    WARNED_HANDLER, LOGGED_HANDLER, RAISED_HANDLER, OPTIONAL_IMPORT, MISSING_MODULE, KEPT_READ,
+    KEPT_IN_CONTAINER_READ, KEPT_ON_SELF, KEPT_IN_CONTAINER_UNRETURNED, USES_IN_RETURN,
+])
+def test_a_handler_that_warns_logs_raises_or_uses_its_exception_is_not_flagged(source):
+    assert "except" in source, "fixture must hold a handler"
+    assert handlers_in(source) == []
+
+
+TEXT_RELATIONS = ("immunity_vocabulary", "skill_contracts", "silent_handlers")
+
+
+def text_scanned(prose=("docs/a.md", "jnwb/a.py"), skill_file=("skills/x/SKILL.md",),
+                 python=("jnwb/a.py",), **relations):
+    """A graph whose text surfaces are read, holding the text relations the caller names."""
+    return {"entities": {"prose": list(prose), "skill_file": list(skill_file),
+                         "python": list(python)},
+            "relations": {name: relations.get(name, []) for name in TEXT_RELATIONS}}
+
+
+def test_the_text_rules_are_read_from_their_own_surfaces():
+    flagged = [["docs/a.md", "line 2: immune"]]
+    assert status(text_scanned(immunity_vocabulary=flagged), "computed:immunity_vocabulary") == (
+        "VIOLATED", ["computed:immunity_vocabulary: docs/a.md: line 2: immune"])
+    assert status(text_scanned(), "computed:immunity_vocabulary") == ("HELD", [])
+    assert status(text_scanned(prose=()), "computed:immunity_vocabulary") == (
+        "VIOLATED", ["computed:immunity_vocabulary: the graph reads no prose file"])
+    listed = [["skills/x/SKILL.md", "line 3: receipt"]]
+    assert status(text_scanned(skill_contracts=listed), "computed:skill_contracts") == (
+        "VIOLATED", ["computed:skill_contracts: skills/x/SKILL.md: line 3: receipt"])
+    assert status(text_scanned(), "computed:skill_contracts") == ("HELD", [])
+    assert status(text_scanned(skill_file=()), "computed:skill_contracts") == (
+        "VIOLATED", ["computed:skill_contracts: the graph reads no skill file"])
+    swallowed = [["jnwb/a.py", "line 7: except ValueError"]]
+    assert status(text_scanned(silent_handlers=swallowed), "computed:silent_handlers") == (
+        "VIOLATED", ["computed:silent_handlers: jnwb/a.py: line 7: except ValueError"])
+    assert status(text_scanned(), "computed:silent_handlers") == ("HELD", [])
+    assert status(text_scanned(python=("scripts/s.py",)), "computed:silent_handlers") == (
+        "VIOLATED", ["computed:silent_handlers: the graph reads no jnwb python file"])
+
+
+def test_the_live_graph_reads_the_text_surfaces_the_new_scans_need(live):
+    _, g = live
+    prose, skills = g["entities"]["prose"], g["entities"]["skill_file"]
+    assert {"README.md", "AGENTS.md"} <= set(prose), "the graph read no named page"
+    assert any(p.startswith("docs/") for p in prose), "the graph read no docs page"
+    assert any(p.startswith("jnwb/") and p.endswith(".py") for p in prose), "no jnwb file"
+    assert any(p.startswith("scripts/") and p.endswith(".py") for p in prose), "no script file"
+    assert not any(build_fact_graph._exempt(p) for p in prose), "an exempt file"
+    assert skills and all(p.startswith("skills/") and p.endswith("SKILL.md") for p in skills)
+    assert set(TEXT_RELATIONS) <= set(g["relations"])

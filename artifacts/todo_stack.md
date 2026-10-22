@@ -44,7 +44,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 1 | M mutation | 07-21 (the core five), then 07-22 | Muse | nothing |
 | 1 | R reading | 11-02 (D10, ruled 2026-09-29: a declared shallow end), 11-01, 16-01, 16-02 | Haiku | nothing |
 | 1 | S estimators | 14-07, then 14-06 | Muse | wave-0 rulings |
-| 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-04 to 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
+| 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-04 to 16-07, 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-18, 13-04, 15-22 (a draft to Hamm) | Muse | 13-04's ruling |
 | 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; when neither exists, the item stops and goes to Hamm, never to 0.2.15 |
 | 2 | D docs and dashboard | 16-14, 16-15, 16-17, then 16-16 and 16-12 (ruled 2026-10-21: light docs with inline figures; HTML and proof of work on the dashboard) | Haiku for figures and pages, Muse for the dashboard design | nothing; 16-12 waits on its receipts |
@@ -61,7 +61,7 @@ What holds when 0.2.14 is released, against the goal in `artifacts/goal.md` (rul
 | 2 | The four pitfall estimators, `noise_correlation` and `screen_units_against_labels`, as ruled 2026-10-20 | each has a planted-case test that recovers the planted value and one that refuses the documented bad input; each cites its source in `docs/references.md` | 14-06, 14-07, 13-04 |
 | 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | 16-01, 16-02 |
 | 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | 11-01, 11-02 |
-| 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 16-04 to 16-10, 11-07, 12-11, 10-10, 11-06, 09-04, 11-09, 12-08, 11-03, 12-07 |
+| 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 16-04 to 16-07, 16-10, 11-07, 12-11, 10-10, 11-06, 09-04, 11-09, 12-08, 11-03, 12-07 |
 | 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 16-03, 15-18, 15-22 |
 | 7 | Work that needs outside code lands (ruled 2026-10-21: nothing in this cycle is deferred) | each item is gone from this file | 12-21, 14-08 |
 | 8 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 15-20, 12-05, 09-07, 07-05, 12-06 |
@@ -241,18 +241,6 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 - 16-07: No scan reports fact S12 (a result computed on GPU records that it was) on a planted case, so it reports UNHELD. Check: a test that fails before the repair and passes after. Waits: Ruled 2026-10-20 (11-32): one check item per fact; nothing public claims it before the scan lands.
-
-### 16-08 The S14 check
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-- 16-08: No scan reports fact S14 (no immunity vocabulary is used of volume conduction or reference contamination) on a planted case, so it reports UNHELD. Check: a test that fails before the repair and passes after. Waits: Ruled 2026-10-20 (11-32): one check item per fact; nothing public claims it before the scan lands.
-
-### 16-09 The K4 check
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-- 16-09: No scan reports fact K4 (no skill defines a manifest or receipt contract that `inspect`, `Result`, `Provenance` or `Lineage` carries) on a planted case, so it reports UNHELD. Check: a test that fails before the repair and passes after. Waits: Ruled 2026-10-20 (11-32): one check item per fact; nothing public claims it before the scan lands.
 
 ### 16-10 The I3 check
 

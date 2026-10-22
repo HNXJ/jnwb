@@ -513,10 +513,10 @@ def imaginary_coherency(
 
     Volume conduction and shared-reference artifacts mix into both channels at
     zero lag, which drives the REAL part of coherency without any true circuit
-    interaction. The imaginary part is insensitive to zero-lag mixing by
+    interaction. The imaginary part reduces sensitivity to zero-lag mixing by
     construction (a purely zero-lag-mixed pair has Im(Cxy) = 0 at every
-    frequency), so it is the preferred estimator when zero-lag volume conduction must be
-    suppressed.
+    frequency; an estimate from finite data is 0 only in expectation), so it is the preferred estimator when the contribution of
+    zero-lag volume conduction must be reduced.
     Callers are responsible for re-referencing (see ``bipolar_reference`` /
     ``laplacian_reference``) before calling this; imaginary coherency controls
     for zero-lag mixing but does not substitute for reducing it upstream.

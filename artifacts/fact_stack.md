@@ -83,7 +83,7 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 | S11 | randomness consumers | a result reports the `rng` it used | `todo:16-06` | `AGENTS.md` §4.5; moved 2026-09-29 (Q3) |
 | S12 | GPU results | a result computed on GPU records that it was | `todo:16-07` | `AGENTS.md` §4.6; moved 2026-09-29 (Q3) |
 | S13 | delay and velocity claims | a physical latency or conduction velocity is claimed only under a verified linear unwrapped phase-frequency relation and predeclared identifiability criteria, and is reported unavailable otherwise | `todo:12-21` | `AGENTS.md` §4.8; moved 2026-09-29 (Q3) |
-| S14 | every text | no vocabulary of `immunity vocabulary` is used of volume conduction or reference contamination; the claim is reduced sensitivity to zero-phase-lag coupling | `todo:16-08` | `AGENTS.md` §4.8; Q12 2026-09-29 |
+| S14 | every text | no vocabulary of `immunity vocabulary` is used of volume conduction or reference contamination; the claim is reduced sensitivity to zero-phase-lag coupling | `computed:immunity_vocabulary` | `AGENTS.md` §4.8; Q12 2026-09-29 |
 
 ## Skills
 
@@ -92,7 +92,7 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 | K1 | shipped domain skills | they partition the routed operations, each owning at least `k` exclusively, the router outside the partition | `computed:partition` | 2026-09-22; Q14 2026-09-29 |
 | K2 | routing rows | every routing target starts at an export of `jnwb.__all__` and resolves on the package; the targets read are the calls in a routing bullet's head and the names in a skill table's `jnwb.` column | `computed:routes` | 2026-09-22; Q15 2026-09-29 |
 | K3 | every skill | a task ends in one of four outcomes: compose and execute, request missing information, report non-identifiability or failure, decline unsupported inference | `test:tests/test_skill_decline_behaviour.py::test_every_skill_outcome_is_tested_or_excused` | 2026-09-22 |
-| K4 | `skills/` | no skill defines a manifest or receipt contract where `inspect`, `Result`, `Provenance` or `Lineage` carries the responsibility; those are extended instead | `todo:16-09` | 2026-09-22 |
+| K4 | `skills/` | no skill defines a manifest or receipt contract where `inspect`, `Result`, `Provenance` or `Lineage` carries the responsibility; those are extended instead | `computed:skill_contracts` | 2026-09-22 |
 | K5 | new skills | a skill is created only for a coherent public capability surface with enough routing complexity, that no existing skill handles more simply; skill count is not an objective, and a skill whose principal behaviour would be declining, or ad-hoc implementation, is not created | `todo:11-09` | 2026-09-22 |
 
 ## Release

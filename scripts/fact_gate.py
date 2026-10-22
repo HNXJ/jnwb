@@ -43,6 +43,23 @@ Computed predicates:
   rng_parameters   every function in ``jnwb/`` or ``scripts/`` that draws from a random module
                    takes an ``rng`` parameter (the graph's ``rng_parameters``)
   db_averages      no average in ``jnwb/`` takes a dB value (the graph's ``db_averages``)
+  immunity_vocabulary  no sentence of a tracked text file outside ``PROSE_EXEMPT`` (the trees
+                   ``tests/`` and ``artifacts/``, and the two rule files) (a page, a script's
+                   comment or docstring, a notebook cell, any file under
+                   ``skills/`` or ``.github/``) holds the ``immunity vocabulary`` constant or the
+                   graph's immunity patterns beside a term of ``IMMUNITY_CONTEXT``, unless a
+                   negation (``not``, ``no``, ``never``, ``nor``, ``without``) precedes the value
+                   in its clause (the graph's ``immunity_vocabulary``); the gate prints the file
+                   count it examined
+  skill_contracts  no sentence of a skill names a manifest or receipt, or a plural, beside a
+                   contract, schema, must-write, must-produce, required-fields or "must contain,
+                   include, list or record ... fields" term, unless it names inspect, Result, Provenance or Lineage and says the
+                   contract is carried by or extends it (the graph's ``skill_contracts``)
+  silent_handlers  no except handler in ``jnwb/`` swallows its exception: its body raises,
+                   warns, or logs a warning, error or exception, calls a function of its module
+                   or of a relative import whose own body does, or reads the bound exception
+                   name; a handler for ImportError or ModuleNotFoundError alone is exempt (the
+                   graph's ``silent_handlers``)
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -214,6 +231,36 @@ def db_averages(graph: Graph, constants: Constants) -> List[str]:
     return [f"{path}: {reason}" for path, reason in graph["relations"]["db_averages"]]
 
 
+def immunity_vocabulary(graph: Graph, constants: Constants) -> List[str]:
+    """Each sentence of a tracked text file in scope that holds the immunity vocabulary beside a
+    context term."""
+    if not graph["entities"].get("prose"):
+        return ["the graph reads no prose file"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["immunity_vocabulary"]]
+
+
+def scope_line(graph: Graph) -> str:
+    """The number of text files the immunity rule examined, and the trees it exempts."""
+    return (f"immunity_vocabulary examined {len(graph['entities'].get('prose', []))} text files; "
+            f"exempt: {', '.join(build_fact_graph.PROSE_EXEMPT)}")
+
+
+def skill_contracts(graph: Graph, constants: Constants) -> List[str]:
+    """Each skill sentence that names a manifest or receipt, or a plural, beside a contract term,
+    unless a carrier is named and the sentence says the contract is carried by or extends it."""
+    if not graph["entities"].get("skill_file"):
+        return ["the graph reads no skill file"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["skill_contracts"]]
+
+
+def silent_handlers(graph: Graph, constants: Constants) -> List[str]:
+    """Each except handler in ``jnwb/`` that swallows its exception."""
+    python = graph["entities"].get("python", [])
+    if not any(path.startswith(build_fact_graph.JNWB_PACKAGE) for path in python):
+        return ["the graph reads no jnwb python file"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["silent_handlers"]]
+
+
 def routed_citations(graph: Graph, constants: Constants) -> List[str]:
     """Each routing target that is a public function (export kind function/class) and has no
     ``cites`` edge, with the skills that route it. Utility exports are listed like the rest;
@@ -248,6 +295,9 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "global_seeds": global_seeds,
     "rng_parameters": rng_parameters,
     "db_averages": db_averages,
+    "immunity_vocabulary": immunity_vocabulary,
+    "skill_contracts": skill_contracts,
+    "silent_handlers": silent_handlers,
 }
 
 
@@ -329,13 +379,16 @@ def main() -> int:
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if reconfigure is not None:
         reconfigure(errors="backslashreplace")
-    source, results = run(build_fact_graph._checkout_jnwb())
+    package = build_fact_graph._checkout_jnwb()
+    graph = build_fact_graph.build(package, REPO_ROOT, build_fact_graph.FACT_STACK)
+    source, results = run(package, graph=graph)
     print(f"=== Fact gate (facts from {source.relative_to(REPO_ROOT).as_posix()}) ===")
     for fact_id, status, reasons in results:
         print(f"{status}: {fact_id}" + (f" ({'; '.join(reasons)})" if status == UNHELD else ""))
         if status == VIOLATED:
             for reason in reasons:
                 print(f"  - {reason}")
+    print(scope_line(graph))
     counts = summary(results)
     print(", ".join(f"{status} {n}" for status, n in counts.items()))
     return 1 if counts[VIOLATED] else 0
