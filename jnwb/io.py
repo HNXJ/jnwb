@@ -250,7 +250,9 @@ def stream_npz_array(
         FileNotFoundError: If file_path does not exist on disk.
         KeyError: If key is not present in the NPZ archive.
         IndexError: Where NumPy raises it: too many indices, an integer out of bounds for its
-                    axis, or a scalar index that is not an integer.
+                    axis, or a scalar index that is not an integer. A ``None`` item at a position
+                    past the last axis, as in ``(0, None)`` on a 1-D array, also raises it, with
+                    "too many indices", where NumPy returns the array with that new axis.
         TypeError: For an index NumPy accepts that is not an integer or a slice (``...``,
                    ``None``, a boolean, an array or a list). On a 0-d array ``...`` returns the
                    scalar as NumPy does; every other such index is refused, as on an array with

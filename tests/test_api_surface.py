@@ -8,6 +8,8 @@ import sys
 import types
 from pathlib import Path
 
+import pytest
+
 import jnwb
 
 # Appended, not prepended: an installed copy must not be shadowed by the source tree.
@@ -197,6 +199,26 @@ def test_no_analysis_module_imports_the_synthetic_generators():
     assert "testing" not in jnwb.__all__
     violations = _synthetic_violations(JNWB_DIR)
     assert not violations, "\n".join(violations)
+
+
+@pytest.mark.parametrize("source, flagged", [
+    ("import jnwb.testing.synth\n", True),
+    ("from jnwb.testing import nwb_fixtures\n", True),
+    ("def f():\n    from ..testing.synth import x\n", True),
+    ("import numpy as np\nfrom jnwb import spectral\n", False),
+], ids=["import", "from-import", "relative-from-a-subpackage", "clean"])
+def test_each_import_form_of_the_generators_is_flagged_in_a_planted_module(tmp_path, source, flagged):
+    """Each import form the static walk resolves, planted in an analysis module. The walk does
+    not see `importlib.import_module` or `__import__`; a fresh interpreter covers those in
+    `tests/test_mcp_server.py`."""
+    module = tmp_path / "jnwb" / "analysis" / "planted.py"
+    module.parent.mkdir(parents=True)
+    module.write_text(source, encoding="utf-8")
+    found = _synthetic_violations(tmp_path / "jnwb")
+    if flagged:
+        assert len(found) == 1 and "analysis/planted.py" in found[0], found
+    else:
+        assert found == []
 
 
 def test_the_scan_reports_a_planted_generator_import(tmp_path):

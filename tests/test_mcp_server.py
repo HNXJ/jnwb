@@ -32,6 +32,34 @@ def test_temp_dummy_tool(a: int) -> str:
     return f"val_{a}"
 '''
 
+#: Run by a fresh interpreter. It reads and resolves a file, then reports the jnwb modules it
+#: loaded and which of them are `jnwb.testing` or `tests`. argv: the NWB file, the checkout root.
+RUNTIME_PROBE = '''
+import json
+import sys
+
+sys.path.insert(0, sys.argv[2])
+from jnwb import acquisition_channel, read_nwb
+from jnwb.mcp_server import prepare_signal_reference
+
+path = sys.argv[1]
+read_nwb(path)
+acquisition_channel(path)
+reference = prepare_signal_reference(path, "/acquisition/ElectricalSeries/data")
+if "error" in reference:
+    raise SystemExit(repr(reference))
+
+
+def generator_or_test(name):
+    return name == "jnwb.testing" or name.startswith("jnwb.testing.") or name == "tests" or name.startswith("tests.")
+
+
+print(json.dumps({
+    "loaded": sorted(name for name in sys.modules if name.startswith("jnwb.")),
+    "offending": sorted(name for name in sys.modules if generator_or_test(name)),
+}))
+'''
+
 
 class TestMCPServer(unittest.TestCase):
     def setUp(self):
@@ -320,8 +348,8 @@ class TestMCPServer(unittest.TestCase):
         self.assertIn("no reader is named", res["access_hint"])
 
     def test_a_rate_that_is_not_finite_and_positive_gets_no_reader_and_says_why(self):
-        """`acquisition_channel` returns a series at whatever rate the file states; the reference
-        names a reader only at a finite positive rate, and says so when it names none."""
+        """`acquisition_channel` refuses a rate that is not finite and positive, naming the rate.
+        The reference likewise names no reader at such a rate, and its access hint says why."""
         import h5py
 
         path = str(pathlib.Path(self.temp_dir.name) / "rates.nwb")
@@ -374,7 +402,9 @@ class TestMCPServer(unittest.TestCase):
         """`docs/agents.md` says the server writes nothing. A source scan for one writer's
         name cannot hold that: `open(..., "w")`, an h5py or pynwb write mode and a sidecar
         file all pass it. This runs every registered tool on its success path and compares
-        the bytes on disk before and after.
+        the bytes on disk before and after, and the repository tree (paths, sizes and
+        mtimes, `.git` excluded) before and after, so a write under the repository root
+        is caught as well.
         """
         import asyncio
         import hashlib
@@ -401,9 +431,21 @@ class TestMCPServer(unittest.TestCase):
                 if path.is_file()
             }
 
+        def tree(root):
+            entries = {}
+            for folder, dirs, files in os.walk(root):
+                dirs[:] = [name for name in dirs if name != ".git"]
+                for name in files:
+                    path = pathlib.Path(folder, name)
+                    stat = path.stat()
+                    entries[path.relative_to(root).as_posix()] = (stat.st_size, stat.st_mtime_ns)
+            return entries
+
         with tempfile.TemporaryDirectory() as cwd:
             before = snapshot(self.temp_dir.name, cwd)
             self.assertIn(pathlib.Path(self.file_path), before)
+            repo_before = tree(ROOT)
+            self.assertIn("tests/test_mcp_server.py", repo_before, "the repository snapshot examined no files")
             previous = os.getcwd()
             os.chdir(cwd)
             try:
@@ -413,7 +455,32 @@ class TestMCPServer(unittest.TestCase):
             finally:
                 os.chdir(previous)
             after = snapshot(self.temp_dir.name, cwd)
+            repo_after = tree(ROOT)
         self.assertEqual(before, after, "an MCP tool created or changed a file")
+        self.assertEqual(repo_before, repo_after, "an MCP tool created, changed or removed a file under the repository root")
+
+    def test_a_fresh_interpreter_that_reads_and_resolves_loads_no_generator_or_test_module(self):
+        """The static scan in `tests/test_api_surface.py` reads import statements, so it cannot
+        see `importlib.import_module("jnwb.testing")` or `__import__`. This runs the read, the
+        acquisition-channel and the MCP reader paths in a fresh interpreter and lists what it
+        loaded from `jnwb.testing` or `tests`.
+        """
+        import json
+        import subprocess
+        import sys
+
+        probe = pathlib.Path(self.temp_dir.name) / "runtime_probe.py"
+        probe.write_text(RUNTIME_PROBE, encoding="utf-8")
+        run = subprocess.run(
+            [sys.executable, str(probe), self.file_path, str(ROOT)],
+            capture_output=True, text=True, timeout=180, cwd=self.temp_dir.name,
+        )
+        self.assertEqual(run.returncode, 0, run.stderr)
+        report = json.loads(run.stdout.strip().splitlines()[-1])
+        self.assertIn("jnwb.mcp_server", report["loaded"], "the probe loaded no MCP module")
+        self.assertIn("jnwb.nwb_io", report["loaded"], "the probe did not read the file")
+        self.assertEqual(report["offending"], [], "a fresh interpreter loaded a generator or test module")
+
 
 class TestMCPServerEntrypoint(unittest.TestCase):
     def test_server_module_exposes_fastmcp_instance(self):
