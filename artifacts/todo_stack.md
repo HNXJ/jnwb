@@ -107,14 +107,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 - 15-20: Goal 10 bounds the apparatus ("a new gate or process replaces one") with no check; nothing lists each gate's purpose, runtime, unique failure detection, duplicated assertions and maintenance burden (external review, 2026-10-15). Accept (ruled 2026-10-15): that inventory first, then a measurable constraint proposed to Hamm that does not reward deleting valuable tests; no universal gate-count ceiling. Two candidate checks were built and not integrated (2026-10-15), each to land only by replacing a check the inventory shows weaker: warning reads filter by category (it found one site beyond 51a29bb7's seven), and every artifact path code names is tracked. Check: that inventory first, then a measurable constraint proposed to Hamm that does not reward deleting valuable tests; no universal gate-count ceiling. Waits: Ruled 2026-10-19 with 12-05: the inventory and a prune proposal land in 0.2.14.
 
-### 11-04 Proposals for the pitfall estimators
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
-Writes: `artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`.
-- 11-04: Four estimators have no proposal: nonparametric Granger by spectral factorization, a time-reversed Granger control, partial coherence conditioned on a third signal, and a bias floor from randomly paired epochs. Check: the proposal names the reference, the signature and a synthetic identity against the parametric path at the true order; the proposal states the decision rule and its reference; the proposal gives signature and reference; the proposal gives signature, the pairing scheme and its `rng`. Waits: Ruled 2026-10-19: a proposal in 0.2.14's wave 0, built in 0.2.14 after Hamm rules it.
-Accept: Hamm rules each shape; the implementation becomes its own item with API, docs and tests before any skill row.
-
 ### 14-07 A trial-based noise correlation, if a user needs it
 
 Release: deferred-0.2.14.
@@ -181,7 +173,7 @@ Accept: each check passes.
 ### 14-06 The pitfall estimators Hamm rules
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 11-04.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
 Writes: `jnwb/connectivity/**`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_connectivity.py`, `tests/test_connectivity_pitfalls.py`, `docs/08_directed_connectivity_and_information.md`, `docs/references.md`, `artifacts/changelog.d/pitfall-estimators.added.md`.
 - 14-06: The four estimators 11-04 proposes have no implementation. Check: each ruled estimator ships with its signature, a `docs/references.md` row and a synthetic test, and the 10-11 test that names its gap asserts the repair. Waits: After 11-04; ruled 2026-10-19 to be built in 0.2.14 once 11-04 is ruled.
 Accept: the suite and harness pass; the packet reports the `docs/api.md` rows and the changelog text.
