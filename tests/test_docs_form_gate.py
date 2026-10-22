@@ -324,7 +324,7 @@ def test_a_check_that_raises_is_reported_and_the_others_still_run(tree):
 
 def test_the_command_line_exit_code_follows_the_checks(tree, capsys):
     assert gate.main(tree) == 0
-    assert "ALL DOCUMENTATION FORM CHECKS PASSED. 6 of 6" in capsys.readouterr().out
+    assert "ALL DOCUMENTATION FORM CHECKS PASSED. 7 of 7" in capsys.readouterr().out
     SEEDS["three parallel facts in a paragraph"][1](tree)
     assert gate.main(tree) == 1
     out = capsys.readouterr().out

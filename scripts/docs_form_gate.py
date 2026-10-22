@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Documentation form gate: the rules of ``docs/documentation_form.md`` a machine can settle.
 
-Six checks, each run against a repository root (the live tree from the command line, a seeded
+Seven checks, each run against a repository root (the live tree from the command line, a seeded
 fixture tree from the suite):
 
   1. Vocabulary (F5). No superseded surface form from the contract's vocabulary table survives
@@ -27,6 +27,8 @@ fixture tree from the suite):
      `b` returns ..., `c` returns ...") states comparable facts that belong in a table.
   6. Slop lexicon (F8). No term of the contract's slop lexicon appears, as a whole word in any
      case, in the prose of the documentation corpus, the skills included.
+  7. Validation detail (F9). No page under ``docs/`` but ``references.md`` names a path under
+     the evidence or benchmarks folders of ``artifacts/``.
 
 **What check 5 does not see.** It is a detector for one shape, tuned to report nothing on the
 live tree, and F2 stays a review item beyond it:
@@ -715,6 +717,38 @@ def check_slop(root: Path) -> Result:
         f"PASS: slop lexicon (F8): none of {len(terms)} terms in {len(pages)} pages.")
 
 
+# ----------------------------------------------------------------- 7. validation detail
+
+
+#: A path to working evidence or a measured baseline. User docs describe how to use the
+#: library; this detail lives on the dashboard, so a page that names one fails.
+_EVIDENCE_PATH = re.compile(r"artifacts/(?:evidence|benchmarks)/[^\s)\]\"']*")
+
+
+def evidence_path_violations(pages: List[Tuple[str, str]]) -> List[str]:
+    """Every validation path in `pages`, in prose, code, a link target or a fenced example,
+    named with its file and line."""
+    found: List[str] = []
+    for name, text in pages:
+        for number, line in enumerate(text.splitlines(), start=1):
+            for hit in _EVIDENCE_PATH.findall(line):
+                found.append(f"{name}:{number}: {hit} is validation detail; user docs "
+                             "describe use, the dashboard carries the evidence")
+    return sorted(set(found))
+
+
+def check_evidence_paths(root: Path) -> Result:
+    """F9 over every ``docs/**/*.md`` page but the references page, as (violations, pass
+    line). The references page may cite the evidence its rows rest on."""
+    docs = root / "docs"
+    pages = [(p.relative_to(docs).as_posix(), p.read_text(encoding="utf-8"))
+             for p in sorted(docs.rglob("*.md"))
+             if p.relative_to(docs).as_posix() != "references.md"]
+    return evidence_path_violations(pages), (
+        f"PASS: validation detail (F9): no path under artifacts/evidence/ or "
+        f"artifacts/benchmarks/ outside references.md, {len(pages)} pages read.")
+
+
 # ---------------------------------------------------------------------------------- runner
 
 
@@ -725,6 +759,7 @@ CHECKS: Sequence[Tuple[str, Callable[[Path], Result]]] = (
     ("figure theme independence", check_figures),
     ("parallel facts", check_parallel_facts),
     ("slop lexicon", check_slop),
+    ("validation detail", check_evidence_paths),
 )
 
 

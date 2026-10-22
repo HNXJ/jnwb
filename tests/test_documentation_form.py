@@ -448,3 +448,44 @@ def test_the_figure_pair_check_names_the_bare_page_and_the_missing_twin(tmp_path
     (tmp_path / "orphan.md").write_text(
         "![a](assets/lone.png#only-light)\n![a](assets/lone.dark.png#only-dark)\n", encoding="utf-8")
     assert figure_gaps(tmp_path) == (["bare.md"], ["orphan.md -> assets/lone.dark.png"])
+
+
+# ------------------------------------------------------- F9: validation detail
+
+
+def _write_docs_page(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+@pytest.mark.parametrize("prefix", ["artifacts/evidence/", "artifacts/benchmarks/"])
+def test_a_bare_validation_path_outside_references_fails(tmp_path, prefix):
+    """Bypass: the matcher never fires, and F9 passes over any tree. One bare path on a
+    planted page must fail named with its file and line."""
+    _write_docs_page(tmp_path / "docs" / "planted.md",
+                     f"# Planted\n\nThe receipt sits at {prefix}x.json.\n")
+    violations, _ = gate.check_evidence_paths(tmp_path)
+    assert any(v.startswith("planted.md:3:") and prefix in v for v in violations), violations
+
+
+@pytest.mark.parametrize("prefix", ["artifacts/evidence/", "artifacts/benchmarks/"])
+def test_the_same_path_in_references_passes(tmp_path, prefix):
+    """The exemption: `references.md` may cite the evidence its rows rest on."""
+    _write_docs_page(tmp_path / "docs" / "references.md",
+                     f"# References\n\nThe receipt sits at {prefix}x.json.\n")
+    _write_docs_page(tmp_path / "docs" / "planted.md", "# Planted\n\nProse, no paths.\n")
+    assert gate.check_evidence_paths(tmp_path)[0] == []
+
+
+def test_a_validation_path_in_a_code_span_fails_too(tmp_path):
+    """A receipt path in backticks is still a path a reader follows."""
+    _write_docs_page(tmp_path / "docs" / "planted.md",
+                     "# Planted\n\nSee `artifacts/evidence/x.json`.\n")
+    assert gate.check_evidence_paths(tmp_path)[0], "a backticked path must fail"
+
+
+def test_the_live_tree_carries_no_validation_paths():
+    """The live-tree leg: no page outside `references.md` names a validation path."""
+    assert len(list((REPO_ROOT / "docs").rglob("*.md"))) >= 25, "the scan read almost nothing"
+    violations, _ = gate.check_evidence_paths(REPO_ROOT)
+    assert violations == [], violations
