@@ -17,6 +17,8 @@ from typing import Any, Collection, Dict, Optional
 import pandas as pd
 import numpy as np
 
+from .laminar._vflip import _DEPTH_AXES, _SHALLOW_ENDS
+
 log = logging.getLogger(__name__)
 
 # The strings pandas' own readers parse as missing by default. The set is a private pandas name,
@@ -525,6 +527,61 @@ def _resolve_depth_unit(
     return None
 
 
+def _declared_depth_axis(depth_axis, shallow_end, electrodes_df, func_name: str) -> bool:
+    """Whether a depth declaration is made, after refusing an incomplete or unknown one.
+
+    The rules are the laminar functions' (``jnwb.laminar._vflip``): the two keywords are declared
+    together or not at all, ``depth_axis`` is one of their axes and a column of ``electrodes_df``,
+    and ``shallow_end`` is one of their two ends.
+    """
+    if depth_axis is None and shallow_end is None:
+        return False
+    if depth_axis is None or shallow_end is None:
+        raise ValueError(
+            f"{func_name}: depth_axis and shallow_end are declared together; got "
+            f"depth_axis={depth_axis!r}, shallow_end={shallow_end!r}"
+        )
+    if depth_axis not in _DEPTH_AXES:
+        raise ValueError(f"{func_name}: depth_axis must be one of {_DEPTH_AXES}, got {depth_axis!r}")
+    if shallow_end not in _SHALLOW_ENDS:
+        raise ValueError(
+            f"{func_name}: shallow_end must be one of {_SHALLOW_ENDS}, got {shallow_end!r}"
+        )
+    if electrodes_df is None or depth_axis not in electrodes_df.columns:
+        raise ValueError(f"{func_name}: depth_axis {depth_axis!r} is not a column of electrodes_df")
+    return True
+
+
+def _depth_from_shallow_contact(row, electrodes_df: pd.DataFrame, depth_axis: str,
+                                shallow_end: str, scale: float, peak_channel_id,
+                                unread: Optional[list] = None) -> Optional[float]:
+    """A unit's depth in um, measured along ``depth_axis`` from its probe's shallow end.
+
+    The probe is the rows sharing the unit's probe key (:func:`_probe_key_column`), or every row
+    when the table has no such column. None when the unit's own coordinate is missing, when its
+    probe key is missing (recorded in ``unread``, see :func:`_note_unread`), or when no contact on
+    its probe has a finite coordinate.
+    """
+    coordinate = row.get(depth_axis)
+    if pd.isna(coordinate) or not np.isfinite(float(coordinate)):
+        return None
+    probe = electrodes_df
+    group_col = _probe_key_column(electrodes_df)
+    if group_col is not None:
+        key = row.get(group_col)
+        if pd.isna(key):
+            _note_unread(unread, f"peak_channel_id {peak_channel_id!r} has no probe key in column "
+                                 f"{group_col!r}, so its depth from the shallow end is not defined")
+            return None
+        probe = electrodes_df[electrodes_df[group_col] == key]
+    contacts = pd.to_numeric(probe[depth_axis], errors="coerce").to_numpy(dtype=float)
+    contacts = contacts[np.isfinite(contacts)]
+    if contacts.size == 0:
+        return None
+    shallow = contacts.max() if shallow_end == "max" else contacts.min()
+    return abs(float(coordinate) - float(shallow)) * scale
+
+
 def classify_layer_from_depth(
     peak_channel_id: float,
     electrodes_df: pd.DataFrame,
@@ -532,6 +589,8 @@ def classify_layer_from_depth(
     depth_unit: Optional[str] = None,
     threshold: Optional[float] = None,
     threshold_unit: Optional[str] = None,
+    depth_axis: Optional[str] = None,
+    shallow_end: Optional[str] = None,
 ) -> str:
     """Classify a unit's geometric depth class from electrode z depth.
 
@@ -541,10 +600,21 @@ def classify_layer_from_depth(
     ``electrodes_df`` metadata/columns ('depth_unit', 'z_unit', 'unit').
     If depth units are unknown or unsupported, returns 'Unknown'.
 
+    With ``depth_axis`` and ``shallow_end`` declared together, a unit's depth is its distance
+    along ``depth_axis`` from the contact at the shallow end among the electrodes of its probe,
+    in ``depth_unit``, and ``threshold`` applies to that depth. The probe is the rows sharing the
+    group column :func:`enrich_units_dataframe` uses (``group_name``, ``group``, ``probe`` or
+    ``device``), or every row when the table has none; a unit whose probe key is missing is
+    'Unknown', with a ``UserWarning`` that names its channel. A declaration is refused with
+    ``ValueError`` when only one keyword is given, when ``depth_axis`` is not 'x', 'y' or 'z'
+    or not a column of ``electrodes_df``, or when ``shallow_end`` is not 'min' or 'max'. Without
+    a declaration z is read as depth from pia, which the NWB schema does not guarantee; declare
+    the shallow end when the table's z is not depth from pia.
+
     .. note::
         This function applies a simple geometric depth threshold along the
         cortical column. The default threshold (1000.0 µm) and physiological
-        validity bounds (0.0 <= z <= 20,000.0 µm) are domain-specific model
+        validity bounds (0.0 <= depth <= 20,000.0 µm) are domain-specific model
         assumptions (e.g. primate linear array penetration from pia) rather than
         universal NWB standards. For preparations with different cortical
         thicknesses or orientations, supply ``threshold`` explicitly. For
@@ -558,25 +628,35 @@ def classify_layer_from_depth(
         threshold: Optional classification threshold. Default is 1000.0 µm.
             If threshold_unit is None, interpreted in ``depth_unit`` units.
         threshold_unit: Optional unit of threshold (e.g. 'um', 'mm').
+        depth_axis: Optional declared depth column ('x', 'y' or 'z') of ``electrodes_df``,
+            given with ``shallow_end``.
+        shallow_end: Optional declared shallow end of ``depth_axis``, 'min' or 'max'.
 
     Returns:
         Geometric depth class ('Deep', 'Superficial', or 'Unknown'), not a cortical layer
     """
+    _declared_depth_axis(depth_axis, shallow_end, electrodes_df, "classify_layer_from_depth")
     if pd.isna(peak_channel_id) or electrodes_df is None or len(electrodes_df) == 0:
         return "Unknown"
 
     unread: list = []
     _, row = _resolve_electrode_row(peak_channel_id, electrodes_df, unread)
     depth = _depth_class_from_row(peak_channel_id, row, electrodes_df, depth_unit, threshold,
-                                  threshold_unit, unread)
+                                  threshold_unit, unread, depth_axis, shallow_end)
     _warn_unread("classify_layer_from_depth", unread)
     return depth
 
 
 def _depth_class_from_row(peak_channel_id, row, electrodes_df: pd.DataFrame,
                           depth_unit: Optional[str], threshold: Optional[float],
-                          threshold_unit: Optional[str], unread: Optional[list] = None) -> str:
-    """The depth class of an already resolved electrode row."""
+                          threshold_unit: Optional[str], unread: Optional[list] = None,
+                          depth_axis: Optional[str] = None,
+                          shallow_end: Optional[str] = None) -> str:
+    """The depth class of an already resolved electrode row.
+
+    ``depth_axis`` and ``shallow_end``, both or neither, are a declaration already validated by
+    :func:`_declared_depth_axis`; without one the depth is z, read from pia.
+    """
     if row is None:
         return "Unknown"
 
@@ -588,18 +668,24 @@ def _depth_class_from_row(peak_channel_id, row, electrodes_df: pd.DataFrame,
     scale = _DEPTH_UNIT_SCALES[resolved_unit]
 
     try:
-        if "z" not in electrodes_df.columns:
-            return "Unknown"
+        if depth_axis is None:
+            if "z" not in electrodes_df.columns:
+                return "Unknown"
 
-        z_val = row.get("z")
-        if pd.isna(z_val):
-            return "Unknown"
+            z_val = row.get("z")
+            if pd.isna(z_val):
+                return "Unknown"
 
-        z_float = float(z_val)
-        if not np.isfinite(z_float):
-            return "Unknown"
+            z_float = float(z_val)
+            if not np.isfinite(z_float):
+                return "Unknown"
 
-        z_um = z_float * scale
+            z_um = z_float * scale
+        else:
+            z_um = _depth_from_shallow_contact(row, electrodes_df, depth_axis, shallow_end, scale,
+                                               peak_channel_id, unread)
+            if z_um is None:
+                return "Unknown"
         # Physiological sanity bounds: cortical depth from pia is non-negative
         # and bounded within primate brain coordinate bounds (< 20,000 µm)
         if z_um < 0.0 or z_um > 20000.0:
@@ -637,6 +723,8 @@ def enrich_units_dataframe(
     depth_unit: Optional[str] = None,
     threshold: Optional[float] = None,
     threshold_unit: Optional[str] = None,
+    depth_axis: Optional[str] = None,
+    shallow_end: Optional[str] = None,
     stable_threshold: float = 1.0,
     stable_labels: Collection[str] = _STABLE_QUALITY_LABELS,
 ) -> pd.DataFrame:
@@ -673,6 +761,10 @@ def enrich_units_dataframe(
         depth_unit: Optional unit for electrode depth coordinates (e.g. 'um', 'mm').
         threshold: Optional depth threshold for the depth class.
         threshold_unit: Optional unit for threshold.
+        depth_axis: Optional declared depth column ('x', 'y' or 'z') of ``electrodes_df``, given
+            with ``shallow_end``; the depth class is then measured from the shallow end as
+            :func:`classify_layer_from_depth` states.
+        shallow_end: Optional declared shallow end of ``depth_axis``, 'min' or 'max'.
         stable_threshold: numeric quality at or above which a unit is stable.
         stable_labels: text quality labels read as stable, a collection; a bare string
             raises ``TypeError`` and an empty one ``ValueError``, as does a
@@ -690,6 +782,7 @@ def enrich_units_dataframe(
     labels = _stable_label_set(stable_labels, "enrich_units_dataframe")
     stable_threshold = _finite_cutoff(stable_threshold, "stable_threshold",
                                       "enrich_units_dataframe")
+    _declared_depth_axis(depth_axis, shallow_end, electrodes_df, "enrich_units_dataframe")
     reads = list(_ENRICH_READS)
     if 'unit_id' not in units_df.columns:
         reads.append('cluster_id')  # renamed to unit_id
@@ -730,7 +823,7 @@ def enrich_units_dataframe(
             per_channel[key] = (
                 _area_from_row(x, idx, row, electrodes_df, probe_cache),
                 _depth_class_from_row(x, row, electrodes_df, depth_unit, threshold,
-                                      threshold_unit, unread),
+                                      threshold_unit, unread, depth_axis, shallow_end),
                 _probe_label(row.get(col_group)) if row is not None and col_group is not None else None,
             )
             return per_channel[key]
