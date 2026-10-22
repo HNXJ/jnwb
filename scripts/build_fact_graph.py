@@ -57,7 +57,9 @@ Relations, each a sorted list of ``[source, target]`` pairs:
   silent_handlers  file -> an except handler in ``jnwb/`` that swallows its exception: its body
               raises, warns, or logs a warning, error or exception, calls a function of its
               module or of a relative import (``from .x import``, ``from ..x import``) whose own
-              body does, or reads the bound exception name (``silent_handler_violations``)
+              body does, or reads the bound exception name (``silent_handler_violations``);
+              a handler whose (file, function) is in ``S9_EXCUSED`` is skipped, and a listed
+              key that matches no flagged handler is reported as stale
 
 The facts are the only owned part; everything else is regenerated. The output is a pure
 function of the tree: sorted keys and lists, LF endings, no timestamp, and object addresses
@@ -382,6 +384,29 @@ CARRY_WORDS = r"\b(?:extends?|extended|carried by|carries|via)\b"
 OPTIONAL_IMPORT_ERRORS = ("ImportError", "ModuleNotFoundError")
 #: The logger methods that report a problem.
 LOGGER_WARNINGS = ("warning", "error", "exception")
+#: The except handlers the silent_handlers scan skips, by (module path, qualified function): the
+#: probes and controls whose silence is the answer, each read by hand against its handler (fact S9).
+#: A key that matches no flagged handler is reported as stale.
+S9_EXCUSED: Dict[Tuple[str, str], str] = {
+    ("jnwb/_backend.py", "_probe"): "backend probe: False when the backend will not load",
+    ("jnwb/_backend.py", "jax_metal_available"): "backend probe: False when no Metal device",
+    ("jnwb/_dictlike.py", "RenamedKeyDict.get"): "dict.get contract: the caller's default",
+    ("jnwb/_dictlike.py", "DictAccessMixin.get"): "dict.get contract: the caller's default",
+    ("jnwb/addressing.py", "enrich_units_dataframe._enrich"): "cache miss, computed next",
+    ("jnwb/compression.py", "_repaired_reference"): "warns at the next line",
+    ("jnwb/connectivity/_granger.py", "_adf_pvalue"): "reported as 'stationarity_not_tested'",
+    ("jnwb/io.py", "_stored_seek_is_reliable"): "seek probe, same values either way",
+    ("jnwb/jrsa/_backends.py", "_ensure_np"): "retry: np.asarray converts or raises",
+    ("jnwb/jrsa/_result.py", "JRSAResult.__repr__"): "repr only",
+    ("jnwb/jrsa/_stages.py", "_reduce_one"): "same number by percentile 50",
+    ("jnwb/laminar/_xflip.py", "_window_rows"): "raise on the next line",
+    ("jnwb/laminar/_xflip.py", "_homogeneous_factor"): "raise after the jitter loop",
+    ("jnwb/laminar/_zflip.py", "_window_rows"): "raise on the next line",
+    ("jnwb/mcp_server/nwb_tools.py", "_resolves"): "probe: no reader to name",
+    ("jnwb/metadata.py", "_session_id_from_path"): "documented fallback to (raw, raw)",
+    ("jnwb/nwb_validate.py", "_version"): "not installed",
+    ("jnwb/vis/canvas.py", "_is_written"): "caller raises",
+}
 
 
 def _dotted(node: ast.AST) -> str:
@@ -794,17 +819,37 @@ def _handler_loud(handler: ast.ExceptHandler, bound: Dict[str, str],
                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name))
 
 
-def silent_handler_violations(source: str, path: str,
-                              read: Callable[[str], Optional[str]]) -> List[str]:
+def _handler_owners(tree: ast.AST) -> Dict[int, str]:
+    """The qualified name of the function each except handler sits in (``Class.method``,
+    ``outer.inner``), by ``id`` of the handler; ``<module>`` outside any function."""
+    owners: Dict[int, str] = {}
+
+    def visit(node: ast.AST, prefix: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            name = prefix
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                name = f"{prefix}.{child.name}" if prefix else child.name
+            if isinstance(child, ast.ExceptHandler):
+                owners[id(child)] = prefix or "<module>"
+            visit(child, name)
+
+    visit(tree, "")
+    return owners
+
+
+def silent_handler_sites(source: str, path: str,
+                         read: Callable[[str], Optional[str]]) -> List[Tuple[str, str]]:
     """Each except handler of one module that swallows its exception (``_handler_loud``), unless
     it catches only ``OPTIONAL_IMPORT_ERRORS``: an absent optional dependency is a documented
     fallback. A bare handler catches everything and is spelled ``(bare)``. Each violation is
-    spelled by the line of its handler's first body statement, with that line's text."""
+    spelled by the line of its handler's first body statement, with that line's text, and paired
+    with the qualified name of the function it sits in (``_handler_owners``)."""
     lines = source.split("\n")
     tree = ast.parse(source)
     bound = _bindings(tree)
     defs = _top_defs(tree)
     imports = _relative_imports(tree, path)
+    owners = _handler_owners(tree)
     found = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.ExceptHandler):
@@ -821,8 +866,15 @@ def silent_handler_violations(source: str, path: str,
                 name, defs, bound, imports, read)):
             continue
         first = node.body[0].lineno
-        found.append((first, spelled, lines[first - 1].strip()))
-    return [f"line {first}: except {spelled}: {text}" for first, spelled, text in sorted(found)]
+        found.append((first, spelled, lines[first - 1].strip(), owners[id(node)]))
+    return [(function, f"line {first}: except {spelled}: {text}")
+            for first, spelled, text, function in sorted(found)]
+
+
+def silent_handler_violations(source: str, path: str,
+                              read: Callable[[str], Optional[str]]) -> List[str]:
+    """The violations ``silent_handler_sites`` reports, spelled without their function."""
+    return [text for _, text in silent_handler_sites(source, path, read)]
 
 
 def _tracked_files(root: Path) -> List[str]:
@@ -869,9 +921,16 @@ def _text_scans(root: Path, prose: Sequence[str], skill_files: Sequence[str],
         scans["skill_contracts"].extend([rel, reason] for reason in skill_contract_violations(text))
     package = {rel: (root / rel).read_text(encoding="utf-8")
                for rel in python if rel.startswith(JNWB_PACKAGE)}
+    flagged = set()
     for rel, text in package.items():
-        scans["silent_handlers"].extend(
-            [rel, reason] for reason in silent_handler_violations(text, rel, package.get))
+        for function, reason in silent_handler_sites(text, rel, package.get):
+            flagged.add((rel, function))
+            if (rel, function) not in S9_EXCUSED:
+                scans["silent_handlers"].append([rel, reason])
+    for rel, function in sorted(S9_EXCUSED):
+        if (rel, function) not in flagged:
+            scans["silent_handlers"].append(
+                [rel, f"S9_EXCUSED lists {function}, which no flagged handler matches: stale"])
     return {name: sorted(pairs) for name, pairs in scans.items()}
 
 

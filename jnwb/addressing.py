@@ -209,14 +209,16 @@ def _is_sublabel_letter(before: str, piece: str) -> bool:
             and before[-1].islower() and before[-2].isdigit())
 
 
-def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame):
+def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame,
+                           unread: Optional[list] = None):
     """Resolve an electrode row from electrodes_df by channel ID.
 
     The ID is looked up in the first identifier column present, in the order 'channel_id',
     'id', 'electrode_id', so a reset or non-default DataFrame index is never read as a channel
     ID. Only that column is searched: the columns can number channels differently, so an ID
     missing from it resolves to nothing rather than to a row of another numbering. The
-    DataFrame index is used only when no identifier column exists.
+    DataFrame index is used only when no identifier column exists. An ID that is not a number
+    is recorded in ``unread``.
 
     Returns:
         (row_index, row_series) or (None, None) if not found.
@@ -224,7 +226,7 @@ def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame):
     if pd.isna(peak_channel_id) or electrodes_df is None or len(electrodes_df) == 0:
         return None, None
 
-    val = _channel_key(peak_channel_id)
+    val = _channel_key(peak_channel_id, unread)
     if val is None:
         return None, None
 
@@ -277,10 +279,14 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
         electrodes_df: NWB electrodes DataFrame
 
     Returns:
-        Brain area name (e.g. 'V1', 'PFC', 'FEF') or None if unresolved
+        Brain area name (e.g. 'V1', 'PFC', 'FEF') or None if unresolved. A channel ID that is not
+        a number is also None, with a UserWarning that names it.
     """
-    idx, row = _resolve_electrode_row(peak_channel_id, electrodes_df)
-    return _area_from_row(peak_channel_id, idx, row, electrodes_df, {})
+    unread: list = []
+    idx, row = _resolve_electrode_row(peak_channel_id, electrodes_df, unread)
+    area = _area_from_row(peak_channel_id, idx, row, electrodes_df, {})
+    _warn_unread("map_peak_channel_to_area", unread)
+    return area
 
 
 _MISSING = object()
@@ -322,16 +328,40 @@ def _electrode_row_resolver(electrodes_df: pd.DataFrame):
     return resolve
 
 
-def _channel_key(peak_channel_id):
+def _note_unread(unread: Optional[list], text: str) -> None:
+    """Record one value that could not be read in the caller's ``unread`` list, or warn at once
+    when the caller keeps none."""
+    if unread is None:
+        warnings.warn(text, UserWarning, stacklevel=3)
+    else:
+        unread.append(text)
+
+
+def _warn_unread(caller: str, unread: list) -> None:
+    """One UserWarning for a public call, naming each distinct value it could not read."""
+    items = list(dict.fromkeys(unread))
+    if items:
+        warnings.warn(
+            f"{caller}: {len(items)} value(s) could not be read, so the area or depth they select "
+            f"is None or 'Unknown': {'; '.join(items)}",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
+def _channel_key(peak_channel_id, unread: Optional[list] = None):
     """The integer :func:`_resolve_electrode_row` looks up, or None where it finds nothing.
 
-    A channel id with a fractional part is refused, not truncated: 2.7 is not channel 2.
+    A channel id with a fractional part is refused, not truncated: 2.7 is not channel 2. An id
+    that is not a number is None, and is recorded in ``unread`` (see :func:`_note_unread`).
     """
     if pd.isna(peak_channel_id):
         return None
     try:
         key = int(float(peak_channel_id))
-    except (ValueError, TypeError, OverflowError):
+    except (ValueError, TypeError, OverflowError) as error:
+        _note_unread(unread, f"peak_channel_id {peak_channel_id!r} is not a channel number "
+                             f"({type(error).__name__}: {error})")
         return None
     if key != float(peak_channel_id):
         raise ValueError(
@@ -449,12 +479,20 @@ def _resolve_depth_unit(
     depth_unit: Optional[str],
     row: Optional[pd.Series],
     electrodes_df: Optional[pd.DataFrame],
+    unread: Optional[list] = None,
 ) -> Optional[str]:
-    """Resolve depth unit string from explicit parameter or DataFrame/Series metadata."""
+    """Resolve depth unit string from explicit parameter or DataFrame/Series metadata.
+
+    A unit value that will not convert to text is recorded in ``unread`` (see
+    :func:`_note_unread`). An explicit ``depth_unit`` that will not convert gives None; a value
+    in the row or the attributes falls through to the next place a unit is declared.
+    """
     if depth_unit is not None:
         try:
             return str(depth_unit).strip().lower()
-        except Exception:
+        except Exception as error:
+            _note_unread(unread, f"depth unit given as depth_unit could not be read as text "
+                                 f"({type(error).__name__}: {error})")
             return None
 
     if row is not None:
@@ -462,8 +500,9 @@ def _resolve_depth_unit(
             if col in row.index and pd.notna(row[col]):
                 try:
                     return str(row[col]).strip().lower()
-                except Exception:
-                    pass
+                except Exception as error:
+                    _note_unread(unread, f"depth unit in column {col!r} could not be read as text "
+                                         f"({type(error).__name__}: {error})")
 
     if electrodes_df is not None:
         for attr_name in ("depth_unit", "z_unit", "unit"):
@@ -471,15 +510,17 @@ def _resolve_depth_unit(
             if val is not None and pd.notna(val):
                 try:
                     return str(val).strip().lower()
-                except Exception:
-                    pass
+                except Exception as error:
+                    _note_unread(unread, f"depth unit in attrs {attr_name!r} could not be read as "
+                                         f"text ({type(error).__name__}: {error})")
         if "z" in electrodes_df.columns:
             val = electrodes_df["z"].attrs.get("unit")
             if val is not None and pd.notna(val):
                 try:
                     return str(val).strip().lower()
-                except Exception:
-                    pass
+                except Exception as error:
+                    _note_unread(unread, f"depth unit in the attrs of column 'z' could not be read "
+                                         f"as text ({type(error).__name__}: {error})")
 
     return None
 
@@ -524,19 +565,22 @@ def classify_layer_from_depth(
     if pd.isna(peak_channel_id) or electrodes_df is None or len(electrodes_df) == 0:
         return "Unknown"
 
-    _, row = _resolve_electrode_row(peak_channel_id, electrodes_df)
-    return _depth_class_from_row(peak_channel_id, row, electrodes_df, depth_unit, threshold,
-                                 threshold_unit)
+    unread: list = []
+    _, row = _resolve_electrode_row(peak_channel_id, electrodes_df, unread)
+    depth = _depth_class_from_row(peak_channel_id, row, electrodes_df, depth_unit, threshold,
+                                  threshold_unit, unread)
+    _warn_unread("classify_layer_from_depth", unread)
+    return depth
 
 
 def _depth_class_from_row(peak_channel_id, row, electrodes_df: pd.DataFrame,
                           depth_unit: Optional[str], threshold: Optional[float],
-                          threshold_unit: Optional[str]) -> str:
+                          threshold_unit: Optional[str], unread: Optional[list] = None) -> str:
     """The depth class of an already resolved electrode row."""
     if row is None:
         return "Unknown"
 
-    resolved_unit = _resolve_depth_unit(depth_unit, row, electrodes_df)
+    resolved_unit = _resolve_depth_unit(depth_unit, row, electrodes_df, unread)
     if resolved_unit is None or resolved_unit not in _DEPTH_UNIT_SCALES:
         # Invariant: unknown or incompatible depth units -> 'Unknown'
         return "Unknown"
@@ -666,6 +710,7 @@ def enrich_units_dataframe(
             df['unit_id'] = np.arange(len(df))
 
     # 2. Enrich anatomical mapping if electrodes_df is provided
+    unread: list = []
     if electrodes_df is not None and len(electrodes_df) > 0 and 'peak_channel_id' in df.columns:
         # Units share channels, so each channel is resolved and classified once and every
         # unit on it reads the cached answer: the per-unit step is a dict lookup instead of
@@ -676,7 +721,7 @@ def enrich_units_dataframe(
         per_channel: dict = {}
 
         def _enrich(x):
-            key = _channel_key(x)
+            key = _channel_key(x, unread)
             try:
                 return per_channel[key]
             except KeyError:
@@ -685,7 +730,7 @@ def enrich_units_dataframe(
             per_channel[key] = (
                 _area_from_row(x, idx, row, electrodes_df, probe_cache),
                 _depth_class_from_row(x, row, electrodes_df, depth_unit, threshold,
-                                      threshold_unit),
+                                      threshold_unit, unread),
                 _probe_label(row.get(col_group)) if row is not None and col_group is not None else None,
             )
             return per_channel[key]
@@ -713,6 +758,7 @@ def enrich_units_dataframe(
             df['depth_class'] = 'Unknown'
         if 'group_name' not in df.columns:
             df['group_name'] = None
+    _warn_unread("enrich_units_dataframe", unread)
 
     # 3. Handle quality and stable flags: quality >= stable_threshold for numeric codes,
     # membership in stable_labels for text labels; both are the caller's to set.

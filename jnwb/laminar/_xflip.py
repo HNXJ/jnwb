@@ -160,12 +160,15 @@ def _in_probe_rows(
     return res
 
 
-def _compute_correlation_matrix(data: np.ndarray, method: str) -> np.ndarray:
+def _compute_correlation_matrix(data: np.ndarray, method: str,
+                                window: Optional[Tuple[int, int]] = None) -> np.ndarray:
     """Compute (n_channels, n_channels) correlation matrix across samples.
 
     Args:
         data: 2D array of shape (n_channels, n_samples).
         method: 'pearson', 'spearman', or 'partial'.
+        window: the probe rows `(first, last)` that `data` holds, named in the warning when a
+            singular covariance is pseudo-inverted; None for every channel.
     """
     n_channels, n_samples = data.shape
     if method == "pearson":
@@ -187,13 +190,24 @@ def _compute_correlation_matrix(data: np.ndarray, method: str) -> np.ndarray:
         cov = np.cov(data)
         if np.allclose(cov, 0.0):
             return np.eye(n_channels, dtype=float)
+        why = None
         try:
             cond = np.linalg.cond(cov)
             if cond > 1e12 or not np.isfinite(cond):
-                theta = np.linalg.pinv(cov)
+                why = f"condition number {cond:.3g}"
             else:
                 theta = np.linalg.inv(cov)
-        except np.linalg.LinAlgError:
+        except np.linalg.LinAlgError as error:
+            why = str(error)
+        if why is not None:
+            where = "every channel" if window is None else f"window rows {window[0]} to {window[1]}"
+            warnings.warn(
+                f"_compute_correlation_matrix: the covariance of {where} is singular ({why}), so "
+                "its pseudo-inverse was used and the partial correlations are not those of the "
+                "inverse covariance.",
+                UserWarning,
+                stacklevel=2,
+            )
             theta = np.linalg.pinv(cov)
 
         d = np.diag(theta)
@@ -745,7 +759,7 @@ def xflip(
             raise ValueError(f"Raw time-series must have at least 2 samples, got {n_samples}")
         _refuse_short_window(rows, min_block_size)
         with np.errstate(invalid="ignore", divide="ignore"):
-            corr = _compute_correlation_matrix(raw_data, method)
+            corr = _compute_correlation_matrix(raw_data, method, window=rows)
         resolved_method = method
         flat = np.flatnonzero(np.ptp(raw_data, axis=1) == 0)
         if flat.size > 0:
@@ -892,10 +906,10 @@ def xflip(
                     surr_corr = _surrogate_wishart(null_factor, n_samples, gen)
                 else:
                     surr_raw = _surrogate_homogeneous(raw_data, null_factor, gen)
-                    surr_corr = _compute_correlation_matrix(surr_raw, method)
+                    surr_corr = _compute_correlation_matrix(surr_raw, method, window=rows)
             elif eff_surrogate_method == "autocorr_preserving":
                 surr_raw = _surrogate_phase_randomize(raw_data, gen)
-                surr_corr = _compute_correlation_matrix(surr_raw, method)
+                surr_corr = _compute_correlation_matrix(surr_raw, method, window=rows)
             elif eff_surrogate_method == "permute_channels":
                 if contiguous:
                     perm = gen.permutation(n_channels)

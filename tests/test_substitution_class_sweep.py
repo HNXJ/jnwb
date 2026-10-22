@@ -388,11 +388,10 @@ What this instrument cannot see, stated rather than discovered later:
    would catch it, and a declared vocabulary tests the declaration.
 5. Anything outside ``jnwb/**``: scripts, notebooks and skills are not scanned.
 6. A substitution written as a branch rather than a chain or a mapping. The one instance
-   found by hand and not by any scanner is ``laminar._compute_correlation_matrix``: a
-   ``cond > 1e12`` test routes a near-singular covariance to ``np.linalg.pinv`` and the
-   result is returned as a partial correlation with nothing saying so. Reproduced -- a
-   duplicated channel yields exactly -1.0. The ``except LinAlgError`` half of the same site
-   *is* seen, and carries the finding in ``ACCEPTED_HANDLER_RECOVERY``.
+   found by hand and not by any scanner was ``laminar._compute_correlation_matrix``: a
+   ``cond > 1e12`` test routed a near-singular covariance to ``np.linalg.pinv`` with nothing
+   saying so. It now warns, as the ``except LinAlgError`` half of the same site does; the
+   scanner still does not see branches.
 7. A default supplied to an attribute store rather than to an option set. The instance found
    by hand is ``compression.py``'s ``src[ts_path].attrs.get("unit", "seconds")``, which
    writes ``unit="seconds"`` onto a ``starting_time`` dataset whose source said nothing. It
@@ -701,13 +700,10 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("jrsa/_backends.py", "_ensure_np", "(RuntimeError, TypeError, ValueError)", ("a",), False, 1):
         "tensor.numpy() -> np.asarray(tensor) inside _ensure_np. A conversion of the same "
         "data, not a second way of computing it.",
-    ("laminar/_xflip.py", "_compute_correlation_matrix", "np.linalg.LinAlgError", ("theta",), False, 1):
-        "OPEN, carried deliberately: a singular covariance is pseudo-inverted and the result "
-        "is returned as a partial correlation with no indication. Reproduced -- a rank-2 "
-        "channel pair yields exactly -1.0, a plausible and wrong number. Nearly unreachable "
-        "because the cond > 1e12 branch above the try already routes to pinv; that branch is "
-        "the same substitution written without an exception, and neither is this item's "
-        "named scope. Proposed as a new problem row.",
+    ("laminar/_xflip.py", "_compute_correlation_matrix", "np.linalg.LinAlgError", ("why",), False, 1):
+        "A singular covariance is pseudo-inverted and the result is returned as a partial "
+        "correlation, with a UserWarning naming the window and the reason. The handler and the "
+        "cond > 1e12 branch set one reason and share that warning, so neither route is silent.",
     ("laminar/_xflip.py", "_window_rows", "TypeError", ("rows",), False, 1):
         "A non-iterable window becomes rows = (), which fails the two-int check on the next "
         "line and raises TypeError naming the window. The substitute never reaches a "
@@ -742,10 +738,10 @@ ACCEPTED_HANDLER_RECOVERY = {
         "scheduling.",
     ("addressing.py", "_channel_key", "(ValueError, TypeError, OverflowError)", (), True, 1):
         "Returns None where _resolve_electrode_row would find nothing, the same conversion. "
-        "Absence.",
+        "Absence, and reported: the id is recorded, and the public call warns naming it.",
     ("addressing.py", "_resolve_depth_unit", "Exception", (), True, 1):
         "Returns None when an explicit depth_unit will not convert to a string. Absence: no "
-        "unit is assumed.",
+        "unit is assumed, and the public call warns naming the value.",
     ("compression.py", "verify_roundtrip._try_pynwb_read", "Exception", (), True, 1):
         "Returns (False, '<ExcType>: msg') from a verification helper -- a reported failure "
         "carrying its own cause.",
@@ -788,23 +784,26 @@ ACCEPTED_HANDLER_RECOVERY = {
         "Session-id parse falls back to (raw, raw) -- the unparsed input returned as itself, "
         "not a fabricated identifier.",
     ("nwb_inspect.py", "_h5_channel_count", "TypeError", (), True, 1):
-        "Returns None when the HDF5 electrode region has no length. Absence.",
+        "Returns None when the HDF5 electrode region has no length, and warns that the channel "
+        "axis is guessed from the shape. Absence, reported.",
     ("nwb_inspect.py", "_registered_types", "Exception", (), True, 1):
-        "Returns None when the file's namespaces cannot be loaded, and the caller then "
-        "claims nothing about any type. Absence: no warning is invented.",
+        "Returns (None, reason) when the file's namespaces cannot be loaded; _unknown_type then "
+        "warns that the undefined-type check did not run, and why. Absence, reported: no type "
+        "is claimed.",
     ("nwb_inspect.py", "_unknown_type", "OSError", (), True, 1):
-        "Returns None when the file cannot be stat'ed: no type is called unknown. Absence.",
+        "Returns None when the file cannot be stat'ed: no type is called unknown, and a warning "
+        "says the check did not run and why. Absence, reported.",
     ("nwb_inspect.py", "_why_unread", "OSError", (), True, 1):
-        "Returns \"\" when the source file cannot be opened: the refusal keeps its plain "
-        "not-found text and adds no reason. Absence.",
+        "Returns a refusal reason naming the OSError's class and text when the source file "
+        "cannot be opened, so the refusal says why the file could not be read.",
     ("nwb_inspect.py", "_pynwb_channel_count", "TypeError", (), True, 1):
-        "The pynwb twin of _h5_channel_count: None when series.electrodes has no length. "
-        "Absence.",
+        "The pynwb twin of _h5_channel_count: None when series.electrodes has no length, and a "
+        "warning says the channel axis is guessed from the shape. Absence, reported.",
     ("spectral/_psd.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 1):
         "The one handler around both modes' fits and the robust refit (it was one handler "
-        "per mode). Returns AperiodicFitResult(accepted=False) with every estimate None and "
-        "the requested mode -- the declared refusal shape, which is what a non-identifiable "
-        "fit, or a robust refit left with fewer than 4 bins, is supposed to emit.",
+        "per mode). Returns AperiodicFitResult(accepted=False) with every estimate None, the "
+        "requested mode, and reason set to the exception's class and text -- the declared "
+        "refusal shape, with its cause recorded.",
     ("nwb_validate.py", "_version", "metadata.PackageNotFoundError", (), True, 1):
         "A distribution that is not installed reports None in the versions table; absence, "
         "not a plausible substitute.",

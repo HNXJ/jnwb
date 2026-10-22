@@ -2,7 +2,7 @@
  "release": "0.2.13",
  "declared_version": "0.2.13",
  "estimator": "curate_and_label",
- "estimator_sha256": "a7069e76ec6d3429fffef0fac85d8c249e445b2c3a9292928aa24759a041db23",
+ "estimator_sha256": "6388826e135645fe481c07b801a2b783f0a09545d891621b81a76d66e1ee79a4",
  "estimator_functions": [
   "CORRELATION_FS_HZ",
   "LaminarCurationResult",

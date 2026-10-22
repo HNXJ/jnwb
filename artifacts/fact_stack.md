@@ -78,7 +78,7 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 | S6 | `device` and `n_jobs` | device and worker count never change a number | `gate:21`, `test:tests/test_execution_switch.py`, `test:tests/test_parallel.py` | `AGENTS.md` §4.6; Q13 2026-09-29 |
 | S7 | docs generators, examples, skills | a caller uses the library function instead of retyping its rule | `todo:12-11` | `AGENTS.md` §4.7; Q13 2026-09-29 |
 | S8 | text naming an estimand | the text uses no vocabulary of a higher class of `claim classes` than the estimand declares | `todo:09-04` | `AGENTS.md` §4.8; Q12 2026-09-29 |
-| S9 | data inputs | missing data fails loudly | `todo:16-04` | `AGENTS.md` §4.1; moved 2026-09-29 (Q3) |
+| S9 | data inputs | missing data fails loudly | `computed:silent_handlers` | `AGENTS.md` §4.1; moved 2026-09-29 (Q3) |
 | S10 | label permutation | a permutation null names its exchangeability scheme | `todo:16-05` | `AGENTS.md` §4.5; moved 2026-09-29 (Q3) |
 | S11 | randomness consumers | a result reports the `rng` it used | `todo:16-06` | `AGENTS.md` §4.5; moved 2026-09-29 (Q3) |
 | S12 | GPU results | a result computed on GPU records that it was | `todo:16-07` | `AGENTS.md` §4.6; moved 2026-09-29 (Q3) |

@@ -863,3 +863,60 @@ def test_the_live_graph_reads_the_text_surfaces_the_new_scans_need(live):
     assert not any(build_fact_graph._exempt(p) for p in prose), "an exempt file"
     assert skills and all(p.startswith("skills/") and p.endswith("SKILL.md") for p in skills)
     assert set(TEXT_RELATIONS) <= set(g["relations"])
+
+
+S9_SILENT_F = "def f(p):\n    try:\n        return int(p)\n    except ValueError:\n        return None\n"
+S9_SILENT_G = S9_SILENT_F.replace("def f", "def g")
+S9_CLASS_METHOD = ("class C:\n    def m(self, p):\n        try:\n            return int(p)\n"
+                   "        except ValueError:\n            return None\n")
+
+
+def scanned_silent(tmp_path, source):
+    """The silent_handlers scan of one planted module at jnwb/pkg/a.py."""
+    (tmp_path / "jnwb" / "pkg").mkdir(parents=True)
+    (tmp_path / "jnwb" / "pkg" / "a.py").write_text(source, encoding="utf-8")
+    scans = build_fact_graph._text_scans(tmp_path, [], [], ["jnwb/pkg/a.py"],
+                                         {"immunity vocabulary": []})
+    return scans["silent_handlers"]
+
+
+def test_a_silent_handler_is_named_by_its_qualified_function():
+    assert build_fact_graph.silent_handler_sites(S9_CLASS_METHOD, "jnwb/pkg/a.py", {}.get) == [
+        ("C.m", "line 6: except ValueError: return None")]
+
+
+def test_a_handler_whose_function_is_listed_is_skipped(tmp_path, monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S9_EXCUSED", {("jnwb/pkg/a.py", "f"): "probe: a test"})
+    assert scanned_silent(tmp_path, S9_SILENT_F) == []
+
+
+def test_a_listed_function_does_not_excuse_a_sibling_handler(tmp_path, monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S9_EXCUSED", {("jnwb/pkg/a.py", "f"): "probe: a test"})
+    found = scanned_silent(tmp_path, S9_SILENT_F + S9_SILENT_G)
+    assert [path for path, _ in found] == ["jnwb/pkg/a.py"]
+    assert found[0][1].startswith("line 10: except ValueError")
+
+
+def test_a_listed_key_that_matches_no_flagged_handler_is_stale(tmp_path, monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S9_EXCUSED", {("jnwb/pkg/a.py", "gone"): "probe: a test"})
+    found = scanned_silent(tmp_path, S9_SILENT_F)
+    assert ["jnwb/pkg/a.py", "S9_EXCUSED lists gone, which no flagged handler matches: stale"] in found
+    assert len(found) == 2, "the unlisted handler in f stays flagged beside the stale key"
+
+
+def test_a_listed_key_in_a_module_with_no_handler_is_stale(tmp_path, monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S9_EXCUSED", {("jnwb/pkg/a.py", "f"): "probe: a test"})
+    assert scanned_silent(tmp_path, "def f(p):\n    return p\n") == [
+        ["jnwb/pkg/a.py", "S9_EXCUSED lists f, which no flagged handler matches: stale"]]
+
+
+def test_every_excused_handler_has_a_one_line_reason():
+    assert build_fact_graph.S9_EXCUSED, "the excuse list must not be empty"
+    for key, reason in build_fact_graph.S9_EXCUSED.items():
+        assert isinstance(key, tuple) and len(key) == 2, key
+        assert reason.strip() and "\n" not in reason, key
+
+
+def test_the_live_tree_has_no_unexcused_or_stale_silent_handler(live):
+    _, g = live
+    assert g["relations"]["silent_handlers"] == []

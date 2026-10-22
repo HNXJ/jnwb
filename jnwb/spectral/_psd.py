@@ -408,6 +408,8 @@ class AperiodicFitResult(DictAccessMixin):
         freq_range: Evaluated frequency range `(f_min, f_max)` in Hz.
         mode: Fitting model (`'fixed'` or `'knee'`).
         accepted: Whether the optimization successfully converged to a valid fit.
+        reason: ``None`` for an accepted fit. For a fit whose optimiser or robust refit raised,
+            the exception's class and text, as ``"RuntimeError: ..."``.
     """
 
     offset: Optional[float]
@@ -417,6 +419,7 @@ class AperiodicFitResult(DictAccessMixin):
     freq_range: Tuple[float, float]
     mode: str
     accepted: bool
+    reason: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -427,6 +430,7 @@ class AperiodicFitResult(DictAccessMixin):
             "freq_range": self.freq_range,
             "mode": self.mode,
             "accepted": self.accepted,
+            "reason": self.reason,
         }
 
 
@@ -606,7 +610,7 @@ def aperiodic_fit(
                 b, chi, k, r2, _ = _fit(
                     fit_freqs[keep], log_freqs[keep], log_power[keep], p0=seed
                 )
-        except Exception:
+        except Exception as error:
             return AperiodicFitResult(
                 offset=None,
                 exponent=None,
@@ -615,6 +619,7 @@ def aperiodic_fit(
                 freq_range=range_tuple,
                 mode=mode,
                 accepted=False,
+                reason=f"{type(error).__name__}: {error}",
             )
         return AperiodicFitResult(
             offset=b,

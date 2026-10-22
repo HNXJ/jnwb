@@ -217,7 +217,13 @@ def _h5_channel_count(group: h5py.Group, data_relpath: str | None) -> int | None
         return None
     try:
         n = len(region)
-    except TypeError:
+    except TypeError as error:
+        warnings.warn(
+            f"{group.name}: the electrode region of the series at {data_relpath!r} has no length "
+            f"({type(error).__name__}: {error}), so its channel axis is guessed from the shape.",
+            UserWarning,
+            stacklevel=2,
+        )
         return None
     return int(n) or None
 
@@ -229,7 +235,13 @@ def _pynwb_channel_count(series: Any) -> int | None:
         return None
     try:
         n = len(region)
-    except TypeError:
+    except TypeError as error:
+        warnings.warn(
+            f"the electrode region of {getattr(series, 'name', 'a series')!r} has no length "
+            f"({type(error).__name__}: {error}), so its channel axis is guessed from the shape.",
+            UserWarning,
+            stacklevel=2,
+        )
         return None
     return int(n) or None
 
@@ -295,22 +307,35 @@ _SCHEMA_FIXED_DATA_UNIT = {"ElectricalSeries": "volts"}
 
 
 @functools.lru_cache(maxsize=32)
-def _registered_types(path: str, _mtime_ns: int, _size: int) -> dict[str, frozenset] | None:
-    """Each namespace pynwb knows for the file at ``path``, with the types it registers.
+def _registered_types(
+    path: str, _mtime_ns: int, _size: int
+) -> tuple[dict[str, frozenset] | None, str | None]:
+    """``(namespaces, reason)`` for the file at ``path``.
 
-    pynwb's own namespaces plus every one the file embeds under ``/specifications``, which
-    is what a read of that file can open. ``None`` when the namespaces cannot be loaded, so
-    nothing is claimed about a type. Keyed on modification time and size, so a rewritten
-    file is read again.
+    ``namespaces`` maps each namespace pynwb knows, pynwb's own plus every one the file embeds
+    under ``/specifications`` (what a read of that file can open), to the types it registers.
+    When the namespaces cannot be loaded it is ``None`` and ``reason`` names the exception, so
+    nothing is claimed about a type and the caller can say why. Keyed on modification time and
+    size, so a rewritten file is read again.
     """
     catalog = get_type_map().namespace_catalog
     try:
         with h5py.File(path, "r") as f:
             NWBHDF5IO.load_namespaces(catalog, file=f)
-    except Exception:
-        return None
+    except Exception as error:
+        return None, f"{type(error).__name__}: {error}"
     return {ns: frozenset(catalog.get_namespace(ns).get_registered_types())
-            for ns in catalog.namespaces}
+            for ns in catalog.namespaces}, None
+
+
+def _warn_check_not_run(ndt: str, filename: str, reason: str) -> None:
+    """Warn that the undefined-type check of one group could not run, and why."""
+    warnings.warn(
+        f"{filename}: the undefined-type check did not run for neurodata_type {ndt!r}, so a type "
+        f"no namespace defines is not reported here ({reason}).",
+        UserWarning,
+        stacklevel=3,
+    )
 
 
 def _unknown_type(obj: h5py.Group, ndt: str) -> str | None:
@@ -318,15 +343,17 @@ def _unknown_type(obj: h5py.Group, ndt: str) -> str | None:
 
     pynwb leaves such a group out of the object model, so every jnwb read refuses it while
     the file lists it. The type is looked up in the namespace the group names, or in every
-    namespace when it names none.
+    namespace when it names none. When the check cannot run, it warns with the reason.
     """
     filename = obj.file.filename
     try:
         st = os.stat(filename)
-    except OSError:
+    except OSError as error:
+        _warn_check_not_run(ndt, filename, f"{type(error).__name__}: {error}")
         return None
-    known = _registered_types(os.path.realpath(filename), st.st_mtime_ns, st.st_size)
+    known, reason = _registered_types(os.path.realpath(filename), st.st_mtime_ns, st.st_size)
     if known is None:
+        _warn_check_not_run(ndt, filename, reason)
         return None
     ns = _decode_bytes_replace(obj.attrs.get("namespace"))
     if ns in known:
@@ -671,8 +698,9 @@ def _why_unread(nwb: NWBFile, name: str) -> str:
                 return (" in the object model: the file holds it but declares no "
                         "neurodata_type, so pynwb leaves it out")
             unknown = _unknown_type(obj, ndt)
-    except OSError:
-        return ""
+    except OSError as error:
+        return (f" in the object model: the file could not be read to say why "
+                f"({type(error).__name__}: {error})")
     return f" in the object model: the file holds it but {unknown}" if unknown else ""
 
 
@@ -817,7 +845,15 @@ def _warn_if_declared_unit_contradicts_storage(series: Any, acq_name: str, chann
         return
     try:
         stored = attrs.get("unit")
-    except Exception:
+    except Exception as error:
+        warnings.warn(
+            f"acquisition_channel: series '{acq_name}' declares neurodata_type {ndt!r}, for which "
+            f"the NWB schema fixes the data unit to {fixed!r}, but its stored unit could not be "
+            f"read ({type(error).__name__}: {error}), so the volts scaling is unchecked.",
+            RuntimeWarning,
+            # Frames between the warning and the caller, as in the warning below.
+            stacklevel=5,
+        )
         return
     if stored is None:
         return
