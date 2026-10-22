@@ -1,0 +1,49 @@
+{
+ "provenance": {
+  "commit": "a8cee6edd82f79a9bfd5bcb43bbb4b43cdd88fb3",
+  "tracked_changes": false,
+  "jnwb_file": "C:\\Users\\nejath\\AppData\\Local\\Temp\\claude\\E--repos-jnwb\\e10332ef-1f2a-4ab6-b6f3-f2c8a803abf8\\scratchpad\\lanes\\cl-L10\\jnwb\\__init__.py",
+  "python": "3.14.3",
+  "numpy": "2.4.6",
+  "machine": "AMD64",
+  "processor": "Intel64 Family 6 Model 85 Stepping 7, GenuineIntel",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "logical_cpus": 24,
+  "thread_pools": [
+   [
+    "openblas",
+    1
+   ],
+   [
+    "openblas",
+    1
+   ]
+  ],
+  "timing": "median of repeats after one untimed warm-up, gc disabled, perf_counter"
+ },
+ "rows": [
+  {
+   "spec": "verify_nwb[n_samples_in_file]",
+   "parameter": "n_samples_in_file",
+   "held": "10 channels float32, n_events_per_table=10, acquisition_style='electrical_series', fs_hz 4000..1024000 sets the size, n_check=200000 (the default)",
+   "sizes": [
+    91400,
+    365600,
+    1462400,
+    5849600,
+    23398400
+   ],
+   "median_s": [
+    0.333379200019408,
+    0.3894723000121303,
+    0.6152497999719344,
+    1.5082543999888003,
+    4.851732700015418
+   ],
+   "repeats": 5,
+   "exp": 0.48399076492663756,
+   "r2": 0.911792838817047,
+   "t_span": 14.553195579487172
+  }
+ ]
+}

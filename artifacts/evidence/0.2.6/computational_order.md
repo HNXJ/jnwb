@@ -16,11 +16,11 @@ more than one input dimension and the orders differ between them.
 
 | Category | Exports | Evidence |
 |---|---|---|
-| `jnwb.__all__` | 212 | runtime probe with a provenance assertion |
-| Cost grows with input size -- measured | 140 | 233 sweeps, 233 completed |
+| `jnwb.__all__` | 213 | runtime probe with a provenance assertion |
+| Cost grows with input size -- measured | 141 | 234 sweeps, 234 completed |
 | Cost does not grow with input size -- excluded | 62 | section 7, one reason each |
 | Cost grows, input not buildable from this repository | 10 | section 8 |
-| **Total** | **212** | partition checked exact against a live `jnwb.__all__` |
+| **Total** | **213** | partition checked exact against a live `jnwb.__all__` |
 
 The three categories are disjoint and their union is `jnwb.__all__`; no export is in two,
 and none is in none. `classification: observed`.
@@ -325,6 +325,21 @@ contradicts a written claim it appears in section 6.
 | `inspect` | n_samples_in_file | 9140, 228500, 3656000, 58496000 | 103.5, 108.4, 99.1, 109.8 | +0.00 | 0.059 | 1x | O(1) (NOT SEPARATED, POOR FIT) | O(1) in n_samples; T(#HDF5 objects + #columns) overall | observed | agree |
 | `resolve_acquisition` | n_samples_in_file | 9140, 228500, 3656000, 58496000 | 79.4, 93.0, 91.9, 91.7 | +0.01 | 0.557 | 1x | O(1) (NOT SEPARATED, POOR FIT) | O(1) in n_samples; T(a log a) in the number of series a | observed | agree |
 | `unit_spike_times` | n_spikes_per_unit | 50, 500, 5000, 20000 | 98.8, 93.4, 93.7, 99.8 | +0.00 | 0.000 | 1x | O(1) (NOT SEPARATED, POOR FIT) | T(k) | derived | agree |
+
+### `jnwb.nwb_write`
+
+Added 2026-10-22 with `verify_nwb`, after the counts of section 1. Measured with
+the `Spec`, `sweep`, `pin_threads` and `markdown` of `scripts/measure_order.py`, 5 repeats, Python
+3.14.3, NumPy 2.4.6, x86_64 Windows, jnwb imported from the checkout. Held fixed: 10 channels
+float32, `n_events_per_table=10`, `acquisition_style='electrical_series'`, `n_check=200000` (the
+default); the file size was set by `fs_hz` from 4000 to 1024000. `n` samples in the file.
+`verify_nwb` reads the samples back (`_read_check`), walks the schema (`_schema_check`), checks
+resolution (`_resolution_check`) and hashes the whole file (`_sha256`), so the linear term above
+the flat base of about 0.35 s is expected.
+
+| spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `verify_nwb[n_samples_in_file]` | n_samples_in_file | 91400, 365600, 1462400, 5849600, 23398400 | 333.4, 389.5, 615.2, 1508, 4852 | +0.48 | 0.912 | 15x | sub-linear | T(n) | derived | agree |
 
 ### `jnwb.onset_fitting`
 
