@@ -1,0 +1,1 @@
+- `curate_and_label` gains `xflip_n_blocks`, sent to `xflip` as `n_blocks` (tests/test_laminar_curation.py).

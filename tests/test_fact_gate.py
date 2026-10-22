@@ -1151,3 +1151,169 @@ def test_the_live_rng_scan_examines_every_public_callable(live):
 def test_the_live_tree_has_no_unnamed_randomness(live):
     _, g = live
     assert g["relations"]["rng_reports"] == []
+
+
+# ------------------------------------------------------------------------ fact I2: named units and defaults
+
+
+def planted_rate_silent(x):
+    return x * 1000
+
+
+def planted_rate_suffixed(x_ms):
+    return x_ms * 1000
+
+
+def planted_rate_declared(x, units="ms"):
+    return x * 1000
+
+
+PLANTED_RATES = (planted_rate_silent, planted_rate_suffixed, planted_rate_declared)
+
+
+def planted_mode_target(a, mode="mean"):
+    return (a, mode)
+
+
+def planted_mode_silent(a):
+    return planted_mode_target(a, mode="median")
+
+
+def planted_mode_passthrough(a, mode="median"):
+    return planted_mode_target(a, mode=mode)
+
+
+def planted_mode_default(a):
+    return planted_mode_target(a, mode="mean")
+
+
+PLANTED_MODES = (planted_mode_target, planted_mode_silent, planted_mode_passthrough,
+                 planted_mode_default)
+
+
+def test_a_planted_silent_scaling_is_reported_and_named_ones_are_not(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "I2_UNIT_EXCUSED", {})
+    examined, found = build_fact_graph.unit_scan(planted_package(*PLANTED_RATES))
+    assert examined == len(PLANTED_RATES) == 3, "the scan must examine every planted callable"
+    assert set(reported(found)) == {"planted_rate_silent"}
+    [reason] = [reason for _, reason in found]
+    assert "scales parameter 'x' by 1000" in reason and "names no unit" in reason
+
+
+def test_a_planted_unit_excuse_skips_its_callable_and_a_stale_one_is_reported(monkeypatch):
+    module = planted_rate_silent.__module__
+    monkeypatch.setattr(build_fact_graph, "I2_UNIT_EXCUSED", {
+        (module, "planted_rate_silent"): "planted: excused for the test",
+        (module, "planted_rate_suffixed"): "planted: once scaled a parameter",
+    })
+    _, found = build_fact_graph.unit_scan(planted_package(*PLANTED_RATES))
+    names = reported(found)
+    assert "planted_rate_silent" not in names, "an excused callable is skipped"
+    assert set(names) == {"planted_rate_suffixed"}
+    assert names["planted_rate_suffixed"] == (
+        "I2_UNIT_EXCUSED lists it, but it scales no parameter by a unit factor: stale")
+
+
+def test_a_callable_whose_source_cannot_be_read_is_a_unit_finding_not_a_pass(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "I2_UNIT_EXCUSED", {})
+    namespace = {}
+    exec("def scaled_without_source(x):\n    return x * 1000\n", namespace)
+    examined, found = build_fact_graph.unit_scan(
+        planted_package(namespace["scaled_without_source"]))
+    assert examined == 1
+    assert [reason for _, reason in found] == ["source unreadable: not checked"]
+
+
+def test_the_unit_conversions_predicate_is_violated_by_a_planted_silent_scaling(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "I2_UNIT_EXCUSED", {})
+    examined, found = build_fact_graph.unit_scan(planted_package(*PLANTED_RATES))
+    g = {"entities": {"unit_examined": examined}, "relations": {"unit_conversions": found}}
+    found_status, reasons = status(g, "computed:unit_conversions")
+    assert found_status == fact_gate.VIOLATED
+    assert any("planted_rate_silent" in reason for reason in reasons), reasons
+
+
+def test_the_unit_conversions_predicate_holds_when_every_planted_scaling_is_named(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "I2_UNIT_EXCUSED", {})
+    examined, found = build_fact_graph.unit_scan(
+        planted_package(planted_rate_suffixed, planted_rate_declared))
+    g = {"entities": {"unit_examined": examined}, "relations": {"unit_conversions": found}}
+    assert status(g, "computed:unit_conversions") == (fact_gate.HELD, [])
+
+
+def test_a_unit_scan_that_examines_nothing_is_a_failure():
+    g = {"entities": {"unit_examined": 0}, "relations": {"unit_conversions": []}}
+    found_status, reasons = status(g, "computed:unit_conversions")
+    assert found_status == fact_gate.VIOLATED
+    assert reasons == ["computed:unit_conversions: the graph examined no public callable, "
+                       "so no unit conversion could be checked"]
+
+
+def test_a_planted_silent_default_change_is_reported_and_named_ones_are_not(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "I2_WRAPPER_EXCUSED", {})
+    examined, found = build_fact_graph.wrapper_scan(planted_package(*PLANTED_MODES))
+    assert examined == len(PLANTED_MODES) == 4, "the scan must examine every planted callable"
+    assert set(reported(found)) == {"planted_mode_silent"}
+    [reason] = [reason for _, reason in found]
+    assert "passes mode='median'" in reason and "whose default is 'mean'" in reason
+
+
+def test_a_planted_wrapper_excuse_skips_its_callable_and_a_stale_one_is_reported(monkeypatch):
+    module = planted_mode_silent.__module__
+    monkeypatch.setattr(build_fact_graph, "I2_WRAPPER_EXCUSED", {
+        (module, "planted_mode_silent"): "planted: excused for the test",
+        (module, "planted_mode_default"): "planted: once changed a default",
+    })
+    _, found = build_fact_graph.wrapper_scan(planted_package(*PLANTED_MODES))
+    names = reported(found)
+    assert "planted_mode_silent" not in names, "an excused callable is skipped"
+    assert set(names) == {"planted_mode_default"}
+    assert names["planted_mode_default"] == (
+        "I2_WRAPPER_EXCUSED lists it, but it passes no literal over a default: stale")
+
+
+def test_a_callable_whose_source_cannot_be_read_is_a_wrapper_finding_not_a_pass(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "I2_WRAPPER_EXCUSED", {})
+    namespace = {}
+    exec("def wrapped_without_source(a):\n"
+         "    return planted_mode_target(a, mode=\"median\")\n", namespace)
+    examined, found = build_fact_graph.wrapper_scan(
+        planted_package(namespace["wrapped_without_source"]))
+    assert examined == 1
+    assert [reason for _, reason in found] == ["source unreadable: not checked"]
+
+
+def test_the_wrapper_defaults_predicate_is_violated_by_a_planted_silent_change(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "I2_WRAPPER_EXCUSED", {})
+    examined, found = build_fact_graph.wrapper_scan(planted_package(*PLANTED_MODES))
+    g = {"entities": {"wrapper_examined": examined}, "relations": {"wrapper_defaults": found}}
+    found_status, reasons = status(g, "computed:wrapper_defaults")
+    assert found_status == fact_gate.VIOLATED
+    assert any("planted_mode_silent" in reason for reason in reasons), reasons
+
+
+def test_the_wrapper_defaults_predicate_holds_when_every_planted_default_is_named(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "I2_WRAPPER_EXCUSED", {})
+    examined, found = build_fact_graph.wrapper_scan(
+        planted_package(planted_mode_target, planted_mode_passthrough, planted_mode_default))
+    g = {"entities": {"wrapper_examined": examined}, "relations": {"wrapper_defaults": found}}
+    assert status(g, "computed:wrapper_defaults") == (fact_gate.HELD, [])
+
+
+def test_a_wrapper_scan_that_examines_nothing_is_a_failure():
+    g = {"entities": {"wrapper_examined": 0}, "relations": {"wrapper_defaults": []}}
+    found_status, reasons = status(g, "computed:wrapper_defaults")
+    assert found_status == fact_gate.VIOLATED
+    assert reasons == ["computed:wrapper_defaults: the graph examined no public callable, "
+                       "so no wrapper default could be checked"]
+
+
+def test_the_live_tree_lists_its_silent_unit_conversions_and_wrapper_defaults(live):
+    _, g = live
+    callables = build_fact_graph._public_callables(build_fact_graph._checkout_jnwb())
+    assert g["entities"]["unit_examined"] == len(callables)
+    assert g["entities"]["wrapper_examined"] == len(callables)
+    assert g["entities"]["unit_examined"] > 200
+    assert g["entities"]["wrapper_examined"] > 200
+    assert g["relations"]["unit_conversions"] == []
+    assert g["relations"]["wrapper_defaults"] == []

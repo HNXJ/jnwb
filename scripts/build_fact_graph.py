@@ -67,6 +67,15 @@ Relations, each a sorted list of ``[source, target]`` pairs:
               ``RESOLVERS`` of ``jnwb/_rng.py``) and names no rng key in
               its result (``rng_scan``, ``RNG_KEYS``); a callable in ``S11_EXCUSED`` is skipped
               (bare arrays and tuples carry no key)
+  unit_conversions  callable -> a public callable that scales a parameter by a unit factor
+              (``UNIT_FACTORS``, by multiplication or division) without naming the unit:
+              neither the parameter's suffix (``UNIT_SUFFIXES``) nor a ``units``/``unit`` or
+              ``*_unit``/``*_units`` parameter (``unit_scan``); a callable in ``I2_UNIT_EXCUSED``
+              is skipped, and a listed key that matches no flagged callable is reported as stale
+  wrapper_defaults  callable -> a public callable that calls another public callable with a
+              literal keyword its own signature does not name, differing from that keyword's
+              default (``wrapper_scan``); a callable in ``I2_WRAPPER_EXCUSED`` is skipped, and
+              a listed key that matches no flagged callable is reported as stale
 
 The facts are the only owned part; everything else is regenerated. The output is a pure
 function of the tree: sorted keys and lists, LF endings, no timestamp, and object addresses
@@ -1153,6 +1162,177 @@ S11_EXCUSED: Dict[Tuple[str, str], str] = {
 }
 
 
+#: The numeric factors a silent unit change scales by, in any spelling: ``1000`` and ``1e3``,
+#: ``1000000`` and ``1e6``, ``0.001`` and ``1e-3``, and ``1e-6``.
+UNIT_FACTORS = frozenset({1000.0, 0.001, 1000000.0, 1e-06})
+#: A parameter carrying one of these suffixes names its unit, so scaling it is not silent.
+UNIT_SUFFIXES = ("_ms", "_s", "_sec", "_hz", "_um", "_mm", "_uv", "_mv", "_v", "_us")
+#: The callables the unit rule excuses, by (module, qualified name), each with its reason.
+#: A listed callable that scales no parameter by a unit factor is reported as stale.
+I2_UNIT_EXCUSED: Dict[Tuple[str, str], str] = {
+    ("jnwb.laminar._vflip2", "vflip2"):
+        "contact_spacing is declared in micrometres in the docstring and converted to the "
+        "millimetres the computation uses; no value crosses the boundary in a changed unit",
+    ("jnwb.laminar._xflip", "xflip"):
+        "contact_spacing is declared in micrometres in the docstring and converted to the "
+        "millimetres the computation uses; no value crosses the boundary in a changed unit",
+}
+#: The callables the wrapper rule excuses, by (module, qualified name), each with its reason.
+#: Empty: no silent default change on the live tree is excused. A listed callable that passes
+#: no literal over a default is reported as stale.
+I2_WRAPPER_EXCUSED: Dict[Tuple[str, str], str] = {}
+
+
+def _is_unit_factor(node: ast.AST) -> bool:
+    """Whether a node is a literal spelling of a unit factor: ``1000``, ``1e3``, ``0.001``,
+    ``1e-3``, ``1e6``, ``1e-6`` or ``1000000``."""
+    return (isinstance(node, ast.Constant) and isinstance(node.value, (int, float))
+            and not isinstance(node.value, bool) and float(node.value) in UNIT_FACTORS)
+
+
+def _declares_unit(parameters: set) -> bool:
+    """Whether a function's parameters name the unit: ``units``, ``unit``, or a name ending
+    in ``_unit`` or ``_units``."""
+    return any(name in ("units", "unit") or name.endswith(("_unit", "_units"))
+               for name in parameters)
+
+
+def _own_tree(fn: Any) -> Tuple[ast.AST, int]:
+    """The parsed source of ``fn`` with its first line number in its file. Raises OSError when
+    the source cannot be read and SyntaxError when it does not parse."""
+    lines, first = inspect.getsourcelines(fn)
+    return ast.parse(textwrap.dedent("".join(lines))), first
+
+
+def _own_root(tree: ast.AST) -> ast.AST:
+    """The node whose own statements a scan reads: the defined function when the source holds
+    one definition, else the whole tree (a callable assigned to a name)."""
+    if len(tree.body) == 1 and isinstance(tree.body[0], (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return tree.body[0]
+    return tree
+
+
+def _keyword_literal(node: ast.AST) -> Tuple[bool, Any]:
+    """Whether a keyword value is a literal constant, or a tuple or list of them, with the
+    value it carries."""
+    if isinstance(node, ast.Constant):
+        return True, node.value
+    if isinstance(node, (ast.Tuple, ast.List)) and all(
+            isinstance(elt, ast.Constant) for elt in node.elts):
+        return True, tuple(elt.value for elt in node.elts)
+    return False, None
+
+
+def _differs(first: Any, second: Any) -> bool:
+    """Whether two values differ. A comparison that does not resolve, such as an elementwise
+    one over an array default, counts as different rather than silently passing."""
+    try:
+        return bool(first != second)
+    except Exception:  # noqa: BLE001 - any unresolvable comparison is a finding
+        return True
+
+
+def _public_target(fn: Any, dotted: str, owner: Any, index: Dict[int, Any]) -> Optional[Any]:
+    """The public callable a dotted callee name stands for, read through the function's module
+    globals, or through its owning class for ``self.`` and ``cls.``; None for anything else.
+    Membership in the public index decides, so a planted package resolves like the live one."""
+    head, _, rest = dotted.partition(".")
+    if head in ("self", "cls"):
+        obj = getattr(owner, rest, None) if owner is not None and rest else None
+    else:
+        obj = fn.__globals__.get(head)
+        for part in filter(None, rest.split(".")):
+            obj = getattr(obj, part, None)
+    if isinstance(obj, (staticmethod, classmethod)):
+        obj = obj.__func__
+    return obj if inspect.isfunction(obj) and id(obj) in index else None
+
+
+def unit_scan(package: Any) -> Tuple[int, List[List[str]]]:
+    """How many public callables the unit rule examined, and each that scales a parameter by
+    a unit factor (``UNIT_FACTORS``, by multiplication or division) without naming the unit:
+    neither the parameter's suffix (``UNIT_SUFFIXES``) nor a ``units``/``unit`` or
+    ``*_unit``/``*_units`` parameter, as sorted [module.name, reason] pairs. A callable whose
+    source cannot be read is a finding, never a pass."""
+    examined, found, flagged = 0, [], set()
+    for qualname, fn, owner in _public_callables(package):
+        examined += 1
+        try:
+            parameters = set(inspect.signature(fn).parameters)
+            tree, first = _own_tree(fn)
+        except (OSError, TypeError, SyntaxError, ValueError):
+            found.append([f"{fn.__module__}.{qualname}", "source unreadable: not checked"])
+            continue
+        if _declares_unit(parameters):
+            continue
+        for node in _own_nodes(_own_root(tree)):
+            if not (isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Mult, ast.Div))):
+                continue
+            for side, other in ((node.left, node.right), (node.right, node.left)):
+                if (isinstance(side, ast.Name) and side.id in parameters
+                        and _is_unit_factor(other)
+                        and not side.id.endswith(UNIT_SUFFIXES)):
+                    flagged.add((fn.__module__, qualname))
+                    if (fn.__module__, qualname) not in I2_UNIT_EXCUSED:
+                        found.append([
+                            f"{fn.__module__}.{qualname}",
+                            f"line {first + node.lineno - 1}: scales parameter {side.id!r} "
+                            f"by {other.value:g} and names no unit"])
+    for module, qualname in sorted(I2_UNIT_EXCUSED):
+        if (module, qualname) not in flagged:
+            found.append([f"{module}.{qualname}",
+                          "I2_UNIT_EXCUSED lists it, but it scales no parameter "
+                          "by a unit factor: stale"])
+    return examined, sorted(found)
+
+
+def wrapper_scan(package: Any) -> Tuple[int, List[List[str]]]:
+    """How many public callables the wrapper rule examined, and each that calls another public
+    callable with a literal keyword (an ``ast.Constant``, or a tuple or list of them) its own
+    signature does not name, differing from that keyword's default, as sorted [module.name,
+    reason] pairs. A callable whose source cannot be read is a finding, never a pass."""
+    callables = _public_callables(package)
+    index = {id(fn): (qualname, owner) for qualname, fn, owner in callables}
+    examined, found, flagged = 0, [], set()
+    for qualname, fn, owner in callables:
+        examined += 1
+        try:
+            own = set(inspect.signature(fn).parameters)
+            tree, first = _own_tree(fn)
+        except (OSError, TypeError, SyntaxError, ValueError):
+            found.append([f"{fn.__module__}.{qualname}", "source unreadable: not checked"])
+            continue
+        for call in _own_calls(_own_root(tree)):
+            target = _public_target(fn, _dotted(call.func), owner, index)
+            if target is None or target is fn:
+                continue
+            gqualname, _ = index[id(target)]
+            defaults = inspect.signature(target).parameters
+            for keyword in call.keywords:
+                if not keyword.arg or keyword.arg in own:
+                    continue
+                gparam = defaults.get(keyword.arg)
+                if gparam is None or gparam.default is inspect.Parameter.empty:
+                    continue
+                literal, value = _keyword_literal(keyword.value)
+                if not literal or not _differs(value, gparam.default):
+                    continue
+                site = (fn.__module__, qualname)
+                flagged.add(site)
+                if site not in I2_WRAPPER_EXCUSED:
+                    found.append([
+                        f"{fn.__module__}.{qualname}",
+                        f"line {first + call.lineno - 1}: passes {keyword.arg}={value!r} "
+                        f"to {target.__module__}.{gqualname}, "
+                        f"whose default is {gparam.default!r}"])
+    for module, qualname in sorted(I2_WRAPPER_EXCUSED):
+        if (module, qualname) not in flagged:
+            found.append([f"{module}.{qualname}",
+                          "I2_WRAPPER_EXCUSED lists it, but it passes no literal "
+                          "over a default: stale"])
+    return examined, sorted(found)
+
+
 def _resolver_call(call: ast.Call) -> Optional[str]:
     """The name of the rng resolver a call reaches for (``RESOLVERS`` of the rng-parameter
     walk), or None. The walk defines which parameters are stochastic by use; the scan reads
@@ -1477,6 +1657,8 @@ def build(package: Any = None, root: Path = REPO_ROOT,
     constrains = sorted([holder, fact["id"]] for fact in facts for holder in fact["holders"])
     schemes_examined, schemes = scheme_scan(package)
     rng_examined, rng_violations = rng_scan(package)
+    units_examined, unit_conversions = unit_scan(package)
+    wrappers_examined, wrapper_defaults = wrapper_scan(package)
     references, cites, concerns = read_references(
         (root / "docs" / "references.md").read_text(encoding="utf-8"))
 
@@ -1497,6 +1679,8 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "reference": references,
             "scheme_examined": schemes_examined,
             "rng_examined": rng_examined,
+            "unit_examined": units_examined,
+            "wrapper_examined": wrappers_examined,
         },
         "relations": {
             "implements": sorted(implements),
@@ -1508,6 +1692,8 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "constrains": constrains,
             "permutation_schemes": schemes,
             "rng_reports": rng_violations,
+            "unit_conversions": unit_conversions,
+            "wrapper_defaults": wrapper_defaults,
             **scans,
         },
     }

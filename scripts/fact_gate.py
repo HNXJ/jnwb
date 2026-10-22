@@ -66,6 +66,12 @@ Computed predicates:
   rng_reports  no public callable consumes randomness (a call to one of the ``RESOLVERS``
                    of ``jnwb/_rng.py``) without an rng key in its result
                    (the graph's ``rng_reports``); an examined count of zero is a failure
+  unit_conversions  no public callable scales a parameter by a unit factor without naming
+                   the unit (the graph's ``unit_conversions``); an examined count of zero
+                   is a failure
+  wrapper_defaults  no public callable passes a literal over another public callable's
+                   default without naming it (the graph's ``wrapper_defaults``); an examined
+                   count of zero is a failure
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -283,6 +289,22 @@ def rng_reports(graph: Graph, constants: Constants) -> List[str]:
     return [f"{name}: {reason}" for name, reason in graph["relations"]["rng_reports"]]
 
 
+def unit_conversions(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable that scales a parameter by a unit factor without naming the unit,
+    and the failure of a scan that examined no callable."""
+    if not graph["entities"].get("unit_examined"):
+        return ["the graph examined no public callable, so no unit conversion could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["unit_conversions"]]
+
+
+def wrapper_defaults(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable that passes a literal over another public callable's default
+    without naming it, and the failure of a scan that examined no callable."""
+    if not graph["entities"].get("wrapper_examined"):
+        return ["the graph examined no public callable, so no wrapper default could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["wrapper_defaults"]]
+
+
 def routed_citations(graph: Graph, constants: Constants) -> List[str]:
     """Each routing target that is a public function (export kind function/class) and has no
     ``cites`` edge, with the skills that route it. Utility exports are listed like the rest;
@@ -322,6 +344,8 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "silent_handlers": silent_handlers,
     "permutation_schemes": permutation_schemes,
     "rng_reports": rng_reports,
+    "unit_conversions": unit_conversions,
+    "wrapper_defaults": wrapper_defaults,
 }
 
 

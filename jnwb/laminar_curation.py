@@ -697,6 +697,7 @@ def curate_and_label(
     consistency_b: float = 0.60,
     compute_xflip: bool = True,
     xflip_n_surrogates: int = 50,
+    xflip_n_blocks: Optional[int] = None,
     rng: RNGLike = DEFAULT_SEED,
     max_interpolate_run: int = 3,
     min_contacts: int = 8,
@@ -761,6 +762,8 @@ def curate_and_label(
             :func:`fuse_laminar_anchors`.
         compute_xflip: Compute the xFLIP boundary for the report; False skips it.
         xflip_n_surrogates: Phase surrogates of the xFLIP null.
+        xflip_n_blocks: Block count passed to `xflip`; None (the default) lets xFLIP choose
+            among 2 to 4 by its omnibus p.
         rng: Seed or generator of the xFLIP surrogates.
         max_interpolate_run: Longest run of bad contacts interpolated, as ``max_run`` of
             :func:`interpolate_channel_runs`.
@@ -945,7 +948,7 @@ def curate_and_label(
 
     xf, xr = nan, None
     if compute_xflip and use.sum() >= min_contacts and np.isfinite(anchor):
-        xr = xflip(reduced[use], n_blocks=None, n_surrogates=int(xflip_n_surrogates), rng=gen)
+        xr = xflip(reduced[use], n_blocks=xflip_n_blocks, n_surrogates=int(xflip_n_surrogates), rng=gen)
         params["xflip_surrogate_seed_entropy"] = xr.surrogate_seed_entropy
         bounds = idx[use][np.flatnonzero(np.diff(xr.labels)) + 1]
         if xr.accepted and len(bounds):

@@ -622,6 +622,20 @@ class TestParametersReachTheirConsumers:
         jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False)
         assert seen == [128, 512]
 
+    def test_curate_and_label_passes_xflip_n_blocks_to_xflip(self, monkeypatch):
+        import jnwb.laminar_curation as lc
+        seen = []
+
+        def spy(*args, **kwargs):
+            seen.append(kwargs.get("n_blocks"))
+            return jnwb.xflip(*args, **kwargs)
+
+        monkeypatch.setattr(lc, "xflip", spy)
+        x = blocked()
+        jnwb.curate_and_label(x, FS, pitch_um=PITCH, xflip_n_blocks=2)
+        jnwb.curate_and_label(x, FS, pitch_um=PITCH)
+        assert seen == [2, None]
+
     def test_the_csd_contact_count_boundary_is_exact(self):
         x = blocked()
         erp, t = _sink_erp(n=x.shape[0], at=5)
