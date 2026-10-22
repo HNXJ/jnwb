@@ -42,7 +42,7 @@ elsewhere as `python -m pytest tests/ -q`.
 |---|---|---|---|---|
 | 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
 | 1 | M mutation | 07-21 (the core five), then 07-22 | Muse | nothing |
-| 1 | R reading | 11-02 (D10, ruled 2026-09-29: a declared shallow end), 11-01, 16-01, 16-02 | Haiku | nothing |
+| 1 | R reading | 11-02 (D10, ruled 2026-09-29: a declared shallow end) | Haiku | nothing |
 | 1 | S estimators | 14-07, then 14-06 | Muse | wave-0 rulings |
 | 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-04 to 16-07, 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-18, 13-04, 15-22 (a draft to Hamm) | Muse | 13-04's ruling |
@@ -176,14 +176,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
 Writes: `jnwb/compression.py`, `jnwb/metadata.py`, `jnwb/addressing.py`, `tests/test_compression.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `docs/02_paths_addressing_metadata.md`.
 - 11-02: `classify_layer_from_depth` with no declared shallow end is open (the hard-linked `select=` cast re-points every name, ruled 2026-10-18; P-348's soft-link cases pinned and P-192's page line written and P-296's dated comments rewritten and P-344's slope matched to raw HDF5 (`artifacts/evidence/0.2.13/compress_scaling.md`) 2026-10-17; `compress_fp32` has no device path, so P-348's CUDA case does not apply). Check: D10's ruling is applied and stated. Waits: No behavioural effect: 0.2.9 behaves the same for `compress_fp32`, and the layer classification is stated and waits on D10's ruling. Moved to 0.2.14 by the 2026-10-19 theme ruling.
-Accept: each check passes.
-
-### 11-01 Every container `inspect` lists is readable
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
-Writes: `jnwb/nwb_inspect.py`, `jnwb/nwb_io.py`, `jnwb/nwb_events.py`, `jnwb/io.py`, `jnwb/mcp_server/**`, `tests/test_nwb_inspect.py`, `tests/test_nwb_read_tolerance_and_visibility.py`, `tests/test_nwb_events.py`, `tests/test_mcp_server.py`, `tests/test_io*.py`, `docs/errors.md`, `skills/jnwb-nwb-data/SKILL.md`.
-- 11-01: P-294, P-314, P-303, P-299, P-190 (a series with `timestamps` and no constant `rate` raises `AcquisitionNotFoundError`), P-204, P-220, P-336, P-337, P-216 (reading part), P-289 and P-291 and the MCP signal reference edges leave containers unread or checks unpinned. Check: it reads `processing/behavior/EyeTracking` of a planted file; one table covers every container `inspect` reports, and a test reads each; one unwrap rule, and a test where both agree on every container; the label is the wrapped one, asserted by a test; it raises the class of `artifacts/evidence/0.2.8/plan/decisions.md` D8, asserted by a test; a unit-scale case gives a message distinct from a type case (D8), one test each; a missingness-table row and a named error, asserted by a test; a test fails when the length check is dropped; the unit warning names both conversions and `stacklevel` puts both warnings at the caller, asserted by `warnings.catch_warnings` records; a test fails when the refusal is dropped; a test pins the axis, an out-of-schema `channel_conversion` and an infinite rate are refused, and the sweep row lists the handler; a whole-tree snapshot and a runtime check; the docstring says what the code does. Waits: P-294, P-314, P-220 and the MCP signal reference edges are loud or outside the schema, P-303's known types agree, P-299 is vocabulary only, P-190's message is true and a new class is API, P-204 errs toward caution, P-336 and P-216 behave correctly, P-337's messages are true, P-289 has no current path doing either, and P-291's value is right. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: each check passes.
 
 ### 14-06 The pitfall estimators Hamm rules
