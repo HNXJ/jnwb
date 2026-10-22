@@ -27,6 +27,17 @@ The messages below are real, taken from a file written with plain pynwb.
 `NWBInspectError` and `NWBEventError` are the two base classes; they are never raised
 directly. The rest of this page says why each refusal exists.
 
+## Writing a file: the mutation errors
+
+| Error | Raised by | The fix |
+|---|---|---|
+| `NWBMutationError` | `write_nwb` | The `NWBFile` failed schema validation before anything was written, so nothing is left behind. Its `issues` name each failure; fix those objects and call again |
+| `NWBVerificationError` | `write_nwb` with `verify=True` | A check on the written file failed. The file is left in place for inspection; do not use it |
+
+`AmbiguousMappingError`, `UnidentifiableRepairError` and `UndeclaredUnitError` subclass
+`NWBMutationError`, so catching the base catches them too. No function in this release raises
+them: they are reserved for the mutation operations that are not yet in jnwb.
+
 ## Finding the name to pass
 
 Two resolvers answer "what would jnwb pick, and is that unambiguous?" without reading any

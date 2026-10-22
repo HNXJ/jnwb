@@ -50,9 +50,19 @@ ERRORS = [
     "MissingRequiredNWBFieldError",
     "NWBEventError",
     "NWBInspectError",
+    "NWBMutationError",
+    "NWBVerificationError",
     "RaggedIndexRepairRefused",
     "SqueezedAttributeWarning",
     "UnitNotFoundError",
+]
+
+# Errors no routed operation raises yet: the mutation operations that would raise them
+# (transform_nwb, repair_nwb) are not in jnwb. docs/errors.md names each one.
+RESERVED = [
+    "AmbiguousMappingError",
+    "UndeclaredUnitError",
+    "UnidentifiableRepairError",
 ]
 
 # The `jnwb.ontology` vocabulary: a data model for describing an analysis, not operations to
@@ -145,6 +155,7 @@ INTERNAL = ["assert_mergeable"]
 
 EXCLUDED = {
     **{n: "error" for n in ERRORS},
+    **{n: "reserved" for n in RESERVED},
     **{n: "ontology" for n in ONTOLOGY},
     **{n: "returned" for n in RETURNED_BY},
     **{n: "analyzer" for n in ANALYZERS},
