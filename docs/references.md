@@ -8,7 +8,7 @@ the papers by Bastos, Vezoli, Friston, Barnett and their coauthors on 2026-10-04
 sources on 2026-10-08, Major et al. 2025 and the Dryad dataset on 2026-10-13, the SciPy, CircStat, Pitman, Mann
 and Whitney, Efron, Shannon, Nawrot, Cunningham and Yu, Varma and Simon, Cortes and Vapnik,
 PREP, Leys, and Gerstein and Kiang sources on 2026-10-13, Geyer 1992 on 2026-10-19, and Nejat and Hajipour Sardouie 2021 on 2026-10-21). Each matched the title, authors and year of its Crossref record, except
-the arXiv entries, matched to their DataCite records, Llobet et al. 2022, matched to bioRxiv's record of its version 1, and the Dryad dataset, matched to its DataCite record. The ISBNs of the core texts were checked on Open Library on 2026-10-20; each row gives the record's year, and names an edition only where the record does. The studies' DOIs were checked on Crossref on 2026-10-20, and Hill et al. (2011) against its article on PubMed Central. Where
+the arXiv entries, matched to their DataCite records, Llobet et al. 2022, matched to bioRxiv's record of its version 1, and the Dryad dataset, matched to its DataCite record. The Rübel et al. 2022 source matched the title, authors and year of its Crossref record on 2026-10-22. The ISBNs of the core texts were checked on Open Library on 2026-10-20; each row gives the record's year, and names an edition only where the record does. The studies' DOIs were checked on Crossref on 2026-10-20, and Hill et al. (2011) against its article on PubMed Central. Where
 jnwb departs from the published result, the row and the docstring say how. The
 [Pitfalls](#pitfalls) table lists papers that state a pitfall rather than a method jnwb
 implements; the functions it names are those the pitfall concerns, and their docstrings do not
@@ -201,11 +201,13 @@ A study is listed only with the test or evidence file that checks it; each row n
 
 - Teeters, J. L., et al. (2015). Neurodata Without Borders: creating a common data format for
   neurophysiology. *Neuron*. [doi:10.1016/j.neuron.2015.10.025](https://doi.org/10.1016/j.neuron.2015.10.025)
-- Rübel, O., et al. (2022). The Neurodata Without Borders ecosystem for neurophysiological data
-  science. *eLife*. [doi:10.7554/eLife.78362](https://doi.org/10.7554/eLife.78362)
 - Software: [NWB overview](https://nwb-overview.readthedocs.io/en/latest/),
   [PyNWB](https://pynwb.readthedocs.io/en/stable/), [HDMF](https://hdmf.readthedocs.io/en/stable/),
   [DANDI Archive](https://dandiarchive.org/).
+
+| Reference | Result implemented | Functions |
+|---|---|---|
+| Rübel, O., Tritt, A., Ly, R., Dichter, B. K., Ghosh, S., Niu, L., Baker, P., Soltesz, I., Ng, L., Svoboda, K., Frank, L., & Bouchard, K. E. (2022). The Neurodata Without Borders ecosystem for neurophysiological data science. *eLife* 11, e78362. [doi:10.7554/eLife.78362](https://doi.org/10.7554/eLife.78362) | The NWB format schema check and the structure checks `verify_nwb` describes in its docstring | `verify_nwb` |
 
 ## Computation
 

@@ -624,6 +624,11 @@ def verify_nwb(dst: str | Path, *, against: str | Path | None = None,
     ValueError
         ``against`` without ``report``: without the declared changes every
         difference would be unexplained. Also when ``n_check`` is below 1.
+
+    References:
+        Rübel, O., et al. (2022). The Neurodata Without Borders ecosystem for
+        neurophysiological data science. eLife 11, e78362. doi:10.7554/eLife.78362
+        -- the NWB format this operation checks a file against.
     """
     import jnwb
 
