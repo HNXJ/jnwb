@@ -538,6 +538,11 @@ def write_nwb(nwbfile: NWBFile, *, dst: str | Path,
     NWBVerificationError
         ``verify`` is True and a post-write check failed; ``dst`` is left in place
         for inspection.
+
+    References:
+        Rübel, O., et al. (2022). The Neurodata Without Borders ecosystem for
+        neurophysiological data science. eLife 11, e78362. doi:10.7554/eLife.78362
+        -- the NWB format this operation writes.
     """
     import jnwb
     from pynwb import NWBFile
