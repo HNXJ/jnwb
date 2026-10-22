@@ -21,6 +21,7 @@ The "Addressing and metadata" routing rows live in [`references/addressing_and_m
 The "Compression and storage" routing rows live in [`references/compression_and_storage.md`](references/compression_and_storage.md).
 
 - Timestamps labelled seconds that hold acquisition ticks go to `jnwb.derive_tick_clock(tick_segments, spike_times)`, which returns a `jnwb.TickClock`; `seconds(ticks)` maps the ticks to session seconds. The tick segments and the spike times must each cover the whole recording, and the caller checks the offset, which is placed at the first spike.
+- `jnwb.verify_nwb(dst, *, against=None, report=None, n_check=200000)`: Re-reads one written NWB file and returns a `MutationReport` whose `checks` hold one row per check. Always parses the file through pynwb, runs schema validation, and resolves every link and object reference. With `against` and the writer's `report`, each dataset the report's applied records do not name is byte-identical over `n_check` rows (scalars whole, references dereferenced to their targets), `file_create_date` ignored; any other difference is reported unexplained. An applied record named `cast` declares its paths as dtype casts of the source. `against` without `report` raises `ValueError`.
 
 ## 3. Invariants & Safeguards
 1. **Discovery before selection:** call `inspect` to see interval table names and code columns;

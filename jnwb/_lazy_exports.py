@@ -84,6 +84,8 @@ EXPORT_MODULES: dict[str, str] = {
     "TFRAnalyzer": "analyzers",
     "UnitAnalyzer": "analyzers",
     "PopulationAnalyzer": "analyzers",
+    # nwb mutation output verification
+    "verify_nwb": "nwb_write",
     # viz (matplotlib)
     "setup_vector_graphics": "viz",
     "apply_tight_auto_axis": "viz",

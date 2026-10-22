@@ -342,6 +342,7 @@ __all__ = [
     'WaveformBlockReport',
     'validate_nwb',
     'NWBValidationReport',
+    'verify_nwb',
     'epoch_continuous',
     'TickClock',
     'derive_tick_clock',
