@@ -164,3 +164,16 @@ class TestTheSkillDescribesBothEstimators:
 
     def test_it_still_carries_the_sign_convention(self):
         assert "negative when the LFP leads spikes" in skill_row()
+
+
+def test_cross_modal_comparison_names_the_circular_shift_its_null_drew():
+    """Fact S10: the lag-corrected null circularly shifts one series, and the result says so."""
+    rng = np.random.default_rng(5)
+    tfr, spikes = rng.normal(size=600), rng.normal(size=600)
+    drawn = jnwb.cross_modal_comparison(tfr, spikes, lag_range_ms=(-50, 50), bin_ms=BIN_MS,
+                                        n_permutations=10, rng=3)
+    assert drawn["n_lags_searched"] > 1, "the fixture must run a lag sweep"
+    assert drawn["surrogate_scheme"] == "circular_shift"
+    undrawn = jnwb.cross_modal_comparison(tfr, spikes, lag_range_ms=(-50, 50), bin_ms=BIN_MS,
+                                          n_permutations=0, rng=3)
+    assert undrawn["surrogate_scheme"] is None

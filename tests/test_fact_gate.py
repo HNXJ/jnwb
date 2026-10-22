@@ -13,8 +13,10 @@ import json
 import os
 import subprocess
 import sys
+import types
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -920,3 +922,232 @@ def test_every_excused_handler_has_a_one_line_reason():
 def test_the_live_tree_has_no_unexcused_or_stale_silent_handler(live):
     _, g = live
     assert g["relations"]["silent_handlers"] == []
+
+
+# ------------------------------------------------------------------------ fact S10: schemes
+
+
+def planted_draws_unnamed(x, rng):
+    return rng.permutation(x)
+
+
+def planted_draws_named(x, rng):
+    return {"scheme": "global", "y": rng.permutation(x)}
+
+
+def planted_sign_flip(x, rng):
+    return {"y": rng.choice([-1.0, 1.0], size=len(x))}
+
+
+def planted_bootstrap(x, rng):
+    return {"mean": float(np.mean(rng.choice(x, size=len(x), replace=True)))}
+
+
+def planted_no_draw(x):
+    return {"y": x + 1}
+
+
+PLANTED_SCHEMES = (planted_draws_unnamed, planted_draws_named, planted_sign_flip,
+                   planted_bootstrap, planted_no_draw)
+
+
+def planted_package(*functions):
+    """A stand-in for the package: each planted function is exported under its own name."""
+    return types.SimpleNamespace(__all__=[f.__name__ for f in functions],
+                                 **{f.__name__: f for f in functions})
+
+
+def reported(found):
+    """The findings keyed by their planted function name."""
+    return {name.rpartition(".")[2]: reason for name, reason in found}
+
+
+def test_a_planted_unnamed_null_is_reported_and_a_named_one_is_not(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {})
+    examined, found = build_fact_graph.scheme_scan(planted_package(*PLANTED_SCHEMES))
+    assert set(reported(found)) == {"planted_draws_unnamed", "planted_sign_flip"}
+
+
+def test_the_scheme_scan_examines_every_planted_callable_and_names_what_it_drew(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {})
+    examined, found = build_fact_graph.scheme_scan(planted_package(*PLANTED_SCHEMES))
+    assert examined == len(PLANTED_SCHEMES) == 5, "the scan must examine every planted callable"
+    names = reported(found)
+    assert names["planted_draws_unnamed"] == "draws permutation and names no scheme key"
+    assert names["planted_sign_flip"] == "draws sign flip and names no scheme key"
+
+
+def test_a_bootstrap_or_a_draw_free_or_named_callable_is_not_reported(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {})
+    examined, found = build_fact_graph.scheme_scan(
+        planted_package(planted_bootstrap, planted_no_draw, planted_draws_named))
+    assert examined == 3
+    assert found == [], "a bootstrap interval is not a null, and the other two draw none unnamed"
+
+
+def test_a_planted_excuse_skips_its_callable_and_a_stale_one_is_reported(monkeypatch):
+    module = planted_draws_unnamed.__module__
+    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {
+        (module, "planted_draws_unnamed"): "planted: excused for the test",
+        (module, "planted_no_draw"): "planted: once drew a null",
+    })
+    _, found = build_fact_graph.scheme_scan(planted_package(*PLANTED_SCHEMES))
+    names = reported(found)
+    assert "planted_draws_unnamed" not in names, "an excused callable is skipped"
+    assert set(names) == {"planted_sign_flip", "planted_no_draw"}
+    assert names["planted_no_draw"] == (
+        "S10_EXCUSED lists it, but it draws no unnamed null: stale")
+
+
+def test_a_callable_whose_source_cannot_be_read_is_a_finding_not_a_pass(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {})
+    namespace = {}
+    exec("def drawn_without_source(x, rng):\n    return rng.permutation(x)\n", namespace)
+    examined, found = build_fact_graph.scheme_scan(
+        planted_package(namespace["drawn_without_source"]))
+    assert examined == 1
+    assert [reason for _, reason in found] == ["source unreadable: not checked"]
+
+
+def test_the_permutation_schemes_predicate_is_violated_by_a_planted_unnamed_null(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {})
+    examined, found = build_fact_graph.scheme_scan(planted_package(*PLANTED_SCHEMES))
+    g = {"entities": {"scheme_examined": examined}, "relations": {"permutation_schemes": found}}
+    found_status, reasons = status(g, "computed:permutation_schemes")
+    assert found_status == fact_gate.VIOLATED
+    assert any("planted_draws_unnamed" in reason for reason in reasons), reasons
+
+
+def test_the_permutation_schemes_predicate_holds_when_every_planted_null_is_named(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {})
+    examined, found = build_fact_graph.scheme_scan(
+        planted_package(planted_draws_named, planted_no_draw, planted_bootstrap))
+    g = {"entities": {"scheme_examined": examined}, "relations": {"permutation_schemes": found}}
+    assert status(g, "computed:permutation_schemes") == (fact_gate.HELD, [])
+
+
+def test_a_scheme_scan_that_examines_nothing_is_a_failure():
+    g = {"entities": {"scheme_examined": 0}, "relations": {"permutation_schemes": []}}
+    found_status, reasons = status(g, "computed:permutation_schemes")
+    assert found_status == fact_gate.VIOLATED
+    assert reasons == ["computed:permutation_schemes: the graph examined no public callable, "
+                       "so no scheme could be checked"]
+
+
+def test_the_live_scheme_scan_examines_every_public_callable(live):
+    _, g = live
+    assert g["entities"]["scheme_examined"] == len(
+        build_fact_graph._public_callables(build_fact_graph._checkout_jnwb()))
+
+
+def test_the_live_tree_has_no_unnamed_null(live):
+    _, g = live
+    assert g["relations"]["permutation_schemes"] == []
+
+
+# ------------------------------------------------------------------------ fact S11: rng reports
+
+
+def planted_consumes_unnamed(x, rng):
+    return {"y": resolve_rng(rng, func_name="planted").permutation(x)}
+
+
+def planted_reports_entropy(x, rng):
+    return {"surrogate_seed_entropy": 0,
+            "y": resolve_rng(rng, func_name="planted").permutation(x)}
+
+
+def planted_reports_seed(x, rng):
+    return {"seed": 3, "y": recorded_rng(rng, "planted")[0].permutation(x)}
+
+
+def planted_consumes_nothing(x):
+    return {"y": x + 1}
+
+
+PLANTED_RNG = (planted_consumes_unnamed, planted_reports_entropy, planted_reports_seed,
+               planted_consumes_nothing)
+
+
+def test_a_planted_unnamed_consumption_is_reported_and_a_named_one_is_not(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    examined, found = build_fact_graph.rng_scan(planted_package(*PLANTED_RNG))
+    assert set(reported(found)) == {"planted_consumes_unnamed"}
+
+
+def test_the_rng_scan_examines_every_planted_callable_and_names_what_it_consumed(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    examined, found = build_fact_graph.rng_scan(planted_package(*PLANTED_RNG))
+    assert examined == len(PLANTED_RNG) == 4, "the scan must examine every planted callable"
+    names = reported(found)
+    assert names["planted_consumes_unnamed"] == (
+        "consumes randomness (resolve_rng) and reports no rng key")
+
+
+def test_a_consumption_free_or_named_callable_is_not_reported(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    examined, found = build_fact_graph.rng_scan(
+        planted_package(planted_reports_entropy, planted_reports_seed, planted_consumes_nothing))
+    assert examined == 3
+    assert found == [], "a named consumption and a draw-free callable are not findings"
+
+
+def test_a_planted_rng_excuse_skips_its_callable_and_a_stale_one_is_reported(monkeypatch):
+    module = planted_consumes_unnamed.__module__
+    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {
+        (module, "planted_consumes_unnamed"): "planted: excused for the test",
+        (module, "planted_consumes_nothing"): "planted: once consumed randomness",
+    })
+    _, found = build_fact_graph.rng_scan(planted_package(*PLANTED_RNG))
+    names = reported(found)
+    assert "planted_consumes_unnamed" not in names, "an excused callable is skipped"
+    assert set(names) == {"planted_consumes_nothing"}
+    assert names["planted_consumes_nothing"] == (
+        "S11_EXCUSED lists it, but it consumes no unnamed randomness: stale")
+
+
+def test_a_callable_whose_source_cannot_be_read_is_an_rng_finding_not_a_pass(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    namespace = {}
+    exec("def consumed_without_source(x, rng):\n"
+         "    return resolve_rng(rng, func_name=\"planted\")\n", namespace)
+    examined, found = build_fact_graph.rng_scan(
+        planted_package(namespace["consumed_without_source"]))
+    assert examined == 1
+    assert [reason for _, reason in found] == ["source unreadable: not checked"]
+
+
+def test_the_rng_reports_predicate_is_violated_by_a_planted_unnamed_consumption(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    examined, found = build_fact_graph.rng_scan(planted_package(*PLANTED_RNG))
+    g = {"entities": {"rng_examined": examined}, "relations": {"rng_reports": found}}
+    found_status, reasons = status(g, "computed:rng_reports")
+    assert found_status == fact_gate.VIOLATED
+    assert any("planted_consumes_unnamed" in reason for reason in reasons), reasons
+
+
+def test_the_rng_reports_predicate_holds_when_every_planted_consumption_is_named(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    examined, found = build_fact_graph.rng_scan(
+        planted_package(planted_reports_entropy, planted_reports_seed, planted_consumes_nothing))
+    g = {"entities": {"rng_examined": examined}, "relations": {"rng_reports": found}}
+    assert status(g, "computed:rng_reports") == (fact_gate.HELD, [])
+
+
+def test_an_rng_scan_that_examines_nothing_is_a_failure():
+    g = {"entities": {"rng_examined": 0}, "relations": {"rng_reports": []}}
+    found_status, reasons = status(g, "computed:rng_reports")
+    assert found_status == fact_gate.VIOLATED
+    assert reasons == ["computed:rng_reports: the graph examined no public callable, "
+                       "so no rng report could be checked"]
+
+
+def test_the_live_rng_scan_examines_every_public_callable(live):
+    _, g = live
+    assert g["entities"]["rng_examined"] == len(
+        build_fact_graph._public_callables(build_fact_graph._checkout_jnwb()))
+
+
+def test_the_live_tree_has_no_unnamed_randomness(live):
+    _, g = live
+    assert g["relations"]["rng_reports"] == []

@@ -165,7 +165,11 @@ class TestOneSpellingAcceptsASeedOrAGenerator:
 
     def test_an_int_and_an_equivalent_generator_agree(self, ab):
         a, _ = ab
-        assert SA.bootstrap_ci(a, rng=7) == SA.bootstrap_ci(a, rng=np.random.default_rng(7))
+        seeded, passed = SA.bootstrap_ci(a, rng=7), SA.bootstrap_ci(a, rng=np.random.default_rng(7))
+        # The numbers agree; only the seed can be reported, a Generator's position cannot.
+        assert (seeded.pop("surrogate_seed_entropy"), passed.pop("surrogate_seed_entropy")) == \
+               (7, None)
+        assert seeded == passed
 
     def test_a_generator_is_used_in_place_not_restarted(self, ab):
         """Passing one Generator to two calls must advance a single stream, or a caller

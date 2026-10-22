@@ -1,0 +1,11 @@
+- `permutation_test` results gain `scheme`, always `'global'` (`jnwb/statistics/_analysis.py`).
+- `shuffle_r2_ci` gains `scheme`: `'within_group'` with `groups`, else `'global'` (`jnwb/statistics/_regression.py`).
+- `cross_modal_comparison` gains `surrogate_scheme`, `'circular_shift'` when drawn (`jnwb/statistics/_regression.py`).
+- `cross_area_coherence` gains `surrogate_scheme`, `'circular_shift'` (`jnwb/spectral/_coupling.py`).
+- `cluster_permutation_test` results gain `scheme` and `surrogate_seed_entropy` (`jnwb/statistics/_cluster.py`).
+- `paired_fire_prob_test` results gain `scheme`, always `'sign_flip'` (`jnwb/statistics/_firing.py`).
+- `paired_fire_prob_test` results gain `surrogate_seed_entropy` (`jnwb/statistics/_firing.py`).
+- `permutation_test` and `bootstrap_ci` results gain `surrogate_seed_entropy` (`jnwb/statistics/_analysis.py`).
+- `compare_groups` results gain `surrogate_seed_entropy` (`jnwb/statistics/_analysis.py`).
+- `shuffle_r2_ci` results gain `surrogate_seed_entropy` (`jnwb/statistics/_regression.py`).
+- `partial_coherence` gains `surrogate_scheme`, `'circular_shift'` (`jnwb/spectral/_coupling.py`).

@@ -5,7 +5,7 @@ from __future__ import annotations
 import warnings
 from typing import Dict, Optional, Sequence, Tuple, Union
 import numpy as np
-from .._rng import DEFAULT_SEED, RNGLike, resolve_rng
+from .._rng import DEFAULT_SEED, RNGLike, surrogate_rng
 from .._spread import is_constant as _is_constant
 from scipy import stats
 from ..permutation import _count_at_least_as_extreme, _p_from_count
@@ -156,7 +156,7 @@ class StatisticalAnalysis:
         ci: float = 0.95,
         rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
-        rng = resolve_rng(rng, func_name="_bootstrap_mean_diff_ci")
+        rng, seed_entropy = surrogate_rng(rng, "_bootstrap_mean_diff_ci")
         if paired and len(a) == len(b) and len(a) > 1:
             diffs = a - b
             stats_boot = np.empty(n_bootstrap)
@@ -170,6 +170,7 @@ class StatisticalAnalysis:
                     "observed_mean_diff": float("nan"),
                     "bootstrap_ci": (float("nan"), float("nan")),
                     "n_bootstrap": int(n_bootstrap),
+                    "surrogate_seed_entropy": seed_entropy,
                 }
             stats_boot = np.empty(n_bootstrap)
             for i in range(n_bootstrap):
@@ -185,6 +186,7 @@ class StatisticalAnalysis:
             "bootstrap_ci": (float(lo), float(hi)),
             "n_bootstrap": int(n_bootstrap),
             "ci": float(ci),
+            "surrogate_seed_entropy": seed_entropy,
         }
 
     @staticmethod
@@ -217,6 +219,10 @@ class StatisticalAnalysis:
         ``[1, 2, 3, 4]``) give a finite, huge ``statistic`` (about 9e14) and a ``pval``
         near 0.
 
+        The result carries ``surrogate_seed_entropy``: the entropy the resamples ran on
+        (the seed for an int ``rng``, the fresh OS entropy drawn for ``rng=None``, None
+        for a ``Generator``).
+
         Args:
             test: Which test to perform -- ``"both"`` (default), ``"parametric"`` or
                 ``"nonparametric"``. Naming one runs only that test: the other is not
@@ -225,6 +231,11 @@ class StatisticalAnalysis:
                 leaving the default runs two and spends two.
         """
         run_param, run_nonparam = _resolve_test_choice(test, "compare_groups")
+
+        # Resolved here so the result names the entropy it ran on; the generator is
+        # what `_bootstrap_mean_diff_ci` draws from. An int draws the stream
+        # `resolve_rng` always drew; a Generator is used in place (entropy None).
+        rng, seed_entropy = surrogate_rng(rng, "compare_groups")
 
         group1 = np.asarray(group1).flatten()
         group2 = np.asarray(group2).flatten()
@@ -262,6 +273,7 @@ class StatisticalAnalysis:
             "iqr2": stats.iqr(valid2) if len(valid2) > 0 else np.nan,
             "mad1": stats.median_abs_deviation(valid1) if len(valid1) > 0 else np.nan,
             "mad2": stats.median_abs_deviation(valid2) if len(valid2) > 0 else np.nan,
+            "surrogate_seed_entropy": seed_entropy,
         }
 
         if paired:
@@ -516,8 +528,10 @@ class StatisticalAnalysis:
 
         ``rng`` defaults to the seed this function used to hide in its body; pass ``None``
         for fresh entropy, or a ``Generator`` to keep one stream across calls.
+        ``surrogate_seed_entropy`` is the entropy the resamples ran on: the seed for an
+        int ``rng``, the fresh OS entropy drawn for ``rng=None``, None for a ``Generator``.
         """
-        rng = resolve_rng(rng, func_name="bootstrap_ci")
+        rng, seed_entropy = surrogate_rng(rng, "bootstrap_ci")
 
         data = np.asarray(data).flatten()
         data = data[np.isfinite(data)]
@@ -551,6 +565,7 @@ class StatisticalAnalysis:
             "parametric_ci": tuple(float(x) for x in parametric_ci),
             "bootstrap_ci": tuple(float(x) for x in bootstrap_ci),
             "bootstrap_std": float(np.std(bootstrap_stats)),
+            "surrogate_seed_entropy": seed_entropy,
         }
 
     @staticmethod
@@ -587,8 +602,12 @@ class StatisticalAnalysis:
 
         ``rng`` defaults to the seed this function used to hide in its body; pass ``None``
         for fresh entropy, or a ``Generator`` to keep one stream across calls.
+
+        ``scheme`` in the result is always ``'global'``: the flat shuffle is the scheme it draws.
+        ``surrogate_seed_entropy`` is the entropy the permutations ran on: the seed for an
+        int ``rng``, the fresh OS entropy drawn for ``rng=None``, None for a ``Generator``.
         """
-        rng = resolve_rng(rng, func_name="permutation_test")
+        rng, seed_entropy = surrogate_rng(rng, "permutation_test")
 
         x = np.asarray(x, dtype=float).flatten()
         y = np.asarray(y, dtype=float).flatten()
@@ -621,6 +640,8 @@ class StatisticalAnalysis:
                 "significant": False,
                 "n_x": len(x),
                 "n_y": len(y),
+                "scheme": "global",
+                "surrogate_seed_entropy": seed_entropy,
             }
 
         n_x = len(x)
@@ -645,6 +666,8 @@ class StatisticalAnalysis:
             "significant": p_value < 0.05,
             "n_x": len(x),
             "n_y": len(y),
+            "scheme": "global",
+            "surrogate_seed_entropy": seed_entropy,
         }
 
     # ─────────────────────────────────────────────────────────────────────────

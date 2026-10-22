@@ -14,8 +14,7 @@ import jnwb
 PACKAGE = Path(jnwb.__file__).resolve().parent
 
 #: The resolvers, each taking an int, a Generator or None (``resolve_seed_alias`` takes two).
-RESOLVERS = {"resolve_rng": 1, "surrogate_rng": 1, "recorded_rng": 1,
-             "sklearn_random_state": 1, "resolve_seed_alias": 2}
+from jnwb._rng import RESOLVERS  # noqa: E402
 
 
 def _call_name(node: ast.Call) -> str | None:

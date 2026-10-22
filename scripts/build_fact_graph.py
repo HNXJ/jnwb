@@ -60,6 +60,13 @@ Relations, each a sorted list of ``[source, target]`` pairs:
               body does, or reads the bound exception name (``silent_handler_violations``);
               a handler whose (file, function) is in ``S9_EXCUSED`` is skipped, and a listed
               key that matches no flagged handler is reported as stale
+  permutation_schemes  callable -> a public callable that draws a null (a permutation, shuffle,
+              circular shift, surrogate, derangement or sign flip) and names no scheme key in its
+              result (``scheme_scan``, ``SCHEME_KEYS``); a callable in ``S10_EXCUSED`` is skipped
+  rng_reports  callable -> a public callable that consumes randomness (a call to one of the
+              ``RESOLVERS`` of ``jnwb/_rng.py``) and names no rng key in
+              its result (``rng_scan``, ``RNG_KEYS``); a callable in ``S11_EXCUSED`` is skipped
+              (bare arrays and tuples carry no key)
 
 The facts are the only owned part; everything else is regenerated. The output is a pure
 function of the tree: sorted keys and lists, LF endings, no timestamp, and object addresses
@@ -85,6 +92,7 @@ import os
 import re
 import subprocess
 import sys
+import textwrap
 import tokenize
 import types
 from pathlib import Path, PurePosixPath
@@ -102,6 +110,10 @@ from scripts.computational_contract_gate import (  # noqa: E402
     EXECUTION_PARAMETERS,
     _dataclass_field,
 )
+# Which resolver calls make a parameter stochastic is defined once, beside the resolvers,
+# and read by the rng-parameter walk and by this scan alike; the reachability wrapper below
+# is shared with the S10 scan.
+from jnwb._rng import RESOLVERS  # noqa: E402
 
 FACT_GRAPH_PATH = REPO_ROOT / "artifacts" / "fact_graph.json"
 FACT_STACK = REPO_ROOT / "artifacts" / "fact_stack.md"
@@ -956,6 +968,228 @@ def _source_scans(root: Path, python: Sequence[str], constants: Dict[str, List[s
     return {name: sorted(pairs) for name, pairs in scans.items()}
 
 
+# ------------------------------------------------------------------------ scheme scan (fact S10)
+
+#: The draws the scheme rule reads as a null: a permutation or shuffle, the package's label
+#: permutation, a circular shift (``np.roll``), a surrogate and a derangement. A sign flip (a
+#: ``choice`` between -1 and +1) is the paired permutation null the docstrings name.
+NULL_DRAWS = ("permutation", "shuffle", "permuted", "permute_labels", "roll", "_surrogate_source",
+              "_random_derangement")
+#: The keys a result names its exchangeability scheme under: ``scheme`` (label permutation),
+#: ``surrogate_scheme`` (surrogates and circular shifts), ``null`` (the execution record of
+#: ``jrsa``), ``null_method`` (``xflip``) and ``exchangeability_scheme`` (``coherence_bias_floor``).
+SCHEME_KEYS = ("scheme", "surrogate_scheme", "null", "null_method", "exchangeability_scheme")
+#: The calls whose keywords are keys of a result: ``update``, ``dict`` and a class constructor.
+RESULT_CALLS = ("update", "dict")
+#: The callables the scheme rule excuses, by (module, qualified name), each with its reason. A
+#: listed callable that no longer draws an unnamed null is reported as stale.
+S10_EXCUSED: Dict[Tuple[str, str], str] = {
+    ("jnwb.wavemap", "wavemap_resolution_sweep"):
+        "a unit subsample for the stability sweep: its units are returned and no null is compared",
+    ("jnwb.permutation", "permute_labels"):
+        "returns a bare label array: no key can be carried",
+    ("jnwb.statistics._analysis", "StatisticalAnalysis.exact_sign_flip"):
+        "returns a bare tuple: no key can be carried",
+    ("jnwb.statistics._tests", "exact_sign_flip"):
+        "returns a bare tuple: no key can be carried",
+    ("jnwb.statistics._tests", "shuffle_pvalue_paired"):
+        "returns a bare tuple: no key can be carried",
+    ("jnwb.statistics._tests", "shuffle_pvalue_unpaired"):
+        "returns a bare tuple: no key can be carried",
+}
+
+
+def _public_callables(package: Any) -> List[Tuple[str, Any, Any]]:
+    """Each callable the package exports, and each public method of an exported class, as
+    (qualified name, function, owning class or None), in sorted order."""
+    found = []
+    for name in sorted(package.__all__):
+        obj = getattr(package, name, None)
+        if inspect.isclass(obj):
+            for mname, meth in sorted(vars(obj).items()):
+                if mname.startswith("_"):
+                    continue
+                fn = meth.__func__ if isinstance(meth, (staticmethod, classmethod)) else meth
+                if inspect.isfunction(fn):
+                    found.append((f"{name}.{mname}", fn, obj))
+        elif inspect.isfunction(obj):
+            found.append((name, obj, None))
+    return found
+
+
+def _sign_flip(call: ast.Call) -> bool:
+    """A ``choice`` between -1 and +1: the sign flip of a paired permutation null."""
+    if _final(call.func) != "choice" or not call.args:
+        return False
+    options = ast.unparse(call.args[0])
+    return bool(re.search(r"-1(?:\.0)?\b", options)
+                and re.search(r"(?<![\w.-])1(?:\.0)?\b", options))
+
+
+def _draw(call: ast.Call) -> Optional[str]:
+    """The name of the null draw a call makes, or None."""
+    final = _final(call.func)
+    if final in NULL_DRAWS:
+        return final
+    return "sign flip" if _sign_flip(call) else None
+
+
+def _result_keys(tree: ast.AST) -> set:
+    """The string keys a body sets: dict literals, subscript stores, and the keywords of a call
+    that builds a result (``RESULT_CALLS`` and capitalised constructors). A keyword of any other
+    call is an argument to it, not a key of a result."""
+    keys = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            keys |= {k.value for k in node.keys
+                     if isinstance(k, ast.Constant) and isinstance(k.value, str)}
+        elif isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Store):
+            if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+                keys.add(node.slice.value)
+        elif isinstance(node, ast.Call):
+            final = _final(node.func)
+            if final in RESULT_CALLS or final[:1].isupper():
+                keys |= {kw.arg for kw in node.keywords if kw.arg}
+    return keys
+
+
+def _callee(fn: Any, dotted_name: str, owner: Any) -> Any:
+    """The jnwb function a dotted callee name stands for, read through the function's module
+    globals, or through its owning class for ``self.`` and ``cls.``; None for anything else."""
+    head, _, rest = dotted_name.partition(".")
+    if head in ("self", "cls"):
+        obj = getattr(owner, rest, None) if owner is not None and rest else None
+    else:
+        obj = fn.__globals__.get(head)
+        for part in filter(None, rest.split(".")):
+            obj = getattr(obj, part, None)
+    if isinstance(obj, (staticmethod, classmethod)):
+        obj = obj.__func__
+    module = getattr(obj, "__module__", None) or ""
+    if inspect.isfunction(obj) and (module == "jnwb" or module.startswith("jnwb.")):
+        return obj
+    return None
+
+
+def _reach(fn: Any, owner: Any, seen: set, depth: int = 0,
+           draw: Callable[[ast.Call], Optional[str]] = None) -> Tuple[set, set]:
+    """The draws and result keys of a function and of the jnwb functions it reaches by name.
+    ``draw`` names the consuming call (``_draw`` for null draws, ``_resolver_call`` for
+    randomness); the default keeps the S10 scan's behaviour. Raises OSError when the source
+    cannot be read."""
+    if draw is None:
+        draw = _draw
+    key = (fn.__module__, fn.__qualname__)
+    if key in seen or depth > 8:
+        return set(), set()
+    seen.add(key)
+    tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+    draws, keys = set(), _result_keys(tree)
+    for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+        drawn = draw(call)
+        if drawn is not None:
+            draws.add(drawn)
+        target = _callee(fn, _dotted(call.func), owner)
+        if target is not None:
+            more_draws, more_keys = _reach(target, owner, seen, depth + 1, draw)
+            draws |= more_draws
+            keys |= more_keys
+    return draws, keys
+
+
+def scheme_scan(package: Any) -> Tuple[int, List[List[str]]]:
+    """How many public callables the scheme rule examined, and each that draws a null without a
+    scheme key among its results (``SCHEME_KEYS``), as sorted [module.name, reason] pairs. A key
+    set by a jnwb function that a callable reaches counts for that callable. A callable whose
+    source cannot be read is a finding, never a pass."""
+    examined, found, flagged = 0, [], set()
+    for qualname, fn, owner in _public_callables(package):
+        examined += 1
+        try:
+            draws, keys = _reach(fn, owner, set())
+        except (OSError, TypeError, SyntaxError):
+            found.append([f"{fn.__module__}.{qualname}", "source unreadable: not checked"])
+            continue
+        if not draws or keys & set(SCHEME_KEYS):
+            continue
+        site = (fn.__module__, qualname)
+        flagged.add(site)
+        if site not in S10_EXCUSED:
+            found.append([f"{fn.__module__}.{qualname}",
+                          f"draws {', '.join(sorted(draws))} and names no scheme key"])
+    for module, qualname in sorted(S10_EXCUSED):
+        if (module, qualname) not in flagged:
+            found.append([f"{module}.{qualname}",
+                          "S10_EXCUSED lists it, but it draws no unnamed null: stale"])
+    return examined, sorted(found)
+
+
+# ------------------------------------------------------------------------ rng scan (fact S11)
+
+#: The keys a result reports the randomness it ran on under. ``surrogate_seed_entropy``
+#: is the entropy that rebuilds the draws (None only when a Generator was passed in place,
+#: whose position is not recoverable, or where the site documents otherwise);
+#: ``xflip_surrogate_seed_entropy`` is that entropy forwarded through curation; ``seed``,
+#: ``louvain_seed`` and ``umap_seed`` are the int seeds that ran; ``rng`` and
+#: ``random_state`` echo the rng input (an int seed, a Generator, or None).
+RNG_KEYS = ("surrogate_seed_entropy", "xflip_surrogate_seed_entropy", "seed",
+            "louvain_seed", "umap_seed", "rng", "random_state")
+#: The callables the rng rule excuses, by (module, qualified name), each with its reason. A
+#: bare array or tuple carries no key: reshaping one to carry it is a public API choice, not
+#: a repair. A listed callable that no longer consumes unnamed randomness is stale.
+S11_EXCUSED: Dict[Tuple[str, str], str] = {
+    ("jnwb.permutation", "permute_labels"):
+        "returns a bare label array: no key can be carried",
+    ("jnwb.statistics._analysis", "StatisticalAnalysis.exact_sign_flip"):
+        "returns a bare tuple: no key can be carried",
+    ("jnwb.statistics._tests", "exact_sign_flip"):
+        "returns a bare tuple: no key can be carried",
+    ("jnwb.statistics._tests", "shuffle_pvalue_paired"):
+        "returns a bare tuple: no key can be carried",
+    ("jnwb.statistics._tests", "shuffle_pvalue_unpaired"):
+        "returns a bare tuple: no key can be carried",
+    ("jnwb.viz", "resample_onsets"):
+        "returns a bare onset array: no key can be carried",
+}
+
+
+def _resolver_call(call: ast.Call) -> Optional[str]:
+    """The name of the rng resolver a call reaches for (``RESOLVERS`` of the rng-parameter
+    walk), or None. The walk defines which parameters are stochastic by use; the scan reads
+    its rule table rather than retyping it."""
+    final = _final(call.func)
+    return final if final in RESOLVERS else None
+
+
+def rng_scan(package: Any) -> Tuple[int, List[List[str]]]:
+    """How many public callables the rng rule examined, and each that consumes randomness
+    without an rng key among its results (``RNG_KEYS``), as sorted [module.name, reason]
+    pairs. A key set by a jnwb function that a callable reaches counts for that callable,
+    so forwarders whose target reports are not findings. A callable whose source cannot be
+    read is a finding, never a pass."""
+    examined, found, flagged = 0, [], set()
+    for qualname, fn, owner in _public_callables(package):
+        examined += 1
+        try:
+            draws, keys = _reach(fn, owner, set(), draw=_resolver_call)
+        except (OSError, TypeError, SyntaxError):
+            found.append([f"{fn.__module__}.{qualname}", "source unreadable: not checked"])
+            continue
+        if not draws or keys & set(RNG_KEYS):
+            continue
+        site = (fn.__module__, qualname)
+        flagged.add(site)
+        if site not in S11_EXCUSED:
+            found.append([f"{fn.__module__}.{qualname}",
+                          f"consumes randomness ({', '.join(sorted(draws))}) "
+                          "and reports no rng key"])
+    for module, qualname in sorted(S11_EXCUSED):
+        if (module, qualname) not in flagged:
+            found.append([f"{module}.{qualname}",
+                          "S11_EXCUSED lists it, but it consumes no unnamed randomness: stale"])
+    return examined, sorted(found)
+
+
 # ------------------------------------------------------------------------ generated graph
 
 
@@ -1241,6 +1475,8 @@ def build(package: Any = None, root: Path = REPO_ROOT,
     skills, routes = _routes(root)
     tests, verifies = _tests(root, names)
     constrains = sorted([holder, fact["id"]] for fact in facts for holder in fact["holders"])
+    schemes_examined, schemes = scheme_scan(package)
+    rng_examined, rng_violations = rng_scan(package)
     references, cites, concerns = read_references(
         (root / "docs" / "references.md").read_text(encoding="utf-8"))
 
@@ -1259,6 +1495,8 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "gate": _gates(),
             "fact": {f["id"]: {"table": f["table"], "holders": f["holders"]} for f in facts},
             "reference": references,
+            "scheme_examined": schemes_examined,
+            "rng_examined": rng_examined,
         },
         "relations": {
             "implements": sorted(implements),
@@ -1268,6 +1506,8 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "cites": cites,
             "concerns": concerns,
             "constrains": constrains,
+            "permutation_schemes": schemes,
+            "rng_reports": rng_violations,
             **scans,
         },
     }

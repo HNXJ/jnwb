@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 import numpy as np
-from .._rng import RNGLike, resolve_rng
+from .._rng import RNGLike, surrogate_rng
 from ..permutation import _count_at_least_as_extreme
 from ._tests import _tie_tolerance
 
@@ -77,7 +77,9 @@ def paired_fire_prob_test(
 
     Returns:
         dict with p_fire_target, p_fire_baseline, risk_difference (+ CI),
-        odds_ratio (+ CI), p_value_fire_shuffle, n_trials. The risk difference, the odds
+        odds_ratio (+ CI), p_value_fire_shuffle, n_trials, scheme (``'sign_flip'``: the
+        null flips each pair's sign) and ``surrogate_seed_entropy`` (the entropy the flips
+        and the bootstrap ran on). The risk difference, the odds
         ratio and p_value_fire_shuffle are NaN when fewer than 2 paired trials are available.
 
     References:
@@ -91,7 +93,7 @@ def paired_fire_prob_test(
         risk-difference interval is a paired percentile bootstrap and the odds
         ratio a McNemar-style discordant-pair estimate, neither paper's.
     """
-    rng = resolve_rng(rng, func_name="paired_fire_prob_test")
+    rng, seed_entropy = surrogate_rng(rng, "paired_fire_prob_test")
     t = np.asarray(fires_target, dtype=bool)
     u = np.asarray(fires_null, dtype=bool)
     # `n = min(len(t), len(u))` silently paired trial i of one condition with trial i of
@@ -117,6 +119,8 @@ def paired_fire_prob_test(
             "odds_ratio_ci_hi": float("nan"),
             "p_value_fire_shuffle": float("nan"),
             "n_trials": int(n),
+            "scheme": "sign_flip",
+            "surrogate_seed_entropy": seed_entropy,
         }
 
     ta = t[:n].astype(float)
@@ -155,6 +159,8 @@ def paired_fire_prob_test(
         "odds_ratio_ci_hi": or_ci_hi,
         "p_value_fire_shuffle": float(p_value),
         "n_trials": int(n),
+        "scheme": "sign_flip",
+        "surrogate_seed_entropy": seed_entropy,
     }
 
 

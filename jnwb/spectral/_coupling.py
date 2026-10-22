@@ -347,6 +347,8 @@ def cross_area_coherence(
           entropy actually drawn for `rng=None`, and the child seed drawn from a
           `Generator`. Passing it back as `rng` reproduces the surrogates.
 
+        ``surrogate_scheme`` is ``'circular_shift'``.
+
         When either trace is constant (every sample equal, all-zero included),
         `coherence_spectrum`, every `band_coherence` and `band_significance` entry and
         `peak_coherence_value` are NaN, and `peak_coherence_freq` is NaN: coherence with a
@@ -405,6 +407,7 @@ def cross_area_coherence(
         'n_surrogates_used': int(n_surrogates),
         'p_value_floor': 1.0 / (int(n_surrogates) + 1),
         'surrogate_seed_entropy': None,
+        'surrogate_scheme': 'circular_shift',
     }
 
     lfp_area1 = np.asarray(lfp_area1)
@@ -647,6 +650,7 @@ def partial_coherence(
         Dict with ``coherence_spectrum``, ``frequencies``, ``band_coherence``, ``band_significance``,
         ``peak_coherence_freq``, ``peak_coherence_value``, ``nperseg``, ``noverlap``, ``n_segments_used``,
         ``device_used`` (``'cpu'``), ``n_surrogates_used``, ``p_value_floor``, ``surrogate_seed_entropy``,
+        ``surrogate_scheme`` (``'circular_shift'``),
         ``conditioned_on`` (``{'n_signals': 1}``) and ``unconditioned_band_coherence``. The spectral and
         band keys hold the partial values.
 
@@ -719,6 +723,7 @@ def partial_coherence(
             'n_surrogates_used': int(n_surrogates),
             'p_value_floor': 1.0 / (int(n_surrogates) + 1),
             'surrogate_seed_entropy': seed_entropy,
+            'surrogate_scheme': 'circular_shift',
             'conditioned_on': {'n_signals': 1},
             'unconditioned_band_coherence': dict(undefined),
         }
@@ -768,6 +773,7 @@ def partial_coherence(
         'n_surrogates_used': int(n_surrogates),
         'p_value_floor': 1.0 / (int(n_surrogates) + 1),
         'surrogate_seed_entropy': seed_entropy,
+        'surrogate_scheme': 'circular_shift',
         'conditioned_on': {'n_signals': 1},
         'unconditioned_band_coherence': unconditioned,
     }

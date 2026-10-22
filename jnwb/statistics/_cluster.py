@@ -6,7 +6,7 @@ import warnings
 from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from .._parallel import parallel_map, spawn_seeds
-from .._rng import RNGLike, resolve_rng
+from .._rng import RNGLike, surrogate_rng
 from .._spread import is_constant as _is_constant
 from ..permutation import _count_at_least_as_extreme, permute_labels
 
@@ -80,6 +80,10 @@ def cluster_permutation_test(
         - 'max_null_stats': 1D ndarray of length `n_permutations`, containing the extremal cluster
             statistic under each null permutation draw (maximum for 'greater', minimum for 'less',
             or maximum absolute value for 'both').
+        - 'scheme': the exchangeability scheme the null drew under (``'global'`` or
+            ``'within_group'``).
+        - 'surrogate_seed_entropy': the entropy the permutation seeds ran on: the seed for an
+            int ``rng``, the fresh OS entropy drawn for ``rng=None``, None for a ``Generator``.
 
     Raises:
         ValueError: If inputs have mismatched shapes, threshold is NaN, infinite or <= 0,
@@ -107,7 +111,7 @@ def cluster_permutation_test(
         raise ValueError(f"n_permutations must be >= 1; got {n_permutations}.")
     if tail not in ("both", "greater", "less"):
         raise ValueError(f"tail must be 'both', 'greater', or 'less'; got {tail!r}.")
-    rng = resolve_rng(rng, func_name="cluster_permutation_test")
+    rng, seed_entropy = surrogate_rng(rng, "cluster_permutation_test")
 
     X_arr = np.asarray(X, dtype=float)
     Y_arr = np.asarray(Y, dtype=float)
@@ -313,4 +317,6 @@ def cluster_permutation_test(
         'stat_map': obs_t,
         'clusters': cluster_results,
         'max_null_stats': max_null_stats,
+        'scheme': scheme,
+        'surrogate_seed_entropy': seed_entropy,
     }

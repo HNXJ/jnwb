@@ -854,8 +854,9 @@ def _compare_with_an_empty_group():
 
 def _r2_with_one_class():
     res = jnwb.shuffle_r2_ci(np.zeros(20), np.random.default_rng(0).normal(size=20), n_shuffle=50)
-    values = {k: v for k, v in res.items() if k != "n_shuffle"}
-    return values, {"n_shuffle": res["n_shuffle"]}
+    labels = ("n_shuffle", "scheme", "surrogate_seed_entropy")
+    values = {k: v for k, v in res.items() if k not in labels}
+    return values, {k: res[k] for k in labels}
 
 
 @pytest.mark.filterwarnings("ignore")
@@ -874,7 +875,7 @@ def _r2_with_one_class():
          {"n1": 0, "significant_parametric": False, "significant_nonparametric": False,
           "confirmed_parametric": False, "confirmed_nonparametric": False}),
         ("jnwb-statistics", "A single-class label or a constant score has no $R^2$",
-         _r2_with_one_class, {"n_shuffle": 50}),
+         _r2_with_one_class, {"n_shuffle": 50, "scheme": "global", "surrogate_seed_entropy": 42}),
     ],
     ids=["psi-net", "pli-no-spikes", "compare-empty-group", "r2-one-class"],
 )

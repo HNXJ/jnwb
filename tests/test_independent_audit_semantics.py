@@ -5,7 +5,8 @@ import numpy as np
 import pytest
 
 import jnwb
-from jnwb.statistics import StatisticalAnalysis, shuffle_r2_ci
+from jnwb.statistics import (StatisticalAnalysis, cluster_permutation_test,
+                             paired_fire_prob_test, shuffle_r2_ci)
 
 
 class TestMonteCarloPValueConvention:
@@ -271,3 +272,66 @@ class TestGrangerCausalityDeprecation:
         y = rng.normal(size=200)
         with pytest.warns(DeprecationWarning, match="granger_causality"):
             jnwb.granger_causality(x, y, order=2)
+
+
+class TestSchemeNamedInResult:
+    """Fact S10: a result names the exchangeability scheme of the null it drew."""
+
+    def test_permutation_test_names_its_flat_scheme(self):
+        g1 = np.array([0.0, 0.1, 0.2, 0.3])
+        g2 = np.array([1.0, 1.1, 1.2, 1.3])
+        res = StatisticalAnalysis.permutation_test(g1, g2, n_permutations=50, rng=1)
+        assert np.isfinite(res["pval"]), "the fixture must draw a null"
+        assert res["scheme"] == "global"
+
+    def test_permutation_test_names_its_scheme_when_no_null_is_drawn(self):
+        res = StatisticalAnalysis.permutation_test(np.array([1.0]), np.array([2.0, 3.0]), rng=1)
+        assert np.isnan(res["pval"]), "the fixture must return before the null"
+        assert res["scheme"] == "global"
+
+    def test_shuffle_r2_ci_names_the_scheme_it_shuffled_under(self):
+        rng = np.random.default_rng(3)
+        y = np.repeat([0.0, 1.0], 20)
+        score = y + rng.normal(scale=0.8, size=40)
+        flat = shuffle_r2_ci(y, score, n_shuffle=20, rng=1)
+        grouped = shuffle_r2_ci(y, score, groups=np.tile([0, 1], 20), n_shuffle=20, rng=1)
+        assert np.isfinite(flat["p_val"]), "the fixture must draw a null"
+        assert flat["scheme"] == "global"
+        assert grouped["scheme"] == "within_group"
+
+
+class TestRngReportedInResult:
+    """Fact S11: a result reports the randomness it ran on."""
+
+    def test_permutation_test_reports_its_seed_and_none_for_a_generator(self):
+        g1 = np.array([0.0, 0.1, 0.2, 0.3])
+        g2 = np.array([1.0, 1.1, 1.2, 1.3])
+        assert StatisticalAnalysis.permutation_test(
+            g1, g2, n_permutations=50, rng=1)["surrogate_seed_entropy"] == 1
+        gen = np.random.default_rng(1)
+        assert StatisticalAnalysis.permutation_test(
+            g1, g2, n_permutations=50, rng=gen)["surrogate_seed_entropy"] is None
+
+    def test_bootstrap_ci_and_compare_groups_report_their_seed(self):
+        rng = np.random.default_rng(4)
+        data = rng.normal(size=30)
+        assert StatisticalAnalysis.bootstrap_ci(
+            data, n_bootstrap=50, rng=2)["surrogate_seed_entropy"] == 2
+        res = StatisticalAnalysis.compare_groups(data, rng.normal(size=30), rng=2)
+        assert res["surrogate_seed_entropy"] == 2
+
+    def test_cluster_permutation_test_reports_its_seed_and_scheme(self):
+        rng = np.random.default_rng(0)
+        X, Y = rng.normal(size=(8, 6)), rng.normal(size=(8, 6))
+        res = cluster_permutation_test(X, Y, n_permutations=10, rng=3)
+        assert res["surrogate_seed_entropy"] == 3
+        assert res["scheme"] == "global"
+
+    def test_paired_fire_prob_test_reports_its_seed_and_sign_flip(self):
+        rng = np.random.default_rng(6)
+        target = rng.random(40) < 0.6
+        null = rng.random(40) < 0.4
+        res = paired_fire_prob_test(target, null, n_shuffles=50, n_bootstrap=50, rng=5)
+        assert np.isfinite(res["p_value_fire_shuffle"]), "the fixture must draw a null"
+        assert res["scheme"] == "sign_flip"
+        assert res["surrogate_seed_entropy"] == 5

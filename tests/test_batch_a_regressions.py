@@ -98,9 +98,13 @@ class TestStatisticsRNG:
 
     def test_an_int_is_a_seed_and_agrees_with_the_generator_it_names(self):
         data = np.array([1.0, 2.0, 3.0])
-        assert StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=500, rng=42) == \
-               StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=500,
-                                                rng=np.random.default_rng(42))
+        seeded = StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=500, rng=42)
+        passed = StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=500,
+                                                  rng=np.random.default_rng(42))
+        # The numbers agree; only the seed can be reported, a Generator's position cannot.
+        assert (seeded.pop("surrogate_seed_entropy"), passed.pop("surrogate_seed_entropy")) == \
+               (42, None)
+        assert seeded == passed
 
 
 class TestArtifactDetectionPublicAPI:

@@ -27,6 +27,9 @@ BASE_DEFAULT_KEYS = {
     "frequencies", "n_segments_used", "n_surrogates_used", "noverlap", "nperseg",
     "p_value_floor", "peak_coherence_freq", "peak_coherence_value",
     "surrogate_seed_entropy",
+    # Added by fact S10: an additive key naming the circular shift of 1-D input. The values
+    # above are unchanged; the set moved because the result gained a key.
+    "surrogate_scheme",
 }
 
 BASE_DEFAULT_BAND_COHERENCE = {
@@ -382,3 +385,19 @@ def test_derangement_sampler_is_uniform_on_four_items():
     keys = sorted(counts)
     _, p_value = stats.chisquare([counts[k] for k in keys], np.full(9, 1000.0))
     assert p_value > 0.01, f"chi-square p = {p_value} over {dict(counts)}"
+
+
+def test_cross_area_coherence_names_the_circular_shift_its_floor_drew():
+    """Fact S10: continuous input draws circular shifts, and the result says so."""
+    x, y = _pinned_pair()
+    drawn = jnwb.cross_area_coherence(x, y, fs=FS, freq_bands="canonical", rng=7, n_surrogates=10)
+    assert drawn["n_surrogates_used"] == 10, "the fixture must draw a null"
+    assert drawn["surrogate_scheme"] == "circular_shift"
+
+
+def test_partial_coherence_names_the_circular_shift_its_null_drew():
+    """Fact S10: the partial-coherence null shifts Y circularly, and the result says so."""
+    x, y, z = _driver_triplet(0, n=2000)
+    drawn = jnwb.partial_coherence(x, y, z, fs=FS, freq_bands="canonical", n_surrogates=5, rng=7)
+    assert drawn["n_surrogates_used"] == 5, "the fixture must draw a null"
+    assert drawn["surrogate_scheme"] == "circular_shift"

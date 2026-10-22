@@ -60,6 +60,12 @@ Computed predicates:
                    or of a relative import whose own body does, or reads the bound exception
                    name; a handler for ImportError or ModuleNotFoundError alone is exempt (the
                    graph's ``silent_handlers``)
+  permutation_schemes  no public callable draws a null (a permutation, shuffle, circular shift,
+                   surrogate, derangement or sign flip) without a scheme key in its result (the
+                   graph's ``permutation_schemes``); an examined count of zero is a failure
+  rng_reports  no public callable consumes randomness (a call to one of the ``RESOLVERS``
+                   of ``jnwb/_rng.py``) without an rng key in its result
+                   (the graph's ``rng_reports``); an examined count of zero is a failure
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -261,6 +267,22 @@ def silent_handlers(graph: Graph, constants: Constants) -> List[str]:
     return [f"{path}: {reason}" for path, reason in graph["relations"]["silent_handlers"]]
 
 
+def permutation_schemes(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable that draws a null without a scheme key in its result, and the
+    failure of a scan that examined no callable."""
+    if not graph["entities"].get("scheme_examined"):
+        return ["the graph examined no public callable, so no scheme could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["permutation_schemes"]]
+
+
+def rng_reports(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable that consumes randomness without an rng key in its result, and
+    the failure of a scan that examined no callable."""
+    if not graph["entities"].get("rng_examined"):
+        return ["the graph examined no public callable, so no rng report could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["rng_reports"]]
+
+
 def routed_citations(graph: Graph, constants: Constants) -> List[str]:
     """Each routing target that is a public function (export kind function/class) and has no
     ``cites`` edge, with the skills that route it. Utility exports are listed like the rest;
@@ -298,6 +320,8 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "immunity_vocabulary": immunity_vocabulary,
     "skill_contracts": skill_contracts,
     "silent_handlers": silent_handlers,
+    "permutation_schemes": permutation_schemes,
+    "rng_reports": rng_reports,
 }
 
 

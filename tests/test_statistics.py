@@ -244,7 +244,10 @@ class TestShuffleR2Ci:
         y = np.array([0, 1] * 10, dtype=float)
         res = shuffle_r2_ci(y, np.full(y.size, const), n_shuffle=20, rng=0)
         assert any(k != "n_shuffle" for k in res), "the result holds no statistic, so the check below passes on nothing"
-        assert all(np.isnan(v) for k, v in res.items() if k != "n_shuffle"), res
+        assert all(np.isnan(v) for k, v in res.items()
+                   if k not in ("n_shuffle", "scheme", "surrogate_seed_entropy")), res
+        assert res["scheme"] == "global", "the null that ran is still named"
+        assert res["surrogate_seed_entropy"] == 0, "the entropy that ran is still reported"
         # The same guard covers the label.
         res = shuffle_r2_ci(np.full(20, const), np.arange(20.0), n_shuffle=20, rng=0)
         assert np.isnan(res["r2_observed"]) and np.isnan(res["p_val"])
