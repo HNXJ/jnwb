@@ -1,0 +1,23 @@
+- `FilteredEphys` under `processing/` is read by its container or series name (`jnwb/nwb_inspect.py`).
+- A lone `FilteredEphys` under `processing/` is also chosen when the name is omitted (`jnwb/nwb_inspect.py`).
+- Behavior containers under `processing/` are read by bare and `module/container` name (`jnwb/nwb_inspect.py`).
+- Types: `EyeTracking`, `PupilTracking`, `Position`, `CompassDirection`, `BehavioralTimeSeries` (`nwb_inspect.py`).
+- An empty container is refused by name, as `holds no electrical series` or `holds no series` (`nwb_inspect.py`).
+- An empty processing `LFP` or `FilteredEphys` is listed as available and refused by that name (`nwb_inspect.py`).
+- An empty behavior container is refused by name and is not chosen when the name is omitted (`nwb_inspect.py`).
+- A series with `timestamps` and no `rate` is refused by name: `has no constant sampling rate` (`nwb_inspect.py`).
+- Processing `BehavioralEvents` and `BehavioralEpochs` are refused the same way (`nwb_inspect.py`).
+- A `rate` that is not finite and positive (inf, nan, zero, negative) is refused by name (`nwb_inspect.py`).
+- The message gives the rate: `not a finite positive rate` (`nwb_inspect.py`).
+- A bare name shared by a container and a series raises `AmbiguousAcquisitionError` (`nwb_inspect.py`).
+- Pass the qualified name, such as `behavior/Eye` or `ecephys/probe/Eye` (`jnwb/nwb_inspect.py`).
+- Two containers of one name in different processing modules raise `AmbiguousAcquisitionError` (`nwb_inspect.py`).
+- Both the bare name and an omitted name are refused, where one was picked silently before (`nwb_inspect.py`).
+- Pass the module-qualified name, such as `probe0/LFP` (`nwb_inspect.py`).
+- The unit warning from `acquisition_channel` names `channel_conversion` and the channel (`nwb_inspect.py`).
+- The unit and `starting_time` warnings point at the caller's line, not at jnwb's own code (`nwb_inspect.py`).
+- `stream_npz_array` raises `TypeError` for `None` on a 0-d array, where it returned the scalar (`jnwb/io.py`).
+- `...` on a 0-d array still returns the scalar, as NumPy does (`jnwb/io.py`).
+- The MCP signal reference names no reader for a rate that is not finite and positive (`nwb_tools.py`).
+- It also names no reader for a `channel_conversion` on a type other than `ElectricalSeries` (`nwb_tools.py`).
+- `access_hint` says why in both cases (`nwb_tools.py`).

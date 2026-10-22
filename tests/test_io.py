@@ -230,6 +230,18 @@ class TestIndexingFollowsNumPy:
         with pytest.raises(IndexError):
             stream_npz_array(path, "a")
 
+    def test_a_zero_dimensional_array_reads_ellipsis_as_numpy_does_and_refuses_none(self, tmp_path: Path):
+        """On a 0-d array `...` and `(...,)` return the scalar as NumPy does. `None` is refused
+        with TypeError, as on an array with axes."""
+        path = tmp_path / "scalar_ellipsis.npz"
+        np.savez(path, a=np.array(5.0))
+        for index in (Ellipsis, (Ellipsis,)):
+            got = stream_npz_array(path, "a", slice_tuple=index)
+            np.testing.assert_array_equal(got, np.array(5.0)[index], strict=True)
+        for index in (None, (None,)):
+            with pytest.raises(TypeError, match="integers and slices only"):
+                stream_npz_array(path, "a", slice_tuple=index)
+
 
 class TestStreamNPZMemoryBounded:
     def test_bounded_peak_memory_on_compressed_npz(self, tmp_path: Path):

@@ -8,8 +8,10 @@ import h5py
 import numpy as np
 import jnwb
 from jnwb.nwb_inspect import (
+    AcquisitionNotFoundError,
     AmbiguousAcquisitionError,
     ChannelIndexError,
+    NWBInspectError,
     acquisition_channel,
     inspect,
     resolve_acquisition,
@@ -397,6 +399,490 @@ class TestNWBReadHelpers:
         for ch, factor in enumerate(factors):
             data, _ = acquisition_channel(path, name="es", channel=ch)
             np.testing.assert_allclose(data, 100 * conversion * factor + offset, rtol=0, atol=1e-15)
+
+
+def _nwb(identifier):
+    from datetime import datetime
+
+    from dateutil.tz import tzutc
+    from pynwb import NWBFile
+
+    return NWBFile("s", identifier, datetime(2026, 1, 1, tzinfo=tzutc()))
+
+
+def _region(nwb, n_channels):
+    device = nwb.create_device(name="probe")
+    group = nwb.create_electrode_group(name="g", description="g", location="CA1", device=device)
+    for _ in range(n_channels):
+        nwb.add_electrode(x=0.0, y=0.0, z=0.0, imp=0.0, location="CA1", filtering="none", group=group)
+    return nwb.create_electrode_table_region(region=list(range(n_channels)), description="all")
+
+
+def _written(path, nwb):
+    from pynwb import NWBHDF5IO
+
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    return path
+
+
+class TestProcessingBehaviorContainers:
+    """A behavior container under `processing/` is read like one under `/acquisition`."""
+
+    def test_eye_tracking_under_processing_is_read_by_bare_and_qualified_name(self, tmp_path):
+        """`inspect` lists `processing/behavior/EyeTracking`, and `acquisition_channel` refused it
+        with 'No acquisitions or processing continuous series found'. Both names read it now."""
+        from pynwb.behavior import EyeTracking
+
+        data = np.arange(20.0).reshape(10, 2)
+        nwb = _nwb("eye")
+        eye = EyeTracking(name="EyeTracking")
+        eye.create_spatial_series(name="eye_xy", data=data, rate=1000.0,
+                                  reference_frame="screen", unit="pixels")
+        nwb.create_processing_module(name="behavior", description="b").add(eye)
+        path = _written(tmp_path / "eye.nwb", nwb)
+
+        assert [e["name"] for e in inspect(path)["processing_continuous"]] == ["EyeTracking"]
+        for name in ("EyeTracking", "behavior/EyeTracking"):
+            got, fs_hz = acquisition_channel(path, name=name, channel=1)
+            np.testing.assert_array_equal(got, data[:, 1])
+            assert fs_hz == 1000.0
+
+    def test_filtered_ephys_under_processing_is_read_by_bare_and_qualified_name(self, tmp_path):
+        """`FilteredEphys` under `processing/` was refused as having no readable data array; it is
+        read like `LFP` is, by its container name and by its series' name."""
+        from pynwb.ecephys import ElectricalSeries, FilteredEphys
+
+        data = np.arange(40.0).reshape(20, 2)
+        nwb = _nwb("filtered")
+        ephys = FilteredEphys(name="FilteredEphys", electrical_series=ElectricalSeries(
+            name="filtered_series", data=data, electrodes=_region(nwb, 2), rate=500.0))
+        nwb.create_processing_module(name="ecephys", description="e").add(ephys)
+        path = _written(tmp_path / "filtered.nwb", nwb)
+
+        for name in ("FilteredEphys", "ecephys/FilteredEphys", "filtered_series",
+                     "ecephys/FilteredEphys/filtered_series"):
+            got, fs_hz = acquisition_channel(path, name=name, channel=1)
+            np.testing.assert_array_equal(got, data[:, 1])
+            assert fs_hz == 500.0
+
+    def test_a_lone_filtered_ephys_under_processing_resolves_when_the_name_is_omitted(self, tmp_path):
+        """A non-empty `FilteredEphys` is the one continuous container in the file; omitting the
+        name must choose it, as it does for an `LFP`, not report that nothing is available."""
+        from pynwb.ecephys import ElectricalSeries, FilteredEphys
+
+        data = np.arange(40.0).reshape(20, 2)
+        nwb = _nwb("filtered-lone")
+        ephys = FilteredEphys(name="FilteredEphys", electrical_series=ElectricalSeries(
+            name="filtered_series", data=data, electrodes=_region(nwb, 2), rate=500.0))
+        nwb.create_processing_module(name="ecephys", description="e").add(ephys)
+        path = _written(tmp_path / "filtered_lone.nwb", nwb)
+
+        assert resolve_acquisition(path) == "FilteredEphys"
+        got, fs_hz = acquisition_channel(path, channel=1)
+        np.testing.assert_array_equal(got, data[:, 1])
+        assert fs_hz == 500.0
+
+
+def _mixed():
+    """One file's worth of every container family: wrapped acquisition containers, a behavior
+    container holding a nested series, two timestamp-only containers and a direct series."""
+    from pynwb import TimeSeries
+    from pynwb.behavior import BehavioralEpochs, BehavioralEvents, EyeTracking
+    from pynwb.ecephys import LFP, ElectricalSeries
+    from pynwb.misc import IntervalSeries
+
+    nwb = _nwb("mixed")
+    region = _region(nwb, 2)
+    eye = EyeTracking(name="EyeTracking")
+    eye.create_spatial_series(name="eye_xy", data=np.arange(40.0).reshape(20, 2), rate=1000.0,
+                              reference_frame="screen", unit="pixels")
+    nwb.add_acquisition(eye)
+    nwb.add_acquisition(LFP(name="probe_lfp", electrical_series=ElectricalSeries(
+        name="lfp_series", data=np.arange(40.0).reshape(20, 2), electrodes=region, rate=500.0)))
+    behavior = nwb.create_processing_module(name="behavior", description="b")
+    behavior.add(BehavioralEvents(name="BehavioralEvents", time_series=TimeSeries(
+        name="events_ts", data=np.arange(5.0), unit="a.u.", timestamps=np.arange(5.0) * 0.1)))
+    behavior.add(BehavioralEpochs(name="BehavioralEpochs", interval_series=IntervalSeries(
+        name="epochs_is", data=np.array([1, 0, 1], dtype=np.int8),
+        timestamps=np.array([0.0, 1.0, 2.0]))))
+    behavior.add(TimeSeries(name="direct", data=np.arange(50.0), unit="a", rate=60.0))
+    return nwb
+
+
+class TestOneUnwrapRuleForBothCallForms:
+    """`inspect` of a file and of the object model it was written from report the same containers."""
+
+    def test_the_file_and_the_object_model_agree_on_every_container(self, tmp_path):
+        from jnwb.nwb_inspect import CONTINUOUS_KEYS
+
+        def view(info):
+            return {key: {e["name"]: {k: e[k] for k in CONTINUOUS_KEYS} for e in info[key]}
+                    for key in ("acquisitions", "processing_continuous")}
+
+        path = _written(tmp_path / "mixed.nwb", _mixed())
+        from_file = view(inspect(path))
+        assert set(from_file["processing_continuous"]) == {
+            "BehavioralEvents", "BehavioralEpochs", "direct"}
+        assert set(from_file["acquisitions"]) == {"EyeTracking", "probe_lfp"}
+        assert view(inspect(_mixed())) == from_file
+
+
+def _acq_lfp():
+    from pynwb.ecephys import LFP, ElectricalSeries
+
+    nwb = _nwb("acq-lfp")
+    nwb.add_acquisition(LFP(name="probe_lfp", electrical_series=ElectricalSeries(
+        name="lfp_series", data=np.arange(40.0).reshape(20, 2), electrodes=_region(nwb, 2),
+        rate=500.0)))
+    return nwb
+
+
+def _proc_lfp():
+    from pynwb.ecephys import LFP, ElectricalSeries
+
+    nwb = _nwb("proc-lfp")
+    lfp = LFP(name="LFP", electrical_series=ElectricalSeries(
+        name="lfp_series", data=np.arange(40.0).reshape(20, 2), electrodes=_region(nwb, 2),
+        rate=500.0))
+    nwb.create_processing_module(name="ecephys", description="e").add(lfp)
+    return nwb
+
+
+def _acq_pupil():
+    from pynwb.behavior import PupilTracking
+
+    nwb = _nwb("pupil")
+    pupil = PupilTracking(name="PupilTracking")
+    pupil.create_timeseries(name="pupil_ts", data=np.arange(50.0), rate=100.0, unit="a.u.")
+    nwb.add_acquisition(pupil)
+    return nwb
+
+
+def _proc_eye():
+    from pynwb.behavior import EyeTracking
+
+    nwb = _nwb("proc-eye")
+    eye = EyeTracking(name="EyeTracking")
+    eye.create_spatial_series(name="eye_xy", data=np.arange(20.0).reshape(10, 2), rate=1000.0,
+                              reference_frame="screen", unit="pixels")
+    nwb.create_processing_module(name="behavior", description="b").add(eye)
+    return nwb
+
+
+def _events(where):
+    from pynwb import TimeSeries
+    from pynwb.behavior import BehavioralEvents
+
+    nwb = _nwb(f"events-{where}")
+    events = BehavioralEvents(name="BehavioralEvents", time_series=TimeSeries(
+        name="events_ts", data=np.arange(5.0), unit="a.u.", timestamps=np.arange(5.0) * 0.1))
+    if where == "processing":
+        nwb.create_processing_module(name="behavior", description="b").add(events)
+    else:
+        nwb.add_acquisition(events)
+    return nwb
+
+
+def _epochs():
+    from pynwb.behavior import BehavioralEpochs
+    from pynwb.misc import IntervalSeries
+
+    nwb = _nwb("epochs")
+    epochs = BehavioralEpochs(name="BehavioralEpochs", interval_series=IntervalSeries(
+        name="epochs_is", data=np.array([1, 0, 1], dtype=np.int8),
+        timestamps=np.array([0.0, 1.0, 2.0])))
+    nwb.create_processing_module(name="behavior", description="b").add(epochs)
+    return nwb
+
+
+def _fluorescence():
+    from pynwb.ophys import Fluorescence, ImageSegmentation, OpticalChannel
+
+    nwb = _nwb("ophys")
+    device = nwb.create_device(name="scope")
+    plane = nwb.create_imaging_plane(
+        name="plane", optical_channel=OpticalChannel(name="green", description="g",
+                                                     emission_lambda=520.0),
+        description="p", device=device, excitation_lambda=488.0, indicator="GCaMP",
+        location="V1", imaging_rate=30.0)
+    seg = ImageSegmentation()
+    rois = seg.create_plane_segmentation(name="PlaneSegmentation", description="rois",
+                                         imaging_plane=plane)
+    for k in range(2):
+        mask = np.zeros((4, 4))
+        mask[k, k] = 1.0
+        rois.add_roi(image_mask=mask)
+    region = rois.create_roi_table_region(region=[0, 1], description="both")
+    fluor = Fluorescence(name="Fluorescence")
+    fluor.create_roi_response_series(name="RoiResponse", data=np.arange(60.0).reshape(30, 2),
+                                     rois=region, unit="n.a.", rate=30.0)
+    ophys = nwb.create_processing_module(name="ophys", description="o")
+    ophys.add(seg)
+    ophys.add(fluor)
+    return nwb
+
+
+_READABLE = "readable"
+_NO_RATE = "has no constant sampling rate"
+
+#: Every container `inspect` reports, with the builder that plants it, the name `inspect` lists it
+#: under and what `acquisition_channel` does with it: a value, or a refusal naming it and the reason.
+CONTAINER_TABLE = {
+    "acquisition LFP": (_acq_lfp, "probe_lfp", _READABLE),
+    "processing LFP": (_proc_lfp, "LFP", _READABLE),
+    "acquisition PupilTracking": (_acq_pupil, "PupilTracking", _READABLE),
+    "processing EyeTracking": (_proc_eye, "EyeTracking", _READABLE),
+    "processing Fluorescence": (_fluorescence, "Fluorescence", _READABLE),
+    "processing BehavioralEvents": (lambda: _events("processing"), "BehavioralEvents", _NO_RATE),
+    "acquisition BehavioralEvents": (lambda: _events("acquisition"), "BehavioralEvents", _NO_RATE),
+    "processing BehavioralEpochs": (_epochs, "BehavioralEpochs", _NO_RATE),
+}
+
+
+class TestEveryContainerInspectReports:
+    """One table covers every container `inspect` reports. The reader `inspect` names for a
+    signal container is `acquisition_channel`; under each name `inspect` lists it, it either
+    reads the container or refuses it with a message that names the container and the reason."""
+
+    @pytest.mark.parametrize("row", list(CONTAINER_TABLE), ids=list(CONTAINER_TABLE))
+    def test_each_reported_container_is_read_or_refused_by_name(self, tmp_path, row):
+        build, container, outcome = CONTAINER_TABLE[row]
+        path = _written(tmp_path / "row.nwb", build())
+        info = inspect(path)
+        reported = info["acquisitions"] + info["processing_continuous"]
+        assert [e["name"] for e in reported] == [container]
+        entry = reported[0]
+        names = [entry["name"]]
+        if "module" in entry:
+            names.append(f"{entry['module']}/{entry['name']}")
+        for name in names:
+            if outcome == _READABLE:
+                data, fs_hz = acquisition_channel(path, name=name, channel=0)
+                assert data.ndim == 1 and data.size > 0 and fs_hz > 0
+            else:
+                with pytest.raises(NWBInspectError) as caught:
+                    acquisition_channel(path, name=name, channel=0)
+                assert container in str(caught.value), str(caught.value)
+                assert outcome in str(caught.value), str(caught.value)
+
+
+class TestChannelConversionLength:
+    """A `channel_conversion` whose length is not the channel count is refused, not applied."""
+
+    @pytest.mark.parametrize("shape, n_factors, n_channels", [
+        ((50, 2), 3, 2), ((50,), 2, 1)], ids=["two-channels-three-factors",
+                                              "one-channel-two-factors"])
+    def test_a_length_that_is_not_the_channel_count_is_refused(
+        self, tmp_path, shape, n_factors, n_channels
+    ):
+        from pynwb.ecephys import ElectricalSeries
+
+        nwb = _nwb("cc")
+        nwb.add_acquisition(ElectricalSeries(
+            name="es", data=np.zeros(shape), electrodes=_region(nwb, n_channels), rate=1000.0,
+            channel_conversion=[1.0] * n_factors))
+        path = _written(tmp_path / "cc.nwb", nwb)
+        with pytest.raises(ValueError, match=(
+            f"stores {n_factors} channel_conversion factors for {n_channels} channels"
+        )):
+            acquisition_channel(path, name="es", channel=0)
+
+
+class TestWarningsPointAtTheCaller:
+    """The unit warning names both conversions it applies; both warnings name the caller's line."""
+
+    def test_both_warnings_name_the_conversions_and_this_file(self, tmp_path):
+        import sys
+        import warnings
+        from pathlib import Path
+
+        from pynwb.ecephys import ElectricalSeries
+
+        nwb = _nwb("warn")
+        nwb.add_acquisition(ElectricalSeries(
+            name="es", data=np.arange(100.0).reshape(50, 2), electrodes=_region(nwb, 2),
+            rate=1000.0, conversion=1e-6, channel_conversion=[1.0, 2.0], starting_time=0.5))
+        path = _written(tmp_path / "warn.nwb", nwb)
+        with h5py.File(path, "r+") as f:
+            f["acquisition/es/data"].attrs["unit"] = "uV"
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            call_line = sys._getframe().f_lineno + 1
+            acquisition_channel(path, name="es", channel=0)
+        unit = [w for w in caught if issubclass(w.category, RuntimeWarning)]
+        starting = [w for w in caught if "starting_time" in str(w.message)]
+        assert len(unit) == 1 and len(starting) == 1, [str(w.message) for w in caught]
+        for w in (unit[0], starting[0]):
+            assert Path(w.filename).resolve() == Path(__file__).resolve(), w.filename
+            assert w.lineno == call_line, (w.lineno, call_line)
+        message = str(unit[0].message)
+        assert "conversion=" in message and "channel_conversion=" in message, message
+
+
+class TestABareNameTwoContainersHold:
+    """A bare series name in two `/acquisition` containers is refused; the qualified name reads."""
+
+    def test_the_bare_name_is_refused_and_the_qualified_name_reads(self, tmp_path):
+        from pynwb.ecephys import LFP, ElectricalSeries
+
+        nwb = _nwb("two")
+        region = _region(nwb, 2)
+        for container, offset in (("lfp_a", 0.0), ("lfp_b", 1e4)):
+            nwb.add_acquisition(LFP(name=container, electrical_series=ElectricalSeries(
+                name="lfp_series", data=np.arange(100.0).reshape(50, 2) + offset,
+                electrodes=region, rate=500.0)))
+        path = _written(tmp_path / "two.nwb", nwb)
+
+        with pytest.raises(AmbiguousAcquisitionError, match="more than one container") as caught:
+            resolve_acquisition(path, "lfp_series")
+        assert "lfp_a/lfp_series" in str(caught.value)
+        assert "lfp_b/lfp_series" in str(caught.value)
+        with pytest.raises(AmbiguousAcquisitionError):
+            acquisition_channel(path, name="lfp_series", channel=1)
+        got, _ = acquisition_channel(path, name="lfp_b/lfp_series", channel=1)
+        np.testing.assert_array_equal(got[:2], [10001.0, 10003.0])
+
+
+class TestAnEmptyContainerIsRefused:
+    """A container that holds no series and no data of its own is refused by name, with the
+    wording it has always had."""
+
+    @pytest.mark.parametrize("kind, wording", [
+        ("LFP", "holds no electrical series"),
+        ("FilteredEphys", "holds no electrical series"),
+        ("EyeTracking", "holds no series"),
+    ])
+    def test_an_empty_container_names_itself_and_what_it_lacks(self, tmp_path, kind, wording):
+        from pynwb.behavior import EyeTracking
+        from pynwb.ecephys import FilteredEphys, LFP
+
+        nwb = _nwb("empty")
+        container = {"LFP": LFP, "FilteredEphys": FilteredEphys, "EyeTracking": EyeTracking}[kind]
+        nwb.add_acquisition(container(name="empty"))
+        path = _written(tmp_path / "empty.nwb", nwb)
+        with pytest.raises(AcquisitionNotFoundError, match="Container 'empty'") as caught:
+            acquisition_channel(path, name="empty", channel=0)
+        assert wording in str(caught.value), str(caught.value)
+
+
+class TestANonFiniteOrNonPositiveRateIsRefused:
+    """A rate that is not finite and positive is refused by name, with the rate it carries."""
+
+    @pytest.mark.parametrize("rate", [float("inf"), float("nan"), 0.0, -1.0])
+    def test_acquisition_channel_refuses_the_series_and_names_its_rate(self, tmp_path, rate):
+        from pynwb import TimeSeries
+
+        nwb = _nwb("rate")
+        nwb.add_acquisition(TimeSeries(name="ts", data=np.arange(50.0), unit="V", rate=1000.0))
+        path = _written(tmp_path / "rate.nwb", nwb)
+        with h5py.File(path, "r+") as f:
+            f["acquisition/ts/starting_time"].attrs["rate"] = rate
+        with pytest.raises(AcquisitionNotFoundError, match="not a finite positive rate") as caught:
+            acquisition_channel(path, name="ts", channel=0)
+        assert "'ts'" in str(caught.value), str(caught.value)
+        assert repr(rate) in str(caught.value), str(caught.value)
+
+
+class TestAnEmptyProcessingContainerIsNamed:
+    """An empty electrical container under `processing/` is kept, so omitting the name names it
+    and a name finds it, with the refusal it always had."""
+
+    @pytest.mark.parametrize("kind", ["LFP", "FilteredEphys"])
+    def test_the_empty_container_is_named_by_omission_and_by_name(self, tmp_path, kind):
+        from pynwb.ecephys import FilteredEphys, LFP
+
+        nwb = _nwb("empty-proc")
+        container = {"LFP": LFP, "FilteredEphys": FilteredEphys}[kind]
+        nwb.create_processing_module(name="ecephys", description="e").add(container(name=kind))
+        path = _written(tmp_path / "empty_proc.nwb", nwb)
+
+        assert resolve_acquisition(path) == kind
+        with pytest.raises(AcquisitionNotFoundError, match=f"Container '{kind}' holds no electrical series"):
+            acquisition_channel(path, channel=0)
+        with pytest.raises(AcquisitionNotFoundError, match=f"Container 'ecephys/{kind}' holds no"):
+            acquisition_channel(path, name=f"ecephys/{kind}", channel=0)
+
+    def test_an_empty_behavior_container_is_named_but_not_chosen_by_omission(self, tmp_path):
+        """An empty `EyeTracking` under `processing/` is refused by name with what it lacks. It
+        is not a continuous series to choose when the name is omitted."""
+        from pynwb.behavior import EyeTracking
+
+        nwb = _nwb("empty-eye")
+        nwb.create_processing_module(name="behavior", description="b").add(EyeTracking(name="Eye"))
+        path = _written(tmp_path / "empty_eye.nwb", nwb)
+
+        for name in ("Eye", "behavior/Eye"):
+            with pytest.raises(AcquisitionNotFoundError, match=f"Container '{name}' holds no series"):
+                acquisition_channel(path, name=name, channel=0)
+        with pytest.raises(AcquisitionNotFoundError, match="No acquisitions or processing"):
+            acquisition_channel(path, channel=0)
+
+
+class TestTwoContainersOfOneNameInProcessing:
+    """Two containers of one name under different processing modules: the bare name and an
+    omitted name are refused, and the module-qualified name reads its own container."""
+
+    def test_the_bare_and_omitted_names_are_refused_and_the_qualified_name_reads(self, tmp_path):
+        from pynwb.ecephys import LFP, ElectricalSeries
+
+        nwb = _nwb("two-lfp")
+        region = _region(nwb, 2)
+        for module, offset in (("probe0", 0.0), ("probe1", 1e4)):
+            lfp = LFP(name="LFP", electrical_series=ElectricalSeries(
+                name="lfp_series", data=np.arange(100.0).reshape(50, 2) + offset,
+                electrodes=region, rate=500.0))
+            nwb.create_processing_module(name=module, description=module).add(lfp)
+        path = _written(tmp_path / "two_lfp.nwb", nwb)
+
+        with pytest.raises(AmbiguousAcquisitionError) as caught:
+            resolve_acquisition(path, "LFP")
+        assert "probe0/LFP" in str(caught.value), str(caught.value)
+        assert "probe1/LFP" in str(caught.value), str(caught.value)
+        with pytest.raises(AmbiguousAcquisitionError):
+            resolve_acquisition(path)
+        got, _ = acquisition_channel(path, name="probe0/LFP", channel=1)
+        np.testing.assert_array_equal(got[:2], [1.0, 3.0])
+
+
+def _name_clash(order):
+    """A behavior container named `Eye` and a processing LFP whose series is named `Eye`, in the
+    module order given."""
+    from pynwb.behavior import EyeTracking
+    from pynwb.ecephys import LFP, ElectricalSeries
+
+    nwb = _nwb("clash")
+    region = _region(nwb, 2)
+    eye = EyeTracking(name="Eye")
+    eye.create_spatial_series(name="eye_xy", data=np.arange(20.0).reshape(10, 2), rate=1000.0,
+                              reference_frame="screen", unit="pixels")
+    lfp = LFP(name="probe", electrical_series=ElectricalSeries(
+        name="Eye", data=np.arange(100.0).reshape(50, 2), electrodes=region, rate=500.0))
+    modules = [("ecephys", lfp), ("behavior", eye)]
+    if order == "behavior_first":
+        modules.reverse()
+    for mod_name, container in modules:
+        nwb.create_processing_module(name=mod_name, description=mod_name).add(container)
+    return nwb
+
+
+class TestAContainerNamedLikeASeriesIsAmbiguous:
+    """A container named like a series another container holds makes the bare name ambiguous,
+    whichever module is listed first, and the qualified names read."""
+
+    @pytest.mark.parametrize("order", ["ecephys_first", "behavior_first"])
+    def test_the_bare_name_is_refused_and_both_qualified_names_are_listed(self, order):
+        nwb = _name_clash(order)
+        with pytest.raises(AmbiguousAcquisitionError, match="more than one processing entry") as caught:
+            resolve_acquisition(nwb, "Eye")
+        assert "behavior/Eye" in str(caught.value), str(caught.value)
+        assert "ecephys/probe/Eye" in str(caught.value), str(caught.value)
+        with pytest.raises(AmbiguousAcquisitionError):
+            acquisition_channel(nwb, name="Eye", channel=1)
+        got, fs_hz = acquisition_channel(nwb, name="behavior/Eye", channel=1)
+        np.testing.assert_array_equal(got, np.arange(20.0).reshape(10, 2)[:, 1])
+        assert fs_hz == 1000.0
 
 
 def _series_starting_at(start_s):

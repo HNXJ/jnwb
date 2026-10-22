@@ -10,6 +10,7 @@ from typing import Any
 
 import h5py
 import numpy as np
+from hdmf.container import Container, Data
 from pynwb import NWBHDF5IO, NWBFile, get_type_map
 
 from jnwb.nwb_io import (
@@ -530,75 +531,106 @@ _SHARED_BARE_NAME = object()
 
 
 def _find_processing_series(nwb: NWBFile) -> tuple[dict[str, Any], list[str]]:
-    """Return (lookup_dict, top_level_names) for continuous series in nwb.processing."""
+    """Return (lookup_dict, top_level_names) for series in nwb.processing.
+
+    The lookup holds each container that holds series under its name and ``module/name``, and
+    each of those series under its bare name and ``module/container/series``. ``top_level_names``
+    keeps the LFP containers and direct series that a bare-name call has always chosen among, so
+    a behavior container read by name does not make an omitted name ambiguous.
+    """
     found: dict[str, Any] = {}
     top_level: list[str] = []
-    bare_series: dict[str, list[Any]] = {}
+    container_keys: dict[str, list[str]] = {}
+    held_by: dict[str, list[tuple[str, Any]]] = {}
     if not nwb.processing:
         return found, top_level
     for mod_name, mod in nwb.processing.items():
         interfaces = getattr(mod, "data_interfaces", {})
         for cname, obj in interfaces.items():
+            members = _object_members(obj)
             ndt = getattr(obj, "neurodata_type", type(obj).__name__)
-            if ndt == "LFP" and hasattr(obj, "electrical_series"):
-                found[cname] = obj
-                found[f"{mod_name}/{cname}"] = obj
+            # An empty container of a series type is kept, so naming it gets the refusal it always had.
+            if not members and ndt not in _SERIES_CONTAINERS:
+                continue
+            key = f"{mod_name}/{cname}"
+            found[cname] = obj
+            found[key] = obj
+            container_keys.setdefault(cname, []).append(key)
+            # A call that omits the name chooses among electrical containers and direct series; a
+            # behavior container is reached by name only.
+            if ndt in _ELECTRICAL_CONTAINERS or (members and members[0][0] is None):
                 if cname not in top_level:
                     top_level.append(cname)
-                for sname, s in obj.electrical_series.items():
-                    bare_series.setdefault(sname, []).append(s)
-                    if sname not in found:
-                        found[sname] = s
-                    found[f"{mod_name}/{cname}/{sname}"] = s
-            elif hasattr(obj, "data") and (hasattr(obj, "rate") or hasattr(obj, "starting_time")):
-                found[cname] = obj
-                found[f"{mod_name}/{cname}"] = obj
-                if cname not in top_level:
-                    top_level.append(cname)
-    # A bare series name two containers share is marked rather than resolved to whichever
-    # container came first; `resolve_acquisition` refuses it and names the qualified forms.
-    for sname, held in bare_series.items():
-        if len(held) > 1 and any(found.get(sname) is s for s in held):
+            for sname, s in members:
+                if sname is None:
+                    continue
+                held_by.setdefault(sname, []).append((key, s))
+                if sname not in found:
+                    found[sname] = s
+                found[f"{key}/{sname}"] = s
+    # A bare name is marked shared, not resolved to whichever entry came first, when two
+    # containers have it, or a container has it and another container holds a series of that
+    # name. `resolve_acquisition` refuses a shared name and names the qualified forms.
+    for sname, holders in held_by.items():
+        if len(holders) > 1 and any(found.get(sname) is s for _, s in holders):
             found[sname] = _SHARED_BARE_NAME
+    for cname, keys in container_keys.items():
+        if len(keys) > 1 or any(owner != keys[0] for owner, _ in held_by.get(cname, [])):
+            found[cname] = _SHARED_BARE_NAME
     return found, top_level
 
 
-# Containers that wrap their series, and the attribute that holds them. `LFP` and
-# `FilteredEphys` hold ElectricalSeries; the behavior containers hold SpatialSeries or
-# TimeSeries the same way, so eye, pupil and position channels unwrap like LFP.
-_WRAPPED_SERIES_ATTR = {
-    "LFP": "electrical_series",
-    "FilteredEphys": "electrical_series",
-    "EyeTracking": "spatial_series",
-    "Position": "spatial_series",
-    "CompassDirection": "spatial_series",
-    "PupilTracking": "time_series",
-    "BehavioralTimeSeries": "time_series",
-}
+def _shared_name_error(name: str, proc_dict: dict[str, Any]) -> AmbiguousAcquisitionError:
+    """The refusal for a bare processing name that more than one entry has, naming each form."""
+    qualified = sorted(k for k in proc_dict if "/" in k and k.rsplit("/", 1)[-1] == name)
+    return AmbiguousAcquisitionError(
+        f"'{name}' names more than one processing entry: {qualified}. Pass the qualified name."
+    )
 
 
-def _wrapped_series(obj: Any) -> Any:
-    """The series mapping a container holds: its `_WRAPPED_SERIES_ATTR` attribute, else
-    `electrical_series` (any other type exposing one, as before), else ``None``."""
-    ndt = getattr(obj, "neurodata_type", type(obj).__name__)
-    if ndt in _WRAPPED_SERIES_ATTR:
-        return getattr(obj, _WRAPPED_SERIES_ATTR[ndt], None)
-    return getattr(obj, "electrical_series", None)
+#: Containers whose series are electrical series; only their refusal wording differs.
+_ELECTRICAL_CONTAINERS = frozenset({"LFP", "FilteredEphys"})
+#: Every container type jnwb reads series from; an empty one of these is kept by name.
+_SERIES_CONTAINERS = _ELECTRICAL_CONTAINERS | frozenset({
+    "BehavioralEpochs", "BehavioralEvents", "BehavioralTimeSeries", "CompassDirection",
+    "EyeTracking", "Fluorescence", "Position", "PupilTracking",
+})
+
+
+def _object_members(obj: Any) -> list[tuple[str | None, Any]]:
+    """The series ``obj`` holds, as ``(series_name, series)``, by the rule `_series_members`
+    applies to a file.
+
+    An object with its own ``data`` is one series, named ``None``. Any other object holds the
+    series of each child container, named by its path below it, children taken in name order.
+    `Data` children (columns, region references) are not containers and hold no series, as the
+    file walk does not descend into a dataset. Both call forms of `inspect` and the reader use
+    this one rule, so a container is described and unwrapped the same way from a file and from
+    the object model it was written from.
+    """
+    if getattr(obj, "data", None) is not None:
+        return [(None, obj)]
+    members: list[tuple[str | None, Any]] = []
+    for child in sorted(getattr(obj, "children", ()), key=lambda c: c.name):
+        if isinstance(child, Data) or not isinstance(child, Container):
+            continue
+        for sub_name, series in _object_members(child):
+            members.append((child.name if sub_name is None else f"{child.name}/{sub_name}", series))
+    return members
 
 
 def _acquisition_nested_series(nwb: NWBFile) -> dict[str, list[Any]]:
-    """Series held inside ``/acquisition`` containers (``LFP``, ``FilteredEphys`` and the
-    behavior containers in ``_WRAPPED_SERIES_ATTR``).
+    """Series held inside ``/acquisition`` containers, by `_object_members`: ``LFP``,
+    ``FilteredEphys``, the behavior containers and any other container that holds series.
 
     Keyed by the bare series name and by ``container/series``. A bare name held by two
     containers maps to both, so the caller can refuse it rather than pick one.
     """
     found: dict[str, list[Any]] = {}
     for cname, obj in (nwb.acquisition or {}).items():
-        wrapped = _wrapped_series(obj)
-        if not wrapped or not hasattr(wrapped, "items"):
-            continue
-        for sname, series in wrapped.items():
+        for sname, series in _object_members(obj):
+            if sname is None:
+                continue
             found.setdefault(sname, []).append(series)
             found.setdefault(f"{cname}/{sname}", []).append(series)
     return found
@@ -636,7 +668,9 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
         proc_dict, proc_top = _find_processing_series(nwb)
 
         all_available = sorted(set(acq_names) | set(proc_top))
-        if not all_available:
+        # A processing behavior container is reachable by name but not by omission, so a name
+        # is still looked up when only such containers exist.
+        if not all_available and (name is None or not proc_dict):
             raise AcquisitionNotFoundError("No acquisitions or processing continuous series found in NWB file")
 
         if name is not None:
@@ -664,13 +698,7 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
                     f"Pass the qualified processing name to mean the latter."
                 )
             if in_processing and proc_dict[name] is _SHARED_BARE_NAME:
-                qualified = sorted(
-                    k for k in proc_dict if "/" in k and k.rsplit("/", 1)[-1] == name
-                )
-                raise AmbiguousAcquisitionError(
-                    f"'{name}' names a series in more than one processing container: "
-                    f"{qualified}. Pass the qualified name."
-                )
+                raise _shared_name_error(name, proc_dict)
             if in_acquisition or in_processing:
                 return name
             nested_names = sorted(k for k in nested if "/" in k)
@@ -680,6 +708,8 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
             )
 
         if len(all_available) == 1:
+            if proc_dict.get(all_available[0]) is _SHARED_BARE_NAME:
+                raise _shared_name_error(all_available[0], proc_dict)
             return all_available[0]
         raise AmbiguousAcquisitionError(
             f"Several continuous series present: {all_available}. Pass name=<series> explicitly."
@@ -689,30 +719,30 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
 
 
 def _electrical_series_from_acquisition(acq: Any, name: str | None = None):
-    """Unwrap a wrapping container (`LFP`, `FilteredEphys`, or a behavior container such
-    as `EyeTracking`) to the series it holds; any other object is returned as is.
+    """Unwrap a container to the series it holds, by `_object_members` (`LFP`, `FilteredEphys`,
+    a behavior container such as `EyeTracking`, or any other container that holds series). An
+    object that holds its own data is returned as is. A container with no series and no data of
+    its own is refused by name, as `LFP`, `FilteredEphys` and behavior containers always were.
 
     This was ``next(iter(...))``, so a container holding two series silently
     returned whichever came first, while `inspect` reported a third answer built from
     both. A container that holds more than one series is a question for the caller.
     """
-    ndt = getattr(acq, "neurodata_type", type(acq).__name__)
-    attr = _WRAPPED_SERIES_ATTR.get(ndt)
-    if attr is None:
+    members = _object_members(acq)
+    if members and members[0][0] is None:
         return acq
-    wrapped = getattr(acq, attr, None) or {}
+    ndt = getattr(acq, "neurodata_type", type(acq).__name__)
     label = name or getattr(acq, "name", ndt)
-    kind = "electrical series" if attr == "electrical_series" else "series"
-    if not wrapped:
-        raise AcquisitionNotFoundError(
-            f"Container '{label}' holds no {kind}"
-        )
-    if len(wrapped) > 1:
+    if not members:
+        kind = "electrical series" if ndt in _ELECTRICAL_CONTAINERS else "series"
+        raise AcquisitionNotFoundError(f"Container '{label}' holds no {kind}")
+    if len(members) > 1:
+        kind = "electrical series" if ndt in _ELECTRICAL_CONTAINERS else "series"
         raise AmbiguousAcquisitionError(
-            f"Container '{label}' wraps {len(wrapped)} {kind}: "
-            f"{sorted(wrapped)}. Pass name=<series> explicitly."
+            f"Container '{label}' wraps {len(members)} {kind}: "
+            f"{sorted(sname for sname, _ in members)}. Pass name=<series> explicitly."
         )
-    return next(iter(wrapped.values()))
+    return members[0][1]
 
 
 def unit_spike_times(path_or_nwb: InspectInput, unit_index: int = 0) -> np.ndarray:
@@ -740,7 +770,7 @@ def unit_spike_times(path_or_nwb: InspectInput, unit_index: int = 0) -> np.ndarr
     return _with_nwb(path_or_nwb, _read)
 
 
-def _warn_if_declared_unit_contradicts_storage(series: Any, acq_name: str) -> None:
+def _warn_if_declared_unit_contradicts_storage(series: Any, acq_name: str, channel: int) -> None:
     """Warn when the type this series declares fixes a data unit the file does not store.
 
     `inspect` warns where the contradiction is *declared*; this is where the harm *lands*.
@@ -775,16 +805,22 @@ def _warn_if_declared_unit_contradicts_storage(series: Any, acq_name: str) -> No
     if stored == fixed:
         return
     conversion = getattr(series, "conversion", None)
+    channel_conversion = getattr(series, "channel_conversion", None)
+    factors = ("none" if channel_conversion is None
+               else np.asarray(channel_conversion[:], dtype=np.float64).ravel().tolist())
     dtype = getattr(data, "dtype", None)
     warnings.warn(
         f"acquisition_channel: series '{acq_name}' declares neurodata_type {ndt!r}, for which "
         f"the NWB schema fixes the data unit to {fixed!r}, but the file stores unit "
         f"{stored!r} (dtype {dtype}). The returned array has had conversion="
-        f"{conversion!r} applied and is being presented as {fixed}, which is wrong if the "
-        f"series does not hold extracellular voltage. `series.unit` cannot show you this: "
-        f"pynwb substitutes the schema's fixed value on read.",
+        f"{conversion!r} and channel_conversion={factors} (channel {channel}) applied, and is "
+        f"being presented as {fixed}, which is wrong if the series does not hold extracellular "
+        f"voltage. `series.unit` cannot show you this: pynwb substitutes the schema's fixed "
+        f"value on read.",
         RuntimeWarning,
-        stacklevel=3,
+        # Frames between the warning and the caller: this function, `_read`, `_with_nwb`,
+        # `acquisition_channel`. The warning is attributed to the line that called it.
+        stacklevel=5,
     )
 
 
@@ -795,12 +831,14 @@ def acquisition_channel(
 ) -> tuple[np.ndarray, float]:
     r"""Return one continuous acquisition channel and its sampling rate in Hz.
 
-    Resolves direct :class:`~pynwb.ecephys.ElectricalSeries` objects and
-    ``LFP`` containers with nested electrical series from both
-    ``/acquisition`` and processing modules (e.g. ``processing/ecephys/LFP``).
-    In ``/acquisition``, behavior containers (``EyeTracking``, ``PupilTracking``,
-    ``BehavioralTimeSeries``, ``Position``, ``CompassDirection``) and ``FilteredEphys``
-    unwrap to the series they hold the same way.
+    Resolves direct :class:`~pynwb.ecephys.ElectricalSeries` objects and containers that hold
+    series, from both ``/acquisition`` and processing modules: ``LFP`` and ``FilteredEphys``
+    (e.g. ``processing/ecephys/LFP``), and behavior containers (``EyeTracking``,
+    ``PupilTracking``, ``BehavioralTimeSeries``, ``Position``, ``CompassDirection``), which
+    unwrap to the series they hold the same way. A container whose series carry only
+    timestamps has no sampling rate, so it is refused by name with
+    :class:`AcquisitionNotFoundError`. A rate that is not finite and positive (inf, nan, zero,
+    negative) is refused the same way, and the message gives the rate.
 
     Parameters
     ----------
@@ -855,7 +893,7 @@ def acquisition_channel(
 
         # Warned before the array is read and scaled, so the caller sees the contradiction
         # even if reading the slice then fails for an unrelated reason.
-        _warn_if_declared_unit_contradicts_storage(series, acq_name)
+        _warn_if_declared_unit_contradicts_storage(series, acq_name, channel)
 
         shape = series.data.shape
         if len(shape) == 1:
@@ -923,9 +961,12 @@ def acquisition_channel(
                 data = data + o_val
 
         rate = getattr(series, "rate", None)
-        if rate is None or (isinstance(rate, float) and np.isnan(rate)):
+        if rate is None:
+            raise AcquisitionNotFoundError(f"Series '{acq_name}' has no constant sampling rate")
+        if not (np.isfinite(rate) and rate > 0):
             raise AcquisitionNotFoundError(
-                f"Series '{acq_name}' has no constant sampling rate"
+                f"Series '{acq_name}' has sampling rate {float(rate)!r} Hz, which is not a finite "
+                "positive rate, so sample times cannot be computed from it"
             )
         start = _starting_time_s(series)
         if start is not None and start != 0.0:
@@ -936,7 +977,9 @@ def acquisition_channel(
                 f"{start!r} s from them before epoch_continuous, or every epoch is misaligned "
                 f"by {start!r} s.",
                 UserWarning,
-                stacklevel=3,
+                # Frames between the warning and the caller: `_read`, `_with_nwb`,
+                # `acquisition_channel`.
+                stacklevel=4,
             )
         return data, float(rate)
 
@@ -973,19 +1016,19 @@ def _continuous_entry_pynwb(obj: Any, name: str, path: str) -> dict[str, Any]:
         "rate_hz": None,
         "starting_time": None,
     }
-    # Every wrapping container unwraps, as the file walk does, not only `LFP`.
-    held = _wrapped_series(obj)
-    if held is not None and hasattr(held, "items"):
-        wrapped = dict(held)
-        entry["series"] = sorted(wrapped) or None
-        if len(wrapped) != 1:
-            return entry
-        series_name = next(iter(sorted(wrapped)))
-        series = wrapped[series_name]
-        relpath = f"{series_name}/data"
-    else:
+    # Every container that holds series unwraps by `_object_members`, as the file walk does.
+    members = _object_members(obj)
+    if not members:
+        return entry
+    if members[0][0] is None:
         series = obj
         relpath = "data"
+    else:
+        entry["series"] = [sname for sname, _ in members]
+        if len(members) != 1:
+            return entry
+        series_name, series = members[0]
+        relpath = f"{series_name}/data"
 
     data = getattr(series, "data", None)
     if data is None:

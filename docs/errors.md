@@ -6,7 +6,7 @@ than an error, and a number is much harder to notice. Each message names the thi
 was ambiguous or missing **and** the values that were available, so the fix is always to
 pass one of them.
 
-The messages below are the real ones, taken from a file written with plain pynwb.
+The messages below are real, taken from a file written with plain pynwb.
 
 ## What to pass
 
@@ -25,13 +25,13 @@ The messages below are the real ones, taken from a file written with plain pynwb
 | `RaggedIndexRepairRefused` | `repair_ragged_index` | Nothing is written or replaced. Act on the message; see [Repairing a ragged index](#repairing-a-ragged-index-raggedindexrepairrefused) |
 
 `NWBInspectError` and `NWBEventError` are the two base classes; they are never raised
-directly. The rest of this page is why each refusal exists, which the table cannot carry.
+directly. The rest of this page says why each refusal exists.
 
 ## Finding the name to pass
 
 Two resolvers answer "what would jnwb pick, and is that unambiguous?" without reading any
-data. They take the same arguments as the functions that use them, and they raise the same
-errors, so they are the cheapest way to find out what a file will do.
+data. They take the same arguments as the functions that use them, and raise the same
+errors, so they are the cheapest way to see what a file will do.
 
 ```python
 jnwb.resolve_acquisition(path_or_nwb, name=None)     # -> the continuous series name
@@ -43,7 +43,7 @@ omitted it returns the sole continuous series when exactly one exists, and other
 raises. `resolve_interval_table` prefers a table called `trials`, falls back to the sole
 table, and otherwise raises.
 
-[`inspect`](api.md) lists everything both of them can see:
+[`inspect`](api.md) lists everything both can see:
 
 ```python
 info = jnwb.inspect("session.nwb")
@@ -73,7 +73,7 @@ Two narrower kinds of ambiguity raise the same class:
 > Container 'LFP' wraps 2 electrical series: ['lfp_alpha', 'lfp_beta']. Pass name=&lt;series&gt; explicitly.
 
 An `LFP` container holding several series has no single rate, shape or path, so name the
-series itself rather than the container.
+series, not the container.
 
 > 'shared' names both /acquisition/shared and ['ecephys/shared'].
 
@@ -84,9 +84,12 @@ data. The qualified processing name (`"ecephys/shared"`) means the latter.
 
 > Series 'nope' not found. Available: ['probe_0_lfp', 'probe_1_lfp']
 
-The same class is raised when a series exists but has no readable data array, and when it
-has no constant sampling rate: a series with explicit `timestamps` rather than a `rate`
-cannot be epoched by sample index.
+The same class is raised when a series has no readable data array, or no constant sampling
+rate: a series with explicit `timestamps` rather than a `rate` cannot be epoched by sample
+index. A processing container of such series, such as `BehavioralEvents` or
+`BehavioralEpochs`, gets the same refusal, naming the name you passed. A rate that is not
+finite and positive (inf, nan, zero, negative) gets its own message naming the series and
+the rate.
 
 ### `ChannelIndexError`
 
@@ -104,9 +107,9 @@ The message states which axis holds channels and how that was decided:
 
 > Cannot tell which axis of series 'square' holds channels: shape (4, 4) against 4 electrodes, so neither dimension matches or both do. Guessing would return a slice across channels as a channel's time course.
 
-There is no argument that resolves this one, because the file does not contain the answer.
-`inspect` reports `layout: "ambiguous"` for the same series. Transpose the array according
-to what you know about how it was recorded; jnwb will not pick an axis, because a wrong
+No argument resolves this one, because the file does not contain the answer.
+`inspect` reports `layout: "ambiguous"` for the same series. Transpose the array from what
+you know of the recording; jnwb will not pick an axis, because a wrong
 pick returns one instant sampled across channels dressed as a channel's time course.
 
 ### `UnitNotFoundError`
@@ -150,7 +153,7 @@ exist is an error, because you asked for something specific.
 > Non-finite onset at index 0: np.float64(nan)
 
 All three entry points agree: `events`, `event_onsets` and `epoch_continuous` refuse a
-missing or non-finite onset rather than carry `NaN` into an index computation.
+missing or non-finite onset rather than carry `NaN` into an index.
 
 ## Reading the file at all: `MissingRequiredNWBFieldError`
 
@@ -158,7 +161,7 @@ missing or non-finite onset rather than carry `NaN` into an index computation.
 
 Raised while reading, when a field the NWB specification requires is absent from the file
 on disk. The exception carries the missing field name as `exc.field_name`. jnwb will not
-invent a value for a field the specification requires, because a synthesized
+invent a value for a required field, because a synthesized
 `session_description` propagates into every figure caption and table that reads it.
 
 To open the file anyway, name the field you accept losing. Today `session_description` is the
@@ -175,8 +178,8 @@ nwbfile.jnwb_waived_requirements   # ("session_description",)
 ```
 
 `jnwb_waived_requirements` records the waivers the read used, not the ones it was offered. A
-file that has the field reads `()` under the same `allow_missing`, so passing the waiver across a
-whole corpus still tells each waived file apart from one that recorded an empty description.
+file that has the field reads `()` under the same `allow_missing`, so a corpus-wide waiver still
+tells each waived file apart from one that recorded an empty description.
 
 `read_nwb` closes the file before it returns, so its object holds metadata and no readable data
 arrays. To read data from a waived file, read inside `nwb_read_io`, which takes the same
@@ -215,8 +218,8 @@ Four rows collapse information the file holds, and the returned object cannot re
 
 - **Damage reads as absence.** A dangling soft link and a broken external link return exactly
   what an absent field returns. HDMF drops the link and emits `BrokenLinkWarning` during the
-  read; the returned object carries no trace of it. Record warnings at read time if damage and
-  incompleteness must be told apart.
+  read; the returned object carries no trace of it. Record warnings at read time to tell
+  damage from incompleteness.
 - **NUL bytes read as empty.** A fixed-length string loses its trailing NUL bytes when read, so
   a field holding only NULs is indistinguishable from an empty one.
 - **A one-element array reads as its element.** pynwb flattens it on every read, with or without
@@ -248,17 +251,17 @@ copy or backup behind. The first five also come from `check_ragged_indices`.
 
 ## Warnings, not errors
 
-Four conditions warn rather than raise, because in each case the caller gets something
-usable and the risk is that it is silently wrong.
+Four conditions warn rather than raise: the caller gets something
+usable, and the risk is that it is silently wrong.
 
 | Condition | Raised by | What you get |
 |---|---|---|
-| A length-1 array attribute was collapsed to its scalar: `SqueezedAttributeWarning` | any read | The repaired value. The warning names the attributes, once per read, so a record written from the read can say the file needed repairing |
+| A length-1 array attribute was collapsed to its scalar: `SqueezedAttributeWarning` | any read | The repaired value. The warning names the attributes, once per read, so a record can say the file needed repairing |
 | A container's declared `neurodata_type` disagrees with what the file stores under it: `ContainerTypeContradictionWarning` | `inspect` | The container as stored. The warning names the container and each contradiction, once per container; the typing is the file's to correct |
 | No `codes` column | `events` | The onsets, without codes. `event_onsets` returns them without the warning |
 | Most epochs entirely outside the data, under `boundary_policy="nan"` | `epoch_continuous` | An array of the right shape and entirely `NaN`, which is what onsets in milliseconds look like when read as seconds. The warning names both spans. See [Common mistakes §11](common_mistakes.md) |
 
-Turn all three into errors while developing:
+Turn all four into errors while developing:
 
 ```python
 import warnings

@@ -162,6 +162,21 @@ def _is_testing(module: str) -> bool:
     return module == "jnwb.testing" or module.startswith("jnwb.testing.")
 
 
+def _synthetic_violations(package_dir: Path) -> list[str]:
+    """Each module under `package_dir` outside `testing/` that imports `jnwb.testing`."""
+    violations = []
+    for path in sorted(package_dir.rglob("*.py")):
+        rel = path.relative_to(package_dir)
+        if "__pycache__" in rel.parts or rel.parts[0] == "testing":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        found = sorted(m for m in _imported_modules(tree, ["jnwb", *rel.parts[:-1]])
+                       if _is_testing(m))
+        if found:
+            violations.append(f"jnwb/{rel.as_posix()} imports {found}")
+    return violations
+
+
 def test_no_analysis_module_imports_the_synthetic_generators():
     """`docs/architecture.md` says synthetic signals live in `jnwb.testing`
     and are never presented as measurements. That holds only while no module outside
@@ -180,14 +195,21 @@ def test_no_analysis_module_imports_the_synthetic_generators():
     assert not detected("from .testing import x\nfrom . import spectral", ["jnwb", "vis"])
 
     assert "testing" not in jnwb.__all__
-    violations = []
-    for path in sorted(JNWB_DIR.rglob("*.py")):
-        rel = path.relative_to(JNWB_DIR)
-        if "__pycache__" in rel.parts or rel.parts[0] == "testing":
-            continue
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        found = sorted(m for m in _imported_modules(tree, ["jnwb", *rel.parts[:-1]])
-                       if _is_testing(m))
-        if found:
-            violations.append(f"jnwb/{rel.as_posix()} imports {found}")
+    violations = _synthetic_violations(JNWB_DIR)
     assert not violations, "\n".join(violations)
+
+
+def test_the_scan_reports_a_planted_generator_import(tmp_path):
+    """A scan that finds nothing cannot pass on its own word: a planted module that reaches
+    the generators from an analysis path must be reported, and a clean neighbour must not."""
+    package = tmp_path / "jnwb"
+    (package / "testing").mkdir(parents=True)
+    (package / "testing" / "synth.py").write_text("X = 1\n", encoding="utf-8")
+    (package / "sub").mkdir()
+    (package / "clean.py").write_text("from . import spectral\n", encoding="utf-8")
+    (package / "sub" / "leak.py").write_text(
+        "def f():\n    from ..testing.synth import X\n", encoding="utf-8"
+    )
+    violations = _synthetic_violations(package)
+    assert len(violations) == 1, violations
+    assert violations[0].startswith("jnwb/sub/leak.py imports ['jnwb.testing.synth'"), violations

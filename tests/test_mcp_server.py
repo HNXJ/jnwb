@@ -223,9 +223,10 @@ class TestMCPServer(unittest.TestCase):
         self.assertEqual(stamped["timestamps_path"], "/acquisition/stamped/timestamps")
         wrapped = prepare_signal_reference(path, "/processing/behavior/Position/xy/data")
         self.assertEqual(wrapped["rate_hz"], 60.0)
-        self.assertIsNone(wrapped["reader"])
-        with self.assertRaises(jnwb.NWBInspectError):
-            jnwb.acquisition_channel(path, name="behavior/Position/xy")
+        self.assertEqual(wrapped["reader"],
+                         f"jnwb.acquisition_channel({path!r}, name='behavior/Position/xy', channel=k)")
+        values, rate = jnwb.acquisition_channel(path, name="behavior/Position/xy", channel=1)
+        self.assertEqual((values.shape, rate), ((50,), 60.0))
         direct = prepare_signal_reference(path, "/processing/behavior/direct/data")
         self.assertEqual(direct["reader"],
                          f"jnwb.acquisition_channel({path!r}, name='behavior/direct', channel=k)")
@@ -262,6 +263,93 @@ class TestMCPServer(unittest.TestCase):
         self.assertIsNone(res["reader"])
         with self.assertRaisesRegex(ValueError, "channel_conversion"):
             jnwb.acquisition_channel(path, name="Scaled", channel=0)
+
+    def test_the_reference_pins_the_axis_of_a_channel_by_time_series(self):
+        """Stored channel-by-time: axis 0 is the electrode axis, so `channel=k` is row k."""
+        import warnings
+
+        import jnwb
+
+        path = str(pathlib.Path(self.temp_dir.name) / "axis.nwb")
+        stored = np.arange(100.0).reshape(2, 50)
+        nwbfile = pynwb.NWBFile(session_description="a", identifier="A",
+                                session_start_time=datetime.now(timezone.utc))
+        device = nwbfile.create_device(name="d")
+        eg = nwbfile.create_electrode_group(name="g", description="g", location="V1", device=device)
+        for _ in range(2):
+            nwbfile.add_electrode(x=0.0, y=0.0, z=0.0, imp=0.0, location="V1",
+                                  filtering="none", group=eg)
+        region = nwbfile.create_electrode_table_region(region=[0, 1], description="both")
+        with warnings.catch_warnings():
+            # pynwb warns that this data is oriented for the electrodes on axis 1; it is built so on purpose.
+            warnings.simplefilter("ignore", UserWarning)
+            nwbfile.add_acquisition(pynwb.ecephys.ElectricalSeries(
+                name="cbt", data=stored, electrodes=region, rate=1000.0))
+            with pynwb.NWBHDF5IO(path, "w") as io:
+                io.write(nwbfile)
+            res = prepare_signal_reference(path, "/acquisition/cbt/data")
+            values, rate = jnwb.acquisition_channel(path, name="cbt", channel=1)
+
+        self.assertNotIn("error", res)
+        self.assertEqual((res["layout"], res["layout_basis"], res["n_channels"]),
+                         ("channel_by_time", "electrode_count", 2))
+        self.assertEqual(res["reader"], f"jnwb.acquisition_channel({path!r}, name='cbt', channel=k)")
+        np.testing.assert_array_equal(values, stored[1])
+        self.assertEqual(rate, 1000.0)
+
+    def test_an_out_of_schema_channel_conversion_gets_no_reader_and_says_why(self):
+        """The schema defines `channel_conversion` on ElectricalSeries only. A TimeSeries that
+        carries one is read unscaled, so the reference names no reader and says why."""
+        import h5py
+
+        path = str(pathlib.Path(self.temp_dir.name) / "out_of_schema.nwb")
+        nwbfile = pynwb.NWBFile(session_description="o", identifier="O",
+                                session_start_time=datetime.now(timezone.utc))
+        nwbfile.add_acquisition(pynwb.TimeSeries(name="ts_cc", data=np.arange(50.0), unit="V",
+                                                 rate=1000.0))
+        with pynwb.NWBHDF5IO(path, "w") as io:
+            io.write(nwbfile)
+        with h5py.File(path, "a") as f:
+            f["acquisition/ts_cc"].create_dataset("channel_conversion", data=[2.0])
+
+        res = prepare_signal_reference(path, "/acquisition/ts_cc/data")
+        self.assertNotIn("error", res)
+        self.assertEqual(res["channel_conversion"], [2.0])
+        self.assertIsNone(res["reader"])
+        self.assertIn("channel_conversion", res["access_hint"])
+        self.assertIn("no reader is named", res["access_hint"])
+
+    def test_a_rate_that_is_not_finite_and_positive_gets_no_reader_and_says_why(self):
+        """`acquisition_channel` returns a series at whatever rate the file states; the reference
+        names a reader only at a finite positive rate, and says so when it names none."""
+        import h5py
+
+        path = str(pathlib.Path(self.temp_dir.name) / "rates.nwb")
+        nwbfile = pynwb.NWBFile(session_description="r", identifier="R",
+                                session_start_time=datetime.now(timezone.utc))
+        nwbfile.add_acquisition(pynwb.TimeSeries(name="ts_rate", data=np.arange(50.0), unit="V",
+                                                 rate=1000.0))
+        with pynwb.NWBHDF5IO(path, "w") as io:
+            io.write(nwbfile)
+
+        for rate in (float("inf"), 0.0, -1.0):
+            with self.subTest(rate=rate), h5py.File(path, "a") as f:
+                f["acquisition/ts_rate/starting_time"].attrs["rate"] = rate
+            with self.subTest(rate=rate):
+                res = prepare_signal_reference(path, "/acquisition/ts_rate/data")
+                self.assertNotIn("error", res)
+                self.assertIsNone(res["reader"])
+                self.assertIn("finite positive rate", res["access_hint"])
+
+    def test_the_substitution_sweep_lists_the_reference_handler(self):
+        """`prepare_signal_reference` ends in an `except` that returns an error dict. The sweep must
+        list that handler as a declared failure, and its live scan must still find it."""
+        from tests import test_substitution_class_sweep as sweep
+
+        key = ("mcp_server/nwb_tools.py", "prepare_signal_reference", "Exception", (), True, 1)
+        self.assertIn(key, sweep.ACCEPTED_HANDLER_RECOVERY)
+        live = sweep._live_findings(sweep.scan_recovering_handlers)
+        self.assertIn(key, [f.key for f in live])
 
     def test_a_file_the_resolver_cannot_open_still_gets_its_reference(self):
         """HDF5 that is not NWB: pynwb refuses it, which means no reader, not an error."""
