@@ -59,10 +59,13 @@ print(f"Net: {result.net:.4f}")
 `granger_causality` raise `ValueError` on `0`, a fraction or a bool rather than fitting a model
 with no history, which would read as no coupling.
 
-`granger(..., reversal_control=True)` with `n_surrogates > 0` refits both directions on the
-time-reversed trials at the same orders and reports `reversal_verdict`: `strong` when the net
-direction changes sign under reversal and both net p-values are below 0.05, `not supported` when
-the sign does not change, and `weak` otherwise (Winkler et al., 2016). The verdict is predictive, as the rest of `granger` is.
+`granger_time_reversed(X, Y, order=...)` fits `granger` on the forward trials and on the trials
+reversed in time, at the same fixed integer order; an "auto" order raises. The net direction
+decides: `diagnostics['sign_flip']` is True when it changes sign under reversal. Without a sign
+flip the directed claim is declined, with the warning `no_sign_flip_on_time_reversal` and
+`ok_for_interpretation` set to False (Winkler et al., 2016). With `n_surrogates > 0` the surrogate
+p-values of both nets are reported and do not enter the decision. The verdict is predictive, as the
+rest of `granger` is.
 
 ### Spectral Granger (`granger_spectral`)
 
@@ -81,8 +84,9 @@ assert spectral_res.spectrum is not None
 print("Beta-band summary:", spectral_res.per_band.get("beta"))
 ```
 
-`granger_spectral` is parametric by default. `method="nonparametric"` factorizes the Welch
-cross-spectrum by Wilson's (1972) iteration and fits no VAR. It is not the multitaper estimate of
+`granger_spectral` is parametric. `granger_nonparametric(X, Y, fs=..., bands=...)` factorizes the Welch
+cross-spectrum by Wilson's (1972) iteration and fits no VAR, so it takes no `order`; a factorization
+that does not converge raises. It is not the multitaper estimate of
 [Vezoli et al. (2021)](references.md#pitfalls), so its values are not directly comparable with
 published multitaper values. The
 [pitfalls of coupling and direction](common_mistakes.md#interpretational-pitfalls-of-coupling-and-direction)

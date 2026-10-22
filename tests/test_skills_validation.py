@@ -743,6 +743,18 @@ _RETURN_CONTENT_PROBES = {
     "xflip": _probe_xflip,
     "aperiodic_fit": _probe_aperiodic_fit,
     "directed_connectivity": _probe_directed_connectivity,
+    "granger_nonparametric": lambda: jnwb.granger_nonparametric(
+        np.random.default_rng(12).normal(size=600), np.random.default_rng(13).normal(size=600),
+        fs=500.0, bands=(0.0, 250.0), n_freqs=33),
+    "granger_time_reversed": lambda: jnwb.granger_time_reversed(
+        np.random.default_rng(14).normal(size=600), np.random.default_rng(15).normal(size=600),
+        order=2),
+    "partial_coherence": lambda: jnwb.partial_coherence(
+        *np.random.default_rng(16).normal(size=(3, 2000)), fs=1000.0,
+        freq_bands="canonical", n_surrogates=10),
+    "coherence_bias_floor": lambda: jnwb.coherence_bias_floor(
+        np.random.default_rng(17).normal(size=(3, 10, 400)), fs=1000.0,
+        freq_bands="canonical", n_draws=20),
     "relative_power": _probe_relative_power,
     "inspect": _probe_inspect,
     "events": _probe_events,

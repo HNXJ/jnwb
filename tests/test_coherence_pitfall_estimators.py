@@ -1,10 +1,9 @@
-"""Partial coherence and the paired-epoch bias floor of ``cross_area_coherence``.
+"""``partial_coherence`` and ``coherence_bias_floor``, and the pinned default of ``cross_area_coherence``.
 
-Partial coherence conditions the coherence between two signals on further signals
-(Dahlhaus, 2000). The paired-epoch floor is the coherence that trials paired at random
-produce, the bias that a finite trial count leaves (Maris, Schoffelen and Fries, 2007;
-Bastos and Schoffelen, 2016). The default outputs are pinned to the values the estimator
-returned before these keywords existed.
+Partial coherence conditions the coherence between two signals on a further signal
+(Dahlhaus, 2000). The bias floor is the coherence that randomly paired epochs produce, the bias
+that a finite epoch count leaves (Maris, Schoffelen and Fries, 2007). The default outputs of
+``cross_area_coherence`` are pinned to the values it returned before these estimators existed.
 """
 
 import re
@@ -103,22 +102,6 @@ def _driver_triplet(seed, n=4000):
     return x, y, z
 
 
-def _independent_trials(seed, n_trials=20, n_times=1000):
-    rng = np.random.default_rng(seed)
-    return rng.normal(size=(n_trials, n_times)), rng.normal(size=(n_trials, n_times))
-
-
-def _rhythm_trials(seed, n_trials=20, n_times=1000):
-    """A 24 Hz rhythm shared by x and y within each trial, at a random phase per trial."""
-    rng = np.random.default_rng(seed)
-    t = np.arange(n_times) / FS
-    phase = rng.uniform(0.0, 2.0 * np.pi, size=(n_trials, 1))
-    shared = np.sin(2.0 * np.pi * 24.0 * t[None, :] + phase)
-    x = shared + rng.normal(size=(n_trials, n_times))
-    y = shared + rng.normal(size=(n_trials, n_times))
-    return x, y
-
-
 # --- the default outputs are unchanged --------------------------------------------------
 
 
@@ -164,16 +147,19 @@ def test_common_driver_partial_rejects_at_the_5_percent_rate_over_12_seeds():
     circular-shift null. With 49 surrogates p = (k + 1) / 50, so p < 0.05 needs k <= 1: a
     null rejection rate of 2/50 = 0.04. At that rate, the bound of at most 3 rejections of 12
     has upper tail P(X >= 4) = 0.0010, the tail of the former bound of 6 of 40, P(X >= 7) =
-    0.0010."""
+    0.0010. Both calls draw their shifts from the same seed, so they share one null."""
     coherence_rejections = 0
     partial_rejections = 0
     for seed in range(12):
         x, y, z = _driver_triplet(seed, n=2000)
-        res = jnwb.cross_area_coherence(
-            x, y, fs=FS, freq_bands="canonical", n_surrogates=49, rng=seed, condition_on=z,
+        coherence = jnwb.cross_area_coherence(
+            x, y, fs=FS, freq_bands="canonical", n_surrogates=49, rng=seed,
         )
-        coherence_rejections += res["band_significance"]["beta"] < 0.05
-        partial_rejections += res["partial_band_significance"]["beta"] < 0.05
+        partial = jnwb.partial_coherence(
+            x, y, z, fs=FS, freq_bands="canonical", n_surrogates=49, rng=seed,
+        )
+        coherence_rejections += coherence["band_significance"]["beta"] < 0.05
+        partial_rejections += partial["band_significance"]["beta"] < 0.05
     assert coherence_rejections >= 11, f"coherence significant at {coherence_rejections} of 12"
     assert partial_rejections <= 3, f"partial significant at {partial_rejections} of 12"
 
@@ -184,22 +170,20 @@ def test_independent_conditioner_keeps_partial_within_0p06_of_coherence_over_30_
         rng = np.random.default_rng(100 + seed)
         x, y, z = rng.normal(size=(3, 4000))
         # The observed values do not depend on the surrogate count, so one surrogate suffices.
-        res = jnwb.cross_area_coherence(
-            x, y, fs=FS, freq_bands="canonical", rng=seed, n_surrogates=1, condition_on=z,
+        res = jnwb.partial_coherence(
+            x, y, z, fs=FS, freq_bands="canonical", rng=seed, n_surrogates=1,
         )
         for band in CANONICAL_BANDS:
-            gap = abs(res["partial_coherence"][band] - res["band_coherence"][band])
+            gap = abs(res["band_coherence"][band] - res["unconditioned_band_coherence"][band])
             worst = max(worst, gap)
     assert worst <= 0.06, f"largest |partial - coherence| over 30 seeds is {worst}"
 
 
 def test_partial_spectrum_is_a_per_frequency_companion_of_the_coherence_spectrum():
     x, y, z = _driver_triplet(1)
-    res = jnwb.cross_area_coherence(
-        x, y, fs=FS, freq_bands="canonical", n_surrogates=1, condition_on=z,
-    )
-    spectrum = res["partial_coherence_spectrum"]
-    assert spectrum.shape == res["coherence_spectrum"].shape
+    res = jnwb.partial_coherence(x, y, z, fs=FS, freq_bands="canonical", n_surrogates=1)
+    spectrum = res["coherence_spectrum"]
+    assert spectrum.shape == res["frequencies"].shape
     assert np.all(np.isfinite(spectrum))
     assert np.all((spectrum >= 0.0) & (spectrum <= 1.0 + 1e-12))
 
@@ -209,90 +193,182 @@ def test_a_singular_cross_spectral_matrix_is_refused_with_its_frequency():
     x = rng.normal(size=2000)
     y = rng.normal(size=2000)
     with pytest.raises(ValueError, match="singular") as info:
-        jnwb.cross_area_coherence(x, y, fs=FS, freq_bands="canonical", condition_on=2.0 * x)
+        jnwb.partial_coherence(x, y, 2.0 * x, fs=FS, freq_bands="canonical")
     assert re.search(r"at [0-9.]+ Hz", str(info.value)), str(info.value)
 
 
-def test_condition_on_is_refused_with_bias_floor():
-    X, Y = _independent_trials(0)
-    with pytest.raises(ValueError, match="condition_on"):
-        jnwb.cross_area_coherence(
-            X, Y, fs=FS, freq_bands="canonical", bias_floor="paired_epochs",
-            condition_on=X[0],
-        )
+def test_the_conditioning_signal_is_refused_when_it_is_not_one_dimensional():
+    x, y, z = _driver_triplet(0, n=2000)
+    with pytest.raises(ValueError, match="Z must be a 1-D"):
+        jnwb.partial_coherence(x, y, z[None, :], fs=FS, freq_bands="canonical")
 
 
 # --- the paired-epoch bias floor --------------------------------------------------------
 
+#: The three site pairs of the floor fixtures, in the order `pair_means` reports them.
+SITE_PAIRS = ((0, 1), (0, 2), (1, 2))
 
-def test_independent_trials_exceed_floor_q95_at_1_to_13_of_100_seeds_in_every_band():
-    # At a 5% exceedance rate, 14 or more of 100 has tail probability 0.0005 (binom.sf). The
-    # bound is wide so that a seed near the floor on another platform does not decide the test.
-    counts = {band: 0 for band in CANONICAL_BANDS}
-    for seed in range(100):
-        X, Y = _independent_trials(seed)
-        res = jnwb.cross_area_coherence(
-            X, Y, fs=FS, freq_bands="canonical", bias_floor="paired_epochs", rng=seed,
-            n_pairings=50,
-        )
+
+def _independent_sites(seed, n_sites=3, n_epochs=20, n_times=1000):
+    return np.random.default_rng(seed).normal(size=(n_sites, n_epochs, n_times))
+
+
+def _shared_rhythm_sites(seed, n_epochs=20, n_times=1000):
+    """Sites 0 and 1 share a 24 Hz rhythm within each epoch, at a random phase per epoch; site 2 is
+    independent noise. Every site carries its own noise on top."""
+    rng = np.random.default_rng(seed)
+    t = np.arange(n_times) / FS
+    phase = rng.uniform(0.0, 2.0 * np.pi, size=(n_epochs, 1))
+    shared = np.sin(2.0 * np.pi * 24.0 * t[None, :] + phase)
+    sites = rng.normal(size=(3, n_epochs, n_times))
+    sites[0] += shared
+    sites[1] += shared
+    return sites
+
+
+def _aligned_band_coherence(a, b):
+    """Observed coherence of aligned epochs: epoch i of ``a`` with epoch i of ``b``, pooled over every
+    segment of every epoch, averaged over each canonical band. It is built from the estimator the floor
+    uses, so the comparison is between two pairings of one estimator."""
+    from jnwb.spectral._coupling import _csd_spectra_cpu, _pooled_coherence
+
+    n_times = a.shape[-1]
+    nperseg = min(max(n_times // 8, 8), 4096)
+    freqs, pxx, pyy, sxy = _csd_spectra_cpu(a, b, FS, nperseg, nperseg // 2)
+    coherence = _pooled_coherence(pxx, pyy, sxy)
+    return {
+        band: float(np.mean(coherence[(freqs >= lo) & (freqs <= hi)]))
+        for band, (lo, hi) in CANONICAL_BANDS.items()
+    }
+
+
+#: Per-band tolerance of the bias-matching test, 0.0023. The standard error of the gap between two
+#: means is sqrt(se_aligned^2 + se_floor^2), with se_aligned the standard error of the mean aligned
+#: coherence over seeds 0 to 9 and se_floor that of the mean floor. At theta and alpha, the largest
+#: bands, that is sqrt(0.00076^2 + 0.00013^2) = 0.00077; the tolerance is 3 of those, 0.00231,
+#: rounded down to 0.0023. The aligned term dominates. The floor's own Monte-Carlo standard error
+#: (0.00008 at n_draws=200) is not the binding quantity. Each seed's aligned value is the mean over
+#: the three pairs. Theta and alpha share the 8 Hz bin at this segment length, so they coincide.
+#: Measured with the probe in scratchpad file _temp_e4measure_1406r.py.
+BIAS_TOLERANCE = 0.0023
+
+
+def test_independent_epochs_match_the_floor_in_mean_at_seeds_0_to_9():
+    """Bias matching. Independent epochs carry no coupling, so their aligned coherence estimates the
+    bias that the floor estimates. Over seeds 0 to 9 and the three site pairs, the mean aligned
+    coherence matches the mean floor in every canonical band to within BIAS_TOLERANCE.
+
+    Measured gaps (mean floor minus mean aligned), theta to high_gamma: +0.00017, +0.00017,
+    -0.00123, -0.00024, +0.00023. Each sits inside the tolerance.
+    """
+    aligned = {band: [] for band in CANONICAL_BANDS}
+    floor = {band: [] for band in CANONICAL_BANDS}
+    for seed in range(10):
+        sites = _independent_sites(seed)
+        result = jnwb.coherence_bias_floor(sites, fs=FS, freq_bands="canonical", rng=seed)
         for band in CANONICAL_BANDS:
-            if res["band_coherence"][band] > res["floor_q95"][band]:
-                counts[band] += 1
-    assert all(1 <= count <= 13 for count in counts.values()), (
-        f"observed coherence exceeded floor_q95 at {counts} of 100 seeds; each band needs 1 to 13"
-    )
+            floor[band].append(result["floor_per_band"][band])
+        for a, b in SITE_PAIRS:
+            observed = _aligned_band_coherence(sites[a], sites[b])
+            for band in CANONICAL_BANDS:
+                aligned[band].append(observed[band])
+    for band in CANONICAL_BANDS:
+        assert len(floor[band]) == 10 and len(aligned[band]) == 30, "the examined set is not whole"
+        gap = float(np.mean(floor[band]) - np.mean(aligned[band]))
+        assert abs(gap) <= BIAS_TOLERANCE, f"{band}: mean floor minus mean aligned is {gap:+.5f}"
+
+
+def test_the_floor_is_the_maximum_over_pairs_of_their_mean_draws_exactly():
+    """The floor is the maximum over site pairs of each pair's mean over the draws. It is therefore at
+    least every pair's mean and equal to the largest of them: an exact equality, not a tolerance."""
+    result = jnwb.coherence_bias_floor(_independent_sites(0), fs=FS, freq_bands="canonical", rng=0)
+    means = result["pair_means"]
+    assert set(means) == {str(pair) for pair in SITE_PAIRS}
+    for band in CANONICAL_BANDS:
+        per_pair = [means[str(pair)][band] for pair in SITE_PAIRS]
+        assert result["floor_per_band"][band] == max(per_pair), band
+        assert all(value <= result["floor_per_band"][band] for value in per_pair), band
+
+
+def test_halving_the_epochs_raises_the_floor_in_every_band_at_seeds_0_to_4():
+    """The floor tracks the epoch count: fewer epochs leave a larger bias. At every band and every
+    seed 0 to 4 the floor from 10 epochs exceeds the floor from 20. Means over seeds 0 to 9, theta to
+    high_gamma: 10 epochs 0.01162, 0.01162, 0.00877, 0.00886, 0.00799; 20 epochs 0.00502, 0.00502,
+    0.00396, 0.00391, 0.00401."""
+    for seed in range(5):
+        full = jnwb.coherence_bias_floor(
+            _independent_sites(seed), fs=FS, freq_bands="canonical", rng=seed,
+        )
+        half = jnwb.coherence_bias_floor(
+            _independent_sites(seed, n_epochs=10), fs=FS, freq_bands="canonical", rng=seed,
+        )
+        assert set(half["floor_per_band"]) == set(CANONICAL_BANDS)
+        for band in CANONICAL_BANDS:
+            assert half["floor_per_band"][band] > full["floor_per_band"][band], (seed, band)
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2])
-def test_planted_shared_rhythm_exceeds_the_floor(seed):
-    X, Y = _rhythm_trials(seed)
-    res = jnwb.cross_area_coherence(
-        X, Y, fs=FS, freq_bands="canonical", bias_floor="paired_epochs", rng=seed,
-        n_pairings=50,
+def test_a_rhythm_shared_within_epochs_lifts_the_aligned_coherence_above_the_floor(seed):
+    sites = _shared_rhythm_sites(seed)
+    floor = jnwb.coherence_bias_floor(sites, fs=FS, freq_bands="canonical", rng=seed)
+    shared = _aligned_band_coherence(sites[0], sites[1])
+    independent = _aligned_band_coherence(sites[0], sites[2])
+    assert shared["beta"] > independent["beta"], "fixture must carry the shared rhythm"
+    assert shared["beta"] > floor["floor_per_band"]["beta"], (
+        f"beta aligned {shared['beta']} vs floor {floor['floor_per_band']['beta']}"
     )
-    assert res["pairing_scheme"] == "derangement"
-    assert res["n_pairings"] == 50
-    assert res["band_coherence"]["beta"] > res["floor_q95"]["beta"], (
-        f"beta observed {res['band_coherence']['beta']} vs floor_q95 {res['floor_q95']['beta']}"
-    )
-    assert res["floor_mean"]["beta"] <= res["floor_q95"]["beta"]
 
 
-def test_a_single_trial_is_refused_with_bias_floor():
-    X = np.random.default_rng(0).normal(size=(1, 1000))
-    with pytest.raises(ValueError, match="at least 2 trials"):
-        jnwb.cross_area_coherence(X, X.copy(), fs=FS, freq_bands="canonical",
-                                  bias_floor="paired_epochs")
+def test_the_floor_names_its_scheme_and_its_pairs():
+    res = jnwb.coherence_bias_floor(_independent_sites(0), fs=FS, freq_bands="canonical", rng=0)
+    assert res["exchangeability_scheme"] == "random_epoch_pairing_max_over_site_pairs"
+    assert res["max_over_pairs"] is True
+    assert set(res["pair_means"]) == {"(0, 1)", "(0, 2)", "(1, 2)"}
+    assert set(res["floor_per_band"]) == set(CANONICAL_BANDS)
 
 
-def test_one_dimensional_input_is_refused_with_bias_floor():
-    x, y = _pinned_pair()
-    with pytest.raises(ValueError, match="trial-shaped"):
-        jnwb.cross_area_coherence(x, y, fs=FS, freq_bands="canonical",
-                                  bias_floor="paired_epochs")
+def test_a_single_epoch_is_refused():
+    with pytest.raises(ValueError, match="2 epochs"):
+        jnwb.coherence_bias_floor(_independent_sites(0, n_epochs=1), fs=FS, freq_bands="canonical")
+
+
+def test_one_site_is_refused():
+    with pytest.raises(ValueError, match="2 sites"):
+        jnwb.coherence_bias_floor(_independent_sites(0, n_sites=1), fs=FS, freq_bands="canonical")
+
+
+def test_two_dimensional_input_is_refused():
+    with pytest.raises(ValueError, match="n_sites, n_epochs, n_times"):
+        jnwb.coherence_bias_floor(
+            np.random.default_rng(0).normal(size=(2, 1000)), fs=FS, freq_bands="canonical",
+        )
+
+
+def test_a_pairing_other_than_random_pairs_is_refused():
+    with pytest.raises(ValueError, match="random_pairs"):
+        jnwb.coherence_bias_floor(
+            _independent_sites(0), fs=FS, freq_bands="canonical", pairing="circular",
+        )
 
 
 def test_two_rng_none_calls_give_different_floors():
-    X, Y = _independent_trials(0)
-    first = jnwb.cross_area_coherence(X, Y, fs=FS, freq_bands="canonical",
-                                      bias_floor="paired_epochs", rng=None, n_pairings=50)
-    second = jnwb.cross_area_coherence(X, Y, fs=FS, freq_bands="canonical",
-                                       bias_floor="paired_epochs", rng=None, n_pairings=50)
+    sites = _independent_sites(0)
+    first = jnwb.coherence_bias_floor(sites, fs=FS, freq_bands="canonical", rng=None, n_draws=50)
+    second = jnwb.coherence_bias_floor(sites, fs=FS, freq_bands="canonical", rng=None, n_draws=50)
     assert first["surrogate_seed_entropy"] != second["surrogate_seed_entropy"]
-    assert first["floor_mean"] != second["floor_mean"]
+    assert first["floor_per_band"] != second["floor_per_band"]
 
 
 def test_the_reported_entropy_reproduces_the_floor():
-    X, Y = _independent_trials(0)
-    first = jnwb.cross_area_coherence(X, Y, fs=FS, freq_bands="canonical",
-                                      bias_floor="paired_epochs", rng=None, n_pairings=50)
-    again = jnwb.cross_area_coherence(
-        X, Y, fs=FS, freq_bands="canonical", bias_floor="paired_epochs",
-        rng=first["surrogate_seed_entropy"], n_pairings=50,
+    sites = _independent_sites(0)
+    first = jnwb.coherence_bias_floor(sites, fs=FS, freq_bands="canonical", rng=None, n_draws=50)
+    again = jnwb.coherence_bias_floor(
+        sites, fs=FS, freq_bands="canonical", rng=first["surrogate_seed_entropy"], n_draws=50,
     )
     for band in CANONICAL_BANDS:
-        assert_allclose(again["floor_mean"][band], first["floor_mean"][band], rtol=1e-12, atol=0)
-        assert_allclose(again["floor_q95"][band], first["floor_q95"][band], rtol=1e-12, atol=0)
+        assert_allclose(
+            again["floor_per_band"][band], first["floor_per_band"][band], rtol=1e-12, atol=0,
+        )
 
 
 def test_derangement_sampler_is_uniform_on_four_items():

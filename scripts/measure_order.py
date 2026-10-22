@@ -146,6 +146,34 @@ def _screen(n_units: int, n_sessions: int) -> Callable[[], object]:
     assert all(r["status"] == "success" for r in run()["per_session"]), \
         "fixture must score every session"
     return run
+def _gnp(n_times: int, n_trials: int, n_freqs: int) -> Callable[[], object]:
+    import jnwb
+
+    x, y = np.random.default_rng(0).normal(size=(2, n_trials, n_times))
+    return lambda: jnwb.granger_nonparametric(x, y, fs=500.0, bands=(0.0, 250.0), n_freqs=n_freqs)
+
+
+def _gtr(n_times: int, n_trials: int) -> Callable[[], object]:
+    import jnwb
+
+    x, y = np.random.default_rng(0).normal(size=(2, n_trials, n_times))
+    return lambda: jnwb.granger_time_reversed(x, y, order=2)
+
+
+def _pcoh(n: int) -> Callable[[], object]:
+    import jnwb
+
+    x, y, z = np.random.default_rng(0).normal(size=(3, n))
+    return lambda: jnwb.partial_coherence(x, y, z, fs=1000.0, freq_bands="canonical",
+                                          n_surrogates=1)
+
+
+def _floor(n_sites: int, n_epochs: int, n_times: int, n_draws: int) -> Callable[[], object]:
+    import jnwb
+
+    signals = np.random.default_rng(0).normal(size=(n_sites, n_epochs, n_times))
+    return lambda: jnwb.coherence_bias_floor(signals, fs=1000.0, freq_bands="canonical",
+                                             n_draws=n_draws)
 
 
 def _curation(which: str, n: int) -> Callable[[], object]:
@@ -406,6 +434,61 @@ SPECS: Dict[str, Spec] = {
         "standard normal amplitudes, default_rng(0), num_histogram_bins=500, "
         "histogram_smoothing_value=3 (defaults); admissible O(N)",
         _cutoff,
+    ),
+    # Connectivity and coupling estimators (gate 21). One spec per named size; the other inputs
+    # are pinned and stated in `held`.
+    "granger_nonparametric[n_times]": Spec(
+        "n_times", (10_000, 100_000, 1_000_000, 4_000_000),
+        "4 trials of 2 channels, default_rng(0) normal, fs=500, bands=(0, 250), n_freqs=256, "
+        "n_surrogates=0, detrend zscore",
+        lambda n, _tmp: _gnp(n, 4, 256),
+    ),
+    "granger_nonparametric[n_trials]": Spec(
+        "n_trials", (4, 40, 400, 4000),
+        "n_times=2000, fs=500, bands=(0, 250), n_freqs=256, n_surrogates=0, detrend zscore",
+        lambda n, _tmp: _gnp(2000, n, 256),
+    ),
+    "granger_nonparametric[n_freqs]": Spec(
+        "n_freqs", (128, 512, 2048, 8192, 16384),
+        "4 trials of 1,000,000 samples, fs=500, bands=(0, 250), n_surrogates=0, detrend zscore",
+        lambda n, _tmp: _gnp(1_000_000, 4, n),
+    ),
+    "granger_time_reversed[n_times]": Spec(
+        "n_times", (10_000, 100_000, 1_000_000, 4_000_000),
+        "4 trials of 2 channels, default_rng(0) normal, order=2, n_surrogates=0, detrend zscore",
+        lambda n, _tmp: _gtr(n, 4),
+    ),
+    "granger_time_reversed[n_trials]": Spec(
+        "n_trials", (4, 40, 400, 4000),
+        "n_times=2000, order=2, n_surrogates=0, detrend zscore",
+        lambda n, _tmp: _gtr(2000, n),
+    ),
+    "partial_coherence[n_times]": Spec(
+        "n_times", (10_000, 100_000, 1_000_000, 4_000_000),
+        "1-D X, Y, Z (default_rng(0) normal), fs=1000, freq_bands='canonical', nperseg default "
+        "min(max(n//8, 8), 4096), n_surrogates=1 (0 is refused)",
+        lambda n, _tmp: _pcoh(n),
+    ),
+    "coherence_bias_floor[n_times]": Spec(
+        "n_times", (10_000, 100_000, 1_000_000, 4_000_000),
+        "3 sites, 4 epochs, n_draws=4, fs=1000, freq_bands='canonical', nperseg default",
+        lambda n, _tmp: _floor(3, 4, n, 4),
+    ),
+    "coherence_bias_floor[n_epochs]": Spec(
+        "n_epochs", (4, 40, 400, 4000),
+        "3 sites, n_times=1000, n_draws=4, fs=1000, freq_bands='canonical', nperseg default",
+        lambda n, _tmp: _floor(3, n, 1000, 4),
+    ),
+    "coherence_bias_floor[n_sites]": Spec(
+        "n_sites", (4, 16, 64, 256),
+        "4 epochs, n_times=1000, n_draws=2 (pinned small: the pair count grows as n_sites^2), "
+        "fs=1000, freq_bands='canonical'",
+        lambda n, _tmp: _floor(n, 4, 1000, 2),
+    ),
+    "coherence_bias_floor[n_draws]": Spec(
+        "n_draws", (2, 20, 200, 2000),
+        "3 sites, 4 epochs, n_times=1000, fs=1000, freq_bands='canonical', nperseg default",
+        lambda n, _tmp: _floor(3, 4, 1000, n),
     ),
 }
 

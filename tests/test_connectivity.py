@@ -1556,8 +1556,8 @@ NONPARAMETRIC_TOLERANCE = 0.30125
 
 
 class TestDefaultPathIsUnchanged:
-    """The default path of each estimator still gives the value it gave before the
-    nonparametric branch and the reversal control were added."""
+    """The default path of each estimator gives the value it gave before the nonparametric
+    route and the time-reversal control were added."""
 
     def test_granger_default_x_to_y_is_pinned(self):
         x, y = _var2_x_to_y(0)
@@ -1570,48 +1570,66 @@ class TestDefaultPathIsUnchanged:
         np.testing.assert_allclose(result.x_to_y, 0.4289358751148893, rtol=1e-12)
 
 
-class TestNonparametricArgumentsAreRefusedNotIgnored:
-    """An argument the chosen route would not read is refused, not accepted and dropped."""
+class TestNonparametricRefusals:
+    """Inputs the nonparametric route cannot use are refused, not accepted and dropped."""
 
-    @pytest.mark.parametrize("kwargs", [
-        {"order": 2}, {"max_lag": 5}, {"criterion": "aic"}, {"n_freqs": 64},
-    ])
-    def test_nonparametric_refuses_a_parametric_only_argument(self, kwargs):
+    def test_a_var_order_is_not_an_argument_of_the_route(self):
         x, y = _var2_x_to_y(0)
-        with pytest.raises(ValueError, match=next(iter(kwargs))):
-            granger_spectral(x, y, fs=500.0, method="nonparametric", nperseg=500, **kwargs)
+        with pytest.raises(TypeError):
+            jnwb.granger_nonparametric(x, y, fs=500.0, bands=(0.0, 250.0), order=2)
 
-    @pytest.mark.parametrize("kwargs", [
-        {"nperseg": 500}, {"noverlap": 250}, {"max_iter": 10}, {"tol": 1e-6},
-    ])
-    def test_parametric_refuses_a_nonparametric_only_argument(self, kwargs):
+    def test_bands_are_required_and_none_is_refused(self):
         x, y = _var2_x_to_y(0)
-        with pytest.raises(ValueError, match=next(iter(kwargs))):
-            granger_spectral(x, y, fs=500.0, **kwargs)
+        with pytest.raises(TypeError):
+            jnwb.granger_nonparametric(x, y, fs=500.0)
+        with pytest.raises(ValueError, match="needs bands"):
+            jnwb.granger_nonparametric(x, y, fs=500.0, bands=None)
 
-    def test_an_unknown_method_is_refused(self):
+    @pytest.mark.parametrize("fs", [0.0, -1.0, float("nan"), float("inf")])
+    def test_a_non_positive_or_non_finite_fs_is_refused(self, fs):
         x, y = _var2_x_to_y(0)
-        with pytest.raises(ValueError, match="method"):
-            granger_spectral(x, y, fs=500.0, method="multitaper")
+        with pytest.raises(ValueError, match="positive fs"):
+            jnwb.granger_nonparametric(x, y, fs=fs, bands=(0.0, 250.0))
 
-    def test_reversal_control_without_surrogates_is_refused(self):
+    @pytest.mark.parametrize("n_freqs", [1, 2.5, True])
+    def test_n_freqs_below_two_or_not_an_integer_is_refused(self, n_freqs):
         x, y = _var2_x_to_y(0)
-        with pytest.raises(ValueError, match="n_surrogates"):
-            granger(x, y, order=2, reversal_control=True)
+        with pytest.raises(ValueError, match="n_freqs"):
+            jnwb.granger_nonparametric(x, y, fs=500.0, bands=(0.0, 250.0), n_freqs=n_freqs)
 
-    def test_non_convergence_is_raised_and_names_the_count_and_the_residual(self):
+    def test_a_record_too_short_for_one_segment_names_n_freqs_and_the_length(self):
+        x, y = _var2_x_to_y(0, n=200)
+        with pytest.raises(ValueError, match=r"n_freqs=256 .* 200 samples"):
+            jnwb.granger_nonparametric(x, y, fs=500.0, bands=(0.0, 250.0))
+
+    def test_non_convergence_is_raised_and_names_the_count_and_the_residual(self, monkeypatch):
+        import jnwb.connectivity._granger as granger_module
+
+        monkeypatch.setattr(granger_module, "_WILSON_MAX_ITER", 1)
         x, y = _var2_x_to_y(0)
         with pytest.raises(RuntimeError, match=r"in 1 iteration.*residual"):
-            granger_spectral(x, y, fs=500.0, method="nonparametric", nperseg=500, max_iter=1)
+            jnwb.granger_nonparametric(x, y, fs=500.0, bands=(0.0, 250.0), n_freqs=251)
+
+    @pytest.mark.parametrize("order", ["auto", 0, 2.5, True])
+    def test_time_reversed_refuses_auto_and_anything_but_a_fixed_integer(self, order):
+        x, y = _var2_x_to_y(0)
+        with pytest.raises(ValueError, match="order"):
+            jnwb.granger_time_reversed(x, y, order=order)
 
 
 class TestNonparametricSpectrum:
+    def test_the_frequency_grid_is_the_granger_spectral_grid(self):
+        x, y = _var2_x_to_y(0)
+        result = jnwb.granger_nonparametric(x, y, fs=500.0, n_freqs=33, bands=(0.0, 250.0))
+        np.testing.assert_allclose(result.spectrum["freqs"], np.linspace(0.0, 250.0, 33))
+        assert result.params["nperseg"] == 64 and result.params["noverlap"] == 32
+
     def test_the_x_to_y_spectrum_stays_within_its_pinned_gap_of_the_parametric_at_the_true_order(self):
         worst = 0.0
         for seed in (0, 1, 2):
             x, y = _var2_x_to_y(seed)
             parametric = granger_spectral(x, y, fs=500.0, order=2, n_freqs=33)
-            nonparametric = granger_spectral(x, y, fs=500.0, method="nonparametric", nperseg=64)
+            nonparametric = jnwb.granger_nonparametric(x, y, fs=500.0, n_freqs=33, bands=(0.0, 250.0))
             np.testing.assert_allclose(
                 nonparametric.spectrum["freqs"], parametric.spectrum["freqs"]
             )
@@ -1650,17 +1668,26 @@ class TestNonparametricSpectrum:
             h, h_true[: n // 2 + 1], rtol=1e-6, atol=1e-6 * np.max(np.abs(h_true))
         )
 
+    def test_a_constant_input_gives_nan_and_says_so(self):
+        x, y = _var2_x_to_y(0)
+        result = jnwb.granger_nonparametric(np.ones_like(x), y, fs=500.0, n_freqs=33, bands=(0.0, 250.0))
+        assert np.isnan(result.x_to_y) and np.isnan(result.y_to_x)
+        assert np.all(np.isnan(result.spectrum["gc_x_to_y"]))
+        assert "constant_input" in result.diagnostics["warnings"]
+        assert result.p_x_to_y is None, "no surrogate test runs on a constant input"
+
     def test_y_to_x_stays_below_its_surrogate_95th_percentile(self):
         x, y = _var2_x_to_y(0)
         n = len(y)
         shifts = np.random.default_rng(0).integers(n // 10, n - n // 10, size=99)
-        observed = granger_spectral(x, y, fs=500.0, method="nonparametric", nperseg=500)
+        bands = (0.0, 250.0)
+        observed = jnwb.granger_nonparametric(x, y, fs=500.0, n_freqs=251, bands=bands)
         null_yx = np.array([
-            granger_spectral(x, np.roll(y, s), fs=500.0, method="nonparametric", nperseg=500).y_to_x
+            jnwb.granger_nonparametric(x, np.roll(y, s), fs=500.0, n_freqs=251, bands=bands).y_to_x
             for s in shifts
         ])
         null_xy = np.array([
-            granger_spectral(np.roll(x, s), y, fs=500.0, method="nonparametric", nperseg=500).x_to_y
+            jnwb.granger_nonparametric(np.roll(x, s), y, fs=500.0, n_freqs=251, bands=bands).x_to_y
             for s in shifts
         ])
         assert np.ptp(null_yx) > 0.0, "the surrogate null must not be degenerate"
@@ -1670,3 +1697,56 @@ class TestNonparametricSpectrum:
         assert observed.y_to_x < np.percentile(null_yx, 95), (
             "y to x must stay below its surrogate 95th percentile"
         )
+
+    def test_the_reported_entropy_reproduces_the_surrogate_p_values(self):
+        x, y = _var2_x_to_y(0, n=1000)
+        first = jnwb.granger_nonparametric(
+            x, y, fs=500.0, n_freqs=33, bands=(0.0, 250.0), n_surrogates=19, rng=None,
+        )
+        again = jnwb.granger_nonparametric(
+            x, y, fs=500.0, n_freqs=33, bands=(0.0, 250.0), n_surrogates=19,
+            rng=first.params["surrogate_seed_entropy"],
+        )
+        assert first.params["surrogate_scheme"] in ("trial_permutation", "circular_shift")
+        assert first.p_x_to_y == again.p_x_to_y and first.p_y_to_x == again.p_y_to_x
+
+
+class TestTimeReversedControl:
+    """The control's bookkeeping, on a fixture with a known unidirectional flow."""
+
+    def test_the_forward_flows_are_the_granger_flows_and_the_flip_is_the_sign_of_the_product(self):
+        x, y = _var2_x_to_y(0)
+        result = jnwb.granger_time_reversed(x, y, order=2)
+        forward = granger(x, y, order=2)
+        assert result.x_to_y == forward.x_to_y and result.y_to_x == forward.y_to_x
+        assert result.net == forward.net
+        assert result.diagnostics["net_forward"] == forward.net
+        assert result.diagnostics["sign_flip"] == bool(
+            result.diagnostics["net_forward"] * result.diagnostics["net_reversed"] < 0
+        )
+
+    def test_the_warning_and_the_verdict_follow_the_sign_flip(self):
+        x, y = _var2_x_to_y(0)
+        result = jnwb.granger_time_reversed(x, y, order=2)
+        flipped = result.diagnostics["sign_flip"]
+        warnings = result.diagnostics["warnings"]
+        assert ("no_sign_flip_on_time_reversal" in warnings) == (not flipped)
+        assert result.diagnostics["ok_for_interpretation"] == (len(warnings) == 0)
+        assert result.ok == (len(warnings) == 0)
+
+    def test_surrogate_p_values_are_reported_and_p_net_is_the_forward_one(self):
+        x, y = _var2_x_to_y(0, n=1000)
+        result = jnwb.granger_time_reversed(x, y, order=2, n_surrogates=19, rng=3)
+        assert result.p_net == result.diagnostics["p_net_forward"]
+        for key in ("p_net_forward", "p_net_reversed"):
+            assert 0.0 < result.diagnostics[key] <= 1.0
+        assert result.p_x_to_y is None and result.per_band == {}
+
+    def test_the_reported_entropy_reproduces_the_surrogate_p_values(self):
+        x, y = _var2_x_to_y(0, n=1000)
+        first = jnwb.granger_time_reversed(x, y, order=2, n_surrogates=19, rng=None)
+        again = jnwb.granger_time_reversed(
+            x, y, order=2, n_surrogates=19, rng=first.params["surrogate_seed_entropy"],
+        )
+        assert first.diagnostics["p_net_forward"] == again.diagnostics["p_net_forward"]
+        assert first.diagnostics["p_net_reversed"] == again.diagnostics["p_net_reversed"]

@@ -321,8 +321,8 @@ class TestCommonInput:
     """Common input: an unrecorded source drives both signals and leaves a Granger
     direction between
     them (Bastos and Schoffelen 2016 table 2, common-input row). No estimator removes it;
-    recording the driver and conditioning on it does, and `cross_area_coherence(condition_on=...)`
-    is that conditioning for coherence, which the last test of the class reads."""
+    recording the driver and conditioning on it does, and `partial_coherence` is that conditioning
+    for coherence, which the last test of the class reads."""
 
     #: `diagnostics['f_x_to_y']` bivariate vs conditional at order 3, which must be at
     #: least the larger delay d2 = 3. The ratio is about 1680.
@@ -375,18 +375,21 @@ class TestCommonInput:
 
     def test_partial_coherence_given_the_driver_reads_as_no_coupling(self):
         """The coherence form of the repair. The driver reaches both channels, so their alpha
-        coherence is high and significant; conditioning the coherence on the recorded driver
-        leaves the partial coherence at the circular-shift null."""
+        coherence is high and significant; conditioning on the recorded driver leaves the partial
+        coherence at the circular-shift null."""
         driver, x, y = _common_input_pair()
-        result = jnwb.cross_area_coherence(
-            x, y, fs=FS, freq_bands=ALPHA_BAND, n_surrogates=49, rng=0, condition_on=driver
+        plain = jnwb.cross_area_coherence(
+            x, y, fs=FS, freq_bands=ALPHA_BAND, n_surrogates=49, rng=0
         )
-        coherence = result["band_coherence"]["alpha"]
+        partial = jnwb.partial_coherence(
+            x, y, driver, fs=FS, freq_bands=ALPHA_BAND, n_surrogates=49, rng=0
+        )
+        coherence = plain["band_coherence"]["alpha"]
         assert coherence > 0.5, f"the driven band must read as coupled: {coherence!r}"
-        assert result["band_significance"]["alpha"] < 0.05, (
+        assert plain["band_significance"]["alpha"] < 0.05, (
             "and the coherence is significant against the circular-shift null"
         )
-        assert result["partial_band_significance"]["alpha"] > 0.05, (
+        assert partial["band_significance"]["alpha"] > 0.05, (
             "conditioning on the driver removes it, so the partial coherence is at the null level"
         )
 
@@ -443,13 +446,29 @@ def _stream_trials(seed, rhythm=False):
     return x, y
 
 
+def _aligned_band_coherence(a, b, bands):
+    """Coherence of aligned epochs (epoch i of ``a`` with epoch i of ``b``), pooled over every
+    segment and averaged over each band. It uses the segmentation ``coherence_bias_floor`` uses
+    by default, so the comparison is between two pairings of one estimator."""
+    from jnwb.spectral._coupling import _csd_spectra_cpu, _pooled_coherence
+
+    n_times = a.shape[-1]
+    nperseg = min(max(n_times // 8, 8), 4096)
+    freqs, pxx, pyy, sxy = _csd_spectra_cpu(a, b, FS, nperseg, nperseg // 2)
+    coherence = _pooled_coherence(pxx, pyy, sxy)
+    return {
+        band: float(np.mean(coherence[(freqs >= lo) & (freqs <= hi)]))
+        for band, (lo, hi) in bands.items()
+    }
+
+
 class TestSampleSizeBias:
     """Sample-size bias: coherence sits near 1/K for K Welch segments under no coupling.
     The bias-free
     measures are `pairwise_phase_consistency` and `wpli`'s debiased value; both stay near
     zero at every segment count (Bastos and Schoffelen 2016 table 2, sample-size row).
-    The coherence form of the repair is `cross_area_coherence(bias_floor="paired_epochs")`,
-    whose trial-level floor the last test of the class reads against the observed coherence."""
+    The coherence form of the repair is `coherence_bias_floor`, whose trial-level floor the last
+    test of the class reads against the aligned coherence of each site pair."""
 
     #: (nperseg, coherence, wpli, wpli_debiased_sq, ppc) at seed 0, K = 4, 8, 16, 32.
     ROWS = (
@@ -519,24 +538,21 @@ class TestSampleSizeBias:
             "the debiased value must not carry the bias"
         )
 
-    def test_the_paired_epoch_floor_holds_independent_trials_and_a_shared_rhythm_clears_it(self):
-        """The coherence form of the repair. On independent trials every band's observed
-        coherence sits at or below its paired-epoch floor; a 24 Hz rhythm shared by the two
-        channels lifts the beta band above its floor, so the floor does not hide coupling."""
+    def test_a_shared_rhythm_lifts_beta_above_the_paired_epoch_floor(self):
+        """The coherence form of the repair. A 24 Hz rhythm shared by two of three sites lifts the beta
+        band of their aligned coherence above the paired-epoch floor, so the floor does not hide
+        coupling. The floor is a bias estimate, not a threshold: independent trials are not asserted
+        against it, since an independent pair's aligned coherence lands above the floor on some seeds."""
         bands = {"alpha": (8.0, 14.0), "beta": (14.0, 30.0)}
-        x, y = _stream_trials(SEED)
-        null = jnwb.cross_area_coherence(
-            x, y, fs=FS, freq_bands=bands, bias_floor="paired_epochs", rng=0, n_pairings=50
-        )
-        for band in bands:
-            observed, floor = null["band_coherence"][band], null["floor_q95"][band]
-            assert observed <= floor, f"{band}: observed {observed} above floor_q95 {floor}"
 
-        x, y = _stream_trials(SEED, rhythm=True)
-        rhythm = jnwb.cross_area_coherence(
-            x, y, fs=FS, freq_bands=bands, bias_floor="paired_epochs", rng=0, n_pairings=50
-        )
-        assert rhythm["band_coherence"]["beta"] > rhythm["floor_q95"]["beta"], (
+        def three_sites(rhythm):
+            x, y = _stream_trials(SEED, rhythm=rhythm)
+            return np.stack([x, y, _stream_trials(SEED + 1)[0]])
+
+        rhythm_sites = three_sites(rhythm=True)
+        floor = jnwb.coherence_bias_floor(rhythm_sites, fs=FS, freq_bands=bands, rng=0, n_draws=50)
+        lifted = _aligned_band_coherence(rhythm_sites[0], rhythm_sites[1], bands)
+        assert lifted["beta"] > floor["floor_per_band"]["beta"], (
             "a shared 24 Hz rhythm must lift beta above its paired-epoch floor"
         )
 
@@ -608,11 +624,11 @@ class TestSignalToNoiseAsymmetry:
     destroying cross-dependence while preserving both marginals, the observed F of 8.59 sits
     against a null mean of 1.04 and a 95th percentile of 2.02.
 
-    A time-reversed control separates a strong asymmetry from a weak one: `granger(...,
-    reversal_control=True)` reports whether the net direction keeps its sign under time
-    reversal. The reversal tests below read its verdict on a coupled pair and on
-    the common-source pair, with the same noise asymmetry. `jnwb` has no power-stratification
-    control, so comparing power between the channels is still the caller's step.
+    A time-reversed control separates a strong asymmetry from a weak one: `granger_time_reversed`
+    reports whether the net direction keeps its sign under time reversal (`diagnostics['sign_flip']`).
+    The sign-flip tests below read it on a coupled pair and on the common-source pair, with the same
+    noise asymmetry. `jnwb` has no power-stratification control, so comparing power between the
+    channels is still the caller's step.
     """
 
     #: `diagnostics['f_x_to_y']` on the common-source pair, order 8, at 6x noise on y, and
@@ -622,38 +638,30 @@ class TestSignalToNoiseAsymmetry:
     F_XY_NOISY = 34.28
 
     def test_the_reversal_control_calls_a_coupled_lag_8_direction_strong(self):
-        """The same noise asymmetry on a pair that couples x to y at lag 8. Reversal turns
-        the lag into a lead from y, so the net direction changes sign and both p-values clear
-        0.05, at eight or more of ten seeds. The bound is a power bound: the measured count
-        was 10 of 10, and the test pins that count less 2."""
-        verdicts = [
-            jnwb.granger(
-                *_snr_pair(6.0, seed=seed, lag=8),
-                order=8,
-                n_surrogates=99,
-                rng=0,
-                reversal_control=True,
-            ).diagnostics["reversal_verdict"]
+        """The same noise asymmetry on a pair that couples x to y at lag 8. Reversal turns the
+        lag into a lead from y, so the net direction changes sign at eight or more of ten seeds.
+        Sign-flip alone decides. The bound is a power bound: the
+        measured count was 10 of 10, and the test pins that count less 2."""
+        flips = [
+            jnwb.granger_time_reversed(
+                *_snr_pair(6.0, seed=seed, lag=8), order=8
+            ).diagnostics["sign_flip"]
             for seed in range(10)
         ]
-        assert verdicts.count("strong") >= 8, verdicts
+        assert sum(flips) >= 8, flips
 
     def test_the_reversal_control_does_not_call_a_common_source_pair_strong(self):
-        """The null for the reversal verdict: one source seen twice with unequal noise, so no
-        direction exists to report. "Strong" needs both p-values below 0.05, so its count over
-        40 seeds is a binomial rate at 5%. The bound is the smallest k with
-        binom.sf(k, 40, 0.05) < 0.001, which is 7 (sf 0.00071; sf at 6 is 0.0034)."""
-        verdicts = [
-            jnwb.granger(
-                *_asymmetric_noise_pair(6.0, seed=seed),
-                order=8,
-                n_surrogates=99,
-                rng=0,
-                reversal_control=True,
-            ).diagnostics["reversal_verdict"]
+        """The null for the sign-flip verdict: one source seen twice with unequal noise, so no
+        direction exists to report. The bound of at most 7 flips in 40 seeds is the smallest k
+        with binom.sf(k, 40, 0.05) < 0.001 (sf 0.00071; sf at 6 is 0.0034), so it holds at a 5%
+        per-seed rate. The measured count was 0 of 40."""
+        flips = [
+            jnwb.granger_time_reversed(
+                *_asymmetric_noise_pair(6.0, seed=seed), order=8
+            ).diagnostics["sign_flip"]
             for seed in range(40)
         ]
-        assert verdicts.count("strong") <= 7, verdicts
+        assert sum(flips) <= 7, flips
 
     def test_a_common_source_pair_gains_a_direction_from_the_noise_asymmetry(self):
         """The case the row names. The two channels observe one source and do not interact,

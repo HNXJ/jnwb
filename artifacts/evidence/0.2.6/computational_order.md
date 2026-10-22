@@ -16,11 +16,11 @@ more than one input dimension and the orders differ between them.
 
 | Category | Exports | Evidence |
 |---|---|---|
-| `jnwb.__all__` | 208 | runtime probe with a provenance assertion |
-| Cost grows with input size -- measured | 136 | 223 sweeps, 223 completed |
+| `jnwb.__all__` | 212 | runtime probe with a provenance assertion |
+| Cost grows with input size -- measured | 140 | 233 sweeps, 233 completed |
 | Cost does not grow with input size -- excluded | 62 | section 7, one reason each |
 | Cost grows, input not buildable from this repository | 10 | section 8 |
-| **Total** | **208** | partition checked exact against a live `jnwb.__all__` |
+| **Total** | **212** | partition checked exact against a live `jnwb.__all__` |
 
 The three categories are disjoint and their union is `jnwb.__all__`; no export is in two,
 and none is in none. `classification: observed`.
@@ -184,9 +184,14 @@ contradicts a written claim it appears in section 6.
 | `granger[n_samples]` | n_samples | 10000, 40000, 120000, 300000, 600000 | 11.8, 51.7, 168.6, 469.1, 985.3 | +1.08 | 1.000 | 84x | O(n) | T(N*d^2*p) | derived | agree |
 | `granger_causality[model_order]` | model_order | 2, 6, 18, 40, 70 | 11.9, 27.3, 81.4, 281.1, 591.6 | +1.11 | 0.981 | 50x | O(n) | T(N*p + p^2) | derived | ORDER |
 | `granger_causality[n_samples]` | n_samples | 10000, 40000, 120000, 300000, 600000 | 11.0, 48.8, 164.6, 470.2, 1010 | +1.11 | 1.000 | 92x | O(n) | T(N*d^2*p) | derived | agree |
+| `granger_nonparametric[n_times]` | n_times | 10000, 100000, 1000000, 4000000 | 56.68, 475, 4372, 1.636e+04 | +0.95 | 1.000 | 289x | O(n) | T(R*N*log F + I*F*log F), linear in N | derived | agree |
+| `granger_nonparametric[n_trials]` | n_trials | 4, 40, 400, 4000 | 20.64, 122.7, 1111, 1.115e+04 | +0.92 | 0.997 | 540x | O(n) | T(R*N*log F + I*F*log F), linear in R | derived | agree |
+| `granger_nonparametric[n_freqs]` | n_freqs | 128, 512, 2048, 8192, 16384 | 8819, 3334, 2670, 2906, 2512 | -0.22 | 0.696 | 4x | CONSTANT | T(R*N*log F + I*F*log F), F log F from the factorization | derived | NOT REACHED (top-two slope -0.21) |
 | `granger_spectral[model_order]` | model_order | 4, 12, 40, 80, 160 | 8.33, 31.1, 133.5, 291.6, 680.4 | +1.19 | 1.000 | 82x | O(n) | T(N*p + p^2 + F log F) | derived | ORDER |
 | `granger_spectral[n_freqs]` | n_freqs | 128, 512, 2048, 8192, 16384 | 10.8, 40.8, 128.8, 527.8, 1023 | +0.93 | 0.999 | 95x | O(n) | T(d^2*F log F + d^3*F) | derived | ORDER |
 | `granger_spectral[n_samples]` | n_samples | 8000, 30000, 120000, 400000, 1000000 | 5.95, 14.3, 52.9, 203.2, 556.6 | +0.95 | 0.991 | 94x | O(n) | T(N*d^2*p) | derived | agree |
+| `granger_time_reversed[n_times]` | n_times | 10000, 100000, 1000000, 4000000 | 38.82, 418.5, 4984, 1.982e+04 | +1.05 | 1.000 | 511x | O(n) | T(2*N*d^2*p), two granger fits | derived | agree |
+| `granger_time_reversed[n_trials]` | n_trials | 4, 40, 400, 4000 | 10.53, 69.53, 794.4, 7990 | +0.97 | 0.997 | 759x | O(n) | T(2*R*N*d^2*p), two granger fits | derived | agree |
 | `network_topology[n_nodes]` | n_nodes | 800, 1600, 3000, 5000, 8000 | 8.45, 33.2, 115.7, 320.2, 814.8 | +1.98 | 1.000 | 96x | O(n^2) | T(n^2) | derived | agree |
 | `phase_slope_index[n_samples]` | n_samples | 60000, 200000, 700000, 2000000, 4000000 | 8.69, 39.9, 123.6, 334.0, 692.1 | +1.02 | 0.996 | 80x | O(n) | T(N log L) | derived | agree |
 | `phase_slope_index[n_samples_jackknife]` | n_samples | 60000, 200000, 700000, 2000000, 4000000 | 13.06, 59.15, 197.2, 555.3, 1151 | +1.05 | 0.997 | 88x | O(n) | T(S*L) | derived | agree |
@@ -198,6 +203,8 @@ contradicts a written claim it appears in section 6.
 | `transfer_entropy[target_history_k]` | target_history_k | 1, 8, 50, 200, 500 | 98.6, 166.9, 389.8, 651.1, 1213 | +0.40 | 0.979 | 12x | sub-linear | T(N*(k+l)) | derived | agree |
 
 `phase_slope_index[n_samples_jackknife]` was re-measured at `19a8496d` after the change in section 6.2, on a ladder 80x wider because the reduced path no longer reaches the timing band over 5000 to 50000. At `f23d96ce` it read +2.14 over that narrower ladder, T(S^2*L).
+
+`granger_nonparametric` and `granger_time_reversed` (four rows above) have admitted orders derived from the function bodies, not read off the sweeps. Symbols: R trials, N samples per trial, F frequency bins, I Wilson iterations (data-dependent, at most 500), d channels (2), p the fixed order. Welch segments per trial are about N/(F-1), each an FFT of 2(F-1) points, so the spectral estimate costs T(R*N*log F). The Wilson factorization costs I*F*log F and does not depend on N or R. The admitted order is therefore linear in N and in R, and F log F in F. The `n_freqs` sweep does not reach the factorization term: its cost falls from 8.8 s at 128 bins to 2.5 s at 16384 bins (top-two slope -0.21). That fall is consistent with a per-segment cost, since the segment count N/F falls as F grows; this run did not isolate that term. The row is recorded as not reached, not as agreeing. `granger_time_reversed` runs `granger` twice at one order, so its admitted order is that of `granger` times two.
 
 ### `jnwb.continuous`
 
@@ -357,6 +364,10 @@ contradicts a written claim it appears in section 6.
 | `band_power` | n_samples | 300000, 1000000, 3000000, 10000000 | 18.4, 67.3, 212.0, 750.0 | +1.06 | 1.000 | 41x | O(n) | T(n) | derived | agree |
 | `bipolar_reference[n_channels]` | n_channels | 128, 512, 1024, 2048 | 12.6, 52.1, 97.8, 199.4 | +0.99 | 1.000 | 16x | O(n) | T(C*n) | derived | CONSTANT |
 | `bipolar_reference[n_samples]` | n_samples | 150000, 500000, 1500000, 2500000 | 25.0, 83.1, 251.0, 445.3 | +1.02 | 1.000 | 18x | O(n) | T(C*n) | derived | agree |
+| `coherence_bias_floor[n_times]` | n_times | 10000, 100000, 1000000, 4000000 | 114.9, 1024, 1.208e+04, 5.303e+04 | +1.03 | 0.999 | 461x | O(n) | T(P*D*E*N*log L), linear in N | derived | agree |
+| `coherence_bias_floor[n_epochs]` | n_epochs | 4, 40, 400, 4000 | 44.8, 116.6, 894.1, 1.212e+04 | +0.82 | 0.962 | 270x | O(n) | T(P*D*E*N*log L), linear in E | derived | agree |
+| `coherence_bias_floor[n_sites]` | n_sites | 4, 16, 64, 256 | 61, 1204, 1.923e+04, 2.94e+05 | +2.04 | 1.000 | 4819x | O(n^2) | T(S^2*D*E*N*log L), P = S(S-1)/2 pairs | derived | agree |
+| `coherence_bias_floor[n_draws]` | n_draws | 2, 20, 200, 2000 | 27.71, 265.3, 2670, 2.662e+04 | +1.00 | 1.000 | 961x | O(n) | T(P*D*E*N*log L), linear in D | derived | agree |
 | `compute_multitaper_psd[k_tapers]` | k_tapers | 6, 20, 40, 80 | 8.84, 27.3, 57.2, 127.5 | +1.03 | 0.997 | 14x | O(n) | unknown | unknown | agree |
 | `compute_multitaper_psd[n_samples]` | n_samples | 16384, 49152, 131072, 262144 | 26.3, 75.3, 206.2, 409.9 | +0.99 | 1.000 | 16x | O(n) | O(K*n log n) best known; lower bound unknown | unknown | agree |
 | `compute_multitaper_psd[n_signals]` | n_signals | 128, 384, 1024, 2048 | 51.7, 140.3, 366.2, 729.5 | +0.96 | 1.000 | 14x | O(n) | T(M) | derived | agree |
@@ -371,12 +382,15 @@ contradicts a written claim it appears in section 6.
 | `imaginary_coherency` | n_samples | 100000, 300000, 1000000, 3000000 | 40.6, 130.3, 435.3, 1294 | +1.02 | 1.000 | 32x | O(n) | T(n) | derived | CONSTANT |
 | `laplacian_reference[n_channels]` | n_channels | 128, 512, 1024, 2048 | 22.2, 85.0, 170.2, 345.3 | +0.99 | 1.000 | 16x | O(n) | T(C*n) | derived | CONSTANT |
 | `laplacian_reference[n_samples]` | n_samples | 150000, 500000, 1500000, 2500000 | 76.8, 259.0, 773.1, 1292 | +1.00 | 1.000 | 17x | O(n) | T(C*n) | derived | agree |
+| `partial_coherence[n_times]` | n_times | 10000, 100000, 1000000, 4000000 | 80.17, 376.6, 4049, 1.768e+04 | +0.91 | 0.989 | 221x | O(n) | T(N*log L), L capped at 4096; one surrogate | derived | agree |
 | `relative_power` | n_units | 400000, 1000000, 3000000, 8000000 | 32.2, 78.6, 239.2, 662.7 | +1.01 | 1.000 | 21x | O(n) | T(U*T) | derived | CONSTANT |
 | `spectral_tilt` | n_samples | 300000, 1000000, 3000000, 10000000 | 20.7, 70.3, 214.7, 754.6 | +1.02 | 1.000 | 36x | O(n) | T(n) | derived | agree |
 | `to_db` | n_elements | 2000000, 6000000, 20000000, 40000000 | 20.9, 61.9, 210.7, 419.1 | +1.00 | 1.000 | 20x | O(n) | T(n) | derived | agree |
 | `voltage_curvature_1d[n_channels]` | n_channels | 128, 512, 1024, 2048 | 34.9, 132.7, 268.9, 546.7 | +0.99 | 1.000 | 16x | O(n) | T(C*n) | derived | agree |
 | `voltage_curvature_1d[n_samples]` | n_samples | 150000, 500000, 1500000, 2500000 | 66.0, 193.8, 590.5, 998.8 | +0.97 | 0.999 | 15x | O(n) | T(C*n) | derived | agree |
 | `wpli` | n_samples | 300000, 1000000, 3000000, 10000000 | 32.8, 97.7, 279.2, 950.4 | +0.96 | 0.999 | 29x | O(n) | T(n) | derived | agree |
+
+`partial_coherence` and `coherence_bias_floor` (rows above; admitted orders derived from the function bodies). Symbols: N samples per trace, L the Welch segment length, min(max(N/8, 8), 4096) by default, so it stops growing at N = 32768; E epochs; S sites; P = S(S-1)/2 site pairs; D draws. The floor costs one paired Welch pass per pair and draw, T(P*D*E*N*log L). The partial value costs one three-channel pass plus the unconditioned coherence, T(N*log L), with the surrogate count pinned at its minimum of 1. The `n_epochs` ladder is overhead-dominated at its low end (local slope +0.42 from 4 to 40 epochs, +1.13 from 400 to 4000); the fitted +0.82 is within the 0.25 rule of the linear admitted order. The `n_sites` exponent of +2.04 matches the pair loop.
 
 ### `jnwb.spiking`
 

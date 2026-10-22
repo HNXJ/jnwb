@@ -109,6 +109,8 @@ from ._granger import (
     _fit_var_matrix,
     _var_spectral_radius,
     granger_spectral,
+    granger_nonparametric,
+    granger_time_reversed,
     _spectral_gc_from_var,
 )
 from ._psi import (

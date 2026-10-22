@@ -1,2 +1,4 @@
-- `granger_spectral(method="nonparametric")`: Welch and Wilson factorization, no VAR order (`_granger.py`).
-- `granger(reversal_control=True)`: a `reversal_verdict` of strong, weak or not supported (`_granger.py`).
+- `granger_nonparametric`: Welch and Wilson factorization, no VAR order (`jnwb/connectivity/_granger.py`).
+- `granger_time_reversed`: the net direction's sign flip under time reversal (`jnwb/connectivity/_granger.py`).
+- `partial_coherence`: coherence given one conditioning signal, circular-shift p (`jnwb/spectral/_coupling.py`).
+- `coherence_bias_floor`: trial-pairing bias floor for coherence (`jnwb/spectral/_coupling.py`).

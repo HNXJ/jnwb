@@ -542,7 +542,6 @@ def granger(
     time_axis: int = -1,
     *,
     seed: Any = Default(0),
-    reversal_control: bool = False,
 ) -> DirectedResult:
     """
     Bivariate or conditional Granger causality between two arbitrary signals.
@@ -576,16 +575,6 @@ def granger(
             which one child seed is drawn and used, or ``None`` for fresh OS entropy; a
             float is refused. Passing ``params['surrogate_seed_entropy']`` back as ``rng``
             reproduces the p-values (``seed`` is the old spelling and still works)
-        reversal_control: if True, also test the net direction on the time-reversed trials at
-            the same orders (Winkler et al., 2016; needs ``n_surrogates > 0``). ``diagnostics``
-            then holds ``net`` (D = F(x to y) - F(y to x)), ``net_reversed`` (D_r on the reversed
-            trials), ``p_net`` and ``p_net_reversed`` (two-sided surrogate p-values of each), and
-            ``reversal_verdict``: ``'strong'`` when D and D_r have opposite signs and both
-            p < 0.05; ``'not supported'`` when the signs agree, as a noise asymmetry leaves them
-            under reversal; ``'weak'`` otherwise. The reversed surrogates are drawn after the
-            forward ones from the same ``rng``, x then y at each draw. The verdict does not
-            establish a causal direction; it is predictive in the same observational sense as
-            the rest of this function.
 
     Returns:
         DirectedResult with ``unit='log variance ratio'``. ``p_*`` are analytic
@@ -616,23 +605,11 @@ def granger(
         doi:10.1007/978-3-540-27752-1 -- order selection, section 4.3: AIC, HQ and SC
         (``'bic'``) from the maximum-likelihood residual covariance, every candidate order
         fitted to the same sample.
-        Haufe, S., Nikulin, V. V., Müller, K.-R., & Nolte, G. (2013). A critical assessment of
-        connectivity measures for EEG data: a simulation study. NeuroImage.
-        doi:10.1016/j.neuroimage.2012.09.036 -- cited with Winkler et al. (2016) for the
-        time-reversal check.
-        Winkler, I., Panknin, D., Bartz, D., Müller, K.-R., & Haufe, S. (2016). Validity of
-        time reversal for testing Granger causality. IEEE Trans. Signal Process.
-        doi:10.1109/TSP.2016.2531628 -- the sign rule of ``reversal_control``.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger")
     if criterion not in ("aic", "bic", "hqic"):
         raise ValueError(f"criterion must be aic|bic|hqic; got {criterion!r}")
-    if reversal_control and int(n_surrogates) <= 0:
-        raise ValueError(
-            "reversal_control=True needs n_surrogates > 0: the verdict compares the surrogate "
-            "p-values of the net direction on the data and on the reversed trials"
-        )
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
     # Checked on the resolved trial shape, before detrending: a transposed array read as many
@@ -663,10 +640,8 @@ def granger(
 
     n_trials, n_times = x.shape
 
-    def _one_direction(src: np.ndarray, tgt: np.ndarray, p: int,
-                       zs: Optional[List[np.ndarray]] = None) -> Dict[str, Any]:
-        conditioning = z_list if zs is None else zs
-        restricted_sources = [tgt] + conditioning
+    def _one_direction(src: np.ndarray, tgt: np.ndarray, p: int) -> Dict[str, Any]:
+        restricted_sources = [tgt] + z_list
         unrestricted_sources = restricted_sources + [src]
         d_r, yy = _stack_var_design(tgt, restricted_sources, p)
         d_u, _ = _stack_var_design(tgt, unrestricted_sources, p)
@@ -754,41 +729,6 @@ def granger(
             }
         )
 
-    reversal: Dict[str, Any] = {}
-    if reversal_control:
-        # The same orders on the time-reversed trials, with their own surrogate null. The reversed
-        # surrogates are drawn after the forward ones, from the same generator, x then y per draw.
-        x_rev, y_rev = x[:, ::-1], y[:, ::-1]
-        z_rev = [z[:, ::-1] for z in z_list]
-        gc_xy_rev = _one_direction(x_rev, y_rev, order_xy, zs=z_rev)["gc"]
-        gc_yx_rev = _one_direction(y_rev, x_rev, order_yx, zs=z_rev)["gc"]
-        null_xy_rev = np.empty(int(n_surrogates))
-        null_yx_rev = np.empty(int(n_surrogates))
-        for i in range(int(n_surrogates)):
-            x_s = _surrogate_source(x_rev, surrogate_rng)
-            null_xy_rev[i] = _one_direction(x_s, y_rev, order_xy, zs=z_rev)["gc"]
-            y_s = _surrogate_source(y_rev, surrogate_rng)
-            null_yx_rev[i] = _one_direction(y_s, x_rev, order_yx, zs=z_rev)["gc"]
-        net_fwd = fit_xy["gc"] - fit_yx["gc"]
-        net_rev = gc_xy_rev - gc_yx_rev
-        p_net_rev = _surrogate_p(
-            null_xy_rev - null_yx_rev, net_rev, "two-sided",
-            scale=max(1.0, abs(gc_xy_rev)) + max(1.0, abs(gc_yx_rev)),
-        )
-        if net_fwd * net_rev > 0:
-            verdict = "not supported"
-        elif net_fwd * net_rev < 0 and p_net < 0.05 and p_net_rev < 0.05:
-            verdict = "strong"
-        else:
-            verdict = "weak"
-        reversal = {
-            "net": float(net_fwd),
-            "net_reversed": float(net_rev),
-            "p_net": p_net,
-            "p_net_reversed": float(p_net_rev),
-            "reversal_verdict": verdict,
-        }
-
     # Ljung-Box on the first trial's residual block only: the stacked residual
     # vector concatenates trials, and lagged products across a trial boundary
     # would be spurious autocorrelation.
@@ -837,7 +777,6 @@ def granger(
             "surrogates": surrogate_info,
             "warnings": warnings_all,
             "ok_for_interpretation": len(warnings_all) == 0,
-            **reversal,
         },
     )
 
@@ -896,12 +835,6 @@ def _var_spectral_radius(a: np.ndarray) -> float:
     if order > 1:
         comp[n_vars:, : n_vars * (order - 1)] = np.eye(n_vars * (order - 1))
     return float(np.max(np.abs(np.linalg.eigvals(comp))))
-
-
-def _is_given(value: Any, default: Any) -> bool:
-    """True unless the value has the default's type and equals it. Such a value changes
-    nothing, so it is not refused."""
-    return not (type(value) is type(default) and value == default)
 
 
 def _herm(a: np.ndarray) -> np.ndarray:
@@ -994,8 +927,8 @@ def _wilson_factor(
         psi0 = np.linalg.cholesky(np.fft.ifft(s_grid, axis=0)[0].real)
     except np.linalg.LinAlgError:
         raise ValueError(
-            "granger_spectral(method='nonparametric'): the cross-spectrum is not positive "
-            "definite at zero lag (a constant or collinear input)"
+            "granger_nonparametric: the cross-spectrum is not positive definite at zero lag "
+            "(a constant or collinear input)"
         ) from None
     psi = np.broadcast_to(psi0, s_grid.shape).astype(complex)
     scale = float(np.max(np.abs(s_grid)))
@@ -1018,7 +951,7 @@ def _wilson_factor(
         residual = _residual(psi)
     if residual >= tol:
         raise RuntimeError(
-            "granger_spectral(method='nonparametric'): Wilson factorization did not converge "
+            "granger_nonparametric: Wilson factorization did not converge "
             f"in {n_iter} iteration(s): residual {residual:.3e} against tol {tol:.1e}"
         )
     return psi, n_iter, residual
@@ -1063,30 +996,16 @@ def granger_spectral(
     time_axis: int = -1,
     *,
     seed: Any = Default(0),
-    method: str = "parametric",
-    nperseg: Optional[int] = None,
-    noverlap: Optional[int] = None,
-    max_iter: int = 500,
-    tol: float = 1e-10,
 ) -> DirectedResult:
     """
     Frequency-resolved Granger causality (Geweke, 1982) — directionality per band.
 
-    This is the *parametric* route, the default: a single bivariate VAR is fitted
-    once (the same fit :func:`granger` uses), then decomposed in the frequency
-    domain via the transfer function ``H(f) = A(f)^-1`` and noise covariance
-    ``Sigma``.
-
-    ``method="nonparametric"`` fits no VAR. It estimates the 2x2 cross-spectral
-    matrix by Welch's method, segmented as in :func:`cross_area_coherence`
-    (Hann window, ``nperseg`` default ``min(max(N // 8, 8), 4096)``, 50% overlap),
-    factorizes it by Wilson's iteration into ``S = H Sigma H*`` (Wilson, 1972;
-    Dhamala et al., 2008), and applies the same Geweke decomposition to ``H`` and
-    ``Sigma``. ``order``, ``max_lag``, ``criterion`` and ``n_freqs`` are refused: no model
-    order is fitted, and the frequency grid is the Welch grid. The iteration stops once the
-    residual ``max |S - H Sigma H*| / max |S|`` is below ``tol``; if it has not after
-    ``max_iter`` iterations the call raises. The multitaper estimate of Bastos et al. (2020)
-    and Vezoli et al. (2021) is not implemented, and these values are not that estimate.
+    This is the *parametric* route: a single bivariate VAR is fitted once (the
+    same fit :func:`granger` uses), then decomposed in the frequency domain via
+    the transfer function ``H(f) = A(f)^-1`` and noise covariance ``Sigma``.
+    Wilson spectral factorization is required only for the *non*-parametric
+    variant that starts from an observed cross-spectrum; it is not needed here
+    and is not implemented.
 
     ``f_{X->Y}(f) = ln( S_yy(f) / (|H~_yy(f)|^2 * Sigma_yy) )``, with ``H~`` the
     instantaneous-causality-normalized transfer function. The estimate is >= 0 at
@@ -1109,20 +1028,11 @@ def granger_spectral(
             as in :func:`granger` and is recorded in ``params['surrogate_scheme']``
         rng: surrogate randomness, as in :func:`granger`; passing
             ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the p-values
-        method: ``'parametric'`` (default) or ``'nonparametric'``, as above
-        nperseg, noverlap: Welch segment length and overlap for
-            ``method='nonparametric'``; refused with the parametric route
-        max_iter, tol: Wilson iteration limit and residual tolerance for
-            ``method='nonparametric'``; refused with the parametric route
 
     Returns:
         DirectedResult with ``unit='log variance ratio'``,
         ``spectrum = {freqs, gc_x_to_y, gc_y_to_x}``, and
-        ``diagnostics['factorization_iterations']`` and
-        ``diagnostics['factorization_residual']`` on the nonparametric route. Its
-        ``diagnostics['spectral_radius']`` and ``['stationary']`` are None, since no
-        VAR is fitted, and ``params['n_freqs']`` is the Welch grid length. Each band
-        reports ``per_band[name] = {value, value_reverse, peak_hz, peak_hz_reverse, ...}``.
+        ``per_band[name] = {value, value_reverse, peak_hz, peak_hz_reverse, ...}``.
         ``x_to_y``/``y_to_x`` are the frequency averages over the full spectrum.
         ``diagnostics['spectral_radius'] >= 1`` means the VAR is non-stationary
         and the decomposition must not be interpreted. ``diagnostics['stationary']``
@@ -1136,119 +1046,60 @@ def granger_spectral(
         time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803 -- the
         frequency decomposition of the measure of linear feedback, from the transfer
         function of the fitted VAR.
-        Wilson, G. T. (1972). The factorization of matricial spectral densities. SIAM J. Appl.
-        Math. doi:10.1137/0123044 -- the causal factor of a spectral density, by iteration.
-        Dhamala, M., Rangarajan, G., & Ding, M. (2008). Estimating Granger causality from
-        Fourier and wavelet transforms of time series data. Phys. Rev. Lett.
-        doi:10.1103/PhysRevLett.100.018701 -- the Geweke measure from a factorized
-        cross-spectrum, the nonparametric route.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_spectral')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger_spectral")
     if fs is None or not np.isfinite(fs) or fs <= 0:
         raise ValueError(f"granger_spectral requires a positive fs; got {fs!r}")
-    if method not in ("parametric", "nonparametric"):
-        raise ValueError(f"method must be 'parametric' or 'nonparametric'; got {method!r}")
-    if method == "nonparametric":
-        for name, value, default in (
-            ("order", order, "auto"), ("max_lag", max_lag, 20),
-            ("criterion", criterion, "bic"), ("n_freqs", n_freqs, 256),
-        ):
-            if _is_given(value, default):
-                raise ValueError(
-                    f"{name}={value!r} is refused with method='nonparametric': that route "
-                    "fits no VAR, and its frequency grid is the Welch grid set by nperseg"
-                )
-        if isinstance(max_iter, bool) or not isinstance(max_iter, (int, np.integer)) or max_iter < 1:
-            raise ValueError(f"max_iter must be an integer >= 1; got {max_iter!r}")
-        if not (np.isfinite(tol) and tol > 0):
-            raise ValueError(f"tol must be a positive finite number; got {tol!r}")
-    else:
-        for name, value, default in (
-            ("nperseg", nperseg, None), ("noverlap", noverlap, None),
-            ("max_iter", max_iter, 500), ("tol", tol, 1e-10),
-        ):
-            if _is_given(value, default):
-                raise ValueError(f"{name}={value!r} applies to method='nonparametric' only")
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
-    if method == "parametric":
-        require_trial_length(
-            x,
-            max_lag if isinstance(order, str) else _fixed_order(order, "granger_spectral"),
-            "granger_spectral",
-            history_name="max_lag" if isinstance(order, str) else "order",
-            time_axis=time_axis,
-        )
+    require_trial_length(
+        x,
+        max_lag if isinstance(order, str) else _fixed_order(order, "granger_spectral"),
+        "granger_spectral",
+        history_name="max_lag" if isinstance(order, str) else "order",
+        time_axis=time_axis,
+    )
     x = _detrend_trials(x, detrend)
     y = _detrend_trials(y, detrend)
     n_trials, n_times = x.shape
 
-    factorization: Dict[str, Any] = {}
-    if method == "parametric":
-        if order == "auto":
-            probe = granger(
-                x, y, order="auto", max_lag=max_lag, criterion=criterion,
-                ridge=ridge, detrend=None, n_surrogates=0,
-            )
-            p = int(max(probe.params["order_x_to_y"], probe.params["order_y_to_x"]))
-        else:
-            p = _fixed_order(order, "granger_spectral")
-
-        a, sigma, n_obs = _fit_var_matrix([x, y], p, ridge=ridge)
-        radius = _var_spectral_radius(a)
-
-        freqs = np.linspace(0.0, fs / 2.0, int(n_freqs))
-        s11, s22 = float(sigma[0, 0]), float(sigma[1, 1])
-        if s11 <= 0 or s22 <= 0:
-            raise ValueError("degenerate VAR residual covariance; check for constant input")
-
-        h_grid = np.empty((len(freqs), 2, 2), dtype=complex)
-        for fi, f in enumerate(freqs):
-            af = np.eye(2, dtype=complex)
-            for k in range(p):
-                af -= a[k] * np.exp(-2j * np.pi * f * (k + 1) / fs)
-            h_grid[fi] = np.linalg.inv(af)
-        gc_y_to_x, gc_x_to_y = _geweke_gc(h_grid, sigma)
-
-        def _null_spectra(src, tgt):
-            a_s, sig_s, _ = _fit_var_matrix([src, tgt], p, ridge=ridge)
-            return _spectral_gc_from_var(a_s, sig_s, freqs, fs)
-    else:
-        if nperseg is None:
-            nperseg = min(max(n_times // 8, MIN_COHERENCE_NPERSEG), 4096)
-        nperseg = int(nperseg)
-        noverlap = nperseg // 2 if noverlap is None else int(noverlap)
-        if not 2 <= nperseg <= n_times:
-            raise ValueError(f"nperseg must satisfy 2 <= nperseg <= {n_times}; got {nperseg}")
-        if not 0 <= noverlap < nperseg:
-            raise ValueError(
-                f"noverlap must satisfy 0 <= noverlap < nperseg; got noverlap={noverlap} "
-                f"with nperseg={nperseg}"
-            )
-        n_seg_total = n_trials * welch_segment_count(n_times, nperseg, noverlap)
-        if n_seg_total < MIN_IDENTIFIABLE_SEGMENTS:
-            raise ValueError(
-                f"the cross-spectrum is not identifiable from {n_seg_total} Welch segment(s): "
-                f"{n_times} samples with nperseg={nperseg}, noverlap={noverlap}. Supply a "
-                "smaller nperseg or a longer record."
-            )
-        p = n_obs = radius = None
-        freqs, h_grid, sigma, n_segments, n_iter, residual = _nonparametric_transfer(
-            x, y, fs, nperseg, noverlap, max_iter, tol
+    if order == "auto":
+        probe = granger(
+            x, y, order="auto", max_lag=max_lag, criterion=criterion,
+            ridge=ridge, detrend=None, n_surrogates=0,
         )
-        gc_y_to_x, gc_x_to_y = _geweke_gc(h_grid, sigma)
-        factorization = {
-            "n_segments": n_segments,
-            "factorization_iterations": n_iter,
-            "factorization_residual": residual,
-        }
+        p = int(max(probe.params["order_x_to_y"], probe.params["order_y_to_x"]))
+    else:
+        p = _fixed_order(order, "granger_spectral")
 
-        def _null_spectra(src, tgt):
-            _, h_s, sig_s, *_ = _nonparametric_transfer(
-                src, tgt, fs, nperseg, noverlap, max_iter, tol
-            )
-            return tuple(np.clip(v, 0.0, None) for v in _geweke_gc(h_s, sig_s))
+    a, sigma, n_obs = _fit_var_matrix([x, y], p, ridge=ridge)
+    radius = _var_spectral_radius(a)
+
+    freqs = np.linspace(0.0, fs / 2.0, int(n_freqs))
+    s11, s22 = float(sigma[0, 0]), float(sigma[1, 1])
+    s12 = float(sigma[0, 1])
+    if s11 <= 0 or s22 <= 0:
+        raise ValueError("degenerate VAR residual covariance; check for constant input")
+
+    gc_y_to_x = np.zeros(len(freqs))  # influence on variable 0 (X)
+    gc_x_to_y = np.zeros(len(freqs))  # influence on variable 1 (Y)
+    for fi, f in enumerate(freqs):
+        af = np.eye(2, dtype=complex)
+        for k in range(p):
+            af -= a[k] * np.exp(-2j * np.pi * f * (k + 1) / fs)
+        h = np.linalg.inv(af)
+        s = h @ sigma @ h.conj().T
+
+        # Y -> X : partial out X's noise contribution to Y's innovation
+        h11_t = h[0, 0] + (s12 / s11) * h[0, 1]
+        denom_x = (abs(h11_t) ** 2) * s11
+        gc_y_to_x[fi] = np.log(s[0, 0].real / denom_x) if denom_x > 0 else 0.0
+
+        # X -> Y
+        h22_t = h[1, 1] + (s12 / s22) * h[1, 0]
+        denom_y = (abs(h22_t) ** 2) * s22
+        gc_x_to_y[fi] = np.log(s[1, 1].real / denom_y) if denom_y > 0 else 0.0
 
     warnings_all: List[str] = []
     min_val = float(min(gc_x_to_y.min(), gc_y_to_x.min()))
@@ -1257,7 +1108,7 @@ def granger_spectral(
     # Geweke GC is non-negative analytically; clip float noise only.
     gc_x_to_y = np.clip(gc_x_to_y, 0.0, None)
     gc_y_to_x = np.clip(gc_y_to_x, 0.0, None)
-    if radius is not None and radius >= 1.0:
+    if radius >= 1.0:
         warnings_all.append(f"var_non_stationary_spectral_radius_{radius:.3f}")
 
     def _mean_over(values: np.ndarray, mask: np.ndarray) -> float:
@@ -1316,10 +1167,12 @@ def granger_spectral(
         null_yx_by_band: Dict[str, List[float]] = {name: [] for name in per_band}
         for i in range(int(n_surrogates)):
             xs = _surrogate_source(x, surrogate_rng)
-            tmp = _null_spectra(xs, y)
+            a_s, sig_s, _ = _fit_var_matrix([xs, y], p, ridge=ridge)
+            tmp = _spectral_gc_from_var(a_s, sig_s, freqs, fs)
             null_xy[i] = _mean_over(tmp[1], all_mask)
             ys = _surrogate_source(y, surrogate_rng)
-            tmp2 = _null_spectra(x, ys)
+            a_s2, sig_s2, _ = _fit_var_matrix([x, ys], p, ridge=ridge)
+            tmp2 = _spectral_gc_from_var(a_s2, sig_s2, freqs, fs)
             null_yx[i] = _mean_over(tmp2[0], all_mask)
             for name, vals in per_band.items():
                 f_lo, f_hi = vals["band_hz"]
@@ -1357,13 +1210,10 @@ def granger_spectral(
         n_times=n_times,
         fs=float(fs),
         params={
-            "method": method,
             "order": p,
             "order_arg": order,
-            "criterion": criterion if order == "auto" and method == "parametric" else None,
-            "n_freqs": len(freqs),
-            "nperseg": nperseg,
-            "noverlap": noverlap,
+            "criterion": criterion if order == "auto" else None,
+            "n_freqs": int(n_freqs),
             "bands": {k: list(v) for k, v in band_map.items()},
             "ridge": float(ridge),
             "detrend": detrend,
@@ -1374,13 +1224,408 @@ def granger_spectral(
         },
         diagnostics={
             "spectral_radius": radius,
-            "stationary": None if radius is None else bool(radius < 1.0),
+            "stationary": bool(radius < 1.0),
             "noise_covariance": sigma.tolist(),
-            "n_observations": None if n_obs is None else int(n_obs),
+            "n_observations": int(n_obs),
             "min_raw_spectral_gc": min_val,
             "warnings": warnings_all,
             "ok_for_interpretation": len(warnings_all) == 0,
-            **factorization,
+        },
+    )
+
+
+#: Wilson iteration limit and residual tolerance of :func:`granger_nonparametric`. Module
+#: constants rather than arguments: the route exposes no knob for them.
+_WILSON_MAX_ITER = 500
+_WILSON_TOL = 1e-10
+
+
+def granger_nonparametric(
+    X,
+    Y,
+    *,
+    fs: float,
+    bands,
+    n_freqs: int = 256,
+    n_surrogates: int = 0,
+    rng: RNGLike = Default(0),
+    detrend: Optional[str] = "zscore",
+    time_axis: int = -1,
+    seed: Any = Default(0),
+) -> DirectedResult:
+    """
+    Frequency-resolved Granger causality by spectral factorization, with no fitted model.
+
+    The 2 x 2 cross-spectral matrix of X and Y is estimated by Welch's method, averaged over trials
+    with a Hann window and 50% overlap, and factorized by Wilson's iteration into ``S = H Sigma H^*``.
+    The Geweke log ratios of :func:`granger_spectral` follow from ``H`` and ``Sigma``. No VAR is fitted,
+    so there is no model order. Each segment holds ``nperseg = 2 * (n_freqs - 1)`` samples, and the
+    frequency grid is ``numpy.linspace(0, fs / 2, n_freqs)``, the grid of :func:`granger_spectral`.
+
+    Estimand: ``f_{X->Y}(f) = ln( S_yy(f) / (|H~_yy(f)|^2 Sigma_yy) )`` per frequency, a log variance ratio,
+    with ``H~`` the instantaneous-causality-normalized transfer function. Each band and the full spectrum
+    take the trapezoidal mean of the per-frequency values. The estimate is at least zero at every frequency
+    by construction. ``net`` is ``x_to_y - y_to_x``.
+
+    Args:
+        X, Y: any signal accepted by :func:`as_trials`, paired to the same ``(n_trials, n_times)``
+        fs: sampling rate in Hz
+        bands: required. ``'canonical'``, a ``(fmin, fmax)`` pair, or a ``{name: (fmin, fmax)}`` dict. A
+            band holding fewer than two grid points reports NaN and a warning.
+        n_freqs: grid points on ``[0, Nyquist]``, at least 2
+        n_surrogates: surrogate draws. Each draw destroys the cross-signal alignment of X, then of Y, with
+            :func:`_surrogate_source` and factorizes the surrogate pair. The one-sided p compares the
+            full-spectrum mean of each direction with its null.
+        rng: randomness of the surrogates, as in :func:`granger`
+        detrend: per-trial detrending, as in :func:`granger`
+        time_axis: time axis of a 2-D input
+        seed: the old spelling of ``rng``
+
+    Raises:
+        ValueError: ``fs`` not positive and finite; ``bands`` None; ``n_freqs`` below 2; X and Y of unequal
+            shape, or input refused by :func:`as_trials`; fewer than two Welch segments over all trials, the
+            message naming ``n_freqs`` and the record length.
+        RuntimeError: the factorization does not reach the tolerance within 500 iterations; the message names
+            the count and the residual.
+
+    An input whose samples are all equal gives NaN values and the warning ``'constant_input'``. The
+    surrogate p-values are then not computed (None).
+
+    Random draws: each surrogate draw takes one X surrogate, then one Y surrogate, from the generator built
+    from ``rng``. ``params['surrogate_seed_entropy']`` reproduces them.
+
+    Returns:
+        DirectedResult with ``unit='log variance ratio'``, ``method='granger_nonparametric'``,
+        ``spectrum = {freqs, gc_x_to_y, gc_y_to_x}``, ``per_band[name] = {value, value_reverse, peak_hz,
+        peak_hz_reverse, band_hz, n_freq_bins, p_surrogate}``, and ``diagnostics`` with
+        ``factorization_iterations``, ``factorization_residual`` and ``n_segments``. ``p_net`` is None.
+
+    References:
+        Wilson, G. T. (1972). The factorization of matricial spectral densities. SIAM J. Appl. Math.
+        doi:10.1137/0123044 -- the causal factor of a spectral density, by iteration.
+        Dhamala, M., Rangarajan, G., & Ding, M. (2008). Estimating Granger causality from Fourier and
+        wavelet transforms of time series data. Phys. Rev. Lett. doi:10.1103/PhysRevLett.100.018701 -- the
+        Geweke measure from a factorized cross-spectrum.
+    """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_nonparametric')
+    surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger_nonparametric")
+    if fs is None or not np.isfinite(fs) or fs <= 0:
+        raise ValueError(f"granger_nonparametric requires a positive fs; got {fs!r}")
+    if bands is None:
+        raise ValueError(
+            "granger_nonparametric needs bands: 'canonical', a (fmin, fmax) pair, or a "
+            "{name: (fmin, fmax)} dict"
+        )
+    if isinstance(n_freqs, bool) or not isinstance(n_freqs, (int, np.integer)) or n_freqs < 2:
+        raise ValueError(f"n_freqs must be an integer >= 2; got {n_freqs!r}")
+    n_freqs = int(n_freqs)
+    nperseg = 2 * (n_freqs - 1)
+    noverlap = nperseg // 2
+
+    x, y = _pair_trials(X, Y, time_axis=time_axis)
+    n_trials, n_times = x.shape
+    n_seg_total = n_trials * welch_segment_count(n_times, nperseg, noverlap)
+    if n_seg_total < MIN_IDENTIFIABLE_SEGMENTS:
+        raise ValueError(
+            f"the cross-spectrum is not identifiable from {n_seg_total} Welch segment(s): "
+            f"n_freqs={n_freqs} sets nperseg={nperseg} samples, and each trial holds {n_times} "
+            "samples. Supply a smaller n_freqs or a longer record."
+        )
+    freqs = np.linspace(0.0, fs / 2.0, n_freqs)
+    all_mask = np.ones(n_freqs, dtype=bool)
+
+    warnings_all: List[str] = []
+    constant = bool(is_constant(x) or is_constant(y))
+    if constant:
+        n_iter, residual = None, float("nan")
+        gc_x_to_y = np.full(n_freqs, np.nan)
+        gc_y_to_x = np.full(n_freqs, np.nan)
+        warnings_all.append("constant_input")
+    else:
+        x = _detrend_trials(x, detrend)
+        y = _detrend_trials(y, detrend)
+        _, h_grid, sigma, _, n_iter, residual = _nonparametric_transfer(
+            x, y, fs, nperseg, noverlap, _WILSON_MAX_ITER, _WILSON_TOL
+        )
+        gc_y_to_x, gc_x_to_y = _geweke_gc(h_grid, sigma)
+
+    min_val = float(min(gc_x_to_y.min(), gc_y_to_x.min()))
+    if min_val < -1e-8:
+        warnings_all.append(f"negative_spectral_gc_{min_val:.2e}_numerically_unstable")
+    # Geweke GC is non-negative analytically; clip float noise only.
+    gc_x_to_y = np.clip(gc_x_to_y, 0.0, None)
+    gc_y_to_x = np.clip(gc_y_to_x, 0.0, None)
+
+    def _mean_over(values: np.ndarray, mask: np.ndarray) -> float:
+        """Trapezoidal frequency average == Geweke's integral over [0, Nyquist]."""
+        f_sel, v_sel = freqs[mask], values[mask]
+        if f_sel.size < 2:
+            return float("nan")
+        span = f_sel[-1] - f_sel[0]
+        if span <= 0:
+            return float(v_sel.mean())
+        return float(np.sum((v_sel[:-1] + v_sel[1:]) / 2.0 * np.diff(f_sel)) / span)
+
+    def _peak(values: np.ndarray, sel: np.ndarray) -> float:
+        if not np.all(np.isfinite(values[sel])):
+            return float("nan")
+        return float(freqs[sel[np.argmax(values[sel])]])
+
+    if isinstance(bands, str):
+        if bands != "canonical":
+            raise ValueError(f"bands string must be 'canonical'; got {bands!r}")
+        band_map = dict(CANONICAL_BANDS)
+    elif isinstance(bands, dict):
+        band_map = {k: (float(v[0]), float(v[1])) for k, v in bands.items()}
+    else:
+        band_map = {"band": (float(bands[0]), float(bands[1]))}
+
+    per_band: Dict[str, Dict[str, Any]] = {}
+    for name, (f_lo, f_hi) in band_map.items():
+        mask = (freqs >= f_lo) & (freqs <= f_hi)
+        if mask.sum() < 2:
+            warnings_all.append(f"band_{name}_has_{int(mask.sum())}_grid_points")
+            per_band[name] = {
+                "value": float("nan"), "value_reverse": float("nan"),
+                "peak_hz": float("nan"), "peak_hz_reverse": float("nan"),
+                "band_hz": (f_lo, f_hi), "n_freq_bins": int(mask.sum()),
+                "p_surrogate": None,
+            }
+            continue
+        sel = np.flatnonzero(mask)
+        per_band[name] = {
+            "value": _mean_over(gc_x_to_y, mask),
+            "value_reverse": _mean_over(gc_y_to_x, mask),
+            "peak_hz": _peak(gc_x_to_y, sel),
+            "peak_hz_reverse": _peak(gc_y_to_x, sel),
+            "band_hz": (f_lo, f_hi),
+            "n_freq_bins": int(mask.sum()),
+            "p_surrogate": None,
+        }
+
+    total_xy = _mean_over(gc_x_to_y, all_mask)
+    total_yx = _mean_over(gc_y_to_x, all_mask)
+
+    p_xy = p_yx = None
+    if n_surrogates > 0 and not constant:
+        null_xy = np.empty(int(n_surrogates))
+        null_yx = np.empty(int(n_surrogates))
+        null_xy_by_band: Dict[str, List[float]] = {name: [] for name in per_band}
+        null_yx_by_band: Dict[str, List[float]] = {name: [] for name in per_band}
+        for i in range(int(n_surrogates)):
+            xs = _surrogate_source(x, surrogate_rng)
+            _, h_xs, sig_xs, _, _, _ = _nonparametric_transfer(
+                xs, y, fs, nperseg, noverlap, _WILSON_MAX_ITER, _WILSON_TOL
+            )
+            gc_yx_s, gc_xy_s = (np.clip(v, 0.0, None) for v in _geweke_gc(h_xs, sig_xs))
+            null_xy[i] = _mean_over(gc_xy_s, all_mask)
+            ys = _surrogate_source(y, surrogate_rng)
+            _, h_ys, sig_ys, _, _, _ = _nonparametric_transfer(
+                x, ys, fs, nperseg, noverlap, _WILSON_MAX_ITER, _WILSON_TOL
+            )
+            gc_yx_s2, _ = (np.clip(v, 0.0, None) for v in _geweke_gc(h_ys, sig_ys))
+            null_yx[i] = _mean_over(gc_yx_s2, all_mask)
+            for name, vals in per_band.items():
+                f_lo, f_hi = vals["band_hz"]
+                mask = (freqs >= f_lo) & (freqs <= f_hi)
+                if mask.sum() >= 2:
+                    null_xy_by_band[name].append(_mean_over(gc_xy_s, mask))
+                    null_yx_by_band[name].append(_mean_over(gc_yx_s2, mask))
+        # Each frequency's GC is a log ratio, rounded at the scale of the ratio (see granger).
+        p_xy = _surrogate_p(null_xy, total_xy, "greater", scale=1.0)
+        p_yx = _surrogate_p(null_yx, total_yx, "greater", scale=1.0)
+        for name, vals in per_band.items():
+            f_lo, f_hi = vals["band_hz"]
+            mask = (freqs >= f_lo) & (freqs <= f_hi)
+            if mask.sum() >= 2:
+                nb_xy = np.asarray(null_xy_by_band[name], dtype=float)
+                vals["p_surrogate"] = _surrogate_p(nb_xy, vals["value"], "greater", scale=1.0)
+
+    return DirectedResult(
+        method="granger_nonparametric",
+        x_to_y=total_xy,
+        y_to_x=total_yx,
+        net=total_xy - total_yx,
+        unit="log variance ratio",
+        p_x_to_y=p_xy,
+        p_y_to_x=p_yx,
+        p_net=None,
+        per_band=per_band,
+        spectrum={
+            "freqs": freqs,
+            "gc_x_to_y": gc_x_to_y,
+            "gc_y_to_x": gc_y_to_x,
+        },
+        n_trials=n_trials,
+        n_times=n_times,
+        fs=float(fs),
+        params={
+            "n_freqs": n_freqs,
+            "nperseg": nperseg,
+            "noverlap": noverlap,
+            "bands": {k: list(v) for k, v in band_map.items()},
+            "detrend": detrend,
+            "n_surrogates": int(n_surrogates),
+            "seed": None if isinstance(seed, np.random.Generator) else seed,
+            "surrogate_seed_entropy": seed_entropy if n_surrogates > 0 else None,
+            "surrogate_scheme": _surrogate_scheme(n_trials) if n_surrogates > 0 else None,
+        },
+        diagnostics={
+            "factorization_iterations": n_iter,
+            "factorization_residual": residual,
+            "n_segments": n_seg_total,
+            "min_raw_spectral_gc": min_val,
+            "warnings": warnings_all,
+            "ok_for_interpretation": len(warnings_all) == 0,
+        },
+    )
+
+
+def _net_surrogate_p(
+    x: np.ndarray,
+    y: np.ndarray,
+    order: int,
+    n_surrogates: int,
+    surrogate_rng: np.random.Generator,
+    detrend: Optional[str],
+) -> float:
+    """Two-sided surrogate p of the net flow ``x_to_y - y_to_x`` of trials ``x`` and ``y`` at ``order``.
+
+    Each draw takes an X surrogate, then a Y surrogate, from ``surrogate_rng``. The null of each
+    direction is the :func:`granger` flow on the surrogate pair, and the null of the net is their
+    difference. The tie width is that of :func:`_surrogate_p` for the magnitude of the two observed flows.
+    """
+    observed = granger(x, y, order=order, n_surrogates=0, detrend=detrend)
+    null = np.empty(int(n_surrogates))
+    for i in range(int(n_surrogates)):
+        x_s = _surrogate_source(x, surrogate_rng)
+        null_xy = granger(x_s, y, order=order, n_surrogates=0, detrend=detrend).x_to_y
+        y_s = _surrogate_source(y, surrogate_rng)
+        null_yx = granger(x, y_s, order=order, n_surrogates=0, detrend=detrend).y_to_x
+        null[i] = null_xy - null_yx
+    gc_xy, gc_yx = observed.x_to_y, observed.y_to_x
+    return _surrogate_p(
+        null, gc_xy - gc_yx, "two-sided",
+        scale=max(1.0, abs(gc_xy)) + max(1.0, abs(gc_yx)),
+    )
+
+
+def granger_time_reversed(
+    X,
+    Y,
+    *,
+    order: int,
+    n_surrogates: int = 0,
+    rng: RNGLike = Default(0),
+    detrend: Optional[str] = "zscore",
+    time_axis: int = -1,
+    seed: Any = Default(0),
+) -> DirectedResult:
+    """
+    Time-reversed Granger control: a directed claim needs the net flow to change sign under reversal.
+
+    The forward flows are :func:`granger` at a fixed order on the trials. The same call runs on each
+    trial reversed along time, which is a fixed transformation applied trial by trial, never a pooled
+    or concatenated flip. ``sign_flip`` is True when the two net flows have opposite signs.
+
+    Decision: a directed claim requires ``sign_flip``. Without it the result adds the warning
+    ``'no_sign_flip_on_time_reversal'``, sets ``ok_for_interpretation`` to False, and declines the
+    directed claim. The flip alone decides. The surrogate p-values below do not enter the decision.
+
+    Args:
+        X, Y: any signal accepted by :func:`as_trials`, paired to the same ``(n_trials, n_times)``
+        order: fixed VAR order, an integer >= 1. ``'auto'`` is refused: the control needs the same order on
+            both runs, and a selected order could differ between them.
+        n_surrogates: surrogate draws for the two nets (default 0, no p-values)
+        rng: randomness of the surrogates, as in :func:`granger`
+        detrend: per-trial detrending, as in :func:`granger`
+        time_axis: time axis of a 2-D input
+        seed: the old spelling of ``rng``
+
+    Raises:
+        ValueError: ``order`` is ``'auto'``, or not an integer >= 1 (through :func:`_fixed_order`); input
+            refused by :func:`granger`.
+
+    Random draws: with ``n_surrogates > 0`` the forward draws come first and then the reversed draws, each
+    draw taking an X surrogate then a Y surrogate, all from the generator built from ``rng``.
+    ``params['surrogate_seed_entropy']`` reproduces them.
+
+    Returns:
+        DirectedResult with ``unit='log variance ratio'``, ``method='granger_time_reversed'``, ``x_to_y`` and
+        ``y_to_x`` the forward flows, ``net`` the forward net, and ``per_band={}``. ``diagnostics`` holds
+        ``net_forward``, ``net_reversed``, ``sign_flip``, ``p_net_forward`` and ``p_net_reversed`` (None
+        without surrogates), and the warnings. ``p_net`` is ``p_net_forward``. The per-direction p-values
+        are not reported (None).
+
+    References:
+        Haufe, S., Nikulin, V. V., Müller, K.-R., & Nolte, G. (2013). A critical assessment of connectivity
+        measures for EEG data: a simulation study. NeuroImage. doi:10.1016/j.neuroimage.2012.09.036 -- the
+        simulation comparison of directed measures that the control is set against.
+        Winkler, I., Panknin, D., Bartz, D., Müller, K.-R., & Haufe, S. (2016). Validity of time reversal for
+        testing Granger causality. IEEE Trans. Signal Process. doi:10.1109/TSP.2016.2531628 -- the sign rule
+        under time reversal.
+    """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_time_reversed')
+    surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger_time_reversed")
+    if isinstance(order, str):
+        raise ValueError(
+            "granger_time_reversed needs a fixed integer order; 'auto' is not offered"
+        )
+    order = _fixed_order(order, "granger_time_reversed")
+
+    x, y = _pair_trials(X, Y, time_axis=time_axis)
+    x_rev = np.ascontiguousarray(x[:, ::-1])
+    y_rev = np.ascontiguousarray(y[:, ::-1])
+    forward = granger(x, y, order=order, n_surrogates=0, detrend=detrend)
+    reverse = granger(x_rev, y_rev, order=order, n_surrogates=0, detrend=detrend)
+    net_forward = float(forward.net)
+    net_reversed = float(reverse.net)
+    sign_flip = bool(net_forward * net_reversed < 0)
+
+    p_net_forward = p_net_reversed = None
+    if int(n_surrogates) > 0:
+        p_net_forward = _net_surrogate_p(x, y, order, int(n_surrogates), surrogate_rng, detrend)
+        p_net_reversed = _net_surrogate_p(
+            x_rev, y_rev, order, int(n_surrogates), surrogate_rng, detrend
+        )
+
+    warnings_all = list(forward.diagnostics["warnings"])
+    for warning in reverse.diagnostics["warnings"]:
+        if warning not in warnings_all:
+            warnings_all.append(warning)
+    if not sign_flip:
+        warnings_all.append("no_sign_flip_on_time_reversal")
+
+    return DirectedResult(
+        method="granger_time_reversed",
+        x_to_y=forward.x_to_y,
+        y_to_x=forward.y_to_x,
+        net=forward.net,
+        unit="log variance ratio",
+        p_x_to_y=None,
+        p_y_to_x=None,
+        p_net=p_net_forward,
+        per_band={},
+        n_trials=forward.n_trials,
+        n_times=forward.n_times,
+        params={
+            "order": order,
+            "detrend": detrend,
+            "n_surrogates": int(n_surrogates),
+            "seed": None if isinstance(seed, np.random.Generator) else seed,
+            "surrogate_seed_entropy": seed_entropy if int(n_surrogates) > 0 else None,
+            "surrogate_scheme": (
+                _surrogate_scheme(forward.n_trials) if int(n_surrogates) > 0 else None
+            ),
+        },
+        diagnostics={
+            "net_forward": net_forward,
+            "net_reversed": net_reversed,
+            "sign_flip": sign_flip,
+            "p_net_forward": p_net_forward,
+            "p_net_reversed": p_net_reversed,
+            "warnings": warnings_all,
+            "ok_for_interpretation": len(warnings_all) == 0,
         },
     )
 

@@ -1,2 +1,0 @@
-- `cross_area_coherence(condition_on=...)` adds band `partial_coherence` and a p-value (`jnwb/spectral/_coupling.py`).
-- `cross_area_coherence(bias_floor="paired_epochs")` adds a per-band trial-pairing floor (`jnwb/spectral/_coupling.py`).

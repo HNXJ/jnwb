@@ -316,6 +316,14 @@ def _rng_probes():
         "granger": lambda r: jnwb.granger(t1, t2, order=2, n_surrogates=5, rng=r),
         "granger_spectral": lambda r: jnwb.granger_spectral(t1, t2, fs=100.0, order=2,
                                                             n_surrogates=5, rng=r),
+        "granger_nonparametric": lambda r: jnwb.granger_nonparametric(
+            t1, t2, fs=100.0, bands={"b": (10.0, 30.0)}, n_freqs=33, n_surrogates=5, rng=r),
+        "granger_time_reversed": lambda r: jnwb.granger_time_reversed(
+            t1, t2, order=2, n_surrogates=5, rng=r),
+        "partial_coherence": lambda r: jnwb.partial_coherence(
+            s1, s2, s1[::-1] + s2, fs=1000.0, freq_bands="canonical", n_surrogates=5, rng=r),
+        "coherence_bias_floor": lambda r: jnwb.coherence_bias_floor(
+            g.normal(size=(2, 4, 500)), fs=1000.0, freq_bands="canonical", n_draws=5, rng=r),
         "jrsa": lambda r: jnwb.jrsa(j1, j2, metric="pearson", permutations=20, rng=r),
         "nested_cv_linear_svm": lambda r: jnwb.nested_cv_linear_svm(xs, labs, 3, rng=r),
         "phase_slope_index": lambda r: jnwb.phase_slope_index(
