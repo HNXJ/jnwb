@@ -1,0 +1,1 @@
+- `verify_nwb`: re-reads one written NWB file and checks it (`jnwb/nwb_write.py`).
