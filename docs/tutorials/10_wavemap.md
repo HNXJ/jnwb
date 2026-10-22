@@ -26,10 +26,15 @@ step depends on the unit.
 | Step | Call | What it decides |
 |---|---|---|
 | Align | `jnwb.align_waveforms(raw, fs)` | 12 samples before the trough and 36 after it; a unit whose window leaves the stored samples is dropped |
-| Normalize | `jnwb.normalize_waveforms(aligned)` | each row scaled to its trough; a flat row is dropped |
+| Normalize | `jnwb.normalize_waveforms(aligned)` | each row's mean removed (`subtract_mean=True`), then divided by its largest absolute value; a flat row returns NaN |
 | Choose | `jnwb.wavemap_resolution_sweep(x, resolutions, rng=0)` | the highest mean modularity, rounded to 3 decimals, with every cluster above 20 units in every run; a tie goes to the smaller resolution |
 | Cluster | `jnwb.wavemap(x, resolution=..., rng=0)` | Louvain labels on UMAP's nearest-neighbor graph |
 | Draw | `jnwb.vis.plot_wavemap(result, aligned)` | panel A the embedding by cluster, panel B each cluster's mean normalized waveform |
+
+![Twelve synthetic mean waveforms in two trough widths, as recorded and after the Align and Normalize steps](../assets/figures/fig36_wavemap_steps.png#only-light)
+![Twelve synthetic mean waveforms in two trough widths, as recorded and after the Align and Normalize steps](../assets/figures/fig36_wavemap_steps.dark.png#only-dark)
+
+Synthetic: twelve synthetic units in two trough widths, before and after `jnwb.align_waveforms` and `jnwb.normalize_waveforms`, the Align and Normalize steps above. After alignment, the six units of each width coincide; the thick line in each is their mean.
 
 The script prints the ids of each cluster's units, so a cluster traces back to the units table.
 

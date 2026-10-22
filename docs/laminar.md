@@ -52,6 +52,11 @@ delay = jnwb.zflip(wave, fs, orientation="superficial_to_deep", pitch_um=100.0, 
 assert delay.accepted and delay.directionality == "superficial_to_deep"
 ```
 
+![vFLIP band profiles with layer labels and crossover, xFLIP contact blocks, zFLIP adjacent-contact wPLI](assets/figures/fig29_laminar_one_call.png#only-light)
+![vFLIP band profiles with layer labels and crossover, xFLIP contact blocks, zFLIP adjacent-contact wPLI](assets/figures/fig29_laminar_one_call.dark.png#only-dark)
+
+Synthetic: the example's seeded motif probe. A: the band profiles of `jnwb.vflip` and the layers of `jnwb.label_layers`, with the crossover near the motif's contact 11.5. B: `jnwb.xflip` on two blocks of 8 and 16 contacts. C: `jnwb.zflip` on a wave that reaches each deeper contact 5 ms later.
+
 ## `vflip` is not the published vFLIP
 
 `vflip` tests for the spectrolaminar motif of Mendoza-Halliday et al. (2024) and shares its

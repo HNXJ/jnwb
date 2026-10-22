@@ -32,6 +32,11 @@ Pass the table as the second argument. Choosing the first table in the list inst
 have aligned everything to detected photodiode changes and reported a PSTH of 0.00 Hz
 without complaining.
 
+![One synthetic unit's PSTH aligned to the task table, with a response 10 ms after onset, and aligned to the photodiode table, which is flat](../assets/figures/fig31_table_alignment.png#only-light)
+![One synthetic unit's PSTH aligned to the task table, with a response 10 ms after onset, and aligned to the photodiode table, which is flat](../assets/figures/fig31_table_alignment.dark.png#only-dark)
+
+Synthetic: the synthetic NWB fixture's tables. Shading is ±1 SEM. Aligned to the photodiode table, the mean rate is 0.00 Hz, as the paragraph above states.
+
 **Which column holds the codes.** The script prefers `codes` when present, a default that
 [Errors](../errors.md#columnnotfounderror) explains, and otherwise takes the first non-structural column that has
 sample values, then passes that name explicitly. Naming a column that does not exist raises

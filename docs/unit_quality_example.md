@@ -21,6 +21,11 @@ jupyter lab examples/notebooks/unit_quality.ipynb
 | Waveforms down the probe | `visual_qc.plot_unit_waveforms` | Every contact of each unit, with the voltage unit written on the axis |
 | Outcomes | the calls above | One input requested, three results reported as NaN, one claim declined |
 
+![Mean waveforms of five made-up units down an eight-contact probe, and presence ratio against refractory contamination per unit](assets/figures/fig30_unit_quality_waveforms.png#only-light)
+![Mean waveforms of five made-up units down an eight-contact probe, and presence ratio against refractory contamination per unit](assets/figures/fig30_unit_quality_waveforms.dark.png#only-dark)
+
+Synthetic: five made-up units generated for this figure, not the notebook's units. Unit 2 stops firing after 240 s, unit 3 carries extra spikes from another source, and unit 4 is flat. A is drawn from `jnwb.waveform_features`; B and C from `jnwb.presence_ratio` and `jnwb.refractory_contamination`.
+
 Every unit and spike train is generated in the notebook from a seeded generator, so each number
 describes the made-up units alone. A measure reads one unit and keeps or rejects none; the
 measures are defined in [Spikes & Onset Dynamics](06_spikes_psth_and_onset_dynamics.md) and

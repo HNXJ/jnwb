@@ -162,6 +162,13 @@ def _unlink(rel: str) -> Callable[[Path], None]:
     return lambda root: (root / rel).unlink()
 
 
+def _unsuffixed_image(rel: str) -> Callable[[Path], None]:
+    """Appends an unsuffixed PNG under `docs/assets/vis/` to the page `rel`."""
+    return _then(
+        lambda root: _write(root / "docs/assets/vis/sorted.png", ""),
+        _append(rel, "\n![Sorted heatmap](assets/vis/sorted.png)\n"))
+
+
 NAV = "mkdocs.yml"
 PAGE_A = "docs/a.md"
 TUTORIAL = "docs/tutorials/t1.md"
@@ -274,6 +281,40 @@ def test_each_check_fails_on_its_own_seeded_violation(tree, seed_name):
     assert not others, f"{seed_name} also failed {others}"
 
 
+VIS = "docs/vis.md"
+
+
+def test_an_unsuffixed_image_is_light_only_on_a_map_page_that_states_it(tree):
+    """G2 takes an unsuffixed image only on a page of `LIGHT_ONLY_PAGES` whose quoted line is on
+    the page, and counts it as light-only. Bypass: every unsuffixed image fails, so the map is
+    never read, or the map is read without its line."""
+    _write(tree / VIS, f"# Plotting\n\n{gate.LIGHT_ONLY_PAGES['vis.md']}\n")
+    _unsuffixed_image(VIS)(tree)
+    report = {name: (violations, line) for name, violations, line in gate.run_checks(tree)}
+    violations, line = report["figure theme independence"]
+    assert violations == [], violations
+    assert "1 light-only" in line, line
+
+
+def test_an_unsuffixed_image_fails_on_a_page_outside_the_map(tree):
+    _unsuffixed_image(PAGE_A)(tree)
+    results = _results(tree)
+    assert any("a.md: assets/vis/sorted.png is shown the same" in v
+               for v in results["figure theme independence"]), results["figure theme independence"]
+    others = {name: v for name, v in results.items() if name != "figure theme independence" and v}
+    assert not others, f"the seeded image also failed {others}"
+
+
+def test_an_unsuffixed_image_fails_on_a_map_page_without_its_line(tree):
+    _write(tree / VIS, "# Plotting\n\nNo statement of the theme here.\n")
+    _unsuffixed_image(VIS)(tree)
+    results = _results(tree)
+    assert any("vis.md: assets/vis/sorted.png" in v
+               for v in results["figure theme independence"]), results["figure theme independence"]
+    others = {name: v for name, v in results.items() if name != "figure theme independence" and v}
+    assert not others, f"the seeded image also failed {others}"
+
+
 def test_a_check_that_raises_is_reported_and_the_others_still_run(tree):
     (tree / NAV).unlink()
     results = _results(tree)
@@ -310,6 +351,7 @@ def test_the_live_tree():
     assert count(r"(\d+) groups") >= 4
     assert count(r"(\d+) targets") >= 25
     assert count(r"(\d+) figures shown as light/dark pairs") >= 10
+    assert count(r"(\d+) light-only") >= 1
     assert count(r"(\d+) paragraphs") >= 300
     assert count(r"paragraphs in (\d+) pages") >= 28
     assert count(r"none of (\d+) terms") >= 40

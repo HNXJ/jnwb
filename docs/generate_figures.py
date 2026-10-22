@@ -20,7 +20,9 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import os
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 # The repository root, for jnwb, and this folder, for the style module. Guarded: the suite
@@ -49,7 +51,14 @@ import figure_style as style
 import jnwb
 from jnwb import StatisticalAnalysis
 from jnwb.laminar import CANONICAL_VFLIP_BANDS
-from jnwb.testing import synth_laminar_motif
+from jnwb.testing import synth_correlation_blocks, synth_laminar_motif
+from jnwb.testing.nwb_fixtures import (
+    CODE_LABEL_A,
+    CODE_LABEL_B,
+    TASK_TABLE,
+    canonical_co_resident_options,
+    write_synth_nwb,
+)
 
 FIGURE_DIR = REPO_ROOT / "docs" / "assets" / "figures"
 OUT_DIR = FIGURE_DIR
@@ -1782,6 +1791,612 @@ def fig28_lfp_spectral_wpli():
     plt.close(fig)
 
 
+def _hz_range(band) -> str:
+    """A frequency band as `lo−hi Hz`, with the true minus sign used as the range dash."""
+    return f"{band[0]:g}−{band[1]:g} Hz"
+
+
+#: fig29's probe: 24 contacts at 100 µm, the motif's crossover at contact 11.5 and its SNR, as in
+#: the one-call example of the laminar page.
+FIG29_FS = 1000.0
+FIG29_N_CONTACTS = 24
+FIG29_N_SAMPLES = 5000
+FIG29_PITCH_UM = 100.0
+FIG29_CROSSOVER = 11.5
+FIG29_SNR = 20.0
+
+
+def _inches_axes(fig, left, top, width, height):
+    """An axes whose box starts `left` inches from the figure's left edge and `top` inches below
+    its top edge, and is `width` by `height` inches."""
+    w, h = fig.get_size_inches()
+    return fig.add_axes([left / w, 1 - (top + height) / h, width / w, height / h])
+
+
+#: fig29's layout, in inches. Panels A and C span the column from one left edge; panel B is a
+#: square heatmap on that edge, its colorbar inside the column width. Each gap between panels is
+#: the blank band between one panel's content and the next panel's title.
+FIG29_LEFT_IN = 0.72
+FIG29_RIGHT_IN = 4.08
+FIG29_HEATMAP_IN = 2.5
+FIG29_CBAR_GAP_IN = 0.14
+FIG29_CBAR_W_IN = 0.14
+FIG29_TOP_IN = 0.5
+FIG29_A_H_IN = 2.6
+FIG29_C_H_IN = 2.0
+FIG29_A_BELOW_IN = 1.1  # measured ink: A's x label and its legend, below its axes
+FIG29_BELOW_IN = 0.38  # measured ink: tick labels and x label, below B's and C's axes
+FIG29_TITLE_IN = 0.37  # measured ink: a two-line panel title, above its axes
+FIG29_GAP_IN = 0.3
+FIG29_MARGIN_IN = 0.1  # blank space below C's x label, so the label stays on the canvas
+
+
+def fig29_laminar_one_call():
+    """Figure 29: Synthetic. The one-call example of the laminar page on its seeded motif probe:
+    the vFLIP band profiles with the crossover and the layer labels, the xFLIP correlation of two
+    contact blocks, and the zFLIP wPLI between adjacent contacts of a delayed wave."""
+    a_top = FIG29_TOP_IN
+    b_top = a_top + FIG29_A_H_IN + FIG29_A_BELOW_IN + FIG29_GAP_IN + FIG29_TITLE_IN
+    c_top = b_top + FIG29_HEATMAP_IN + FIG29_BELOW_IN + FIG29_GAP_IN + FIG29_TITLE_IN
+    height = c_top + FIG29_C_H_IN + FIG29_BELOW_IN + FIG29_MARGIN_IN
+    fig = plt.figure(figsize=(style.NARROW_WIDTH, height), dpi=style.DPI)
+    column = FIG29_RIGHT_IN - FIG29_LEFT_IN
+    ax_a = _inches_axes(fig, FIG29_LEFT_IN, a_top, column, FIG29_A_H_IN)
+    ax_b = _inches_axes(fig, FIG29_LEFT_IN, b_top, FIG29_HEATMAP_IN, FIG29_HEATMAP_IN)
+    cax = _inches_axes(fig, FIG29_LEFT_IN + FIG29_HEATMAP_IN + FIG29_CBAR_GAP_IN, b_top,
+                       FIG29_CBAR_W_IN, FIG29_HEATMAP_IN)
+    ax_c = _inches_axes(fig, FIG29_LEFT_IN, c_top, column, FIG29_C_H_IN)
+
+    rec = synth_laminar_motif(FIG29_N_CONTACTS, FIG29_N_SAMPLES, FIG29_FS, c_crossover=FIG29_CROSSOVER,
+                              pitch_um=FIG29_PITCH_UM, snr=FIG29_SNR, rng=0)
+    electrodes = pd.DataFrame({"x": 0.0, "y": 0.0, "z": FIG29_PITCH_UM * np.arange(FIG29_N_CONTACTS),
+                               "channel_id": [f"ch{k}" for k in range(FIG29_N_CONTACTS)]})
+    geom = jnwb.probe_geometry(electrodes, units="um")
+    freqs, psd = jnwb.compute_psd(rec.lfp, FIG29_FS, axis=-1)
+    fit = jnwb.vflip(psd, freqs, probe_geometry=geom, depth_axis="z", shallow_end="min")
+    layers = jnwb.label_layers(fit, geom, depth_axis="z", shallow_end="min")
+    assert fit.accepted and layers["ch0"] == "superficial" and layers["ch23"] == "deep", \
+        "fig29 must place the crossover and both layers"
+
+    # A: the two band profiles the estimator compares, by depth, with each contact's layer label
+    depth_um = FIG29_PITCH_UM * np.arange(FIG29_N_CONTACTS)
+    low, high = _band_profiles(psd, freqs, (CANONICAL_VFLIP_BANDS["low"], CANONICAL_VFLIP_BANDS["high"]))
+    colour = {"superficial": style.SERIES[0], "input": style.SERIES[2], "deep": style.SERIES[3],
+              "na": style.NEUTRAL}
+    ax_a.plot(low, depth_um, color=style.SERIES[0], lw=style.LW, label=f"Low band {_hz_range(CANONICAL_VFLIP_BANDS['low'])}")
+    ax_a.plot(high, depth_um, color=style.SERIES[3], lw=style.LW, label=f"High band {_hz_range(CANONICAL_VFLIP_BANDS['high'])}")
+    for label in ("superficial", "input", "deep"):
+        rows = [k for k in range(FIG29_N_CONTACTS) if layers[f"ch{k}"] == label]
+        if rows:
+            ax_a.axhspan(depth_um[rows].min() - 50.0, depth_um[rows].max() + 50.0, color=colour[label],
+                         alpha=0.18, lw=0, label=label.capitalize())
+    ax_a.axhline(FIG29_PITCH_UM * float(fit.crossover_contact), color=C_DARK, ls="--", lw=style.LW_THIN,
+                 label=f"Crossover, contact {style.num(float(fit.crossover_contact), '.1f')}")
+    ax_a.invert_yaxis()
+    ax_a.set_xlabel("Normalized band power (dimensionless)")
+    ax_a.set_ylabel("Depth from shallow end (µm)")
+    style.panel_title(ax_a, "A", "vFLIP profiles and layers\n(jnwb.vflip, jnwb.label_layers)")
+    ax_a.legend(frameon=False, fontsize=style.SMALL, loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=2,
+                columnspacing=1.0, handlelength=1.5)
+
+    # B: xFLIP's two contact blocks as the correlation between contacts, with the boundary it finds
+    data, _, _ = synth_correlation_blocks((8, 16), n_samples=400, rng=0)
+    blocks = jnwb.xflip(data, rng=0)
+    assert blocks.accepted and blocks.boundaries == (8,), "fig29 must find the 8-contact boundary"
+    image = ax_b.imshow(np.corrcoef(data), cmap="RdBu_r", vmin=-1.0, vmax=1.0, interpolation="nearest")
+    edge = blocks.boundaries[0] - 0.5  # between the last contact of the first block and the next
+    ax_b.axhline(edge, color=style.SERIES[1], ls="--", lw=style.LW_THIN)
+    ax_b.axvline(edge, color=style.SERIES[1], ls="--", lw=style.LW_THIN)
+    fig.colorbar(image, cax=cax).set_label("Pearson r (dimensionless)")
+    ax_b.set_xlabel("Contact index (dimensionless)")
+    ax_b.set_ylabel("Contact index (dimensionless)")
+    style.panel_title(ax_b, "B", "Contact blocks\n(jnwb.xflip)")
+
+    # C: zFLIP's wPLI between adjacent contacts of a wave that reaches each deeper contact 5 ms later
+    noise = np.random.default_rng(0)
+    spectrum = np.fft.rfft(noise.normal(size=4000))
+    f = np.fft.rfftfreq(4000, 1 / FIG29_FS)
+    wave = np.array([np.fft.irfft(spectrum * np.exp(-2j * np.pi * f * 0.005 * k), n=4000)
+                     for k in range(6)]) + 0.1 * noise.normal(size=(6, 4000))
+    delay = jnwb.zflip(wave, FIG29_FS, orientation="superficial_to_deep", pitch_um=FIG29_PITCH_UM, rng=0)
+    assert delay.accepted and delay.directionality == "superficial_to_deep", "fig29 must find the delay"
+    pairs = np.arange(wave.shape[0] - 1)
+    identifiable = np.asarray(delay.adjacent_identifiable, dtype=bool)
+    ax_c.plot(pairs, delay.adjacent_wpli, color=style.SERIES[0], lw=style.LW, label="Adjacent-contact wPLI")
+    ax_c.scatter(pairs[identifiable], np.asarray(delay.adjacent_wpli)[identifiable], color=style.SERIES[0],
+                 s=24, zorder=3, label="Delay identifiable")
+    ax_c.set_xticks(pairs)  # one tick per adjacent pair: integer indices only
+    ax_c.set_ylim(0.0, 1.05)  # wPLI's full range: a near-constant profile must look flat
+    ax_c.set_xlabel("Adjacent contact pair (index)")
+    ax_c.set_ylabel("wPLI (dimensionless)")
+    style.panel_title(ax_c, "C", "Delay between contacts\n(jnwb.zflip)")
+    velocity = delay.apparent_velocity_m_s
+    velocity_text = "not identifiable" if velocity is None else f"{velocity:.2f} m/s"
+    ax_c.legend(handles=[Patch(visible=False, label=f"Apparent velocity {velocity_text}")],
+                frameon=False, loc="lower right", fontsize=style.SMALL)
+
+    _save(fig, "fig29_laminar_one_call.png")
+    plt.close(fig)
+
+
+#: fig30's recording: five made-up units on an eight-contact probe at 30 kHz, sampled for ten
+#: 60 s blocks. A unit built to drift stops firing after 240 s; a contaminated unit carries 0.3 Hz of
+#: spikes from a second source on top of its own; a flat unit has a trough of 4 µV.
+FIG30_SEED = 3
+FIG30_FS = 30000.0
+FIG30_N_CONTACTS = 8
+FIG30_N_SAMPLES = 82
+FIG30_TROUGH_SAMPLE = 30
+FIG30_SECONDS = 600.0
+FIG30_BLOCK_S = 60.0
+FIG30_REFRACTORY_MS = 2.0
+FIG30_CENSORED_MS = 0.25
+#: (peak contact, trough in µV, rate in Hz, kind) for each unit.
+FIG30_UNITS = (
+    (2, -90.0, 8.0, "clean"),
+    (5, -60.0, 3.0, "clean"),
+    (6, -40.0, 12.0, "drifts"),
+    (3, -75.0, 6.0, "contaminated"),
+    (4, -4.0, 5.0, "flat"),
+)
+
+
+def _unit_waveform(peak: int, trough_uv: float) -> np.ndarray:
+    """A mean waveform, contacts by samples, in µV: a trough on the peak contact that spreads
+    down the probe over 1.5 contacts, with a small positive hump after it."""
+    t_ms = (np.arange(FIG30_N_SAMPLES) - FIG30_TROUGH_SAMPLE) / FIG30_FS * 1e3
+    shape = -np.exp(-0.5 * (t_ms / 0.25) ** 2) + 0.35 * np.exp(-0.5 * ((t_ms - 0.8) / 0.4) ** 2)
+    spread = np.exp(-np.abs(np.arange(FIG30_N_CONTACTS) - peak) / 1.5)
+    return np.outer(spread, -shape) * trough_uv
+
+
+def _refractory_train(rng, rate_hz: float, span_s: float) -> np.ndarray:
+    """A Poisson spike train with a dead time of FIG30_REFRACTORY_MS after each spike, so that the
+    train holds no violation of its own refractory period."""
+    candidates = np.sort(rng.uniform(0.0, span_s, rng.poisson(1.5 * rate_hz * span_s)))
+    kept, last = [], -np.inf
+    for t in candidates:
+        if t - last >= FIG30_REFRACTORY_MS / 1e3:
+            kept.append(t)
+            last = t
+    return np.asarray(kept)
+
+
+def fig30_unit_quality_waveforms():
+    """Figure 30: Synthetic. Five made-up units: their mean waveforms down an eight-contact probe
+    (A), and the presence ratio against the refractory contamination of each unit's spike train (B),
+    from the unit-quality measures of the unit-quality example."""
+    rng = np.random.default_rng(FIG30_SEED)
+    waves = [_unit_waveform(peak, trough) for peak, trough, _, _ in FIG30_UNITS]
+    trains = []
+    for _, _, rate, kind in FIG30_UNITS:
+        span = 240.0 if kind == "drifts" else FIG30_SECONDS
+        times = _refractory_train(rng, rate, span)
+        if kind == "contaminated":
+            other = np.sort(rng.uniform(0.0, span, rng.poisson(0.3 * span)))
+            times = np.sort(np.concatenate([times, other]))
+        trains.append(times)
+    blocks = np.column_stack([np.arange(0.0, FIG30_SECONDS, FIG30_BLOCK_S),
+                              np.arange(FIG30_BLOCK_S, FIG30_SECONDS + FIG30_BLOCK_S, FIG30_BLOCK_S)])
+
+    features = [jnwb.waveform_features(w, FIG30_FS) for w in waves]
+    presence = [jnwb.presence_ratio(t, blocks) for t in trains]
+    contamination = [jnwb.refractory_contamination(t, duration_s=FIG30_SECONDS,
+                                                   refractory_ms=FIG30_REFRACTORY_MS,
+                                                   censored_ms=FIG30_CENSORED_MS)["contamination"]
+                     for t in trains]
+    assert [f["peak_channel"] for f in features] == [p for p, _, _, _ in FIG30_UNITS], \
+        "fig30 must find each unit's peak contact"
+    assert presence[0] == 1.0 and presence[2] < 1.0, "fig30 must hold the drifting unit below full presence"
+    assert np.isfinite(contamination[3]) and contamination[3] > contamination[0], \
+        "fig30 must hold the contaminated unit above the clean one"
+
+    fig = plt.figure(figsize=(style.NARROW_WIDTH, 7.6), dpi=style.DPI)
+    grid = fig.add_gridspec(3, 1, height_ratios=[1.7, 1, 1])
+    ax_a = fig.add_subplot(grid[0])
+    ax_b1, ax_b2 = fig.add_subplot(grid[1]), fig.add_subplot(grid[2])
+    colours = [style.SERIES[0], style.SERIES[2], style.SERIES[1], style.SERIES[3], style.NEUTRAL]
+
+    # A: each unit's waveform on its own 2.7 ms window, contacts stacked 100 µV apart, shallow at top
+    t_ms = (np.arange(FIG30_N_SAMPLES) - FIG30_TROUGH_SAMPLE) / FIG30_FS * 1e3
+    for u, wave in enumerate(waves):
+        x0 = 2.9 * u
+        for c in range(FIG30_N_CONTACTS):
+            ax_a.plot(x0 + t_ms, -100.0 * c + wave[c], color=colours[u], lw=style.LW_THIN)
+        peak = FIG30_UNITS[u][0]
+        ax_a.plot(x0 + t_ms, -100.0 * peak + wave[peak], color=colours[u], lw=style.LW)
+        ax_a.text(x0, 180.0, f"Unit {u}", ha="center", color=C_DARK, fontsize=style.SMALL)
+    ax_a.set_yticks([-100.0 * c for c in range(FIG30_N_CONTACTS)])
+    ax_a.set_yticklabels([str(c) for c in range(FIG30_N_CONTACTS)])
+    ax_a.set_ylim(-750.0, 260.0)
+    ax_a.set_xticks([])
+    ax_a.set_ylabel("Contact (0 shallowest)")
+    style.panel_title(ax_a, "A", "Mean waveforms down the probe, 100 µV per row\n"
+                                 "(jnwb.waveform_features)")
+
+    # B and C: the two spike-train measures, one point per unit
+    units = np.arange(len(FIG30_UNITS))
+    for ax, values in ((ax_b1, presence), (ax_b2, contamination)):
+        for u in units:
+            ax.scatter(u, values[u], s=36, color=colours[u], zorder=3)
+        ax.set_xticks(units)
+        ax.set_xlim(-0.6, len(FIG30_UNITS) - 0.4)
+        ax.set_xlabel("Unit")
+    ax_b1.set_ylim(0.0, 1.1)
+    ax_b1.set_ylabel("Presence ratio (dimensionless)")
+    ax_b2.set_ylim(0.0, max(contamination) * 1.3)
+    ax_b2.set_ylabel("Contamination (dimensionless)")
+    style.panel_title(ax_b1, "B", "Presence over 60 s blocks\n(jnwb.presence_ratio)")
+    style.panel_title(ax_b2, "C", "Refractory contamination\n(jnwb.refractory_contamination)")
+
+    fig.tight_layout()
+    _save(fig, "fig30_unit_quality_waveforms.png")
+    plt.close(fig)
+
+
+#: The fixture's interval table that holds the photodiode changes, by the name it is written under.
+FIG31_CHANGE_TABLE = "photodiode_1_detected_changes"
+
+
+def fig31_table_alignment():
+    """Figure 31: Synthetic. One unit of the synthetic NWB fixture aligned to its task table (A) and
+    to its photodiode table (B). The unit fires 10 ms after each task onset, so only the task table
+    shows a response, and the mean rate on the photodiode table is zero."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "synthetic_recording.nwb"
+        write_synth_nwb(path, canonical_co_resident_options(seed=42))
+        spikes = jnwb.unit_spike_times(path, unit_index=0)
+        psths = []
+        for table in (TASK_TABLE, FIG31_CHANGE_TABLE):
+            onsets = jnwb.event_onsets(path, table=table, code_column=None)
+            t_ms, rate, sem = jnwb.raster_psth(spikes, onsets, win_ms=(-100.0, 300.0), bin_ms=10.0)
+            psths.append((table, onsets.size, t_ms, rate, sem))
+    top = max(float(np.max(rate + sem)) for _, _, _, rate, sem in psths)
+    assert psths[0][3].max() > 0.0, "fig31 must show a response on the task table"
+
+    fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(style.NARROW_WIDTH, 5.6), dpi=style.DPI, sharey=True)
+    for ax, letter, (table, n_onsets, t_ms, rate, sem) in zip((ax_a, ax_b), "AB", psths):
+        ax.fill_between(t_ms, rate - sem, rate + sem, color=style.VARIABLE["observed"], alpha=0.35, lw=0)
+        ax.plot(t_ms, rate, color=style.VARIABLE["observed"], lw=style.LW,
+                label=f"Mean rate {style.num(float(np.mean(rate)), '.2f')} Hz")
+        ax.axvline(0.0, color=style.NEUTRAL, ls=":", lw=style.LW_THIN)
+        ax.set_ylim(0.0, top * 1.3 if top > 0 else 1.0)
+        ax.set_xlabel("Time from onset (ms)")
+        ax.legend(frameon=False, loc="upper right")
+        style.panel_title(ax, letter, f"Aligned to {table}\n({n_onsets} onsets)")
+        ax.set_ylabel("Firing rate (Hz)")
+
+    fig.tight_layout()
+    _save(fig, "fig31_table_alignment.png")
+    plt.close(fig)
+
+
+def fig32_interval_tables():
+    """Figure 32: Synthetic. Every interval table of the synthetic NWB fixture, as jnwb.inspect lists
+    them, with the onsets of each table in seconds (A) and the spacing between them (B)."""
+    fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(style.NARROW_WIDTH, 5.6), dpi=style.DPI,
+                                     gridspec_kw={"height_ratios": [1.5, 1]})
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "synthetic_recording.nwb"
+        write_synth_nwb(path, canonical_co_resident_options(seed=42))
+        names = [t["name"] for t in jnwb.inspect(path)["interval_tables"]]
+        assert len(names) == 5, f"fig32 must list all five interval tables, found {names}"
+        for row, name in enumerate(names):
+            onsets = jnwb.event_onsets(path, table=name, code_column=None)
+            spacing = np.diff(onsets)
+            ax_a.scatter(onsets, np.full(onsets.size, row), s=16, color=style.SERIES[0], zorder=3)
+            ax_b.scatter(spacing, np.full(spacing.size, row), s=16, color=style.SERIES[2], zorder=3)
+    for ax in (ax_a, ax_b):
+        ax.set_yticks(range(len(names)))
+        ax.set_ylim(-0.6, len(names) - 0.4)
+    ax_a.set_yticklabels(names)
+    ax_b.set_yticklabels(names)
+    ax_a.set_xlabel("Onset time in the session (s)")
+    ax_b.set_xlabel("Spacing between onsets (s)")
+    style.panel_title(ax_a, "A", "Interval tables\n(jnwb.inspect,\njnwb.event_onsets)")
+    style.panel_title(ax_b, "B", "Onset spacing\n(jnwb.event_onsets)")
+
+    fig.tight_layout()
+    _save(fig, "fig32_interval_tables.png")
+    plt.close(fig)
+
+
+def fig33_addressing_contacts():
+    """Figure 33: Synthetic. The ten contacts of the synthetic NWB fixture's probe, from
+    jnwb.electrode_inventory, colored by their location label (A), and the onsets of the fixture's
+    two condition codes in seconds (B)."""
+    fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(style.NARROW_WIDTH, 5.6), dpi=style.DPI,
+                                     gridspec_kw={"height_ratios": [1, 1]})
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "synthetic_recording.nwb"
+        write_synth_nwb(path, canonical_co_resident_options(seed=42))
+        inventory = jnwb.electrode_inventory(path)
+        layer = inventory["location"].str.split("/").str[-1]
+        for name, colour in (("layer-0", style.SERIES[0]), ("layer-1", style.SERIES[2]),
+                             ("layer-2", style.SERIES[3])):
+            rows = inventory[layer == name]
+            ax_a.scatter(rows["x"], rows["z"], s=30, color=colour, zorder=3, label=name)
+        ax_a.set_xlabel("x (as stored)")
+        ax_a.set_ylabel("z (as stored)")
+        ax_a.legend(frameon=False, loc="upper left")
+        for row, (code, colour) in enumerate(((CODE_LABEL_A, style.SERIES[0]),
+                                              (CODE_LABEL_B, style.SERIES[1]))):
+            onsets = jnwb.event_onsets(path, table=TASK_TABLE, codes=[code])
+            ax_b.scatter(onsets, np.full(onsets.size, row), s=20, color=colour, zorder=3)
+    ax_b.set_yticks([0, 1])
+    ax_b.set_yticklabels([CODE_LABEL_A, CODE_LABEL_B])
+    ax_b.set_ylim(-0.6, 1.6)
+    ax_b.set_xlabel("Onset time in the session (s)")
+    style.panel_title(ax_a, "A", "Contacts and their layers\n(jnwb.electrode_inventory)")
+    style.panel_title(ax_b, "B", "Condition onsets in seconds\n(jnwb.event_onsets)")
+
+    fig.tight_layout()
+    _save(fig, "fig33_addressing_contacts.png")
+    plt.close(fig)
+
+
+#: fig34's synthetic session: 40 trials alternating two conditions 1.5 s apart, a 20 Hz rhythm at
+#: amplitude 0.3 that rises to 1.0 for the 0.3 s after each condition A onset, and a unit that fires
+#: 4 Hz with an extra 12 Hz in those same bursts after condition A onsets.
+FIG34_SEED = 8
+FIG34_FS = 1000.0
+FIG34_RHYTHM_HZ = 20.0
+FIG34_BURST_S = 0.3
+FIG34_N_TRIALS = 40
+FIG34_SPACING_S = 1.5
+
+
+def fig34_end_to_end_synthetic():
+    """Figure 34: Synthetic, not the tutorial's fixture. The PSTH of one unit by condition (A), and the
+    beta power of condition A trials before and after onset (B), from the calls of the end-to-end
+    pipeline on a planted beta increase."""
+    rng = np.random.default_rng(FIG34_SEED)
+    onsets = 2.0 + FIG34_SPACING_S * np.arange(FIG34_N_TRIALS)
+    is_a = np.arange(FIG34_N_TRIALS) % 2 == 0
+    onsets_a, onsets_b = onsets[is_a], onsets[~is_a]
+    n = int(np.ceil((onsets[-1] + 1.0) * FIG34_FS))
+    t = np.arange(n) / FIG34_FS
+    amplitude = np.full(n, 0.3)
+    for onset in onsets_a:
+        amplitude[int(round(onset * FIG34_FS)):int(round((onset + FIG34_BURST_S) * FIG34_FS))] = 1.0
+    lfp = amplitude * np.sin(2.0 * np.pi * FIG34_RHYTHM_HZ * t) + 0.5 * rng.standard_normal(n)
+    background = rng.uniform(0.0, n / FIG34_FS, rng.poisson(4.0 * n / FIG34_FS))
+    bursts = np.concatenate([rng.uniform(onset, onset + FIG34_BURST_S, rng.poisson(12.0 * FIG34_BURST_S))
+                             for onset in onsets_a])
+    spikes = np.sort(np.concatenate([background, bursts]))
+
+    # A: the PSTH of each condition, with the calls the pipeline uses
+    t_ms, rate_a, sem_a = jnwb.raster_psth(spikes, onsets_a, win_ms=(-100.0, 300.0), bin_ms=10.0)
+    _, rate_b, sem_b = jnwb.raster_psth(spikes, onsets_b, win_ms=(-100.0, 300.0), bin_ms=10.0)
+
+    # B: the beta power before and after each condition A onset, and its baseline-normalized response
+    beta = jnwb.CANONICAL_BANDS["beta"]
+    post_epochs, _ = jnwb.epoch_continuous(lfp, onsets_a, win_s=(0.0, FIG34_BURST_S), fs=FIG34_FS)
+    base_epochs, _ = jnwb.epoch_continuous(lfp, onsets_a, win_s=(-0.2, -0.05), fs=FIG34_FS)
+    post = np.array([jnwb.band_power(ep, fs=FIG34_FS, freq_range=beta, normalize=False) for ep in post_epochs])
+    base = np.array([jnwb.band_power(ep, fs=FIG34_FS, freq_range=beta, normalize=False) for ep in base_epochs])
+    db = float(jnwb.aggregate_to_db(post, base, how="mean_of_ratios", aggregate_over=0))
+    assert db > 0.0, "fig34 must hold the planted beta increase above baseline"
+
+    fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(style.NARROW_WIDTH, 5.6), dpi=style.DPI,
+                                     gridspec_kw={"height_ratios": [1.3, 1]})
+    for rate, sem, colour, label in ((rate_a, sem_a, style.SERIES[0], "Condition A"),
+                                     (rate_b, sem_b, style.SERIES[1], "Condition B")):
+        ax_a.fill_between(t_ms, rate - sem, rate + sem, color=colour, alpha=0.3, lw=0)
+        ax_a.plot(t_ms, rate, color=colour, lw=style.LW, label=label)
+    ax_a.axvline(0.0, color=style.NEUTRAL, ls=":", lw=style.LW_THIN)
+    ax_a.set_xlabel("Time from onset (ms)")
+    ax_a.set_ylabel("Firing rate (Hz)")
+    style.panel_title(ax_a, "A", "PSTH by condition\n(jnwb.raster_psth)")
+    ax_a.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=2)
+
+    for i in range(post.size):
+        ax_b.plot([0, 1], [base[i], post[i]], color=C_LIGHT_GRAY, lw=style.LW_THIN, zorder=1)
+    ax_b.scatter(np.zeros(base.size), base, s=20, color=C_DARK, zorder=3)
+    ax_b.scatter(np.ones(post.size), post, s=20, color=C_DARK, zorder=3)
+    ax_b.set_xticks([0, 1])
+    ax_b.set_xticklabels(["Baseline", "0 to 0.3 s"])
+    ax_b.set_xlim(-0.3, 1.3)
+    ax_b.set_ylim(0.0, float(max(base.max(), post.max())) * 1.15)
+    ax_b.set_ylabel("Beta band power (a.u.)")
+    style.panel_title(ax_b, "B", "Beta power, condition A\n(jnwb.band_power)")
+    ax_b.plot([], [], " ", label=f"Response {style.num(db, '.1f')} dB (jnwb.aggregate_to_db)")
+    ax_b.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
+
+    fig.tight_layout()
+    _save(fig, "fig34_end_to_end_synthetic.png")
+    plt.close(fig)
+
+
+#: fig35's recording: nine made-up units on three probes. The first probe's rows hold 4, 3 and 5
+#: samples, the second probe's 2, 4 and 3, the third's 5, 2 and 4.
+FIG35_ROW_SIZES = (4, 3, 5, 2, 4, 3, 5, 2, 4)
+FIG35_PROBE_STARTS = (0, 3, 6)
+
+
+def _defect_index(sizes, starts):
+    """The index the defect writes: the first row of each probe after the first ends at the first
+    element of the index plus its own length, and the rows after it carry on from there."""
+    index = np.zeros(len(sizes), dtype=np.int64)
+    for i, size in enumerate(sizes):
+        if i == 0:
+            index[i] = size
+        elif i in starts[1:]:
+            index[i] = index[0] + size
+        else:
+            index[i] = index[i - 1] + size
+    return index
+
+
+def _write_defect_units(path, sizes, defect):
+    """Write a units table of synthetic spike trains, one row per unit, then overwrite its
+    spike_times index with the defect's values. pynwb writes the correct running total first."""
+    from datetime import datetime
+
+    import h5py
+    from dateutil.tz import tzlocal
+    from pynwb import NWBFile, NWBHDF5IO
+
+    nwb = NWBFile(session_description="synthetic offset-defect fixture", identifier="fig35",
+                  session_start_time=datetime(2026, 1, 1, tzinfo=tzlocal()))
+    rng = np.random.default_rng(0)
+    for n in sizes:
+        nwb.add_unit(spike_times=np.sort(rng.uniform(0.0, 10.0, int(n))))
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    with h5py.File(path, "r+") as f:
+        index = f["units"]["spike_times_index"]
+        index[...] = defect.astype(index.dtype)
+
+
+def fig35_ragged_index_defect():
+    """Figure 35: Synthetic. Nine made-up units on three probes, written to a file with the offset
+    defect and checked by jnwb.check_ragged_indices: the index entries the defect leaves, against the
+    corrected running total the check returns (A), and the span of flat data each row reads under each
+    (B), with the correct span outlined."""
+    sizes = np.asarray(FIG35_ROW_SIZES)
+    defect = _defect_index(sizes, FIG35_PROBE_STARTS)
+    assert np.any(np.diff(defect) < 0), "fig35 must show the decrease the defect causes"
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "defect_recording.nwb"
+        _write_defect_units(path, sizes, defect)
+        report = jnwb.check_ragged_indices(path, probe_starts=list(FIG35_PROBE_STARTS))
+    check = next(c for c in report.columns if c.column == "spike_times")
+    assert check.offset_bug == "detected" and check.corrected_index is not None, \
+        "fig35 must be detected as the offset defect"
+    correct = np.asarray(check.corrected_index)
+    assert np.array_equal(correct, np.cumsum(sizes)), "fig35 corrected index must be the running total"
+    rows = np.arange(sizes.size)
+    probe_of_row = np.searchsorted(FIG35_PROBE_STARTS, rows, side="right") - 1
+    fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(style.NARROW_WIDTH, 5.6), dpi=style.DPI,
+                                     gridspec_kw={"height_ratios": [1, 1.2]})
+
+    ax_a.plot(rows, correct, color=C_LIGHT_GRAY, lw=style.LW, marker="o", ms=4, label="Running total")
+    ax_a.plot(rows, defect, color=style.SERIES[3], lw=style.LW_THIN, marker="o", ms=4, label="Defect")
+    for start in FIG35_PROBE_STARTS[1:]:
+        ax_a.axvline(start - 0.5, color=style.NEUTRAL, ls=":", lw=style.LW_THIN)
+    ax_a.set_xlabel("Row (unit)")
+    ax_a.set_ylabel("Index entry (exclusive end)")
+    style.panel_title(ax_a, "A", "Index entries by row\n(correct and defective)")
+    ax_a.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.25), ncol=2, fontsize=style.SMALL)
+
+    read_start = np.concatenate(([0], defect[:-1]))
+    read_end = np.maximum(defect, read_start)  # an end before its start reads nothing
+    correct_start = np.concatenate(([0], correct[:-1]))
+    for r in rows:
+        ax_b.barh(r, correct[r] - correct_start[r], left=correct_start[r], height=0.7,
+                  facecolor="none", edgecolor=C_LIGHT_GRAY, lw=style.LW_THIN, zorder=2)
+        if read_end[r] > read_start[r]:
+            ax_b.barh(r, read_end[r] - read_start[r], left=read_start[r], height=0.36,
+                      color=style.SERIES[probe_of_row[r]], zorder=3)
+        else:
+            ax_b.plot(read_start[r], r, marker="x", color=style.SERIES[3], ms=6, mew=1.5, zorder=4)
+    ax_b.invert_yaxis()
+    ax_b.set_yticks(rows)
+    ax_b.set_xlabel("Position in the flat data (element)")
+    ax_b.set_ylabel("Row (unit)")
+    style.panel_title(ax_b, "B", "Data each row reads\n(defective and correct spans)")
+    ax_b.legend(handles=[
+        Patch(facecolor="none", edgecolor=C_LIGHT_GRAY, label="Correct span"),
+        Line2D([], [], color=style.SERIES[3], marker="x", ls="", label="Reads nothing"),
+    ], frameon=False, loc="upper right", fontsize=style.SMALL)
+
+    fig.tight_layout()
+    _save(fig, "fig35_ragged_index_defect.png")
+    plt.close(fig)
+
+
+#: fig36's recording: twelve made-up units, six with a narrow trough and six with a broad one, each
+#: trough a few samples from sample 30 at 30 kHz.
+FIG36_SEED = 9
+FIG36_FS = 30000.0
+FIG36_N_SAMPLES = 82
+FIG36_TROUGH_SAMPLE = 30
+FIG36_JITTER = 4
+FIG36_WIDTH_MS = (0.2, 0.45)
+
+
+def fig36_wavemap_steps():
+    """Figure 36: Synthetic. Twelve made-up mean waveforms in two trough widths, as recorded (A), and
+    after the align and normalize steps of the WaveMAP page (B)."""
+    rng = np.random.default_rng(FIG36_SEED)
+    t_ms = (np.arange(FIG36_N_SAMPLES) - FIG36_TROUGH_SAMPLE) / FIG36_FS * 1e3
+    raw = []
+    for k in range(12):
+        width = FIG36_WIDTH_MS[k // 6]
+        shift = rng.integers(-FIG36_JITTER, FIG36_JITTER + 1) / FIG36_FS * 1e3
+        amplitude = rng.uniform(60.0, 120.0)
+        shape = (-np.exp(-0.5 * ((t_ms - shift) / width) ** 2)
+                 + 0.35 * np.exp(-0.5 * ((t_ms - shift - 0.8) / 0.4) ** 2))
+        raw.append(amplitude * shape)
+    raw = np.asarray(raw)
+    aligned, valid = jnwb.align_waveforms(raw, fs=FIG36_FS)
+    assert valid.all(), "fig36 must align every unit"
+    normalized = jnwb.normalize_waveforms(aligned)
+    assert np.allclose(np.abs(normalized).max(axis=1), 1.0), "fig36 rows must reach unit amplitude"
+    t_aligned = (np.arange(aligned.shape[1]) - int(np.argmin(aligned[0]))) / FIG36_FS * 1e3
+
+    fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(style.NARROW_WIDTH, 5.6), dpi=style.DPI)
+    for k in range(12):
+        colour = style.SERIES[0] if k < 6 else style.SERIES[1]
+        ax_a.plot(t_ms, raw[k], color=colour, lw=style.LW_THIN, alpha=0.85)
+        ax_b.plot(t_aligned, normalized[k], color=colour, lw=style.LW_THIN, alpha=0.85)
+    for lo, hi, colour in ((0, 6, style.SERIES[0]), (6, 12, style.SERIES[1])):
+        ax_b.plot(t_aligned, normalized[lo:hi].mean(axis=0), color=colour, lw=style.LW_THICK)
+    ax_a.set_xlabel("Time from nominal trough (ms)")
+    ax_a.set_ylabel("Voltage (µV)")
+    style.panel_title(ax_a, "A", "Mean waveforms, as recorded\n(synthetic units)")
+    ax_a.legend(handles=[
+        Line2D([], [], color=style.SERIES[0], lw=style.LW_THIN, label="Narrow trough"),
+        Line2D([], [], color=style.SERIES[1], lw=style.LW_THIN, label="Broad trough"),
+    ], frameon=False, loc="lower right")
+    ax_b.axvline(0, color=style.NEUTRAL, ls=":", lw=style.LW_THIN)
+    ax_b.set_xlabel("Time from trough (ms)")
+    ax_b.set_ylabel("Normalized amplitude (dimensionless)")
+    style.panel_title(ax_b, "B", "Aligned, then normalized\n(jnwb.normalize_waveforms)")
+
+    fig.tight_layout()
+    _save(fig, "fig36_wavemap_steps.png")
+    plt.close(fig)
+
+
+#: The plotting page's sorted-heatmap example, reproduced exactly: seeded normal draws, 40 units by
+#: 70 time bins, sorted by the bin of each unit's peak.
+VIS_BASENAME = "sorted_heatmap"
+
+
+def write_vis_example(out_dir: Path) -> Path:
+    """Export the plotting page's sorted-heatmap example with jnwb.vis, sealed with its argument
+    sidecar, and copy its PNG to `out_dir`. Synthetic: seeded normal draws, not recorded data. The
+    PNG is a Plotly export, so it is kept out of FIGURE_DIR, whose PNGs are all Matplotlib's."""
+    from jnwb import vis
+
+    rng = np.random.default_rng(0)
+    time_ms = np.arange(-200.0, 500.0, 10.0)
+    rates = rng.normal(size=(40, time_ms.size))
+    order = np.argsort(np.argmax(rates[:, time_ms >= 0], axis=1))
+    canvas = vis.PlotlyPublicationCanvas(layout="1col", height_mm=70.0, rows=1, cols=1, tags=[["A"]])
+    vis.plot_sorted_heatmap(canvas, 0, 0, rates, time_ms, sort_idx=order,
+                            title="Synthetic units sorted by peak time", colorbar_title="Rate",
+                            value_unit="z")
+    argument = vis.EpistemicArgumentObject(
+        QUESTION="Does the heatmap render units sorted by peak time?",
+        DATA="Synthetic normal draws, 40 units x 70 bins, seed 0",
+        ESTIMAND="None: a rendering example",
+        INFERENCE_UNIT="None",
+        RESULT="A sorted heatmap",
+        LICENSED_CLAIM="The canvas renders a supplied matrix",
+        BARRED_CLAIM="Any claim about neural data",
+        SOURCE_ARTIFACTS=["generated in this script, seed 0"],
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        paths = canvas.save_and_seal(tmp, VIS_BASENAME, argument)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        target = out_dir / f"{VIS_BASENAME}.png"
+        shutil.copyfile(paths["png"], target)
+    return target
+
+
 #: Every committed figure and the function that writes it. A PNG in FIGURE_DIR that is not a
 #: key here has no generator, and the maintenance test fails on it.
 FIGURES = {
@@ -1811,6 +2426,14 @@ FIGURES = {
     "fig26_ensembles_rdm_decoding.png": fig26_ensembles_rdm_decoding,
     "fig27_spiking_psth_onset.png": fig27_spiking_psth_onset,
     "fig28_lfp_spectral_wpli.png": fig28_lfp_spectral_wpli,
+    "fig29_laminar_one_call.png": fig29_laminar_one_call,
+    "fig30_unit_quality_waveforms.png": fig30_unit_quality_waveforms,
+    "fig31_table_alignment.png": fig31_table_alignment,
+    "fig32_interval_tables.png": fig32_interval_tables,
+    "fig33_addressing_contacts.png": fig33_addressing_contacts,
+    "fig34_end_to_end_synthetic.png": fig34_end_to_end_synthetic,
+    "fig35_ragged_index_defect.png": fig35_ragged_index_defect,
+    "fig36_wavemap_steps.png": fig36_wavemap_steps,
 }
 
 
@@ -1819,12 +2442,17 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out-dir", type=Path, default=FIGURE_DIR)
     parser.add_argument("--only", nargs="+", choices=sorted(FIGURES), default=sorted(FIGURES))
+    parser.add_argument("--vis", action="store_true",
+                        help="write the plotting page's sealed jnwb.vis example, and no figure")
     args = parser.parse_args(argv)
     try:
         style.check_font()
     except style.FontMissing as exc:
         print(f"generate_figures: {exc}", file=sys.stderr)
         raise SystemExit(FONT_MISSING_EXIT)
+    if args.vis:
+        print(f"  [OK] {write_vis_example(args.out_dir.parent / 'vis')}")
+        return
     OUT_DIR = args.out_dir
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for theme in THEMES:

@@ -6,6 +6,11 @@ and interval tables, and [Your Own NWB File](tutorials/00_your_own_file.md) runs
 did not write. Anatomical addressing and unit metadata are on
 [Addressing & Metadata](02_paths_addressing_metadata.md).
 
+![Onsets of each interval table of the synthetic session on a time axis in seconds, and the spacing between onsets](assets/figures/fig32_interval_tables.png#only-light)
+![Onsets of each interval table of the synthetic session on a time axis in seconds, and the spacing between onsets](assets/figures/fig32_interval_tables.dark.png#only-dark)
+
+Synthetic: the synthetic NWB fixture's five interval tables, named as `jnwb.inspect` lists them, with onsets from `jnwb.event_onsets`.
+
 ---
 
 ## 1. NWB, PyNWB and HDMF
