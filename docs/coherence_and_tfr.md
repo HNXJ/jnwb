@@ -23,6 +23,17 @@ coh_dict = jnwb.cross_area_coherence(
 # - 'frequencies': np.ndarray
 ```
 
+`condition_on=z` adds the partial coherence given further signals (Dahlhaus, 2000):
+|G_xy|²/(G_xx G_yy), with G the inverse of the Welch cross-spectral matrix. It is reported per
+band as `partial_coherence`, with a circular-shift p-value in `partial_band_significance`. A
+common driver is removed only when it is among the conditioners. Each conditioner costs a degree
+of freedom, so the null mean is about 1/(K−m) for K segments and m conditioners.
+
+`bias_floor="paired_epochs"` takes trials and reports, per band, the coherence of randomly paired
+trials: `n_pairings` uniform derangements pair each trial of `lfp_area1` with another trial
+of `lfp_area2` (Maris et al., 2007; Bastos and Schoffelen, 2016). Aligned coherence at or below
+`floor_q95` is what unrelated trials give.
+
 ### Imaginary Coherency & Weighted Phase Lag Index (`imaginary_coherency`, `wpli`)
 
 Measures based on the imaginary cross-spectrum reduce sensitivity specifically to zero-phase-lag
