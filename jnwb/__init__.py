@@ -442,6 +442,7 @@ __all__ = [
     'presence_ratio',
     'isi_cv',
     'refractory_contamination',
+    'screen_units_against_labels',
 
     # Waveform clustering (WaveMAP; UMAP and Louvain need the wavemap extra)
     'WaveMAPResult',

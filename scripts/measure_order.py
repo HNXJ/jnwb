@@ -125,6 +125,29 @@ def _noise(n_units: int, n_trials: int) -> Callable[[], object]:
     return lambda: jnwb.noise_correlation(counts, condition, min_trials=2)
 
 
+def _screen(n_units: int, n_sessions: int) -> Callable[[], object]:
+    import pandas as pd
+
+    import jnwb
+
+    per = n_units // n_sessions
+    total = per * n_sessions
+    rng = np.random.default_rng(0)
+    labels = np.arange(total) % 2
+    session = np.repeat(np.arange(n_sessions), per)
+    metrics = pd.DataFrame({"m1": labels + rng.normal(size=total), "m2": rng.normal(size=total)})
+
+    def run():
+        return jnwb.screen_units_against_labels(
+            metrics, labels, session, metric_columns=["m1", "m2"], classifier="linear_svm",
+            min_units=2, rng=0,
+        )
+
+    assert all(r["status"] == "success" for r in run()["per_session"]), \
+        "fixture must score every session"
+    return run
+
+
 def _curation(which: str, n: int) -> Callable[[], object]:
     import jnwb
 
@@ -290,6 +313,18 @@ SPECS: Dict[str, Spec] = {
         "n_units", (16, 64, 256, 1024),
         "1000 trials, Poisson(4) counts, 2 alternating conditions, min_trials=2",
         lambda n, _tmp: _noise(n, 1000),
+    ),
+    "screen_units_against_labels[n_units]": Spec(
+        "n_units", (30, 120, 480, 1920),
+        "3 equal sessions, 2 metric columns, labels alternating within a session, "
+        "linear_svm, min_units=2, rng=0",
+        lambda n, _tmp: _screen(n, 3),
+    ),
+    "screen_units_against_labels[n_sessions]": Spec(
+        "n_sessions", (3, 6, 12, 30),
+        "40 units per session, 2 metric columns, labels alternating within a session, "
+        "linear_svm, min_units=2, rng=0",
+        lambda n, _tmp: _screen(40 * n, n),
     ),
     "fano_factor[n_trials]": Spec(
         "n_trials", (1_000, 10_000, 100_000, 1_000_000),

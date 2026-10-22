@@ -144,6 +144,68 @@ def _single_class_error(fold: str, y_train: np.ndarray, classes: np.ndarray) -> 
     )
 
 
+def _fit_predict_linear_svm(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_test: np.ndarray,
+    random_state: int,
+    *,
+    groups_train: Union[np.ndarray, None] = None,
+):
+    """Fit the nested-CV linear SVM on the training rows and predict the test rows.
+
+    The pipeline is ``StandardScaler`` then ``SVC(kernel='linear')``. C is chosen by a
+    ``GridSearchCV`` over ``{0.01, 0.1, 1.0, 10.0}`` on inner folds of the training rows:
+    stratified folds, or with ``groups_train`` grouped folds that hold whole groups out.
+    C falls back to 1.0 when the inner folds cannot keep both classes in every training split.
+
+    Returns:
+        ``(y_pred, decision, chosen_C)``: the predicted labels and decision scores for
+        ``X_test``, and the C the fit used.
+    """
+    inner_splits = min(3, int(np.unique(y_train, return_counts=True)[1].min()))
+    inner_cv = None
+    if groups_train is not None:
+        # The inner search holds out groups too, so C is chosen for transfer to an
+        # unseen group rather than to a neighbouring trial of a seen one.
+        inner_splits = min(inner_splits, len(np.unique(groups_train)))
+        if inner_splits >= 2:
+            inner_cv = _grouped_splits(
+                X_train, y_train, groups_train, inner_splits, random_state
+            )
+            if any(len(np.unique(y_train[i_tr])) < 2 for i_tr, _ in inner_cv):
+                inner_splits = 1
+    if inner_splits < 2:
+        # Fall back to fixed C when inner CV is impossible
+        clf = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("clf", SVC(kernel="linear", C=1.0, random_state=random_state)),
+            ]
+        )
+        clf.fit(X_train, y_train)
+        return clf.predict(X_test), clf.decision_function(X_test), 1.0
+
+    if inner_cv is None:
+        inner_cv = StratifiedKFold(
+            n_splits=inner_splits, shuffle=True, random_state=random_state
+        )
+    pipeline = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            ("clf", SVC(kernel="linear", random_state=random_state)),
+        ]
+    )
+    param_grid = {"clf__C": [0.01, 0.1, 1.0, 10.0]}
+    grid = GridSearchCV(pipeline, param_grid, cv=inner_cv, scoring="accuracy")
+    grid.fit(X_train, y_train)
+    return (
+        grid.predict(X_test),
+        grid.decision_function(X_test),
+        float(grid.best_params_["clf__C"]),
+    )
+
+
 def nested_cv_linear_svm(
     X: np.ndarray,
     labels: np.ndarray,
@@ -291,14 +353,6 @@ def nested_cv_linear_svm(
         n_outer = min(n_splits, max_splits)
         outer = StratifiedKFold(n_splits=n_outer, shuffle=True, random_state=random_state)
         outer_splits = outer.split(X, labels)
-    param_grid = {"clf__C": [0.01, 0.1, 1.0, 10.0]}
-    pipeline = Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            ("clf", SVC(kernel="linear", random_state=random_state)),
-        ]
-    )
-
     outer_scores: List[float] = []
     chosen_C: List[float] = []
     fold_majority_accs: List[float] = []
@@ -312,47 +366,18 @@ def nested_cv_linear_svm(
         if grouped and len(np.unique(y_train)) < 2:
             raise _single_class_error("outer", y_train, classes)
         fold_majority_accs.append(fold_majority_baseline(y_train, y_test))
-
-        inner_splits = min(3, int(np.unique(y_train, return_counts=True)[1].min()))
-        inner_cv = None
-        if grouped:
-            # The inner search holds out groups too, so C is chosen for transfer to an
-            # unseen group rather than to a neighbouring trial of a seen one.
-            g_train = groups[train_idx]
-            inner_splits = min(inner_splits, len(np.unique(g_train)))
-            if inner_splits >= 2:
-                inner_cv = _grouped_splits(
-                    X_train, y_train, g_train, inner_splits, random_state
-                )
-                if any(len(np.unique(y_train[i_tr])) < 2 for i_tr, _ in inner_cv):
-                    inner_splits = 1
-        if inner_splits < 2:
-            # Fall back to fixed C when inner CV is impossible
-            clf = Pipeline(
-                [
-                    ("scaler", StandardScaler()),
-                    ("clf", SVC(kernel="linear", C=1.0, random_state=random_state)),
-                ]
-            )
-            clf.fit(X_train, y_train)
-            outer_scores.append(float(clf.score(X_test, y_test)))
-            chosen_C.append(1.0)
-            oof_y_true.append(y_test)
-            oof_y_pred.append(clf.predict(X_test))
-            oof_y_score.append(clf.decision_function(X_test))
-            continue
-
-        if inner_cv is None:
-            inner_cv = StratifiedKFold(
-                n_splits=inner_splits, shuffle=True, random_state=random_state
-            )
-        grid = GridSearchCV(pipeline, param_grid, cv=inner_cv, scoring="accuracy")
-        grid.fit(X_train, y_train)
-        outer_scores.append(float(grid.score(X_test, y_test)))
-        chosen_C.append(float(grid.best_params_["clf__C"]))
+        y_pred, y_score, C = _fit_predict_linear_svm(
+            X_train,
+            y_train,
+            X_test,
+            random_state,
+            groups_train=groups[train_idx] if grouped else None,
+        )
+        outer_scores.append(float(np.mean(y_pred == y_test)))
+        chosen_C.append(C)
         oof_y_true.append(y_test)
-        oof_y_pred.append(grid.predict(X_test))
-        oof_y_score.append(grid.decision_function(X_test))
+        oof_y_pred.append(y_pred)
+        oof_y_score.append(y_score)
 
     # Modal best C across outer folds (reporting convenience, not re-fit score)
     values, counts = np.unique(chosen_C, return_counts=True)

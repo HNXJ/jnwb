@@ -772,6 +772,10 @@ _RETURN_CONTENT_PROBES = {
     "curate_and_label": lambda: jnwb.curate_and_label(
         np.random.default_rng(4).normal(size=(12, 4, 600)), 500.0, pitch_um=25.0,
         compute_xflip=False),
+    "screen_units_against_labels": lambda: jnwb.screen_units_against_labels(
+        pd.DataFrame({"m": np.arange(60) % 2 + np.random.default_rng(4).normal(size=60)}),
+        np.arange(60) % 2, np.repeat(np.array(["a", "b", "c"]), 20),
+        metric_columns=["m"], classifier="linear_svm", min_units=2, rng=0),
 }
 
 

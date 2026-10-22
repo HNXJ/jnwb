@@ -132,6 +132,8 @@ fig_comp = jnwb.visual_qc.compare_session_quality(sessions_comparison_df)
 The [Unit Quality Example](unit_quality_example.md) computes the unit-quality measures on
 synthetic units and draws their waveforms down a probe with `plot_unit_waveforms`.
 
+`screen_units_against_labels` reports held-out agreement, per session, with curator labels. `ci_low` and `ci_high` bound the proportion of held-out units correct, not balanced accuracy. Agreement does not show that a unit is a single neuron.
+
 ---
 
 ## 3. Publication Vector Graphics Standards (`jnwb.viz`)

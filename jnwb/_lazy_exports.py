@@ -67,6 +67,7 @@ EXPORT_MODULES: dict[str, str] = {
     "presence_ratio": "unit_quality",
     "isi_cv": "unit_quality",
     "refractory_contamination": "unit_quality",
+    "screen_units_against_labels": "unit_quality",
     # decoding
     "majority_baseline": "decoding",
     "fold_majority_baseline": "decoding",

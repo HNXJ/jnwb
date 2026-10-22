@@ -16,11 +16,11 @@ more than one input dimension and the orders differ between them.
 
 | Category | Exports | Evidence |
 |---|---|---|
-| `jnwb.__all__` | 161 | runtime probe with a provenance assertion |
-| Cost grows with input size -- measured | 107 | 191 sweeps, 191 completed |
-| Cost does not grow with input size -- excluded | 50 | section 7, one reason each |
-| Cost grows, input not buildable from this repository | 4 | section 8 |
-| **Total** | **161** | partition checked exact against a live `jnwb.__all__` |
+| `jnwb.__all__` | 208 | runtime probe with a provenance assertion |
+| Cost grows with input size -- measured | 136 | 223 sweeps, 223 completed |
+| Cost does not grow with input size -- excluded | 62 | section 7, one reason each |
+| Cost grows, input not buildable from this repository | 10 | section 8 |
+| **Total** | **208** | partition checked exact against a live `jnwb.__all__` |
 
 The three categories are disjoint and their union is `jnwb.__all__`; no export is in two,
 and none is in none. `classification: observed`.
@@ -486,6 +486,27 @@ and `refractory_contamination` were measured again the same day after their rule
 | `presence_ratio[n_blocks]` | n_blocks | 100, 1000, 10000, 50000 | 0.2466, 0.3073, 0.99, 3.31 | +0.42 | 0.900 | 13x | sub-linear | T(S log S + B log S) | derived | agree |
 | `isi_cv[n_spikes]` | n_spikes | 10000, 100000, 1000000, 4000000 | 0.1475, 2.039, 25.87, 113.6 | +1.11 | 1.000 | 770x | O(n) | T(S log S) | derived | agree |
 | `refractory_contamination[n_spikes]` | n_spikes | 10000, 100000, 1000000, 4000000 | 0.1363, 1.391, 21.58, 90.44 | +1.10 | 0.999 | 664x | O(n) | T(S log S) | derived | agree |
+
+### `jnwb.unit_quality`: curation-label screen
+
+Added 2026-10-22 with `screen_units_against_labels`, after the counts of section 1. Measured with
+the `Spec`, `sweep`, `pin_threads` and `markdown` of `scripts/measure_order.py`, 5 repeats, Python
+3.14.3, NumPy 2.4.6, x86_64 Windows, jnwb imported from the checkout. Held fixed: 2 metric columns,
+labels alternating within each session, `classifier="linear_svm"`, `min_units=2`, `rng=0`; 3
+sessions in the `[n_units]` rows and 40 units per session in the `[n_sessions]` rows.
+
+| spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `screen_units_against_labels[n_units]` | n_units | 30, 120, 480, 1920 | 151.1, 190.1, 355, 1411 | +0.53 | 0.888 | 9x | sub-linear (POOR FIT) | T(n^2) | derived | agree |
+| `screen_units_against_labels[n_sessions]` | n_sessions | 3, 6, 12, 30 | 191.6, 579, 1549, 11750 | +1.77 | 0.989 | 61x | O(n^2) | T(S^3) | derived | agree |
+
+The admitted orders come from the `nested_cv_linear_svm` bound of INV-13, O(K . N_C . R^2 . D) per
+fit, summed over the S held-out fits, each on R = (S - 1) . u training units when each session holds
+u units. At fixed S = 3 the sum is T(n^2) in n = S . u; at fixed u = 40 it is T(S^3). Both measured
+exponents sit below their bounds, so neither row shows a bound violated. The `[n_units]` fit is
+POOR FIT (r2 0.888), and its reason is not measured here. INV-13 names LinearSVC; the screen calls
+`SVC(kernel='linear')`, which section 4.1 places at T(n^2) to T(n^3), so the R^2 term is the
+admitted order and no constant is claimed.
 
 ### `jnwb.wavemap`
 

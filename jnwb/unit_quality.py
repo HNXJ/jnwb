@@ -7,7 +7,9 @@ one channel; or its spike times in seconds. None of them decides whether a unit 
 measure with a published definition cites it. ``is_flat`` of `waveform_flatness` and
 ``is_sharp`` of `spatial_derivative_sharpness` are verdicts against a threshold the caller
 gives; neither check has a published source. Duplicate spike times are the caller's to
-remove: a duplicate is an interval of 0.
+remove: a duplicate is an interval of 0. ``screen_units_against_labels`` takes a table of
+units and reports how well its metric columns agree with caller-given labels, held out by
+session; it returns no rule.
 
 Undefined input is NaN, ``None`` for a verdict, or a ``ValueError`` naming the reason; it is
 never read as 0.
@@ -18,6 +20,12 @@ from __future__ import annotations
 from typing import Any, Dict
 
 import numpy as np
+import pandas as pd
+
+from ._rng import recorded_rng, sklearn_random_state
+from ._spread import is_constant
+from .decoding import _fit_predict_linear_svm, fold_majority_baseline
+from .statistics import StatisticalAnalysis
 
 
 #: Two durations closer than this compare as equal: below one sample at any rate under
@@ -744,3 +752,246 @@ def amplitude_cutoff(amplitudes, *, num_histogram_bins: int = 500,
     match = mode + int(np.argmin(np.abs(smoothed[mode:] - smoothed[0])))
     width = float(np.mean(np.diff(edges[:-1])))  # the source's mean step of the left edges
     return float(min(float(np.sum(smoothed[match:])) * width, 0.5))
+
+
+#: The estimand the screen names in its result: the sentence of the proposal's "Estimand named
+#: in the result" section, with its em dash written as an escape.
+SCREEN_ESTIMAND = (
+    "leave-one-session-out agreement (balanced accuracy and Cohen's kappa, with 0/1-correct "
+    "bootstrap CI) between the linear-SVM screen fitted on the caller's metric columns and the "
+    "caller's labels — a measure of label transfer across sessions, not of single-neuron "
+    "identity"
+)
+
+_SCREEN_NAME = "screen_units_against_labels"
+_SCREEN_CLASSIFIERS = ("linear_svm",)
+_NAN = float("nan")
+
+
+def _screen_balanced_accuracy(y_true, y_pred, classes) -> float:
+    """Mean per-class recall over the two labels."""
+    return float(np.mean([np.mean(y_pred[y_true == c] == c) for c in classes]))
+
+
+def _screen_kappa(y_true, y_pred, classes) -> float:
+    """Cohen's kappa, (p_o - p_e) / (1 - p_e), on the 2x2 table of the two labels."""
+    p_o = float(np.mean(y_true == y_pred))
+    p_e = float(sum(np.mean(y_true == c) * np.mean(y_pred == c) for c in classes))
+    return (p_o - p_e) / (1.0 - p_e)
+
+
+def _screen_interval(correct, gen) -> tuple:
+    """Percentile bootstrap interval of the mean of the 0/1 correct vector, rng threaded."""
+    low, high = StatisticalAnalysis.bootstrap_ci(
+        correct, statistic_func=np.mean, rng=gen
+    )["bootstrap_ci"]
+    return float(low), float(high)
+
+
+def screen_units_against_labels(
+    metrics,
+    labels,
+    session_id,
+    *,
+    metric_columns,
+    classifier,
+    min_units,
+    rng,
+) -> dict:
+    """Held-out agreement, per session, between a linear-SVM screen and caller labels.
+
+    ``metrics`` is a DataFrame with one row per unit; ``labels`` and ``session_id`` give one
+    entry per row. For each session the screen fits a linear SVM on the labelled units of every
+    other session, through the nested-CV pipeline of ``jnwb.decoding`` (``StandardScaler`` and a
+    linear ``SVC``, with C chosen by an inner search grouped by session), and predicts the
+    held-out session's labelled units. Per held-out session it reports balanced accuracy,
+    Cohen's kappa ``(p_o - p_e) / (1 - p_e)`` on the 2x2 table, the majority baseline of the
+    training labels on the same units, and a 95 % percentile bootstrap interval of the held-out
+    units' 0/1-correct vector. ``ci_low`` and ``ci_high`` bound the proportion of held-out units
+    correct, plain accuracy, not the balanced accuracy beside it. ``pooled`` gives the same
+    numbers over every held-out prediction.
+
+    The estimand is ``result["estimand"]``: agreement with the caller's labels, held out by
+    session, as a measure of label transfer across sessions.
+
+    Declines. ``status`` is ``success`` or one of the following, checked in this order. A
+    declined session carries NaN numbers, never 0.
+
+    - ``unaudited_metric``: a named column is absent from ``metrics``, which declines every
+      session (the names are in ``unaudited_columns``); or a used column holds a NaN or an
+      infinity in the session (counted per column in ``nonfinite_counts``).
+    - ``too_few_units``: fewer than ``min_units`` labelled units in the session.
+    - ``single_class``: the session's labelled units carry one label.
+    - ``single_class_training``: the other sessions' labelled units carry one label.
+    - ``constant_metric``: a used column is constant over the training units.
+
+    A session with ``unaudited_metric`` is left out of every training pool
+    (``excluded_from_training``). A unit with a missing label is unlabelled: it is neither
+    fitted nor scored (``n_unlabelled``). With one training session the inner search cannot
+    group, so C is fixed at 1.0.
+
+    Curator labels are inputs, not ground truth. Agreement with them shows how far the metric
+    columns transfer across sessions; it does not show that a unit is a single neuron. The
+    result holds no fitted weight, threshold or rule.
+
+    Args:
+        metrics: DataFrame with one row per unit and the columns named by ``metric_columns``.
+        labels: one entry per row; exactly two distinct values among the labelled rows.
+        session_id: one entry per row, the session of each unit.
+        metric_columns: the column names the screen uses.
+        classifier: ``"linear_svm"``, the only classifier.
+        min_units: the fewest labelled units a held-out session needs; a positive int.
+        rng: an int seed, a ``numpy.random.Generator`` or None. The result's ``seed`` rebuilds
+            every draw.
+
+    Returns:
+        dict with ``per_session`` (one record per session: ``session``, ``status``,
+        ``n_units``, ``n_unlabelled``, ``balanced_accuracy``, ``kappa``,
+        ``majority_baseline``, ``ci_low``, ``ci_high``, ``excluded_from_training``,
+        ``nonfinite_counts``), ``pooled`` (the same numbers over all held-out predictions),
+        ``estimand``, ``metric_columns``, ``classifier``, ``min_units``,
+        ``unaudited_columns`` and ``seed``.
+
+    Raises:
+        ValueError: ``classifier`` is not ``"linear_svm"``; ``min_units`` is not a positive
+            int; ``metric_columns`` is not a list of distinct names; ``metrics`` is not a
+            DataFrame; ``labels`` or ``session_id`` is not one entry per row, or a session id
+            is missing; the labelled rows do not hold exactly two distinct labels; a used
+            column holds a non-numeric value.
+    """
+    if classifier not in _SCREEN_CLASSIFIERS:
+        raise ValueError(f"{_SCREEN_NAME}: classifier must be 'linear_svm'; got {classifier!r}.")
+    if isinstance(min_units, bool) or not isinstance(min_units, (int, np.integer)) \
+            or min_units < 1:
+        raise ValueError(f"{_SCREEN_NAME}: min_units must be a positive int; got {min_units!r}.")
+    if isinstance(metric_columns, str):
+        raise ValueError(
+            f"{_SCREEN_NAME}: metric_columns must be a list of column names, not one string."
+        )
+    cols = list(metric_columns)
+    if not cols or not all(isinstance(c, str) for c in cols) or len(set(cols)) != len(cols):
+        raise ValueError(
+            f"{_SCREEN_NAME}: metric_columns must name one or more distinct columns; got {cols!r}."
+        )
+    if not isinstance(metrics, pd.DataFrame):
+        raise ValueError(f"{_SCREEN_NAME}: metrics must be a pandas DataFrame, one row per unit.")
+    n = len(metrics)
+    labels = np.asarray(labels)
+    session = np.asarray(session_id)
+    if labels.shape != (n,) or session.shape != (n,):
+        raise ValueError(
+            f"{_SCREEN_NAME}: labels and session_id need one entry per row ({n}); got shapes "
+            f"{labels.shape} and {session.shape}."
+        )
+    if pd.isna(session).any():
+        raise ValueError(f"{_SCREEN_NAME}: session_id holds a missing id; name every session.")
+    labelled = ~pd.isna(labels)
+    values = np.unique(labels[labelled])
+    if len(values) != 2:
+        raise ValueError(
+            f"{_SCREEN_NAME}: the labelled units must hold exactly two distinct values; "
+            f"found {len(values)}."
+        )
+
+    absent = [c for c in cols if c not in metrics.columns]
+    col_index = {c: j for j, c in enumerate([c for c in cols if c in metrics.columns])}
+    V = np.empty((n, len(col_index)), dtype=float)
+    for c, j in col_index.items():
+        try:
+            V[:, j] = metrics[c].to_numpy(dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{_SCREEN_NAME}: metric column {c!r} is not numeric.") from exc
+    bad = ~np.isfinite(V)
+
+    sessions = np.unique(session)
+    row_index = np.searchsorted(sessions, session)
+    flagged = np.zeros(len(sessions), dtype=bool)
+    nonfinite = []
+    for i in range(len(sessions)):
+        in_s = row_index == i
+        counts = {c: int(bad[in_s, j].sum()) for c, j in col_index.items()}
+        nonfinite.append(counts)
+        flagged[i] = bool(absent) or any(counts.values())
+    excluded_row = flagged[row_index]
+
+    gen, seed = recorded_rng(rng, _SCREEN_NAME)
+    fit_seed = sklearn_random_state(gen, func_name=_SCREEN_NAME)
+
+    records = []
+    parts = []
+    for i, s in enumerate(sessions):
+        in_s = row_index == i
+        test = in_s & labelled
+        train = labelled & ~excluded_row & ~in_s
+        n_lab = int(test.sum())
+        if flagged[i]:
+            status = "unaudited_metric"
+        elif n_lab < min_units:
+            status = "too_few_units"
+        elif len(np.unique(labels[test])) < 2:
+            status = "single_class"
+        elif len(np.unique(labels[train])) < 2:
+            status = "single_class_training"
+        elif any(is_constant(V[train, j]) for j in range(V.shape[1])):
+            status = "constant_metric"
+        else:
+            status = "success"
+        record = {
+            "session": s.item() if hasattr(s, "item") else s,
+            "status": status,
+            "n_units": n_lab,
+            "n_unlabelled": int((in_s & ~labelled).sum()),
+            "balanced_accuracy": _NAN,
+            "kappa": _NAN,
+            "majority_baseline": _NAN,
+            "ci_low": _NAN,
+            "ci_high": _NAN,
+            "excluded_from_training": bool(flagged[i]),
+            "nonfinite_counts": nonfinite[i],
+        }
+        if status == "success":
+            y_true = labels[test]
+            y_pred, _, _ = _fit_predict_linear_svm(
+                V[train], labels[train], V[test], fit_seed, groups_train=session[train]
+            )
+            correct = (y_pred == y_true).astype(float)
+            majority = fold_majority_baseline(labels[train], y_true)
+            record["balanced_accuracy"] = _screen_balanced_accuracy(y_true, y_pred, values)
+            record["kappa"] = _screen_kappa(y_true, y_pred, values)
+            record["majority_baseline"] = majority
+            record["ci_low"], record["ci_high"] = _screen_interval(correct, gen)
+            parts.append((y_true, y_pred, correct, majority, n_lab))
+        records.append(record)
+
+    if parts:
+        y_true = np.concatenate([p[0] for p in parts])
+        y_pred = np.concatenate([p[1] for p in parts])
+        correct = np.concatenate([p[2] for p in parts])
+        n_pool = len(y_true)
+        pooled = {
+            "n_units": n_pool,
+            "balanced_accuracy": _screen_balanced_accuracy(y_true, y_pred, values),
+            "kappa": _screen_kappa(y_true, y_pred, values),
+            "majority_baseline": float(sum(p[3] * p[4] for p in parts) / n_pool),
+        }
+        pooled["ci_low"], pooled["ci_high"] = _screen_interval(correct, gen)
+    else:
+        pooled = {
+            "n_units": 0,
+            "balanced_accuracy": _NAN,
+            "kappa": _NAN,
+            "majority_baseline": _NAN,
+            "ci_low": _NAN,
+            "ci_high": _NAN,
+        }
+
+    return {
+        "per_session": records,
+        "pooled": pooled,
+        "estimand": SCREEN_ESTIMAND,
+        "metric_columns": cols,
+        "classifier": classifier,
+        "min_units": int(min_units),
+        "unaudited_columns": absent,
+        "seed": seed,
+    }
