@@ -42,7 +42,7 @@ elsewhere as `python -m pytest tests/ -q`.
 |---|---|---|---|---|
 | 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
 | 1 | M mutation | 07-21 (the core five), then 07-22 | Muse | nothing |
-| 1 | R reading | 11-02 (D10, ruled 2026-09-29: a declared shallow end) | Haiku | nothing |
+| 1 | R reading | 11-02 (fact I2's scan) | Haiku | nothing |
 | 1 | S estimators | 14-06 | Muse | wave-0 rulings |
 | 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-05 to 16-07, 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-18, 15-22 (a draft to Hamm) | Muse | nothing |
@@ -146,12 +146,12 @@ Writes: `jnwb/execution.py`, `tests/test_execution_api.py`, `docs/execution.md`,
 - 07-22: No public execution and cache API exists. Check: a test that fails before the repair and passes after. Waits: After 07-21; surface ruled 2026-09-29 (per-call `device=` and `n_jobs=` plus one recorded execution field); 0.2.14's theme by the 2026-10-19 ruling.
 Accept: a cache key includes input hash, parameters and version, with an invalidation test; no control changes a number.
 
-### 11-02 Compression, unit tables and addressing edges
+### 11-02 The I2 scan
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
-Writes: `jnwb/compression.py`, `jnwb/metadata.py`, `jnwb/addressing.py`, `tests/test_compression.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `docs/02_paths_addressing_metadata.md`.
-- 11-02: `classify_layer_from_depth` with no declared shallow end is open (the hard-linked `select=` cast re-points every name, ruled 2026-10-18; P-348's soft-link cases pinned and P-192's page line written and P-296's dated comments rewritten and P-344's slope matched to raw HDF5 (`artifacts/evidence/0.2.13/compress_scaling.md`) 2026-10-17; `compress_fp32` has no device path, so P-348's CUDA case does not apply). Check: D10's ruling is applied and stated. Waits: No behavioural effect: 0.2.9 behaves the same for `compress_fp32`, and the layer classification is stated and waits on D10's ruling. Moved to 0.2.14 by the 2026-10-19 theme ruling.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/build_fact_graph.py`, `scripts/fact_gate.py`, `tests/test_fact_gate.py`, the modules a repair touches and their tests, the I2 cell of `artifacts/fact_stack.md`.
+- 11-02: Fact I2 (a unit change, or a wrapper or default that changes the estimand, is a named parameter or fails) has no scan with a planted case; D10's declared shallow end landed in e4433366. Check: a scan reports a planted silent unit conversion and a planted estimand-changing default as VIOLATED, and I2's holder cell names the scan (cells authorized 2026-10-20, 11-32).
 Accept: each check passes.
 
 ### 14-06 The pitfall estimators Hamm rules
