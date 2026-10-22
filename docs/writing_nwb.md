@@ -10,6 +10,11 @@ rep = jnwb.verify_nwb("out.nwb")
 rep = jnwb.verify_nwb("out.nwb", against="src.nwb", report=writer_report)
 ```
 
+![Standalone checks of a written copy, and the comparison of its recast copy against the source](assets/figures/fig37_verify_written_nwb.png#only-light)
+![Standalone checks of a written copy, and the comparison of its recast copy against the source](assets/figures/fig37_verify_written_nwb.dark.png#only-dark)
+
+Synthetic: a written copy of a synthetic session re-read by `jnwb.verify_nwb`: the four standalone checks on the copy (A), and the comparison of the recast copy against its source, with the byte-identical datasets beside the one declared `cast` (B).
+
 Always, `verify_nwb` parses the file through pynwb, runs schema validation, and resolves
 every link and object reference. With `against` and the writer's `report` it compares
 content, not storage: each dataset the report's applied records do not name is

@@ -89,6 +89,7 @@ COVERED_PAGES = frozenset({
     "docs/recipes.md",
     "docs/repairing_nwb.md",
     "docs/vis.md",
+    "docs/writing_nwb.md",
 })
 
 #: Receiver shapes the collector resolves. The third and fourth were added by 06-100; before

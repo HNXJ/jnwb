@@ -2360,6 +2360,107 @@ def fig36_wavemap_steps():
     plt.close(fig)
 
 
+#: fig37's fixture: one written copy recast from float64 to float32 on a single dataset.
+FIG37_CAST_PATH = "acquisition/raw/data"
+
+
+def _write_verify_nwb(path):
+    """A minimal writable NWB file for the verify figure: one series and one unit."""
+    from datetime import datetime, timezone
+
+    from pynwb import NWBFile, NWBHDF5IO
+    from pynwb.ecephys import ElectricalSeries
+
+    nwb = NWBFile(session_description="synthetic verify fixture", identifier="fig37",
+                  session_start_time=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    dev = nwb.create_device(name="probe_dev", description="d", manufacturer="m")
+    grp = nwb.create_electrode_group(name="probeA", description="g", location="V1",
+                                     device=dev)
+    for i in range(4):
+        nwb.add_electrode(x=0.0, y=float(i), z=0.0, imp=1.0, location="V1",
+                          filtering="none", group=grp, group_name="probeA")
+    region = nwb.create_electrode_table_region(region=[0, 1, 2, 3], description="all")
+    nwb.add_acquisition(ElectricalSeries(
+        name="raw", data=np.arange(80, dtype="f8").reshape(20, 4),
+        electrodes=region, rate=1000.0, conversion=1.0, starting_time=0.0))
+    nwb.add_unit(spike_times=np.array([0.1, 0.4, 0.9]))
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+
+
+def fig37_verify_written_nwb():
+    """Figure 37: Synthetic. A written copy re-read by jnwb.verify_nwb: the four standalone
+    checks on the copy (A), and the comparison of the recast copy against its source, the
+    byte-identical datasets beside the one declared cast (B)."""
+    import h5py
+
+    from jnwb.nwb_write import AppliedOperation, MutationReport
+    from jnwb.ontology import Lineage, Provenance
+
+    with tempfile.TemporaryDirectory() as tmp:
+        src = Path(tmp) / "src.nwb"
+        dst = Path(tmp) / "dst.nwb"
+        _write_verify_nwb(src)
+        shutil.copy(src, dst)
+        standalone = jnwb.verify_nwb(dst)
+        with h5py.File(dst, "r+") as handle:
+            data = handle[FIG37_CAST_PATH]
+            attrs = {k: data.attrs[k] for k in data.attrs}
+            values = data[:].astype("f4")
+            del handle[FIG37_CAST_PATH]
+            recast = handle.create_dataset(FIG37_CAST_PATH, data=values)
+            for k, v in attrs.items():
+                recast.attrs[k] = v
+        report = MutationReport(
+            category="copy or transform", src=str(src), dst=str(dst),
+            src_sha256=None, dst_sha256=None,
+            applied=(AppliedOperation(name="cast", changed=(FIG37_CAST_PATH,)),),
+            checks=(), issues=(), waived=(),
+            provenance=Provenance(software_version=jnwb.__version__, backend="numpy"),
+            lineage=Lineage(source_type="NWBFile", source_id="hand-built",
+                            operation="copy or transform"),
+            ok=True)
+        against = jnwb.verify_nwb(dst, against=src, report=report)
+    assert [c.name for c in standalone.checks] == [
+        "pynwb read", "pynwb schema validation",
+        "soft and external links resolve", "object references resolve"], \
+        "fig37 plots the four standalone checks"
+    assert standalone.ok and all(c.ok for c in standalone.checks), \
+        "fig37 needs a copy that passes on its own"
+    assert against.ok, "fig37 needs a recast the declared cast explains"
+    cast = [c for c in against.checks if "cast of the source" in c.name]
+    identical = [c for c in against.checks
+                 if "matches the source as declared" in c.name and c.ok]
+    assert len(cast) == 1 and identical, \
+        "fig37 needs one declared cast beside byte-identical datasets"
+    passed = [int(c.ok) for c in standalone.checks]
+    counts = [len(identical), len(cast)]
+
+    fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(style.NARROW_WIDTH, 5.6), dpi=style.DPI)
+    ax_a.bar(np.arange(len(passed)), passed,
+             color=[style.SERIES[0] if p else style.SERIES[3] for p in passed], zorder=3)
+    ax_a.set_xticks(np.arange(len(passed)), ["Read", "Schema", "Links", "References"])
+    ax_a.set_ylim(0, 1.2)
+    ax_a.set_xlabel("Check (standalone run)")
+    ax_a.set_ylabel("Result (pass = 1)")
+    style.panel_title(ax_a, "A", "Standalone checks\n(jnwb.verify_nwb)")
+    ax_a.legend(handles=[
+        Patch(facecolor=style.SERIES[0], label="Pass"),
+        Patch(facecolor=style.SERIES[3], label="Fail"),
+    ], frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.25), ncol=2,
+        fontsize=style.SMALL)
+
+    ax_b.bar(["Identical", "Cast"], counts,
+             color=[style.SERIES[0], style.SERIES[1]], zorder=3)
+    ax_b.set_xlabel("Comparison outcome")
+    ax_b.set_ylabel("Datasets (count)")
+    style.panel_title(ax_b, "B", "Against the source\n(jnwb.verify_nwb)")
+
+    fig.tight_layout()
+    _save(fig, "fig37_verify_written_nwb.png")
+    plt.close(fig)
+
+
 #: The plotting page's sorted-heatmap example, reproduced exactly: seeded normal draws, 40 units by
 #: 70 time bins, sorted by the bin of each unit's peak.
 VIS_BASENAME = "sorted_heatmap"
@@ -2434,6 +2535,7 @@ FIGURES = {
     "fig34_end_to_end_synthetic.png": fig34_end_to_end_synthetic,
     "fig35_ragged_index_defect.png": fig35_ragged_index_defect,
     "fig36_wavemap_steps.png": fig36_wavemap_steps,
+    "fig37_verify_written_nwb.png": fig37_verify_written_nwb,
 }
 
 
