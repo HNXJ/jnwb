@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 import jnwb
@@ -292,6 +293,7 @@ def _rng_probes():
     xs, labs = g.normal(size=(40, 5)), np.arange(40) % 2
     x6, z4 = g.normal(size=(6, 200)), g.normal(size=(4, 2000))
     w30 = jnwb.normalize_waveforms(g.normal(size=(30, 48)))
+    screen_frame = pd.DataFrame({"m": np.arange(60) % 2 + g.normal(size=60)})
     sa = jnwb.StatisticalAnalysis
     return {
         "StatisticalAnalysis.bootstrap_ci": lambda r: sa.bootstrap_ci(a, n_bootstrap=20, rng=r),
@@ -319,6 +321,9 @@ def _rng_probes():
         "phase_slope_index": lambda r: jnwb.phase_slope_index(
             t1, t2, fs=100.0, bands=(10.0, 30.0), n_surrogates=5, rng=r),
         "resample_onsets": lambda r: jnwb.resample_onsets(np.arange(10.0), target_n=20, rng=r),
+        "screen_units_against_labels": lambda r: jnwb.screen_units_against_labels(
+            screen_frame, np.arange(60) % 2, np.repeat(np.array(["a", "b", "c"]), 20),
+            metric_columns=["m"], classifier="linear_svm", min_units=2, rng=r),
         "curate_and_label": lambda r: jnwb.curate_and_label(
             g.normal(size=(8, 4, 600)), 500.0, pitch_um=25.0, compute_xflip=False, rng=r),
         "shuffle_r2_ci": lambda r: jnwb.shuffle_r2_ci(a, a + b, n_shuffle=10, rng=r),

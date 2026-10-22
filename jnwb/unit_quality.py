@@ -780,10 +780,10 @@ def _screen_kappa(y_true, y_pred, classes) -> float:
     return (p_o - p_e) / (1.0 - p_e)
 
 
-def _screen_interval(correct, gen) -> tuple:
-    """Percentile bootstrap interval of the mean of the 0/1 correct vector, rng threaded."""
+def _screen_interval(correct, rng) -> tuple:
+    """Percentile bootstrap interval of the mean of the 0/1 agreement vector, rng threaded."""
     low, high = StatisticalAnalysis.bootstrap_ci(
-        correct, statistic_func=np.mean, rng=gen
+        correct, statistic_func=np.mean, rng=rng
     )["bootstrap_ci"]
     return float(low), float(high)
 
@@ -807,9 +807,9 @@ def screen_units_against_labels(
     held-out session's labelled units. Per held-out session it reports balanced accuracy,
     Cohen's kappa ``(p_o - p_e) / (1 - p_e)`` on the 2x2 table, the majority baseline of the
     training labels on the same units, and a 95 % percentile bootstrap interval of the held-out
-    units' 0/1-correct vector. ``ci_low`` and ``ci_high`` bound the proportion of held-out units
-    correct, plain accuracy, not the balanced accuracy beside it. ``pooled`` gives the same
-    numbers over every held-out prediction.
+    units' 0/1 agreement vector. ``ci_low`` and ``ci_high`` bound the fraction of held-out units
+    whose predicted label equals the curator's label, not the balanced accuracy beside it.
+    ``pooled`` gives the same numbers over every held-out prediction.
 
     The estimand is ``result["estimand"]``: agreement with the caller's labels, held out by
     session, as a measure of label transfer across sessions.
@@ -826,13 +826,14 @@ def screen_units_against_labels(
     - ``constant_metric``: a used column is constant over the training units.
 
     A session with ``unaudited_metric`` is left out of every training pool
-    (``excluded_from_training``). A unit with a missing label is unlabelled: it is neither
-    fitted nor scored (``n_unlabelled``). With one training session the inner search cannot
-    group, so C is fixed at 1.0.
+    (``excluded_from_training``). A unit with a missing label (``None`` or NaN) is unlabelled:
+    it is neither fitted nor scored (``n_unlabelled``). With one training session the inner
+    search cannot group, so C is fixed at 1.0.
 
-    Curator labels are inputs, not ground truth. Agreement with them shows how far the metric
-    columns transfer across sessions; it does not show that a unit is a single neuron. The
-    result holds no fitted weight, threshold or rule.
+    Curator labels are inputs, never ground truth, and no agreement shows a unit is a
+    single neuron: decline that inference (QC safeguard 5). Agreement with the labels shows how
+    far the metric columns transfer across sessions. The result holds no fitted weight,
+    threshold or rule.
 
     Args:
         metrics: DataFrame with one row per unit and the columns named by ``metric_columns``.
@@ -856,8 +857,9 @@ def screen_units_against_labels(
         ValueError: ``classifier`` is not ``"linear_svm"``; ``min_units`` is not a positive
             int; ``metric_columns`` is not a list of distinct names; ``metrics`` is not a
             DataFrame; ``labels`` or ``session_id`` is not one entry per row, or a session id
-            is missing; the labelled rows do not hold exactly two distinct labels; a used
-            column holds a non-numeric value.
+            is missing; ``session_id`` holds more than one type (the types are named) or names
+            fewer than two sessions; the labelled rows do not hold exactly two distinct labels;
+            a used column holds a non-numeric value.
     """
     if classifier not in _SCREEN_CLASSIFIERS:
         raise ValueError(f"{_SCREEN_NAME}: classifier must be 'linear_svm'; got {classifier!r}.")
@@ -878,6 +880,8 @@ def screen_units_against_labels(
     n = len(metrics)
     labels = np.asarray(labels)
     session = np.asarray(session_id)
+    # The types as given: np.asarray would turn 1 and "a" into two strings and hide the mix.
+    session_kinds = sorted({type(s).__name__ for s in np.asarray(session_id, dtype=object).ravel()})
     if labels.shape != (n,) or session.shape != (n,):
         raise ValueError(
             f"{_SCREEN_NAME}: labels and session_id need one entry per row ({n}); got shapes "
@@ -885,7 +889,23 @@ def screen_units_against_labels(
         )
     if pd.isna(session).any():
         raise ValueError(f"{_SCREEN_NAME}: session_id holds a missing id; name every session.")
+    if len(session_kinds) > 1:
+        raise ValueError(
+            f"{_SCREEN_NAME}: session_id holds more than one type ({', '.join(session_kinds)}); "
+            "give every session the same type."
+        )
+    if len(np.unique(session)) < 2:
+        raise ValueError(
+            f"{_SCREEN_NAME}: session_id names {len(np.unique(session))} session(s); the screen "
+            "needs at least two, one held out and one to fit on."
+        )
     labelled = ~pd.isna(labels)
+    # Dropping the missing labels leaves values with an inferred dtype. An object array of ints
+    # beside None reaches sklearn as 'unknown' and is refused there. The unlabelled rows keep a
+    # placeholder, which is never fitted or scored.
+    kept = pd.Series(labels[labelled].tolist()).infer_objects().to_numpy()
+    labels = np.zeros(n, dtype=kept.dtype)
+    labels[labelled] = kept
     values = np.unique(labels[labelled])
     if len(values) != 2:
         raise ValueError(
@@ -914,8 +934,8 @@ def screen_units_against_labels(
         flagged[i] = bool(absent) or any(counts.values())
     excluded_row = flagged[row_index]
 
-    gen, seed = recorded_rng(rng, _SCREEN_NAME)
-    fit_seed = sklearn_random_state(gen, func_name=_SCREEN_NAME)
+    rng, seed = recorded_rng(rng, _SCREEN_NAME)
+    fit_seed = sklearn_random_state(rng, func_name=_SCREEN_NAME)
 
     records = []
     parts = []
@@ -959,7 +979,7 @@ def screen_units_against_labels(
             record["balanced_accuracy"] = _screen_balanced_accuracy(y_true, y_pred, values)
             record["kappa"] = _screen_kappa(y_true, y_pred, values)
             record["majority_baseline"] = majority
-            record["ci_low"], record["ci_high"] = _screen_interval(correct, gen)
+            record["ci_low"], record["ci_high"] = _screen_interval(correct, rng)
             parts.append((y_true, y_pred, correct, majority, n_lab))
         records.append(record)
 
@@ -974,7 +994,7 @@ def screen_units_against_labels(
             "kappa": _screen_kappa(y_true, y_pred, values),
             "majority_baseline": float(sum(p[3] * p[4] for p in parts) / n_pool),
         }
-        pooled["ci_low"], pooled["ci_high"] = _screen_interval(correct, gen)
+        pooled["ci_low"], pooled["ci_high"] = _screen_interval(correct, rng)
     else:
         pooled = {
             "n_units": 0,

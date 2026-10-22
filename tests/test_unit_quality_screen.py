@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import jnwb.unit_quality as unit_quality
 from jnwb.unit_quality import (
     SCREEN_ESTIMAND,
     _screen_balanced_accuracy,
@@ -215,8 +216,9 @@ def test_docstring_names_every_status_and_the_curator_label_limit():
     for status in ("success", "unaudited_metric", "too_few_units", "single_class",
                    "single_class_training", "constant_metric"):
         assert f"``{status}``" in doc, status
-    assert "not ground truth" in doc
+    assert "never ground truth" in doc
     assert "single neuron" in doc
+    assert "QC safeguard 5" in doc
     assert "certif" not in doc.lower()
 
 
@@ -284,3 +286,104 @@ def test_held_out_session_labels_never_train_its_own_fit():
     assert x["balanced_accuracy"] < 0.65, (
         f"x scored {x['balanced_accuracy']:.3f} on its own labels: they reached its fit"
     )
+
+
+# --- labels and sessions as given: object arrays, one session, mixed session types -----------
+
+
+def test_integer_labels_in_an_object_array_with_none_screen_and_none_is_unlabelled():
+    metrics, labels, sessions = _corpus(0)
+    held = np.flatnonzero(sessions == "b")[:4]
+    objects = np.array(labels.tolist(), dtype=object)
+    objects[held] = None
+    assert objects.dtype == object and sum(x is None for x in objects) == 4, "fixture"
+    as_float = labels.astype(float)
+    as_float[held] = np.nan
+
+    result = _screen(metrics, objects, sessions, 0)
+    assert [r["status"] for r in result["per_session"]] == ["success"] * 3
+    b = _record(result, "b")
+    assert b["n_unlabelled"] == 4
+    assert b["n_units"] == 76
+    # The table with NaN for the same missing labels gives the same numbers.
+    expected = _screen(metrics, as_float, sessions, 0)
+    for got, want in zip(result["per_session"], expected["per_session"]):
+        for key in NUMBERS:
+            assert got[key] == pytest.approx(want[key], rel=1e-12), (got["session"], key)
+
+
+def test_one_session_is_refused_as_needing_at_least_two():
+    metrics, labels, _ = _corpus(0)
+    with pytest.raises(ValueError, match="at least two"):
+        _screen(metrics, labels, np.repeat("a", len(labels)), 0)
+
+
+def test_session_ids_of_mixed_types_are_refused_naming_the_types():
+    metrics, labels, sessions = _corpus(0)
+    mixed = [str(s) for s in sessions]
+    mixed[0] = 1
+    with pytest.raises(ValueError, match=r"more than one type \(int, str\)"):
+        _screen(metrics, labels, mixed, 0)
+
+
+# --- the quantities a wrong formula would move: each killed by one test ----------------------
+
+
+def _scripted_predictions(monkeypatch, predictions):
+    """Replace the fit with fixed predictions, one array per held-out session in session order."""
+    queue = list(predictions)
+
+    def fit(X_train, y_train, X_test, random_state, *, groups_train=None):
+        y_pred = np.asarray(queue.pop(0))
+        assert len(y_pred) == len(X_test), "the scripted predictions are out of step"
+        return y_pred, np.zeros(len(X_test)), 1.0
+
+    monkeypatch.setattr(unit_quality, "_fit_predict_linear_svm", fit)
+
+
+def test_majority_baseline_is_the_training_majority_scored_on_the_held_out_labels():
+    metrics, labels, sessions = _corpus(0)
+    result = _screen(metrics, labels, sessions, 0)
+    for s in RATES:
+        held = labels[sessions == s]
+        majority = np.bincount(labels[sessions != s]).argmax()
+        expected = float(np.mean(held == majority))
+        assert 0.0 < expected < 1.0, f"{s}: the held-out labels all match the majority"
+        assert _record(result, s)["majority_baseline"] == pytest.approx(expected, rel=1e-12), s
+
+
+def test_interval_bounds_the_fraction_agreeing_not_the_predictions(monkeypatch):
+    metrics, labels, sessions = _corpus(0)
+    # Every held-out unit is predicted 1: the agreement fraction is the label rate, and an
+    # interval over the predictions would sit at 1.
+    _scripted_predictions(monkeypatch, [np.ones(80, dtype=int)] * 3)
+    result = _screen(metrics, labels, sessions, 0)
+    for s in RATES:
+        rec = _record(result, s)
+        agree = float(np.mean(labels[sessions == s] == 1))
+        assert rec["ci_low"] <= agree <= rec["ci_high"], (s, rec["ci_low"], agree, rec["ci_high"])
+        assert rec["ci_high"] < 1.0, f"{s}: the interval sits at the prediction rate"
+
+
+def test_pooled_kappa_is_the_pooled_table_not_the_mean_of_the_sessions(monkeypatch):
+    metrics, labels, sessions = _corpus(0)
+    wrong = {"a": 8, "b": 30, "c": 20}
+    predicted = {}
+    for s in RATES:
+        y = labels[sessions == s].copy()
+        y[:wrong[s]] = 1 - y[:wrong[s]]
+        predicted[s] = y
+    _scripted_predictions(monkeypatch, [predicted[s] for s in RATES])
+    result = _screen(metrics, labels, sessions, 0)
+
+    def kappa(y, p):
+        p_o = np.mean(y == p)
+        p_e = sum(np.mean(y == c) * np.mean(p == c) for c in (0, 1))
+        return (p_o - p_e) / (1 - p_e)
+
+    truth = np.concatenate([labels[sessions == s] for s in RATES])
+    guess = np.concatenate([predicted[s] for s in RATES])
+    pooled = kappa(truth, guess)
+    mean_of_sessions = np.mean([_record(result, s)["kappa"] for s in RATES])
+    assert abs(pooled - mean_of_sessions) > 0.01, "the fixture does not separate the two"
+    assert result["pooled"]["kappa"] == pytest.approx(pooled, rel=1e-12)
