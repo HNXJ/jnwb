@@ -43,7 +43,6 @@ elsewhere as `python -m pytest tests/ -q`.
 | 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
 | 1 | M mutation | 07-21 (the core five), then 07-22 | Muse | nothing |
 | 1 | R reading | 11-02 (fact I2's scan) | Haiku | nothing |
-| 1 | S estimators | 14-06 | Muse | wave-0 rulings |
 | 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-05 to 16-07, 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-18, 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; when neither exists, the item stops and goes to Hamm, never to 0.2.15 |
@@ -153,14 +152,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/build_fact_graph.py`, `scripts/fact_gate.py`, `tests/test_fact_gate.py`, the modules a repair touches and their tests, the I2 cell of `artifacts/fact_stack.md`.
 - 11-02: Fact I2 (a unit change, or a wrapper or default that changes the estimand, is a named parameter or fails) has no scan with a planted case; D10's declared shallow end landed in e4433366. Check: a scan reports a planted silent unit conversion and a planted estimand-changing default as VIOLATED, and I2's holder cell names the scan (cells authorized 2026-10-20, 11-32).
 Accept: each check passes.
-
-### 14-06 The pitfall estimators Hamm rules
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
-Writes: `jnwb/connectivity/**`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_connectivity.py`, `tests/test_connectivity_pitfalls.py`, `docs/08_directed_connectivity_and_information.md`, `docs/references.md`, `artifacts/changelog.d/pitfall-estimators.added.md`.
-- 14-06: The four estimators 11-04 proposes have no implementation. Check: each ruled estimator ships with its signature, a `docs/references.md` row and a synthetic test, and the 10-11 test that names its gap asserts the repair. Waits: After 11-04; ruled 2026-10-19 to be built in 0.2.14 once 11-04 is ruled.
-Accept: the suite and harness pass; the packet reports the `docs/api.md` rows and the changelog text.
 
 ### 10-10 Signature types that compose
 
@@ -307,13 +298,13 @@ Writes: `scripts/docs_form_gate.py`, `docs/documentation_form.md`, `tests/test_d
 ### 16-18 The core freeze (goal F1)
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 14-06.
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutants.py`.
 - 16-18: Six functions are frozen; goal F1 (ruled 2026-10-21) freezes 22 more: `compute_psd`, `band_power`, `aggregate_to_db`, `to_db`, `relative_power`, `harmonic_analysis`, `wpli`, `imaginary_coherency`, `cross_area_coherence`, `granger`, `granger_causality`, `bipolar_reference`, `laplacian_reference`, `current_source_density_1d`, `voltage_curvature_1d`, `cluster_permutation_test`, `clopper_pearson`, `mann_whitney_p_floor`, `shuffle_r2_ci`, `fdr_correct`, `label_layers`, `bin_spikes`. Each enters `artifacts/process/frozen_validated.json` with its body hash, the commit it was verified at and the tests that kill a planted change to it; a reviewer that did not write the test runs the mutant. Frozen last in the cycle, after 14-06 adds its estimators beside `granger`. Check: Gate 19 lists 28 functions, and for each a planted body change fails its named tests.
 
 ### 16-19 A manifest of the public surface (goal F2)
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 07-21, 07-22, 14-06.
+Role: jnwb-developer. Skill: none. Blocked by: 07-21, 07-22.
 Writes: `tests/test_public_surface_manifest.py`, `artifacts/process/public_surface.json`.
 - 16-19: After 0.2.14 a public symbol, module or skill enters only by a ruling that names it (goal F2, ruled 2026-10-21), and nothing records the surface to compare against. Check: a test that compares `jnwb.__all__`, the `jnwb/` module list and `skills/` with the manifest and fails, naming the entry, on an addition or removal the manifest does not record; a planted extra symbol fails it.
