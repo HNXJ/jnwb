@@ -16,7 +16,9 @@ the destination's dtype.
 from __future__ import annotations
 
 import hashlib
+import os
 import posixpath
+import tempfile
 import warnings
 from dataclasses import dataclass, field
 from importlib import metadata
@@ -25,6 +27,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 
+from jnwb.nwb_io import MissingRequiredNWBFieldError
 from jnwb.ontology import Lineage, Provenance
 
 #: The mutation category ``verify_nwb`` records on its report.
@@ -429,6 +432,159 @@ def _comparison_checks(dst_path: Path, against_path: Path, report: MutationRepor
                 f"/{normed} matches the source as declared", False,
                 "unexplained difference: absent from the source"))
     return out
+
+
+#: The mutation category ``write_nwb`` records on its report.
+WRITE_CATEGORY = "write or create"
+
+
+class NWBMutationError(Exception):
+    """Base error for refused NWB mutation operations; carries the report ``issues``."""
+
+    def __init__(self, message: str = "",
+                 issues: tuple[MutationIssue, ...] = ()) -> None:
+        self.issues = tuple(issues)
+        super().__init__(message)
+
+
+class NWBVerificationError(NWBMutationError):
+    """A written file failed its post-write ``verify_nwb`` check; ``dst`` is left in place."""
+
+
+class AmbiguousMappingError(NWBMutationError):
+    """Two plausible mappings for one conversion; the operation refuses to pick one."""
+
+
+class UnidentifiableRepairError(NWBMutationError):
+    """A named repair's identifiability precondition does not hold; nothing is written."""
+
+
+class UndeclaredUnitError(NWBMutationError):
+    """A stored unit string is absent or outside the unit table; a unit is never guessed."""
+
+
+def _missing_required_fields(nwbfile: NWBFile) -> list[str]:
+    """Required ``NWBFile`` fields the caller left empty: schema validation passes ``""``."""
+    missing = []
+    if not getattr(nwbfile, "session_description", None):
+        missing.append("session_description")
+    if not getattr(nwbfile, "identifier", None):
+        missing.append("identifier")
+    if getattr(nwbfile, "session_start_time", None) is None:
+        missing.append("session_start_time")
+    return missing
+
+
+def _export_tmp(nwbfile: NWBFile, directory: Path) -> Path:
+    """Export the object to a fresh temporary file in ``directory``.
+
+    The caller moves it to ``dst`` once validation passes, or deletes it when
+    validation refuses: the same in-memory object is exported exactly once, since
+    pynwb refuses to write one object twice.
+    """
+    from pynwb import NWBHDF5IO
+
+    handle, tmp = tempfile.mkstemp(suffix=".nwb", dir=str(directory))
+    os.close(handle)
+    with NWBHDF5IO(tmp, "w") as io:
+        io.write(nwbfile)
+    return Path(tmp)
+
+
+def _schema_issues(path: Path) -> tuple[MutationIssue, ...]:
+    """Schema errors of a written file, against the namespaces cached inside it."""
+    import pynwb
+
+    errors = pynwb.validate(path=str(path), use_cached_namespaces=True)
+    return tuple(MutationIssue("error", "schema", str(e)[:500]) for e in errors)
+
+
+def write_nwb(nwbfile: NWBFile, *, dst: str | Path,
+              overwrite: bool = False, verify: bool = True) -> MutationReport:
+    """Write a caller-built ``NWBFile`` to ``dst`` and report the write.
+
+    jnwb adds no content: the caller's pynwb objects carry every value, unit and
+    region. The object is exported to a temporary file first, so a schema failure
+    refuses before ``dst`` is touched.
+
+    Parameters
+    ----------
+    nwbfile : pynwb.NWBFile
+        The file to write. Never modified.
+    dst : str or Path
+        Output path. Its parents are created.
+    overwrite : bool
+        Allow writing over an existing ``dst``.
+    verify : bool
+        Re-read ``dst`` through ``verify_nwb`` after writing (default True).
+
+    Returns
+    -------
+    MutationReport
+        Category ``"write or create"``; ``src`` is None. ``ok`` is True in every
+        returned report: a failed check raises.
+
+    Raises
+    ------
+    TypeError
+        ``nwbfile`` is not a ``pynwb.NWBFile``.
+    MissingRequiredNWBFieldError
+        A required field left empty by the caller; nothing is written.
+    FileExistsError
+        ``dst`` exists and ``overwrite`` is False.
+    NWBMutationError
+        The object fails schema validation before writing, carrying the issues;
+        nothing is written.
+    NWBVerificationError
+        ``verify`` is True and a post-write check failed; ``dst`` is left in place
+        for inspection.
+    """
+    import jnwb
+    from pynwb import NWBFile
+
+    if not isinstance(nwbfile, NWBFile):
+        raise TypeError(f"nwbfile must be a pynwb.NWBFile, got {type(nwbfile).__name__}")
+    missing = _missing_required_fields(nwbfile)
+    if missing:
+        raise MissingRequiredNWBFieldError(missing[0])
+    dst_path = Path(dst)
+    if dst_path.exists() and not overwrite:
+        raise FileExistsError(f"destination exists (pass overwrite=True): {dst_path}")
+    dst_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = _export_tmp(nwbfile, dst_path.parent)
+    try:
+        issues = _schema_issues(tmp)
+        if issues:
+            raise NWBMutationError(
+                f"the NWBFile fails schema validation with {len(issues)} error(s); "
+                f"first: {issues[0].message}; nothing written",
+                issues=issues)
+        tmp.replace(dst_path)
+    finally:
+        tmp.unlink(missing_ok=True)
+    checks: tuple[MutationCheck, ...] = ()
+    if verify:
+        rep = verify_nwb(dst_path)
+        checks = rep.checks
+        if not rep.ok:
+            failed = [f"{c.name}: {c.detail}" for c in checks if not c.ok]
+            raise NWBVerificationError(
+                f"write_nwb wrote {dst_path}, and {len(failed)} verification "
+                "check(s) failed; the file is left in place for inspection: "
+                + " | ".join(d[:300] for d in failed))
+    dst_sha = _sha256(dst_path)
+    provenance = Provenance(
+        software_version=jnwb.__version__, backend="numpy",
+        parameters={"overwrite": overwrite, "verify": verify},
+        environment={"pynwb": _version("pynwb") or "unknown",
+                     "hdmf": _version("hdmf") or "unknown"})
+    lineage = Lineage(source_type="NWBFile", source_id=dst_sha,
+                      operation=WRITE_CATEGORY)
+    return MutationReport(
+        category=WRITE_CATEGORY, src=None, dst=str(dst_path),
+        src_sha256=None, dst_sha256=dst_sha,
+        applied=(), checks=checks, issues=(),
+        waived=(), provenance=provenance, lineage=lineage, ok=True)
 
 
 def verify_nwb(dst: str | Path, *, against: str | Path | None = None,

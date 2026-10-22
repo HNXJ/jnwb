@@ -1,7 +1,7 @@
-"""Probes for jnwb.nwb_write.verify_nwb: re-reading a written NWB file.
+"""Probes for jnwb.nwb_write.verify_nwb (re-reading a written NWB file) and write_nwb.
 
-Each test writes its NWB file with pynwb into tmp_path. No writer exists yet, so the
-against-comparison builds its MutationReport by hand.
+Each test builds its NWB file with pynwb into tmp_path. The against-comparison
+builds its MutationReport by hand, since no writer exists for that path yet.
 """
 
 from __future__ import annotations
@@ -16,15 +16,22 @@ from pynwb import NWBHDF5IO, NWBFile
 from pynwb.ecephys import ElectricalSeries
 
 import jnwb
+from jnwb.nwb_io import MissingRequiredNWBFieldError
 from jnwb.nwb_write import (
+    AmbiguousMappingError,
     AppliedOperation,
     MutationCheck,
     MutationIssue,
     MutationReport,
+    NWBMutationError,
+    NWBVerificationError,
+    UndeclaredUnitError,
+    UnidentifiableRepairError,
     _attr_scalar_equal,
     _is_null,
     _version,
     verify_nwb,
+    write_nwb,
 )
 from jnwb.ontology import Lineage, Provenance
 
@@ -46,6 +53,101 @@ def _make_nwb(path, *, scale=1.0, starting_time=0.0):
     nwb.add_unit(spike_times=np.array([0.1, 0.4, 0.9]))
     with NWBHDF5IO(str(path), "w") as io:
         io.write(nwb)
+
+
+def _make_nwbfile():
+    nwb = NWBFile(
+        session_description="synthetic write fixture", identifier="write-1",
+        session_start_time=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    dev = nwb.create_device(name="probe_dev", description="d", manufacturer="m")
+    grp = nwb.create_electrode_group(name="probeA", description="g", location="V1",
+                                     device=dev)
+    for i in range(4):
+        nwb.add_electrode(x=0.0, y=float(i), z=0.0, imp=1.0, location="V1",
+                          filtering="none", group=grp, group_name="probeA")
+    region = nwb.create_electrode_table_region(region=[0, 1, 2, 3], description="all")
+    nwb.add_acquisition(ElectricalSeries(
+        name="raw", data=np.arange(80, dtype="f8").reshape(20, 4),
+        electrodes=region, rate=1000.0, conversion=1.0, starting_time=0.0))
+    return nwb
+
+
+def test_write_nwb_and_errors_are_exported():
+    for name in ("write_nwb", "NWBMutationError", "NWBVerificationError",
+                 "AmbiguousMappingError", "UnidentifiableRepairError",
+                 "UndeclaredUnitError"):
+        assert name in jnwb.__all__, name
+        assert hasattr(jnwb, name), name
+    for name in ("NWBVerificationError", "AmbiguousMappingError",
+                 "UnidentifiableRepairError", "UndeclaredUnitError"):
+        assert issubclass(getattr(jnwb, name), NWBMutationError), name
+    assert jnwb.write_nwb is write_nwb
+    assert jnwb.NWBMutationError is NWBMutationError
+    from jnwb import nwb_write
+    assert nwb_write.MissingRequiredNWBFieldError is MissingRequiredNWBFieldError
+
+
+def test_write_round_trip_passes_verify(tmp_path):
+    dst = tmp_path / "written.nwb"
+    rep = write_nwb(_make_nwbfile(), dst=dst)
+    assert rep.ok
+    assert rep.category == "write or create"
+    assert rep.src is None and rep.src_sha256 is None
+    assert rep.dst == str(dst) and rep.dst_sha256 is not None
+    assert rep.applied == () and rep.issues == () and rep.waived == ()
+    assert all(isinstance(c, MutationCheck) for c in rep.checks)
+    check = verify_nwb(dst)
+    assert check.ok, [c for c in check.checks if not c.ok]
+
+
+def test_write_schema_failure_raises_and_writes_nothing(tmp_path, monkeypatch):
+    import pynwb
+
+    dst = tmp_path / "never.nwb"
+    monkeypatch.setattr(pynwb, "validate", lambda **kwargs: ["planted: no such field"])
+    with pytest.raises(NWBMutationError, match="planted"):
+        write_nwb(_make_nwbfile(), dst=dst)
+    assert not dst.exists(), "a refused write must leave no file behind"
+
+
+def test_write_empty_session_description_raises_and_writes_nothing(tmp_path):
+    dst = tmp_path / "never.nwb"
+    nwb = NWBFile(
+        session_description="", identifier="write-empty-desc",
+        session_start_time=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    with pytest.raises(MissingRequiredNWBFieldError) as caught:
+        write_nwb(nwb, dst=dst)
+    assert caught.value.field_name == "session_description"
+    assert not dst.exists(), "a refused write must leave no file behind"
+
+
+def test_write_existing_dst_refuses_without_overwrite(tmp_path):
+    dst = tmp_path / "written.nwb"
+    first = write_nwb(_make_nwbfile(), dst=dst, verify=False)
+    assert first.ok and dst.is_file(), "the fixture write must land first"
+    with pytest.raises(FileExistsError, match="overwrite"):
+        write_nwb(_make_nwbfile(), dst=dst)
+    second = write_nwb(_make_nwbfile(), dst=dst, overwrite=True)
+    assert second.ok
+
+
+def test_write_verify_failure_raises_and_leaves_dst(tmp_path, monkeypatch):
+    import jnwb.nwb_write as module
+
+    dst = tmp_path / "written.nwb"
+    bad = MutationReport(
+        category="write or create", src=None, dst=str(dst),
+        src_sha256=None, dst_sha256=None, applied=(),
+        checks=(MutationCheck("pynwb read", False, "planted failure"),),
+        issues=(), waived=(),
+        provenance=Provenance(software_version=jnwb.__version__, backend="numpy"),
+        lineage=Lineage(source_type="NWBFile", source_id="planted",
+                        operation="write or create"),
+        ok=False)
+    monkeypatch.setattr(module, "verify_nwb", lambda path: bad)
+    with pytest.raises(NWBVerificationError, match="planted failure"):
+        write_nwb(_make_nwbfile(), dst=dst)
+    assert dst.is_file(), "a failed verification leaves dst in place for inspection"
 
 
 def _hand_report(*, applied=(), src="src", dst="dst"):

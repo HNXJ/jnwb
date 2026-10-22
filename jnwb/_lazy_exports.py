@@ -86,6 +86,13 @@ EXPORT_MODULES: dict[str, str] = {
     "PopulationAnalyzer": "analyzers",
     # nwb mutation output verification
     "verify_nwb": "nwb_write",
+    # nwb mutation writer and error hierarchy
+    "write_nwb": "nwb_write",
+    "NWBMutationError": "nwb_write",
+    "NWBVerificationError": "nwb_write",
+    "AmbiguousMappingError": "nwb_write",
+    "UnidentifiableRepairError": "nwb_write",
+    "UndeclaredUnitError": "nwb_write",
     # viz (matplotlib)
     "setup_vector_graphics": "viz",
     "apply_tight_auto_axis": "viz",
