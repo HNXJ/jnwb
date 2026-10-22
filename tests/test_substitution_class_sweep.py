@@ -822,6 +822,27 @@ ACCEPTED_HANDLER_RECOVERY = {
         "Tries dandi.validate.validate, then dandi.validate._core.validate: the same function "
         "under the module path an older release exposes it at. Neither found is reported by "
         "the caller as 'skipped'.",
+    ("nwb_write.py", "_attr_scalar_equal", "Exception", (), True, 1):
+        "An unreadable reference target compares as different, with a UserWarning naming the "
+        "exception; _attrs_equal files it as attribute '<key>' differs, so the failure is the "
+        "finding, on the conservative side.",
+    ("nwb_write.py", "_attr_scalar_equal", "Exception", (), True, 2):
+        "An attribute element that will not compare with == falls back to comparing reprs of "
+        "the same two inputs, with a UserWarning naming the exception. The answer stays a "
+        "comparison of the pair, never a constant.",
+    ("nwb_write.py", "_is_null", "Exception", (), True, 1):
+        "An unreadable reference is treated as non-null, with a UserWarning, so the caller "
+        "still probes it with handle[ref] and records a dangling reference on failure; it is "
+        "never silently skipped as null.",
+    ("nwb_write.py", "_read_check", "Exception", (), True, 1):
+        "The failure is the finding: the check returns ok=False carrying the exception type "
+        "and text, filed under the pynwb-read check name.",
+    ("nwb_write.py", "_schema_check", "Exception", (), True, 1):
+        "Same: a validation that raises is reported as an ok=False schema check with the "
+        "exception text.",
+    ("nwb_write.py", "_version", "metadata.PackageNotFoundError", (), True, 1):
+        "A distribution that is not installed records None, with a UserWarning, and the "
+        "caller files it as 'unknown' in the provenance environment. Absence, reported.",
 }
 
 
