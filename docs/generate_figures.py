@@ -2429,8 +2429,11 @@ def fig37_verify_written_nwb():
         "fig37 needs a copy that passes on its own"
     assert against.ok, "fig37 needs a recast the declared cast explains"
     cast = [c for c in against.checks if "cast of the source" in c.name]
+    # pynwb embeds its schema under /specifications, and the release decides how many of those
+    # datasets exist, so the count is of the datasets the fixture wrote.
     identical = [c for c in against.checks
-                 if "matches the source as declared" in c.name and c.ok]
+                 if "matches the source as declared" in c.name and c.ok
+                 and not c.name.startswith("/specifications/")]
     assert len(cast) == 1 and identical, \
         "fig37 needs one declared cast beside byte-identical datasets"
     passed = [int(c.ok) for c in standalone.checks]
