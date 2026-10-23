@@ -89,6 +89,8 @@ EXPORT_MODULES: dict[str, str] = {
     # nwb mutation transforms and repairs
     "transform_nwb": "nwb_write",
     "repair_nwb": "nwb_write",
+    # the repair vocabulary `repair_nwb` takes: reachable as `jnwb.REPAIRS`, held out of `__all__`
+    "REPAIRS": "nwb_write",
     # nwb mutation writer and error hierarchy
     "write_nwb": "nwb_write",
     "NWBMutationError": "nwb_write",

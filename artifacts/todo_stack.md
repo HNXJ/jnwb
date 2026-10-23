@@ -163,7 +163,7 @@ Accept: the Science and Skills tables report no UNHELD fact.
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-- 16-05: The S10 scan (`scheme_scan` in `scripts/build_fact_graph.py`) reports 0 findings over 217 callables (f4afdcff), but excuses by name six that carry no scheme key: `wavemap_resolution_sweep` and five that return a bare value (`permute_labels`, both `exact_sign_flip`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`). Check: Hamm rules whether named exceptions hold the fact or the bare returns become result dicts (breaking); then the S10 holder cell names the scan. Waits: that ruling.
+- 16-05: The S10 scan (`scheme_scan` in `scripts/build_fact_graph.py`) reports 0 findings over 217 callables (f4afdcff), but excuses by name six that carry no scheme key: `wavemap_resolution_sweep` and five that return a bare value (`permute_labels`, both `exact_sign_flip`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`). Check: the S10 holder cell names the scan, and each of the six keeps its reason in the scan's exclusion list. Waits: ruled 2026-10-23: the named exceptions hold the fact; no return type changes.
 
 ### 16-06 The S11 check
 
@@ -261,14 +261,14 @@ Accept: a test per outcome in (a); a round trip in (b) by path and hash; gate 6 
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-- 16-11: The 2026-10-20 reference check (three workers, 83 rows) graded each claim against its abstract only; 46 rows, the 14 core texts among them, have no abstract that decides the claim, so their second cell is unread against the source. Check: a test that fails before the repair and passes after. Waits: citations, DOIs, ISBNs and functions of all 83 rows were checked and two defects repaired; a claim cell is the page's reading, not a release value.
+- 16-11: The 2026-10-20 reference check (three workers, 83 rows) graded each claim against its abstract only; 46 rows, the 14 core texts among them, have no abstract that decides the claim, so their second cell is unread against the source. Check: each of the 46 claim cells is confirmed, reworded, or cut. Waits: ruled 2026-10-23: a claim the full text cannot confirm is cut (the 2026-10-23 pass found 7 confirmed, 1 to reword and 22 unconfirmable); citations, DOIs, ISBNs and functions of all 83 rows were checked and two defects repaired.
 
 ### 16-12 Real-data results on the dashboard
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, `tests/test_build_dashboard.py`.
-- 16-12: The dashboard, not `docs/index.md` (ruled 2026-10-21), gains real-data results (`isi_cv` against stored values on 9,056 units, branch `claude/site-overview-326890`, commit 9b52c5e7; the WaveMAP and GLO results of the cross-dataset work) only from receipts committed to this repository and computed independently of jnwb. Check: each number on the page traces to a committed receipt. Waits: the cross-dataset receipts (the omission high-pass re-extraction, about 2026-10-21; GLO after it).
+- 16-12: The dashboard, not `docs/index.md` (ruled 2026-10-21), gains real-data results (`isi_cv` against stored values on 9,056 units, branch `claude/site-overview-326890`, commit 9b52c5e7; the WaveMAP and GLO results of the cross-dataset work) only from receipts committed to this repository and computed independently of jnwb. Check: each number on the page traces to a committed receipt. Waits: ruled 2026-10-23: the receipts that exist (GLO, omission) are copied into `artifacts/showcases/` with digests; a card with no receipt (`isi_cv` on 9,056 units, WaveMAP) stays absent and the item stops for it.
 
 ### 16-18 The core freeze (goal F1)
 

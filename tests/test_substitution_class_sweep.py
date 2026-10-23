@@ -658,6 +658,11 @@ ACCEPTED_CHAIN_ELSE = {
      ("mean_of_ratios", "ratio_of_means"), 1):
         "model is checked against RELATIVE_POWER_MODELS and raises; the else is the "
         "'log_ratio' branch.",
+    ("nwb_write.py", "repair_nwb", "CHAIN_NO_ELSE", "name",
+     ("squeeze_scalar_attributes", "units_colnames", "vector_index_types",
+      "waveform_index_dtype"), 1):
+        "repairs= is checked against REPAIRS and raises on any other name before the loop; "
+        "the chain names each of the four repairs, so no name reaches a missing else.",
 }
 
 ACCEPTED_HANDLER_RECOVERY = {
@@ -840,6 +845,10 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("nwb_write.py", "_schema_check", "Exception", (), True, 1):
         "Same: a validation that raises is reported as an ok=False schema check with the "
         "exception text.",
+    ("nwb_write.py", "_plan_vector_index_types.visit", "Exception", ("resolved",), False, 1):
+        "A target reference that will not dereference is a dangling one: resolved stays None "
+        "and the index is repointed to its derived target. A resolving reference to a "
+        "different dataset refuses with UnidentifiableRepairError, so no value is invented.",
     ("nwb_write.py", "_version", "metadata.PackageNotFoundError", (), True, 1):
         "A distribution that is not installed records None, with a UserWarning, and the "
         "caller files it as 'unknown' in the provenance environment. Absence, reported.",
