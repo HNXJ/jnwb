@@ -45,7 +45,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-07, 16-10, 11-09 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | done |
-| 2 | D docs and dashboard | 16-12 (ruled 2026-10-21: light docs with inline figures; HTML and proof of work on the dashboard) | Haiku for figures and pages, Muse for the dashboard design | nothing; 16-12 waits on its receipts |
+| 2 | D docs and dashboard | none left: 16-12 closed with the GLO cards, the others moved to the roadmap (ruled 2026-10-23; originally ruled 2026-10-21: light docs with inline figures; HTML and proof of work on the dashboard) | Haiku for figures and pages, Muse for the dashboard design | done |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 | Haiku | 07-22 and wave 2 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
 
@@ -63,7 +63,7 @@ What holds when 0.2.14 is released, against the goal in `artifacts/goal.md` (rul
 | 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 16-03, 15-22 |
 | 7 | Work that needs outside code lands (ruled 2026-10-21: nothing in this cycle is deferred) | each item is gone from this file | landed (12-21, 14-08) |
 | 8 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 15-20, 12-05, 09-07, 07-05, 12-06 |
-| 10 | The dashboard holds the proof of work and the HTML outputs | `tests/test_build_dashboard.py` builds it from committed files with every card's receipt digest matching; the published page shows the proof-of-work section | 16-12 |
+| 10 | The dashboard holds the proof of work and the HTML outputs | `tests/test_build_dashboard.py` builds it from committed files with every card's receipt digest matching; the published page shows the proof-of-work section; the real-data cards are the GLO entries whose receipts are committed (ruled 2026-10-23) | landed (16-12) |
 | 11 | Reference claims checked against full text where an abstract decides nothing | each of the 46 claim cells is confirmed, reworded, or cut; the 14 core texts keep their cells, unread against the source (ruled 2026-10-23) | landed (3ba28202) |
 | 13 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18, 16-19 |
 | 12 | Release form (`AGENTS.md` §11): low-verbosity docs, low-complexity code, an empty open stack, no required item | `match-checker` has run on every commit's changed files; the closure pass finds 0 new blockers | the checkpoint below |
@@ -224,13 +224,6 @@ Role: jnwb-developer. Skill: none. Blocked by: 07-22.
 Writes: `jnwb/ontology.py`, `jnwb/paths.py`, `tests/test_ontology.py`, `tests/test_paths.py`, `tests/test_paths_identity.py`, `skills/jnwb/SKILL.md`, `CONTRIBUTING.md`.
 - 07-05: `jnwb.preflight` outcomes are not scored as data, results do not name their input's sha256 and object path (IA-27's tests for `resolve_nwb_path`, `sha256_file` and `require` land with it), `CONTRIBUTING.md` states no intake, and P-335's review (`artifacts/evidence/0.2.13/p335_laminar_curation_review.md`) leaves the working-value defaults uncited and the inner stages unexposed, for a ruling. Check: a test per outcome reads those three from the returned object (`tests/test_ontology.py`); a round trip by path and hash passes; `CONTRIBUTING.md` holds that sentence; the packet reports a pass or fail for each of the four. Waits: After 11-02; new downstream capability, not a defect. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: a test per outcome in (a); a round trip in (b) by path and hash; gate 6 passes.
-
-### 16-12 Real-data results on the dashboard
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, `tests/test_build_dashboard.py`.
-- 16-12: The dashboard, not `docs/index.md` (ruled 2026-10-21), gains real-data results (`isi_cv` against stored values on 9,056 units, branch `claude/site-overview-326890`, commit 9b52c5e7; the WaveMAP and GLO results of the cross-dataset work) only from receipts committed to this repository and computed independently of jnwb. Check: each number on the page traces to a committed receipt. Waits: ruled 2026-10-23: the receipts that exist (GLO, omission) are copied into `artifacts/showcases/` with digests; a card with no receipt (`isi_cv` on 9,056 units, WaveMAP) stays absent and the item stops for it. Stopped 2026-10-23 (F16 search): GLO's four entries are committed already; the omission and WaveMAP receipts are computed by calling jnwb, so they are not independent; the `isi_cv` receipt file no longer exists. Each needs an independent recomputation and a new receipt, or Hamm's ruling that the card is cut.
 
 ### 16-18 The core freeze (goal F1)
 
