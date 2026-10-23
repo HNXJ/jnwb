@@ -140,7 +140,7 @@ Accept: a cache key includes input hash, parameters and version, with an invalid
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `jnwb/_declarations.py`, `artifacts/fact_stack.md`.
-- 10-10: I1: no numeric public operation declares signature types, and no composition edge is type-checked; full text: `git log -S '### 10-10' -- artifacts/todo_stack.md`. Check: a planted spikes-to-LFP-only edge is reported VIOLATED by `tests/test_fact_gate.py`. Waits: Ruled 2026-10-11: the fact reports UNHELD and nothing public claims it. Moved to 0.2.14 by the 2026-10-19 theme ruling.
+- 10-10: I1: no numeric public operation declares signature types, and no composition edge is type-checked; full text: `git log -S '### 10-10' -- artifacts/todo_stack.md`. Check: a planted spikes-to-LFP-only edge is reported VIOLATED by `tests/test_fact_gate.py`. Waits: Ruled 2026-10-23: declared types on the spike and LFP boundary operations only, composition edges type-checked there. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: the Identity table and B3 report no UNHELD fact.
 
 ### 11-06 A cited reason for each defaulted `window=`
@@ -196,14 +196,14 @@ Accept: the Science and Skills tables report no UNHELD fact.
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- 12-08: No fact holds `computed:routed_citations`, which lists 73 routed exports with no `cites` edge: containers, I/O, metadata, plotting and plumbing, plus eight with no source the code implements (`xflip`, `network_topology`, `permute_labels`, `build_permutation_plan`, `exploratory_correlate`, `consensus_bad_trials`, `spatial_derivative_sharpness`, `waveform_flatness`). Check: Hamm approves the row and the fact gate reports it HELD. Waits: Ruled 2026-10-14: deferred; the exclusion list ruled 2026-10-13 stands and nothing public claims the fact. Moved to 0.2.14 by the 2026-10-19 theme ruling.
+- 12-08: No fact holds `computed:routed_citations`, which lists 73 routed exports with no `cites` edge: containers, I/O, metadata, plotting and plumbing, plus eight with no source the code implements (`xflip`, `network_topology`, `permute_labels`, `build_permutation_plan`, `exploratory_correlate`, `consensus_bad_trials`, `spatial_derivative_sharpness`, `waveform_flatness`). Check: the fact gate reports the row HELD. Waits: row ruled 2026-10-23: every routed export cites a published source or is on the exclusion list with a reason, and the eight uncitable ones join that list; the 2026-10-13 list stands otherwise. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: the fact gate reports the row HELD, or it waits with Hamm's reason.
 
 ### 15-18 Fusion agreement that can say `agree` or `disagree`
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-- 15-18: The `'unavailable'`/`'unresolved'` status, the `B` cap and `contact_spacing_um` landed (ruled 2026-10-15); `fuse_laminar_anchors` emits `'agree'` and `'disagree'` only once a calibrated separation threshold exists. Check: a test that fails before the repair and passes after. Waits: a vFLIP-vFLIP2 separation calibration, which does not exist: 15-19 (7ea17995) calibrated vFLIP2's null acceptance by spacing, not the separation of the two crossovers; the generator and percentile for that threshold go to Hamm. Moved to 0.2.14 by the 2026-10-19 theme ruling.
+- 15-18: The `'unavailable'`/`'unresolved'` status, the `B` cap and `contact_spacing_um` landed (ruled 2026-10-15); `fuse_laminar_anchors` emits `'agree'` and `'disagree'` only once a calibrated separation threshold exists. Check: a test that fails before the repair and passes after. Waits: ruled 2026-10-23: the threshold is the 95th percentile of the crossover separation under a channel-shuffled `synth_laminar_motif` null (15-19 (7ea17995) calibrated vFLIP2's null acceptance by spacing, not this separation); the receipt goes under `artifacts/benchmarks/calibration/`. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 
 ### 15-22 A `jnwb-sim-benchmark` skill
 
@@ -215,7 +215,7 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
-- 12-21: No jnwb test recovers a known coupling, delay or spectrum from a jaxfne simulation (meet 204dfdaa item 8); full text: `git log -S '### 12-21' -- artifacts/todo_stack.md`. Check: a test that fails before the repair and passes after. Waits: Ruled 2026-10-14: needs jaxfne's excerpt; nothing shipped changes. Moved to 0.2.14 by the 2026-10-19 theme ruling.
+- 12-21: No jnwb test recovers a known coupling, delay or spectrum from a jaxfne simulation (meet 204dfdaa item 8); full text: `git log -S '### 12-21' -- artifacts/todo_stack.md`. Check: a test that fails before the repair and passes after. Waits: ruled 2026-10-23: a worker reads `E:/repos/jaxfne` only and commits a small excerpt with its provenance under `tests/data/`; nothing shipped changes. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 
 ### 12-05 Process tests pruned and merged
 
