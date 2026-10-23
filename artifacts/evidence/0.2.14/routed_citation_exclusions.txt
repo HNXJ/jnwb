@@ -35,6 +35,7 @@ electrode_inventory
 enrich_units_dataframe
 epoch_continuous
 events
+exploratory_correlate
 filter_by_criteria
 fire_indicator
 fires_in_window

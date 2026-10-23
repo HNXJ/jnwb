@@ -42,7 +42,7 @@ elsewhere as `python -m pytest tests/ -q`.
 |---|---|---|---|---|
 | 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
 | 1 | M mutation | 07-22 (07-21's core five landed: `validate_nwb`, `write_nwb`, `verify_nwb`, `transform_nwb`, `repair_nwb`) | Muse | nothing |
-| 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-05 to 16-07, 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
+| 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-05 to 16-07, 16-10, 11-09 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; when neither exists, the item stops and goes to Hamm, never to 0.2.15 |
 | 2 | D docs and dashboard | 16-12 (ruled 2026-10-21: light docs with inline figures; HTML and proof of work on the dashboard) | Haiku for figures and pages, Muse for the dashboard design | nothing; 16-12 waits on its receipts |
@@ -59,7 +59,7 @@ What holds when 0.2.14 is released, against the goal in `artifacts/goal.md` (rul
 | 2 | The four pitfall estimators, `noise_correlation` and `screen_units_against_labels`, as ruled 2026-10-20 | each has a planted-case test that recovers the planted value and one that refuses the documented bad input; each cites its source in `docs/references.md` | 14-06, 14-07, 13-04 |
 | 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | 16-01, 16-02 |
 | 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | 11-01 |
-| 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 16-05 to 16-07, 16-10, 11-07, 12-11, 10-10, 11-06, 09-04, 11-09, 12-08, 11-03, 12-07 |
+| 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 16-05 to 16-07, 16-10, 11-07, 12-11, 10-10, 11-06, 09-04, 11-09, 11-03, 12-07 |
 | 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 16-03, 15-22 |
 | 7 | Work that needs outside code lands (ruled 2026-10-21: nothing in this cycle is deferred) | each item is gone from this file | 12-21, 14-08 |
 | 8 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 15-20, 12-05, 09-07, 07-05, 12-06 |
@@ -122,9 +122,9 @@ Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack
 ### 12-06 No process identifiers outside the stacks
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 12-05, 12-07, 12-08.
+Role: jnwb-developer. Skill: none. Blocked by: 12-05, 12-07.
 Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/workflow.yml`, `CONTRIBUTING.md`.
-- 12-06: P-284: `scripts/` and test files cite item and problem ids (P-209 and IB-71 merged; the 2026-10 counts no longer reproduce, so the lane re-measures them); P-102 levels line endings if D3 rules it. Check: each is removed or rewritten as a plain reason, then gate 14 reads both folders with an allowlist for machine-required literals; gate 16 passes and one byte-mode edit per convention applies. Waits: After 12-05, 12-07 and 12-08; neither directory ships, and P-102 is bytes only and waits on the D3 ruling. Moved to 0.2.14 by the 2026-10-19 theme ruling.
+- 12-06: P-284: `scripts/` and test files cite item and problem ids (P-209 and IB-71 merged; the 2026-10 counts no longer reproduce, so the lane re-measures them); P-102 levels line endings if D3 rules it. Check: each is removed or rewritten as a plain reason, then gate 14 reads both folders with an allowlist for machine-required literals; gate 16 passes and one byte-mode edit per convention applies. Waits: After 12-05 and 12-07; neither directory ships, and P-102 is bytes only and waits on the D3 ruling. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: gate 14 passes on `scripts/` and `tests/`; the suite passes.
 
 ### 07-22 A public execution and cache API
@@ -191,14 +191,6 @@ Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack
 - 11-09: The fact gate can report a planned skill (one of the twelve of Q14, `jnwb-landmark-viz`, `jnwb-paradigm` and `jnwb-qc` included) for which K1 or K5 does not hold; the full text is in `git log -S '### 11-09' -- artifacts/todo_stack.md`. Check: the fact gate reports a planned skill only when K1 and K5 hold for it. Waits: Ruled 2026-10-11: plan for future skills, no shipped behaviour. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: the Science and Skills tables report no UNHELD fact.
 
-### 12-08 Every routed method cites a published source
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- 12-08: No fact holds `computed:routed_citations`, which lists 73 routed exports with no `cites` edge: containers, I/O, metadata, plotting and plumbing, plus eight with no source the code implements (`xflip`, `network_topology`, `permute_labels`, `build_permutation_plan`, `exploratory_correlate`, `consensus_bad_trials`, `spatial_derivative_sharpness`, `waveform_flatness`). Check: the fact gate reports the row HELD. Waits: row ruled 2026-10-23: every routed export cites a published source or is on the exclusion list with a reason, and the eight uncitable ones join that list; the 2026-10-13 list stands otherwise. Moved to 0.2.14 by the 2026-10-19 theme ruling.
-Accept: the fact gate reports the row HELD, or it waits with Hamm's reason.
-
 ### 15-22 A `jnwb-sim-benchmark` skill
 
 Release: deferred-0.2.14.
@@ -230,9 +222,9 @@ Accept: the Design table reports no UNHELD fact.
 ### 12-07 Release and study-vocabulary facts held
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 12-05, 12-08, 07-22.
+Role: jnwb-developer. Skill: none. Blocked by: 12-05, 07-22.
 Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/gates/**`, `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `tests/test_harness_gate_study_tokens.py`, `artifacts/fact_stack.md`.
-- 12-07: R2 (a verify-pypi job after publish-pypi) and B2 (gate 6 over `jnwb/`, `docs/`, `skills/` and `tests/`) report UNHELD. Check: a planted hash mismatch fails the job's check function; a planted study token in `tests/` fails. Waits: After 12-05 and 12-08; the upload step checks sha256 against the verified TestPyPI copy, and `tests/` is not in the wheel while shipped surfaces are scanned. Moved to 0.2.14 by the 2026-10-19 theme ruling.
+- 12-07: R2 (a verify-pypi job after publish-pypi) and B2 (gate 6 over `jnwb/`, `docs/`, `skills/` and `tests/`) report UNHELD. Check: a planted hash mismatch fails the job's check function; a planted study token in `tests/` fails. Waits: After 12-05; the upload step checks sha256 against the verified TestPyPI copy, and `tests/` is not in the wheel while shipped surfaces are scanned. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: `scripts/fact_gate.py` prints UNHELD 0 and VIOLATED 0.
 
 ### 09-07 Checks for the defect classes review keeps finding
