@@ -79,6 +79,9 @@ from .nwb_inspect import (
     resolve_acquisition,
     unit_spike_times,
 )
+# The repair vocabulary `repair_nwb` takes: eager, like DETECTION_TAILS, but held out
+# of `__all__` since it is an argument vocabulary, not an operation to route.
+from .nwb_write import REPAIRS
 from .nwb_events import (
     AmbiguousIntervalTableError,
     ColumnNotFoundError,
@@ -344,6 +347,8 @@ __all__ = [
     'NWBValidationReport',
     'verify_nwb',
     'write_nwb',
+    'transform_nwb',
+    'repair_nwb',
     'NWBMutationError',
     'NWBVerificationError',
     'AmbiguousMappingError',

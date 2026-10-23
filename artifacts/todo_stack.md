@@ -41,7 +41,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | Wave | Lane | Items, in order | Writer | Waits for |
 |---|---|---|---|---|
 | 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
-| 1 | M mutation | 07-21 (the core five), then 07-22 | Muse | nothing |
+| 1 | M mutation | 07-22 (07-21's core five landed: `validate_nwb`, `write_nwb`, `verify_nwb`, `transform_nwb`, `repair_nwb`) | Muse | nothing |
 | 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-05 to 16-07, 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-18, 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; when neither exists, the item stops and goes to Hamm, never to 0.2.15 |
@@ -55,7 +55,7 @@ What holds when 0.2.14 is released, against the goal in `artifacts/goal.md` (rul
 
 | # | Holds at release | Check | Items |
 |---|---|---|---|
-| 1 | The NWB mutation API: the core five, then the execution and cache API, each signature ruled by Hamm before code | `docs/api.md`, `CHANGELOG.md` and the `skills/` routing rows name each symbol; `tests/test_skills_validation.py` passes; each function has a round-trip test on a written file | 07-21, 07-22 |
+| 1 | The NWB mutation API: the core five (landed), then the execution and cache API, each signature ruled by Hamm before code | `docs/api.md`, `CHANGELOG.md` and the `skills/` routing rows name each symbol; `tests/test_skills_validation.py` passes; each function has a round-trip test on a written file | 07-22 |
 | 2 | The four pitfall estimators, `noise_correlation` and `screen_units_against_labels`, as ruled 2026-10-20 | each has a planted-case test that recovers the planted value and one that refuses the documented bad input; each cites its source in `docs/references.md` | 14-06, 14-07, 13-04 |
 | 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | 16-01, 16-02 |
 | 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | 11-01 |
@@ -127,20 +127,12 @@ Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/workflow.yml`, `CONT
 - 12-06: P-284: `scripts/` and test files cite item and problem ids (P-209 and IB-71 merged; the 2026-10 counts no longer reproduce, so the lane re-measures them); P-102 levels line endings if D3 rules it. Check: each is removed or rewritten as a plain reason, then gate 14 reads both folders with an allowlist for machine-required literals; gate 16 passes and one byte-mode edit per convention applies. Waits: After 12-05, 12-07 and 12-08; neither directory ships, and P-102 is bytes only and waits on the D3 ruling. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: gate 14 passes on `scripts/` and `tests/`; the suite passes.
 
-### 07-21 A public NWB mutation API
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
-Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`, `docs/writing_nwb.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
-- 07-21: No public NWB mutation API exists. Check: a test that fails before the repair and passes after. Waits: Shape ruled 2026-09-29 (`artifacts/evidence/0.2.8/api_proposals/nwb_mutation.md`: the core five first); 0.2.14's theme by the 2026-10-19 ruling.
-Accept: each landed operation re-reads its output and refuses an ambiguous mapping; API, documentation and tests land before or with any skill.
-
 ### 07-22 A public execution and cache API
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb. Blocked by: 07-21.
+Role: jnwb-developer. Skill: jnwb. Blocked by: nothing (exact names and signatures of the cache helpers go to Hamm before code).
 Writes: `jnwb/execution.py`, `tests/test_execution_api.py`, `docs/execution.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
-- 07-22: No public execution and cache API exists. Check: a test that fails before the repair and passes after. Waits: After 07-21; surface ruled 2026-09-29 (per-call `device=` and `n_jobs=` plus one recorded execution field); 0.2.14's theme by the 2026-10-19 ruling.
+- 07-22: No public execution and cache API exists. Check: a test that fails before the repair and passes after. Waits: Cache shape ruled 2026-10-23 (decorator-free helpers: `cache_key` from input hash, parameters and jnwb version, plus a `cache_dir`-based load and store pair; no global state); surface ruled 2026-09-29 (per-call `device=` and `n_jobs=` plus one recorded execution field); 0.2.14's theme by the 2026-10-19 ruling.
 Accept: a cache key includes input hash, parameters and version, with an invalidation test; no control changes a number.
 
 ### 10-10 Signature types that compose
@@ -236,9 +228,9 @@ Accept: the pruned files' cases are held by the stronger tests named in the audi
 ### 11-03 Design facts held
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 07-22, 07-21.
+Role: jnwb-developer. Skill: none. Blocked by: 07-22.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- 11-03: D1, D2 and D3 of the Design table report UNHELD. Check: a planted two-step convenience is VIOLATED; an untagged planted writer is VIOLATED. Waits: After 07-22; the facts report UNHELD and nothing public claims them, and D2 and D3 land with 07-21 and 07-22. Moved to 0.2.14 by the 2026-10-19 theme ruling.
+- 11-03: D1, D2 and D3 of the Design table report UNHELD. Check: a planted two-step convenience is VIOLATED; an untagged planted writer is VIOLATED. Waits: After 07-22; the facts report UNHELD and nothing public claims them, and D2 and D3 land with 07-22. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: the Design table reports no UNHELD fact.
 
 ### 12-07 Release and study-vocabulary facts held
@@ -288,6 +280,6 @@ Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutan
 ### 16-19 A manifest of the public surface (goal F2)
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 07-21, 07-22.
+Role: jnwb-developer. Skill: none. Blocked by: 07-22.
 Writes: `tests/test_public_surface_manifest.py`, `artifacts/process/public_surface.json`.
 - 16-19: After 0.2.14 a public symbol, module or skill enters only by a ruling that names it (goal F2, ruled 2026-10-21), and nothing records the surface to compare against. Check: a test that compares `jnwb.__all__`, the `jnwb/` module list and `skills/` with the manifest and fails, naming the entry, on an addition or removal the manifest does not record; a planted extra symbol fails it.

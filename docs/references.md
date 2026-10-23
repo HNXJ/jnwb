@@ -207,7 +207,7 @@ A study is listed only with the test or evidence file that checks it; each row n
 
 | Reference | Result implemented | Functions |
 |---|---|---|
-| Rübel, O., Tritt, A., Ly, R., Dichter, B. K., Ghosh, S., Niu, L., Baker, P., Soltesz, I., Ng, L., Svoboda, K., Frank, L., & Bouchard, K. E. (2022). The Neurodata Without Borders ecosystem for neurophysiological data science. *eLife* 11, e78362. [doi:10.7554/eLife.78362](https://doi.org/10.7554/eLife.78362) | The NWB format schema check and the structure checks `verify_nwb` describes in its docstring; the format `write_nwb` writes | `verify_nwb`, `write_nwb` |
+| Rübel, O., Tritt, A., Ly, R., Dichter, B. K., Ghosh, S., Niu, L., Baker, P., Soltesz, I., Ng, L., Svoboda, K., Frank, L., & Bouchard, K. E. (2022). The Neurodata Without Borders ecosystem for neurophysiological data science. *eLife* 11, e78362. [doi:10.7554/eLife.78362](https://doi.org/10.7554/eLife.78362) | The NWB format schema check and the structure checks `verify_nwb` describes in its docstring; the format `write_nwb` writes | `repair_nwb`, `transform_nwb`, `verify_nwb`, `write_nwb` |
 
 ## Computation
 

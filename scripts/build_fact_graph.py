@@ -449,6 +449,9 @@ S9_EXCUSED: Dict[Tuple[str, str], str] = {
     ("jnwb/mcp_server/nwb_tools.py", "_resolves"): "probe: no reader to name",
     ("jnwb/metadata.py", "_session_id_from_path"): "documented fallback to (raw, raw)",
     ("jnwb/nwb_validate.py", "_version"): "not installed",
+    ("jnwb/nwb_write.py", "_spec_chain"): "a namespace without the type is the next namespace's turn",
+    ("jnwb/nwb_write.py", "_declared_scalar"): "an undeclared attribute is not scalar; the repair refuses",
+    ("jnwb/nwb_write.py", "_plan_vector_index_types.visit"): "an unreadable target is a dangling one, repointed",
     ("jnwb/vis/canvas.py", "_is_written"): "caller raises",
 }
 

@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 219 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 221 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -229,6 +229,8 @@ All 219 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.NWBVerificationError | class | *A written file failed its post-write ``verify_nwb`` check; ``dst`` is left in place.* |
 | jnwb.UndeclaredUnitError | class | *A stored unit string is absent or outside the unit table; a unit is never guessed.* |
 | jnwb.UnidentifiableRepairError | class | *A named repair's identifiability precondition does not hold; nothing is written.* |
+| jnwb.repair_nwb | function | `(src: 'str | Path', *, dst: 'str | Path', repairs, overwrite: 'bool' = False, verify: 'bool' = True) -> 'MutationReport'`<br>*Make the read path's in-memory repairs persistent and report the repair.* |
+| jnwb.transform_nwb | function | `(src: 'str | Path', *, dst: 'str | Path', keep = None, drop = None, cast = None, compression = None, overwrite: 'bool' = False, verify: 'bool' = True) -> 'MutationReport'`<br>*Copy a file with declared changes and report the copy.* |
 | jnwb.verify_nwb | function | `(dst: 'str | Path', *, against: 'str | Path | None' = None, report: 'MutationReport | None' = None, n_check: 'int' = 200000) -> 'MutationReport'`<br>*Re-read one written NWB file and check it, with or without its source.* |
 | jnwb.write_nwb | function | `(nwbfile: 'NWBFile', *, dst: 'str | Path', overwrite: 'bool' = False, verify: 'bool' = True) -> 'MutationReport'`<br>*Write a caller-built ``NWBFile`` to ``dst`` and report the write.* |
 

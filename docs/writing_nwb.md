@@ -42,6 +42,71 @@ a `MutationReport`.
 | the object fails schema validation before writing | `NWBMutationError` | nothing written |
 | a post-write check fails with `verify=True` | `NWBVerificationError` | the file is left in place |
 
-The other error classes, `AmbiguousMappingError`, `UnidentifiableRepairError` and
-`UndeclaredUnitError`, subclass `NWBMutationError`. They are reserved for mutation operations
-that are not yet in jnwb; `write_nwb` does not raise them.
+The other error classes, `AmbiguousMappingError` and `UndeclaredUnitError`,
+subclass `NWBMutationError`. They are reserved for mutation operations
+not yet in jnwb; `write_nwb` and `transform_nwb` do not raise them.
+`UnidentifiableRepairError`, raised by `repair_nwb` below, subclasses it too.
+
+## Copying a file with declared changes
+
+`jnwb.transform_nwb` copies a file with declared changes and reports the copy.
+Signature: `transform_nwb(src, *, dst, keep=None, drop=None, cast=None, compression=None, overwrite=False, verify=True)`; it returns a `MutationReport`.
+
+```python
+rep = jnwb.transform_nwb("src.nwb", dst="out.nwb", drop=["units"],
+                          cast={"acquisition/raw/data": "float32"})
+rep = jnwb.transform_nwb("src.nwb", dst="zip.nwb",
+                          cast={"acquisition/raw/data": "float32"},
+                          compression={"filter": "gzip", "level": 1, "shuffle": True})
+```
+
+`keep` or `drop` (not both) names dataset or group paths; `cast` maps dataset paths
+to floating-point dtypes, widening integer or boolean sources only; `compression` is `{"filter": "gzip", "level": 1, "shuffle": True}`
+applied to the rewritten datasets, or `None` for the source's own storage. No argument
+changes values other than a declared `cast`. The source is never modified.
+
+| Refusal | Error | What is left behind |
+|---|---|---|
+| a path that opens nothing | `KeyError` | nothing written |
+| a group in `cast` | `TypeError` | nothing written |
+| `keep` and `drop` together, or a cast on a dropped path | `ValueError` | nothing written |
+| an unknown compression filter, key or level | `ValueError` | nothing written |
+| `dst` resolving to `src` | `ValueError` | nothing written |
+| a cast naming an `*_index` dataset, a cast of an integer or boolean dataset to a narrower or non-floating dtype, or a cast of a float dataset to a non-floating dtype | `TypeError` | nothing written |
+| dropping a dataset another kept object references or links to | `NWBMutationError` naming the referrer | nothing written |
+| the copy failing schema validation | `NWBMutationError` | nothing written |
+| `dst` exists and `overwrite` is False | `FileExistsError` | nothing written |
+| a post-write check failing with `verify=True` | `NWBVerificationError` | the file is left in place |
+
+## Making read repairs persistent
+
+`jnwb.repair_nwb` makes the read path's in-memory repairs persistent and reports the
+repair. Signature: `repair_nwb(src, *, dst, repairs, overwrite=False, verify=True)`; it
+returns a `MutationReport`. `repairs` names from `jnwb.REPAIRS`, the four repairs
+the read path applies today.
+
+```python
+rep = jnwb.repair_nwb("src.nwb", dst="fixed.nwb", repairs=["units_colnames"])
+```
+
+| Repair | Identifiability precondition |
+|---|---|
+| `squeeze_scalar_attributes` | the schema declares the attribute a scalar |
+| `units_colnames` | the data column exists in the units group and is absent from `colnames` |
+| `vector_index_types` | the index is `waveform_mean_index` or `spike_amplitudes_index`, its name is its target's name plus `_index`, and the target exists |
+| `waveform_index_dtype` | `waveform_mean_index` holds integral values from 0 to 255 |
+
+Two preconditions are stricter than the read: `vector_index_types` needs the target the
+name derives to exist, where the read only fixes the target link; `waveform_index_dtype`
+needs integral values, where the read casts without asking. A persistent repair can
+therefore refuse a file the read accepts.
+
+| Refusal | Error | What is left behind |
+|---|---|---|
+| a name not in `REPAIRS` | `ValueError` | nothing written |
+| a named repair whose precondition does not hold, or that would change nothing | `UnidentifiableRepairError` | nothing written |
+| a missing `session_description` | `MissingRequiredNWBFieldError` | nothing written |
+| `dst` exists and `overwrite` is False | `FileExistsError` | nothing written |
+| a post-write check failing with `verify=True` | `NWBVerificationError` | the file is left in place |
+
+A container-type contradiction is reported in the report's `issues`, never rewritten.

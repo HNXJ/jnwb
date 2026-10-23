@@ -16,11 +16,11 @@ more than one input dimension and the orders differ between them.
 
 | Category | Exports | Evidence |
 |---|---|---|
-| `jnwb.__all__` | 219 | runtime probe with a provenance assertion |
-| Cost grows with input size -- measured | 142 | 235 sweeps, 235 completed |
+| `jnwb.__all__` | 221 | runtime probe with a provenance assertion |
+| Cost grows with input size -- measured | 144 | 237 sweeps, 237 completed |
 | Cost does not grow with input size -- excluded | 67 | section 7, one reason each |
 | Cost grows, input not buildable from this repository | 10 | section 8 |
-| **Total** | **219** | partition checked exact against a live `jnwb.__all__` |
+| **Total** | **221** | partition checked exact against a live `jnwb.__all__` |
 
 The three categories are disjoint and their union is `jnwb.__all__`; no export is in two,
 and none is in none. `classification: observed`.
@@ -346,10 +346,25 @@ to 1024000. `n` samples in the file. `write_nwb` exports the object to a tempora
 post-write `verify_nwb` check is off here; its row covers that path. The receipt is
 `artifacts/evidence/0.2.6/write_nwb_order.json`.
 
+Added 2026-10-23 with `transform_nwb` and `repair_nwb`, counted in section 1. Measured with
+the same harness, repeats and ladder. Held fixed: 10 channels, `n_events_per_table=10`,
+`acquisition_style='electrical_series'`, `verify=False`; the file size was set by `fs_hz` from
+4000 to 1024000. `n` samples in the file. `transform_nwb` was timed on a float64-upcast copy
+of the synth file with `cast={'acquisition/probe_0_lfp/data': 'float32'}`: a full structural
+copy plus one dataset rewrite, so the linear term above the flat base of about 0.5 s is
+expected. `repair_nwb` was timed on the synth file with a length-1 array `description`
+attribute planted on `acquisition/probe_0_lfp` and `repairs=['squeeze_scalar_attributes']`:
+the same full copy with one attribute rewrite. The default post-write `verify_nwb` check is
+off in both rows; its row covers that path. The receipts are
+`artifacts/evidence/0.2.6/transform_nwb_order.json` and
+`artifacts/evidence/0.2.6/repair_nwb_order.json`.
+
 | spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `verify_nwb[n_samples_in_file]` | n_samples_in_file | 91400, 365600, 1462400, 5849600, 23398400 | 333.4, 389.5, 615.2, 1508, 4852 | +0.48 | 0.912 | 15x | sub-linear | T(n) | derived | agree |
 | `write_nwb[n_samples_in_file]` | n_samples_in_file | 91400, 365600, 1462400, 5849600, 23398400 | 534.5, 529.3, 755.1, 1391, 4125 | +0.36 | 0.855 | 8x | sub-linear (POOR FIT) | T(n) | derived | agree |
+| `transform_nwb[n_samples_in_file]` | n_samples_in_file | 91400, 365600, 1462400, 5849600, 23398400 | 472.9, 750.3, 1796, 6154, 2.381e+04 | +0.72 | 0.967 | 50x | sub-linear | T(n) | derived | agree |
+| `repair_nwb[n_samples_in_file]` | n_samples_in_file | 91400, 365600, 1462400, 5849600, 23398400 | 401, 493.8, 848, 2207, 7716 | +0.53 | 0.925 | 19x | sub-linear | T(n) | derived | agree |
 
 ### `jnwb.onset_fitting`
 

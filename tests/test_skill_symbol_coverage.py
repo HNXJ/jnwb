@@ -54,15 +54,16 @@ ERRORS = [
     "NWBVerificationError",
     "RaggedIndexRepairRefused",
     "SqueezedAttributeWarning",
+    "UnidentifiableRepairError",
     "UnitNotFoundError",
 ]
 
-# Errors no routed operation raises yet: the mutation operations that would raise them
-# (transform_nwb, repair_nwb) are not in jnwb. docs/errors.md names each one.
+# Errors no routed operation raises yet, reserved for future mutation operations:
+# `transform_nwb` and `repair_nwb` are in jnwb, and `repair_nwb` raises
+# `UnidentifiableRepairError`, now in ERRORS above. docs/errors.md names each one.
 RESERVED = [
     "AmbiguousMappingError",
     "UndeclaredUnitError",
-    "UnidentifiableRepairError",
 ]
 
 # The `jnwb.ontology` vocabulary: a data model for describing an analysis, not operations to

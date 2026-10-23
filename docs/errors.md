@@ -31,12 +31,14 @@ directly. The rest of this page says why each refusal exists.
 
 | Error | Raised by | The fix |
 |---|---|---|
-| `NWBMutationError` | `write_nwb` | The `NWBFile` failed schema validation before anything was written, so nothing is left behind. Its `issues` name each failure; fix those objects and call again |
-| `NWBVerificationError` | `write_nwb` with `verify=True` | A check on the written file failed. The file is left in place for inspection; do not use it |
+| `NWBMutationError` | `write_nwb`, `transform_nwb`, `repair_nwb` | The object or the copy failed schema validation, or a transform would leave a dangling reference; nothing is left behind. Its `issues` name each failure; fix those and call again |
+| `NWBVerificationError` | `write_nwb`, `transform_nwb`, `repair_nwb` with `verify=True` | A check on the written file failed. The file is left in place for inspection; do not use it |
+| `UnidentifiableRepairError` | `repair_nwb` | A named repair's precondition failed, or it would change nothing. Drop that repair from `repairs` |
 
-`AmbiguousMappingError`, `UnidentifiableRepairError` and `UndeclaredUnitError` subclass
+`AmbiguousMappingError` and `UndeclaredUnitError` subclass
 `NWBMutationError`, so catching the base catches them too. No function in this release raises
-them: they are reserved for the mutation operations that are not yet in jnwb.
+them: they are reserved for future mutation operations. `UnidentifiableRepairError`, also a
+subclass, is raised by `repair_nwb`.
 
 ## Finding the name to pass
 

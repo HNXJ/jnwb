@@ -1,0 +1,1 @@
+- `repair_nwb`: writes the read path's in-memory repairs (`jnwb.REPAIRS`) to a copy and refuses a repair whose precondition does not hold (`jnwb/nwb_write.py`).

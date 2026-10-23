@@ -86,6 +86,9 @@ EXPORT_MODULES: dict[str, str] = {
     "PopulationAnalyzer": "analyzers",
     # nwb mutation output verification
     "verify_nwb": "nwb_write",
+    # nwb mutation transforms and repairs
+    "transform_nwb": "nwb_write",
+    "repair_nwb": "nwb_write",
     # nwb mutation writer and error hierarchy
     "write_nwb": "nwb_write",
     "NWBMutationError": "nwb_write",

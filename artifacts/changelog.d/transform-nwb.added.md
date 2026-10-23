@@ -1,0 +1,1 @@
+- `transform_nwb`: copies an NWB file with declared `keep`, `drop`, `cast` and `compression` changes, then re-reads the copy (`jnwb/nwb_write.py`).
