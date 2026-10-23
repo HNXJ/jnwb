@@ -44,8 +44,8 @@ elsewhere as `python -m pytest tests/ -q`.
 | 1 | M mutation | 07-22 (07-21's core five landed: `validate_nwb`, `write_nwb`, `verify_nwb`, `transform_nwb`, `repair_nwb`) | Muse | nothing |
 | 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-07, 16-10, 11-09 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-22 (a draft to Hamm) | Muse | nothing |
-| 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | done |
-| 2 | D docs and dashboard | none left: 16-12 closed with the GLO cards, the others moved to the roadmap (ruled 2026-10-23; originally ruled 2026-10-21: light docs with inline figures; HTML and proof of work on the dashboard) | Haiku for figures and pages, Muse for the dashboard design | done |
+| 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
+| 2 | D docs and dashboard | none left: 16-12 closed with the GLO cards, the others moved to the roadmap (ruled 2026-10-23; originally ruled 2026-10-21: light docs with inline figures; HTML and proof of work on the dashboard) | Haiku for figures and pages, Muse for the dashboard design | nothing |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 | Haiku | 07-22 and wave 2 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
 
