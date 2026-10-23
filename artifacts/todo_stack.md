@@ -43,7 +43,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
 | 1 | M mutation | 07-22 (07-21's core five landed: `validate_nwb`, `write_nwb`, `verify_nwb`, `transform_nwb`, `repair_nwb`) | Muse | nothing |
 | 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-05 to 16-07, 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
-| 2 | L laminar | 16-03, 15-18, 15-22 (a draft to Hamm) | Muse | nothing |
+| 2 | L laminar | 16-03, 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; when neither exists, the item stops and goes to Hamm, never to 0.2.15 |
 | 2 | D docs and dashboard | 16-12 (ruled 2026-10-21: light docs with inline figures; HTML and proof of work on the dashboard) | Haiku for figures and pages, Muse for the dashboard design | nothing; 16-12 waits on its receipts |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 | Haiku | 07-22 and wave 2 merged |
@@ -60,7 +60,7 @@ What holds when 0.2.14 is released, against the goal in `artifacts/goal.md` (rul
 | 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | 16-01, 16-02 |
 | 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | 11-01 |
 | 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 16-05 to 16-07, 16-10, 11-07, 12-11, 10-10, 11-06, 09-04, 11-09, 12-08, 11-03, 12-07 |
-| 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 16-03, 15-18, 15-22 |
+| 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 16-03, 15-22 |
 | 7 | Work that needs outside code lands (ruled 2026-10-21: nothing in this cycle is deferred) | each item is gone from this file | 12-21, 14-08 |
 | 8 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 15-20, 12-05, 09-07, 07-05, 12-06 |
 | 10 | The dashboard holds the proof of work and the HTML outputs | `tests/test_build_dashboard.py` builds it from committed files with every card's receipt digest matching; the published page shows the proof-of-work section | 16-12 |
@@ -198,12 +198,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
 - 12-08: No fact holds `computed:routed_citations`, which lists 73 routed exports with no `cites` edge: containers, I/O, metadata, plotting and plumbing, plus eight with no source the code implements (`xflip`, `network_topology`, `permute_labels`, `build_permutation_plan`, `exploratory_correlate`, `consensus_bad_trials`, `spatial_derivative_sharpness`, `waveform_flatness`). Check: the fact gate reports the row HELD. Waits: row ruled 2026-10-23: every routed export cites a published source or is on the exclusion list with a reason, and the eight uncitable ones join that list; the 2026-10-13 list stands otherwise. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: the fact gate reports the row HELD, or it waits with Hamm's reason.
-
-### 15-18 Fusion agreement that can say `agree` or `disagree`
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-- 15-18: The `'unavailable'`/`'unresolved'` status, the `B` cap and `contact_spacing_um` landed (ruled 2026-10-15); `fuse_laminar_anchors` emits `'agree'` and `'disagree'` only once a calibrated separation threshold exists. Check: a test that fails before the repair and passes after. Waits: ruled 2026-10-23: the threshold is the 95th percentile of the crossover separation under a channel-shuffled `synth_laminar_motif` null (15-19 (7ea17995) calibrated vFLIP2's null acceptance by spacing, not this separation); the receipt goes under `artifacts/benchmarks/calibration/`. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 
 ### 15-22 A `jnwb-sim-benchmark` skill
 
