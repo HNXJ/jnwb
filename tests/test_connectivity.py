@@ -1710,6 +1710,20 @@ class TestNonparametricSpectrum:
         assert first.params["surrogate_scheme"] in ("trial_permutation", "circular_shift")
         assert first.p_x_to_y == again.p_x_to_y and first.p_y_to_x == again.p_y_to_x
 
+    def test_a_known_var2_flow_reads_strong_forward_and_near_zero_back(self):
+        """Planted values. The fixture feeds y from x at lags 1 and 2 with unit innovations,
+        so the Wilson-factorized spectral Geweke integrates to ~0.46 forward and ~0.04 back:
+        x_to_y above 0.2, y_to_x below 0.05 and a positive net at seeds 0 and 1."""
+        seen = set()
+        for seed in (0, 1):
+            x, y = _var2_x_to_y(seed)
+            result = jnwb.granger_nonparametric(x, y, fs=500.0, bands=(0.0, 250.0))
+            assert result.x_to_y > 0.2, f"seed {seed}: forward flow {result.x_to_y:.4f} lost"
+            assert result.y_to_x < 0.05, f"seed {seed}: reverse flow {result.y_to_x:.4f} too high"
+            assert result.net > 0.0, f"seed {seed}: the net must stay positive"
+            seen.add(round(result.x_to_y, 6))
+        assert len(seen) == 2, "two seeds must change the estimate"
+
 
 class TestTimeReversedControl:
     """The control's bookkeeping, on a fixture with a known unidirectional flow."""
@@ -1750,6 +1764,21 @@ class TestTimeReversedControl:
         )
         assert first.diagnostics["p_net_forward"] == again.diagnostics["p_net_forward"]
         assert first.diagnostics["p_net_reversed"] == again.diagnostics["p_net_reversed"]
+
+    def test_a_unidirectional_flow_flips_its_sign_under_time_reversal(self):
+        """Planted values. Reversal swaps lead and lag, so the fixture's +0.43 forward net
+        returns as -0.42 reversed: net_forward above 0.3, net_reversed below -0.3 and
+        sign_flip set, at seeds 0 and 1."""
+        for seed in (0, 1):
+            x, y = _var2_x_to_y(seed)
+            result = jnwb.granger_time_reversed(x, y, order=2)
+            assert result.diagnostics["net_forward"] > 0.3, (
+                f"seed {seed}: forward net {result.diagnostics['net_forward']:.4f} lost"
+            )
+            assert result.diagnostics["net_reversed"] < -0.3, (
+                f"seed {seed}: reversed net {result.diagnostics['net_reversed']:.4f} kept its sign"
+            )
+            assert result.diagnostics["sign_flip"], f"seed {seed}: the flip was not reported"
 
 
 def test_a_zero_spectral_denominator_is_undefined_not_zero_influence():

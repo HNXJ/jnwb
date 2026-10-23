@@ -182,6 +182,26 @@ def test_independent_conditioner_keeps_partial_within_0p06_of_coherence_over_30_
     assert worst <= 0.06, f"largest |partial - coherence| over 30 seeds is {worst}"
 
 
+def test_conditioning_on_the_common_driver_removes_the_beta_coupling():
+    """Planted values. x and y share only the 15-25 Hz driver z at zero lag, so the
+    unconditioned beta coherence is above 0.7 while the partial given z sits below 0.15,
+    at seeds 0 and 1, and the two seeds differ."""
+    seen = set()
+    for seed in (0, 1):
+        x, y, z = _driver_triplet(seed)
+        res = jnwb.partial_coherence(
+            x, y, z, fs=FS, freq_bands="canonical", n_surrogates=1, rng=seed,
+        )
+        assert res["unconditioned_band_coherence"]["beta"] > 0.7, (
+            f"seed {seed}: the fixture carries no shared beta rhythm"
+        )
+        assert res["band_coherence"]["beta"] < 0.15, (
+            f"seed {seed}: conditioning left {res['band_coherence']['beta']:.4f}"
+        )
+        seen.add(round(res["band_coherence"]["beta"], 6))
+    assert len(seen) == 2, "two seeds must change the estimate"
+
+
 def test_partial_spectrum_is_a_per_frequency_companion_of_the_coherence_spectrum():
     x, y, z = _driver_triplet(1)
     res = jnwb.partial_coherence(x, y, z, fs=FS, freq_bands="canonical", n_surrogates=1)
@@ -279,6 +299,23 @@ def test_independent_epochs_match_the_floor_in_mean_at_seeds_0_to_9():
         assert len(floor[band]) == 10 and len(aligned[band]) == 30, "the examined set is not whole"
         gap = float(np.mean(floor[band]) - np.mean(aligned[band]))
         assert abs(gap) <= BIAS_TOLERANCE, f"{band}: mean floor minus mean aligned is {gap:+.5f}"
+
+
+def test_independent_sites_match_one_over_k_within_a_factor_of_two():
+    """Planted values. Independent epochs carry no coupling, so each pair's mean draw
+    estimates the 1/K null and the maximum over the three pairs stays within [0.5/K, 2/K]
+    in every canonical band at seeds 0 to 9 (K = 280 Welch segments for this fixture)."""
+    for seed in range(10):
+        result = jnwb.coherence_bias_floor(
+            _independent_sites(seed), fs=FS, freq_bands="canonical", rng=seed,
+        )
+        k = result["n_segments_used"]
+        assert k == 280, f"seed {seed}: the fixture's segment count moved to {k}"
+        for band in CANONICAL_BANDS:
+            floor = result["floor_per_band"][band]
+            assert 0.5 / k <= floor <= 2.0 / k, (
+                f"seed {seed} {band}: floor {floor:.5f} outside [0.5/K, 2/K]"
+            )
 
 
 def test_the_floor_is_the_maximum_over_pairs_of_their_mean_draws_exactly():

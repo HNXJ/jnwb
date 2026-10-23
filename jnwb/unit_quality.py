@@ -860,6 +860,11 @@ def screen_units_against_labels(
             is missing; ``session_id`` holds more than one type (the types are named) or names
             fewer than two sessions; the labelled rows do not hold exactly two distinct labels;
             a used column holds a non-numeric value.
+
+    References:
+        Cohen, J. (1960). A coefficient of agreement for nominal scales. Educational and
+        Psychological Measurement. doi:10.1177/001316446002000104 -- kappa, ``(p_o - p_e) /
+        (1 - p_e)``, the chance-corrected agreement the screen reports beside accuracy.
     """
     if classifier not in _SCREEN_CLASSIFIERS:
         raise ValueError(f"{_SCREEN_NAME}: classifier must be 'linear_svm'; got {classifier!r}.")

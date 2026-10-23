@@ -99,6 +99,49 @@ def test_result_holds_agreement_only_and_names_its_parts():
     assert result["unaudited_columns"] == []
 
 
+# --- planted values: a separable metric transfers, noise does not ------------------------
+
+
+def _separable(seed, n=80):
+    """Three sessions with balanced labels and a metric four standard deviations apart."""
+    rng = np.random.default_rng(seed)
+    frames, labels, sessions = [], [], []
+    for s in ("a", "b", "c"):
+        y = rng.integers(0, 2, size=n)
+        frames.append(pd.DataFrame({
+            "m1": 4.0 * y + rng.normal(size=n),
+            "m2": 4.0 * y + rng.normal(size=n),
+        }))
+        labels.append(y)
+        sessions.extend([s] * n)
+    return pd.concat(frames, ignore_index=True), np.concatenate(labels), np.array(sessions)
+
+
+def test_a_separable_metric_scores_perfectly_and_noise_scores_at_chance():
+    """Planted values. A metric four standard deviations apart transfers perfectly, so the
+    held-out screen is 1.0 balanced accuracy and 1.0 kappa in every session at seeds 0
+    and 1; pure noise carries nothing, so the pooled balanced accuracy stays within 0.1
+    of 0.5 and pooled kappa within 0.15 of 0, and the two rng seeds record different
+    seeds."""
+    metrics, labels, sessions = _separable(0)
+    for seed in (0, 1):
+        result = _screen(metrics, labels, sessions, seed)
+        assert [r["status"] for r in result["per_session"]] == ["success"] * 3
+        for rec in result["per_session"]:
+            assert rec["balanced_accuracy"] == 1.0, (seed, rec)
+            assert rec["kappa"] == 1.0, (seed, rec)
+    noise = pd.DataFrame({
+        "m1": np.random.default_rng(3).normal(size=len(metrics)),
+        "m2": np.random.default_rng(4).normal(size=len(metrics)),
+    })
+    first = _screen(noise, labels, sessions, 0)
+    second = _screen(noise, labels, sessions, 1)
+    assert first["seed"] != second["seed"], "the rng seed must drive the draws"
+    for result in (first, second):
+        assert abs(result["pooled"]["balanced_accuracy"] - 0.5) <= 0.1, result["pooled"]
+        assert abs(result["pooled"]["kappa"]) <= 0.15, result["pooled"]
+
+
 # --- refusals ---------------------------------------------------------------------------------
 
 
