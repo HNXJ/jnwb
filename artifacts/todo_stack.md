@@ -42,7 +42,7 @@ elsewhere as `python -m pytest tests/ -q`.
 |---|---|---|---|---|
 | 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
 | 1 | M mutation | 07-22 (07-21's core five landed: `validate_nwb`, `write_nwb`, `verify_nwb`, `transform_nwb`, `repair_nwb`) | Muse | nothing |
-| 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-05 to 16-07, 16-10, 11-09 | Muse for 10-10, Haiku for the rest | nothing |
+| 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-06, 16-07, 16-10, 11-09 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; when neither exists, the item stops and goes to Hamm, never to 0.2.15 |
 | 2 | D docs and dashboard | 16-12 (ruled 2026-10-21: light docs with inline figures; HTML and proof of work on the dashboard) | Haiku for figures and pages, Muse for the dashboard design | nothing; 16-12 waits on its receipts |
@@ -59,12 +59,12 @@ What holds when 0.2.14 is released, against the goal in `artifacts/goal.md` (rul
 | 2 | The four pitfall estimators, `noise_correlation` and `screen_units_against_labels`, as ruled 2026-10-20 | each has a planted-case test that recovers the planted value and one that refuses the documented bad input; each cites its source in `docs/references.md` | 14-06, 14-07, 13-04 |
 | 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | 16-01, 16-02 |
 | 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | 11-01 |
-| 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 16-05 to 16-07, 16-10, 11-07, 12-11, 10-10, 11-06, 09-04, 11-09, 11-03, 12-07 |
+| 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 16-06, 16-07, 16-10, 11-07, 12-11, 10-10, 11-06, 09-04, 11-09, 11-03, 12-07 |
 | 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 16-03, 15-22 |
 | 7 | Work that needs outside code lands (ruled 2026-10-21: nothing in this cycle is deferred) | each item is gone from this file | 12-21, 14-08 |
 | 8 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 15-20, 12-05, 09-07, 07-05, 12-06 |
 | 10 | The dashboard holds the proof of work and the HTML outputs | `tests/test_build_dashboard.py` builds it from committed files with every card's receipt digest matching; the published page shows the proof-of-work section | 16-12 |
-| 11 | Reference claims checked against full text where an abstract decides nothing | each of the 46 claim cells is confirmed, reworded, or cut | 16-11 |
+| 11 | Reference claims checked against full text where an abstract decides nothing | each of the 46 claim cells is confirmed, reworded, or cut; the 14 core texts keep their cells, unread against the source (ruled 2026-10-23) | landed (3ba28202) |
 | 13 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18, 16-19 |
 | 12 | Release form (`AGENTS.md` §11): low-verbosity docs, low-complexity code, an empty open stack, no required item | `match-checker` has run on every commit's changed files; the closure pass finds 0 new blockers | the checkpoint below |
 
@@ -159,17 +159,11 @@ Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack
 - 09-04: S8: no text check over docs, skills, figure labels and docstrings reports the planted 0.2.7 fig09 unit as VIOLATED; full text: `git log -S '### 09-04' -- artifacts/todo_stack.md`. Check: `scripts/fact_gate.py` reports the 0.2.7 fig09 unit, planted, as VIOLATED. Waits: After 10-10; ruled 2026-10-11: the fact reports UNHELD and nothing public claims it. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: the Science and Skills tables report no UNHELD fact.
 
-### 16-05 The S10 check
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-- 16-05: The S10 scan (`scheme_scan` in `scripts/build_fact_graph.py`) reports 0 findings over 217 callables (f4afdcff), but excuses by name six that carry no scheme key: `wavemap_resolution_sweep` and five that return a bare value (`permute_labels`, both `exact_sign_flip`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`). Check: the S10 holder cell names the scan, and each of the six keeps its reason in the scan's exclusion list. Waits: ruled 2026-10-23: the named exceptions hold the fact; no return type changes.
-
 ### 16-06 The S11 check
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 16-05.
-- 16-06: The S11 scan (`rng_scan` in `scripts/build_fact_graph.py`) reports 0 findings over 217 callables (f4afdcff), but excuses by name six that cannot carry `surrogate_seed_entropy`: `resample_onsets` and the five bare returns of 16-05. Check: the ruling of 16-05 applied to S11; then the S11 holder cell names the scan. Waits: the 16-05 ruling.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+- 16-06: The S11 scan (`rng_scan` in `scripts/build_fact_graph.py`) reports 0 findings over 217 callables (f4afdcff), but excuses by name six that cannot carry `surrogate_seed_entropy`: `resample_onsets` and the five bare returns the S10 scan names (`permute_labels`, both `exact_sign_flip`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`). Check: the S11 holder cell names the scan and each excused name keeps its reason. Waits: ruled 2026-10-23 for S10 (the named exceptions hold the fact; no return type changes), applied to S11; S10 was already held on that basis.
 
 ### 16-07 The S12 check
 
@@ -242,12 +236,6 @@ Role: jnwb-developer. Skill: none. Blocked by: 07-22.
 Writes: `jnwb/ontology.py`, `jnwb/paths.py`, `tests/test_ontology.py`, `tests/test_paths.py`, `tests/test_paths_identity.py`, `skills/jnwb/SKILL.md`, `CONTRIBUTING.md`.
 - 07-05: `jnwb.preflight` outcomes are not scored as data, results do not name their input's sha256 and object path (IA-27's tests for `resolve_nwb_path`, `sha256_file` and `require` land with it), `CONTRIBUTING.md` states no intake, and P-335's review (`artifacts/evidence/0.2.13/p335_laminar_curation_review.md`) leaves the working-value defaults uncited and the inner stages unexposed, for a ruling. Check: a test per outcome reads those three from the returned object (`tests/test_ontology.py`); a round trip by path and hash passes; `CONTRIBUTING.md` holds that sentence; the packet reports a pass or fail for each of the four. Waits: After 11-02; new downstream capability, not a defect. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: a test per outcome in (a); a round trip in (b) by path and hash; gate 6 passes.
-
-### 16-11 Reference claims against the full text
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-- 16-11: The 2026-10-20 reference check (three workers, 83 rows) graded each claim against its abstract only; 46 rows, the 14 core texts among them, have no abstract that decides the claim, so their second cell is unread against the source. Check: each of the 46 claim cells is confirmed, reworded, or cut. Waits: ruled 2026-10-23: a claim the full text cannot confirm is cut. Done for the 30 cells the 2026-10-23 pass graded (7 confirmed, 1 reworded, 22 cut to what the abstract and the code decide); 16 of the 46 cells were not graded and no full text is available, so the same cut applies to them. Citations, DOIs, ISBNs and functions of all 83 rows were checked and two defects repaired.
 
 ### 16-12 Real-data results on the dashboard
 
