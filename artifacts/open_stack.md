@@ -9,8 +9,4 @@ Cleared 2026-10-20, before the 0.2.13 checkpoint:
 - Housekeeping, not problems of the release: local branches and worktrees, the `E:/repos/jnwb` rename, and the V3v correction on ses-260724, which belongs to the omission project. The changelog fragments are assembled at checkpoint step 3.
 - Audit 2026-10-18 (section F) and the external snapshot audit of 2026-10-19 (section G) closed with no row left; their dispositions are in the commits of 2026-10-18 and 2026-10-19.
 
-Opened 2026-10-23:
-
-| ID | Defect | Check | Release |
-|---|---|---|---|
-| P-CI-1 | CI is red on `dev` at 18457f3a; every test leg except the dependency floors fails on `fig37_verify_written_nwb.png` and `.dark.png` (0.1445% of pixels differ from the generator's output); the figure passes on the maintainer's machine, so it depends on the library versions or the platform (read from the public Actions API, run 39854420401) | `dev` at the pushed SHA has every required leg green | required-0.2.14 |
+Opened and closed 2026-10-23: P-CI-1, CI red on `dev` at 18457f3a. Every test leg failed on `fig37_verify_written_nwb` (panel B counted pynwb's embedded schema datasets, whose number changes by release). Repaired in 2543f72f; the run on 93ab6a82 is green on every leg.
