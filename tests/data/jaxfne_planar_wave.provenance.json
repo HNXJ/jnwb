@@ -1,0 +1,125 @@
+{
+  "arrays": {
+    "field": {
+      "dtype": "float64",
+      "sha256_of_bytes": "e54c0b1f5be511d25b15f93de5c6ade446d89af3c90366aa4cdb267089119755",
+      "shape": [
+        4000,
+        4
+      ]
+    },
+    "noise_only_control": {
+      "dtype": "float64",
+      "sha256_of_bytes": "440834db21fc9d09c008da9ce013530d9c72f1529e28d9375758f7e395387413",
+      "shape": [
+        4000,
+        4
+      ]
+    },
+    "position_mm": {
+      "dtype": "float64",
+      "sha256_of_bytes": "ce670cebf403a24bced4b0208c924ecb4718fef46480844697557ff4202f8bcd",
+      "shape": [
+        4,
+        1
+      ]
+    },
+    "site_index": {
+      "dtype": "int64",
+      "sha256_of_bytes": "e69f905dd31ab920456ea4fa1e9f017daac100a47c097b6da5d16349c8507ba0",
+      "shape": [
+        4
+      ]
+    },
+    "time_s": {
+      "dtype": "float64",
+      "sha256_of_bytes": "d3716b6d33a3f548cb19186c44bffa6c150ccf6ed5a45234f4ad74d40950fdb2",
+      "shape": [
+        4000
+      ]
+    }
+  },
+  "description": "Planar traveling wave sampled at four of the 24 ring sites, with seeded additive noise, and a noise-only control. Both from jaxfne's protocol_c synthetic generators at the spec's frozen values. No neural simulation is involved: the spec's field_injection.substrate_note says the field is injected at the estimator input.",
+  "file_bytes": {
+    "npz": 255091
+  },
+  "generator_configuration": {
+    "dt_ms": 0.5,
+    "duration_ms": 2000.0,
+    "formula": "Phi(r,t) = A cos(k . r - omega t + phi0) + epsilon(r,t)",
+    "lattice_point": {
+      "frequency_hz": 10.0,
+      "mode_m": 1,
+      "phi0_rad": 0.0,
+      "sign": 1
+    },
+    "n_neurons": 24,
+    "n_steps": 4000,
+    "noise": "epsilon ~ N(0, sigma^2) per site per step, numpy default_rng(seed)",
+    "noise_only_control": {
+      "amplitude": 0.05,
+      "generator": "noise_only_field",
+      "seed": 11
+    },
+    "noise_sigma_relative_amplitude": 0.25,
+    "positions": "x_i = R * 2 pi i / N, column (N,1), arc length in mm",
+    "ring_radius_mm": 1.0,
+    "site_indices_kept": [
+      0,
+      6,
+      12,
+      18
+    ],
+    "time_convention": "time_s = arange(n_steps) * dt_ms / 1000"
+  },
+  "ground_truth": {
+    "amplitude": 1.0,
+    "direction": "sign of k on the arc axis: +1 (sites with larger index lag)",
+    "frequency_hz": 10.0,
+    "k_rad_per_mm": 1.0,
+    "mode_m": 1,
+    "noise_sigma": 0.25,
+    "phi0_rad": 0.0,
+    "sign": 1,
+    "spectral_peak_hz": 10.0
+  },
+  "item": "12-21",
+  "packet": "X12-21",
+  "sampling": {
+    "dt_ms": 0.5,
+    "fs_hz": 2000.0,
+    "n_samples": 4000,
+    "n_sites": 4
+  },
+  "seeds": {
+    "noise_only_seed": 11,
+    "noise_only_seed_source": "spec negative_controls noise_only_field seed=11",
+    "wave_noise_seed": 7,
+    "wave_noise_seed_source": "chosen for this excerpt; the spec fixes no seed for the positive lattice"
+  },
+  "source": {
+    "commit": "21c99f960353f6e57faaa99d6c222227052f659a",
+    "generator_file": "jaxfne/protocol_c/synthetic.py",
+    "generator_functions": [
+      "planar_traveling_wave",
+      "noise_only_field"
+    ],
+    "generator_sha256": "c65ab41bc440e04a165d648f1fff8313ad643535c2e1d6b4874ffbd0da5f6de4",
+    "git_status_short_clean": true,
+    "repo": "E:/repos/jaxfne",
+    "spec_file": "artifacts/protocol_c/p2v_a1a_synthetic_control/p2v_a1a_spec.json",
+    "spec_schema": "jaxfne.protocol_c.p2v_a1a_spec.v1",
+    "spec_sha256": "c4b9ef47b3acdc17588f2bffb06bfef2951a109b1a74f40b88ec8c39257a7c30"
+  },
+  "tolerance": {
+    "frequency_resolution_hz": 0.5,
+    "rule": "half a Welch bin, fs / nperseg / 2, with nperseg = n_samples; test computes it",
+    "spec_absolute_frequency_error_hz_not_used": 0.5,
+    "spec_tolerance_note": "belongs to jaxfne's estimator, not to jnwb's Welch PSD"
+  },
+  "units": {
+    "field": "relative amplitude (A = 1.0), not volts",
+    "position": "mm, ring arc length",
+    "time": "s"
+  }
+}
