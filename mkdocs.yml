@@ -107,6 +107,7 @@ nav:
       - Unit Quality Example: unit_quality_example.md
       - Representational Similarity: 03_representational_similarity_jrsa.md
       - Plotly Figures: vis.md
+      - Run Records & Cache: execution.md
 
   - Tutorials:
       - NWB Basics: tutorials/01_nwb_basics.md

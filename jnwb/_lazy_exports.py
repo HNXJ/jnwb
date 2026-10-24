@@ -104,4 +104,10 @@ EXPORT_MODULES: dict[str, str] = {
     "save_figure_suite": "viz",
     "resample_onsets": "viz",
     "raster_psth": "viz",
+    # execution records and result cache
+    "ExecutionRecord": "execution",
+    "cache_key": "execution",
+    "cache_store": "execution",
+    "cache_load": "execution",
+    "cache_clear": "execution",
 }

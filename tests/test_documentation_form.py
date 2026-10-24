@@ -386,7 +386,7 @@ def test_the_link_check_reports_a_linked_png_and_html_and_not_an_embedded_figure
 FIGURE_EXEMPT = frozenset({
     "api.md", "glossary.md", "references.md", "errors.md", "install.md", "recipes.md",
     "agents.md", "documentation_form.md", "10_operation_specifications.md", "architecture.md",
-    "01_architecture_and_philosophy.md",
+    "01_architecture_and_philosophy.md", "execution.md",
 })
 #: A light figure as written in a page: a markdown image or an `<img>` tag, `#only-light` after it.
 _LIGHT_FIGURE = re.compile(r"([^\s\"'()]+\.png)#only-light")

@@ -16,11 +16,11 @@ more than one input dimension and the orders differ between them.
 
 | Category | Exports | Evidence |
 |---|---|---|
-| `jnwb.__all__` | 221 | runtime probe with a provenance assertion |
-| Cost grows with input size -- measured | 144 | 237 sweeps, 237 completed |
-| Cost does not grow with input size -- excluded | 67 | section 7, one reason each |
+| `jnwb.__all__` | 226 | runtime probe with a provenance assertion |
+| Cost grows with input size -- measured | 146 | 239 sweeps, 239 completed |
+| Cost does not grow with input size -- excluded | 70 | section 7, one reason each |
 | Cost grows, input not buildable from this repository | 10 | section 8 |
-| **Total** | **221** | partition checked exact against a live `jnwb.__all__` |
+| **Total** | **226** | partition checked exact against a live `jnwb.__all__` |
 
 The three categories are disjoint and their union is `jnwb.__all__`; no export is in two,
 and none is in none. `classification: observed`.
@@ -229,6 +229,13 @@ contradicts a written claim it appears in section 6.
 | `nested_cv_linear_svm[n_features]` | n_features | 50, 250, 1250, 5000 | 229.7, 287.9, 564.2, 2104 | +0.47 | 0.878 | 9x | sub-linear (POOR FIT) | T(n*d) | derived | CONSTANT |
 | `nested_cv_linear_svm[n_folds]` | n_folds | 2, 5, 12, 30 | 127.9, 330.3, 769.1, 1988 | +1.01 | 1.000 | 16x | O(n) | T(k); exact sublinear-in-k SVM CV unknown | unknown | agree |
 | `nested_cv_linear_svm[n_trials]` | n_trials | 40, 200, 800, 3000 | 200.1, 212.2, 407.0, 2277 | +0.54 | 0.783 | 11x | sub-linear (POOR FIT) | T(n*d) | derived | ORDER |
+
+### `jnwb.execution`
+
+| spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `cache_key[n_bytes]` | n_bytes | 100000, 1000000, 4000000, 16000000 | 1.03, 12.2, 48.4, 192.5 | +1.03 | 1.000 | 188x | O(n) | T(n) | derived | agree |
+| `cache_store[n_bytes]` | n_bytes | 4000000, 16000000, 32000000, 64000000 | 10.82, 27.51, 49.7, 95.81 | +0.78 | 0.993 | 9x | sub-linear | T(n) | derived | agree |
 
 ### `jnwb.filtering`
 
@@ -844,7 +851,7 @@ algorithm column still describes the replaced code for both rows.
 
 | Category | Count |
 |---|---|
-| result container | 25 |
+| result container | 26 |
 | exception class | 18 |
 | constant | 5 |
 | stateful class | 4 |
@@ -854,7 +861,8 @@ algorithm column still describes the replaced code for both rows.
 | scalar input, domain-capped | 1 |
 | fixed-shape input | 1 |
 | plan description | 1 |
-| **Total** | **60** |
+| caller-owned store | 2 |
+| **Total** | **63** |
 
 | Export | Category | Reason |
 |---|---|---|
@@ -876,6 +884,7 @@ algorithm column still describes the replaced code for both rows.
 | `DirectedResult` | result container | plain dataclass (jnwb/connectivity.py:627-719); __init__ binds references. Its methods are O(number of bands), not O(input). |
 | `EpochCollection` | result container | frozen dataclass, no __post_init__. Its __len__/__eq__ grow; construction does not. |
 | `EventTable` | result container | frozen dataclass; generated __init__ binds 8 already-built fields by reference, no __post_init__. |
+| `ExecutionRecord` | result container | frozen dataclass; __post_init__ validates the device string and the worker count, then binds 2 fields. |
 | `Figure` | result container | mutable dataclass, no __post_init__; binds references. |
 | `Interpretation` | result container | frozen dataclass, no __post_init__; default_factory builds empty containers. |
 | `IntervalTableNotFoundError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
@@ -915,6 +924,8 @@ algorithm column still describes the replaced code for both rows.
 | `VFlipResult` | result container | frozen dataclass + DictAccessMixin (read-only accessors); no __post_init__. |
 | `XFlipResult` | result container | frozen dataclass, no __post_init__ (jnwb/laminar.py:866); only method is to_dict. |
 | `ZFlipResult` | result container | frozen dataclass, no __post_init__ (jnwb/laminar.py:1532); only method is to_dict. |
+| `cache_clear` | caller-owned store | Takes the caller's directory; removes every entry in it and counts the removals. No input dimension exists to scale. |
+| `cache_load` | caller-owned store | Takes the caller's directory and key; the cost is the stored entry's size, chosen at store time, and no call input scales it. |
 | `classify_response_significance` | fixed-shape input | Input is the fixed 7-key metrics dict from compute_response_metrics; the body is dict lookups plus one scalar norm.cdf. No input dimension exists to scale. |
 | `clopper_pearson` | scalar input | Arguments are counts, not arrays. Work is two scipy.stats.beta.ppf evaluations, measured flat at 136-140 us/call for n = 10 to 1e18 -- 18 orders of magnitude with no trend. |
 | `io` | module | Module-valued export: a namespace, not a callable. Nothing to scale. |

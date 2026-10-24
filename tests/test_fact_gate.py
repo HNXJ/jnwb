@@ -188,9 +188,9 @@ def test_a_routed_export_on_the_exclusion_list_is_held_without_a_citation(monkey
     assert status(g, "computed:routed_citations") == ("HELD", [])
 
 
-def test_the_exclusion_list_holds_73_names_beside_its_header():
+def test_the_exclusion_list_holds_78_names_beside_its_header():
     excluded = build_fact_graph.routed_citation_exclusions()
-    assert len(excluded) == 73, sorted(excluded)
+    assert len(excluded) == 78, sorted(excluded)
     assert all(name and not name.startswith("#") for name in excluded)
 
 

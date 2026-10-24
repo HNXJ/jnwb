@@ -533,6 +533,13 @@ __all__ = [
     'fano_factor',
     'network_burst_index',
 
+    # Execution records and result cache
+    'ExecutionRecord',
+    'cache_key',
+    'cache_store',
+    'cache_load',
+    'cache_clear',
+
     # Plotting utilities (matplotlib legacy and pure Plotly engine)
     'setup_vector_graphics',
     'apply_tight_auto_axis',

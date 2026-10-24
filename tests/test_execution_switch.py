@@ -108,7 +108,7 @@ DEVICE_CALLS = {
 }
 
 #: Exports whose ``device`` is a record of what ran, not a request; they select nothing.
-DEVICE_RECORDS = {"ComplexTFR"}
+DEVICE_RECORDS = {"ComplexTFR", "ExecutionRecord"}
 
 #: Exports whose ``backend`` is a record, likewise.
 BACKEND_RECORDS = {"Provenance"}

@@ -1,6 +1,7 @@
 # Ruled list: artifacts/rulings/2026-10-13.md, row "Uncited routed exports".
 EpochCollection
 EventTable
+ExecutionRecord
 Lineage
 Provenance
 Result
@@ -21,6 +22,10 @@ build_inner_validation_partitions
 build_permutation_plan
 build_representation_ladder
 build_time_resolved_matrix
+cache_clear
+cache_key
+cache_load
+cache_store
 check_ragged_indices
 check_waveform_blocks
 classify_layer_from_depth

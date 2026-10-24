@@ -1,0 +1,1 @@
+- `ExecutionRecord` and a four-function result cache (`jnwb/execution.py`).

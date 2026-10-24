@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 221 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 226 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -99,6 +99,16 @@ All 221 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.fold_majority_baseline | function | `(y_train: 'np.ndarray', y_test: 'np.ndarray') -> 'float'`<br>*Accuracy of predicting the training-fold majority class on the held-out fold.* |
 | jnwb.majority_baseline | function | `(labels: 'np.ndarray') -> 'float'`<br>*Accuracy of always predicting the most frequent class in ``labels``.* |
 | jnwb.nested_cv_linear_svm | function | `(X: 'np.ndarray', labels: 'np.ndarray', n_splits: 'int', rng: 'RNGLike' = 42, *, groups: 'Union[np.ndarray, None]' = None) -> 'Dict[str, Union[float, np.ndarray, dict, str]]'`<br>*Outer stratified CV; inner GridSearchCV for C. No synthetic metrics.* |
+
+## Module: jnwb.execution
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.ExecutionRecord | class | *What ran where, recorded by the caller.* |
+| jnwb.cache_clear | function | `(cache_dir: 'str | Path') -> 'int'`<br>*Remove the entries ``cache_store`` wrote directly under ``cache_dir``; return the count.* |
+| jnwb.cache_key | function | `(name: 'str', inputs: 'Any', params: 'dict') -> 'str'`<br>*A hex key from the operation name, the inputs, the parameters and the version.* |
+| jnwb.cache_load | function | `(cache_dir: 'str | Path', key: 'str') -> 'Any'`<br>*The value stored under ``key`` in ``cache_dir``, or None on a miss.* |
+| jnwb.cache_store | function | `(cache_dir: 'str | Path', key: 'str', value: 'Any') -> 'Path'`<br>*Save ``value`` under ``key`` in ``cache_dir`` and return the file path.* |
 
 ## Module: jnwb.filtering
 

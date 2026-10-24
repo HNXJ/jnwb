@@ -295,6 +295,27 @@ def _cutoff(n: int, _tmp: Path) -> Callable[[], object]:
     return lambda: uq.amplitude_cutoff(amplitudes)
 
 
+def _cache_key(n: int, _tmp: Path) -> Callable[[], object]:
+    import jnwb
+
+    arr = np.random.default_rng(0).normal(size=n // 8)
+    params = {"normalize": True}
+    assert len(jnwb.cache_key("cache_key_benchmark", arr, params)) == 64, \
+        "fixture must hash to 64 hex chars"
+    return lambda: jnwb.cache_key("cache_key_benchmark", arr, params)
+
+
+def _cache_store(n: int, tmp: Path) -> Callable[[], object]:
+    import jnwb
+
+    arr = np.ascontiguousarray(np.random.default_rng(0).normal(size=n // 8))
+    directory = tmp / f"cache_store_{n}"
+    key = "cachestorebenchmark"
+    jnwb.cache_store(directory, key, arr)
+    assert jnwb.cache_load(directory, key) is not None, "fixture must round-trip"
+    return lambda: jnwb.cache_store(directory, key, arr)
+
+
 SPECS: Dict[str, Spec] = {
     "phase_slope_index[n_samples]": Spec(
         "n_samples", (60_000, 200_000, 700_000, 2_000_000, 4_000_000),
@@ -489,6 +510,20 @@ SPECS: Dict[str, Spec] = {
         "n_draws", (2, 20, 200, 2000),
         "3 sites, 4 epochs, n_times=1000, fs=1000, freq_bands='canonical', nperseg default",
         lambda n, _tmp: _floor(3, 4, 1000, n),
+    ),
+    # Both entries hash or write one pass over the value's bytes: admissible O(n).
+    "cache_key[n_bytes]": Spec(
+        "n_bytes", (100_000, 1_000_000, 4_000_000, 16_000_000),
+        "float64 1-D array of n/8 elements, default_rng(0) normal, params {'normalize': True}; "
+        "admissible O(n)",
+        _cache_key,
+    ),
+    # Sizes start at 4 MB: below that the fixed fsync cost hides the per-byte write.
+    "cache_store[n_bytes]": Spec(
+        "n_bytes", (4_000_000, 16_000_000, 32_000_000, 64_000_000),
+        "float64 1-D array of n/8 elements, default_rng(0) normal, one key in a fresh tmp dir; "
+        "admissible O(n)",
+        _cache_store,
     ),
 }
 
