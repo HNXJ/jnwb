@@ -4,7 +4,8 @@ An execution record names what ran where: the device string the backend resolved
 worker count the parallel loop ran with. It carries no behaviour and selects nothing; a
 caller builds one beside a result and reads it back later. The cache stores one value per
 key under a caller-chosen directory, with no global state: the caller passes ``cache_dir``
-to every call. Entries are ``.npz`` archives written with ``allow_pickle=False``; each one
+to every call. Entries are ``.npz`` archives with no object arrays, read with
+``allow_pickle=False``; each one
 carries the key and the jnwb version it was written with, so a load from another version,
 or an entry filed under another key, reads as a miss.
 """
@@ -127,6 +128,8 @@ def _encode(value: Any, arrays: dict[str, Any], prefix: str) -> Any:
     """Split ``value`` into a JSON-able manifest; array leaves land in ``arrays``."""
     import numpy as np
 
+    if isinstance(value, (np.ndarray, np.generic)) and value.dtype.hasobject:
+        raise TypeError(f"cache values hold no object arrays, got dtype {value.dtype}")
     if isinstance(value, np.ndarray):
         leaf = prefix + f".a{len(arrays)}"
         arrays[leaf] = np.ascontiguousarray(value)
@@ -174,8 +177,8 @@ def _decode(manifest: Any, arrays: dict[str, Any]) -> Any:
 def cache_store(cache_dir: str | Path, key: str, value: Any) -> Path:
     """Save ``value`` under ``key`` in ``cache_dir`` and return the file path.
 
-    Arrays, scalars, dicts, lists and tuples are stored as ``.npz`` archives written
-    with ``allow_pickle=False``; anything else raises ``TypeError``. The write lands
+    Arrays, scalars, dicts, lists and tuples are stored as ``.npz`` archives; anything
+    else, an object array included, raises ``TypeError``. The write lands
     atomically: bytes go to a temporary sibling file that is flushed and synced, then
     renamed over the target, so a reader never sees a half-written entry.
     """
@@ -198,7 +201,7 @@ def cache_store(cache_dir: str | Path, key: str, value: Any) -> Path:
     tmp = target.parent / tmp_name
     handle = open(tmp, "wb")
     with handle:
-        np.savez(handle, allow_pickle=False, **payload)
+        np.savez(handle, **payload)
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(tmp, target)

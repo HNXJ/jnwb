@@ -12,7 +12,7 @@ Its signature is `cache_key(name, inputs, params)`. Inputs and parameters accept
 
 ## The store
 
-`jnwb.cache_store` saves one value under one key in a caller-chosen directory and returns the file path. Entries are `.npz` archives written with `allow_pickle=False`; each one carries the key and the jnwb version it was written with. The write lands atomically: bytes go to a temporary sibling file that is flushed and synced, then renamed over the target, so a reader never sees a half-written entry.
+`jnwb.cache_store` saves one value under one key in a caller-chosen directory and returns the file path. Entries are `.npz` archives with no object arrays, read with `allow_pickle=False`; an object array raises `TypeError`. Each one carries the key and the jnwb version it was written with. The write lands atomically: bytes go to a temporary sibling file that is flushed and synced, then renamed over the target, so a reader never sees a half-written entry.
 
 Its signature is `cache_store(cache_dir, key, value)`. Values accept arrays, scalars, dicts, lists and tuples; anything else raises `TypeError`. A key that could escape the directory raises `ValueError`.
 

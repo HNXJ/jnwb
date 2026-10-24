@@ -111,7 +111,7 @@ def test_load_of_a_rewritten_key_is_none(tmp_path):
     other["__key__"] = np.asarray("0" * 64)
     tmp_name = path.parent / ("." + path.name + ".rewrite.tmp")
     with open(tmp_name, "wb") as handle:
-        np.savez(handle, allow_pickle=False, **other)
+        np.savez(handle, **other)
     tmp_name.replace(path)
     assert jnwb.cache_load(tmp_path, key) is None
 
@@ -128,6 +128,12 @@ def test_store_refuses_a_key_that_escapes_the_directory(tmp_path):
             jnwb.cache_store(tmp_path, bad, 1)
         with pytest.raises(ValueError):
             jnwb.cache_load(tmp_path, bad)
+
+
+def test_store_refuses_an_object_array(tmp_path):
+    with pytest.raises(TypeError, match="object arrays"):
+        jnwb.cache_store(tmp_path, "objects", np.array([1, "a"], dtype=object))
+    assert not (tmp_path / "objects.npz").exists()
 
 
 def test_clear_removes_only_cache_entries_and_counts_them(tmp_path):
