@@ -29,6 +29,7 @@ Items that hold UNHELD facts; signature types before the scans and holder fixes.
 
 | ID | Theme | Defect | Waits | Release |
 |---|---|---|---|---|
+| 17-03 | Declared types on the remaining numeric operations | Fact I4 is UNHELD: only the operations whose parameter names show spikes or LFP declare signal types (`jnwb/_declarations.py`); generic-input operations such as `granger_causality`, `directed_network` and `imaginary_coherency` take either class and declare nothing | A per-call class for generic inputs; nothing shipped changes. Split from I1 (ruled 2026-10-24). | deferred-0.2.15 |
 
 ## Public API
 

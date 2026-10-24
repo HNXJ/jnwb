@@ -73,6 +73,10 @@ Computed predicates:
   wrapper_defaults  no public callable passes a literal over another public callable's
                    default without naming it (the graph's ``wrapper_defaults``); an examined
                    count of zero is a failure
+  signature_types  every public callable taking a signal parameter declares the input class
+                   its parameters show, and no declared caller reaches a declared callable of
+                   a wider class (the graph's ``signature_types``); an examined count of zero
+                   is a failure
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -306,6 +310,14 @@ def wrapper_defaults(graph: Graph, constants: Constants) -> List[str]:
     return [f"{name}: {reason}" for name, reason in graph["relations"]["wrapper_defaults"]]
 
 
+def signature_types(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable taking a signal parameter whose declared signal contract fails,
+    and the failure of a scan that examined no callable."""
+    if not graph["entities"].get("signature_examined"):
+        return ["the graph examined no public callable, so no signature type could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["signature_types"]]
+
+
 def routed_citations(graph: Graph, constants: Constants) -> List[str]:
     """Each distinct routed export with no ``cites`` edge that the ruled exclusion list does
     not name. The check is that no routed export goes uncited unless it is on the recorded
@@ -338,6 +350,7 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "rng_reports": rng_reports,
     "unit_conversions": unit_conversions,
     "wrapper_defaults": wrapper_defaults,
+    "signature_types": signature_types,
 }
 
 

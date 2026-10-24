@@ -1283,6 +1283,39 @@ PLANTED_MODES = (planted_mode_target, planted_mode_silent, planted_mode_passthro
                  planted_mode_default)
 
 
+def planted_lfp_filter(lfp):
+    return {"filtered": lfp}
+
+
+def planted_spikes_consumer(spike_times):
+    return planted_lfp_filter(spike_times)
+
+
+def planted_spikes_declared(spike_times):
+    return {"n": len(spike_times)}
+
+
+def signature_declarations(monkeypatch, declared, extra=()):
+    """Point ``DECLARATIONS`` at the planted functions the caller names (name to the set of
+    classes it declares), plus each raw key of ``extra`` as a stale entry."""
+    from jnwb import _declarations
+
+    def declaration(input_class):
+        return _declarations.Declaration(
+            input_class=frozenset(input_class),
+            estimator="planted estimator",
+            estimand="planted estimand",
+            unit="planted unit",
+            base="seconds",
+        )
+
+    module = planted_lfp_filter.__module__
+    decls = {f"{globals()[name].__module__}.{name}": declaration(classes)
+             for name, classes in declared.items()}
+    decls.update({f"{module}.{key}": declaration({"spikes"}) for key in extra})
+    monkeypatch.setattr(_declarations, "DECLARATIONS", decls)
+
+
 def test_a_planted_silent_scaling_is_reported_and_named_ones_are_not(monkeypatch):
     monkeypatch.setattr(build_fact_graph, "I2_UNIT_EXCUSED", {})
     examined, found = build_fact_graph.unit_scan(planted_package(*PLANTED_RATES))
@@ -1409,3 +1442,72 @@ def test_the_live_tree_lists_its_silent_unit_conversions_and_wrapper_defaults(li
     assert g["entities"]["wrapper_examined"] > 200
     assert g["relations"]["unit_conversions"] == []
     assert g["relations"]["wrapper_defaults"] == []
+
+
+def test_a_planted_signal_callable_with_no_declaration_is_reported(monkeypatch):
+    signature_declarations(monkeypatch, {})
+    examined, found = build_fact_graph.signature_types_scan(
+        planted_package(planted_lfp_filter, planted_spikes_consumer))
+    assert examined == 2, "the scan must examine every planted callable"
+    assert set(reported(found)) == {"planted_lfp_filter", "planted_spikes_consumer"}
+    assert set(reason for _, reason in found) == {
+        "takes signal parameters but declares no input class"}
+
+
+def test_a_planted_declaration_missing_the_class_its_parameters_show_is_reported(monkeypatch):
+    signature_declarations(monkeypatch, {"planted_spikes_declared": {"lfp"}})
+    examined, found = build_fact_graph.signature_types_scan(
+        planted_package(planted_spikes_declared))
+    assert examined == 1
+    [reason] = [reason for _, reason in found]
+    assert "declares input class ['lfp']" in reason
+    assert "signal parameters show ['spikes']" in reason
+
+
+def test_a_declaration_naming_a_class_beyond_its_parameter_names_holds(monkeypatch):
+    """An input with a generic parameter name (a TFR beside spike counts) may add a class."""
+    signature_declarations(monkeypatch, {"planted_spikes_declared": {"lfp", "spikes"}})
+    examined, found = build_fact_graph.signature_types_scan(
+        planted_package(planted_spikes_declared))
+    assert examined == 1
+    assert found == []
+
+
+def test_a_stale_declarations_key_is_reported(monkeypatch):
+    signature_declarations(monkeypatch, {"planted_spikes_declared": {"spikes"}},
+                           extra=("planted_gone",))
+    _, found = build_fact_graph.signature_types_scan(planted_package(planted_spikes_declared))
+    names = reported(found)
+    assert set(names) == {"planted_gone"}
+    assert names["planted_gone"] == ("DECLARATIONS lists it, but it takes no signal "
+                                     "parameter: stale")
+
+
+def test_a_planted_spikes_caller_reaching_an_lfp_callee_is_violated(monkeypatch):
+    signature_declarations(monkeypatch, {"planted_spikes_consumer": {"spikes"},
+                                         "planted_lfp_filter": {"lfp"}})
+    examined, found = build_fact_graph.signature_types_scan(
+        planted_package(planted_spikes_consumer, planted_lfp_filter))
+    assert examined == 2
+    assert set(reported(found)) == {"planted_spikes_consumer"}
+    [reason] = [reason for _, reason in found]
+    assert "planted_lfp_filter" in reason and "outside its declared class" in reason
+    g = {"entities": {"signature_examined": examined}, "relations": {"signature_types": found}}
+    found_status, reasons = status(g, "computed:signature_types")
+    assert found_status == fact_gate.VIOLATED
+    assert any("planted_spikes_consumer" in reason for reason in reasons), reasons
+
+
+def test_a_signature_types_scan_that_examines_nothing_is_a_failure():
+    g = {"entities": {"signature_examined": 0}, "relations": {"signature_types": []}}
+    found_status, reasons = status(g, "computed:signature_types")
+    assert found_status == fact_gate.VIOLATED
+    assert reasons == ["computed:signature_types: the graph examined no public callable, "
+                       "so no signature type could be checked"]
+
+
+def test_the_live_tree_examines_public_callables_for_signature_types(live):
+    _, g = live
+    callables = build_fact_graph._public_callables(build_fact_graph._checkout_jnwb())
+    assert g["entities"]["signature_examined"] == len(callables)
+    assert g["entities"]["signature_examined"] > 0

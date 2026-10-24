@@ -76,6 +76,11 @@ Relations, each a sorted list of ``[source, target]`` pairs:
               literal keyword its own signature does not name, differing from that keyword's
               default (``wrapper_scan``); a callable in ``I2_WRAPPER_EXCUSED`` is skipped, and
               a listed key that matches no flagged callable is reported as stale
+  signature_types  callable -> a public callable taking a signal parameter (``SIGNAL_PARAMETERS``)
+              that declares no input class, declares one its parameters do not show, carries a
+              stale declarations key, or calls a declared callable whose class is not a subset
+              of its own (``signature_types_scan``, read from ``jnwb/_declarations.py``);
+              a callable whose source cannot be read is a finding, never a pass
 
 The facts are the only owned part; everything else is regenerated. The output is a pure
 function of the tree: sorted keys and lists, LF endings, no timestamp, and object addresses
@@ -105,7 +110,7 @@ import textwrap
 import tokenize
 import types
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, FrozenSet, List, Optional, Sequence, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 # Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, for `scripts`, behind the named copy.
@@ -123,6 +128,8 @@ from scripts.computational_contract_gate import (  # noqa: E402
 # and read by the rng-parameter walk and by this scan alike; the reachability wrapper below
 # is shared with the S10 scan.
 from jnwb._rng import RESOLVERS  # noqa: E402
+# The declared signal types of fact I1, read by the signature-types scan.
+from jnwb import _declarations  # noqa: E402
 
 FACT_GRAPH_PATH = REPO_ROOT / "artifacts" / "fact_graph.json"
 FACT_STACK = REPO_ROOT / "artifacts" / "fact_stack.md"
@@ -1211,6 +1218,102 @@ I2_UNIT_EXCUSED: Dict[Tuple[str, str], str] = {
 I2_WRAPPER_EXCUSED: Dict[Tuple[str, str], str] = {}
 
 
+# ------------------------------------------------------------------------ signature types (fact I1)
+
+#: The signal class each spike or LFP parameter name carries. Only these names put a
+#: callable in the scan's domain: a generic name (``x``, ``signal1``, ``signals``) may take
+#: either class depending on the call, so it declares nothing. Each side lists the names
+#: the tree uses for it, read off the public signatures.
+SIGNAL_PARAMETERS: Dict[str, str] = {
+    "spike_times": "spikes",
+    "spike_times1": "spikes",
+    "spike_times2": "spikes",
+    "spike_data": "spikes",
+    "unit_spike_times": "spikes",
+    "spike_waveforms": "spikes",
+    "lfp": "lfp",
+    "lfp_trace": "lfp",
+    "lfp_data": "lfp",
+    "lfp_matrix": "lfp",
+    "lfp_area1": "lfp",
+    "lfp_area2": "lfp",
+    "lfp_phase": "lfp",
+    "lfp_timestamps": "lfp",
+}
+
+
+def _signal_classes(parameters: set) -> Tuple[FrozenSet[str], List[str]]:
+    """The signal classes a signature's parameter names show, and the sorted names that
+    show them. A parameter outside ``SIGNAL_PARAMETERS`` shows none."""
+    names = sorted(name for name in parameters if name in SIGNAL_PARAMETERS)
+    return frozenset(SIGNAL_PARAMETERS[name] for name in names), names
+
+
+def signature_types_scan(package: Any) -> Tuple[int, List[List[str]]]:
+    """How many public callables the signature-types rule examined, and each whose declared
+    signal contract fails (``jnwb/_declarations.py`` ``DECLARATIONS``, read here at call
+    time), as sorted [module.name, reason] pairs. A callable is in the domain when a
+    parameter name is in ``SIGNAL_PARAMETERS``; it fails when it declares no input class,
+    declares one that misses a class its parameters show (a declaration may name more, for
+    an input whose parameter name is generic), or -- both declared -- calls another public
+    callable whose class is not a subset of its own. A declarations key no in-domain
+    callable carries is stale. A callable whose source cannot be read is a finding, never
+    a pass."""
+    declarations = _declarations.DECLARATIONS
+    callables = _public_callables(package)
+    index = {id(fn): (qualname, owner) for qualname, fn, owner in callables}
+    domain = {}
+    examined, found = 0, []
+    for qualname, fn, owner in callables:
+        examined += 1
+        try:
+            parameters = set(inspect.signature(fn).parameters)
+        except (TypeError, ValueError):
+            found.append([f"{fn.__module__}.{qualname}", "source unreadable: not checked"])
+            continue
+        classes, _ = _signal_classes(parameters)
+        if not classes:
+            continue
+        domain[(fn.__module__, qualname)] = (fn, owner, classes)
+        key = f"{fn.__module__}.{qualname}"
+        declared = declarations.get(key)
+        if declared is None:
+            found.append([key, "takes signal parameters but declares no input class"])
+        elif not set(classes) <= set(declared.input_class):
+            found.append([key,
+                          f"declares input class {sorted(declared.input_class)} but its "
+                          f"signal parameters show {sorted(classes)}"])
+    domain_keys = {f"{module}.{qualname}" for module, qualname in domain}
+    for key in sorted(declarations):
+        if key not in domain_keys:
+            found.append([key, "DECLARATIONS lists it, but it takes no signal "
+                               "parameter: stale"])
+    for (module, qualname), (fn, owner, _) in sorted(domain.items()):
+        declared = declarations.get(f"{module}.{qualname}")
+        if declared is None:
+            continue
+        try:
+            tree, first = _own_tree(fn)
+        except (OSError, TypeError, SyntaxError, ValueError):
+            found.append([f"{module}.{qualname}", "source unreadable: not checked"])
+            continue
+        for call in _own_calls(_own_root(tree)):
+            target = _public_target(fn, _dotted(call.func), owner, index)
+            if target is None or target is fn:
+                continue
+            gqualname, _ = index[id(target)]
+            gkey = f"{target.__module__}.{gqualname}"
+            gdeclared = declarations.get(gkey)
+            if gdeclared is None:
+                continue
+            if not set(gdeclared.input_class) <= set(declared.input_class):
+                found.append([f"{module}.{qualname}",
+                              f"line {first + call.lineno - 1}: calls {gkey} with declared "
+                              f"class {sorted(gdeclared.input_class)} outside its declared "
+                              f"class {sorted(declared.input_class)}"])
+    return examined, sorted(found)
+
+
 def _is_unit_factor(node: ast.AST) -> bool:
     """Whether a node is a literal spelling of a unit factor: ``1000``, ``1e3``, ``0.001``,
     ``1e-3``, ``1e6``, ``1e-6`` or ``1000000``."""
@@ -1687,6 +1790,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
     rng_examined, rng_violations = rng_scan(package)
     units_examined, unit_conversions = unit_scan(package)
     wrappers_examined, wrapper_defaults = wrapper_scan(package)
+    signatures_examined, signature_types = signature_types_scan(package)
     references, cites, concerns = read_references(
         (root / "docs" / "references.md").read_text(encoding="utf-8"))
 
@@ -1709,6 +1813,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "rng_examined": rng_examined,
             "unit_examined": units_examined,
             "wrapper_examined": wrappers_examined,
+            "signature_examined": signatures_examined,
         },
         "relations": {
             "implements": sorted(implements),
@@ -1722,6 +1827,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "rng_reports": rng_violations,
             "unit_conversions": unit_conversions,
             "wrapper_defaults": wrapper_defaults,
+            "signature_types": signature_types,
             **scans,
         },
     }

@@ -66,6 +66,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "wavemap": "public",
     "_backend": "module-internal",
     "_bins": "module-internal",
+    "_declarations": "module-internal",
     "_dictlike": "module-internal",
     "_lazy_exports": "module-internal",
     "_layout": "module-internal",
