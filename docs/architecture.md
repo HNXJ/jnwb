@@ -209,3 +209,4 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 | `visual_qc` | Multi-panel unit waveform and session QC figures | `visual_qc` |
 | `viz` | Publication vector graphics standards & multi-panel saving | `setup_vector_graphics`, `apply_tight_auto_axis`, `save_figure_suite`, `resample_onsets`, `raster_psth` |
 | `vis` | Plotly figures; needs the optional `vis` extra ([Plotly Figures](vis.md)) | `vis` |
+| `execution` | Caller-held records of what ran where, and a filesystem result cache ([Execution](execution.md)) | `ExecutionRecord`, `cache_key`, `cache_store`, `cache_load`, `cache_clear` |

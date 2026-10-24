@@ -46,7 +46,7 @@ Operations whose signature takes `device` accept `device='cuda'` and `device='me
 
 `'metal'` runs only in `complex_tfr` with `dtype=np.complex64`, through JAX; it is implemented and has not been run on Metal hardware.
 
-`n_jobs` is accepted by the operations whose signature lists it. The default is 1 everywhere, and results are identical for any `n_jobs`. Opt in only when serial work exceeds about five seconds; the first parallel call in a process costs several seconds of start-up.
+`n_jobs` is accepted by the operations whose signature lists it. The default is 1 everywhere (`ExecutionRecord` only records a count, so it takes one), and results are identical for any `n_jobs`. Opt in only when serial work exceeds about five seconds; the first parallel call in a process costs several seconds of start-up.
 
 - `jnwb.ExecutionRecord(device, n_jobs)`: names what ran where: the device string the backend resolved and the worker count the parallel loop ran with, held beside a result by the caller. The record selects nothing.
 - `jnwb.cache_key(name, inputs, params)`: builds the hex key for one operation from its name, its inputs and its parameters, mixed with the jnwb version, so a key from one version never reads a value another version wrote.

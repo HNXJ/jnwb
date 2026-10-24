@@ -236,8 +236,11 @@ def cache_clear(cache_dir: str | Path) -> int:
     """Remove the entries ``cache_store`` wrote directly under ``cache_dir``; return the count.
 
     An entry is a ``.npz`` archive whose stored key equals its file name; any other file,
-    other ``.npz`` archives included, stays.
+    other ``.npz`` archives included, stays. A key-named file that is a zip archive but cannot
+    be read raises, as in ``cache_load``.
     """
+    import zipfile
+
     import numpy as np
 
     directory = Path(cache_dir)
@@ -247,13 +250,12 @@ def cache_clear(cache_dir: str | Path) -> int:
     for child in sorted(directory.iterdir()):
         if not (child.is_file() and child.suffix == ".npz" and _KEY_RE.fullmatch(child.stem)):
             continue
-        try:
-            with open(child, "rb") as handle, np.load(handle, allow_pickle=False) as archive:
-                if "__key__" not in archive.files:
-                    continue
-                stored_key = str(archive["__key__"].reshape(()).tolist())
-        except (OSError, ValueError):
+        if not zipfile.is_zipfile(child):
             continue
+        with open(child, "rb") as handle, np.load(handle, allow_pickle=False) as archive:
+            if "__key__" not in archive.files:
+                continue
+            stored_key = str(archive["__key__"].reshape(()).tolist())
         if stored_key == child.stem:
             child.unlink()
             removed += 1

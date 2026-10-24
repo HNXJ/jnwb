@@ -84,6 +84,8 @@ def _holds(fn, param: str, expected) -> bool:
 def _n_jobs_is_one_everywhere() -> bool:
     defaults = []
     for name in jnwb.__all__:
+        if name == "ExecutionRecord":  # a record of the count a run used, not an operation
+            continue
         obj = getattr(jnwb, name)
         members = [getattr(obj, m) for m in dir(obj) if not m.startswith("_")] if inspect.isclass(
             obj
