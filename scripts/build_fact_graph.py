@@ -79,7 +79,8 @@ Relations, each a sorted list of ``[source, target]`` pairs:
   signature_types  callable -> a public callable taking a signal parameter (``SIGNAL_PARAMETERS``)
               that declares no input class, declares one its parameters do not show, carries a
               stale declarations key, or calls a declared callable whose class is not a subset
-              of its own (``signature_types_scan``, read from ``jnwb/_declarations.py``);
+              of its own, directly or through private helpers of its package
+              (``signature_types_scan``, read from ``jnwb/_declarations.py``);
               a callable whose source cannot be read is a finding, never a pass
 
 The facts are the only owned part; everything else is regenerated. The output is a pure
@@ -1292,26 +1293,56 @@ def signature_types_scan(package: Any) -> Tuple[int, List[List[str]]]:
         declared = declarations.get(f"{module}.{qualname}")
         if declared is None:
             continue
-        try:
-            tree, first = _own_tree(fn)
-        except (OSError, TypeError, SyntaxError, ValueError):
-            found.append([f"{module}.{qualname}", "source unreadable: not checked"])
-            continue
-        for call in _own_calls(_own_root(tree)):
-            target = _public_target(fn, _dotted(call.func), owner, index)
-            if target is None or target is fn:
+        # A public operation reaches another through its private helpers too: the walk
+        # follows every private function of the same package it calls, once each.
+        queue, seen = [(fn, owner, f"{module}.{qualname}")], {id(fn)}
+        while queue:
+            body, body_owner, via = queue.pop()
+            try:
+                tree, first = _own_tree(body)
+            except (OSError, TypeError, SyntaxError, ValueError):
+                found.append([f"{module}.{qualname}", f"source of {via} unreadable: not checked"])
                 continue
-            gqualname, _ = index[id(target)]
-            gkey = f"{target.__module__}.{gqualname}"
-            gdeclared = declarations.get(gkey)
-            if gdeclared is None:
-                continue
-            if not set(gdeclared.input_class) <= set(declared.input_class):
-                found.append([f"{module}.{qualname}",
-                              f"line {first + call.lineno - 1}: calls {gkey} with declared "
-                              f"class {sorted(gdeclared.input_class)} outside its declared "
-                              f"class {sorted(declared.input_class)}"])
+            for call in _own_calls(_own_root(tree)):
+                dotted = _dotted(call.func)
+                target = _public_target(body, dotted, body_owner, index)
+                if target is None:
+                    helper = _private_helper(body, dotted, body_owner, index)
+                    if helper is not None and id(helper) not in seen:
+                        seen.add(id(helper))
+                        queue.append((helper, None, f"{helper.__module__}.{helper.__qualname__}"))
+                    continue
+                if target is fn:
+                    continue
+                gqualname, _ = index[id(target)]
+                gkey = f"{target.__module__}.{gqualname}"
+                gdeclared = declarations.get(gkey)
+                if gdeclared is None:
+                    continue
+                if not set(gdeclared.input_class) <= set(declared.input_class):
+                    found.append([f"{module}.{qualname}",
+                                  f"{via} line {first + call.lineno - 1}: calls {gkey} with "
+                                  f"declared class {sorted(gdeclared.input_class)} outside its "
+                                  f"declared class {sorted(declared.input_class)}"])
     return examined, sorted(found)
+
+
+def _private_helper(fn: Any, dotted: str, owner: Any, index: Dict[int, Any]) -> Optional[Any]:
+    """The private function of ``fn``'s top-level package a dotted callee name stands for,
+    resolved as ``_public_target`` resolves; None for a public callable or anything else."""
+    head, _, rest = dotted.partition(".")
+    if head in ("self", "cls"):
+        obj = getattr(owner, rest, None) if owner is not None and rest else None
+    else:
+        obj = fn.__globals__.get(head)
+        for part in filter(None, rest.split(".")):
+            obj = getattr(obj, part, None)
+    if isinstance(obj, (staticmethod, classmethod)):
+        obj = obj.__func__
+    if not inspect.isfunction(obj) or id(obj) in index:
+        return None
+    same_package = obj.__module__.split(".")[0] == fn.__module__.split(".")[0]
+    return obj if same_package and obj.__name__.startswith("_") else None
 
 
 def _is_unit_factor(node: ast.AST) -> bool:

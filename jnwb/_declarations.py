@@ -49,12 +49,12 @@ DECLARATIONS: Dict[str, Declaration] = {
         unit="counts",
         base="seconds",
     ),
-    # "Mean power spectral density over a frequency band"; input-units^2/Hz; fs in Hz.
+    # "Mean power spectral density over a frequency band"; dB against a baseline when normalized.
     "jnwb.spectral._decibels.band_power": Declaration(
         input_class=frozenset({"lfp"}),
         estimator="Welch band-mean PSD",
-        estimand="mean power spectral density",
-        unit="input-units^2/Hz",
+        estimand="mean power spectral density, or its ratio to a baseline",
+        unit="input-units^2/Hz, or dB with normalize=True",
         base="samples at fs Hz",
     ),
     # "Bridge spike data into the (n_trials, n_bins) contract"; count or spikes/sec.

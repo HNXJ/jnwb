@@ -1295,6 +1295,14 @@ def planted_spikes_declared(spike_times):
     return {"n": len(spike_times)}
 
 
+def _planted_forward(x):
+    return planted_lfp_filter(x)
+
+
+def planted_spikes_via_helper(spike_times):
+    return _planted_forward(spike_times)
+
+
 def signature_declarations(monkeypatch, declared, extra=()):
     """Point ``DECLARATIONS`` at the planted functions the caller names (name to the set of
     classes it declares), plus each raw key of ``extra`` as a stale entry."""
@@ -1466,6 +1474,9 @@ def test_a_planted_declaration_missing_the_class_its_parameters_show_is_reported
 
 def test_a_declaration_naming_a_class_beyond_its_parameter_names_holds(monkeypatch):
     """An input with a generic parameter name (a TFR beside spike counts) may add a class."""
+    signature_declarations(monkeypatch, {})
+    _, undeclared = build_fact_graph.signature_types_scan(planted_package(planted_spikes_declared))
+    assert set(reported(undeclared)) == {"planted_spikes_declared"}, "fixture must be in the domain"
     signature_declarations(monkeypatch, {"planted_spikes_declared": {"lfp", "spikes"}})
     examined, found = build_fact_graph.signature_types_scan(
         planted_package(planted_spikes_declared))
@@ -1498,6 +1509,17 @@ def test_a_planted_spikes_caller_reaching_an_lfp_callee_is_violated(monkeypatch)
     assert any("planted_spikes_consumer" in reason for reason in reasons), reasons
 
 
+def test_an_edge_through_a_private_helper_is_violated(monkeypatch):
+    signature_declarations(monkeypatch, {"planted_spikes_via_helper": {"spikes"},
+                                         "planted_lfp_filter": {"lfp"}})
+    examined, found = build_fact_graph.signature_types_scan(
+        planted_package(planted_spikes_via_helper, planted_lfp_filter))
+    assert examined == 2
+    assert set(reported(found)) == {"planted_spikes_via_helper"}
+    [reason] = [reason for _, reason in found]
+    assert "_planted_forward" in reason and "planted_lfp_filter" in reason
+
+
 def test_a_signature_types_scan_that_examines_nothing_is_a_failure():
     g = {"entities": {"signature_examined": 0}, "relations": {"signature_types": []}}
     found_status, reasons = status(g, "computed:signature_types")
@@ -1511,3 +1533,8 @@ def test_the_live_tree_examines_public_callables_for_signature_types(live):
     callables = build_fact_graph._public_callables(build_fact_graph._checkout_jnwb())
     assert g["entities"]["signature_examined"] == len(callables)
     assert g["entities"]["signature_examined"] > 0
+    # Every declaration is in the domain (a stale key is a finding), so an emptied domain or
+    # declaration table cannot read as held.
+    from jnwb import _declarations
+    assert len(_declarations.DECLARATIONS) >= 33
+    assert g["relations"]["signature_types"] == []
