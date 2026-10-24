@@ -6,7 +6,7 @@ closed on 2026-10-21 (tag `v0.2.13`), and its section is gone from this file. Th
 row by row. A 0.2.14 item carries `deferred-0.2.14` in its Release field until the version is bumped to 0.2.14
 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
 
-Theme (ruled 2026-10-19): the public NWB mutation and execution APIs (07-21, 07-22), and the
+Theme (ruled 2026-10-19): the public NWB mutation and execution APIs (07-21 landed; 07-22 in integration), and the
 existing tools brought to their stated contract: fact closure, reading edges, the pitfall
 estimators, the deferred laminar and curation work, and the removals ruled for 0.2.14. The rulings the plan needs come first (wave 0), one
 question per message; the checkpoint is the 0.2.13 table with 0.2.14 in place of 0.2.13.
@@ -18,7 +18,7 @@ question per message; the checkpoint is the 0.2.13 table with 0.2.14 in place of
 | `AUTONOMY: max` unless an item says otherwise (`AGENTS.md` §12) | actor and critic sequence the work |
 | One item per packet, in the contract of `artifacts/skills/jnwb-fact-action` §5; role `jnwb-developer` unless named | a batched packet redefines the hard item |
 | A lane is one clone and one writer; up to three lanes run at once, when they share no file (Hamm 2026-10-10, 2026-10-11, 2026-10-19); a lane's items run in the order listed | lanes never share a file, so they merge without conflict |
-| Writers: Haiku 5.5 workers for bounded packets; Muse (opencode `code` tier) for derivation-heavy packets and every new public function; a Muse `review` or a Haiku verifier re-runs each repair | the actor is never the verifier |
+| Writers (ruled 2026-10-24): Cursor CLI GLM 5.3 flash at high effort for most packets; Muse (opencode) writes and criticises; Haiku 5.5 writes and runs the skill, doc and `match-checker` checks; a writer never verifies its own packet | the actor is never the verifier |
 | A packet reproduces each bullet on its own tree first; a bullet that does not reproduce is deleted | non-reproduction is a result |
 | The integrator owns the stacks, `CHANGELOG.md`, `docs/api.md` and every commit and push | packets report the disposition and the changelog text |
 | A public signature, an estimand or a skill line goes to Hamm before code, one question per message | public API and skills are Hamm's |
@@ -41,32 +41,35 @@ elsewhere as `python -m pytest tests/ -q`.
 | Wave | Lane | Items, in order | Writer | Waits for |
 |---|---|---|---|---|
 | 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
-| 1 | M mutation | 07-22 (07-21's core five landed: `validate_nwb`, `write_nwb`, `verify_nwb`, `transform_nwb`, `repair_nwb`) | Muse | nothing |
+| 1 | M mutation | 07-22 (integrate the uncommitted tree); 07-21's core five landed | integrator | nothing |
 | 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-07, 16-10, 11-09 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
-| 2 | D docs and dashboard | none left: 16-12 closed with the GLO cards, the others moved to the roadmap (ruled 2026-10-23; originally ruled 2026-10-21: light docs with inline figures; HTML and proof of work on the dashboard) | Haiku for figures and pages, Muse for the dashboard design | nothing |
-| 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 | Haiku | 07-22 and wave 2 merged |
+| 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
+| 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 | Haiku | wave 2 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
 
 ## Checklist 0.2.14
 
-What holds when 0.2.14 is released, against the goal in `artifacts/goal.md` (ruled 2026-10-21). Every row ships in 0.2.14; anything raised during the cycle goes to 0.2.15. A row passes when its check passes on `dev`; the checkpoint below starts when every row passes.
+0.2.14 is released when every row below passes; nothing else is required (ruled 2026-10-24). Rows 1 to 12 are what ships, checked on `dev`; rows 13 to 15 are the release itself, in the order of the checkpoint below. Anything raised during the cycle goes to 0.2.15. A row whose items have left this file still passes only when its check is re-run at the checkpoint.
 
 | # | Holds at release | Check | Items |
 |---|---|---|---|
-| 1 | The NWB mutation API: the core five (landed), then the execution and cache API, each signature ruled by Hamm before code | `docs/api.md`, `CHANGELOG.md` and the `skills/` routing rows name each symbol; `tests/test_skills_validation.py` passes; each function has a round-trip test on a written file | 07-22 |
-| 2 | The four pitfall estimators, `noise_correlation` and `screen_units_against_labels`, as ruled 2026-10-20 | each has a planted-case test that recovers the planted value and one that refuses the documented bad input; each cites its source in `docs/references.md` | 14-06, 14-07, 13-04 |
-| 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | 16-01, 16-02 |
-| 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | 11-01 |
+| 1 | The NWB mutation API: the core five, then the execution and cache API, each signature ruled by Hamm before code | `docs/api.md`, `CHANGELOG.md` and the `skills/` routing rows name each symbol; `tests/test_skills_validation.py` passes; each function has a round-trip test on a written file | 07-22 |
+| 2 | The four pitfall estimators, `noise_correlation` and `screen_units_against_labels`, as ruled 2026-10-20 | each has a planted-case test that recovers the planted value and one that refuses the documented bad input; each cites its source in `docs/references.md` | items gone (14-06, 14-07, 13-04) |
+| 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | items gone (16-01, 16-02) |
+| 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | item gone (11-01) |
 | 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 16-07, 16-10, 11-07, 12-11, 10-10, 11-06, 09-04, 11-09, 11-03, 12-07 |
 | 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 16-03, 15-22 |
-| 7 | Work that needs outside code lands (ruled 2026-10-21: nothing in this cycle is deferred) | each item is gone from this file | landed (12-21, 14-08) |
-| 8 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 15-20, 12-05, 09-07, 07-05, 12-06 |
-| 10 | The dashboard holds the proof of work and the HTML outputs | `tests/test_build_dashboard.py` builds it from committed files with every card's receipt digest matching; the published page shows the proof-of-work section; the real-data cards are the GLO entries whose receipts are committed (ruled 2026-10-23) | landed (16-12) |
-| 11 | Reference claims checked against full text where an abstract decides nothing | each of the 46 claim cells is confirmed, reworded, or cut; the 14 core texts keep their cells, unread against the source (ruled 2026-10-23) | landed (3ba28202) |
-| 13 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18, 16-19 |
-| 12 | Release form (`AGENTS.md` §11): low-verbosity docs, low-complexity code, an empty open stack, no required item | `match-checker` has run on every commit's changed files; the closure pass finds 0 new blockers | the checkpoint below |
+| 7 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 15-20, 12-05, 09-07, 07-05, 12-06 |
+| 8 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18, 16-19 |
+| 9 | Docs pages carry still and interactive figures, after jaxfne's form (ruled 2026-10-24) | the form and the page set follow Hamm's preference rulings; a test builds each figure from committed inputs; the strict docs build passes | 17-01 |
+| 10 | A validation dashboard after jaxfne's, keeping the proof of work, the HTML outputs and the GLO cards (ruled 2026-10-23 and 2026-10-24) | `tests/test_build_dashboard.py` builds it from committed files with every receipt digest matching; the published page shows each section the preference rulings name, in light and dark | 17-02 |
+| 11 | Reference claims checked against full text where an abstract decides nothing | each of the 46 claim cells is confirmed, reworded, or cut; the 14 core texts keep their cells (ruled 2026-10-23) | landed (3ba28202) |
+| 12 | Release form (`AGENTS.md` §11): low-verbosity docs, low-complexity code, an empty open stack, no required item | `match-checker` has run on every commit's changed files; the closure pass (checkpoint step 5) finds 0 new blockers | checkpoint steps 1 to 5 |
+| 13 | `dev` is green and release-ready | the suite stamp equals HEAD; CI green on `dev` at that SHA; `python scripts/release_gate.py` exits 0 | checkpoint steps 6 and 7 |
+| 14 | `main` carries 0.2.14 and the tag | CI green on `main` at the merge SHA; `v0.2.14` points at it; the TestPyPI and verify jobs pass | checkpoint steps 8 and 9 |
+| 15 | 0.2.14 is on PyPI and the next cycle is open | PyPI approved by Hamm; a fresh venv installs 0.2.14, imports it and runs the quickstart; release_gate STEP 0a reads no `deferred-0.2.14` | checkpoint steps 10 and 11 |
 
 ## Checkpoint 0.2.14
 
@@ -89,6 +92,27 @@ Before step 8, merge `main` into `dev`, so the release merge's first parent is i
 | 9 | Tag `v0.2.14` at that SHA; push the tag | the TestPyPI and verify jobs pass; PyPI waits on Hamm's approval |
 | 10 | Install 0.2.14 from PyPI in a fresh venv; import; run the quickstart | the installed version reads 0.2.14 |
 | 11 | Move the 0.2.15 roadmap rows here with their full text; 0.2.15 becomes this file's top section | release_gate STEP 0a reads no `deferred-0.2.14` |
+
+### 07-22 Integrate the execution record and cache API
+
+Release: deferred-0.2.14.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: the 07-22 files in the working tree on `dev` (handoff `artifacts/handoff_2026-10-23.md`).
+- 07-22: the Muse lane's patch sits uncommitted on 6ac2df2a; harness gate 22 of 22 and the six affected test files pass, the full suite has not run on it, and the fail-first run of the 18 new tests is Muse's record only. Check: `match-checker` on the changed files, a commit staging exact paths (not `_temp_handoff_2026-10-22.md`), the full suite stamp equal to HEAD, then CI green on `dev` at that SHA. Waits: not stated.
+- Ruled 2026-10-24 and applied in the tree: `n_jobs` required, `cache_clear` removes only its own entries, `cache_store` re-measured at 4 to 64 MB.
+Accept: CI green on `dev` at the 07-22 commit.
+
+### 17-01 Still and interactive figures in the docs
+
+Release: deferred-0.2.14.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: nothing.
+- 17-01: docs pages show still figures only (75 PNGs with dark twins, 0 iframes); ruled 2026-10-24, every figure gets a Still tab and an Interactive tab, the HTML built in CI and served from gh-pages `/figures/`, one HTML that follows the site theme, and a registry-generated state line above each figure. Check: a test fails on a figure missing either tab or its state line, and on an iframe outside the allowlist; the strict docs build passes. Waits: not stated.
+
+### 17-02 A validation dashboard after jaxfne's
+
+Release: deferred-0.2.14.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: nothing.
+- 17-02: the dashboard is one page of sections with jnwb's own verdicts, published from `main`; ruled 2026-10-24, hash-routed tabs with a page per validation, jaxfne's verdict set (reproduces to reproduced, partial to mixed, does_not to failed), no stage track, roadmap rows as `not started`, publish on each `dev` push after the checks, jaxfne's colours and chips by convention. Check: `tests/test_build_dashboard.py` builds it from committed files with every receipt digest matching, and a page test loads each tab in light and dark. Waits: not stated.
 
 ### 16-03 A calibration of what the curation defaults govern
 
@@ -126,14 +150,6 @@ Role: jnwb-developer. Skill: none. Blocked by: 12-05, 12-07.
 Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/workflow.yml`, `CONTRIBUTING.md`.
 - 12-06: P-284: `scripts/` and test files cite item and problem ids (P-209 and IB-71 merged; the 2026-10 counts no longer reproduce, so the lane re-measures them); P-102 levels line endings if D3 rules it. Check: each is removed or rewritten as a plain reason, then gate 14 reads both folders with an allowlist for machine-required literals; gate 16 passes and one byte-mode edit per convention applies. Waits: After 12-05 and 12-07; neither directory ships, and P-102 is bytes only and waits on the D3 ruling. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: gate 14 passes on `scripts/` and `tests/`; the suite passes.
-
-### 07-22 A public execution and cache API
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb. Blocked by: nothing (exact names and signatures of the cache helpers go to Hamm before code).
-Writes: `jnwb/execution.py`, `tests/test_execution_api.py`, `docs/execution.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
-- 07-22: No public execution and cache API exists. Check: a test that fails before the repair and passes after. Waits: Cache shape ruled 2026-10-23 (decorator-free helpers: `cache_key` from input hash, parameters and jnwb version, plus a `cache_dir`-based load and store pair; no global state); surface ruled 2026-09-29 (per-call `device=` and `n_jobs=` plus one recorded execution field); 0.2.14's theme by the 2026-10-19 ruling.
-Accept: a cache key includes input hash, parameters and version, with an invalidation test; no control changes a number.
 
 ### 10-10 Signature types that compose
 
@@ -188,7 +204,7 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 ### 12-05 Process tests pruned and merged
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 15-20, 07-22.
+Role: jnwb-developer. Skill: none. Blocked by: 15-20.
 Writes: `artifacts/evidence/0.2.12/process_tests/**`, `tests/test_findings_ledger.py`, `tests/test_single_agent_instruction_file.py`, `tests/test_standing_rules_name_no_cycle.py`, `tests/test_agents_md_stays_a_router.py`, `scripts/measure_agents_md_duplication.py`, `tests/test_release_recovery_gates.py`, `tests/test_jrsa.py`, `tests/test_api_md_is_interpreter_independent.py`, `tests/test_workflow_release_policy.py`, `tests/test_state_reconstruction.py`, `tests/test_state_basis_is_checked.py`, `tests/test_xflip_calibration_receipt.py`, `tests/test_vflip_calibration_receipt.py`, `tests/test_test_imports_survive_the_wheel_leg.py`, `tests/test_the_suite_can_qualify_an_installed_copy.py`, `tests/test_errors_documented.py`, `tests/test_readme_smoke.py`, `scripts/reconstruct_state.py`.
 - 12-05: Four process-test files to prune, four to merge and four weaker checks stay (the unruled list and its receipts: `artifacts/evidence/0.2.10/reduction/prune_list.md`), P-290 is enforced by nothing and the apparatus bound of `artifacts/goal.md` section 10 has no check. Check: each pruned case is shown held by a stronger test first, named in the audit; each kept process test is named under one probe class in the prune record; a taxonomy change goes to 12-06, which owns `CONTRIBUTING.md`; `scripts/reconstruct_state.py` records the line counts of `scripts/` and the process tests, so growth is visible per release; a refusal is a new item's to add if Hamm asks. Waits: Ruled 2026-10-19: the 0.2.10 prune list is stale and dropped; 15-20's inventory re-measures unique detection on the current suite and returns a prune proposal.
 Accept: the pruned files' cases are held by the stronger tests named in the audit.
@@ -196,15 +212,15 @@ Accept: the pruned files' cases are held by the stronger tests named in the audi
 ### 11-03 Design facts held
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 07-22.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- 11-03: D1, D2 and D3 of the Design table report UNHELD. Check: a planted two-step convenience is VIOLATED; an untagged planted writer is VIOLATED. Waits: After 07-22; the facts report UNHELD and nothing public claims them, and D2 and D3 land with 07-22. Moved to 0.2.14 by the 2026-10-19 theme ruling.
+- 11-03: D1, D2 and D3 of the Design table report UNHELD. Check: a planted two-step convenience is VIOLATED; an untagged planted writer is VIOLATED. Waits: the facts report UNHELD and nothing public claims them; 07-22 landed. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: the Design table reports no UNHELD fact.
 
 ### 12-07 Release and study-vocabulary facts held
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 12-05, 07-22.
+Role: jnwb-developer. Skill: none. Blocked by: 12-05.
 Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/gates/**`, `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `tests/test_harness_gate_study_tokens.py`, `artifacts/fact_stack.md`.
 - 12-07: R2 (a verify-pypi job after publish-pypi) and B2 (gate 6 over `jnwb/`, `docs/`, `skills/` and `tests/`) report UNHELD. Check: a planted hash mismatch fails the job's check function; a planted study token in `tests/` fails. Waits: After 12-05; the upload step checks sha256 against the verified TestPyPI copy, and `tests/` is not in the wheel while shipped surfaces are scanned. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: `scripts/fact_gate.py` prints UNHELD 0 and VIOLATED 0.
@@ -212,7 +228,7 @@ Accept: `scripts/fact_gate.py` prints UNHELD 0 and VIOLATED 0.
 ### 09-07 Checks for the defect classes review keeps finding
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 07-22.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py`, `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/defect_classes.md`.
 - 09-07: One class has no check: second-home-contradiction; `artifacts/state.md` names the worktrees, stale branches, the newest `dev` run (`RED` when it failed) and the open defect classes (2026-10-18); rewrite-drops-obligation is listed by `scripts/obligation_diff.py --base <commit>` (2026-10-18), which finds both 08-06 instances in 8482c7bc; ruling-cited-not-recorded is checked to the date (`tests/test_process_records_are_counted.py`, 2026-10-17), and matching a citation to its row stays a review rule. The ledger is recounted by the same file. Check: a gate reads every such citation and finds its row in `artifacts/rulings/<date>.md`; it is red on the 08-06 commit `8482c7bc`; for a mapping table with old and new columns, every obligation word (`before`, `after`, `never`, `must`, `only`) in an old rule appears in its new home; red on `8482c7bc` for D1 and D2; each ruling row may name a forbidden phrase and the gate greps the repository for it; red on the pooling phrase before 08-07; the section is generated, and a stale worktree or a red run is named; the gate recounts it. Waits: Process evidence only, no shipped behaviour; rewrites are rare and reviewed, review found every instance so far, and the integrator reads state by hand today. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: each check is red on the instance its bullet names and green on the live tree; the harness counts the new gate.
@@ -220,7 +236,7 @@ Accept: each check is red on the instance its bullet names and green on the live
 ### 07-05 A downstream paper agent can consume jnwb
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 07-22.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/ontology.py`, `jnwb/paths.py`, `tests/test_ontology.py`, `tests/test_paths.py`, `tests/test_paths_identity.py`, `skills/jnwb/SKILL.md`, `CONTRIBUTING.md`.
 - 07-05: `jnwb.preflight` outcomes are not scored as data, results do not name their input's sha256 and object path (IA-27's tests for `resolve_nwb_path`, `sha256_file` and `require` land with it), `CONTRIBUTING.md` states no intake, and P-335's review (`artifacts/evidence/0.2.13/p335_laminar_curation_review.md`) leaves the working-value defaults uncited and the inner stages unexposed, for a ruling. Check: a test per outcome reads those three from the returned object (`tests/test_ontology.py`); a round trip by path and hash passes; `CONTRIBUTING.md` holds that sentence; the packet reports a pass or fail for each of the four. Waits: After 11-02; new downstream capability, not a defect. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: a test per outcome in (a); a round trip in (b) by path and hash; gate 6 passes.
@@ -235,6 +251,6 @@ Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutan
 ### 16-19 A manifest of the public surface (goal F2)
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 07-22.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `tests/test_public_surface_manifest.py`, `artifacts/process/public_surface.json`.
 - 16-19: After 0.2.14 a public symbol, module or skill enters only by a ruling that names it (goal F2, ruled 2026-10-21), and nothing records the surface to compare against. Check: a test that compares `jnwb.__all__`, the `jnwb/` module list and `skills/` with the manifest and fails, naming the entry, on an addition or removal the manifest does not record; a planted extra symbol fails it.
