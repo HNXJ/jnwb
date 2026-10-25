@@ -65,7 +65,7 @@ not re-run: its verdict is the harness's or the suite's, which run it themselves
 | I1 | public operations with a parameter that takes spikes or LFP by name | each declares input signal class, estimator, output estimand, unit, and frame or index base; no call from one to another, directly or through private helpers, reaches an operation of a wider input class | `computed:signature_types` | fact stack; Q11 2026-09-29; narrowed to what the scan checks 2026-10-24 |
 | I4 | numeric public operations outside I1's domain, return-only spike or LFP operations included | each declares input signal class, estimator, output estimand, unit, and frame or index base; none of the five is silently substituted across a `jnwb` boundary, and composition edges type-check | `todo:17-03` | split from I1 2026-10-24 |
 | I2 | public operations | a unit change, or a wrapper or default that changes the estimand, is a named parameter or fails | `computed:unit_conversions`, `computed:wrapper_defaults` | fact stack; Q11 2026-09-29 |
-| I3 | a `jnwb` function boundary | units, coordinate frames, sample rates, and 0- vs 1-indexing do not change silently; an intentional break is stated at the change site | `todo:16-10` | `AGENTS.md` §4.4; moved 2026-09-29 (Q3) |
+| I3 | a call between `jnwb` functions | a value whose name carries a unit or base suffix reaches a parameter with the same suffix, or is converted on the way; an intentional break is stated at the change site | `computed:boundary_units` | `AGENTS.md` §4.4; moved 2026-09-29 (Q3); narrowed to named units, frames, rates and unsuffixed bases to roadmap 17-08, Hamm 2026-10-25 |
 
 ## Science
 
@@ -79,7 +79,7 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 | S6 | `device` and `n_jobs` | device and worker count never change a number | `gate:21`, `test:tests/test_execution_switch.py`, `test:tests/test_parallel.py` | `AGENTS.md` §4.6; Q13 2026-09-29 |
 | S7 | docs generators, examples, skills | a caller uses the library function instead of retyping its rule | `todo:12-11` | `AGENTS.md` §4.7; Q13 2026-09-29 |
 | S8 | a figure label or a returned unit naming a magnitude or direction estimand | it uses no vocabulary of a higher class of `claim classes` than the estimand declares | `computed:claim_class_labels` | `AGENTS.md` §4.8; Q12 2026-09-29; narrowed to labels and units, Hamm 2026-10-25 |
-| S9 | data inputs | missing data fails loudly | `computed:silent_handlers` | `AGENTS.md` §4.1; moved 2026-09-29 (Q3) |
+| S9 | exception handlers on data inputs | missing data fails loudly: no handler swallows it | `computed:silent_handlers` | `AGENTS.md` §4.1; moved 2026-09-29 (Q3); scope named, non-finite inputs to roadmap 17-24, Hamm 2026-10-25 |
 | S10 | label permutation | a permutation null names its exchangeability scheme | `computed:permutation_schemes` | `AGENTS.md` §4.5; moved 2026-09-29 (Q3) |
 | S11 | randomness consumers | a result reports the `rng` it used | `computed:rng_reports` | `AGENTS.md` §4.5; moved 2026-09-29 (Q3) |
 | S12 | GPU results | a result computed on GPU records that it was | `test:tests/test_execution_switch.py::TestTheResultRecordsTheDevice::test_every_export_with_a_cuda_path_records_its_device`, `test:tests/test_execution_switch.py::TestCudaAgreesWithTheCpu::test_within_tolerance_and_recorded` | `AGENTS.md` §4.6; moved 2026-09-29 (Q3) |
