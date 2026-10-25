@@ -18,7 +18,10 @@ states that value; when the code changes, the row and this test change with it.
 
 from __future__ import annotations
 
+import ast
+import inspect
 import re
+import textwrap
 from pathlib import Path
 
 import numpy as np
@@ -791,6 +794,30 @@ def test_every_skill_outcome_is_tested_or_excused():
                 f"{skill}/{outcome} must be tested or excused, and not both"
             )
     assert all(len(reason) > 20 for reason in NOT_REQUIRED.values())
+    silent = sorted(key for key, fn in CASES.items() if not _checks_something(fn))
+    assert not silent, f"cases that assert nothing: {silent}"
+
+
+def _checks_something(fn) -> bool:
+    """True when a case body asserts: an ``assert`` statement, ``pytest.raises``, or an
+    ``assert*`` helper such as ``np.testing.assert_array_equal``."""
+    for node in ast.walk(ast.parse(textwrap.dedent(inspect.getsource(fn)))):
+        if isinstance(node, ast.Assert):
+            return True
+        if isinstance(node, ast.Call):
+            name = ast.unparse(node.func)
+            if "raises" in name or name.rsplit(".", 1)[-1].startswith("assert"):
+                return True
+    return False
+
+
+def test_the_holder_fails_a_case_that_asserts_nothing(monkeypatch):
+    def planted():
+        np.arange(3)
+
+    monkeypatch.setitem(CASES, ("jnwb-spiking", "supported"), planted)
+    with pytest.raises(AssertionError, match="assert nothing"):
+        test_every_skill_outcome_is_tested_or_excused()
 
 
 @pytest.mark.parametrize("key", sorted(CASES), ids=lambda k: f"{k[0]}-{k[1]}")

@@ -100,6 +100,23 @@ PYPI_JSON_URL = "https://pypi.org/pypi/{name}/json"
 #: offline release is a decision, not a default.
 SKIP_INDEX_ENV = "JNWB_SKIP_INDEX_CHECK"
 
+#: Checks this run skipped, each named once, for the closing banner. A skip is never a pass.
+SKIPPED_CHECKS: list[str] = []
+INDEX_SKIPPED = "package index unreachable: version collision and dependency floors unverified"
+
+
+def _record_skip(name: str) -> None:
+    if name not in SKIPPED_CHECKS:
+        SKIPPED_CHECKS.append(name)
+
+
+def verified_banner(skipped) -> str:
+    """The closing line. Names every skipped check, so a run with a skip is not VERIFIED."""
+    if not skipped:
+        return "=== RELEASE GATE VERIFIED: DISTRIBUTABLE PACKAGE READY ==="
+    return (f"=== RELEASE GATE NOT FULLY VERIFIED: {len(skipped)} CHECK(S) SKIPPED, NOT A PASS: "
+            + "; ".join(skipped) + " ===")
+
 
 def published_versions(name: str = "jnwb", timeout: float = 30.0) -> Optional[Set[str]]:
     """Versions the index already serves, or ``None`` when it could not be reached.
@@ -144,6 +161,7 @@ def check_version_is_not_already_published(
     """
     if published is None:
         if os.environ.get(SKIP_INDEX_ENV) == "1":
+            _record_skip(INDEX_SKIPPED)
             return []
         return [
             f"the package index could not be reached, so it is unknown whether {version} "
@@ -321,6 +339,7 @@ def check_floor_is_installable(
     where = f"{name}>={floor}" + (f" [{extra}]" if extra else "")
     if payload is None:
         if os.environ.get(SKIP_INDEX_ENV) == "1":
+            _record_skip(INDEX_SKIPPED)
             return []
         return [f"{where}: the index could not be reached, so the floor is unverified"]
 
@@ -1986,6 +2005,7 @@ def main() -> None:
         log.warning(
             "      Its version, Python support and install command remain unverified. This "
             "is not a pass.")
+        _record_skip("release body (STEP 0d)")
     else:
         log.info(
             "PASS: the release body for %s agrees with package metadata (%s).",
@@ -2016,6 +2036,7 @@ def main() -> None:
                 "SKIPPED: %s=1 is set, so a commit whose CI is %s is being allowed through. "
                 "This is not a pass -- it is a decision to tag without CI evidence.",
                 SKIP_CI_ENV, ci.status)
+            _record_skip(f"CI conclusion (STEP 0e, {SKIP_CI_ENV}=1)")
         else:
             log.error(
                 "A tag must name a commit whose pipeline ran and passed, leg by leg. An "
@@ -2167,7 +2188,8 @@ def main() -> None:
     run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "measure_peak_memory.py")])
 
     log.info("=============================================================")
-    log.info("=== RELEASE GATE VERIFIED: DISTRIBUTABLE PACKAGE READY ===")
+    banner = verified_banner(SKIPPED_CHECKS)
+    (log.warning if SKIPPED_CHECKS else log.info)("%s", banner)
     log.info("=============================================================")
 
 

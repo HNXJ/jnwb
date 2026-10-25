@@ -48,7 +48,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
 | 2 | N numerics and I/O (audit 2026-10-25) | by file set, in order: 17-13, 17-47; 17-21, 17-51; 17-25, 17-42, 17-50; 17-12, 17-17, 17-46; then 17-14, 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-15, 17-34, 17-36 | Haiku writes, Muse reviews | nothing |
-| 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-28 then 17-32; 17-27, 17-29, 17-30, 17-33, 17-53 | Haiku | wave 2 merged |
+| 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-32; 17-27, 17-30, 17-33 | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
 
@@ -373,20 +373,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `.github/workflows/workflow.yml`, `tests/test_workflow_release_policy.py`.
 - 17-27: gate 20 returns [] when `artifacts/state.md` is absent (by design for a fresh checkout), and CI regenerates it on one test leg only (`workflow.yml:161-166`), so the build job's harness run (`:349`) checks no state. Check: every job that runs `harness_gate.py` runs `reconstruct_state.py` first; a workflow test asserts it. Source: O-20.
 
-### 17-28 The release gate's banner counts its skips
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/release_gate.py`, `tests/test_release_recovery_gates.py`.
-- 17-28: a SKIP logs and continues, and the banner "RELEASE GATE VERIFIED" prints regardless (`release_gate.py:1982-1985`, `:2168-2170`). Check: a run with a skip prints the count and names each skipped step in the banner line. Source: O-21.
-
-### 17-29 The mutation harness requires a case
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/mutation_harness.py`, its tests.
-- 17-29: `SuiteReport.clean()` is true for an empty report, so an empty case list exits 0 (`mutation_harness.py:716-717`); the release path passes a fixed non-empty tuple and cannot reach it. Check: an empty case list exits non-zero. Source: O-22.
-
 ### 17-30 S12's guard derives the device-capable set
 
 Release: deferred-0.2.14.
@@ -404,7 +390,7 @@ Writes: `scripts/gates/boundary.py`, `scripts/harness_gate.py`, `tests/test_harn
 ### 17-32 The release gate's helpers that nothing runs
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 17-28 (same files).
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/release_gate.py`, `tests/test_release_recovery_gates.py`.
 - 17-32: three helpers (`release_gate.py:1110`, `:1170`, `:1248`) have no production caller, so their tests check code the gate never runs. Check: the tests call `check_release_readiness`; the helpers are deleted; the suite passes. Source: O-25.
 
@@ -414,13 +400,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `tests/test_decoding.py`.
 - 17-33: `tests/test_decoding.py:105` sets the global NumPy seed. Check: the test draws from a seeded `default_rng`; `tests/test_tests_draw_from_seeded_generators.py` passes. Source: O-26.
-
-### 17-53 The K3 holder requires an assert per case
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `tests/test_skill_decline_behaviour.py`.
-- 17-53: the K3 holder accepts a case body with no assert. Check: a planted case with no assert fails the holder. Source: O-26.
 
 ### 17-54 D12's "documented" reads a heading or code span
 

@@ -714,7 +714,9 @@ class SuiteReport:
         return "\n".join(lines)
 
     def clean(self) -> bool:
-        return not self.survived and not self.rejections and not self.unexpected_kills
+        # A run that judged no mutant has shown nothing; an empty case list must not exit 0.
+        return (bool(self.verdicts) and not self.survived and not self.rejections
+                and not self.unexpected_kills)
 
 
 # --------------------------------------------------------------------------------------------

@@ -370,3 +370,29 @@ class TestTheInstalledSmokeScriptRunsInTheSuite:
         assert "NameError" in result.stderr, result.stderr
         assert "PASS: workflow checks completed" not in result.stdout, result.stdout
         assert "FAIL: jnwb was imported from" not in result.stderr, result.stderr
+
+
+class TestTheBannerNamesEachSkip:
+    """A release run with a skipped check must not print the VERIFIED banner unqualified."""
+
+    def test_a_run_with_no_skip_keeps_the_verified_banner(self):
+        from scripts.release_gate import verified_banner
+
+        assert verified_banner([]) == "=== RELEASE GATE VERIFIED: DISTRIBUTABLE PACKAGE READY ==="
+
+    def test_a_run_with_skips_counts_them_and_names_each(self):
+        from scripts.release_gate import verified_banner
+
+        banner = verified_banner(["release body (STEP 0d)", "CI conclusion (STEP 0e)"])
+        assert "2 CHECK(S) SKIPPED" in banner, banner
+        assert "release body (STEP 0d)" in banner and "CI conclusion (STEP 0e)" in banner, banner
+        assert "VERIFIED: DISTRIBUTABLE" not in banner, banner
+
+    def test_an_unreachable_index_skip_is_recorded_once(self, monkeypatch):
+        import scripts.release_gate as release_gate
+
+        monkeypatch.setattr(release_gate, "SKIPPED_CHECKS", [])
+        monkeypatch.setenv(release_gate.SKIP_INDEX_ENV, "1")
+        assert release_gate.check_version_is_not_already_published("0.2.14", None) == []
+        assert release_gate.check_version_is_not_already_published("0.2.14", None) == []
+        assert len(release_gate.SKIPPED_CHECKS) == 1, release_gate.SKIPPED_CHECKS

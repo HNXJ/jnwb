@@ -66,6 +66,7 @@ from scripts.mutation_harness import (  # noqa: E402
     NotAWorktree,
     OutsideWorktree,
     SelectorProof,
+    SuiteReport,
     TreeNotPristine,
     Verdict,
     apply_mutation,
@@ -1351,3 +1352,22 @@ def test_a_parametrized_id_with_a_space_is_collected(tmp_path: Path) -> None:
     collected, output = collect_selector(tmp_path, ["tests/test_sp.py"])
     assert "2 tests collected" in output, output
     assert collected == ("tests/test_sp.py::test_p[a b]", "tests/test_sp.py::test_p[c]"), output
+
+
+def test_an_empty_report_is_not_a_clean_run() -> None:
+    """A report that judged no mutant has shown nothing, so it cannot exit 0."""
+    assert SuiteReport().clean() is False
+
+
+def test_an_empty_case_file_exits_non_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Through the command line: an empty case list judged nothing and must not read as clean."""
+    import scripts.mutation_harness as harness
+
+    repo = _write_fixture_repo(tmp_path / "empty_run")
+    monkeypatch.setattr(harness, "default_state_root", lambda: tmp_path / "state")
+    cases = tmp_path / "empty_cases.json"
+    cases.write_text("[]", encoding="utf-8")
+
+    assert harness.main([str(cases), "--worktree", str(repo)]) == 1
