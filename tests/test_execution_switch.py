@@ -341,7 +341,18 @@ class TestAnUnavailableDeviceIsAnnounced:
         assert any("joblib" in m and "serially" in m for m in messages), messages
 
 
+def _unrecorded(cuda_capable, record):
+    """The exports with a CUDA path whose result names no device."""
+    return sorted(set(cuda_capable) - set(record))
+
+
 class TestTheResultRecordsTheDevice:
+
+    def test_every_export_with_a_cuda_path_records_its_device(self):
+        assert _unrecorded(CUDA_CAPABLE, RECORD) == []
+
+    def test_an_export_with_a_cuda_path_and_no_record_is_reported(self):
+        assert _unrecorded(CUDA_CAPABLE + ["planted_gpu_export"], RECORD) == ["planted_gpu_export"]
 
     @pytest.mark.parametrize("name", sorted(RECORD))
     def test_a_cpu_run_records_the_cpu(self, name):
