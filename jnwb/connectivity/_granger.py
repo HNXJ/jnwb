@@ -528,6 +528,21 @@ def _granger_order_criteria(
     return scores
 
 
+def _granger_order_cap(max_lag: int, n_times: int, n_free: int, n_conditioning: int) -> int:
+    """The largest order ``order='auto'`` may select in :func:`granger`.
+
+    One helper, so the lag search, the recorded cap and the warning read the same number.
+    Each lag of the stacked design spends one coefficient per source beside the intercept,
+    and the ceiling keeps at least eight design rows per lag coefficient:
+    ``n_free // (8 * (2 + n_conditioning))``, beside the record-length bound
+    ``(n_times - 2) // 3`` and the requested ``max_lag``.
+    """
+    return max(
+        1,
+        min(int(max_lag), (n_times - 2) // 3, n_free // (8 * (2 + n_conditioning))),
+    )
+
+
 def granger(
     X,
     Y,
@@ -558,7 +573,9 @@ def granger(
         order: VAR lag order, or ``'auto'`` to select by ``criterion``. Every candidate
             order is scored on one sample, trimmed by the largest candidate, with the
             maximum-likelihood residual variance ``RSS / N``
-        max_lag: upper bound for automatic order selection
+        max_lag: upper bound for automatic order selection. Short records lower the
+            effective cap, which ``params['order_cap']`` records and a warning names
+            when it sits below ``max_lag``; ``max_lag < 1`` raises ``ValueError``
         criterion: ``'bic'`` (default, conservative) | ``'aic'`` | ``'hqic'``
         Z: optional conditioning signal(s) — same shape as X, or a list of such
             arrays. Present in *both* the restricted and unrestricted models, so
@@ -610,6 +627,8 @@ def granger(
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger")
     if criterion not in ("aic", "bic", "hqic"):
         raise ValueError(f"criterion must be aic|bic|hqic; got {criterion!r}")
+    if max_lag < 1:
+        raise ValueError(f"max_lag must be >= 1; got {max_lag!r}")
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
     # Checked on the resolved trial shape, before detrending: a transposed array read as many
@@ -639,6 +658,7 @@ def granger(
             z_list.append(_detrend_trials(zi, detrend))
 
     n_trials, n_times = x.shape
+    order_cap = _granger_order_cap(max_lag, n_times, n_trials * n_times, len(z_list))
 
     def _one_direction(src: np.ndarray, tgt: np.ndarray, p: int) -> Dict[str, Any]:
         restricted_sources = [tgt] + z_list
@@ -684,9 +704,7 @@ def granger(
         }
 
     def _select_order(src: np.ndarray, tgt: np.ndarray) -> int:
-        n_free = n_trials * n_times
-        cap = max(1, min(int(max_lag), (n_times - 2) // 3, n_free // (8 * (2 + len(z_list)))))
-        scores = _granger_order_criteria(src, tgt, z_list, cap, ridge, criterion)
+        scores = _granger_order_criteria(src, tgt, z_list, order_cap, ridge, criterion)
         return int(np.argmin(scores)) + 1
 
     if order == "auto":
@@ -739,8 +757,10 @@ def granger(
     warnings_all = list(dict.fromkeys(diag_xy["warnings"] + diag_yx["warnings"]))
     if fit_xy.get("degenerate") or fit_yx.get("degenerate"):
         warnings_all.append("degenerate_residual_variance_var_not_identifiable")
-    if order == "auto" and max(order_xy, order_yx) >= max(1, min(max_lag, (n_times - 2) // 3)):
+    if order == "auto" and max(order_xy, order_yx) >= order_cap:
         warnings_all.append("selected_order_hit_max_lag_ceiling")
+    if order == "auto" and order_cap < int(max_lag):
+        warnings_all.append(f"order_selection_capped_at_{order_cap}")
 
     return DirectedResult(
         method="granger",
@@ -759,6 +779,7 @@ def granger(
             "order_arg": order,
             "criterion": criterion if order == "auto" else None,
             "max_lag": int(max_lag),
+            "order_cap": int(order_cap),
             "ridge": float(ridge),
             "detrend": detrend,
             "n_conditioning": len(z_list),
@@ -1164,7 +1185,6 @@ def granger_spectral(
         null_xy = np.empty(int(n_surrogates))
         null_yx = np.empty(int(n_surrogates))
         null_xy_by_band: Dict[str, List[float]] = {name: [] for name in per_band}
-        null_yx_by_band: Dict[str, List[float]] = {name: [] for name in per_band}
         for i in range(int(n_surrogates)):
             xs = _surrogate_source(x, surrogate_rng)
             a_s, sig_s, _ = _fit_var_matrix([xs, y], p, ridge=ridge)
@@ -1179,7 +1199,6 @@ def granger_spectral(
                 mask = (freqs >= f_lo) & (freqs <= f_hi)
                 if mask.sum() >= 2:
                     null_xy_by_band[name].append(_mean_over(tmp[1], mask))
-                    null_yx_by_band[name].append(_mean_over(tmp2[0], mask))
         # Each frequency's GC is a log ratio, rounded at the scale of the ratio (see granger).
         p_xy = _surrogate_p(null_xy, total_xy, "greater", scale=1.0)
         p_yx = _surrogate_p(null_yx, total_yx, "greater", scale=1.0)
@@ -1411,7 +1430,6 @@ def granger_nonparametric(
         null_xy = np.empty(int(n_surrogates))
         null_yx = np.empty(int(n_surrogates))
         null_xy_by_band: Dict[str, List[float]] = {name: [] for name in per_band}
-        null_yx_by_band: Dict[str, List[float]] = {name: [] for name in per_band}
         for i in range(int(n_surrogates)):
             xs = _surrogate_source(x, surrogate_rng)
             _, h_xs, sig_xs, _, _, _ = _nonparametric_transfer(
@@ -1430,7 +1448,6 @@ def granger_nonparametric(
                 mask = (freqs >= f_lo) & (freqs <= f_hi)
                 if mask.sum() >= 2:
                     null_xy_by_band[name].append(_mean_over(gc_xy_s, mask))
-                    null_yx_by_band[name].append(_mean_over(gc_yx_s2, mask))
         # Each frequency's GC is a log ratio, rounded at the scale of the ratio (see granger).
         p_xy = _surrogate_p(null_xy, total_xy, "greater", scale=1.0)
         p_yx = _surrogate_p(null_yx, total_yx, "greater", scale=1.0)

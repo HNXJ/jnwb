@@ -325,6 +325,44 @@ class TestGranger:
         assert with_z.x_to_y < 0.01
         assert with_z.params["n_conditioning"] == 1
 
+    def test_the_effective_order_cap_is_recorded_and_warned(self):
+        """A 200-sample record caps `order='auto'` at 12 however large `max_lag` is: the
+        stacked lag design needs eight rows per lag coefficient. The cap used to be silent,
+        so a coupling at lag 15 was missed with `ok_for_interpretation` True."""
+        rng = np.random.default_rng(4)
+        x = rng.standard_normal(200)
+        y = np.zeros(200)
+        y[15:] = 0.6 * x[:-15] + 0.4 * rng.standard_normal(185)
+        result = granger(x, y, order="auto", max_lag=20)
+        assert result.params["order_cap"] == 12
+        assert result.params["max_lag"] == 20
+        assert "order_selection_capped_at_12" in result.diagnostics["warnings"], (
+            "the truncated search is named, not passed silently"
+        )
+        assert result.diagnostics["ok_for_interpretation"] is False
+
+    def test_no_cap_warning_while_max_lag_is_reachable(self):
+        """The warning names a search truncated below `max_lag`, not a ceiling the selected
+        order reached while `max_lag` was still in reach."""
+        rng = np.random.default_rng(4)
+        x = rng.standard_normal(1000)
+        y = np.zeros(1000)
+        y[1:] = 0.6 * x[:-1] + 0.4 * rng.standard_normal(999)
+        result = granger(x, y, order="auto", max_lag=10)
+        assert result.params["order_cap"] == 10
+        assert not any("capped" in w for w in result.diagnostics["warnings"])
+
+    @pytest.mark.parametrize("max_lag", [0, -3])
+    def test_max_lag_below_one_raises(self, max_lag):
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError, match="max_lag"):
+            granger(
+                rng.standard_normal(100),
+                rng.standard_normal(100),
+                order="auto",
+                max_lag=max_lag,
+            )
+
 
 class TestRowCodes:
     """The row codes behind transfer entropy's joint states number distinct rows in
