@@ -39,7 +39,7 @@ not re-run: its verdict is the harness's or the suite's, which run it themselves
 |---|---|---|---|---|
 | B1 | `jnwb/` import graph | `jnwb/` imports nothing from a project folder, and behaves identically whether a project package is installed or absent | `gate:1`, `test:tests/test_jnwb_frozen_boundary.py` | `AGENTS.md` §4.3; moved 2026-09-29 (Q3) |
 | B2 | `jnwb/`, `docs/`, `skills/`, `tests/` | no experiment-specific condition code, session label, area vocabulary, hypothesis, finding or corpus convention appears; a corpus convention (two spellings of one area) is normalised by the project | `gate:6`, `todo:12-07` | fact stack; Q5 2026-09-29 |
-| B3 | public parameters that set a scientific choice | such a parameter is keyword-only and required, or defaulted with a cited reason; the domain is the choice-name lexicon plus the exceptions table | `todo:11-06` | fact stack; reduced to its residual Q6, Q7 2026-09-29 |
+| B3 | public parameters that set a scientific choice | such a parameter is required, or defaulted with a cited reason; the domain is the choice-name lexicon plus the exceptions table | `computed:choice_defaults` | fact stack; reduced to its residual Q6, Q7 2026-09-29; "keyword-only" dropped, Hamm 2026-10-25 |
 
 ## Design
 
@@ -124,7 +124,7 @@ The values the predicates read. A gate reads them from here and holds no copy.
 | `immunity vocabulary` | `immunity`, `immune`, `complete suppression` | `AGENTS.md` §4.8; Q12 2026-09-29 |
 | `k` | `3` | Q14 2026-09-29 |
 | `dB log forms` | `log10`, `10*log10`, `20*log10`, `*_db` (a call to a function whose name ends in _db) | S2 dB lexicon 2026-10-10; transcribed 2026-10-11 at Hamm's ruling |
-| `B3 choice names` | `window`, `window_ms`, `window_s`, `time_window`, `time_window_s` (a `window` whose default is a string names a taper, not a time span, and is outside the lexicon) | Hamm 2026-10-24 (11-06: time windows only) |
+| `B3 choice names` | `window`, `window_ms`, `window_s`, `time_window`, `time_window_s`, `time_window_ms` (a `window` whose default is a string names a taper, not a time span, and is outside the lexicon) | Hamm 2026-10-24 (11-06: time windows only; `time_window_ms` added) |
 | `dB averaging forms` | `mean`, `nanmean`, `average`, `sum / count` (a sum divided by a count); a median of dB values is not flagged | S2 dB lexicon 2026-10-10; transcribed 2026-10-11 at Hamm's ruling |
 
 ## B3 exceptions
@@ -134,3 +134,18 @@ evidence and a critic's sign-off.
 
 | Operation | Parameter | Default | Reason | Evidence |
 |---|---|---|---|---|
+| `jnwb.connectivity._trials.bin_spikes` | `window_s` | `None` | marks an omitted argument of the `window_s`/`window` pair; with neither, the call raises, so the window is required | `resolve_unit_alias` with no `default`; `tests/test_skill_decline_behaviour.py` ("requires window_s") |
+| `jnwb.connectivity._trials.bin_spikes` | `window` | `None` | the alias of `window_s`; as above | as above |
+| `jnwb.connectivity._information.spike_mutual_information` | `time_window_s` | `None` | marks an omitted argument of the `time_window_s`/`time_window` pair; with neither, the call raises, so the window is required | `_spike_mi` calls `resolve_unit_alias` with no `default`; `tests/test_skill_decline_behaviour.py` ("requires time_window_s") |
+| `jnwb.connectivity._information.spike_mutual_information` | `time_window` | `None` | the alias of `time_window_s`; as above | as above |
+| `jnwb.connectivity._information.binary_occupancy_mutual_information` | `time_window_s` | `None` | as for `spike_mutual_information`, whose body `_spike_mi` it shares | `_spike_mi` |
+| `jnwb.connectivity._information.binary_occupancy_mutual_information` | `time_window` | `None` | as above | `_spike_mi` |
+| `jnwb.connectivity._information.spike_count_mutual_information` | `time_window_s` | `None` | as for `spike_mutual_information`, whose body `_spike_mi` it shares | `_spike_mi` |
+| `jnwb.connectivity._information.spike_count_mutual_information` | `time_window` | `None` | as above | `_spike_mi` |
+| `jnwb.jrsa.jrsa` | `window` | `None` | no window: the whole aligned axis; `window` counts samples, not time, and the input sets the span | `jnwb/jrsa/_stages.py`, `_make_windows` returns the inputs unchanged for `None` |
+| `jnwb.laminar._xflip.xflip` | `window` | `None` | no window: every probe row; `window` names rows, not time | `xflip` reads rows only when `window is not None` |
+| `jnwb.laminar._zflip.zflip` | `window` | `None` | no window: every probe row; `window` names rows, not time | `zflip` reads rows only when `window` is given |
+| `jnwb.analyzers.UnitAnalyzer.psth` | `window_ms` | `None` | deprecated: left out, (-1000, 2000) with a `FutureWarning`; required in 0.2.15 | Hamm 2026-10-24; `tests/test_window_default_deprecation.py`; roadmap row 17-04 |
+| `jnwb.analyzers.UnitAnalyzer.raster` | `window_ms` | `None` | as above | as above |
+| `jnwb.trajectory.build_time_resolved_matrix` | `time_window_ms` | `None` | as above | as above |
+| `jnwb.trajectory.compute_population_trajectory` | `time_window_ms` | `None` | as above | as above |

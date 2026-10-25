@@ -1513,6 +1513,17 @@ def test_an_exceptions_row_excuses_its_parameter_in_both_operation_forms():
         assert reported(found) == {}, operation
 
 
+def test_a_backticked_exceptions_row_as_the_fact_stack_writes_it_excuses_its_parameter():
+    text = ("## B3 exceptions\n\n| Operation | Parameter | Default | Reason | Evidence |\n"
+            "|---|---|---|---|---|\n"
+            "| `planted_window_default` | `window_ms` | `(-1000, 2000)` | planted | planted |\n")
+    rows = build_fact_graph.read_b3_exceptions(text)
+    assert len(rows) == 1, "the fixture must hold one row"
+    _, found = build_fact_graph.choice_default_scan(
+        planted_package(planted_window_default), b3_lexicon(), rows)
+    assert found == []
+
+
 def test_a_stale_exceptions_row_is_reported():
     _, found = build_fact_graph.choice_default_scan(
         planted_package(*PLANTED_CHOICES), b3_lexicon(),

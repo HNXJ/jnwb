@@ -300,7 +300,12 @@ def read_b3_exceptions(text: str) -> List[Dict[str, str]]:
         if len(row) != len(B3_EXCEPTIONS_HEADER):
             raise FactSourceError(f"{B3_EXCEPTIONS_HEADING}: a row has {len(row)} cells, not "
                                   f"{len(B3_EXCEPTIONS_HEADER)}: {row}")
-    return [dict(zip(B3_EXCEPTIONS_HEADER, row)) for row in rows]
+    entries = [dict(zip(B3_EXCEPTIONS_HEADER, row)) for row in rows]
+    for entry in entries:
+        # The table backticks names, as every table of the fact stack does.
+        entry["Operation"] = entry["Operation"].strip("`")
+        entry["Parameter"] = entry["Parameter"].strip("`")
+    return entries
 
 
 # ------------------------------------------------------------------------ references page
