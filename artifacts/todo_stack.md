@@ -43,11 +43,11 @@ elsewhere as `python -m pytest tests/ -q`.
 | 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
 | 1 | M mutation | none left: 07-21's core five and 07-22's execution and cache API landed (CI green on `dev` at f5c55f2b) | integrator | nothing |
 | 2 | F facts | 11-07, 12-11, 11-09 | Cursor GLM or Muse writes, Haiku checks | nothing |
-| 2 | L laminar | 16-03, 15-22 (a draft to Hamm) | Muse | nothing |
+| 2 | L laminar | 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
 | 2 | N numerics and I/O (audit 2026-10-25) | by file set, in order: 17-10, 17-23; 17-11, 17-49; 17-13, 17-47; 17-21, 17-51; 17-25, 17-42, 17-50; 17-12, 17-17, 17-46; then 17-14, 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
-| 2 | P process and docs (audit 2026-10-25) | 17-09, 17-15, 17-34, 17-36, 17-37, 17-39, 17-40; 17-35 and 17-38 with Hamm | Haiku writes, Muse reviews | nothing |
+| 2 | P process and docs (audit 2026-10-25) | 17-09, 17-15, 17-34, 17-36, 17-37, 17-39, 17-40 | Haiku writes, Muse reviews | nothing |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-28 then 17-32; 17-27, 17-29, 17-30, 17-33, 17-53 | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
@@ -63,7 +63,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | items gone (16-01, 16-02) |
 | 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | item gone (11-01) |
 | 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 11-07, 12-11, 11-09, 11-03, 12-07; 16-10 landed |
-| 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 16-03, 15-22 |
+| 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 15-22; 16-03 landed |
 | 7 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 15-20, 12-05, 09-07, 07-05, 12-06 |
 | 8 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18; 16-19 landed |
 | 9 | Docs pages carry still and interactive figures, after jaxfne's form (ruled 2026-10-24) | the form and the page set follow Hamm's preference rulings; a test builds each figure from committed inputs; the strict docs build passes | 17-01 |
@@ -109,14 +109,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: jnwb-figures. Blocked by: nothing.
 - 17-02: the dashboard is one page of sections with jnwb's own verdicts, published from `main` (`dashboard.yml`) where the ruling says each `dev` push; ruled 2026-10-24, hash-routed tabs with a page per validation, jaxfne's verdict set (reproduces to reproduced, partial to mixed, does_not to failed), no stage track, roadmap rows as `not started`, publish on each `dev` push after the checks, jaxfne's colours and chips by convention. Check: `tests/test_build_dashboard.py` builds it from committed files with every receipt digest matching, and a page test loads each tab in light and dark. Waits: not stated.
 
-### 16-03 A calibration of what the curation defaults govern
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: nothing.
-Writes: `scripts/calibrate_curation.py`, `tests/test_curation_calibration_receipt.py`, `artifacts/benchmarks/calibration/curation_calibration_0.2.14.md`, `artifacts/benchmarks/calibration/curation_calibration_0.2.14_raw.json`.
-- 16-03: on `synth_laminar_motif` probes every swept value of the 15 `curate_and_label` defaults gives the default's counts (15 of 15, `artifacts/benchmarks/calibration/curation_calibration_0.2.13.md`); the planted anchors are vFLIP's, so the sweep places no default. Check: a probe family plants what the defaults decide (grades, bad zones, edges, layer labels), and at least one swept value of each default changes a count, or the receipt names the default the plant cannot reach. Waits: ruled 2026-10-20; the 0.2.13 receipt stands.
-Accept: the 0.2.14 receipt and its test pass; defaults change only where a sweep puts one outside its stable range.
-
 ### 15-20 An inventory of the verification apparatus
 
 Release: deferred-0.2.14.
@@ -157,7 +149,7 @@ Accept: K5 reports HELD; no UNHELD fact names a 0.2.14 item.
 ### 15-22 A `jnwb-sim-benchmark` skill
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 16-03.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `skills/jnwb-sim-benchmark/**`, `artifacts/process/public_surface.json` (a new skill enters the surface only by a ruling that names it, goal F2).
 - 15-22: No skill routes agents to the synthetic ground-truth generators (`synth_vflip2_crossover` of 15-11) and their recovery runs. Check: a test that fails before the repair and passes after. Waits: Ruled 2026-10-19: a draft comes for amendment once the P-335 calibration and the 15-11 generators are stable.
 
@@ -493,14 +485,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `artifacts/evidence/0.2.14/jaxfne_docs_dashboard_comparison.md`.
 - 17-34: 17-01, 17-02 and checklist rows 9 and 10 wait on a comparison with jaxfne's docs and dashboard and on Hamm's preference rulings (2026-10-24), and no item holds that work. Check: the comparison is committed, and its questions go to Hamm one per message; each answer is a row in that day's rulings. Source: O-32.
 
-### 17-35 Goal G2 and G3 match the rulings
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `artifacts/goal.md` (Hamm approves the diff).
-AUTONOMY: none.
-- 17-35: G3 names inline figures while the 2026-10-24 ruling adds interactive tabs; G2 says each fact has a scan while S13 and I4 were ruled to 0.2.15; ruled 2026-10-25: amend both. Check: Hamm approves the drafted two-line diff, and it lands verbatim. Source: O-33.
-
 ### 17-36 The standing rulings table is current
 
 Release: deferred-0.2.14.
@@ -514,13 +498,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `artifacts/process/defect_classes.md`.
 - 17-37: line 23 says three siblings are open under F-56, closed 2026-10-19 by 5b5184f2 (granger `ridge`, xflip `n_surrogates`, synth `freq_hz`); the auditor read the guards at `jnwb/connectivity/_granger.py:35`, `jnwb/laminar/_xflip.py:689` and `jnwb/testing/synth.py:204`. Check: each guard is confirmed by reading or a test, and the row records the closure with its commit. Source: O-35.
-
-### 17-38 `AGENTS.md` sections 0 and 12
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `AGENTS.md` (Hamm sees the diff before commit).
-- 17-38: section 12 repeats `standing.md`'s stops list word for word; section 0 omits `artifacts/changelog.d/`, `artifacts/showcases/` and the scripts under `artifacts/evidence/`. Ruled 2026-10-25: section 12 keeps its pointer and drops the copy; section 0 gains the rows. Check: the gates that read `AGENTS.md` pass (`tests/test_agents_md_stays_a_router.py` among them). Source: O-36, O-38.
 
 ### 17-39 Second homes in docs and dead ignore rules
 
