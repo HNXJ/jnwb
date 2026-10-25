@@ -9,7 +9,23 @@ contact pitch of the truth, whatever its grade; a second column counts grades A 
 probe is accepted when it is graded A or B. ``--smoke`` runs 2 seeds and the first 2 parameters,
 prints the result and writes nothing.
 
-Writes ``curation_calibration_0.2.13.md`` and ``curation_calibration_0.2.13_raw.json`` to
+Every swept parameter runs on the probe family that plants what it decides, not on the plain
+probe: the plain probe leaves all three counts at the default's (15 of 15 in the 0.2.13 receipt),
+so the sweep places no default. Each family applies one rule of plant to the generator's draws, on
+the planted and the null probe alike, and contributes one count the receipt checks for
+movement: ``steady`` (snr 400) for ``n_windows``, ``stable_sd_um``, ``min_ok_windows`` and
+``granular_thickness_um`` (grades, then input labels); ``edge`` (an anti-correlated contact pair at -0.3)
+for ``edge_fraction`` and ``edge_jump_z`` (contacts outside cortex); ``lobe`` (a balanced spectral
+wiggle each side of the crossover) for ``smooth_um``, ``min_lobe_um`` and ``min_lobe_amplitude``
+(motif crossings); ``silent`` (two bands killed on the top three contacts) for
+``silent_threshold`` (contacts outside cortex); ``consistency_a`` and ``consistency_b`` (a partial
+low-band kill on the first contacts the defaults label deep in that probe, tuned so the deep
+consistency straddles the threshold) for the two consistency grades; ``dead`` (three zeroed
+contacts) for ``bad_zone_contacts``, ``bad_zone_fraction`` and ``max_interpolate_run`` (unusable
+contacts). A parameter no value of whose family moves any count is named in the receipt with the
+counts and the trial total it was read over.
+
+Writes ``curation_calibration_0.2.14.md`` and ``curation_calibration_0.2.14_raw.json`` to
 ``artifacts/benchmarks/calibration`` (or ``--out``). The JSON records a SHA-256 over the code
 ``curate_and_label`` reaches, computed by the rule of ``scripts/calibrate_xflip.py`` that
 ``scripts/calibrate_vflip.py`` also uses. ``tests/test_curation_calibration_receipt.py`` fails when
@@ -32,6 +48,8 @@ from collections import Counter
 import numpy as np
 import scipy
 
+from scipy import signal
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 # Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
 if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
@@ -46,7 +64,7 @@ from jnwb.laminar_curation import curate_and_label  # noqa: E402
 from jnwb.testing import synth_laminar_motif  # noqa: E402
 from scripts import calibrate_xflip as _xflip_receipt  # noqa: E402
 
-RELEASE = "0.2.13"
+RELEASE = "0.2.14"
 STEM = f"curation_calibration_{RELEASE}"
 OUT_DIR = ROOT / "artifacts" / "benchmarks" / "calibration"
 GENERATOR = "jnwb.testing.synth_laminar_motif"
@@ -81,6 +99,24 @@ SWEPT = (
 )
 #: Parameters that are fractions; a scaled value is clipped to at most 1.0.
 FRACTIONS = ("bad_zone_fraction", "edge_fraction", "consistency_a", "consistency_b")
+#: Every swept parameter runs on the probe family that plants what it decides.
+FAMILY_OF = {
+    "n_windows": "steady",
+    "granular_thickness_um": "steady",
+    "silent_threshold": "silent",
+    "smooth_um": "lobe",
+    "min_lobe_um": "lobe",
+    "min_lobe_amplitude": "lobe",
+    "bad_zone_contacts": "dead",
+    "bad_zone_fraction": "dead",
+    "edge_fraction": "edge",
+    "edge_jump_z": "edge",
+    "stable_sd_um": "steady",
+    "min_ok_windows": "steady",
+    "consistency_a": "consistency_a",
+    "consistency_b": "consistency_b",
+    "max_interpolate_run": "dead",
+}
 SMOKE_SEEDS = 2
 SMOKE_PARAMS = 2
 NULL_MEANS = (
@@ -102,27 +138,89 @@ def estimator_sha256() -> str:
     return _xflip_receipt.estimator_sha256(curate_and_label)
 
 
-def _probe(seed: int, planted: bool) -> tuple[float, float, np.ndarray]:
-    """The crossover contact, its depth in um from the generator's receipt, and the
-    (contacts, epochs, samples) recording of one probe. Each epoch is one successive draw of
-    ``synth_laminar_motif`` from the seed's generator."""
+def _draws(seed: int, snr: float) -> tuple:
+    """The crossover contact and depth, and the (contacts, epochs, samples) recording of one
+    probe. Each epoch is one successive draw of ``synth_laminar_motif`` from the seed's
+    generator, so the planted and the null probe share their draws."""
     gen = np.random.default_rng(seed)
     z0 = int(gen.integers(Z0_RANGE[0], Z0_RANGE[1] + 1))
-    snr = SNR if planted else 0.0
     receipts = [synth_laminar_motif(N_CONTACTS, N_SAMPLES, FS, c_crossover=float(z0),
                                     pitch_um=PITCH_UM, snr=snr, rng=gen)
                 for _ in range(N_EPOCHS)]
     epochs = [receipt.lfp for receipt in receipts]
-    return (receipts[0].crossover_contact, receipts[0].crossover_depth_um,
+    return (gen, z0, receipts[0].crossover_contact, receipts[0].crossover_depth_um,
             np.ascontiguousarray(np.transpose(np.array(epochs), (1, 0, 2))))
 
 
+def _anticorrelate(lfp: np.ndarray, a: int, b: int, c: float) -> np.ndarray:
+    """A copy of ``lfp`` with the correlation of contacts ``a`` and ``b`` planted at ``-c``,
+    holding the variance of ``b``."""
+    out = lfp.copy()
+    s1 = float(np.abs(out[a]).mean()) + 1e-12
+    s2 = float(np.abs(out[b]).mean()) + 1e-12
+    out[b] = -c * (s2 / s1) * out[a] + np.sqrt(1 - c * c) * out[b]
+    return out
+
+
+def _sine(freq: float, mult: float, ref: np.ndarray) -> np.ndarray:
+    t = np.arange(N_SAMPLES) / FS
+    return mult * float(np.abs(ref).mean()) * np.sin(2 * np.pi * freq * t)
+
+
+def _bandkill(x: np.ndarray, lo: float, hi: float, f: float) -> np.ndarray:
+    sos = signal.butter(4, [lo / (FS / 2), hi / (FS / 2)], btype="band", output="sos")
+    return x - f * signal.sosfiltfilt(sos, x, axis=-1)
+
+
+def _probe(seed: int, planted: bool, family: str = "plain") -> tuple[float, float, np.ndarray]:
+    """The crossover contact, its depth in um from the generator's receipt, and the
+    (contacts, epochs, samples) recording of one probe of ``family``.
+
+    ``steady`` is the same draws at snr 400; ``edge`` anti-correlates contacts 1 and 2 at
+    -0.3; ``lobe`` adds a 120 Hz wiggle above the crossover and an 18 Hz wiggle below it;
+    ``silent`` kills both motif bands on the top three contacts; ``consistency_a`` and
+    ``consistency_b`` kill part of the low band on deep contacts, tuned so the deep consistency
+    straddles the grade threshold; ``dead`` zeroes contacts 10 to 12.
+    Each rule applies to the planted and the null probe alike; the consistency kill picks the
+    deep contacts from that probe's own labels at the defaults."""
+    snr = SNR if planted else 0.0
+    if family in ("steady", "consistency_a", "consistency_b"):
+        snr = 400.0 if planted else 0.0
+    _, z0, contact, depth, lfp = _draws(seed, snr)
+    if family == "edge":
+        lfp = _anticorrelate(lfp, 1, 2, 0.3)
+    elif family == "lobe":
+        w = _sine(120.0, 1.5, lfp[z0 + 1])
+        for c in (z0 + 1, z0 + 2):
+            lfp[c] = lfp[c] + w[None, :]
+        w = _sine(18.0, 1.5, lfp[z0 - 1])
+        for c in (z0 - 2, z0 - 1):
+            lfp[c] = lfp[c] + w[None, :]
+    elif family == "silent":
+        for c in range(3):
+            lfp[c] = _bandkill(_bandkill(lfp[c], 10.0, 19.0, 0.3), 75.0, 150.0, 0.3)
+    elif family in ("consistency_a", "consistency_b"):
+        deep = [i for i, lab in enumerate(
+            curate_and_label(lfp, FS, pitch_um=PITCH_UM, compute_xflip=False).labels)
+            if lab == "deep"]
+        for i in deep[:3 if family == "consistency_a" else 5]:
+            lfp[i] = _bandkill(lfp[i], 10.0, 19.0, 0.5 if family == "consistency_a" else 0.6)
+    elif family == "dead":
+        lfp[10:13] = 0.0
+    return (contact, depth, lfp)
+
+
 def _run_one(job: tuple) -> dict:
-    """One trial: a probe through ``curate_and_label`` with one argument moved, or none."""
+    """One trial: a probe of the parameter's family through ``curate_and_label`` with one
+    argument moved, or none. The trial records the family and the counts its plant moves:
+    grades, contacts outside cortex, input contacts, unusable and interpolated contacts, and
+    motif crossings."""
     name, value, seed, planted = job
-    contact, depth, lfp = _probe(seed, planted)
+    family = "plain" if name is None else FAMILY_OF[name]
+    contact, depth, lfp = _probe(seed, planted, family)
     truth = depth if planted else None
     keys = {"param": name, "value": value, "seed": seed, "planted": planted,
+            "family": family,
             "z0": int(contact), "crossover_contact": contact, "crossover_depth_um": depth,
             "truth_um": truth}
     kwargs = {} if name is None else {name: value}
@@ -130,14 +228,22 @@ def _run_one(job: tuple) -> dict:
         res = curate_and_label(lfp, FS, pitch_um=PITCH_UM, compute_xflip=False, **kwargs)
     except ValueError as exc:
         return {**keys, "refused": str(exc), "anchor_um": None, "anchor_source": None,
-                "grade": None, "recovered": None, "recovered_ad": None, "graded_ab": None}
+                "grade": None, "recovered": None, "recovered_ad": None, "graded_ab": None,
+                "n_outside": None, "n_input": None, "n_unusable": None,
+                "n_interpolated": None, "n_crossings": None}
     anchor = float(res.anchor_um) if np.isfinite(res.anchor_um) else None
     recovered = None if truth is None else (
         anchor is not None and abs(anchor - truth) <= RECOVERY_TOL_UM)
     recovered_ad = None if recovered is None else (recovered and res.grade in RECOVERY_GRADES)
+    labels = np.asarray(res.labels)
     return {**keys, "refused": None, "anchor_um": anchor, "anchor_source": res.anchor_source,
             "grade": res.grade, "recovered": recovered, "recovered_ad": recovered_ad,
-            "graded_ab": res.grade in ACCEPTED_GRADES}
+            "graded_ab": res.grade in ACCEPTED_GRADES,
+            "n_outside": int((labels == "outside_cortex").sum()),
+            "n_input": int((labels == "input").sum()),
+            "n_unusable": int(np.asarray(res.unusable_mask).sum()),
+            "n_interpolated": int(np.asarray(res.interpolated_mask).sum()),
+            "n_crossings": int(res.n_crossings)}
 
 
 def interval(k: int, n: int) -> list:
@@ -171,8 +277,33 @@ def sweep_points(name: str, default) -> list:
     return sorted(points, key=lambda point: FACTORS.index(point[0]))
 
 
+#: Trial counts the families contribute, summed over a row's group.
+FAMILY_COUNTS = ("n_outside", "n_input", "n_unusable", "n_interpolated", "n_crossings")
+
+
 def _overlap(a: list, b: list) -> bool:
     return a[0] <= b[1] and b[0] <= a[1]
+
+
+def _signature(row: dict) -> tuple:
+    """Everything a swept value can move: the three rate counts, the grade histogram, and
+    the family counts. Two rows with equal signatures moved nothing."""
+    return (row.get("k_recovered"), row.get("k_recovered_ad"), row.get("k_accepted"),
+            tuple(sorted(row.get("grades", {}).items())),
+            tuple(row.get("counts", {}).get(k) for k in FAMILY_COUNTS),
+            bool(row["refusals"]))
+
+
+def _unreached_reason(summary: dict) -> str:
+    """What the sweep measured for a parameter no swept value moved: how many values, over how
+    many trials each, and the default's counts every one of them reproduced."""
+    rows = summary["rows"]
+    default = next(row for row in rows if row["is_default"])
+    counts = ", ".join(f"{k} {default.get('counts', {}).get(k)}" for k in FAMILY_COUNTS)
+    grades = ", ".join(f"{g} {n}" for g, n in sorted(default.get("grades", {}).items()))
+    return (f"{len(rows) - 1} swept values on the {summary['family']} plant, "
+            f"{default['n_planted']} planted and {default['n_null']} null trials each, all give the "
+            f"default's counts (grades {grades or 'none'}; {counts})")
 
 
 def stable_range(rows: list) -> dict:
@@ -202,9 +333,13 @@ def _rows(name: str, points: list, default_trials: list, grouped: dict) -> list:
             k_rec = sum(1 for t in planted if t["recovered"])
             k_rec_ad = sum(1 for t in planted if t["recovered_ad"])
             k_acc = sum(1 for t in null if t["graded_ab"])
+            measured = [t for t in group if t["refused"] is None]
+            grades = dict(Counter(t["grade"] for t in measured))
+            counts = {k: sum(t[k] for t in measured) for k in FAMILY_COUNTS}
             row.update(k_recovered=k_rec, recovery_ci=interval(k_rec, len(planted)),
                        k_recovered_ad=k_rec_ad, recovery_ad_ci=interval(k_rec_ad, len(planted)),
-                       k_accepted=k_acc, acceptance_ci=interval(k_acc, len(null)))
+                       k_accepted=k_acc, acceptance_ci=interval(k_acc, len(null)),
+                       grades=grades, counts=counts)
         rows.append(row)
     return rows
 
@@ -276,7 +411,15 @@ def run(n_seeds: int, n_jobs: int, params: tuple) -> dict:
     summary = {}
     for name in params:
         rows = _rows(name, points[name], default_trials, grouped)
-        summary[name] = {"rows": rows, **stable_range(rows)}
+        default = next(row for row in rows if row["is_default"])
+        default_sig = _signature(default)
+        moved = [row["value"] for row in rows if not row["is_default"]
+                 and _signature(row) != default_sig]
+        summary[name] = {"rows": rows, "family": FAMILY_OF[name],
+                         "moved": bool(moved), "moved_values": moved,
+                         **stable_range(rows)}
+    unreached = {name: _unreached_reason(summary[name]) for name in params
+                 if not summary[name]["moved"]}
     return {
         "release": RELEASE,
         "declared_version": jnwb.__version__,
@@ -298,6 +441,8 @@ def run(n_seeds: int, n_jobs: int, params: tuple) -> dict:
         "null_means": NULL_MEANS,
         "summary": summary,
         "flagged": [name for name in params if summary[name]["flagged"]],
+        "families": {name: FAMILY_OF[name] for name in params},
+        "unreached": unreached,
         "offsets": offset_distribution(default_trials),
         "recovery_grades": list(RECOVERY_GRADES),
         "trials": trials,
@@ -396,6 +541,19 @@ def render(data: dict) -> str:
         "- Stable range: the values whose recovery interval overlaps the interval of the "
         "highest-recovery value, and whose false-acceptance interval overlaps the default's. A "
         "default outside its stable range is FLAGGED. The script changes no default.",
+        "- Probe families: each parameter runs on the plant that decides it, the same plant on "
+        "the planted and the null probe. `steady` is snr 400 for `n_windows`, `stable_sd_um`, "
+        "`min_ok_windows` and `granular_thickness_um`; `edge` anti-correlates contacts 1 and 2 "
+        "at -0.3 for `edge_fraction` and `edge_jump_z`; `lobe` adds a 120 Hz wiggle above the "
+        "crossover and an 18 Hz wiggle below it for `smooth_um`, `min_lobe_um` and "
+        "`min_lobe_amplitude`; `silent` kills both motif bands on the top three contacts for "
+        "`silent_threshold`; `consistency_a` and `consistency_b` kill part of the low band on "
+        "deep contacts for the two consistency grades; `dead` zeroes contacts 10 to 12 for "
+        "`bad_zone_contacts`, `bad_zone_fraction` and `max_interpolate_run`. Every trial also "
+        "records its grades, contacts outside cortex, input contacts, unusable and interpolated "
+        "contacts, and motif crossings; a swept value moves its default when any of these, or "
+        "of the three rate counts, differs from the default's. A default no value moves is "
+        "named below with the reason.",
         "",
         "## Held inputs",
         "",
@@ -415,7 +573,20 @@ def render(data: dict) -> str:
         f"- FLAGGED: {flag_text}.",
         f"- Parameters whose every swept value gives the default's three counts: "
         f"{len(unmoved)} of {len(data['summary'])}.",
+        f"- Parameters no swept value moves on their family: "
+        f"{', '.join(f'`{name}`' for name in data['unreached']) or 'none'}.",
         f"- Anchor source of the planted probes at the defaults: {sources}.",
+        "",
+        "## Defaults no plant reaches",
+        "",
+    ]
+    if data["unreached"]:
+        lines += ["| Parameter | Family | Reason |", "|---|---|---|"]
+        for name, reason in data["unreached"].items():
+            lines.append(f"| `{name}` | {data['families'][name]} | {reason} |")
+    else:
+        lines.append("Every default is moved by a swept value on its family's plant.")
+    lines += [
         "",
         "## FLAGGED rows",
         "",
@@ -454,7 +625,11 @@ def render(data: dict) -> str:
     for name in data["params"]:
         summary = data["summary"][name]
         stable = set(summary["stable_values"])
-        lines += ["", f"### `{name}` (default {data['defaults'][name]})", "",
+        lines += ["", f"### `{name}` (default {data['defaults'][name]}, family {summary['family']})",
+                  "",
+                  f"Moved values: "
+                  f"{', '.join(str(v) for v in summary['moved_values']) or 'none'}.",
+                  "",
                   "| x | value | planted: recovered (95% CI) | planted: recovered, grades A to D "
                   "(95% CI) | null: graded A or B (95% CI) | stable | note |",
                   "|---|---|---|---|---|---|---|"]
@@ -487,6 +662,8 @@ def render(data: dict) -> str:
         "- Offsets and the second recovery column: raw keys `offsets`, `recovery_grades` and "
         "`recovery_tolerance_um`; the offsets come from the planted default trials, by "
         "`offset_distribution`.",
+        "- Families, movement and unreached defaults: raw keys `families`, `summary` "
+        "(`family`, `moved`, `moved_values`, `grades`, `counts`) and `unreached`.",
         "- Truth and anchor: `jnwb/laminar_curation.py:957`, `jnwb/laminar/_vflip.py:639-653`, "
         "`jnwb/testing/synth.py` (`synth_laminar_motif`).",
         "- Planted and null probes: `jnwb/testing/synth.py` (`synth_laminar_motif`).",

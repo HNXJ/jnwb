@@ -26,7 +26,7 @@ SCRIPT = ROOT / "scripts" / "calibrate_curation.py"
 RECEIPT_DIR = pathlib.Path(
     os.environ.get("JNWB_CURATION_RECEIPT_DIR") or ROOT / "artifacts" / "benchmarks" / "calibration"
 )
-STEM = "curation_calibration_0.2.13"
+STEM = "curation_calibration_0.2.14"
 RAW = RECEIPT_DIR / f"{STEM}_raw.json"
 REPORT = RECEIPT_DIR / f"{STEM}.md"
 ANCHOR_LINE = "    anchor = c_v if np.isfinite(c_v) else c_m"
@@ -59,7 +59,7 @@ def test_receipt_and_generator_exist():
 
 def test_the_raw_record_is_strict_json_and_names_its_release():
     raw = _raw()
-    assert raw["release"] == "0.2.13"
+    assert raw["release"] == "0.2.14"
     assert raw["declared_version"] == jnwb.__version__, (
         "the receipt was generated under another declared version; rerun the script"
     )
@@ -235,7 +235,7 @@ def test_a_default_outside_the_stable_range_is_flagged():
 def test_the_report_names_the_release_the_hash_and_every_parameter():
     raw = _raw()
     report = REPORT.read_text(encoding="utf-8")
-    assert "Qualifies release 0.2.13" in report
+    assert "Qualifies release 0.2.14" in report
     assert raw["estimator_sha256"][:16] in report
     assert raw["params"], "the receipt sweeps no parameter"
     for name in raw["params"]:
@@ -247,7 +247,9 @@ def test_the_recovery_column_counts_grades_a_to_d_only(monkeypatch):
     contact, truth, _ = mod._probe(0, True)
     assert truth == mod.PITCH_UM * contact  # precondition: the truth is one pitch per contact
     for grade, expected in (("F", False), ("D", True)):
-        fake = types.SimpleNamespace(anchor_um=truth, anchor_source="motif", grade=grade)
+        fake = types.SimpleNamespace(anchor_um=truth, anchor_source="motif", grade=grade,
+                                     labels=[], unusable_mask=[], interpolated_mask=[],
+                                     n_crossings=0)
         monkeypatch.setattr(mod, "curate_and_label", lambda *args, _fake=fake, **kwargs: _fake)
         res = mod._run_one((None, None, 0, True))
         assert res["recovered"] is True, "precondition: the anchor lies at the truth"
@@ -311,3 +313,83 @@ def test_smoke_prints_and_writes_no_receipt(monkeypatch, tmp_path):
     monkeypatch.setattr(mod, "render", lambda data: "")
     assert mod.main(["--smoke", "--n-jobs", "1", "--out", str(tmp_path)]) == 0
     assert list(tmp_path.iterdir()) == [], "the smoke run wrote files"
+
+
+#: The family each parameter runs on, mirrored from the script so the checks below name
+#: the plant they run on.
+FAMILY_OF_NAME = {
+    "n_windows": "steady",
+    "granular_thickness_um": "steady",
+    "silent_threshold": "silent",
+    "smooth_um": "lobe",
+    "min_lobe_um": "lobe",
+    "min_lobe_amplitude": "lobe",
+    "bad_zone_contacts": "dead",
+    "bad_zone_fraction": "dead",
+    "edge_fraction": "edge",
+    "edge_jump_z": "edge",
+    "stable_sd_um": "steady",
+    "min_ok_windows": "steady",
+    "consistency_a": "consistency_a",
+    "consistency_b": "consistency_b",
+    "max_interpolate_run": "dead",
+}
+
+
+#: Each parameter with the family that plants what it decides: a seed, two swept values,
+#: and the trial count the plant moves between them.
+FAMILY_CHECKS = (
+    ("n_windows", 84, 4, 6, "grade"),
+    ("stable_sd_um", 84, 37.5, 75.0, "grade"),
+    ("min_ok_windows", 84, 4, 6, "grade"),
+    ("granular_thickness_um", 81, 200.0, 600.0, "n_input"),
+    ("silent_threshold", 77, 0.06, 0.12, "n_outside"),
+    ("smooth_um", 51, 50.0, 200.0, "n_crossings"),
+    ("min_lobe_um", 51, 150.0, 600.0, "n_crossings"),
+    ("min_lobe_amplitude", 51, 0.2, 0.4, "n_crossings"),
+    ("bad_zone_contacts", 90, 3, 6, "n_unusable"),
+    ("bad_zone_fraction", 90, 0.3, 0.45, "n_unusable"),
+    ("max_interpolate_run", 90, 2, 3, "n_unusable"),
+    ("edge_fraction", 62, 0.05, 0.1, "n_outside"),
+    ("edge_jump_z", 61, 6.0, 12.0, "n_outside"),
+    ("consistency_a", 3, 0.75, 1.0, "grade"),
+    ("consistency_b", 3, 0.6, 0.9, "grade"),
+)
+
+
+def test_each_family_plant_moves_its_parameters_count():
+    mod = _generator()
+    for name, seed, low, high, key in FAMILY_CHECKS:
+        assert FAMILY_OF_NAME[name] == mod.FAMILY_OF[name]  # the check runs on the family's plant
+        first = mod._run_one((name, low, seed, True))
+        second = mod._run_one((name, high, seed, True))
+        assert first["refused"] is None and second["refused"] is None
+        assert first[key] != second[key], (
+            f"{name} on its {mod.FAMILY_OF[name]} plant: {key} is {first[key]} at "
+            f"{low} and at {high}"
+        )
+
+
+def test_every_parameter_runs_on_its_family():
+    mod = _generator()
+    raw = _raw()
+    assert raw["families"] == {name: mod.FAMILY_OF[name] for name in raw["params"]}
+    for name in raw["params"]:
+        assert raw["summary"][name]["family"] == mod.FAMILY_OF[name]
+        assert FAMILY_OF_NAME[name] == mod.FAMILY_OF[name]
+
+
+def test_every_default_moves_or_is_named_with_its_reason():
+    mod = _generator()
+    raw = _raw()
+    for name in raw["params"]:
+        if raw["summary"][name]["moved"]:
+            continue
+        assert name in raw["unreached"], f"{name} moves nothing and is not named"
+        assert raw["unreached"][name] == mod._unreached_reason(raw["summary"][name]), (
+            f"{name}'s reason is not the one its sweep rows give")
+    section = REPORT.read_text(encoding="utf-8").split(
+        "## Defaults no plant reaches")[1].split("## FLAGGED rows")[0]
+    for name in raw["unreached"]:
+        assert f"`{name}`" in section
+        assert raw["unreached"][name] in section
