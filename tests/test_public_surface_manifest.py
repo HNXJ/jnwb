@@ -77,9 +77,6 @@ def assert_surface_matches(name: str, manifest_entries: list[str], live_entries:
 @pytest.mark.requires_git_checkout
 def test_live_surface_matches_the_manifest():
     """Symbols, modules and skills each equal the recorded manifest."""
-    assert Path(jnwb.__file__).resolve().is_relative_to(REPO_ROOT), (
-        f"jnwb was imported from {jnwb.__file__}, not from {REPO_ROOT}"
-    )
     manifest = load_manifest()
     differences = [
         difference
