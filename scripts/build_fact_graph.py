@@ -94,8 +94,9 @@ Relations, each a sorted list of ``[source, target]`` pairs:
               a callable whose source cannot be read is a finding, never a pass
   claim_class_labels  file -> a figure label, or a ``unit=`` literal of a call whose callee's
               name ends in ``Result`` in ``jnwb/``, that names a magnitude or direction
-              estimand and holds a term of a higher claim class -- a delay unit (inside
-              parentheses or brackets in a label, anywhere in a unit literal) or a delay word,
+              estimand and holds a term of a higher claim class -- a delay unit (in a label,
+              a compound unit anywhere and a plain one inside parentheses or brackets;
+              anywhere in a unit literal) or a delay word,
               or an inference word read after the method name "Granger causality" is removed
               (``claim_class_scan``, reading the claim table of ``docs/architecture.md``);
               a short label name whose estimator is in neither row is stale
@@ -1675,11 +1676,13 @@ HIGHER_CLASS_TERMS: Dict[str, Dict[str, Tuple[str, ...]]] = {
     "delay": {"units": ("s", "ms", "sec", "seconds", "rad/Hz", "radians/Hz", "m/s", "mm/s",
                         "um/s"),
               "words": ("delay", "latency", "velocity")},
-    "inference": {"words": ("cause", "causes", "causal", "drives", "driver")},
+    "inference": {"words": ("cause", "causes", "caused", "causing", "causal", "causality",
+                            "drive", "drives", "driven", "driving", "driver", "drivers")},
 }
 #: The calls whose first argument, or whose ``label``/``title``/``xlabel``/``ylabel`` keyword,
 #: the label rule reads as a figure label.
-LABEL_CALLEES = ("set_xlabel", "set_ylabel", "set_title", "suptitle", "set_label", "text",
+LABEL_CALLEES = ("set_xlabel", "set_ylabel", "set_title", "xlabel", "ylabel", "title",
+                 "suptitle", "set_label", "text",
                  "annotate", "legend", "colorbar", "plot", "scatter", "bar", "errorbar",
                  "fill_between", "axhline", "axvline", "step", "hist")
 #: The label keywords the rule reads, beside a call's first argument.
@@ -1714,26 +1717,25 @@ def read_claim_estimators(text: str) -> Dict[str, FrozenSet[str]]:
 
 
 def _phrase(pattern: str, ignorecase: bool = True) -> re.Pattern:
-    """A whole-word pattern for a name or term; a space in it matches a run of whitespace."""
-    body = re.escape(pattern).replace("\\ ", r"\s+").replace(" ", r"\s+")
+    """A whole-word pattern for a name or term; a space in it matches a run of whitespace or
+    hyphens."""
+    body = re.escape(pattern).replace("\\ ", r"[\s-]+").replace(" ", r"[\s-]+")
     return re.compile(rf"(?<!\w){body}(?!\w)", re.IGNORECASE if ignorecase else 0)
 
 
 def _higher_class_terms(text: str, units_anywhere: bool) -> List[str]:
     """The higher-class terms ``text`` holds, each spelled ``class: 'term'``. A delay unit
-    counts inside parentheses or brackets of a label and anywhere in a unit literal; a delay
-    word counts anywhere; an inference word counts after the method name Granger causality is
-    removed."""
+    counts anywhere in a unit literal; in a label, a compound unit (one with ``/``) counts
+    anywhere and a plain one inside parentheses or brackets; a delay word counts anywhere; an
+    inference word counts after the method name Granger causality is removed."""
     delay, inference = HIGHER_CLASS_TERMS["delay"], HIGHER_CLASS_TERMS["inference"]
     found: List[str] = []
-    if units_anywhere:
-        scopes = [text]
-    else:
-        scopes = [m.group(1) if m.group(1) is not None else m.group(2)
-                  for m in _PAREN_OR_BRACKET.finditer(text)]
-    for scope in scopes:
-        found += [f"delay term {unit!r}" for unit in delay["units"]
-                  if _phrase(unit, ignorecase=False).search(scope)]
+    bracketed = " ".join(m.group(1) if m.group(1) is not None else m.group(2)
+                         for m in _PAREN_OR_BRACKET.finditer(text))
+    for unit in delay["units"]:
+        scope = text if units_anywhere or "/" in unit else bracketed
+        if _phrase(unit, ignorecase=False).search(scope):
+            found.append(f"delay term {unit!r}")
     found += [f"delay term {word!r}" for word in delay["words"] if _phrase(word).search(text)]
     causal = _GRANGER_METHOD.sub(" ", text)
     found += [f"inference term {word!r}" for word in inference["words"]
@@ -1753,45 +1755,83 @@ def _estimator_patterns(estimators: FrozenSet[str]) -> Dict[str, List[re.Pattern
     return patterns
 
 
-def _literal_text(node: ast.AST) -> Optional[str]:
-    """The text of a string constant: a plain literal, or the literal parts of an f-string,
-    joined. Anything else, and an empty join, is no label text."""
+def _literal_text(node: ast.AST, names: Optional[Dict[str, str]] = None) -> Optional[str]:
+    """The text of a string constant: a plain literal, the literal parts of an f-string, a sum
+    of such parts, or a name ``names`` binds to one. Anything else, and an empty join, is no
+    label text."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     if isinstance(node, ast.JoinedStr):
         return "".join(part.value for part in node.values
                        if isinstance(part, ast.Constant) and isinstance(part.value, str))
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _literal_text(node.left, names), _literal_text(node.right, names)
+        if left is not None or right is not None:
+            return (left or "") + (right or "")
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
+        return _literal_text(node.left, names)
+    if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "format"):
+        return _literal_text(node.func.value, names)
+    if isinstance(node, (ast.List, ast.Tuple)):
+        parts = [_literal_text(element, names) for element in node.elts]
+        if any(part is not None for part in parts):
+            return " | ".join(part for part in parts if part is not None)
+    if isinstance(node, ast.Name) and names:
+        return names.get(node.id)
     return None
 
 
-def _label_sites(tree: ast.AST) -> List[Tuple[int, str]]:
-    """Each label of one module as (line, text): a string constant passed as a call's first
-    argument or as a ``LABEL_KEYWORDS`` keyword, to a call whose attribute name is in
-    ``LABEL_CALLEES``."""
+def _bound_names(tree: ast.AST) -> Dict[str, str]:
+    """Each name an assignment anywhere in a module binds to string text, mapped to every such
+    text joined, so a term in any binding is read wherever the name is used."""
+    bound: Dict[str, List[str]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)) and node.value is not None:
+            targets, value = [node.target], node.value
+        else:
+            continue
+        text = _literal_text(value)
+        if text is None:
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name):
+                bound.setdefault(target.id, []).append(text)
+    return {name: " | ".join(texts) for name, texts in bound.items()}
+
+
+def _label_sites(tree: ast.Module) -> List[Tuple[int, str]]:
+    """Each label of one module as (line, text): string text passed as a positional argument or
+    as a ``LABEL_KEYWORDS`` keyword to a call whose final name is in ``LABEL_CALLEES``. A name
+    counts as every text an assignment in the module binds it to."""
+    names = _bound_names(tree)
     sites = []
     for node in ast.walk(tree):
-        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                and node.func.attr in LABEL_CALLEES):
+        if not (isinstance(node, ast.Call) and _final(node.func) in LABEL_CALLEES):
             continue
-        for arg in list(node.args[:1]) + [kw.value for kw in node.keywords
-                                          if kw.arg in LABEL_KEYWORDS]:
-            text = _literal_text(arg)
+        for arg in list(node.args) + [kw.value for kw in node.keywords
+                                      if kw.arg in LABEL_KEYWORDS]:
+            text = _literal_text(arg, names)
             if text:
                 sites.append((arg.lineno, text))
     return sites
 
 
 def _unit_sites(tree: ast.AST) -> List[Tuple[int, str, str]]:
-    """Each ``unit=`` string literal of one module as (line, callee name, literal), for a call
-    whose callee's name ends in ``RESULT_SUFFIX``."""
+    """Each ``unit=`` string of one module as (line, callee name, text), for a call whose
+    callee's name ends in ``RESULT_SUFFIX``; a name counts as every text the module binds it
+    to."""
+    names = _bound_names(tree)
     sites = []
     for node in ast.walk(tree):
         if not (isinstance(node, ast.Call) and _final(node.func).endswith(RESULT_SUFFIX)):
             continue
         for keyword in node.keywords:
-            if (keyword.arg == "unit" and isinstance(keyword.value, ast.Constant)
-                    and isinstance(keyword.value.value, str)):
-                sites.append((keyword.value.lineno, _final(node.func), keyword.value.value))
+            text = _literal_text(keyword.value, names) if keyword.arg == "unit" else None
+            if text is not None:
+                sites.append((keyword.value.lineno, _final(node.func), text))
     return sites
 
 

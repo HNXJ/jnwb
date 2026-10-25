@@ -1662,10 +1662,75 @@ def test_a_label_naming_an_estimator_beside_a_higher_term_is_reported(tmp_path):
         and "drives" in by_line[10]
 
 
+PLANTED_LABEL_FORMS = (
+    "import matplotlib.pyplot as plt\n"
+    "\n"
+    "LABEL = \"Phase Slope (rad/Hz)\"\n"
+    "fig, ax = plt.subplots()\n"
+    "plt.ylabel(\"Phase Slope (rad/Hz)\")\n"
+    "ax.set_ylabel(\"Phase Slope (\" + \"rad/Hz)\")\n"
+    "ax.set_ylabel(LABEL)\n"
+    "ax.set_title(\"Phase Slope Index rad/Hz\")\n"
+    "ax.set_title(\"Granger: X driven by Y\")\n"
+    "ax.set_title(\"phase-slope delay\")\n"
+    "ax.set_ylabel(\"PSI per session (s)\")\n"
+)
+
+
+def test_label_forms_that_hide_a_higher_term_are_reported(tmp_path):
+    root = planted_claim_root(tmp_path)
+    (root / "fig.py").write_text(PLANTED_LABEL_FORMS, encoding="utf-8")
+    examined, found = build_fact_graph.claim_class_scan(root, ["fig.py"])
+    assert examined == {"labels": 7, "units": 0}, "a pyplot call, a sum and a name are labels"
+    by_line = reported_lines(found)
+    assert sorted(by_line) == [5, 6, 7, 8, 9, 10, 11], by_line
+    assert "driven" in by_line[9] and "phase_slope_index" in by_line[10]
+
+
+PLANTED_LABEL_SHAPES = (
+    "from matplotlib.pyplot import xlabel\n"
+    "\n"
+    "LABEL = \"wpli delay\"\n"
+    "TITLE: str = \"Granger: X causing Y\"\n"
+    "xlabel(\"Phase Slope (rad/Hz)\")\n"
+    "ax.set_ylabel(LABEL)\n"
+    "LABEL = \"safe\"\n"
+    "ax.set_title(TITLE)\n"
+    "ax.set_title(\"wPLI causality map\")\n"
+    "ax.text(0.1, 0.2, \"wpli delay\")\n"
+    "ax.legend([\"coherence\", \"PSI drivers\"])\n"
+    "ax.set_title(\"wpli latency %d\" % 3)\n"
+    "ax.set_title(\"{} wpli latency\".format(3))\n"
+)
+
+
+def test_label_shapes_that_hide_a_higher_term_are_reported(tmp_path):
+    root = planted_claim_root(tmp_path)
+    (root / "fig.py").write_text(PLANTED_LABEL_SHAPES, encoding="utf-8")
+    examined, found = build_fact_graph.claim_class_scan(root, ["fig.py"])
+    by_line = reported_lines(found)
+    assert sorted(by_line) == [5, 6, 8, 9, 10, 11, 12, 13], by_line
+    assert examined["labels"] >= 8
+
+
+def test_a_unit_held_in_a_module_constant_is_reported(tmp_path):
+    root = planted_claim_root(tmp_path)
+    (root / "jnwb").mkdir()
+    (root / "jnwb" / "planted.py").write_text(
+        "UNIT = \"rad/Hz\"\n"
+        "def phase_slope_index(lfp):\n"
+        "    return DirectedResult(1.0, unit=UNIT)\n", encoding="utf-8")
+    examined, found = build_fact_graph.claim_class_scan(root, ["jnwb/planted.py"])
+    assert examined["units"] == 1
+    [reason] = [reason for _, reason in found]
+    assert "rad/Hz" in reason
+
+
 def test_a_label_without_an_estimator_or_without_a_higher_term_is_not_reported(tmp_path):
     root = planted_claim_root(tmp_path)
     (root / "fig.py").write_text(PLANTED_LABELS, encoding="utf-8")
-    _, found = build_fact_graph.claim_class_scan(root, ["fig.py"])
+    examined, found = build_fact_graph.claim_class_scan(root, ["fig.py"])
+    assert examined["labels"] == 6, "the labels must be read for their absence to mean anything"
     reported = " ".join(reason for _, reason in found)
     assert "PSI per frequency bin" not in reported, "dimensionless is no delay unit"
     assert "zFLIP" not in reported, "zflip is no magnitude or direction estimator"
