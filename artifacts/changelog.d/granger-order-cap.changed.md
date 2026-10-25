@@ -1,2 +1,2 @@
-- `granger` records the effective order cap of `order='auto'` in `params['order_cap']`, beside the requested `max_lag`, and warns when the cap sits below it: a short record silently truncated the lag search, so a coupling past the cap was missed with no warning (`jnwb/connectivity/_granger.py`).
-- `granger` refuses `max_lag` below 1 with `ValueError` instead of running order 1 (`jnwb/connectivity/_granger.py`).
+- `granger` records the `order='auto'` cap in `params['order_cap']`, warning when below `max_lag` (`_granger.py`).
+- `granger` refuses `max_lag` below 1 with `ValueError` instead of running order 1 (`_granger.py`).

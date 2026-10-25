@@ -1,5 +1,5 @@
-- `NWBMutationError`: the base error for a refused NWB mutation; it carries the report `issues` (`jnwb/nwb_write.py`).
-- `NWBVerificationError`: a written file failed its post-write `verify_nwb` check; the file stays in place (`jnwb/nwb_write.py`).
-- `AmbiguousMappingError`: two plausible mappings for one conversion; the operation refuses to pick one (`jnwb/nwb_write.py`).
-- `UnidentifiableRepairError`: a named repair's identifiability precondition does not hold; nothing is written (`jnwb/nwb_write.py`).
-- `UndeclaredUnitError`: a stored unit string is absent or outside the unit table; no unit is guessed (`jnwb/nwb_write.py`).
+- `NWBMutationError`: the base error for a refused NWB mutation; it carries the report `issues` (`nwb_write.py`).
+- `NWBVerificationError`: a written file failed its post-write `verify_nwb`; the file stays (`nwb_write.py`).
+- `AmbiguousMappingError`: two plausible mappings for one conversion; neither is picked (`nwb_write.py`).
+- `UnidentifiableRepairError`: a repair's identifiability precondition fails; nothing is written (`nwb_write.py`).
+- `UndeclaredUnitError`: a stored unit is absent or outside the unit table; none is guessed (`nwb_write.py`).

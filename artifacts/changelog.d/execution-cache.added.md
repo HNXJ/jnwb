@@ -1,5 +1,5 @@
 - `ExecutionRecord` and a four-function result cache (`jnwb/execution.py`).
 - `cache_key`: a hex key over the operation name, inputs, parameters and jnwb version (`jnwb/execution.py`).
-- `cache_store`: saves an array, scalar, dict, list or tuple as an `.npz` archive, written atomically (`jnwb/execution.py`).
+- `cache_store`: saves an array, scalar, dict, list or tuple as an `.npz` archive, atomically (`execution.py`).
 - `cache_load`: the value under a key, or None on a miss or a stale entry (`jnwb/execution.py`).
 - `cache_clear`: removes the entries `cache_store` wrote and returns their count (`jnwb/execution.py`).
