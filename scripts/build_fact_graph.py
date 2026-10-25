@@ -76,6 +76,14 @@ Relations, each a sorted list of ``[source, target]`` pairs:
               literal keyword its own signature does not name, differing from that keyword's
               default (``wrapper_scan``); a callable in ``I2_WRAPPER_EXCUSED`` is skipped, and
               a listed key that matches no flagged callable is reported as stale
+  choice_defaults  callable -> a public callable with a defaulted parameter whose name is in
+              the ``B3 choice names`` constant of the fact stack, unless the parameter is a
+              ``window`` whose default is a string (a taper name, outside the lexicon) or a
+              row of the ``## B3 exceptions`` table of the fact stack names the callable, by
+              ``module.qualname`` or bare qualname, and the parameter
+              (``choice_default_scan``, with ``read_b3_exceptions`` reading the table); a
+              callable whose signature cannot be read is a finding, never a pass, and a row
+              that matches no defaulted lexicon parameter is reported as stale
   signature_types  callable -> a public callable taking a signal parameter (``SIGNAL_PARAMETERS``)
               that declares no input class, declares one its parameters do not show, carries a
               stale declarations key, or calls a declared callable whose class is not a subset
@@ -137,6 +145,10 @@ FACT_STACK = REPO_ROOT / "artifacts" / "fact_stack.md"
 FACT_HEADER = ("ID", "Domain", "Predicate", "Held by", "Ruled")
 FACT_TABLES = ("Boundary", "Design", "Identity", "Science", "Skills", "Release")
 CONSTANT_HEADER = ("Constant", "Values", "Ruled")
+#: The exceptions table of fact B3, the one agent-editable part of the fact stack; it sits
+#: after ``Constants`` and its rows excuse one defaulted choice parameter of one callable.
+B3_EXCEPTIONS_HEADING = "B3 exceptions"
+B3_EXCEPTIONS_HEADER = ("Operation", "Parameter", "Default", "Reason", "Evidence")
 #: The section that ends the fact tables; every section between the first fact table and it
 #: must be a fact table.
 CONSTANTS_HEADING = "Constants"
@@ -268,6 +280,27 @@ def read_constants(text: str) -> Dict[str, List[str]]:
         for row in rows:
             constants[row[0].strip("`")] = _BACKTICKED.findall(row[1])
     return constants
+
+
+def read_b3_exceptions(text: str) -> List[Dict[str, str]]:
+    """The rows of the ``## B3 exceptions`` table of ``text``, one dict per row with its five
+    cells. Raises ``FactSourceError`` when the section is absent, holds more than one table,
+    or its header is not the exceptions header: a skipped or malformed table would drop rows
+    without a word."""
+    tables = [(header, rows) for heading, header, rows in _all_tables(text)
+              if heading == B3_EXCEPTIONS_HEADING]
+    if len(tables) != 1:
+        raise FactSourceError(f"the fact source holds {len(tables)} {B3_EXCEPTIONS_HEADING} "
+                              "sections, not exactly one")
+    header, rows = tables[0]
+    if tuple(header) != B3_EXCEPTIONS_HEADER:
+        raise FactSourceError(f"{B3_EXCEPTIONS_HEADING}: the table header {header} is not "
+                              f"{list(B3_EXCEPTIONS_HEADER)}")
+    for row in rows:
+        if len(row) != len(B3_EXCEPTIONS_HEADER):
+            raise FactSourceError(f"{B3_EXCEPTIONS_HEADING}: a row has {len(row)} cells, not "
+                                  f"{len(B3_EXCEPTIONS_HEADER)}: {row}")
+    return [dict(zip(B3_EXCEPTIONS_HEADER, row)) for row in rows]
 
 
 # ------------------------------------------------------------------------ references page
@@ -1495,6 +1528,43 @@ def wrapper_scan(package: Any) -> Tuple[int, List[List[str]]]:
     return examined, sorted(found)
 
 
+def choice_default_scan(package: Any, names: Sequence[str],
+                        exceptions: Sequence[Dict[str, str]]) -> Tuple[int, List[List[str]]]:
+    """How many public callables the B3 rule examined, and each with a defaulted parameter
+    whose name is in the choice-name lexicon ``names``, as sorted [module.name, reason] pairs.
+    A ``window`` whose default is a string names a taper, not a time span, and sits outside
+    the lexicon. A row of ``exceptions`` whose Operation is the callable's ``module.qualname``
+    or its bare qualname, and whose Parameter is the parameter's name, keeps the default. A
+    callable whose signature cannot be read is a finding, never a pass, and a row that matches
+    no defaulted lexicon parameter is reported as stale."""
+    lexicon, excused = set(names), {(row["Operation"], row["Parameter"]) for row in exceptions}
+    examined, found, defaulted = 0, [], set()
+    for qualname, fn, owner in _public_callables(package):
+        examined += 1
+        key = f"{fn.__module__}.{qualname}"
+        try:
+            parameters = inspect.signature(fn).parameters
+        except (TypeError, ValueError):
+            found.append([key, "signature unreadable: not checked"])
+            continue
+        for pname, parameter in parameters.items():
+            if pname not in lexicon or parameter.default is inspect.Parameter.empty:
+                continue
+            if pname == "window" and isinstance(parameter.default, str):
+                continue
+            defaulted.add((key, pname))
+            defaulted.add((qualname, pname))
+            if (key, pname) in excused or (qualname, pname) in excused:
+                continue
+            found.append([key, f"parameter {pname!r} defaults to {parameter.default!r}"])
+    for operation, pname in sorted(excused):
+        if (operation, pname) not in defaulted:
+            found.append([operation,
+                          f"the exceptions table names {pname!r} of {operation}, "
+                          "which no defaulted lexicon parameter matches: stale"])
+    return examined, sorted(found)
+
+
 def _resolver_call(call: ast.Call) -> Optional[str]:
     """The name of the rng resolver a call reaches for (``RESOLVERS`` of the rng-parameter
     walk), or None. The walk defines which parameters are stochastic by use; the scan reads
@@ -1807,7 +1877,11 @@ def build(package: Any = None, root: Path = REPO_ROOT,
     python = _tracked_python(root)
     tracked = _tracked_files(root)
     prose, skill_files = _prose_files(tracked), _skill_files(tracked)
-    constants = read_constants(source.read_text(encoding="utf-8"))
+    fact_text = source.read_text(encoding="utf-8")
+    constants = read_constants(fact_text)
+    if "B3 choice names" not in constants:
+        raise ValueError("the constants name no B3 choice names")
+    exceptions = read_b3_exceptions(fact_text)
     scans = {**_source_scans(root, python, constants),
              **_text_scans(root, prose, skill_files, python, constants)}
 
@@ -1822,6 +1896,8 @@ def build(package: Any = None, root: Path = REPO_ROOT,
     units_examined, unit_conversions = unit_scan(package)
     wrappers_examined, wrapper_defaults = wrapper_scan(package)
     signatures_examined, signature_types = signature_types_scan(package)
+    choices_examined, choice_defaults = choice_default_scan(
+        package, constants["B3 choice names"], exceptions)
     references, cites, concerns = read_references(
         (root / "docs" / "references.md").read_text(encoding="utf-8"))
 
@@ -1845,6 +1921,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "unit_examined": units_examined,
             "wrapper_examined": wrappers_examined,
             "signature_examined": signatures_examined,
+            "choice_examined": choices_examined,
         },
         "relations": {
             "implements": sorted(implements),
@@ -1859,6 +1936,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "unit_conversions": unit_conversions,
             "wrapper_defaults": wrapper_defaults,
             "signature_types": signature_types,
+            "choice_defaults": choice_defaults,
             **scans,
         },
     }

@@ -73,6 +73,11 @@ Computed predicates:
   wrapper_defaults  no public callable passes a literal over another public callable's
                    default without naming it (the graph's ``wrapper_defaults``); an examined
                    count of zero is a failure
+  choice_defaults  no public callable has a defaulted parameter whose name is in the
+                   ``B3 choice names`` constant, unless a row of the ``## B3 exceptions``
+                   table of the fact stack names the callable and parameter, or the parameter
+                   is a ``window`` whose default is a string (a taper, outside the lexicon)
+                   (the graph's ``choice_defaults``); an examined count of zero is a failure
   signature_types  every public callable taking a signal parameter declares the input class
                    its parameters show, and no declared caller reaches a declared callable of
                    a wider class (the graph's ``signature_types``); an examined count of zero
@@ -310,6 +315,14 @@ def wrapper_defaults(graph: Graph, constants: Constants) -> List[str]:
     return [f"{name}: {reason}" for name, reason in graph["relations"]["wrapper_defaults"]]
 
 
+def choice_defaults(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable with a defaulted scientific-choice parameter and no exceptions
+    row, and the failure of a scan that examined no callable."""
+    if not graph["entities"].get("choice_examined"):
+        return ["the graph examined no public callable, so no choice default could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["choice_defaults"]]
+
+
 def signature_types(graph: Graph, constants: Constants) -> List[str]:
     """Each public callable taking a signal parameter whose declared signal contract fails,
     and the failure of a scan that examined no callable."""
@@ -350,6 +363,7 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "rng_reports": rng_reports,
     "unit_conversions": unit_conversions,
     "wrapper_defaults": wrapper_defaults,
+    "choice_defaults": choice_defaults,
     "signature_types": signature_types,
 }
 

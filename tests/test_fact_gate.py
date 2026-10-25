@@ -1452,6 +1452,126 @@ def test_the_live_tree_lists_its_silent_unit_conversions_and_wrapper_defaults(li
     assert g["relations"]["wrapper_defaults"] == []
 
 
+# ------------------------------------------------------------------------ fact B3: cited choice defaults
+
+
+def planted_window_default(x, window_ms=(-1000, 2000)):
+    return x
+
+
+def planted_window_taper(x, window="hann"):
+    return x
+
+
+def planted_time_window_none(x, time_window=None):
+    return x
+
+
+def planted_window_s_required(*, window_s):
+    return window_s
+
+
+PLANTED_CHOICES = (planted_window_default, planted_window_taper, planted_time_window_none,
+                   planted_window_s_required)
+
+
+def b3_lexicon():
+    """The choice names the live fact stack's constant holds, so the tests hold no copy."""
+    text = build_fact_graph.FACT_STACK.read_text(encoding="utf-8")
+    return build_fact_graph.read_constants(text)["B3 choice names"]
+
+
+def b3_row(operation, parameter):
+    """One well-formed exceptions row for the callable and parameter named."""
+    return {"Operation": operation, "Parameter": parameter, "Default": "planted default",
+            "Reason": "planted: cited for the test", "Evidence": "planted: evidence"}
+
+
+def test_a_planted_defaulted_window_ms_and_a_none_time_window_are_reported():
+    examined, found = build_fact_graph.choice_default_scan(
+        planted_package(*PLANTED_CHOICES), b3_lexicon(), [])
+    assert examined == len(PLANTED_CHOICES) == 4, "the scan must examine every planted callable"
+    names = reported(found)
+    assert set(names) == {"planted_window_default", "planted_time_window_none"}
+    assert "parameter 'window_ms' defaults to (-1000, 2000)" in names["planted_window_default"]
+    assert "parameter 'time_window' defaults to None" in names["planted_time_window_none"]
+
+
+def test_a_taper_window_and_a_required_keyword_only_window_s_are_not_findings():
+    examined, found = build_fact_graph.choice_default_scan(
+        planted_package(planted_window_taper, planted_window_s_required), b3_lexicon(), [])
+    assert examined == 2
+    assert found == []
+
+
+def test_an_exceptions_row_excuses_its_parameter_in_both_operation_forms():
+    module = planted_window_default.__module__
+    for operation in (f"{module}.planted_window_default", "planted_window_default"):
+        _, found = build_fact_graph.choice_default_scan(
+            planted_package(planted_window_default), b3_lexicon(),
+            [b3_row(operation, "window_ms")])
+        assert reported(found) == {}, operation
+
+
+def test_a_stale_exceptions_row_is_reported():
+    _, found = build_fact_graph.choice_default_scan(
+        planted_package(*PLANTED_CHOICES), b3_lexicon(),
+        [b3_row("planted_window_taper", "window"), b3_row("planted_gone", "time_window")])
+    names = reported(found)
+    assert "stale" in names["planted_gone"]
+    assert "stale" in names["planted_window_taper"], "a taper window sits outside the lexicon"
+
+
+def test_a_callable_whose_signature_cannot_be_read_is_a_choice_finding_not_a_pass():
+    planted = planted_window_default
+    planted.__signature__ = 42  # type: ignore[assignment]
+    try:
+        examined, found = build_fact_graph.choice_default_scan(
+            planted_package(planted), b3_lexicon(), [])
+        assert examined == 1
+        assert [reason for _, reason in found] == ["signature unreadable: not checked"]
+    finally:
+        del planted.__signature__
+
+
+def test_the_choice_defaults_predicate_is_violated_by_a_planted_default():
+    examined, found = build_fact_graph.choice_default_scan(
+        planted_package(*PLANTED_CHOICES), b3_lexicon(), [])
+    g = {"entities": {"choice_examined": examined}, "relations": {"choice_defaults": found}}
+    found_status, reasons = status(g, "computed:choice_defaults")
+    assert found_status == fact_gate.VIOLATED
+    assert any("planted_window_default" in reason for reason in reasons), reasons
+
+
+def test_the_choice_defaults_predicate_holds_when_every_planted_default_is_excused():
+    module = planted_window_default.__module__
+    exceptions = [b3_row(f"{module}.planted_window_default", "window_ms"),
+                  b3_row("planted_time_window_none", "time_window")]
+    examined, found = build_fact_graph.choice_default_scan(
+        planted_package(planted_window_default, planted_time_window_none), b3_lexicon(),
+        exceptions)
+    g = {"entities": {"choice_examined": examined}, "relations": {"choice_defaults": found}}
+    assert status(g, "computed:choice_defaults") == (fact_gate.HELD, [])
+
+
+def test_a_choice_scan_that_examines_nothing_is_a_failure():
+    g = {"entities": {"choice_examined": 0}, "relations": {"choice_defaults": []}}
+    found_status, reasons = status(g, "computed:choice_defaults")
+    assert found_status == fact_gate.VIOLATED
+    assert reasons == ["computed:choice_defaults: the graph examined no public callable, "
+                       "so no choice default could be checked"]
+
+
+def test_the_live_scan_examines_every_public_callable():
+    package = build_fact_graph._checkout_jnwb()
+    text = build_fact_graph.FACT_STACK.read_text(encoding="utf-8")
+    examined, _ = build_fact_graph.choice_default_scan(
+        package, build_fact_graph.read_constants(text)["B3 choice names"],
+        build_fact_graph.read_b3_exceptions(text))
+    assert examined == len(build_fact_graph._public_callables(package))
+    assert examined > 0
+
+
 def test_a_planted_signal_callable_with_no_declaration_is_reported(monkeypatch):
     signature_declarations(monkeypatch, {})
     examined, found = build_fact_graph.signature_types_scan(
