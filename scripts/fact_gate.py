@@ -88,6 +88,9 @@ Computed predicates:
                    claim class -- a delay unit or delay word, or an inference word read after
                    the method name "Granger causality" is removed (the graph's
                    ``claim_class_labels``); an examined count of zero is a failure
+  boundary_units  no call in ``jnwb/`` passes a bare name whose suffix (a unit or base suffix)
+                   differs from the callee parameter's suffix, by keyword or position (the
+                   graph's ``boundary_units``); an examined count of zero is a failure
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -346,6 +349,14 @@ def claim_class_labels(graph: Graph, constants: Constants) -> List[str]:
     return [f"{path}: {reason}" for path, reason in graph["relations"]["claim_class_labels"]]
 
 
+def boundary_units(graph: Graph, constants: Constants) -> List[str]:
+    """Each call in ``jnwb/`` that passes a bare name whose suffix differs from the callee
+    parameter's suffix, and the failure of a scan that examined no boundary edge."""
+    if not graph["entities"].get("boundary_examined", {}).get("edges"):
+        return ["the graph examined no named-unit boundary edge, so no boundary could be checked"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["boundary_units"]]
+
+
 def routed_citations(graph: Graph, constants: Constants) -> List[str]:
     """Each distinct routed export with no ``cites`` edge that the ruled exclusion list does
     not name. The check is that no routed export goes uncited unless it is on the recorded
@@ -381,6 +392,7 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "choice_defaults": choice_defaults,
     "signature_types": signature_types,
     "claim_class_labels": claim_class_labels,
+    "boundary_units": boundary_units,
 }
 
 

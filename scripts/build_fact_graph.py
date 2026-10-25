@@ -100,6 +100,12 @@ Relations, each a sorted list of ``[source, target]`` pairs:
               or an inference word read after the method name "Granger causality" is removed
               (``claim_class_scan``, reading the claim table of ``docs/architecture.md``);
               a short label name whose estimator is in neither row is stale
+  boundary_units  call site -> a call in ``jnwb/`` whose callee is a function or method defined
+              in ``jnwb/`` and whose bare-name argument reaches a parameter of a different unit
+              or base suffix (``UNIT_SUFFIXES``, ``BASE_SUFFIXES``), by keyword or position
+              (``boundary_unit_scan``); a call on a line an ``INTENTIONAL BREAK`` comment
+              holds, or in the statement block such a comment opens, is excused and counted
+              apart
 
 The facts are the only owned part; everything else is regenerated. The output is a pure
 function of the tree: sorted keys and lists, LF endings, no timestamp, and object addresses
@@ -1919,6 +1925,162 @@ def claim_class_scan(root: Path, python: Sequence[str]) -> Tuple[Dict[str, int],
     return examined, sorted(found)
 
 
+# ------------------------------------------------------------------------ named units (fact I3)
+
+#: The base suffixes the boundary rule reads beside the unit suffixes: index provenance,
+#: 0- or 1-based.
+BASE_SUFFIXES = ("_idx", "_index", "_0based", "_1based")
+#: The suffixes a boundary edge compares: a unit suffix or a base suffix.
+BOUNDARY_SUFFIXES = UNIT_SUFFIXES + BASE_SUFFIXES
+#: Suffixes that spell the same unit or base, mapped to the one an edge compares.
+SUFFIX_ALIASES = {"_sec": "_s", "_index": "_idx"}
+#: The comment that states an intentional break at its change site, excusing the edges on its
+#: line or in the statement it stands above.
+BREAK_MARK = "INTENTIONAL BREAK"
+
+
+def _boundary_suffix(name: str) -> Optional[str]:
+    """The longest suffix of ``BOUNDARY_SUFFIXES`` a name ends with, compared
+    case-insensitively and read through ``SUFFIX_ALIASES``; None when it carries none."""
+    lowered = name.lower()
+    for suffix in sorted(BOUNDARY_SUFFIXES, key=len, reverse=True):
+        if lowered.endswith(suffix):
+            return SUFFIX_ALIASES.get(suffix, suffix)
+    return None
+
+
+def _boundary_definitions(tree: ast.AST) -> Dict[str, List[Tuple[Tuple[str, ...],
+                                                                 FrozenSet[str]]]]:
+    """Each function or method name defined in one module, mapped to its distinct parameter
+    lists: the ordered positional parameters, without the receiver of a method that is not a
+    ``staticmethod`` whatever its name, and every parameter's name. A name defined twice with
+    the same lists appears once."""
+    receivers = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            for method in node.body:
+                if (isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef))
+                        and "staticmethod" not in {_final(d) for d in method.decorator_list}):
+                    receivers.add(method)
+    definitions: Dict[str, List[Tuple[Tuple[str, ...], FrozenSet[str]]]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        args = node.args
+        positional = [a.arg for a in list(args.posonlyargs) + list(args.args)]
+        skip = 1 if node in receivers and positional else 0
+        names = positional[skip:] + [a.arg for a in args.kwonlyargs]
+        entry = (tuple(positional[skip:]), frozenset(names))
+        lists = definitions.setdefault(node.name, [])
+        if entry not in lists:
+            lists.append(entry)
+    return definitions
+
+
+def _break_regions(source: str, tree: ast.AST) -> List[Tuple[int, int]]:
+    """The line spans an ``INTENTIONAL BREAK`` comment excuses: its own line when it trails
+    code, and the next statement when it stands alone -- only the header of a compound
+    statement, so a comment above a ``def`` or a block never excuses the body."""
+    lines = source.splitlines()
+    regions: List[Tuple[int, int]] = []
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    except (SyntaxError, tokenize.TokenError):
+        return regions
+    spans: Dict[int, int] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.stmt):
+            body = getattr(node, "body", None)
+            end = body[0].lineno - 1 if isinstance(body, list) and body else node.end_lineno
+            spans[node.lineno] = max(spans.get(node.lineno, node.lineno), end)
+    for token in tokens:
+        if not (token.type == tokenize.COMMENT and BREAK_MARK in token.string):
+            continue
+        line = token.start[0]
+        if lines[line - 1][:token.start[1]].strip():
+            regions.append((line, line))
+            continue
+        following = [start for start in spans if start > line]
+        if following:
+            start = min(following)
+            regions.append((start, spans[start]))
+    return regions
+
+
+def boundary_unit_scan(root: Path, python: Sequence[str]) -> Tuple[Dict[str, int],
+                                                                   List[List[str]]]:
+    """How many boundary edges the I3 rule examined, and each call in ``jnwb/`` that passes a
+    bare name whose suffix differs from the callee parameter's suffix, as sorted
+    [path:line, reason] pairs.
+
+    A definition is every function or method defined in a tracked ``.py`` file under
+    ``jnwb/``, by name, with its parameter names in order (``_boundary_definitions``). A call
+    whose callee -- a bare name or an attribute's own name, ``g`` in ``C().g`` -- names a
+    definition is read by
+    its arguments: an argument whose value is a bare ``Name`` whose suffix
+    (``BOUNDARY_SUFFIXES``, longest match) differs from the parameter's suffix at the same
+    keyword or position is a finding. A name defined more than once with different parameter
+    lists is skipped for positional arguments only; an argument that is an expression is the
+    conversion, not examined. A call on a line an ``INTENTIONAL BREAK`` comment holds, or in
+    the statement such a comment stands above (``_break_regions``), is excused and counted
+    apart.
+    """
+    files = [rel for rel in python if rel.startswith(JNWB_PACKAGE)]
+    definitions: Dict[str, List[Tuple[Tuple[str, ...], FrozenSet[str]]]] = {}
+    trees: Dict[str, ast.AST] = {}
+    for rel in files:
+        trees[rel] = ast.parse((root / rel).read_text(encoding="utf-8"))
+        for name, lists in _boundary_definitions(trees[rel]).items():
+            definitions.setdefault(name, []).extend(lists)
+    examined: Dict[str, int] = {"edges": 0, "excused": 0}
+    found: List[List[str]] = []
+    for rel in files:
+        regions = _break_regions((root / rel).read_text(encoding="utf-8"), trees[rel])
+        excused = lambda line: any(start <= line <= end for start, end in regions)  # noqa: E731
+        for node in ast.walk(trees[rel]):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            callee = func.attr if isinstance(func, ast.Attribute) else _final(func)
+            lists = definitions.get(callee)
+            if lists is None:
+                continue
+            for keyword in node.keywords:
+                param, value = keyword.arg, keyword.value
+                if param is None or not isinstance(value, ast.Name):
+                    continue
+                if not any(param in names for _, names in lists):
+                    continue
+                psuffix, vsuffix = _boundary_suffix(param), _boundary_suffix(value.id)
+                if psuffix is None or vsuffix is None:
+                    continue
+                examined["edges"] += 1
+                if psuffix == vsuffix or excused(value.lineno):
+                    if psuffix != vsuffix:
+                        examined["excused"] += 1
+                    continue
+                found.append([f"{rel}:{value.lineno}",
+                              f"{value.id} ({vsuffix}) reaches {callee}({param}) ({psuffix})"])
+            if len(lists) != 1:
+                continue  # ambiguous: positional arguments are skipped
+            positional = lists[0][0]
+            for index, arg in enumerate(node.args):
+                if index >= len(positional) or not isinstance(arg, ast.Name):
+                    continue
+                psuffix, vsuffix = _boundary_suffix(positional[index]), _boundary_suffix(arg.id)
+                if psuffix is None or vsuffix is None:
+                    continue
+                examined["edges"] += 1
+                if psuffix == vsuffix or excused(arg.lineno):
+                    if psuffix != vsuffix:
+                        examined["excused"] += 1
+                    continue
+                found.append([f"{rel}:{arg.lineno}",
+                              f"{arg.id} ({vsuffix}) reaches "
+                              f"{callee}({positional[index]}) ({psuffix})"])
+    return examined, sorted(found)
+
+
 # ------------------------------------------------------------------------ generated graph
 
 
@@ -2216,6 +2378,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
     choices_examined, choice_defaults = choice_default_scan(
         package, constants["B3 choice names"], exceptions)
     claim_examined, claim_labels = claim_class_scan(root, python)
+    boundary_examined, boundary_edges = boundary_unit_scan(root, python)
     references, cites, concerns = read_references(
         (root / "docs" / "references.md").read_text(encoding="utf-8"))
 
@@ -2241,6 +2404,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "signature_examined": signatures_examined,
             "choice_examined": choices_examined,
             "claim_examined": claim_examined,
+            "boundary_examined": boundary_examined,
         },
         "relations": {
             "implements": sorted(implements),
@@ -2257,6 +2421,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "signature_types": signature_types,
             "choice_defaults": choice_defaults,
             "claim_class_labels": claim_labels,
+            "boundary_units": boundary_edges,
             **scans,
         },
     }

@@ -1930,3 +1930,146 @@ def test_the_live_tree_examines_public_callables_for_signature_types(live):
     from jnwb import _declarations
     assert len(_declarations.DECLARATIONS) >= 33
     assert g["relations"]["signature_types"] == []
+
+
+# ------------------------------------------------------------------------ fact I3: named units
+
+PLANTED_BOUNDARY_HEAD = (
+    "def g(t_s):\n"
+    "    return t_s\n"
+    "\n"
+)
+
+
+def boundary_planted(tmp_path, body):
+    pkg = tmp_path / "jnwb"
+    pkg.mkdir(exist_ok=True)
+    (pkg / "planted.py").write_text(body, encoding="utf-8")
+    return build_fact_graph.boundary_unit_scan(tmp_path, ["jnwb/planted.py"])
+
+
+def test_a_mismatched_suffix_by_position_and_by_keyword_is_reported(tmp_path):
+    examined, found = boundary_planted(tmp_path, PLANTED_BOUNDARY_HEAD +
+        "def f(t_ms):\n"
+        "    return g(t_ms)\n"
+        "\n"
+        "def k(t_ms):\n"
+        "    return g(t_s=t_ms)\n")
+    assert examined["edges"] == 2, "both edges are examined"
+    assert [site for site, _ in found] == ["jnwb/planted.py:5", "jnwb/planted.py:8"]
+    assert all("t_ms (_ms) reaches g(t_s) (_s)" in reason for _, reason in found)
+
+
+def test_a_converted_argument_is_not_examined(tmp_path):
+    examined, found = boundary_planted(tmp_path, PLANTED_BOUNDARY_HEAD +
+        "def f(t_ms):\n"
+        "    return g(t_ms / 1000.0)\n"
+        "\n"
+        "def k(t_ms):\n"
+        "    return g(t_s=t_ms * 1e-3)\n")
+    assert examined == {"edges": 0, "excused": 0}
+    assert found == []
+
+
+def test_an_edge_whose_suffixes_agree_is_not_a_finding(tmp_path):
+    examined, found = boundary_planted(tmp_path, PLANTED_BOUNDARY_HEAD +
+        "def f(t_s):\n"
+        "    return g(t_s)\n")
+    assert examined["edges"] == 1
+    assert found == []
+
+
+def test_an_edge_an_intentional_break_states_is_excused_and_counted(tmp_path):
+    examined, found = boundary_planted(tmp_path, PLANTED_BOUNDARY_HEAD +
+        "def f(t_ms):\n"
+        "    return g(t_ms)  # INTENTIONAL BREAK: the callee reads milliseconds\n"
+        "\n"
+        "def k(t_ms):\n"
+        "    # INTENTIONAL BREAK: the callee reads milliseconds\n"
+        "    return g(t_ms)\n")
+    assert examined == {"edges": 2, "excused": 2}
+    assert found == []
+
+
+def test_a_base_suffix_mismatch_is_reported(tmp_path):
+    examined, found = boundary_planted(tmp_path,
+        "def h(ch_1based):\n"
+        "    return ch_1based\n"
+        "\n"
+        "def f(ch_idx):\n"
+        "    return h(ch_idx)\n")
+    assert examined["edges"] == 1
+    [site] = [site for site, _ in found]
+    assert site == "jnwb/planted.py:5"
+    [reason] = [reason for _, reason in found]
+    assert reason == "ch_idx (_idx) reaches h(ch_1based) (_1based)"
+
+
+def test_a_standalone_break_comment_excuses_only_the_next_statement(tmp_path):
+    examined, found = boundary_planted(tmp_path,
+        "# INTENTIONAL BREAK (0.2.10): an earlier change, stated at its site\n"
+        "LIMIT = 3\n"
+        "\n" + PLANTED_BOUNDARY_HEAD +
+        "def f(t_ms):\n"
+        "    # INTENTIONAL BREAK: the callee reads milliseconds\n"
+        "    a = g(t_ms)\n"
+        "    return g(t_ms)\n")
+    assert examined == {"edges": 2, "excused": 1}
+    assert [site for site, _ in found] == ["jnwb/planted.py:10"]
+
+
+def test_a_method_maps_positions_after_its_receiver_whatever_its_name(tmp_path):
+    examined, found = boundary_planted(tmp_path,
+        "class C:\n"
+        "    def g(this, t_s):\n"
+        "        return t_s\n"
+        "\n"
+        "    @staticmethod\n"
+        "    def h(t_s):\n"
+        "        return t_s\n"
+        "\n"
+        "def f(t_ms):\n"
+        "    return C().g(t_ms) + C.h(t_ms)\n")
+    assert examined["edges"] == 2
+    assert len(found) == 2, found
+
+
+def test_suffixes_that_spell_the_same_unit_or_base_agree(tmp_path):
+    examined, found = boundary_planted(tmp_path, PLANTED_BOUNDARY_HEAD +
+        "def f(t_sec):\n"
+        "    return g(t_sec)\n"
+        "\n"
+        "def h(ch_index):\n"
+        "    return ch_index\n"
+        "\n"
+        "def k(ch_idx):\n"
+        "    return h(ch_idx)\n")
+    assert examined["edges"] == 2, "both edges are examined"
+    assert found == [], found
+
+
+def test_the_boundary_units_predicate_reports_a_planted_finding():
+    g = {"entities": {"boundary_examined": {"edges": 1, "excused": 0}},
+         "relations": {"boundary_units": [["jnwb/a.py:3",
+                                           "t_ms (_ms) reaches g(t_s) (_s)"]]}}
+    found_status, reasons = status(g, "computed:boundary_units")
+    assert found_status == fact_gate.VIOLATED
+    assert reasons == ["computed:boundary_units: jnwb/a.py:3: t_ms (_ms) reaches g(t_s) (_s)"]
+    g["relations"]["boundary_units"] = []
+    assert status(g, "computed:boundary_units") == (fact_gate.HELD, [])
+
+
+def test_a_boundary_scan_that_examines_nothing_is_a_failure():
+    g = {"entities": {"boundary_examined": {"edges": 0, "excused": 0}},
+         "relations": {"boundary_units": []}}
+    found_status, reasons = status(g, "computed:boundary_units")
+    assert found_status == fact_gate.VIOLATED
+    assert reasons == ["computed:boundary_units: the graph examined no named-unit boundary "
+                       "edge, so no boundary could be checked"]
+
+
+def test_the_live_tree_examines_named_unit_boundaries(live):
+    _, g = live
+    examined = g["entities"]["boundary_examined"]
+    assert examined["edges"] > 0, "the live tree holds suffixed boundary edges to examine"
+    assert g["relations"]["boundary_units"] == [], g["relations"]["boundary_units"]
