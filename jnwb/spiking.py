@@ -68,8 +68,11 @@ def compute_response_metrics(
         - baseline_duration_s, response_duration_s: each window's length in seconds.
 
     Raises:
-        ValueError: a window whose start is at or after its stop, or an ``epoch_onsets``
-            entry that is not finite; the message names the index.
+        ValueError: a window whose start is at or after its stop; an ``epoch_onsets``
+            entry that is not finite (the message names the index); or a non-finite
+            ``spike_times`` entry (the message names how many spike times are non-finite --
+            they used to be dropped without a word, so a train with a NaN in it read as a
+            shorter clean one).
 
     Example:
         >>> metrics = compute_response_metrics(spike_times, epoch_onsets)
@@ -122,6 +125,15 @@ def compute_response_metrics(
 
     # Checked before the empty-train return, which would otherwise give every onset a zero row.
     refuse_nonfinite_times(epoch_onsets, "compute_response_metrics", "epoch_onsets")
+    st = np.asarray(spike_times, dtype=float).ravel()
+    n_nonfinite_spikes = int(np.count_nonzero(~np.isfinite(st)))
+    if n_nonfinite_spikes:
+        # A NaN spike time sorted past every finite spike and was selected by no window, so
+        # it was dropped without a word and the metrics read as if the train were shorter.
+        raise ValueError(
+            f"compute_response_metrics: {n_nonfinite_spikes} of {st.size} spike time(s) are "
+            "non-finite; drop or impute the non-finite spike times first."
+        )
     if len(epoch_onsets) == 0 or len(spike_times) == 0:
         return metrics
 
@@ -131,7 +143,7 @@ def compute_response_metrics(
 
     # Spike minus onset in each right-open window, by binary search on the sorted float64
     # train (`onset_window`, the rule `bin_spikes` and `fano_factor` use).
-    st = np.sort(np.asarray(spike_times, dtype=float), axis=None)
+    st = np.sort(st)
     onsets = np.asarray(epoch_onsets, dtype=float).ravel()
     b_lo, b_hi = onset_window(st, onsets, baseline_start, baseline_stop)
     r_lo, r_hi = onset_window(st, onsets, response_start, response_stop)
@@ -377,6 +389,13 @@ def phase_locking_index(
         ``peak_to_mean_contrast``, ``pli``, ``preferred_phase``, ``rayleigh_z`` and
         ``rayleigh_pvalue`` are NaN.
 
+    Raises:
+        ValueError: ``lfp_timestamps`` that are not strictly increasing; or a non-finite LFP
+            phase value at a spike's sample, or in the sample beside one that the
+            interpolation reaches (the message names how many spike phases came out
+            non-finite -- such a spike used to take a NaN phase, which made ``rayleigh_z``
+            NaN and ``rayleigh_pvalue`` 1.0 without a warning).
+
     Example:
         >>> res = phase_locking_index(spikes, lfp_phase, lfp_times)
         >>> print(f"Preferred phase: {res['preferred_phase']:.3f} (Rayleigh p={res['rayleigh_pvalue']:.4f})")
@@ -455,6 +474,17 @@ def phase_locking_index(
     cos_phase = np.interp(unit_spike_times, lfp_timestamps, np.cos(lfp_phase))
     sin_phase = np.interp(unit_spike_times, lfp_timestamps, np.sin(lfp_phase))
     spike_phases = np.arctan2(sin_phase, cos_phase)
+
+    # A non-finite LFP phase at a spike's sample, or in the sample beside it that the
+    # interpolation reaches, gave that spike a NaN phase: rayleigh_z NaN and
+    # rayleigh_pvalue 1.0, a null result read off a broken input, with no warning.
+    n_nonfinite_phase = int(np.count_nonzero(~np.isfinite(spike_phases)))
+    if n_nonfinite_phase:
+        raise ValueError(
+            f"phase_locking_index: {n_nonfinite_phase} of {spike_phases.size} spike phase(s) "
+            "are non-finite because the LFP phase holds a non-finite value at or beside "
+            "those spikes' samples; drop or impute the non-finite LFP phase samples first."
+        )
 
     # Phase histogram
     phase_hist, bin_edges = np.histogram(spike_phases, bins=n_bins, range=(-np.pi, np.pi))

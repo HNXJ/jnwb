@@ -1,0 +1,1 @@
+- `compute_response_metrics` refuses a non-finite spike time, naming how many spike times are non-finite; a NaN spike time used to be dropped without a word, so the metrics read as if the train were shorter (`jnwb/spiking.py`).

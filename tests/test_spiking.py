@@ -36,6 +36,20 @@ class TestComputeResponseMetrics:
         m = compute_response_metrics(spikes, np.array([0.0, 1.0]))
         assert m["response_count"] == 4 and m["response_counts"].tolist() == [2, 2]
 
+    def test_a_nan_spike_time_is_refused_not_dropped(self):
+        # A NaN spike time sorted past every finite spike and selected by no window, so it
+        # was dropped without a word and the metrics read as if the train were shorter.
+        # Refused the way a NaN onset is refused, with the count named.
+        rng = np.random.default_rng(11)
+        spikes = np.sort(rng.uniform(0.0, 10.0, 60))
+        onsets = np.arange(0.0, 10.0)
+        clean = compute_response_metrics(spikes, onsets)
+        with pytest.raises(ValueError, match=r"compute_response_metrics: 3 of 63 spike time"):
+            compute_response_metrics(np.sort(np.concatenate([spikes, [np.nan] * 3])), onsets)
+        with pytest.raises(ValueError, match=r"compute_response_metrics: 1 of 61 spike time"):
+            compute_response_metrics(np.concatenate([spikes, [np.nan]]), onsets)
+        assert compute_response_metrics(spikes, onsets)["response_count"] == clean["response_count"]
+
     def test_known_rates_computed_exactly(self):
         # 2 spikes per trial in baseline window (-0.25,-0.05 -> 0.2s), 4 spikes per trial in
         # response window (0.0,0.15 -> 0.15s), across 3 trials.
@@ -357,6 +371,37 @@ class TestPhaseLockingIndex:
             phase_locking_index(spikes, lfp_phase, lfp_timestamps)
         with pytest.raises(ValueError, match="lfp_timestamps"):
             phase_locking_index(np.array([]), lfp_phase, lfp_timestamps)
+
+    def test_a_nonfinite_phase_at_a_spike_sample_is_refused(self):
+        """A NaN LFP phase at a spike's sample gave that spike a NaN phase, so rayleigh_z
+        came out NaN and rayleigh_pvalue 1.0 -- a null result read off a broken input,
+        with no warning. Refused, with the count of lost spikes named."""
+        lfp_timestamps = np.linspace(0, 10, 10000)
+        lfp_phase = np.mod(2 * np.pi * 5 * lfp_timestamps, 2 * np.pi) - np.pi
+        spikes = np.arange(1, 50) * 0.2
+        base = phase_locking_index(spikes, lfp_phase, lfp_timestamps)
+        assert base["rayleigh_pvalue"] < 1e-10  # the train is locked, not a null
+
+        bad = lfp_phase.copy()
+        bad[np.searchsorted(lfp_timestamps, spikes[3])] = np.nan
+        with pytest.raises(ValueError, match=r"phase_locking_index: 1 of 49 spike phase"):
+            phase_locking_index(spikes, bad, lfp_timestamps)
+
+    def test_a_nonfinite_phase_clear_of_the_spikes_changes_nothing(self):
+        """A NaN phase at an LFP sample no spike reads, near or far, leaves every returned
+        value unchanged."""
+        lfp_timestamps = np.linspace(0, 10, 10000)
+        lfp_phase = np.mod(2 * np.pi * 5 * lfp_timestamps, 2 * np.pi) - np.pi
+        spikes = np.arange(1, 50) * 0.2
+        base = phase_locking_index(spikes, lfp_phase, lfp_timestamps)
+        bad = lfp_phase.copy()
+        bad[7300] = np.nan  # t = 7.30 s; the nearest spikes are at 7.2 and 7.4 s
+        contaminated = phase_locking_index(spikes, bad, lfp_timestamps)
+        assert contaminated["rayleigh_z"] == base["rayleigh_z"]
+        assert contaminated["rayleigh_pvalue"] == base["rayleigh_pvalue"]
+        assert contaminated["peak_to_mean_contrast"] == base["peak_to_mean_contrast"]
+        assert contaminated["preferred_phase"] == base["preferred_phase"]
+        assert np.array_equal(contaminated["phase_hist"], base["phase_hist"])
 
 
 class TestPairwisePhaseConsistency:
