@@ -34,8 +34,8 @@ METHOD (cross-trial-median substitution on trial segments)
          repair_band_artifacts, not a temporal interpolation. For every flagged (trial, time),
          ALL channels at that time index are replaced by this cross-trial median. Substitution,
          not exclusion: the trial is kept.
-    Operates on the (n_trials, n_channels, n_times) contract directly. n_trials < 5 disables
-    repair (cross-trial median undefined at low replicate count).
+    Operates on the (n_trials, n_channels, n_times) contract directly. n_trials < 5 is
+    refused (cross-trial median undefined at low replicate count).
 
 UNIT TEST: see `if __name__ == "__main__"` below -- synthetic array with an injected cross-channel
 spike, checked before trusting on real data.
@@ -153,8 +153,9 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
     reward_window_ms : (float, float) or None, optional
         Deprecated alias for exclude_window_ms.
     min_trials : int
-        Below this many trials, the cross-trial median is not meaningful; input is
-        returned unchanged (matches repair_band_artifacts's n_trials < 5 guard).
+        Below this many trials the cross-trial median is not meaningful, so a
+        ValueError naming the minimum and the count given is raised (this was
+        once a silent pass-through of the untouched input).
     max_trial_fraction : float or None
         A time sample flagged on more than this fraction of trials is treated as
         time-locked signal, not artifact, and is never substituted. Default 0.5; pass
@@ -188,6 +189,12 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
         max_trial_fraction, n_time_locked_samples_protected,
         max_fraction_trials_flagged_at_a_sample, warnings.
 
+    Raises
+    ------
+    ValueError
+        If ``segments`` is not 3-D, contains NaN or Inf, or holds fewer than
+        ``min_trials`` trials.
+
     References:
         Leys, C., et al. (2013). Detecting outliers: do not use standard
         deviation around the mean, use absolute deviation around the median.
@@ -211,6 +218,11 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
     segments = np.asarray(segments, dtype=np.float64)
     if segments.ndim != 3:
         raise ValueError(f"segments must be (n_trials, n_channels, n_times), got shape {segments.shape}")
+    if not np.all(np.isfinite(segments)):
+        # A NaN hid its own trial's artifact behind a nan synchrony score and wrote NaN
+        # into the repaired values of other trials, both silently.
+        n_bad = int((~np.isfinite(segments)).sum())
+        raise ValueError(f"segments contains {n_bad} NaN or Inf values; repair or drop those cells first")
     n_trials, n_channels, n_times = segments.shape
 
     diagnostics = {
@@ -224,8 +236,10 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
         "warnings": [],
     }
     if n_trials < min_trials:
-        diagnostics["skipped_reason"] = f"n_trials < min_trials ({n_trials} < {min_trials})"
-        return segments.copy(), 0.0, diagnostics
+        raise ValueError(
+            f"repair_lfp_trials needs at least {min_trials} trials for a cross-trial "
+            f"median; got {n_trials}"
+        )
 
     # ---- per-trial, per-channel robust z over time -------------------------------------------
     med_t = np.median(segments, axis=2, keepdims=True)                       # (trials, ch, 1)

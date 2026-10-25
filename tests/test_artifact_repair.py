@@ -55,11 +55,25 @@ class TestRepairLfpTrials:
         assert diag["reward_window_ms"] is None
         assert diag["reward_excluded_cells"] == 0
 
-    def test_below_min_trials_returns_input_unchanged(self):
-        base = self._synthetic()[:3]
-        repaired, frac, diag = repair_lfp_trials(base, min_trials=5)
-        assert frac == 0.0
-        assert np.array_equal(repaired, base)
+    def test_nonfinite_segments_raise_value_error_naming_the_count(self):
+        base = self._synthetic()
+        base[3, 2, 50] = np.nan
+        base[4, 0, 7] = np.inf
+        with pytest.raises(ValueError, match=r"contains 2 NaN or Inf"):
+            repair_lfp_trials(base)
+
+    def test_below_min_trials_raises_naming_the_minimum_and_the_count(self):
+        base = self._synthetic()[:4]
+        with pytest.raises(ValueError, match=r"at least 5 trials.*got 4"):
+            repair_lfp_trials(base)
+
+    def test_exactly_five_trials_still_run(self):
+        rng = np.random.default_rng(2)
+        seg = rng.standard_normal((5, 4, 100))
+        seg[2, :, 50] += 40.0  # cross-channel synchronous spike
+        repaired, _, diag = repair_lfp_trials(seg)
+        assert diag["n_flagged_cells"] > 0
+        assert np.abs(repaired[2, :, 50] - seg[2, :, 50]).max() > 1.0
 
     def test_rejects_non_3d_input(self):
         with pytest.raises(ValueError):
