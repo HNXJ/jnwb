@@ -1608,6 +1608,158 @@ def test_the_live_scan_examines_every_public_callable():
     assert examined > 0
 
 
+# ------------------------------------------------------------------------ fact S8: claim classes
+
+CLAIM_TABLE = (
+    "| Claim | What it states | What jnwb estimates it with | What it does not license |\n"
+    "|---|---|---|---|\n"
+    "| Magnitude | how strongly two signals are coupled, without a sign | correlation, "
+    "mutual information, `cross_area_coherence`, `wpli` | a direction |\n"
+    "| Direction | which signal leads, as a lag asymmetry | `granger`, `phase_slope_index`, "
+    "`transfer_entropy`, the sign of `imaginary_coherency` | a delay |\n"
+)
+
+
+def planted_claim_root(tmp_path, table=CLAIM_TABLE):
+    """A root whose docs page holds the claim table, so the scan reads its estimators there."""
+    docs = tmp_path / "docs"
+    docs.mkdir(exist_ok=True)
+    (docs / "architecture.md").write_text(f"## Claims\n\n{table}\n", encoding="utf-8")
+    return tmp_path
+
+
+PLANTED_LABELS = (
+    "import matplotlib.pyplot as plt\n"
+    "\n"
+    "fig, ax = plt.subplots()\n"
+    "ax2 = fig.add_subplot()\n"
+    "ax2.set_ylabel(\"Phase Slope (rad/Hz)\")\n"
+    "ax.set_ylabel(\"PSI per frequency bin (dimensionless)\")\n"
+    "ax.set_title(\"wPLI delay map\")\n"
+    "ax.set_title(\"zFLIP delay\")\n"
+    "ax.set_title(\"Spectral Granger causality\")\n"
+    "ax.set_title(\"Granger: X drives Y\")\n"
+)
+
+
+def reported_lines(found):
+    """The line numbers the scan's findings name, keyed to their reasons."""
+    return {int(reason.split()[1].rstrip(":")): reason for _, reason in found
+            if reason.startswith("line ")}
+
+
+def test_a_label_naming_an_estimator_beside_a_higher_term_is_reported(tmp_path):
+    root = planted_claim_root(tmp_path)
+    (root / "fig.py").write_text(PLANTED_LABELS, encoding="utf-8")
+    examined, found = build_fact_graph.claim_class_scan(root, ["fig.py"])
+    assert examined == {"labels": 6, "units": 0}, "every label is examined; no file is under jnwb/"
+    by_line = reported_lines(found)
+    assert sorted(by_line) == [5, 7, 10], by_line
+    assert "Phase Slope (rad/Hz)" in by_line[5] and "phase_slope_index" in by_line[5] \
+        and "rad/Hz" in by_line[5]
+    assert "wPLI delay map" in by_line[7] and "wpli" in by_line[7] and "delay" in by_line[7]
+    assert "Granger: X drives Y" in by_line[10] and "granger" in by_line[10] \
+        and "drives" in by_line[10]
+
+
+def test_a_label_without_an_estimator_or_without_a_higher_term_is_not_reported(tmp_path):
+    root = planted_claim_root(tmp_path)
+    (root / "fig.py").write_text(PLANTED_LABELS, encoding="utf-8")
+    _, found = build_fact_graph.claim_class_scan(root, ["fig.py"])
+    reported = " ".join(reason for _, reason in found)
+    assert "PSI per frequency bin" not in reported, "dimensionless is no delay unit"
+    assert "zFLIP" not in reported, "zflip is no magnitude or direction estimator"
+    assert "Spectral Granger causality" not in reported, "the method name is no causal claim"
+
+
+PLANTED_DIRECTION_MODULE = (
+    "class DirectedResult:\n"
+    "    def __init__(self, value, unit=\"dimensionless\"):\n"
+    "        self.unit = unit\n"
+    "\n"
+    "def phase_slope_index(lfp):\n"
+    "    return DirectedResult(1.0, unit=\"dimensionless\")\n"
+    "\n"
+    "delayed = DirectedResult(1.0, unit=\"rad/Hz\")\n"
+    "counted = DirectedResult(1.0, unit=\"bits\")\n"
+)
+PLANTED_UNOWNED_MODULE = (
+    "class DirectedResult:\n"
+    "    pass\n"
+    "\n"
+    "delayed = DirectedResult(1.0, unit=\"rad/Hz\")\n"
+)
+
+
+def test_a_planted_unit_literal_in_a_module_defining_an_estimator_is_reported(tmp_path):
+    root = planted_claim_root(tmp_path)
+    (root / "jnwb").mkdir()
+    (root / "jnwb" / "planted.py").write_text(PLANTED_DIRECTION_MODULE, encoding="utf-8")
+    examined, found = build_fact_graph.claim_class_scan(root, ["jnwb/planted.py"])
+    assert examined["units"] == 3, "every unit literal of a *Result call is examined"
+    [reason] = [reason for _, reason in found]
+    assert "unit 'rad/Hz'" in reason and "phase_slope_index" in reason
+    assert "bits" not in reason, "bits is neither a delay unit nor an inference word"
+
+
+def test_a_unit_literal_outside_a_defining_module_is_not_reported(tmp_path):
+    root = planted_claim_root(tmp_path)
+    (root / "jnwb").mkdir()
+    (root / "jnwb" / "other.py").write_text(PLANTED_UNOWNED_MODULE, encoding="utf-8")
+    examined, found = build_fact_graph.claim_class_scan(root, ["jnwb/other.py"])
+    assert examined["units"] == 1, "the literal is examined wherever it sits"
+    assert found == [], "the module defines no estimand's estimator"
+
+
+@pytest.mark.parametrize("page", [None, "## Other\n\nno claim table here\n",
+                                  CLAIM_TABLE.split("| Direction")[0]],
+                         ids=["no page", "no table", "no direction row"])
+def test_a_missing_claim_table_or_row_raises(tmp_path, page):
+    root = planted_claim_root(tmp_path, page) if page is not None else tmp_path
+    with pytest.raises(ValueError, match="claim table|estimand row"):
+        build_fact_graph.claim_class_scan(root, [])
+
+
+def test_a_short_name_whose_estimator_is_in_neither_row_is_stale(tmp_path):
+    reduced = CLAIM_TABLE.replace(
+        "`granger`, `phase_slope_index`, `transfer_entropy`, the sign of `imaginary_coherency`",
+        "`granger`")
+    root = planted_claim_root(tmp_path, reduced)
+    examined, found = build_fact_graph.claim_class_scan(root, [])
+    assert examined == {"labels": 0, "units": 0}
+    stale = sorted(reason.split("'")[1] for _, reason in found if reason.endswith(": stale"))
+    assert stale == ["icoh", "imaginary coherency", "phase slope", "psi", "te",
+                     "transfer entropy"]
+
+
+def test_the_claim_class_labels_predicate_is_violated_by_a_planted_finding():
+    g = {"entities": {"claim_examined": {"labels": 1, "units": 1}},
+         "relations": {"claim_class_labels": [["jnwb/a.py", "line 3: planted"]]}}
+    found_status, reasons = status(g, "computed:claim_class_labels")
+    assert found_status == fact_gate.VIOLATED
+    assert reasons == ["computed:claim_class_labels: jnwb/a.py: line 3: planted"]
+    g["relations"]["claim_class_labels"] = []
+    assert status(g, "computed:claim_class_labels") == (fact_gate.HELD, [])
+
+
+@pytest.mark.parametrize("examined", [{}, {"labels": 0, "units": 0}],
+                         ids=["no counts", "zero counts"])
+def test_a_claim_class_scan_that_examines_nothing_is_a_failure(examined):
+    g = {"entities": {"claim_examined": examined}, "relations": {"claim_class_labels": []}}
+    found_status, reasons = status(g, "computed:claim_class_labels")
+    assert found_status == fact_gate.VIOLATED
+    assert reasons == ["computed:claim_class_labels: the graph examined no label or unit "
+                       "literal, so no claim class could be checked"]
+
+
+def test_the_live_tree_examines_labels_and_unit_literals_for_claim_classes(live):
+    _, g = live
+    examined = g["entities"]["claim_examined"]
+    assert examined["labels"] > 0, "the live tree holds figure labels to examine"
+    assert examined["units"] > 0, "the live tree holds *Result unit literals to examine"
+    assert g["relations"]["claim_class_labels"] == [], g["relations"]["claim_class_labels"]
+
+
 def test_a_planted_signal_callable_with_no_declaration_is_reported(monkeypatch):
     signature_declarations(monkeypatch, {})
     examined, found = build_fact_graph.signature_types_scan(

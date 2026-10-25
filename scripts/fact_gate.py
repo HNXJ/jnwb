@@ -82,6 +82,12 @@ Computed predicates:
                    its parameters show, and no declared caller reaches a declared callable of
                    a wider class (the graph's ``signature_types``); an examined count of zero
                    is a failure
+  claim_class_labels  no figure label, and no ``unit=`` literal of a call whose callee's name
+                   ends in ``Result`` in ``jnwb/``, names a magnitude or direction estimand of
+                   the claim table in ``docs/architecture.md`` while holding a term of a higher
+                   claim class -- a delay unit or delay word, or an inference word read after
+                   the method name "Granger causality" is removed (the graph's
+                   ``claim_class_labels``); an examined count of zero is a failure
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -331,6 +337,15 @@ def signature_types(graph: Graph, constants: Constants) -> List[str]:
     return [f"{name}: {reason}" for name, reason in graph["relations"]["signature_types"]]
 
 
+def claim_class_labels(graph: Graph, constants: Constants) -> List[str]:
+    """Each figure label or ``*Result`` unit literal that names a magnitude or direction
+    estimand while holding a term of a higher claim class, and the failure of a scan that
+    examined no label and no unit literal."""
+    if not sum(graph["entities"].get("claim_examined", {}).values()):
+        return ["the graph examined no label or unit literal, so no claim class could be checked"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["claim_class_labels"]]
+
+
 def routed_citations(graph: Graph, constants: Constants) -> List[str]:
     """Each distinct routed export with no ``cites`` edge that the ruled exclusion list does
     not name. The check is that no routed export goes uncited unless it is on the recorded
@@ -365,6 +380,7 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "wrapper_defaults": wrapper_defaults,
     "choice_defaults": choice_defaults,
     "signature_types": signature_types,
+    "claim_class_labels": claim_class_labels,
 }
 
 
