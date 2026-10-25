@@ -82,6 +82,7 @@ gallery_src/
 !artifacts/benchmarks/*/*.json
 !examples/data/*.provenance.json
 !artifacts/process/frozen_validated.json
+!artifacts/process/public_surface.json
 !artifacts/evidence/0.2.13/vflip2_oracle.json
 !artifacts/evidence/0.2.13/vflip2_recovery.json
 !artifacts/evidence/0.2.13/compress_scaling.json
