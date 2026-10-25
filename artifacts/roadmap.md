@@ -30,6 +30,9 @@ Items that hold UNHELD facts; signature types before the scans and holder fixes.
 | ID | Theme | Defect | Waits | Release |
 |---|---|---|---|---|
 | 17-03 | Declared types on the remaining numeric operations | Fact I4 is UNHELD: only the operations whose parameter names show spikes or LFP declare signal types (`jnwb/_declarations.py`); generic-input operations such as `granger_causality`, `directed_network` and `imaginary_coherency` take either class and declare nothing | A per-call class for generic inputs; nothing shipped changes. Split from I1 (ruled 2026-10-24). | deferred-0.2.15 |
+| 17-04 | The deprecated time windows become required | `UnitAnalyzer.psth`/`raster` `window_ms` and `build_time_resolved_matrix`/`compute_population_trajectory` `time_window_ms` warn when omitted and still use (-1000, 2000) ms (`jnwb/_units.py` `omitted_window`); four B3 exceptions rows cite the deprecation | The 0.2.15 cycle: drop the default and the warning, delete the four rows. Ruled 2026-10-24. | deferred-0.2.15 |
+| 17-05 | B3's lexicon covers the other choice names | The lexicon holds time windows only (ruled 2026-10-24); defaulted role windows (`response_window`, `response_window_s`, `sink_window_ms`, `exclude_window_ms`, `reward_window_ms`), baselines, bands, bins, segments, null sizes and method names go unchecked | A ruling per name group on which defaults a source cites; nothing shipped changes | deferred-0.2.15 |
+| 17-06 | Required windows become keyword-only | Six public functions take a required window positionally (`fano_factor`, `network_burst_index`, `spike_count_correlation`, `fire_indicator`, `fires_in_window`, `rate_in_window`); B3 dropped "keyword-only" (ruled 2026-10-25) | A deprecation path for positional callers | deferred-0.2.15 |
 
 ## Public API
 
