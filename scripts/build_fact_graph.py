@@ -1677,12 +1677,14 @@ HIGHER_CLASS_TERMS: Dict[str, Dict[str, Tuple[str, ...]]] = {
                         "um/s"),
               "words": ("delay", "latency", "velocity")},
     "inference": {"words": ("cause", "causes", "caused", "causing", "causal", "causality",
-                            "drive", "drives", "driven", "driving", "driver", "drivers")},
+                            "causation", "causally", "drive", "drives", "driven", "driving",
+                            "driver", "drivers")},
 }
-#: The calls whose first argument, or whose ``label``/``title``/``xlabel``/``ylabel`` keyword,
-#: the label rule reads as a figure label.
+#: The calls whose positional arguments, or whose ``label``/``title``/``xlabel``/``ylabel``
+#: keyword, the label rule reads as a figure label; ``panel_title`` is the docs figures' title
+#: wrapper (``docs/figure_style.py``) and ``set`` is ``Axes.set``.
 LABEL_CALLEES = ("set_xlabel", "set_ylabel", "set_title", "xlabel", "ylabel", "title",
-                 "suptitle", "set_label", "text",
+                 "panel_title", "set", "suptitle", "set_label", "text",
                  "annotate", "legend", "colorbar", "plot", "scatter", "bar", "errorbar",
                  "fill_between", "axhline", "axvline", "step", "hist")
 #: The label keywords the rule reads, beside a call's first argument.
@@ -1773,8 +1775,9 @@ def _literal_text(node: ast.AST, names: Optional[Dict[str, str]] = None) -> Opti
     if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
             and node.func.attr == "format"):
         return _literal_text(node.func.value, names)
-    if isinstance(node, (ast.List, ast.Tuple)):
-        parts = [_literal_text(element, names) for element in node.elts]
+    if isinstance(node, (ast.List, ast.Tuple, ast.IfExp)):
+        elements = node.elts if not isinstance(node, ast.IfExp) else [node.body, node.orelse]
+        parts = [_literal_text(element, names) for element in elements]
         if any(part is not None for part in parts):
             return " | ".join(part for part in parts if part is not None)
     if isinstance(node, ast.Name) and names:
@@ -1784,22 +1787,29 @@ def _literal_text(node: ast.AST, names: Optional[Dict[str, str]] = None) -> Opti
 
 def _bound_names(tree: ast.AST) -> Dict[str, str]:
     """Each name an assignment anywhere in a module binds to string text, mapped to every such
-    text joined, so a term in any binding is read wherever the name is used."""
-    bound: Dict[str, List[str]] = {}
+    text joined, so a term in any binding is read wherever the name is used. A name bound to
+    another name takes that name's text; chains resolve up to the module's assignment count."""
+    assignments = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
-            targets, value = node.targets, node.value
+            assignments.append((node.targets, node.value))
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)) and node.value is not None:
-            targets, value = [node.target], node.value
-        else:
-            continue
-        text = _literal_text(value)
-        if text is None:
-            continue
-        for target in targets:
-            if isinstance(target, ast.Name):
-                bound.setdefault(target.id, []).append(text)
-    return {name: " | ".join(texts) for name, texts in bound.items()}
+            assignments.append(([node.target], node.value))
+    names: Dict[str, str] = {}
+    for _ in range(len(assignments) + 1):
+        bound: Dict[str, List[str]] = {}
+        for targets, value in assignments:
+            text = _literal_text(value, names)
+            if text is None:
+                continue
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    bound.setdefault(target.id, []).append(text)
+        resolved = {name: " | ".join(texts) for name, texts in bound.items()}
+        if resolved == names:
+            break
+        names = resolved
+    return names
 
 
 def _label_sites(tree: ast.Module) -> List[Tuple[int, str]]:

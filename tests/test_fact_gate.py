@@ -1713,6 +1713,25 @@ def test_label_shapes_that_hide_a_higher_term_are_reported(tmp_path):
     assert examined["labels"] >= 8
 
 
+PLANTED_LABEL_WRAPPERS = (
+    "BASE = \"wpli delay\"\n"
+    "ALIAS = BASE\n"
+    "CHOSEN = \"PSI lag\" if True else \"PSI latency\"\n"
+    "style.panel_title(ax, \"A\", \"wPLI delay map\")\n"
+    "ax.set(xlabel=\"Granger drives\", ylabel=\"power\")\n"
+    "ax.set_title(ALIAS)\n"
+    "ax.set_title(CHOSEN)\n"
+    "ax.set_title(\"wPLI causation map\")\n"
+)
+
+
+def test_the_title_wrapper_axes_set_aliases_and_branches_are_read(tmp_path):
+    root = planted_claim_root(tmp_path)
+    (root / "fig.py").write_text(PLANTED_LABEL_WRAPPERS, encoding="utf-8")
+    _, found = build_fact_graph.claim_class_scan(root, ["fig.py"])
+    assert sorted(reported_lines(found)) == [4, 5, 6, 7, 8], reported_lines(found)
+
+
 def test_a_unit_held_in_a_module_constant_is_reported(tmp_path):
     root = planted_claim_root(tmp_path)
     (root / "jnwb").mkdir()
