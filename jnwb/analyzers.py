@@ -17,6 +17,7 @@ from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_devi
 from ._bins import (bins_within, onset_locked_counts, onset_window, refuse_nonfinite_times,
                     whole_bin_count)
 from ._dictlike import RenamedKeyDict
+from ._units import omitted_window
 from .trajectory import _kept_components
 import pandas as pd
 from scipy import stats
@@ -318,14 +319,15 @@ class UnitAnalyzer:
 
     @staticmethod
     def raster(spike_times: np.ndarray, trial_onsets: np.ndarray,
-               window_ms: Tuple[float, float] = (-1000, 2000)) -> Dict:
+               window_ms: Optional[Tuple[float, float]] = None) -> Dict:
         """
         Prepare spike raster aligned to trial onsets.
 
         Args:
             spike_times: Spike times in seconds
             trial_onsets: Trial start times in seconds
-            window_ms: (pre_ms, post_ms) relative to onset
+            window_ms: (pre_ms, post_ms) relative to onset. Required from 0.2.15; left out,
+                it is (-1000, 2000) with a ``FutureWarning``.
 
         Returns:
             Dict with raster data for plotting
@@ -333,6 +335,8 @@ class UnitAnalyzer:
         Raises:
             ValueError: If a ``trial_onsets`` entry is not finite; the message names its index.
         """
+        window_ms = omitted_window(window_ms, (-1000, 2000), name="window_ms",
+                                   func_name="UnitAnalyzer.raster")
         refuse_nonfinite_times(trial_onsets, "UnitAnalyzer.raster", "trial_onsets")
         win_sec = (window_ms[0] / 1000, window_ms[1] / 1000)
         raster_data = []
@@ -358,7 +362,7 @@ class UnitAnalyzer:
     @staticmethod
     def psth(spike_times: np.ndarray, trial_onsets: np.ndarray,
              bin_size_ms: float = 10,
-             window_ms: Tuple[float, float] = (-1000, 2000)) -> Dict:
+             window_ms: Optional[Tuple[float, float]] = None) -> Dict:
         """
         Peristimulus time histogram with bootstrap CI.
 
@@ -375,7 +379,8 @@ class UnitAnalyzer:
             trial_onsets: Trial start times in seconds
             bin_size_ms: Bin size in milliseconds
             window_ms: (pre_ms, post_ms) relative to onset. Its span must be a whole number
-                of ``bin_size_ms`` bins.
+                of ``bin_size_ms`` bins. Required from 0.2.15; left out, it is (-1000, 2000)
+                with a ``FutureWarning``.
 
         Returns:
             Dict with PSTH, CI, and statistics. With no onsets there is no trial to average:
@@ -387,6 +392,8 @@ class UnitAnalyzer:
                 ``bin_size_ms``; the message names the nearest valid windows. Also if a
                 ``trial_onsets`` entry is not finite; the message names its index.
         """
+        window_ms = omitted_window(window_ms, (-1000, 2000), name="window_ms",
+                                   func_name="UnitAnalyzer.psth")
         refuse_nonfinite_times(trial_onsets, "UnitAnalyzer.psth", "trial_onsets")
         n_bins   = whole_bin_count(window_ms, bin_size_ms, "UnitAnalyzer.psth", "window_ms",
                                    width_param="bin_size_ms")

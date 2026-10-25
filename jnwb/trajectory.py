@@ -13,6 +13,7 @@ import pandas as pd
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._bins import bin_edges, refuse_nonfinite_times, right_open_counts, whole_bin_count
 from ._spread import zscore
+from ._units import omitted_window
 from .gpu_pca import _svd_numpy, pin_component_signs
 
 log = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ def build_time_resolved_matrix(
     session,
     area: str,
     epochs_df: pd.DataFrame,
-    time_window_ms: Tuple[float, float] = (-1000.0, 2000.0),
+    time_window_ms: Optional[Tuple[float, float]] = None,
     bin_size_ms: float = 20.0,
     quality: Optional[str] = None
 ) -> Tuple[np.ndarray, List[int], np.ndarray]:
@@ -37,6 +38,7 @@ def build_time_resolved_matrix(
         time_window_ms: (start_ms, end_ms) relative to epoch onset. Its span must be a whole
             number of ``bin_size_ms`` bins. Every bin is right-open, as in
             :func:`jnwb.bin_spikes`, so a spike on ``end_ms`` is outside the window.
+            Required from 0.2.15; left out, it is (-1000, 2000) with a ``FutureWarning``.
         bin_size_ms: Width of time bins in ms
         quality: Filter units by quality tier ('stable_plus', 'stable', etc.)
 
@@ -51,6 +53,8 @@ def build_time_resolved_matrix(
             ``bin_size_ms``; the message names the nearest valid windows. Also if a
             ``start_time`` is not finite; the message names its index.
     """
+    time_window_ms = omitted_window(time_window_ms, (-1000.0, 2000.0), name="time_window_ms",
+                                    func_name="build_time_resolved_matrix")
     n_bins = whole_bin_count(time_window_ms, bin_size_ms, "build_time_resolved_matrix",
                              "time_window_ms", width_param="bin_size_ms")
     start_sec = time_window_ms[0] / 1000.0
@@ -93,7 +97,7 @@ def compute_population_trajectory(
     session,
     area: str,
     epochs_df: pd.DataFrame,
-    time_window_ms: Tuple[float, float] = (-1000.0, 2000.0),
+    time_window_ms: Optional[Tuple[float, float]] = None,
     bin_size_ms: float = 20.0,
     n_components: int = 3,
     quality: Optional[str] = None,
@@ -116,7 +120,8 @@ def compute_population_trajectory(
         session: session object exposing ``get_units`` and ``get_spike_times``
         area: Brain area to decode from
         epochs_df: DataFrame of trials/epochs (must have 'start_time')
-        time_window_ms: Time window in ms relative to onset
+        time_window_ms: Time window in ms relative to onset. Required from 0.2.15; left
+            out, it is (-1000, 2000) with a ``FutureWarning``.
         bin_size_ms: Width of time bins in ms
         n_components: Number of PCA components to keep
         quality: Filter units by quality tier
@@ -160,6 +165,8 @@ def compute_population_trajectory(
         rate), not covariance PCA; the review surveys the method rather than
         specifying this pipeline.
     """
+    time_window_ms = omitted_window(time_window_ms, (-1000.0, 2000.0), name="time_window_ms",
+                                    func_name="compute_population_trajectory")
     X, unit_ids, bin_centers = build_time_resolved_matrix(
         session, area, epochs_df, time_window_ms, bin_size_ms, quality
     )

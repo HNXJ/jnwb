@@ -13,9 +13,10 @@ disagreeing values is an error rather than a silent precedence rule.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
-__all__ = ["resolve_unit_alias"]
+__all__ = ["omitted_window", "resolve_unit_alias"]
 
 
 _MISSING = object()
@@ -67,3 +68,19 @@ def resolve_unit_alias(
     raise ValueError(
         f"{func_name} requires {canonical_name} (or its alias {alias_name})."
     )
+
+
+def omitted_window(value: Any, old_default: Any, *, name: str, func_name: str) -> Any:
+    """``value``, or ``old_default`` with a FutureWarning when the caller left it out.
+
+    A time window that defaulted to a span no source cites becomes required in 0.2.15;
+    until then the omitted window keeps its old value and the warning says to pass it.
+    """
+    if value is not None:
+        return value
+    warnings.warn(
+        f"{func_name}: {name} will be required in 0.2.15; pass it explicitly. "
+        f"The old default {old_default!r} is used for now.",
+        FutureWarning, stacklevel=3,
+    )
+    return old_default

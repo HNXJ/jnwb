@@ -1,0 +1,2 @@
+- `UnitAnalyzer.psth` and `raster` warn when `window_ms` is omitted; required in 0.2.15 (`jnwb/analyzers.py`).
+- Population trajectories warn when `time_window_ms` is omitted; required in 0.2.15 (`jnwb/trajectory.py`).
