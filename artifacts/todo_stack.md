@@ -47,7 +47,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
 | 2 | N numerics and I/O (audit 2026-10-25) | by file set, in order: 17-10, 17-23; 17-11, 17-49; 17-13, 17-47; 17-21, 17-51; 17-25, 17-42, 17-50; 17-12, 17-17, 17-46; then 17-14, 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
-| 2 | P process and docs (audit 2026-10-25) | 17-09, 17-15, 17-34, 17-36, 17-37, 17-39, 17-40 | Haiku writes, Muse reviews | nothing |
+| 2 | P process and docs (audit 2026-10-25) | 17-15, 17-34, 17-36 | Haiku writes, Muse reviews | nothing |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-28 then 17-32; 17-27, 17-29, 17-30, 17-33, 17-53 | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
@@ -204,13 +204,6 @@ Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutan
 ## Audit of 2026-10-25
 
 The items below come from the open stack of 2026-10-25 (`git show e00e8664:artifacts/open_stack.md`; the O- number in each source line traces a row to its probe). Each fix starts with a test that fails on the current code. Rulings: `artifacts/rulings/2026-10-25.md`.
-
-### 17-09 Changelog lines for the 0.2.14 exports
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `artifacts/changelog.d/*.md`.
-- 17-09: nine exports added since v0.2.13 have no changelog line: `cache_key`, `cache_store`, `cache_load`, `cache_clear`, `NWBMutationError`, `AmbiguousMappingError`, `NWBVerificationError`, `UndeclaredUnitError`, `UnidentifiableRepairError` (checklist row 1). Check: every name in `jnwb.__all__` absent from `v0.2.13`'s appears in a fragment; a test compares the two lists. Source: O-1.
 
 ### 17-10 `phase_locking_index` refuses a non-finite phase at a spike
 
@@ -491,27 +484,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `artifacts/rulings/standing.md` (Hamm reviews).
 - 17-36: `standing.md` reads "as of 7cb72f4b" and has no row for the standing rulings of 2026-10-20 to 2026-10-25 (B3, S8, I3 and S9 scopes, the I1 split, the F1 list, the verdict set, 0.2.14 scope). Check: each such ruling has a row citing its dated file; the "as of" commit is current. Source: O-34.
-
-### 17-37 The defect-classes ledger reads F-56 as closed
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `artifacts/process/defect_classes.md`.
-- 17-37: line 23 says three siblings are open under F-56, closed 2026-10-19 by 5b5184f2 (granger `ridge`, xflip `n_surrogates`, synth `freq_hz`); the auditor read the guards at `jnwb/connectivity/_granger.py:35`, `jnwb/laminar/_xflip.py:689` and `jnwb/testing/synth.py:204`. Check: each guard is confirmed by reading or a test, and the row records the closure with its commit. Source: O-35.
-
-### 17-39 Second homes in docs and dead ignore rules
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `docs/agents.md`, `README.md`, `.gitignore`, `mkdocs.yml`.
-- 17-39: `docs/agents.md:85-95` repeats `skills/jnwb/SKILL.md:15-25`; `README.md:71-76` repeats `docs/common_mistakes.md:293-298`; `.gitignore:54-55,72,74,183` name absent paths; `mkdocs.yml:13-14` excludes the absent `docs/conf.py` and `docs/README.md`. Check: each copy becomes a link; the dead rules go; the strict docs build passes. Source: O-36, O-38.
-
-### 17-40 The unread evidence archived; the corpus manifest cited
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `artifacts/evidence/0.2.13/**`, `artifacts/evidence/0.2.10/**`, `artifacts/evidence/0.2.11/**`, `artifacts/evidence/0.2.12/**`, `artifacts/archive/0.2.13/**`, the two 0.2.6 receipts that read the corpus manifest.
-- 17-40: ruled 2026-10-25: `artifacts/evidence/0.2.13/agent_session_dandi000253/` and the seven uncited evidence files (`0.2.10/validate_nwb_layers.md`, `0.2.10/10-06/output/probe_bias.out`, `0.2.11/frozen-waveform-disposition.md`, `0.2.11/pitfall_tests_and_problem_rows.md`, `0.2.12/zflip_null_probe.py`, `0.2.12/xflip_null_probe.py`, `0.2.13/compress_scaling.md`) move to `artifacts/archive/0.2.13/`; the raw JSONs and `vflip2_oracle.json` stay; the two 0.2.6 receipts name the corpus manifest's source and sha256. Check: `git grep` finds no reference to an old path; the archive index lists each file once. Source: O-39.
 
 ### 17-41 No UNHELD fact names an item of the declared version
 
