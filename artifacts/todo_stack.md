@@ -46,7 +46,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | L laminar | 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
-| 2 | N numerics and I/O (audit 2026-10-25) | by file set, in order: 17-10, 17-23; 17-11, 17-49; 17-13, 17-47; 17-21, 17-51; 17-25, 17-42, 17-50; 17-12, 17-17, 17-46; then 17-14, 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
+| 2 | N numerics and I/O (audit 2026-10-25) | by file set, in order: 17-10, 17-23; 17-13, 17-47; 17-21, 17-51; 17-25, 17-42, 17-50; 17-12, 17-17, 17-46; then 17-14, 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-15, 17-34, 17-36 | Haiku writes, Muse reviews | nothing |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-28 then 17-32; 17-27, 17-29, 17-30, 17-33, 17-53 | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
@@ -212,13 +212,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/spiking.py`, `tests/test_spiking.py`, `artifacts/changelog.d/phase-locking-nonfinite.changed.md`.
 - 17-10: a NaN LFP phase at a spike's sample gives Rayleigh z NaN and p 1.0 with no warning (400 locked spikes, PLI 0.83); ruled 2026-10-25 (S9 scope). Check: that input raises ValueError naming the count of non-finite phases at spike samples; a NaN elsewhere changes nothing. Source: O-2.
 
-### 17-11 `granger` records and warns on its effective order cap
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
-Writes: `jnwb/connectivity/_granger.py`, its tests, `artifacts/changelog.d/granger-order-cap.changed.md`.
-- 17-11: with `order="auto"` the cap is `min(max_lag, n_free // (8 * (2 + n_conditioning)))` (12 at n = 200), but `params` records the requested `max_lag` and the ceiling warning omits the `n_free` term, so a planted lag-15 coupling is missed with `ok_for_interpretation` True; `max_lag=0` runs order 1. Check: one helper computes the cap; `params` records it; the warning fires when the cap is below `max_lag`; `max_lag < 1` raises. Source: O-3.
-
 ### 17-12 `transform_nwb` compresses without touching scalar datasets
 
 Release: deferred-0.2.14.
@@ -379,13 +372,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
 Writes: `jnwb/nwb_events.py`, its tests.
 - 17-48: event `codes` accept bytes and bool values. Check: each raises TypeError naming the value's type; integer and string codes pass. Source: O-16.
-
-### 17-49 `null_yx_by_band` is used or removed
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 17-11 (same file).
-Writes: `jnwb/connectivity/_granger.py`, its tests.
-- 17-49: `null_yx_by_band` is computed and never read (`_granger.py:1167`, `:1414`). Check: it feeds the reverse-direction band p-values the result reports, or it is deleted with the suite passing and the result unchanged. Source: O-16.
 
 ### 17-26 Fact checks fail on an empty examined set
 
