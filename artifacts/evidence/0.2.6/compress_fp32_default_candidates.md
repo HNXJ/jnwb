@@ -232,3 +232,5 @@ failure is the opposite — the corpus LFP stops being selected at all.
 | Every candidate's behaviour on the 22-session corpus | `D:` is out of scope for this packet | Re-run `p_candidates.py`'s predicates over `artifacts/data/corpus_manifest.json`, read-only, recording on-disk bytes per element |
 | Whether real behavioural series lose value under C2/C3 | Same | The prior packet sampled ~2.7% and found the cast bit-exact there; that is bounded and predates 06-79 |
 | C4/C5 on a real nested-layout session | Same, and the fixture cell is construction-dependent (§2) | Read `neurodata_type` on the inner vs outer group of a real nested session |
+
+Corpus manifest (added 2026-10-25): `artifacts/data/corpus_manifest.json` is untracked; it was written 2026-08-28 by `omission/scripts/discover_corpus.py` (in this repository until 90831c4b, now in the omission project), sha256 `f5dcfa0476647927dc44caed8766ca3e0063564ddb0cf56fe7f449a2eaf77ba3`.

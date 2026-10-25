@@ -49,10 +49,8 @@ local/
 *.log
 *.sha256
 
-# figures: ignore rendered outputs; keep figure wrapper scripts
+# figures: ignore rendered outputs
 figures/*
-!figures/*.py
-!figures/**/*.py
 
 # generated web/gallery/dashboard assets
 dashboard/public/
