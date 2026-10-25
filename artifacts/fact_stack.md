@@ -138,10 +138,10 @@ evidence and a critic's sign-off.
 | `jnwb.connectivity._trials.bin_spikes` | `window` | `None` | the alias of `window_s`; as above | as above |
 | `jnwb.connectivity._information.spike_mutual_information` | `time_window_s` | `None` | marks an omitted argument of the `time_window_s`/`time_window` pair; with neither, the call raises, so the window is required | `_spike_mi` calls `resolve_unit_alias` with no `default`; `tests/test_skill_decline_behaviour.py` ("requires time_window_s") |
 | `jnwb.connectivity._information.spike_mutual_information` | `time_window` | `None` | the alias of `time_window_s`; as above | as above |
-| `jnwb.connectivity._information.binary_occupancy_mutual_information` | `time_window_s` | `None` | as for `spike_mutual_information`, whose body `_spike_mi` it shares | `_spike_mi` |
-| `jnwb.connectivity._information.binary_occupancy_mutual_information` | `time_window` | `None` | as above | `_spike_mi` |
-| `jnwb.connectivity._information.spike_count_mutual_information` | `time_window_s` | `None` | as for `spike_mutual_information`, whose body `_spike_mi` it shares | `_spike_mi` |
-| `jnwb.connectivity._information.spike_count_mutual_information` | `time_window` | `None` | as above | `_spike_mi` |
+| `jnwb.connectivity._information.binary_occupancy_mutual_information` | `time_window_s` | `None` | as for `spike_mutual_information`, whose body `_spike_mi` it shares; the call raises after its own `DeprecationWarning` | `tests/test_window_default_deprecation.py` (the deprecated MI aliases) |
+| `jnwb.connectivity._information.binary_occupancy_mutual_information` | `time_window` | `None` | as above | as above |
+| `jnwb.connectivity._information.spike_count_mutual_information` | `time_window_s` | `None` | as for `spike_mutual_information`, whose body `_spike_mi` it shares; the call raises after its own `DeprecationWarning` | `tests/test_window_default_deprecation.py` (the deprecated MI aliases) |
+| `jnwb.connectivity._information.spike_count_mutual_information` | `time_window` | `None` | as above | as above |
 | `jnwb.jrsa.jrsa` | `window` | `None` | no window: the whole aligned axis; `window` counts samples, not time, and the input sets the span | `jnwb/jrsa/_stages.py`, `_make_windows` returns the inputs unchanged for `None` |
 | `jnwb.laminar._xflip.xflip` | `window` | `None` | no window: every probe row; `window` names rows, not time | `xflip` reads rows only when `window is not None` |
 | `jnwb.laminar._zflip.zflip` | `window` | `None` | no window: every probe row; `window` names rows, not time | `zflip` reads rows only when `window` is given |

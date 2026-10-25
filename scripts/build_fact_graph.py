@@ -76,7 +76,9 @@ Relations, each a sorted list of ``[source, target]`` pairs:
               literal keyword its own signature does not name, differing from that keyword's
               default (``wrapper_scan``); a callable in ``I2_WRAPPER_EXCUSED`` is skipped, and
               a listed key that matches no flagged callable is reported as stale
-  choice_defaults  callable -> a public callable with a defaulted parameter whose name is in
+  choice_defaults  callable -> a public callable (an inherited public method and a callable
+              export that is no function included, ``_unwalked_callables``; the latter is
+              reported as not checked) with a defaulted parameter whose name is in
               the ``B3 choice names`` constant of the fact stack, unless the parameter is a
               ``window`` whose default is a string (a taper name, outside the lexicon) or a
               row of the ``## B3 exceptions`` table of the fact stack names the callable, by
@@ -1533,6 +1535,31 @@ def wrapper_scan(package: Any) -> Tuple[int, List[List[str]]]:
     return examined, sorted(found)
 
 
+def _unwalked_callables(package: Any) -> List[Tuple[str, Any, Any]]:
+    """What ``_public_callables`` leaves out, in its form: each public method an exported class
+    inherits from a class of the same package rather than defines, and each callable export
+    that is neither a function nor a class (a ``functools.partial``, a callable instance)."""
+    found = []
+    submodules = set(getattr(package, "SUBMODULES", ()))
+    top = getattr(package, "__name__", "").split(".")[0]
+    for name in sorted(set(package.__all__) - submodules):
+        obj = getattr(package, name, None)
+        if inspect.isclass(obj):
+            for base in obj.__mro__[1:]:
+                if base.__module__.split(".")[0] != top:
+                    continue
+                for mname, meth in sorted(vars(base).items()):
+                    if mname.startswith("_") or mname in vars(obj):
+                        continue
+                    fn = meth.__func__ if isinstance(meth, (staticmethod, classmethod)) else meth
+                    if inspect.isfunction(fn) and not any(
+                            mname in vars(b) for b in obj.__mro__[1:obj.__mro__.index(base)]):
+                        found.append((f"{name}.{mname}", fn, obj))
+        elif callable(obj) and not inspect.isfunction(obj):
+            found.append((name, obj, None))
+    return found
+
+
 def choice_default_scan(package: Any, names: Sequence[str],
                         exceptions: Sequence[Dict[str, str]]) -> Tuple[int, List[List[str]]]:
     """How many public callables the B3 rule examined, and each with a defaulted parameter
@@ -1544,9 +1571,12 @@ def choice_default_scan(package: Any, names: Sequence[str],
     no defaulted lexicon parameter is reported as stale."""
     lexicon, excused = set(names), {(row["Operation"], row["Parameter"]) for row in exceptions}
     examined, found, defaulted = 0, [], set()
-    for qualname, fn, owner in _public_callables(package):
+    for qualname, fn, owner in _public_callables(package) + _unwalked_callables(package):
         examined += 1
-        key = f"{fn.__module__}.{qualname}"
+        key = f"{getattr(fn, '__module__', None) or getattr(package, '__name__', '')}.{qualname}"
+        if not (inspect.isfunction(fn) or inspect.ismethod(fn)):
+            found.append([key, f"a {type(fn).__name__}, not a function: not checked"])
+            continue
         try:
             parameters = inspect.signature(fn).parameters
         except (TypeError, ValueError):

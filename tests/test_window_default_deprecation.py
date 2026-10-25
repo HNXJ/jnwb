@@ -52,6 +52,16 @@ def _omitted_and_passed(call, name):
     return omitted, passed
 
 
+@pytest.mark.parametrize("name", ["binary_occupancy_mutual_information",
+                                  "spike_count_mutual_information"])
+def test_the_deprecated_mi_aliases_raise_with_neither_window_spelling(name):
+    """B3 excuses their `None` windows because a call with neither spelling raises."""
+    import jnwb
+    with pytest.warns(DeprecationWarning), \
+            pytest.raises(ValueError, match="requires time_window_s"):
+        getattr(jnwb, name)(SPIKES, SPIKES + 0.001)
+
+
 def test_psth_without_window_ms_warns_and_uses_the_old_span():
     omitted, passed = _omitted_and_passed(
         lambda kw: UnitAnalyzer.psth(SPIKES, ONSETS, bin_size_ms=100, **kw), "UnitAnalyzer.psth")

@@ -8,6 +8,7 @@ planted into this tree's own graph fails it.
 from __future__ import annotations
 
 import copy
+import functools
 import hashlib
 import json
 import os
@@ -1573,13 +1574,37 @@ def test_a_choice_scan_that_examines_nothing_is_a_failure():
                        "so no choice default could be checked"]
 
 
+class _PlantedBase:
+    def planted_inherited(self, x, window_ms=(-1000, 2000)):
+        return x
+
+
+class PlantedChild(_PlantedBase):
+    pass
+
+
+def test_an_inherited_defaulted_window_and_a_partial_export_are_choice_findings():
+    planted = functools.partial(planted_window_default, window_ms=(0, 1))
+    package = types.SimpleNamespace(__name__=__name__.split(".")[0],
+                                    __all__=["PlantedChild", "planted_partial"],
+                                    PlantedChild=PlantedChild, planted_partial=planted)
+    assert _PlantedBase.__module__.split(".")[0] == package.__name__, \
+        "the fixture's base must belong to the planted package"
+    examined, found = build_fact_graph.choice_default_scan(package, b3_lexicon(), [])
+    assert examined == 2
+    reasons = {name.rsplit(".", 1)[-1]: reason for name, reason in found}
+    assert reasons["planted_inherited"] == "parameter 'window_ms' defaults to (-1000, 2000)"
+    assert reasons["planted_partial"] == "a partial, not a function: not checked"
+
+
 def test_the_live_scan_examines_every_public_callable():
     package = build_fact_graph._checkout_jnwb()
     text = build_fact_graph.FACT_STACK.read_text(encoding="utf-8")
     examined, _ = build_fact_graph.choice_default_scan(
         package, build_fact_graph.read_constants(text)["B3 choice names"],
         build_fact_graph.read_b3_exceptions(text))
-    assert examined == len(build_fact_graph._public_callables(package))
+    assert examined == (len(build_fact_graph._public_callables(package))
+                        + len(build_fact_graph._unwalked_callables(package)))
     assert examined > 0
 
 
