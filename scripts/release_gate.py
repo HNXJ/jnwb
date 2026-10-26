@@ -1126,19 +1126,6 @@ def _open_rows_in(text: str) -> List[str]:
     return [line[:120] for _, line in table_data_rows(text)]
 
 
-def remaining_todo_items(root: pathlib.Path = REPO_ROOT) -> List[str]:
-    """Item headings left in the todo stack. Finished items are deleted, so any heading is work."""
-    path = root / "artifacts" / "todo_stack.md"
-    if not path.exists():
-        return [f"{path} is missing; condition 3 cannot be evaluated"]
-    # `\d\d-\d+`, not `\d\d-\d\d`: item ids passed three digits at 06-100, and the two-digit
-    # form matched none of them. Measured at 1be7c144: 46 of 57 items counted, 11 invisible --
-    # including 06-101, an unresolved human ruling. Under the pre-amendment condition that made
-    # STEP 0a able to pass with eleven items outstanding.
-    items, _ = _parse_todo_stack(path.read_text(encoding="utf-8"))
-    return [f"{ident} {title}".strip() for ident, title, _ in items]
-
-
 # A release value written into a line without the `Release:` label: `required-0.2.7` as a
 # bullet's own marker, or the prose form `Required for 0.2.7`.
 _REQUIRED_MARKER = re.compile(
@@ -1184,14 +1171,6 @@ def required_work_outside_held_items(text: str) -> List[str]:
             if any(_version_tuple(m.group(1)) <= cycle for m in _REQUIRED_MARKER.finditer(line)):
                 found.append(f"{where}: {line.strip()[:60]!r}")
     return found
-
-
-def unparseable_todo_headings(root: pathlib.Path = REPO_ROOT) -> List[str]:
-    """Todo-stack sections that look like items but whose id STEP 0a cannot read."""
-    path = root / "artifacts" / "todo_stack.md"
-    if not path.exists():
-        return []
-    return _parse_todo_stack(path.read_text(encoding="utf-8"))[1]
 
 
 RELEASE_CYCLE = jnwb_source_version()
@@ -1262,14 +1241,6 @@ def roadmap_rows(text: str, stack_ids: Iterable[str] = ()) -> Tuple[List[Tuple[s
                            else f"{ident} is also in {TODO_PATH}")
         seen.add(ident)
     return rows, refused
-
-
-def todo_release_fields(root: pathlib.Path = REPO_ROOT) -> List[Tuple[str, str, str]]:
-    """``(id, title, release)`` for every item in the todo stack, at any heading depth."""
-    path = root / "artifacts" / "todo_stack.md"
-    if not path.exists():
-        return []
-    return _parse_todo_stack(path.read_text(encoding="utf-8"))[0]
 
 
 def blocker_fixpoint_receipt(root: pathlib.Path = REPO_ROOT) -> Tuple[Optional[str], Optional[int]]:

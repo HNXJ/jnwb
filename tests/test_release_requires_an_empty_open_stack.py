@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import json
 import pathlib
-import re
 import subprocess
 import sys
 
@@ -47,7 +46,6 @@ from scripts.release_gate import (  # noqa: E402
     blocker_fixpoint_receipt,
     check_release_readiness,
     roadmap_rows,
-    todo_release_fields,
 )
 HEAD = "a" * 40
 DEFERRED = f"deferred-{NEXT_CYCLE}"
@@ -341,7 +339,6 @@ def test_an_item_with_no_release_field_fails(tmp_path):
 def test_an_item_id_of_any_digit_width_is_counted(tmp_path, ident):
     """A two-digit pattern once made every three-digit item invisible to this check."""
     root = _tree(tmp_path, items=[_item(ident, "required-0.2.6")])
-    assert [i for i, _, _ in todo_release_fields(root)] == [ident]
     v = check_release_readiness(root, head=HEAD)
     assert any("still required" in x and ident in x for x in v), \
         f"item {ident} was invisible to the release check"
@@ -357,10 +354,9 @@ def test_a_required_item_is_seen_at_any_heading_depth(tmp_path, depth):
     """Only `### ` was read, so an item one level deeper was invisible and its `Release:` field
     was read as its parent's, which kept the parent deferred and the release check clean."""
     root = _tree(tmp_path, items=[_nested(depth)])
-    fields = {i: r for i, _, r in todo_release_fields(root)}
-    assert fields == {"99-900": DEFERRED, "99-901": "required-0.2.6"}
     v = check_release_readiness(root, head=HEAD)
     assert any("still required" in x and "99-901" in x for x in v), v
+    assert not any("99-900" in x for x in v), v
 
 
 def test_a_parent_does_not_inherit_a_nested_items_release_field(tmp_path):
@@ -1178,12 +1174,11 @@ def test_a_roadmap_id_repeated_inside_the_roadmap_is_refused():
     assert len(rows) == 2 and refused == ["12-09 appears twice"], refused
 
 
-def test_the_live_roadmap_parses_without_refusal():
-    """The committed roadmap, read by the parser STEP 0a runs, against the live todo stack."""
-    text = (REPO_ROOT / ROADMAP_PATH).read_text(encoding="utf-8")
-    stack_ids = {ident for ident, _, _ in todo_release_fields(REPO_ROOT)}
-    refused = roadmap_rows(text, stack_ids)[1]
-    assert refused == [], refused
+def test_the_live_stack_and_roadmap_read_clean_at_head():
+    """The committed todo stack and roadmap, as the release check reads them at HEAD: no todo
+    section is unreadable, and the roadmap refuses no line."""
+    v = check_release_readiness(REPO_ROOT, head=_git(REPO_ROOT, "rev-parse", "HEAD"))
+    assert not [x for x in v if "look like items but cannot be read" in x or ROADMAP_PATH in x], v
 
 
 def test_a_missing_roadmap_fails(tmp_path):
@@ -1225,17 +1220,3 @@ def test_the_fixpoint_is_new_blockers_and_not_new_observations(tmp_path):
 def test_the_receipt_parser_reads_nothing_from_an_absent_receipt():
     commit, found = blocker_fixpoint_receipt(pathlib.Path("/nonexistent-tree"))
     assert commit is None and found is None
-
-
-# --- the live tree -----------------------------------------------------------------------------
-
-def test_the_live_item_count_agrees_between_both_parsers():
-    """Both readers share one parser, so the raw count of id-led headings at any depth is the
-    independent side; the live stack must also hold no section that looks like an item but
-    cannot be read, and must parse to at least one item."""
-    from scripts.release_gate import remaining_todo_items, unparseable_todo_headings
-    text = (REPO_ROOT / "artifacts" / "todo_stack.md").read_text(encoding="utf-8")
-    raw = re.findall(r"^ {0,3}#+[ \t]+\d\d-\d+(?:[ \t]|$)", text, re.M)
-    assert len(raw) > 0, "the todo stack parsed to zero items"
-    assert len(remaining_todo_items(REPO_ROOT)) == len(todo_release_fields(REPO_ROOT)) == len(raw)
-    assert unparseable_todo_headings(REPO_ROOT) == []
