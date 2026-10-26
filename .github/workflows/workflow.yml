@@ -344,6 +344,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ".[test,docs]" build twine
 
+      - name: Build artifacts/state.md for the pre-flight gate
+        # Gate 20 reads artifacts/state.md and passes over it while the file is absent, as on a
+        # fresh checkout, so this job builds the state before it runs the gate.
+        run: python scripts/reconstruct_state.py
+
       - name: Run pre-flight harness gate
         run: |
           python scripts/harness_gate.py

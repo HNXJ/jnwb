@@ -1197,3 +1197,50 @@ class TestActionsArePinnedToFullShas:
             f"no trailing tag comment: actions/checkout@{sha}",
             f"not allow-listed: evil/action@{sha}",
         ]
+
+
+class TestTheHarnessGateReadsABuiltState:
+    """Gate 20 reads artifacts/state.md, and passes over it while the file is absent, as on a
+    fresh checkout. Each job that runs the harness gate builds the state in the same job, before
+    every run of the gate.
+
+    What would pass while this is broken: a job that runs the gate with no build step before it;
+    a build step placed after the gate it should feed; or a check that finds no gate and so
+    examines nothing.
+    """
+
+    @staticmethod
+    def _gate_violations(jobs):
+        """How many harness-gate steps `jobs` run, and each one with no state build before it."""
+        examined, problems = 0, []
+        for jid, job in jobs.items():
+            steps = job.get("steps") or []
+            runs = [str(step.get("run", "")) for step in steps]
+            builds = [i for i, run in enumerate(runs) if "reconstruct_state.py" in run]
+            for gate in (i for i, run in enumerate(runs) if "harness_gate.py" in run):
+                examined += 1
+                if not any(build < gate for build in builds):
+                    problems.append(f"{jid}: {steps[gate].get('name', gate)!r}")
+        return examined, problems
+
+    def test_every_run_of_the_harness_gate_follows_a_state_build_in_its_job(self):
+        examined, problems = self._gate_violations(_load_workflow()["jobs"])
+        assert examined > 0, "no job runs the harness gate; the check examined nothing"
+        assert problems == [], problems
+
+    def test_a_gate_with_no_build_before_it_in_its_job_is_refused(self):
+        """One planted job per case: a build before the gate passes; after it, or absent, fails."""
+        workflow = yaml.safe_load(
+            "jobs:\n"
+            "  built:\n    steps:\n"
+            "      - run: python scripts/reconstruct_state.py\n"
+            "      - run: python scripts/harness_gate.py\n"
+            "  built-late:\n    steps:\n"
+            "      - run: python scripts/harness_gate.py\n"
+            "      - run: python scripts/reconstruct_state.py\n"
+            "  unbuilt:\n    steps:\n"
+            "      - run: python scripts/harness_gate.py\n"
+        )
+        examined, problems = self._gate_violations(workflow["jobs"])
+        assert examined == 3, examined
+        assert sorted(p.split(":")[0] for p in problems) == ["built-late", "unbuilt"], problems

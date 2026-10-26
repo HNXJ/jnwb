@@ -46,6 +46,8 @@ import pytest
 
 import jnwb
 import jnwb._backend as backend
+# analyzers binds backend.torch_cuda_available by name: import it before a fixture patches it.
+import jnwb.analyzers  # noqa: F401
 from jnwb import tfr as tfr_module
 from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 from jnwb._parallel import parallel_map
@@ -346,13 +348,47 @@ def _unrecorded(cuda_capable, record):
     return sorted(set(cuda_capable) - set(record))
 
 
+def _cuda_capable_exports():
+    """The device-taking exports whose CUDA path runs, measured through the backend dispatch.
+
+    Read from the package, not from a list. Each export is called with ``device='cuda'`` under
+    the ``failing_gpu`` fixture, which makes the dispatch report a GPU whose first upload fails.
+    An export whose GPU branch runs announces that failure. One that resolves to CUDA and then
+    computes on the CPU says so instead (``jrsa``, ``rdm``, ``vflip``), and one that never asks
+    for CUDA says that (``band_power``, ``relative_power``).
+    """
+    found = set()
+    for name in sorted(_exports_with("device") - DEVICE_RECORDS):
+        _, messages = _runtime_messages(functools.partial(DEVICE_CALLS[name], "cuda"))
+        if any("GPU computation failed" in m for m in messages):
+            found.add(name)
+    return found
+
+
 class TestTheResultRecordsTheDevice:
 
-    def test_every_export_with_a_cuda_path_records_its_device(self):
-        assert _unrecorded(CUDA_CAPABLE, RECORD) == []
+    def test_every_export_with_a_cuda_path_records_its_device(self, failing_gpu):
+        assert _unrecorded(_cuda_capable_exports(), RECORD) == []
 
-    def test_an_export_with_a_cuda_path_and_no_record_is_reported(self):
-        assert _unrecorded(CUDA_CAPABLE + ["planted_gpu_export"], RECORD) == ["planted_gpu_export"]
+    def test_the_cuda_list_is_the_set_the_package_runs(self, failing_gpu):
+        assert set(CUDA_CAPABLE) == _cuda_capable_exports()
+
+    def test_a_planted_cuda_path_with_no_record_is_reported(self, failing_gpu, monkeypatch):
+        """``rdm`` with a GPU branch that fails and announces it, and no entry in RECORD."""
+        real = jnwb.rdm
+
+        def planted(X, device=None, **kwargs):
+            if backend.resolve_device(device, context="rdm", prefer="cupy") == backend.CUDA:
+                try:
+                    import cupy
+
+                    cupy.asarray(X)
+                except Exception as exc:
+                    backend.warn_device_fallback("rdm", exc)
+            return real(X, device="cpu", **kwargs)
+
+        monkeypatch.setattr(jnwb, "rdm", planted)
+        assert _unrecorded(_cuda_capable_exports(), RECORD) == ["rdm"]
 
     @pytest.mark.parametrize("name", sorted(RECORD))
     def test_a_cpu_run_records_the_cpu(self, name):
@@ -378,7 +414,9 @@ class TestTheResultRecordsTheDevice:
         assert np.all(pivots > 0)
 
 
-@pytest.mark.skipif(not backend.cupy_available(), reason="no CUDA device through CuPy")
+@pytest.mark.skipif(not backend.cupy_available(),
+                    reason="no CUDA device through CuPy: CI has no GPU, so these agreement "
+                           "measurements run only on a GPU machine")
 class TestCudaAgreesWithTheCpu:
 
     @pytest.mark.parametrize("name", CUDA_CAPABLE)
