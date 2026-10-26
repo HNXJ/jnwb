@@ -68,6 +68,9 @@ table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 th { color: var(--muted); font-weight: 500; cursor: pointer; user-select: none; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+#validation-table th:first-child, #validation-table td:first-child,
+#validation-table th:last-child, #validation-table td:last-child { white-space: nowrap; }
+#validation-table td:nth-child(3) { max-width: 32em; }
 .chart { width: 100%; min-height: 320px; }
 .tag { display: inline-block; padding: 0 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); font-size: 12px; }
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); }
@@ -75,6 +78,14 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .gallery img { width: 100%; display: block; }
 .gallery figcaption { padding: 8px 10px; font-size: 13px; }
 .empty { color: var(--muted); font-style: italic; }
+/* Verdict chips: text plus symbol, never colour alone. The colours are the page's tokens, so a
+   chip takes its light or dark value with the theme. */
+.chip { display: inline-block; padding: 0 8px; border-radius: 12px; font-weight: bold; white-space: nowrap; line-height: 22px; font-size: 13px; }
+.chip-reproduced { background: var(--ok); color: var(--bg); }
+.chip-reproduced-conditional, .chip-mixed { background: var(--warn); color: var(--bg); }
+.chip-failed { background: var(--bad); color: var(--bg); }
+.chip-in-progress, .chip-not-started { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+.legend { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: var(--gap); }
 footer { color: var(--muted); font-size: 12px; text-align: center; padding: 24px 16px; border-top: 1px solid var(--border); }
 @media (max-width: 600px) { header.top .links { margin-left: 0; width: 100%; } .card .value { font-size: 22px; } }
 </style>
@@ -131,14 +142,28 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 24px
     <div class="panel table-wrap"><table id="ci-table"></table></div>
   </section>
 
-  <!-- Validation: verified functions; references the implementations conform to. -->
+  <!-- Validation: an index of validations, one page each (#validation/<id>), then the proof of work. -->
   <section id="validation" role="tabpanel" hidden>
+    <div id="validation-index">
+      <h2>Validations</h2>
+      <p class="lede">One page per validation: its question, the paper beside jnwb's result, its figures and its receipts. Each chip shows the dashboard's name for the record's verdict; the record's own word sits beside it.</p>
+      <div id="validation-legend" class="legend"></div>
+      <div class="toolbar"><input id="validation-index-search" type="search" placeholder="Filter validations" aria-label="Filter validations"></div>
+      <div class="panel table-wrap"><table id="validation-index-table"></table></div>
+    </div>
+    <div id="validation-pages" hidden></div>
+    <div id="validation-proof">
     <h2>Independently verified functions</h2>
     <p class="lede">Each was verified at the commit shown; the listed tests fail if its behaviour changes.</p>
     <div class="toolbar"><input id="verified-search" type="search" placeholder="Filter by file or function" aria-label="Filter verified functions"></div>
     <div class="panel table-wrap"><table id="verified-table"></table></div>
+    <h2>Validation receipts</h2>
+    <p class="lede">Each receipt the dashboard reads, with the commit that last changed it and its SHA-256.</p>
+    <div class="toolbar"><input id="validation-search" type="search" placeholder="Filter by section, receipt or path" aria-label="Filter validation receipts"></div>
+    <div class="panel table-wrap"><table id="validation-table"></table></div>
     <h2>References</h2>
     <div id="references" class="panel"></div>
+    </div>
   </section>
 
   <!-- Performance: baseline timings, peak memory, import cost, computational order. -->

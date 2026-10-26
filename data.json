@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "88f0d4cd714ac1eab76c6651cbf000835453a623",
-    "date": "2026-10-21T13:07:19Z"
+    "commit": "f3dd2f017c5f27e23bc27fbea2adc0d51b99406c",
+    "date": "2026-10-26T21:54:29Z"
   },
   "sources": {
     "generated": [
@@ -45,10 +45,30 @@
       "docs/07_statistical_inference_and_nulls.md",
       "docs/08_directed_connectivity_and_information.md",
       "docs/09_decoding_and_visual_qc.md",
-      "docs/coherence_and_tfr.md"
+      "docs/coherence_and_tfr.md",
+      "docs/laminar.md",
+      "docs/reading_nwb.md",
+      "docs/repairing_nwb.md",
+      "docs/unit_quality_example.md",
+      "docs/writing_nwb.md"
     ],
     "showcases": [
       "artifacts/showcases/openscope_glo.json"
+    ],
+    "validations": [
+      "artifacts/benchmarks/calibration/xflip_calibration_0.2.5.md",
+      "artifacts/benchmarks/calibration/vflip_calibration_0.2.4.md",
+      "artifacts/benchmarks/calibration/curation_calibration_0.2.13.md",
+      "artifacts/benchmarks/calibration/cuda_parity_0.2.4.md",
+      "artifacts/benchmarks/performance/baseline_performance.json",
+      "artifacts/benchmarks/performance/peak_memory.json",
+      "artifacts/benchmarks/performance/import_breakdown.json",
+      "artifacts/process/frozen_validated.json",
+      "docs/references.md",
+      "artifacts/process/blocker_fixpoint_receipt.md"
+    ],
+    "deferred": [
+      "artifacts/roadmap.md"
     ]
   },
   "release": {
@@ -490,7 +510,7 @@
         },
         {
           "kind": "Added",
-          "text": "docs/generate_figures.py: figures of a cluster permutation test, spectral Granger and the narrowband PSI trap"
+          "text": "scripts/figures/generate_figures.py: figures of a cluster permutation test, spectral Granger and narrowband PSI trap"
         },
         {
           "kind": "Added",
@@ -506,15 +526,15 @@
         },
         {
           "kind": "Added",
-          "text": "docs/generate_figures.py: figures of RDMs with a windowed jRSA trace, and of bad channel and bad trial detection"
+          "text": "scripts/figures/generate_figures.py: figures of RDMs with a windowed jRSA trace, and bad channel and trial detection"
         },
         {
           "kind": "Added",
-          "text": "docs/generate_figures.py: figures of Welch and multitaper PSDs, zero-lag coherence measures and vFLIP profiles"
+          "text": "scripts/figures/generate_figures.py: figures of Welch and multitaper PSDs, zero-lag coherence and vFLIP profiles"
         },
         {
           "kind": "Added",
-          "text": "docs/generate_figures.py: figures of a smoothed rate step, causal against Gaussian, and of spike phase locking"
+          "text": "scripts/figures/generate_figures.py: figures of a smoothed rate step, causal against Gaussian, and spike phase locking"
         },
         {
           "kind": "Added",
@@ -522,7 +542,7 @@
         },
         {
           "kind": "Added",
-          "text": "docs/generate_figures.py: fig21, the open-data PSTH by layer and 50 to 80 Hz power by depth, from its analysis"
+          "text": "scripts/figures/generate_figures.py: fig21, the open-data PSTH by layer and 50 to 80 Hz power by depth"
         },
         {
           "kind": "Added",
@@ -1587,7 +1607,7 @@
     ]
   },
   "api": {
-    "total": 206,
+    "total": 226,
     "groups": [
       {
         "module": "jnwb",
@@ -1687,6 +1707,8 @@
           "DB_AGGREGATIONS",
           "harmonic_analysis",
           "cross_area_coherence",
+          "partial_coherence",
+          "coherence_bias_floor",
           "spectral_tilt",
           "AperiodicFitResult",
           "aperiodic_fit",
@@ -1715,6 +1737,8 @@
           "bin_spikes",
           "granger",
           "granger_spectral",
+          "granger_nonparametric",
+          "granger_time_reversed",
           "phase_slope_index",
           "transfer_entropy",
           "directed_connectivity",
@@ -1726,6 +1750,7 @@
           "gaussian_smooth_rate",
           "fleiss_kappa",
           "spike_count_correlation",
+          "noise_correlation",
           "fano_factor",
           "network_burst_index",
           "vis",
@@ -1756,6 +1781,21 @@
         "extra": null,
         "symbols": [
           "stream_npz_array"
+        ]
+      },
+      {
+        "module": "jnwb.nwb_write",
+        "extra": null,
+        "symbols": [
+          "verify_nwb",
+          "write_nwb",
+          "transform_nwb",
+          "repair_nwb",
+          "NWBMutationError",
+          "NWBVerificationError",
+          "AmbiguousMappingError",
+          "UnidentifiableRepairError",
+          "UndeclaredUnitError"
         ]
       },
       {
@@ -1829,7 +1869,8 @@
           "spatial_derivative_sharpness",
           "presence_ratio",
           "isi_cv",
-          "refractory_contamination"
+          "refractory_contamination",
+          "screen_units_against_labels"
         ]
       },
       {
@@ -1842,6 +1883,17 @@
           "assign_outer_folds",
           "build_inner_validation_partitions",
           "build_representation_ladder"
+        ]
+      },
+      {
+        "module": "jnwb.execution",
+        "extra": null,
+        "symbols": [
+          "ExecutionRecord",
+          "cache_key",
+          "cache_store",
+          "cache_load",
+          "cache_clear"
         ]
       },
       {
@@ -2543,6 +2595,24 @@
       "module": "jnwb.connectivity"
     },
     {
+      "export": "granger_nonparametric[n_times]",
+      "order": "O(n)",
+      "evidence": "n_times: exponent +0.95, admissible T(R*N*log F + I*F*log F), linear in N",
+      "module": "jnwb.connectivity"
+    },
+    {
+      "export": "granger_nonparametric[n_trials]",
+      "order": "O(n)",
+      "evidence": "n_trials: exponent +0.92, admissible T(R*N*log F + I*F*log F), linear in R",
+      "module": "jnwb.connectivity"
+    },
+    {
+      "export": "granger_nonparametric[n_freqs]",
+      "order": "CONSTANT",
+      "evidence": "n_freqs: exponent -0.22, admissible T(R*N*log F + I*F*log F), F log F from the factorization",
+      "module": "jnwb.connectivity"
+    },
+    {
       "export": "granger_spectral[model_order]",
       "order": "O(n)",
       "evidence": "model_order: exponent +1.19, admissible T(N*p + p^2 + F log F)",
@@ -2558,6 +2628,18 @@
       "export": "granger_spectral[n_samples]",
       "order": "O(n)",
       "evidence": "n_samples: exponent +0.95, admissible T(N*d^2*p)",
+      "module": "jnwb.connectivity"
+    },
+    {
+      "export": "granger_time_reversed[n_times]",
+      "order": "O(n)",
+      "evidence": "n_times: exponent +1.05, admissible T(2*N*d^2*p), two granger fits",
+      "module": "jnwb.connectivity"
+    },
+    {
+      "export": "granger_time_reversed[n_trials]",
+      "order": "O(n)",
+      "evidence": "n_trials: exponent +0.97, admissible T(2*R*N*d^2*p), two granger fits",
       "module": "jnwb.connectivity"
     },
     {
@@ -2697,6 +2779,18 @@
       "order": "sub-linear (POOR FIT)",
       "evidence": "n_trials: exponent +0.54, admissible T(n*d)",
       "module": "jnwb.decoding"
+    },
+    {
+      "export": "cache_key[n_bytes]",
+      "order": "O(n)",
+      "evidence": "n_bytes: exponent +1.03, admissible T(n)",
+      "module": "jnwb.execution"
+    },
+    {
+      "export": "cache_store[n_bytes]",
+      "order": "sub-linear",
+      "evidence": "n_bytes: exponent +0.78, admissible T(n)",
+      "module": "jnwb.execution"
     },
     {
       "export": "bandpass_filter[n_channels]",
@@ -3023,6 +3117,30 @@
       "module": "jnwb.nwb_inspect"
     },
     {
+      "export": "verify_nwb[n_samples_in_file]",
+      "order": "sub-linear",
+      "evidence": "n_samples_in_file: exponent +0.48, admissible T(n)",
+      "module": "jnwb.nwb_write"
+    },
+    {
+      "export": "write_nwb[n_samples_in_file]",
+      "order": "sub-linear (POOR FIT)",
+      "evidence": "n_samples_in_file: exponent +0.36, admissible T(n)",
+      "module": "jnwb.nwb_write"
+    },
+    {
+      "export": "transform_nwb[n_samples_in_file]",
+      "order": "sub-linear",
+      "evidence": "n_samples_in_file: exponent +0.72, admissible T(n)",
+      "module": "jnwb.nwb_write"
+    },
+    {
+      "export": "repair_nwb[n_samples_in_file]",
+      "order": "sub-linear",
+      "evidence": "n_samples_in_file: exponent +0.53, admissible T(n)",
+      "module": "jnwb.nwb_write"
+    },
+    {
       "export": "causal_exp_smooth[n_samples]",
       "order": "O(n)",
       "evidence": "n_samples: exponent +1.01, admissible T(n)",
@@ -3137,6 +3255,30 @@
       "module": "jnwb.spectral"
     },
     {
+      "export": "coherence_bias_floor[n_times]",
+      "order": "O(n)",
+      "evidence": "n_times: exponent +1.03, admissible T(P*D*E*N*log L), linear in N",
+      "module": "jnwb.spectral"
+    },
+    {
+      "export": "coherence_bias_floor[n_epochs]",
+      "order": "O(n)",
+      "evidence": "n_epochs: exponent +0.82, admissible T(P*D*E*N*log L), linear in E",
+      "module": "jnwb.spectral"
+    },
+    {
+      "export": "coherence_bias_floor[n_sites]",
+      "order": "O(n^2)",
+      "evidence": "n_sites: exponent +2.04, admissible T(S^2*D*E*N*log L), P = S(S-1)/2 pairs",
+      "module": "jnwb.spectral"
+    },
+    {
+      "export": "coherence_bias_floor[n_draws]",
+      "order": "O(n)",
+      "evidence": "n_draws: exponent +1.00, admissible T(P*D*E*N*log L), linear in D",
+      "module": "jnwb.spectral"
+    },
+    {
       "export": "compute_multitaper_psd[k_tapers]",
       "order": "O(n)",
       "evidence": "k_tapers: exponent +1.03, admissible unknown",
@@ -3221,6 +3363,12 @@
       "module": "jnwb.spectral"
     },
     {
+      "export": "partial_coherence[n_times]",
+      "order": "O(n)",
+      "evidence": "n_times: exponent +0.91, admissible T(N*log L), L capped at 4096; one surrogate",
+      "module": "jnwb.spectral"
+    },
+    {
       "export": "relative_power",
       "order": "O(n)",
       "evidence": "n_units: exponent +1.01, admissible T(U*T)",
@@ -3296,6 +3444,18 @@
       "export": "spike_count_correlation[n_bins]",
       "order": "O(n)",
       "evidence": "n_bins: exponent +1.05, admissible T(U*(S + B) + U^2*B)",
+      "module": "jnwb.spiking"
+    },
+    {
+      "export": "noise_correlation[n_trials]",
+      "order": "O(n)",
+      "evidence": "n_trials: exponent +0.92, admissible T(U*N + U^2*N)",
+      "module": "jnwb.spiking"
+    },
+    {
+      "export": "noise_correlation[n_units]",
+      "order": "O(n)",
+      "evidence": "n_units: exponent +1.12, admissible T(U^2*N)",
       "module": "jnwb.spiking"
     },
     {
@@ -3599,6 +3759,18 @@
       "module": "jnwb.unit_quality"
     },
     {
+      "export": "screen_units_against_labels[n_units]",
+      "order": "sub-linear (POOR FIT)",
+      "evidence": "n_units: exponent +0.53, admissible T(n^2)",
+      "module": "jnwb.unit_quality"
+    },
+    {
+      "export": "screen_units_against_labels[n_sessions]",
+      "order": "O(n^2)",
+      "evidence": "n_sessions: exponent +1.77, admissible T(S^3)",
+      "module": "jnwb.unit_quality"
+    },
+    {
       "export": "align_waveforms[n_units]",
       "order": "O(n)",
       "evidence": "n_units: exponent +1.09, admissible T(U*n)",
@@ -3709,6 +3881,14 @@
       "url": "https://doi.org/10.1016/j.neuroimage.2010.01.073"
     },
     {
+      "text": "Dahlhaus, R. (2000). Graphical interaction models for multivariate time series. *Metrika* 51(2), 157-172. [doi:10.1007/s001840000055](https://doi.org/10.1007/s001840000055)",
+      "url": "https://doi.org/10.1007/s001840000055"
+    },
+    {
+      "text": "Maris, E., Schoffelen, J.-M., & Fries, P. (2007). Nonparametric statistical testing of coherence differences. *Journal of Neuroscience Methods* 163(1), 161-175. [doi:10.1016/j.jneumeth.2007.02.011](https://doi.org/10.1016/j.jneumeth.2007.02.011)",
+      "url": "https://doi.org/10.1016/j.jneumeth.2007.02.011"
+    },
+    {
       "text": "Bastos, A. M., et al. (2020). Layer and rhythm specificity for predictive routing. *PNAS* 117(49), 31459-31469. [doi:10.1073/pnas.2014868117](https://doi.org/10.1073/pnas.2014868117)",
       "url": "https://doi.org/10.1073/pnas.2014868117"
     },
@@ -3743,6 +3923,22 @@
     {
       "text": "Marschinski, R., & Kantz, H. (2002). Analysing the information flow between financial time series. *The European Physical Journal B* 30(2), 275-281. [doi:10.1140/epjb/e2002-00379-2](https://doi.org/10.1140/epjb/e2002-00379-2)",
       "url": "https://doi.org/10.1140/epjb/e2002-00379-2"
+    },
+    {
+      "text": "Wilson, G. T. (1972). The factorization of matricial spectral densities. *SIAM Journal on Applied Mathematics* 23(4), 420-426. [doi:10.1137/0123044](https://doi.org/10.1137/0123044)",
+      "url": "https://doi.org/10.1137/0123044"
+    },
+    {
+      "text": "Dhamala, M., Rangarajan, G., & Ding, M. (2008). Estimating Granger causality from Fourier and wavelet transforms of time series data. *Physical Review Letters* 100(1), 018701. [doi:10.1103/PhysRevLett.100.018701](https://doi.org/10.1103/PhysRevLett.100.018701)",
+      "url": "https://doi.org/10.1103/PhysRevLett.100.018701"
+    },
+    {
+      "text": "Haufe, S., Nikulin, V. V., Müller, K.-R., & Nolte, G. (2013). A critical assessment of connectivity measures for EEG data: a simulation study. *NeuroImage* 64, 120-133. [doi:10.1016/j.neuroimage.2012.09.036](https://doi.org/10.1016/j.neuroimage.2012.09.036)",
+      "url": "https://doi.org/10.1016/j.neuroimage.2012.09.036"
+    },
+    {
+      "text": "Winkler, I., Panknin, D., Bartz, D., Müller, K.-R., & Haufe, S. (2016). Validity of time reversal for testing Granger causality. *IEEE Transactions on Signal Processing* 64(11), 2746-2760. [doi:10.1109/TSP.2016.2531628](https://doi.org/10.1109/TSP.2016.2531628)",
+      "url": "https://doi.org/10.1109/TSP.2016.2531628"
     },
     {
       "text": "Shannon, C. E. (1948). A mathematical theory of communication. *Bell System Technical Journal* 27(3), 379-423. [doi:10.1002/j.1538-7305.1948.tb01338.x](https://doi.org/10.1002/j.1538-7305.1948.tb01338.x)",
@@ -3797,6 +3993,10 @@
       "url": "https://doi.org/10.1038/nn.2842"
     },
     {
+      "text": "de la Rocha, J., Doiron, B., Shea-Brown, E., Josić, K., & Reyes, A. (2007). Correlation between neural spike trains increases with firing rate. *Nature* 448(7155), 802-806. [doi:10.1038/nature06028](https://doi.org/10.1038/nature06028)",
+      "url": "https://doi.org/10.1038/nature06028"
+    },
+    {
       "text": "Churchland, M. M., et al. (2010). Stimulus onset quenches neural variability: a widespread cortical phenomenon. *Nature Neuroscience* 13(3), 369-378. [doi:10.1038/nn.2501](https://doi.org/10.1038/nn.2501)",
       "url": "https://doi.org/10.1038/nn.2501"
     },
@@ -3831,6 +4031,10 @@
     {
       "text": "Llobet, V., Wyngaard, A., & Barbour, B. (2022). Automatic post-processing and merging of multiple spike-sorting analyses with Lussac. *bioRxiv* preprint, version 1. [doi:10.1101/2022.02.08.479192](https://doi.org/10.1101/2022.02.08.479192)",
       "url": "https://doi.org/10.1101/2022.02.08.479192"
+    },
+    {
+      "text": "Cohen, J. (1960). A coefficient of agreement for nominal scales. *Educational and Psychological Measurement* 20(1), 37-46. [doi:10.1177/001316446002000104](https://doi.org/10.1177/001316446002000104)",
+      "url": "https://doi.org/10.1177/001316446002000104"
     },
     {
       "text": "Lee, E. K., et al. (2021). Non-linear dimensionality reduction on extracellular waveforms reveals cell type diversity in premotor cortex. *eLife* 10, e67490. [doi:10.7554/eLife.67490](https://doi.org/10.7554/eLife.67490)",
@@ -3891,6 +4095,10 @@
     {
       "text": "Leys, C., et al. (2013). Detecting outliers: do not use standard deviation around the mean, use absolute deviation around the median. *Journal of Experimental Social Psychology* 49(4), 764-766. [doi:10.1016/j.jesp.2013.03.013](https://doi.org/10.1016/j.jesp.2013.03.013)",
       "url": "https://doi.org/10.1016/j.jesp.2013.03.013"
+    },
+    {
+      "text": "Rübel, O., Tritt, A., Ly, R., Dichter, B. K., Ghosh, S., Niu, L., Baker, P., Soltesz, I., Ng, L., Svoboda, K., Frank, L., & Bouchard, K. E. (2022). The Neurodata Without Borders ecosystem for neurophysiological data science. *eLife* 11, e78362. [doi:10.7554/eLife.78362](https://doi.org/10.7554/eLife.78362)",
+      "url": "https://doi.org/10.7554/eLife.78362"
     }
   ],
   "figures": [
@@ -4075,6 +4283,69 @@
       "light": "assets/fig28_lfp_spectral_wpli.png",
       "dark": "assets/fig28_lfp_spectral_wpli.dark.png",
       "docs_page": null
+    },
+    {
+      "id": "fig29_laminar_one_call",
+      "title": "fig29_laminar_one_call",
+      "light": "assets/fig29_laminar_one_call.png",
+      "dark": "assets/fig29_laminar_one_call.dark.png",
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/laminar/"
+    },
+    {
+      "id": "fig30_unit_quality_waveforms",
+      "title": "fig30_unit_quality_waveforms",
+      "light": "assets/fig30_unit_quality_waveforms.png",
+      "dark": "assets/fig30_unit_quality_waveforms.dark.png",
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/unit_quality_example/"
+    },
+    {
+      "id": "fig31_table_alignment",
+      "title": "fig31_table_alignment",
+      "light": "assets/fig31_table_alignment.png",
+      "dark": "assets/fig31_table_alignment.dark.png",
+      "docs_page": null
+    },
+    {
+      "id": "fig32_interval_tables",
+      "title": "fig32_interval_tables",
+      "light": "assets/fig32_interval_tables.png",
+      "dark": "assets/fig32_interval_tables.dark.png",
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/reading_nwb/"
+    },
+    {
+      "id": "fig33_addressing_contacts",
+      "title": "fig33_addressing_contacts",
+      "light": "assets/fig33_addressing_contacts.png",
+      "dark": "assets/fig33_addressing_contacts.dark.png",
+      "docs_page": null
+    },
+    {
+      "id": "fig34_end_to_end_synthetic",
+      "title": "fig34_end_to_end_synthetic",
+      "light": "assets/fig34_end_to_end_synthetic.png",
+      "dark": "assets/fig34_end_to_end_synthetic.dark.png",
+      "docs_page": null
+    },
+    {
+      "id": "fig35_ragged_index_defect",
+      "title": "fig35_ragged_index_defect",
+      "light": "assets/fig35_ragged_index_defect.png",
+      "dark": "assets/fig35_ragged_index_defect.dark.png",
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/repairing_nwb/"
+    },
+    {
+      "id": "fig36_wavemap_steps",
+      "title": "fig36_wavemap_steps",
+      "light": "assets/fig36_wavemap_steps.png",
+      "dark": "assets/fig36_wavemap_steps.dark.png",
+      "docs_page": null
+    },
+    {
+      "id": "fig37_verify_written_nwb",
+      "title": "fig37_verify_written_nwb",
+      "light": "assets/fig37_verify_written_nwb.png",
+      "dark": "assets/fig37_verify_written_nwb.dark.png",
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/writing_nwb/"
     }
   ],
   "showcases": {
@@ -4208,7 +4479,8 @@
             "verdict": "reproduces",
             "seed": "20261012",
             "report_sha256": "ad276925005c223a1b8a80af10b6293b81c3c5cd0bf034bedb78b5de0e07151c",
-            "note": "288 of 297 checks match; the 7 mismatches were statements in the write-up, since corrected"
+            "note": "288 of 297 checks match; the 7 mismatches were statements in the write-up, since corrected",
+            "label": "reproduced"
           }
         ],
         "links": [
@@ -4344,7 +4616,8 @@
             "verdict": "reproduces",
             "seed": "20261012",
             "report_sha256": "064620e3439dfac1a48b7c8f14b3b4a13b2979242936ced7b759915628a339b2",
-            "note": "the other contrasts were not rerun"
+            "note": "the other contrasts were not rerun",
+            "label": "reproduced"
           }
         ],
         "links": [
@@ -4486,7 +4759,8 @@
             "verdict": "reproduces",
             "seed": "20261012",
             "report_sha256": "ce1b0cb396a9bf2c44d98aafbb65957952320d07a2086776ba7e3ac9d11b76fe",
-            "note": "0 of 11 fields per area differ by more than 1e-6"
+            "note": "0 of 11 fields per area differ by more than 1e-6",
+            "label": "reproduced"
           },
           {
             "by": "independent rerun with separate code",
@@ -4495,7 +4769,8 @@
             "verdict": "reproduces",
             "seed": "20261013",
             "report_sha256": "ce1b0cb396a9bf2c44d98aafbb65957952320d07a2086776ba7e3ac9d11b76fe",
-            "note": "no cell reaches p < 0.13; the VISal gain is −0.015 (p 0.51) against +0.042 (p 0.047)"
+            "note": "no cell reaches p < 0.13; the VISal gain is −0.015 (p 0.51) against +0.042 (p 0.047)",
+            "label": "reproduced"
           }
         ],
         "links": [
@@ -4593,7 +4868,8 @@
             "verdict": "reproduces",
             "seed": null,
             "report_sha256": "3e76a792bf34e7be2cf7daad5f98f99aa6be04a2bef06adeeb04cc9bf066783d",
-            "note": "−9.73 and −9.76 ms in 1232959154; +0.24 and +0.28 ms in 1203581890; each within one sample (0.8 ms) of the showcase value"
+            "note": "−9.73 and −9.76 ms in 1232959154; +0.24 and +0.28 ms in 1203581890; each within one sample (0.8 ms) of the showcase value",
+            "label": "reproduced"
           }
         ],
         "links": [
@@ -4604,5 +4880,205 @@
         ]
       }
     ]
-  }
+  },
+  "validations": [
+    {
+      "id": "xflip_calibration_0.2.5",
+      "section": "calibration",
+      "title": "xFLIP Empirical Calibration & Operating Characteristics Receipt",
+      "path": "artifacts/benchmarks/calibration/xflip_calibration_0.2.5.md",
+      "commit": "f8f65aee0703d89a74e4fdb890b8f8efbcceeabf",
+      "sha256": "cf83dd92235b79a5d5ef598c2c051fc44884ed34786613ade82cc7707466610b",
+      "fields": {},
+      "html": null
+    },
+    {
+      "id": "vflip_calibration_0.2.4",
+      "section": "calibration",
+      "title": "vFLIP support-score calibration",
+      "path": "artifacts/benchmarks/calibration/vflip_calibration_0.2.4.md",
+      "commit": "d50680f44afbde08f4e13ac031d8552cc7b586fa",
+      "sha256": "5694197a24fa2d5a867c9af45e21ca13f2dcb6e432b60e07ace0adb8bc76d4aa",
+      "fields": {},
+      "html": null
+    },
+    {
+      "id": "curation_calibration_0.2.13",
+      "section": "calibration",
+      "title": "Curation calibration: defaults of `curate_and_label`",
+      "path": "artifacts/benchmarks/calibration/curation_calibration_0.2.13.md",
+      "commit": "b83535981194709ccb691e0dae3c6166c870f041",
+      "sha256": "467c153cff7337239540c5ab524287a22e3604abbd284a138bcd5cdd989dd14c",
+      "fields": {
+        "summary": "Trials: 2784; planted 1392, null 1392; refused 0."
+      },
+      "html": null
+    },
+    {
+      "id": "cuda_parity_0.2.4",
+      "section": "calibration",
+      "title": "CUDA execution and CPU parity receipt (0.2.4-15)",
+      "path": "artifacts/benchmarks/calibration/cuda_parity_0.2.4.md",
+      "commit": "d50680f44afbde08f4e13ac031d8552cc7b586fa",
+      "sha256": "975776dfdd8d6963589ed9b6de50a4df9a75bf416002a857f625db88469cbe54",
+      "fields": {},
+      "html": null
+    },
+    {
+      "id": "baseline_performance",
+      "section": "performance",
+      "title": "Baseline timings",
+      "path": "artifacts/benchmarks/performance/baseline_performance.json",
+      "commit": "d50680f44afbde08f4e13ac031d8552cc7b586fa",
+      "sha256": "e2f44f6da0adac3c2bf20b9c768b388ad1b995ade20ff6cb2a2ae57931c41ef4",
+      "fields": {
+        "rows": 21
+      },
+      "html": null
+    },
+    {
+      "id": "peak_memory",
+      "section": "performance",
+      "title": "Peak memory",
+      "path": "artifacts/benchmarks/performance/peak_memory.json",
+      "commit": "0ffa0c7d0262902baa43bdcab83fcca382aadb5c",
+      "sha256": "f59d0ffe5bd2b61c15fc774da5124b863f1b95bf45866c5e9ca666f248916694",
+      "fields": {
+        "operations": 7
+      },
+      "html": null,
+      "recorded_commit": "4490eaad9657012156718e5069a9bd7ad0972263"
+    },
+    {
+      "id": "import_breakdown",
+      "section": "performance",
+      "title": "Import cost",
+      "path": "artifacts/benchmarks/performance/import_breakdown.json",
+      "commit": "4490eaad9657012156718e5069a9bd7ad0972263",
+      "sha256": "bf8e36d353c76f85aa01386b49d306529972c98e8a14cf5c93a72112fbee4011",
+      "fields": {
+        "version": "0.2.13",
+        "python": "3.14.3",
+        "warm_median_ms": 3180,
+        "runs": 10
+      },
+      "html": null
+    },
+    {
+      "id": "frozen_validated",
+      "section": "frozen",
+      "title": "Independently verified functions",
+      "path": "artifacts/process/frozen_validated.json",
+      "commit": "f0019cce1d249eec08157d8c7d6dc75b11476725",
+      "sha256": "766f2c97eb1d2f98115583691388eca1b965e422c157be86464e9922a5562ee8",
+      "fields": {
+        "functions": 6
+      },
+      "html": null
+    },
+    {
+      "id": "studies-1",
+      "section": "studies",
+      "title": "Fleiss, J. L. (1971). Measuring nominal scale agreement among many raters. *Psychological Bulletin* 76(5), 378-382. [doi:10.1037/h0031619](https://doi.org/10.1037/h0031619)",
+      "path": "docs/references.md",
+      "commit": "aff440698a95e0db8a054bbe0c957959f2d6b6df",
+      "sha256": "71d4fbd2dd5650df48498f902770ff686bc931c683a7beb33aff2edf3b86b412",
+      "fields": {
+        "result": "**Partially replicated.** Overall kappa, .430 for 30 patients rated by six raters into five categories. The table is transcribed in the test from the R packages irr and lagree, not read from the paper; only the overall kappa is checked, to three decimals",
+        "tests": [
+          "test_spiking.py::TestFleissKappa::test_reproduces_the_worked_example_of_fleiss_1971"
+        ]
+      },
+      "html": null
+    },
+    {
+      "id": "studies-2",
+      "section": "studies",
+      "title": "Hill, D. N., Mehta, S. B., & Kleinfeld, D. (2011). Quality metrics to accompany spike sorting of extracellular signals. *Journal of Neuroscience* 31(24), 8699-8705. [doi:10.1523/JNEUROSCI.0971-11.2011](https://doi.org/10.1523/JNEUROSCI.0971-11.2011)",
+      "path": "docs/references.md",
+      "commit": "aff440698a95e0db8a054bbe0c957959f2d6b6df",
+      "sha256": "71d4fbd2dd5650df48498f902770ff686bc931c683a7beb33aff2edf3b86b412",
+      "fields": {
+        "result": "**Replicated.** The worked example: $N/T$ = 10 Hz, $\\tau_R$ = 3 ms, $\\tau_C$ = 1 ms and $T$ = 1000 s with 20 violations give $f$ = 0.05, and the estimate equals the smaller root of the closed form at relative 1e-12. The paper gives no recording; the test builds the spike train that yields the violations",
+        "tests": [
+          "test_unit_quality.py::test_refractory_contamination_reproduces_the_worked_example_of_the_source"
+        ]
+      },
+      "html": null
+    },
+    {
+      "id": "studies-3",
+      "section": "studies",
+      "title": "Major, A. J., et al. (2025). A. J. Major et al. reply. *Nature Neuroscience* 29(2), 284-286. [doi:10.1038/s41593-025-02168-x](https://doi.org/10.1038/s41593-025-02168-x). Code: Mendoza-Halliday, D., et al. (2023). vFLIP2.m, version 8 (2025-11-04). Dryad dataset. [doi:10.5061/dryad.9w0vt4bnp](https://doi.org/10.5061/dryad.9w0vt4bnp)",
+      "path": "docs/references.md",
+      "commit": "aff440698a95e0db8a054bbe0c957959f2d6b6df",
+      "sha256": "71d4fbd2dd5650df48498f902770ff686bc931c683a7beb33aff2edf3b86b412",
+      "fields": {
+        "result": "**Replicated.** The outputs of the published code vFLIP2.m (omega, goodness, bands and channels) for the three synthetic cases and the power example that have a window, and the empty result for the five cases without one, at relative 1e-9; the PSD and result from raw, trial-cut and cell LFP at the same tolerance. The check is the code's output, not a figure in the paper",
+        "tests": [
+          "test_vflip2.py::test_every_window_matches_matlab",
+          "test_vflip2.py::test_below_the_cut_the_best_window_is_returned_and_refused",
+          "test_vflip2.py::test_no_window_returns_an_empty_result",
+          "test_vflip2_from_lfp.py::test_psd_and_result_match_vflip2_m",
+          "test_vflip2_from_lfp.py::test_dryad_test_data_match_vflip2_m"
+        ]
+      },
+      "html": null
+    },
+    {
+      "id": "studies-4",
+      "section": "studies",
+      "title": "Siegle, J. H., et al. (2021). Survey of spiking in the mouse visual system reveals functional hierarchy. *Nature* 592(7852), 86-92. [doi:10.1038/s41586-020-03171-x](https://doi.org/10.1038/s41586-020-03171-x). Jia, X., et al. (2019). High-density extracellular probes reveal dendritic backpropagation and facilitate neuron classification. *Journal of Neurophysiology* 121(5), 1831-1847. [doi:10.1152/jn.00680.2018](https://doi.org/10.1152/jn.00680.2018)",
+      "path": "docs/references.md",
+      "commit": "aff440698a95e0db8a054bbe0c957959f2d6b6df",
+      "sha256": "71d4fbd2dd5650df48498f902770ff686bc931c683a7beb33aff2edf3b86b412",
+      "fields": {
+        "result": "**Partially replicated.** The waveform half-width, repolarization slope and spread (Jia et al.), and the amplitude cutoff, on fixed cases, as AllenInstitute `ecephys_spike_sorting` at commit 919992748a53 computes them. The check is that code's output, not a figure in either paper; the duration, SNR and presence ratio of Siegle et al. are not checked",
+        "tests": [
+          "test_unit_quality.py::test_the_waveform_measures_reproduce_the_source_on_a_fixed_unit",
+          "test_unit_quality.py::test_the_amplitude_cutoff_reproduces_the_source_on_fixed_amplitudes"
+        ]
+      },
+      "html": null
+    },
+    {
+      "id": "blocker_fixpoint_receipt",
+      "section": "closure",
+      "title": "Blocker fixpoint receipt, 0.2.13",
+      "path": "artifacts/process/blocker_fixpoint_receipt.md",
+      "commit": "436022cee7a96341e9318da267269a618a32d01f",
+      "sha256": "d92787862a4835c6ddf98abc6a17496c26d6b4fa1897de204e4982505bcf2cb1",
+      "fields": {
+        "new_blockers": 0
+      },
+      "html": null,
+      "recorded_commit": "701dad711d2e0a3648551fc7c4f531715379deff"
+    }
+  ],
+  "deferred": [
+    {
+      "id": "15-11",
+      "theme": "`vflip2` recovers a planted vFLIP2 crossover on Andre Bastos's simulation code",
+      "defect": "The generator half landed in 1dbcedbf (`artifacts/evidence/0.2.13/vflip2_recovery.md`: recovery 29 of 100, matched null 24 of 100); the same table has not run on his code, under the contract in `artifacts/evidence/0.2.13/vflip2_generator_design.md`; full text: `git log -S '### 15-11' -- artifacts/todo_stack.md`.",
+      "waits": "His simulation code; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-19).",
+      "release": "deferred-0.2.15",
+      "label": "not started"
+    },
+    {
+      "id": "16-12",
+      "theme": "Dashboard real-data cards for `isi_cv` (9,056 units), WaveMAP and the omission results",
+      "defect": "The dashboard ships with the four committed GLO entries; the others need a receipt computed without calling jnwb: the omission and WaveMAP receipts record jnwb calls (`jnwb_version`, `jnwb_wavemap_commit`), and the `isi_cv` receipt file (branch `claude/site-overview-326890`, commit 9b52c5e7) no longer exists",
+      "waits": "Independent recomputations with committed receipts; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-23).",
+      "release": "deferred-0.2.15",
+      "label": "not started"
+    },
+    {
+      "id": "12-21",
+      "theme": "jnwb recovers a planted delay and a planted direction from a jaxfne field",
+      "defect": "The spectrum half landed (`tests/test_jaxfne_ground_truth.py`: `compute_psd` recovers the planted 10.0 Hz of jaxfne's protocol_c planar field, commit 21c99f96); a single-frequency field has no phase-slope delay and no direction, so delay (`phase_slope_index`) and direction (`granger`) wait for a broadband jaxfne field",
+      "waits": "A broadband jaxfne field with a stated delay or coupling; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-23: the spectrum test closes the item for 0.2.14).",
+      "release": "deferred-0.2.15",
+      "label": "not started"
+    }
+  ]
 }
