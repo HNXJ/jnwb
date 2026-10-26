@@ -1,0 +1,1 @@
+- `phase_slope_index` refuses an `nperseg` above the trial length, as `compute_psd` does (`jnwb/connectivity/_psi.py`).

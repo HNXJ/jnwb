@@ -49,13 +49,14 @@ def test_integrity_check_refuses_a_column_name_that_is_not_utf8(tmp_path):
         check_ragged_indices(path, table="units")
 
 
-def test_zero_mad_is_zeroed_by_the_artifact_rule_and_scaled_by_the_laminar_rule():
+def test_zero_mad_is_scaled_by_the_mean_deviation_in_the_artifact_rule_and_by_the_std_in_the_laminar_rule():
     corr = np.zeros((4, 4))
     np.fill_diagonal(corr, 1.0)
     corr[3, :3] = 1.0
     _, summary, z = artifact_detection.bad_channels_from_correlation(corr)
     assert summary.tolist() == [0.0, 0.0, 0.0, 1.0]   # precondition: MAD of the summary is 0
-    assert np.all(z == 0.0)                           # artifact rule: zero MAD gives z = 0
+    # artifact rule: zero MAD falls back to the mean absolute deviation, 0.25 * 1.253314
+    np.testing.assert_allclose(z, [0.0, 0.0, 0.0, 1.0 / (0.25 * 1.253314)], rtol=1e-12)
 
     rng = np.random.default_rng(0)
     base = rng.standard_normal(4000)

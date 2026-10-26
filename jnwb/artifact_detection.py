@@ -33,22 +33,36 @@ import numpy as np
 from ._layout import require_channel_major
 
 MAD_SCALE = 1.4826  # normal-consistent scaling for the median absolute deviation
+MEAN_AD_SCALE = 1.253314  # normal-consistent scaling for the mean absolute deviation, sqrt(pi / 2)
 
 
 def _robust_z_zero_fallback(x: np.ndarray) -> np.ndarray:
+    """Robust z of each finite value about the median, scaled by the MAD.
+
+    When more than half the values tie, the MAD is 0. The mean absolute deviation about the
+    median, scaled by 1.253314, then stands in for it. Only when that is also 0, so that every
+    value equals the median, are the z all 0 and no value is flagged.
+
+    References:
+        Iglewicz, B., & Hoaglin, D. C. (1993). How to Detect and Handle Outliers. ASQC Quality
+        Press -- the modified z-score, and its mean-absolute-deviation scaling for a zero MAD.
+    """
     x = np.asarray(x, dtype=float)
     valid = np.isfinite(x)
     if not np.any(valid):
         return np.full_like(x, np.nan)
     center = np.median(x[valid])
-    mad = np.median(np.abs(x[valid] - center)) * MAD_SCALE
+    scale = np.median(np.abs(x[valid] - center)) * MAD_SCALE
     # Degenerate only relative to the data: an absolute 1e-12 cutoff set every z to 0 for
     # small-amplitude quantities such as per-trial peak amplitude in volts.
-    if mad <= np.finfo(float).eps * np.max(np.abs(x[valid])):
+    magnitude = np.finfo(float).eps * np.max(np.abs(x[valid]))
+    if scale <= magnitude:
+        scale = np.mean(np.abs(x[valid] - center)) * MEAN_AD_SCALE
+    if scale <= magnitude:
         res = np.zeros_like(x)
         res[~valid] = np.nan
         return res
-    z = (x - center) / mad
+    z = (x - center) / scale
     z[~valid] = np.nan
     return z
 

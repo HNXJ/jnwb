@@ -1232,6 +1232,34 @@ def test_a_null_draw_with_no_cluster_contributes_zero(tail):
     assert np.array_equal(res["max_null_stats"], np.zeros(25))
 
 
+def test_the_paired_null_reports_global_with_and_without_groups():
+    """A paired test draws sign flips across pairs whether or not `groups` is given, so it
+    reports 'global' either way. `groups` does not change the null: the draws are identical."""
+    from jnwb.statistics import cluster_permutation_test
+
+    rng = np.random.default_rng(14)
+    X, Y = rng.normal(size=(8, 30)), rng.normal(size=(8, 30))
+    groups = np.array([0, 0, 0, 0, 1, 1, 1, 1])
+    kw = dict(paired=True, threshold=1.0, n_permutations=30, rng=2)
+    plain = cluster_permutation_test(X, Y, **kw)
+    grouped = cluster_permutation_test(X, Y, groups=groups, **kw)
+    assert np.any(plain["max_null_stats"] != 0), "the fixture must draw a non-empty null"
+    assert plain["scheme"] == "global"
+    assert grouped["scheme"] == "global"
+    np.testing.assert_array_equal(grouped["max_null_stats"], plain["max_null_stats"])
+
+
+def test_the_unpaired_scheme_still_follows_groups():
+    from jnwb.statistics import cluster_permutation_test
+
+    rng = np.random.default_rng(15)
+    X, Y = rng.normal(size=(6, 20)), rng.normal(size=(7, 20))
+    groups = np.tile([0, 1], 7)[:13]
+    assert cluster_permutation_test(X, Y, n_permutations=10, rng=0)["scheme"] == "global"
+    assert cluster_permutation_test(X, Y, groups=groups, n_permutations=10,
+                                    rng=0)["scheme"] == "within_group"
+
+
 @pytest.mark.filterwarnings("ignore")
 @pytest.mark.parametrize("a, b", [(-np.inf, -np.inf), (np.inf, np.inf), (-np.inf, 1.0),
                                   (1.0, np.inf)])

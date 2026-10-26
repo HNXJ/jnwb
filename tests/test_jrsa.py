@@ -324,3 +324,46 @@ def test_align_mode_is_gone_and_passing_it_raises():
     a, b = rng.normal(size=30), rng.normal(size=30)
     with pytest.raises(TypeError, match="align_mode"):
         jnwb.jrsa(a, b, metric="pearson", stats=False, align_mode="sample")
+
+
+# ---------------------------------------------------------------------------
+# A NaN p-value is not a test: it stays out of the correction family
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("p", [[0.04, np.nan], [0.04, np.nan, 0.01], [np.nan, np.nan]])
+@pytest.mark.parametrize("method", [m for m in _CORRECTION_METHOD_MAP if m != "none"])
+def test_a_nan_p_value_leaves_the_family_and_gets_a_nan_q(p, method):
+    """The finite p-values are corrected as if the NaN were absent: it adds nothing to the
+    family size and receives NaN. Before the repair, fdr_bh made every q NaN, and holm and
+    bonferroni counted the NaN toward m."""
+    from jnwb.jrsa import _multiple_correction
+
+    p = np.asarray(p, dtype=float)
+    finite = np.isfinite(p)
+    assert (~finite).any(), "precondition: the case has a NaN p-value"
+    q = np.asarray(_multiple_correction(p, method, 0.05), dtype=float)
+    assert q.shape == p.shape
+    assert np.isnan(q[~finite]).all(), q
+    if finite.any():
+        np.testing.assert_allclose(q[finite], _independent_q(p[finite], method), rtol=1e-12, atol=0)
+
+
+@pytest.mark.parametrize("method", [m for m in _CORRECTION_METHOD_MAP if m != "none"])
+def test_a_lag_with_an_all_zero_overlap_does_not_make_the_other_qs_nan(method):
+    """Lag 2 pairs x[2:], all zeros, with y: its correlation is undefined, so its p is NaN.
+    Lags 0 and 1 have a finite p and must get the q of a family of two.
+
+    The parametric p is used (permutations=0) so the finite p-values are not floored at
+    1/(n+1). Both lie below 1/3, where a family of three changes Bonferroni and Holm q.
+    """
+    rng = np.random.default_rng(1)
+    x = rng.normal(size=60)
+    x[2:] = 0.0
+    y = x + 0.3 * rng.normal(size=60)
+    res = jnwb.jrsa(x, y, metric="pearson", lag=[0, 1, 2], permutations=0, correction=method)
+    p = np.asarray(res.p, dtype=float).ravel()
+    q = np.asarray(res.q, dtype=float).ravel()
+    assert p.size == 3 and np.isnan(p[2]) and np.isfinite(p[:2]).all(), p
+    assert (p[:2] < 1 / 3).all(), f"precondition: the family size must change q, got {p[:2]}"
+    assert np.isnan(q[2]), q
+    np.testing.assert_allclose(q[:2], _independent_q(p[:2], method), rtol=1e-12, atol=0)

@@ -436,6 +436,16 @@ class TestPhaseSlopeIndex:
             phase_slope_index(x, np.roll(x, 3), fs=1000.0, bands=(14, 30), nperseg=256,
                               noverlap=noverlap)
 
+    def test_an_nperseg_longer_than_the_trial_is_refused(self):
+        """A longer segment used to be shortened to the trial without a word; compute_psd
+        refuses it. The trial's own length is still allowed."""
+        x = np.random.default_rng(6).standard_normal(500)
+        y = np.roll(x, 3)
+        with pytest.raises(ValueError, match="nperseg must be at most the 500 samples"):
+            phase_slope_index(x, y, fs=1000.0, bands=(14, 30), nperseg=501, jackknife=False)
+        res = phase_slope_index(x, y, fs=1000.0, bands=(14, 30), nperseg=500, jackknife=False)
+        assert res.params["nperseg"] == 500
+
     def test_multiband_psi_omnibus_pvalue(self):
         """Multi-band PSI computes omnibus top-level p-value rather than extracting first band (0.2.3-REV-08)."""
         from scipy import signal, stats

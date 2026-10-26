@@ -131,6 +131,29 @@ def test_dead_flat_trial_detected_without_corrupting_good_trials():
     assert np.all(np.isfinite(corr_z[np.arange(n_trials) != 5]))
 
 
+def test_a_gross_outlier_among_tied_values_is_flagged():
+    """More than half the values tie, so the MAD is 0. The mean absolute deviation about the
+    median, scaled by 1.253314, scores the outlier instead of setting every z to 0."""
+    from jnwb.artifact_detection import _robust_z_zero_fallback
+
+    x = np.array([0.0] * 9 + [1e6])
+    assert np.median(np.abs(x - np.median(x))) == 0.0, "precondition: the MAD is 0"
+    z = _robust_z_zero_fallback(x)
+    assert np.all(z[:9] == 0.0), z
+    assert np.isclose(z[-1], 1e6 / (1.253314 * 1e5), rtol=1e-12, atol=0), z
+    assert z[-1] > 5.0, "the outlier must pass the default amplitude threshold"
+
+
+def test_all_equal_values_flag_none():
+    from jnwb.artifact_detection import _robust_z_zero_fallback
+
+    x = np.full(10, 3.5)
+    assert np.median(np.abs(x - np.median(x))) == 0.0, "precondition: the MAD is 0"
+    z = _robust_z_zero_fallback(x)
+    assert np.all(z == 0.0), z
+    assert not np.any(z > 5.0), "no value may pass the threshold"
+
+
 if __name__ == "__main__":
     test_bad_channels_detected_from_low_correlation()
     test_no_false_positives_when_all_channels_good()

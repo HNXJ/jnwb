@@ -1,0 +1,1 @@
+- `jrsa` corrects only finite p-values: a NaN p no longer makes other q NaN or counts in m (`jnwb/jrsa/_inference.py`).

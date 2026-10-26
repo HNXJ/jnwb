@@ -60,7 +60,8 @@ def cluster_permutation_test(
             - 'global': Unrestricted condition label shuffle across all samples.
             - 'within_group': Condition labels are shuffled strictly within each group/session,
               preserving group composition and guarding against session-level confounding.
-            Defaults to 'within_group' if groups is provided, otherwise 'global'.
+            Defaults to 'within_group' if groups is provided, otherwise 'global'. When
+            paired=True the null is a global sign flip, so 'global' is reported either way.
         threshold: Cluster-forming threshold (positive float) applied to point-wise t-statistics (|t| > threshold).
         n_permutations: Number of permutation draws (default: 1000). Must be >= 1.
         tail: One of 'both' (positive and negative clusters), 'greater' (positive clusters only),
@@ -81,7 +82,7 @@ def cluster_permutation_test(
             statistic under each null permutation draw (maximum for 'greater', minimum for 'less',
             or maximum absolute value for 'both').
         - 'scheme': the exchangeability scheme the null drew under (``'global'`` or
-            ``'within_group'``).
+            ``'within_group'``; always ``'global'`` when paired=True).
         - 'surrogate_seed_entropy': the entropy the permutation seeds ran on: the seed for an
             int ``rng``, the fresh OS entropy drawn for ``rng=None``, None for a ``Generator``.
 
@@ -132,6 +133,8 @@ def cluster_permutation_test(
         raise ValueError(f"scheme must be 'global' or 'within_group'; got {scheme!r}.")
 
     if paired:
+        # Sign flips across pairs, with or without `groups`: the null is global.
+        scheme = "global"
         if X_arr.shape != Y_arr.shape:
             raise ValueError(f"Paired cluster permutation requires identical shapes; got {X_arr.shape} vs {Y_arr.shape}.")
         n_obs = X_arr.shape[0]
