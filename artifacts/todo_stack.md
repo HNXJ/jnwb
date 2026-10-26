@@ -119,7 +119,7 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/fact_gate.py`, `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`, `jnwb/spectral/_psd.py`, `jnwb/visual_qc.py`, `jnwb/onset_fitting.py`.
+Writes: `scripts/fact_gate.py`, `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`, `jnwb/spectral/_psd.py`, `jnwb/visual_qc.py`, `jnwb/onset_fitting.py`, `docs/generate_figures.py` (`:308`, `:524`, `:1218` call owners, ruled 2026-10-26).
 - 11-07: S1, S2 and S5 report UNHELD: the scans in `scripts/build_fact_graph.py` flag `jnwb/spectral/_psd.py:390` and `:564` (S2) and 6 functions drawing randomness without an `rng` parameter, with 0 global seeds (S5), re-measured 2026-10-25; S1's only test covers its reference-line clause; S2's clause 1 and the S5 sites wait on Hamm's reading. The full text is in `git log -S '### 11-07' -- artifacts/todo_stack.md`. Check: each scan reports its own planted case in `tests/test_fact_gate.py`. Waits: Ruled 2026-10-20: S2 covers returned power and dB estimates (log-space fit statistics exempt by rule); S5 exempts draws traced to a caller's rng, documented fixed-seed self-checks and rng-like `random_state`, and `visual_qc`'s jitter gains `rng`.
 Accept: S1, S2 and S5 report HELD; no UNHELD fact names a 0.2.14 item.
 - S2 HELD 2026-10-25 (0bbbac49); S5 HELD 2026-10-26 (rulings of 2026-10-26: int worker seeds trace, `jnwb/` only). S1's first clause ("figures call a public operation", Q13 2026-09-29) remains: its check sits in `tests/test_figure_form.py`, and "a computation" a figure retypes has no mechanical definition yet; the scan defines it from S7's registry of owned rules (a figure that evaluates a registered signature expression instead of calling its owner).
@@ -128,8 +128,8 @@ Accept: S1, S2 and S5 report HELD; no UNHELD fact names a 0.2.14 item.
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/fact_gate.py`, `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`, `jnwb/spectral/_psd.py` (the R² sites, `:391` and `:595` on 2026-10-25), `jnwb/onset_fitting.py` (the third R² site the ruling names, `:296`), `jnwb/statistics/_analysis.py`, `jnwb/statistics/_tests.py` (the second FDR and Clopper-Pearson owners).
-- 2026-10-26: the three R² sites call `r_squared` (b3385d1c). The registry remains, and it finds two owners each for FDR (`statistics/_analysis.py:15`, `:85`) and Clopper-Pearson (`_analysis.py:879`, `_tests.py:13`): one becomes the owner and the other calls it, bit-identical.
+Writes: `scripts/fact_gate.py`, `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`, `jnwb/spectral/_psd.py` (the R² sites, `:391` and `:595` on 2026-10-25), `jnwb/onset_fitting.py` (the third R² site the ruling names, `:296`), `jnwb/statistics/_analysis.py`, `jnwb/statistics/_tests.py`, `jnwb/connectivity/_network.py`, `jnwb/laminar/_vflip2.py`, `jnwb/statistics/_firing.py`, `jnwb/jrsa/_inference.py`, `jnwb/unit_quality.py`, `jnwb/artifact_detection.py`, `jnwb/laminar_curation.py`, `jnwb/artifact_repair.py` (owner calls, bit-identical).
+- 2026-10-26: the three R² sites call `r_squared` (b3385d1c); the second FDR and Clopper-Pearson bodies already forward to their owners. Ruled 2026-10-26: a registry entry per robust-z variant; R² matched by the shape `1 - A / B` with a reviewed exemption table (`statistics/_tests.py:51`); `_vflip2.py:145` calls `r_squared`.
 - 12-11: S7 (a caller uses the library function instead of retyping its rule) has no scan that reports its own planted case. Accept (carried from 11-07 by the 2026-10-11 ruling): the S7 scan reports its own planted case in `tests/test_fact_gate.py`, and S7 reports no UNHELD fact. Check: the S7 scan reports its own planted case in `tests/test_fact_gate.py`, and S7 reports no UNHELD fact. Waits: Ruled 2026-10-20: a registry of owned rules and their signature expressions, scanned in S7's scope and in `jnwb/`; the three R² sites share one helper.
 
 ### 12-06 No process identifiers outside the stacks
@@ -171,15 +171,6 @@ Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/ga
 - 12-07: R2 (a verify-pypi job after publish-pypi) and B2 (gate 6 over `jnwb/`, `docs/`, `skills/` and `tests/`) report UNHELD; R5 (validated on `main` before the tag) and R7 (the full suite on every declared interpreter on Ubuntu and Windows) name this item too, each with a check against `.github/workflows/workflow.yml`. Check: a planted hash mismatch fails the job's check function; a planted study token in `tests/` fails. Waits: After 12-05; the upload step checks sha256 against the verified TestPyPI copy, and `tests/` is not in the wheel while shipped surfaces are scanned. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: B2, R2, R5 and R7 report HELD; no UNHELD fact names a 0.2.14 item; VIOLATED 0.
 
-### 09-07 Checks for the defect classes review keeps finding
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py`, `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/process/defect_classes.md`.
-- 09-07: One class has no check: second-home-contradiction; `artifacts/state.md` names the worktrees, stale branches, the newest `dev` run (`RED` when it failed) and the open defect classes (2026-10-18); rewrite-drops-obligation is listed by `scripts/obligation_diff.py --base <commit>` (2026-10-18), which finds both 08-06 instances in 8482c7bc; ruling-cited-not-recorded is checked to the date (`tests/test_process_records_are_counted.py`, 2026-10-17), and matching a citation to its row stays a review rule. The ledger is recounted by the same file. Check: a gate reads every such citation and finds its row in `artifacts/rulings/<date>.md`; it is red on the 08-06 commit `8482c7bc`; for a mapping table with old and new columns, every obligation word (`before`, `after`, `never`, `must`, `only`) in an old rule appears in its new home; red on `8482c7bc` for D1 and D2; each ruling row may name a forbidden phrase and the gate greps the repository for it; red on the pooling phrase before 08-07; the section is generated, and a stale worktree or a red run is named; the gate recounts it. Waits: Process evidence only, no shipped behaviour; rewrites are rare and reviewed, review found every instance so far, and the integrator reads state by hand today. Moved to 0.2.14 by the 2026-10-19 theme ruling.
-Accept: each check is red on the instance its bullet names and green on the live tree; the checks join an existing gate or replace a named weaker one, so `GATES` stays at 22 (goal F4, `tests/test_every_gate_runs.py`).
-- 2026-10-26 (4441bd78): `scripts/learning_gate.py` recounts the ledger and checks cited dates (gate 15, red on 314d7329^ and 8482c7bc) and the state rows (gate 20); `tests/test_process_records_are_counted.py` is gone. Left: matching a citation to its row (the bullet keeps it a review rule, the Check asks for a gate); the mapping-table obligation check (no mapping table on HEAD since 74d244d3: test it on 8482c7bc's table); forbidden phrases (no ruling row names one yet); naming a red `dev` run in the state (the public runs API answers by `curl`).
-
 ### 07-05 A downstream paper agent can consume jnwb
 
 Release: deferred-0.2.14.
@@ -206,20 +197,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/fact_gate.py`, `scripts/gates/boundary.py`, `tests/test_fact_gate.py`.
 - 17-26: `routes` returns [] on an empty graph and `lifecycle` may too (`fact_gate.py:175-196`); a fact file with headers and no rows gives HELD 0, UNHELD 0, VIOLATED 0 (`:404-437`); `boundary.py:268` returns [] with neither `tests/` nor `scripts/` present. Check: each fails on its planted empty case. Source: O-19.
-
-### 17-27 Gate 20 checks the state in every CI job that runs the harness
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `.github/workflows/workflow.yml`, `tests/test_workflow_release_policy.py`.
-- 17-27: gate 20 returns [] when `artifacts/state.md` is absent (by design for a fresh checkout), and CI regenerates it on one test leg only (`workflow.yml:161-166`), so the build job's harness run (`:349`) checks no state. Check: every job that runs `harness_gate.py` runs `reconstruct_state.py` first; a workflow test asserts it. Source: O-20.
-
-### 17-30 S12's guard derives the device-capable set
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `tests/test_execution_switch.py`.
-- 17-30: `test_every_export_with_a_cuda_path_records_its_device` compares two hand-written sets (`DEVICE_CALLS`, `RECORD`), so a new CUDA path outside both passes; the CUDA agreement test is skipped in CI, which has no GPU. Check: the CUDA-capable exports are read from the package (the backend dispatch), and a planted CUDA path with no record fails; the skip is stated in the test's reason string. Source: O-23.
 
 ### 17-31 The boundary checks fail on what they cannot parse, or go
 
