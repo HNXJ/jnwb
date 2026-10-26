@@ -370,7 +370,7 @@ class UnitAnalyzer:
 
         Distinct from :func:`jnwb.viz.raster_psth`, which is not a redundant duplicate but a
         different contract: that function uses ``ddof=1`` SEM vs. this method's bootstrap CI,
-        right-open ms bins (``<``) there vs. seconds/inclusive (``<=``) here, and a plain-tuple
+        right-open ms bins (``<``) there vs. inclusive ms bins (``<=``) here, and a plain-tuple
         return there vs. this method's dict contract. Prefer this method when you want a
         bootstrap CI or the dict contract (e.g. alongside :meth:`UnitAnalyzer.raster`); prefer
         ``jnwb.viz.raster_psth`` for a quick trial-averaged rate curve as a plain tuple. Both
@@ -385,9 +385,10 @@ class UnitAnalyzer:
                 with a ``FutureWarning``.
 
         Returns:
-            Dict with PSTH, CI, and statistics. With no onsets there is no trial to average:
-            ``psth``, ``sem`` and the ``bootstrap_ci`` values are NaN, ``n_trials`` is 0, and
-            NumPy and SciPy warn about the empty mean.
+            Dict with PSTH, CI, and statistics. ``bin_centers_ms`` holds the bin centres in
+            ms, as ``jnwb.viz.raster_psth`` returns them. With no onsets there is no trial to
+            average: ``psth``, ``sem`` and the ``bootstrap_ci`` values are NaN, ``n_trials`` is
+            0, and NumPy and SciPy warn about the empty mean.
 
         Raises:
             ValueError: If the span of ``window_ms`` is not a whole multiple of
@@ -413,7 +414,7 @@ class UnitAnalyzer:
         return {
             'psth':          mean_psth,
             'sem':           sem_psth,
-            'bin_centers':   (bin_edges[:-1] + bin_edges[1:]) / 2,
+            'bin_centers_ms': (bin_edges[:-1] + bin_edges[1:]) / 2 * 1000,
             'bin_size_ms':   bin_size_ms,
             'n_trials':      len(trial_onsets),
             'bootstrap_ci':  StatisticalAnalysis.bootstrap_ci(np.mean(trial_psths, axis=1)),

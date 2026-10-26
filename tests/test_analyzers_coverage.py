@@ -492,6 +492,23 @@ class TestPsthCountsSpikesOnBothEdges(unittest.TestCase):
         np.testing.assert_array_equal(np.rint(res['psth'] * 0.25), [0, 0, 1])
 
 
+class TestPsthBinCentresMatchRasterPsth(unittest.TestCase):
+    """``UnitAnalyzer.psth`` and ``jnwb.viz.raster_psth`` take their windows and bins in ms,
+    so their bin centres agree in ms, under a key that names the unit."""
+
+    def test_psth_and_raster_psth_return_the_same_bin_centres_in_ms(self):
+        from jnwb.viz import raster_psth
+
+        rng = np.random.default_rng(3)
+        onsets = 2.0 + 0.7 * np.arange(40)
+        spikes = np.sort(np.concatenate([o + rng.uniform(-0.1, 0.2, 30) for o in onsets]))
+        res = UnitAnalyzer.psth(spikes, onsets, bin_size_ms=10, window_ms=(-100, 200))
+        centres_ms, _, _ = raster_psth(spikes, onsets, (-100, 200), bin_ms=10.0)
+        assert res['psth'].sum() > 0, "fixture must put spikes in the window"
+        assert 'bin_centers' not in res, "the centres are in ms, so the key names ms"
+        np.testing.assert_allclose(res['bin_centers_ms'], centres_ms, rtol=1e-12)
+
+
 class TestRasterSelectsBySpikeMinusOnset(unittest.TestCase):
     """``UnitAnalyzer.raster`` keeps a spike when spike - onset lies in [pre, post]."""
 

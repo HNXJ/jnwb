@@ -65,8 +65,8 @@ def test_the_deprecated_mi_aliases_raise_with_neither_window_spelling(name):
 def test_psth_without_window_ms_warns_and_uses_the_old_span():
     omitted, passed = _omitted_and_passed(
         lambda kw: UnitAnalyzer.psth(SPIKES, ONSETS, bin_size_ms=100, **kw), "UnitAnalyzer.psth")
-    np.testing.assert_array_equal(omitted["bin_centers"], passed["bin_centers"])
-    assert passed["bin_centers"][0] == pytest.approx(-0.95), "bins must start at -1000 ms"
+    np.testing.assert_array_equal(omitted["bin_centers_ms"], passed["bin_centers_ms"])
+    assert passed["bin_centers_ms"][0] == pytest.approx(-950.0), "bins must start at -1000 ms"
     np.testing.assert_array_equal(omitted["psth"], passed["psth"])
     assert np.nansum(passed["psth"]) > 0, "the fixture must put spikes in the window"
 
