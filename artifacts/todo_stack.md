@@ -109,8 +109,8 @@ Accept: gate 14 passes on `scripts/` and `tests/`; the suite passes.
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `skills/jnwb-sim-benchmark/**`, `artifacts/process/public_surface.json` (a new skill enters the surface only by a ruling that names it, goal F2).
-- 15-22: No skill routes agents to the synthetic ground-truth generators (`synth_vflip2_crossover` of 15-11) and their recovery runs. Check: a test that fails before the repair and passes after. Waits: Ruled 2026-10-19: a draft comes for amendment once the P-335 calibration and the 15-11 generators are stable.
+Writes: `artifacts/skills/jnwb-sim-benchmark/**` (repository-only, ruled 2026-10-26).
+- 15-22: No skill routes agents to the synthetic ground-truth generators (`synth_vflip2_crossover` of 15-11) and their recovery runs. Check: a test that fails before the repair and passes after. Waits: the draft landed 2026-10-26; Hamm amends or accepts it.
 
 ### 12-07 Release and study-vocabulary facts held
 

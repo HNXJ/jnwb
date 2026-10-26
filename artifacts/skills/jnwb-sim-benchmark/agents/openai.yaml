@@ -1,0 +1,5 @@
+interface:
+  display_name: jnwb-sim-benchmark
+  description: Synthetic ground-truth generators with planted structure, and the recovery run that tests a method against a planted vFLIP2 crossover. Route here to check that a method recovers what was planted.
+policy:
+  allow_implicit_invocation: true
