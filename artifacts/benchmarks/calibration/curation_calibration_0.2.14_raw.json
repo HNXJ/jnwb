@@ -2,7 +2,7 @@
  "release": "0.2.14",
  "declared_version": "0.2.13",
  "estimator": "curate_and_label",
- "estimator_sha256": "43bb14677c6a994ffa3a1b5a2ec8ca65223e1103a5ba870142a1af9bad103633",
+ "estimator_sha256": "12d994b977b2d14c113d509e62744c4ac52667d83c4bb30ebb2f5aa0548b1cea",
  "estimator_functions": [
   "CORRELATION_FS_HZ",
   "LaminarCurationResult",
@@ -56,6 +56,7 @@
   "jnwb._rng.recorded_rng",
   "jnwb._rng.resolve_rng",
   "jnwb._rng.surrogate_rng",
+  "jnwb._spread.r_squared",
   "jnwb.laminar._vflip.CANONICAL_VFLIP_BANDS",
   "jnwb.laminar._vflip.VFlipResult",
   "jnwb.laminar._vflip._DEPTH_AXES",
