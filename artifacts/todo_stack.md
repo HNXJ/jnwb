@@ -47,7 +47,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
 | 2 | N numerics and I/O (audit 2026-10-25) | none left: every item landed 2026-10-25 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
-| 2 | P process and docs (audit 2026-10-25) | 17-58; 17-34 and 17-36 landed 2026-10-26 | Haiku writes, Muse reviews | nothing |
+| 2 | P process and docs (audit 2026-10-25) | 17-34, 17-36 and 17-58 landed 2026-10-26 | Haiku writes, Muse reviews | nothing |
 | 3 | H harness | 12-07, 07-05, 17-31, then 12-06 and 17-56; 17-26, 17-27, 17-30, 17-32, 17-41, 17-54, 17-55 and 12-05 landed 2026-10-26, 11-03 went to the roadmap | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
@@ -68,7 +68,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 8 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18; 16-19 landed |
 | 9 | Docs pages carry still and interactive figures, after jaxfne's form (ruled 2026-10-24) | the form and the page set follow Hamm's preference rulings; a test builds each figure from committed inputs; the strict docs build passes | 17-01 landed 2026-10-26 |
 | 10 | A validation dashboard after jaxfne's, keeping the proof of work, the HTML outputs and the GLO cards (ruled 2026-10-23 and 2026-10-24) | `tests/test_build_dashboard.py` builds it from committed files with every receipt digest matching; the published page shows each section the preference rulings name, in light and dark | 17-02 landed 2026-10-26 |
-| 11 | Reference claims checked against full text where an abstract decides nothing | each claim cell of `docs/references.md` has a ledger line, confirmed, reworded, or cut; the 14 core texts keep their cells (ruled 2026-10-23, ledger ruled 2026-10-25) | ledger landed (3ed1efca): 93 cells, 60 cut, 2 reworded, 14 kept, 17 unrecorded; 17-58 |
+| 11 | Reference claims checked against full text where an abstract decides nothing | each claim cell of `docs/references.md` has a ledger line, confirmed, reworded, or cut; the 14 core texts keep their cells (ruled 2026-10-23, ledger ruled 2026-10-25) | ledger: 93 cells, 60 cut, 6 reworded, 13 confirmed, 14 kept, 0 unrecorded; 17-58 landed 2026-10-26 |
 | 12 | Release form (`AGENTS.md` §11): low-verbosity docs, low-complexity code, an empty open stack, no required item | `match-checker` runs once at the checkpoint on every file changed since v0.2.13, its report committed (ruled 2026-10-25); the closure pass (checkpoint step 5) finds 0 new blockers | checkpoint steps 1 to 5 |
 | 13 | The audit of 2026-10-25 closed | every item 17-09 to 17-56 has left this file | 17-09 to 17-56 |
 | 14 | `dev` is green and release-ready | the suite stamp equals HEAD; CI green on `dev` at that SHA; `python scripts/release_gate.py` exits 0 | checkpoint steps 6 and 7 |
@@ -153,11 +153,3 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: 12-06 (same files).
 Writes: `tests/**/*.py`.
 - 17-56: 69 test files append to `sys.path` though `pyproject.toml` sets `pythonpath=["."]`. Check: `git grep -c "sys.path.insert\|sys.path.append" -- tests` reads 0 or each remaining site states why; the suite passes. Source: O-26.
-
-### 17-58 The unrecorded reference claim cells get verdicts
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `artifacts/evidence/0.2.14/reference_claims_ledger.md`, `docs/references.md`.
-- 17-58: the ledger (3ed1efca) counts 93 claim cells; 17 carry `unrecorded`, since no record names them (the 2026-10-23 ruling counts 7 confirmed without naming cells), and 14 core texts carry `kept`, a verdict row 11 does not list. Check: no `unrecorded` line remains; each such cell is read against its source and marked confirmed, reworded or cut, the source named. `kept` satisfies row 11 (ruled 2026-10-25). Source: 17-15.
-- 2026-10-25 (aff44069): 13 read against open-access text, 9 confirmed, 4 reworded. Four remain: Fleiss (1971) and Nejat & Hajipour Sardouie (2021), whose text no open route reached (APA 403, IEEE 418); Major et al. (2025) and Siegle et al. (2021) under "Studies jnwb reproduces", whose replication rests on a code receipt, to be read from that receipt.

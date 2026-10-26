@@ -23,9 +23,9 @@ Source read names the commit whose diff of the cell was read, or the ruling, or 
 - claim cells: 93
 - cut: 60
 - reworded: 6
-- confirmed: 11
+- confirmed: 13
 - kept: 14
-- unrecorded: 2
+- unrecorded: 0
 
 | Section | Reference | Column | Verdict | Source read |
 |---|---|---|---|---|
@@ -112,7 +112,7 @@ Source read names the commit whose diff of the cell was read, or the ruling, or 
 | Core texts | Hastie, T., Tibshirani, R., & Friedman, J. (2009) | claim | kept | ruling 2026-10-23 (keep the 14 core texts); todo row 11 |
 | Core texts | Fisher, N. I. (1993) | claim | kept | ruling 2026-10-23 (keep the 14 core texts); todo row 11 |
 | Core texts | Mardia, K. V., & Jupp, P. E. (2000) | claim | kept | ruling 2026-10-23 (keep the 14 core texts); todo row 11 |
-| Studies jnwb reproduces | Fleiss, J. L. (1971) | claim | unrecorded | none: doi.apa.org returned 403; the Europe PMC record has no abstract |
+| Studies jnwb reproduces | Fleiss, J. L. (1971) | claim | confirmed | Hamm's confirmation of the cell as written (rulings of 2026-10-26); no open text was reachable (doi.apa.org 403) |
 | Studies jnwb reproduces | Hill, D. N., Mehta, S. B., & Kleinfeld, D. (2011) | claim | confirmed | https://pmc.ncbi.nlm.nih.gov/articles/PMC3123734/ "an observation of r = 20 refractory period violations yields an estimate of" |
 | Studies jnwb reproduces | Major, A. J., et al. (2025) | claim | confirmed | receipts tests/fixtures/vflip2_matlab_reference.json (e5c56bcf; source vFLIP2.m, dryad_version 8, 2025-11-04) and tests/fixtures/vflip2_from_lfp_matlab_reference.json (fc942bd5): "run in MATLAB R2024a on seeded synthetic laminar LFP"; the cited tests pass at 4c192be9 |
 | Studies jnwb reproduces | Siegle, J. H., et al. (2021) | claim | confirmed | receipt artifacts/evidence/0.2.9/unit_qc_inventory.md (b48bd9a7; section D, read at 919992748a53): "Agreement with the source functions, run on the same inputs with no correction factor"; tests/test_unit_quality.py (6893ef47) pins the values; the "(Jia et al.)" attribution is unchecked, since neither paper was read |
@@ -120,5 +120,5 @@ Source read names the commit whose diff of the cell was read, or the ruling, or 
 | Pitfalls | Vezoli, J., et al. (2021) | claim | confirmed | https://pmc.ncbi.nlm.nih.gov/articles/PMC8639786/ "excluding sites within a 2-mm radius to avoid residual volume conduction effects" |
 | Pitfalls | Friston, K. J., et al. (2014) | claim | reworded | 00947a48 diff: claim reworded to what the abstract says (Friston 2014 row) |
 | Pitfalls | Barnett, L., & Seth, A. K. (2011) | claim | confirmed | Europe PMC abstract (PMID 21864571; ScienceDirect 403) https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=DOI:%2210.1016/j.jneumeth.2011.08.010%22&format=json&resultType=core "as a consequence of large increases in empirical model order induced by filtering" |
-| Pitfalls | Nejat, H., & Hajipour Sardouie, S. (2021) | claim | unrecorded | none: ieeexplore returned 418 and the doi.org landing 202 with no body; Europe PMC has no record |
+| Pitfalls | Nejat, H., & Hajipour Sardouie, S. (2021) | claim | confirmed | the first author's confirmation of the cell as written (rulings of 2026-10-26) |
 | Data format | Rübel, O., Tritt, A., Ly, R., Dichter, B. K., Ghosh, S., Niu, L., Baker, P., Soltesz, I., Ng, L., Svoboda, K., Frank, L., & Bouchard, K. E. (2022) | claim | confirmed | https://elifesciences.org/articles/78362 "allow convenient interfaces for writing and reading data according to the NWB schema" |
