@@ -219,6 +219,9 @@ class StatisticalAnalysis:
         ``[1, 2, 3, 4]``) give a finite, huge ``statistic`` (about 9e14) and a ``pval``
         near 0.
 
+        Non-finite values are dropped before the test, with a RuntimeWarning that counts them
+        per group; with ``paired=True`` a pair holding one is dropped whole and counted as a pair.
+
         The result carries ``surrogate_seed_entropy``: the entropy the resamples ran on
         (the seed for an int ``rng``, the fresh OS entropy drawn for ``rng=None``, None
         for a ``Generator``).
@@ -257,6 +260,23 @@ class StatisticalAnalysis:
         else:
             valid1 = group1[np.isfinite(group1)]
             valid2 = group2[np.isfinite(group2)]
+        n_dropped1 = len(group1) - len(valid1)
+        n_dropped2 = len(group2) - len(valid2)
+        if paired and n_dropped1:
+            warnings.warn(
+                f"compare_groups: dropped {n_dropped1} pair(s) holding a non-finite value. "
+                "The test is on the remaining pairs.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        elif n_dropped1 or n_dropped2:
+            warnings.warn(
+                f"compare_groups: dropped {n_dropped1 + n_dropped2} non-finite sample(s) "
+                f"({n_dropped1} from group1, {n_dropped2} from group2). The test is on the "
+                "remaining samples.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
         result: Dict = {
             "n1": len(valid1),
@@ -456,7 +476,8 @@ class StatisticalAnalysis:
 
         A constant input has no correlation: that block reports ``statistic``, ``pval``,
         ``effect_size`` and ``df`` as float NaN, and its ``significant_*`` flag is False. A
-        defined correlation keeps its integer ``df``.
+        defined correlation keeps its integer ``df``. A pair with a NaN or infinite value in
+        either variable is dropped, and ``n`` counts the pairs kept.
 
         Args:
             method: Which correlation to compute -- ``"both"`` (default), ``"pearson"``
@@ -475,7 +496,7 @@ class StatisticalAnalysis:
         x = np.asarray(x).flatten()
         y = np.asarray(y).flatten()
 
-        valid = ~(np.isnan(x) | np.isnan(y))
+        valid = np.isfinite(x) & np.isfinite(y)
         x_valid = x[valid]
         y_valid = y[valid]
 
@@ -530,11 +551,21 @@ class StatisticalAnalysis:
         for fresh entropy, or a ``Generator`` to keep one stream across calls.
         ``surrogate_seed_entropy`` is the entropy the resamples ran on: the seed for an
         int ``rng``, the fresh OS entropy drawn for ``rng=None``, None for a ``Generator``.
+
+        Non-finite values are dropped with a RuntimeWarning that counts them.
         """
         rng, seed_entropy = surrogate_rng(rng, "bootstrap_ci")
 
         data = np.asarray(data).flatten()
+        n_in = len(data)
         data = data[np.isfinite(data)]
+        if len(data) < n_in:
+            warnings.warn(
+                f"bootstrap_ci: dropped {n_in - len(data)} non-finite sample(s). The interval "
+                "is on the remaining samples.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
         mean = np.mean(data)
         sem = stats.sem(data)

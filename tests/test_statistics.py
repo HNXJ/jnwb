@@ -1429,3 +1429,56 @@ class TestExploratoryAndConfirmatoryTakeAnRng:
         assert confirm["mean_diff_ci"]["bootstrap_ci"] == ref
         assert explicit["mean_diff_ci"]["bootstrap_ci"] == ref
 
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+@pytest.mark.parametrize("slot", ["x", "y"])
+def test_correlate_drops_a_non_finite_value_as_it_drops_nan(bad, slot):
+    import warnings
+
+    rng = np.random.default_rng(31)
+    x = rng.normal(size=20)
+    y = 0.5 * x + rng.normal(size=20)
+    x_bad, y_bad = x.copy(), y.copy()
+    x_nan, y_nan = x.copy(), y.copy()
+    (x_bad if slot == "x" else y_bad)[4] = bad
+    (x_nan if slot == "x" else y_nan)[4] = np.nan
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        res = StatisticalAnalysis.correlate(x_bad, y_bad)
+    ref = StatisticalAnalysis.correlate(x_nan, y_nan)
+    keep = np.arange(20) != 4
+    assert res == ref
+    assert res["n"] == 19
+    assert res["parametric"]["statistic"] == pytest.approx(
+        np.corrcoef(x[keep], y[keep])[0, 1], rel=1e-12)
+
+
+def test_compare_groups_warns_with_the_count_it_dropped_from_each_group():
+    rng = np.random.default_rng(41)
+    g1, g2 = rng.normal(size=12), rng.normal(0.5, size=12)
+    ref = StatisticalAnalysis.compare_groups(g1, g2, n_bootstrap=200, rng=3)
+    ref_paired = StatisticalAnalysis.compare_groups(g1, g2, paired=True, n_bootstrap=200, rng=3)
+    with pytest.warns(RuntimeWarning, match=r"compare_groups: dropped 1 non-finite sample\(s\) "
+                                             r"\(1 from group1, 0 from group2\)"):
+        res_1 = StatisticalAnalysis.compare_groups(np.append(g1, np.nan), g2,
+                                                   n_bootstrap=200, rng=3)
+    with pytest.warns(RuntimeWarning, match=r"compare_groups: dropped 2 non-finite sample\(s\) "
+                                             r"\(0 from group1, 2 from group2\)"):
+        res_2 = StatisticalAnalysis.compare_groups(g1, np.append(g2, [np.nan, np.inf]),
+                                                   n_bootstrap=200, rng=3)
+    with pytest.warns(RuntimeWarning,
+                      match=r"compare_groups: dropped 1 pair\(s\) holding a non-finite value"):
+        res_3 = StatisticalAnalysis.compare_groups(np.append(g1, np.nan), np.append(g2, 0.1),
+                                                   paired=True, n_bootstrap=200, rng=3)
+    assert res_1 == ref and res_2 == ref
+    assert res_3 == ref_paired
+
+
+def test_bootstrap_ci_warns_with_the_count_it_dropped():
+    data = np.random.default_rng(43).normal(size=20)
+    ref = StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=200, rng=5)
+    with pytest.warns(RuntimeWarning, match=r"bootstrap_ci: dropped 2 non-finite sample\(s\)\."):
+        res = StatisticalAnalysis.bootstrap_ci(np.append(data, [np.nan, -np.inf]),
+                                               n_bootstrap=200, rng=5)
+    assert res == ref
+

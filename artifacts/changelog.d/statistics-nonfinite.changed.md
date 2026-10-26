@@ -1,0 +1,3 @@
+- `correlate` drops a pair with an infinite value, as with NaN; Pearson r was NaN (`jnwb/statistics/_analysis.py`).
+- `compare_groups` warns with the count of non-finite values it drops from each group (`jnwb/statistics/_analysis.py`).
+- `bootstrap_ci` warns with the count of non-finite values it drops (`jnwb/statistics/_analysis.py`).
