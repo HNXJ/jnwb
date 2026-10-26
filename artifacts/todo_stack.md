@@ -48,7 +48,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
 | 2 | N numerics and I/O (audit 2026-10-25) | none left: every item landed 2026-10-25 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-34, 17-36 and 17-58 landed 2026-10-26 | Haiku writes, Muse reviews | nothing |
-| 3 | H harness | 12-06, then 17-56; 07-05, 12-07, 17-26, 17-27, 17-30, 17-31, 17-32, 17-41, 17-54, 17-55 and 12-05 landed 2026-10-26, 11-03 went to the roadmap | Haiku | wave 2 merged |
+| 3 | H harness | 17-56; 07-05, 12-06, 12-07, 17-26, 17-27, 17-30, 17-31, 17-32, 17-41, 17-54, 17-55 and 12-05 landed 2026-10-26, 11-03 went to the roadmap | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
 
@@ -64,7 +64,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | item gone (11-01) |
 | 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 12-07, 11-07, 12-11 and 16-10 landed, 11-03 to roadmap (ruled 2026-10-26); 11-09 to roadmap (ruled 2026-10-25) |
 | 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 15-22 and 16-03 landed |
-| 7 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 12-06; 07-05, 15-20, 12-05 and 09-07 landed 2026-10-26 |
+| 7 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 07-05, 12-06, 15-20, 12-05 and 09-07 landed 2026-10-26 |
 | 8 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18; 16-19 landed |
 | 9 | Docs pages carry still and interactive figures, after jaxfne's form (ruled 2026-10-24) | the form and the page set follow Hamm's preference rulings; a test builds each figure from committed inputs; the strict docs build passes | 17-01 landed 2026-10-26 |
 | 10 | A validation dashboard after jaxfne's, keeping the proof of work, the HTML outputs and the GLO cards (ruled 2026-10-23 and 2026-10-24) | `tests/test_build_dashboard.py` builds it from committed files with every receipt digest matching; the published page shows each section the preference rulings name, in light and dark | 17-02 landed 2026-10-26 |
@@ -97,14 +97,6 @@ Before step 8, merge `main` into `dev`, so the release merge's first parent is i
 | 10 | Install 0.2.14 from PyPI in a fresh venv; import; run the quickstart | the installed version reads 0.2.14 |
 | 11 | Move the 0.2.15 roadmap rows here with their full text; 0.2.15 becomes this file's top section | release_gate STEP 0a reads no `deferred-0.2.14` |
 
-### 12-06 No process identifiers outside the stacks
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/workflow.yml`, `.github/CONTRIBUTING.md`.
-- 12-06: P-284: `scripts/` and test files cite item and problem ids (P-209 and IB-71 merged; the 2026-10 counts no longer reproduce, so the lane re-measures them); P-102 levels line endings to LF, as D3 ruled 2026-09-29 (82 tracked files are CRLF on 2026-10-25), in one conversion commit. Check: each is removed or rewritten as a plain reason, then gate 14 reads both folders with an allowlist for machine-required literals; gate 16 passes and one byte-mode edit per convention applies. Waits: After 12-05 and 12-07; neither directory ships, and P-102 is bytes only. Moved to 0.2.14 by the 2026-10-19 theme ruling.
-Accept: gate 14 passes on `scripts/` and `tests/`; the suite passes.
-
 ### 16-18 The core freeze (goal F1)
 
 Release: deferred-0.2.14.
@@ -119,6 +111,6 @@ The items below come from the open stack of 2026-10-25 (`git show e00e8664:artif
 ### 17-56 Test files stop appending to `sys.path`
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 12-06 (same files).
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `tests/**/*.py`.
 - 17-56: 69 test files append to `sys.path` though `pyproject.toml` sets `pythonpath=["."]`. Check: `git grep -c "sys.path.insert\|sys.path.append" -- tests` reads 0 or each remaining site states why; the suite passes. Source: O-26.
