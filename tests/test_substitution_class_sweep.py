@@ -135,7 +135,7 @@ def scan_option_set_fallbacks(source: str, module: str) -> List[Finding]:
     An option set is a dict literal with string keys, written inline or bound at module level.
     Looking a selector up in one with a string fallback is the substitution written as a
     mapping: an unrecognised request silently becomes a recognised one. This is the exact form
-    P-31 and P-50 named -- ``_CORRECTION_METHOD_MAP.get(m_lower, "fdr_bh")``.
+    recorded as a defect -- ``_CORRECTION_METHOD_MAP.get(m_lower, "fdr_bh")``.
 
     Every such site is reported. Whether the substituted value reaches a result or only a
     message is a judgement, and judgements live in the baseline with their reasons, not in this
@@ -1227,7 +1227,7 @@ class TestTheRepairsFoundByThisSweep:
         assert vals["max"] != vals["min"], vals
 
     def test_an_unrecognised_align_raises_rather_than_resampling_silently(self):
-        """Latent hit, the same structural status P-31 had.
+        """Latent hit, the same structural status as the recorded defect.
 
         ``_resample_axis``'s ``if/elif`` chain over ``align`` ended without an ``else``, so an
         unrecognised value returned both arrays untouched while ``_align_dimensions`` appended

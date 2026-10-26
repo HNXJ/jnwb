@@ -1,4 +1,4 @@
-"""0.2.4-04: wPLI and imaginary coherency report unavailable states, not zero.
+"""wPLI and imaginary coherency report unavailable states, not zero.
 
 Each test fails against the pre-repair implementation:
 

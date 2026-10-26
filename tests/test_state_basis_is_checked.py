@@ -1,6 +1,6 @@
 """``artifacts/state.md`` said a gate kept it fresh, and no gate ever read it.
 
-P-65. The sentence was emitted by ``scripts/reconstruct_state.py``, so every regeneration
+The sentence was emitted by ``scripts/reconstruct_state.py``, so every regeneration
 re-asserted the protection, and ``scripts/harness_gate.py`` has never mentioned the file --
 the gate reported 13 of 13 while the basis on disk was stale. The one test that invoked
 ``--check`` asserted ``"PASS" in out or "ERROR" in out``, and both outcomes satisfy that, so
@@ -39,7 +39,7 @@ HEAD_ROW = re.compile(r"^\| HEAD \| `([0-9a-f]{40})` \|$", re.MULTILINE)
 #: The sentence the generator emits while no harness gate reads the file.
 NO_GATE_SENTENCE = "No harness gate reads this file"
 
-#: The P-65 claim. Absence of this exact string proves nothing on its own; it is asserted
+#: The retracted claim. Absence of this exact string proves nothing on its own; it is asserted
 #: alongside the positive check below so the sentence cannot be reinstated verbatim.
 RETRACTED_CLAIM = "a gate fails when this file no longer matches the tree"
 
@@ -275,9 +275,9 @@ def test_the_generated_prose_agrees_with_whether_a_gate_reads_the_file() -> None
     else:
         assert NO_GATE_SENTENCE in generated, (
             "no harness gate reads artifacts/state.md and the generated file no longer says "
-            "so. P-65 is this sentence overstating its protection; a reader who believes the "
+            "so. This sentence is overstating its protection; a reader who believes the "
             "basis is held fresh does not run --check."
         )
         assert RETRACTED_CLAIM not in generated, (
-            "the P-65 sentence is back in the generated file verbatim"
+            "the retracted sentence is back in the generated file verbatim"
         )

@@ -619,7 +619,7 @@ def _trial_mean_power():
 
 class TestTrialMeanMarkReachesNesting:
     """The trial-mean check read a list one level deep: `[[P[0]], [P[1]]]` and a list of
-    memoryviews passed `aggregate_to_db(how="mean_of_ratios")` (P-287)."""
+    memoryviews passed `aggregate_to_db(how="mean_of_ratios")`."""
 
     @pytest.mark.parametrize("form", [
         lambda P: [[P[0]], [P[1]]],
@@ -643,8 +643,8 @@ class TestTrialMeanMarkReachesNesting:
 
 
 class TestMeanIsACopy:
-    """`TFRAccumulator.mean` returns a copy, so item assignment does not write through
-    (P-347); the docstring says so."""
+    """`TFRAccumulator.mean` returns a copy, so item assignment does not write through;
+    the docstring says so."""
 
     def test_item_assignment_does_not_write_through(self):
         acc, before = _trial_mean_power()

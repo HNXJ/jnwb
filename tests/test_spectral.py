@@ -1448,7 +1448,7 @@ class TestRelativePower:
 
 
 class TestWelchCsdGpuParity:
-    """Test _welch_csd_gpu numerical parity with SciPy (0.2.3-REV-06)."""
+    """Test _welch_csd_gpu numerical parity with SciPy."""
 
     def _gpu_available(self):
         try:
@@ -1820,7 +1820,7 @@ class TestCrossSpectralRatioFamilyIdentifiability:
 
 
 class TestPairedTraceContract:
-    """0.2.4-04: unpaired traces must be refused, not silently truncated.
+    """Unpaired traces must be refused, not silently truncated.
 
     `wpli` and `imaginary_coherency` took n = min(len(x), len(y)) and discarded the tail
     of the longer trace. The two traces then no longer describe the same interval, and
@@ -2339,7 +2339,7 @@ def _cuda_device_count():
 class TestCoherenceWithAConstantChannel:
     """A constant channel's mean removal leaves rounding residue, and the coherence ratio
     turned it into a value: about 0.05 per band on the CPU and 0.0 on CUDA, with a p-value
-    beside it. Coherence with a channel that does not vary is undefined (P-331)."""
+    beside it. Coherence with a channel that does not vary is undefined."""
 
     KW = dict(fs=1000.0, freq_bands="canonical", n_surrogates=20)
 

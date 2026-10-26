@@ -156,7 +156,7 @@ class TestMetadataIsDerived:
 #: v0.2.5 actually declared. Both are frozen literals, written independently of each other.
 #: Building the body out of the metadata it is then compared against -- which is what this
 #: test did first -- agrees by construction and proves only that the regexes round-trip. That
-#: is the shape P-150 records on the release path, where the tutorials `release_gate.py`
+#: is the shape a recorded defect describes on the release path, where the tutorials `release_gate.py`
 #: executes against the installed wheel read only NWB files they wrote themselves.
 _SHIPPED_V025_TRAILER = (
     "0.2.5 is a correctness and harness release.\n\n---\n\n"

@@ -608,7 +608,7 @@ class TestTheInstalledSmokeScript:
 
 
 class TestInstalledArtifactVerification:
-    """0.2.4-03/-13: the artifact must be exercised as installed, not as a checkout.
+    """The artifact must be exercised as installed, not as a checkout.
 
     The tutorials are the only end-to-end consumers of the public API, and they are the
     surface where a packaging omission (a subpackage excluded from the wheel) or a
@@ -738,7 +738,7 @@ class TestInstalledArtifactVerification:
         A pin is a literal the gate could compare against. A version that merely appears
         inside prose is not: `scripts/release_gate.py` legitimately contains the comment
         "# 7. 0.2.4 additions: wpli, zflip, rdm" inside the smoke script it generates, and
-        the log line "No numbered tutorials found; 0.2.4-03 cannot be verified." naming an
+        the log line "No numbered tutorials found; <id> cannot be verified." naming an
         internal item code. This guard used to scan the whole file as one string, so both
         of those failed it the moment the version became exactly `0.2.4`; they had passed
         only because `0.2.4rc1` is not a substring of either.
@@ -1161,7 +1161,7 @@ class TestContinueOnErrorJobsAreNotRequired:
         assert sorted(names) == BASELINE_REQUIRED_JOBS, sorted(set(names) ^ set(BASELINE_REQUIRED_JOBS))
 
 
-#: P-328: the actions a workflow may run. Each is pinned to a full commit SHA, with the tag it was
+#: The actions a workflow may run. Each is pinned to a full commit SHA, with the tag it was
 #: resolved from in a trailing comment. An action not listed here is refused by name.
 ALLOWED_ACTIONS = frozenset({
     "actions/checkout",

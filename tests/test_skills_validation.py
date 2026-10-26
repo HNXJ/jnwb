@@ -152,7 +152,7 @@ def _sentence_units(text: str) -> List[str]:
     a bullet list whose lines end in colons and formulae, none of which is a period before a
     capital, so that rule alone glues the entire block into one span.
 
-    That is not a pedantic distinction. A first draft of the 06-95 assertions used the period
+    That is not a pedantic distinction. A first draft of the assertions used the period
     rule alone, and the sentence it reported as carrying the filter-delay instruction was the
     whole `ESTIMATOR LATENCY PROPERTIES & HAZARD` block -- which contains every word the
     assertions look for, somewhere. The check passed while pinning nothing, which is the exact
@@ -1169,7 +1169,7 @@ class TestSkillsDoNotCarryDriftingCounts:
 
 
 class TestAmbiguousUnitProbes:
-    """0.2.4-09: a skill that routes on depth must not let a unit be guessed.
+    """A skill that routes on depth must not let a unit be guessed.
 
     Depth in a cortical column is the one quantity where a factor of 1000 still looks
     plausible: 1200 um and 1.2 mm are the same place, and 1.2 um is a different answer
@@ -1239,7 +1239,7 @@ class TestAmbiguousUnitProbes:
 
 
 class TestEvidenceConflictProbes:
-    """0.2.4-09: the fact stack is human-authorized, and nothing may quietly edit it."""
+    """The fact stack is human-authorized, and nothing may quietly edit it."""
 
     def test_no_shipped_code_writes_the_fact_stack(self):
         """`jnwb-fact-action` states that agents may read and challenge facts but must
@@ -1324,7 +1324,7 @@ class TestEvidenceConflictProbes:
 
 
 class TestCausalFilterDelayIsScopedToAThresholdCrossing:
-    """P-58. The spiking skill told an agent to subtract a filter delay from a fitted onset.
+    """The spiking skill told an agent to subtract a filter delay from a fitted onset.
 
     `causal_exp_smooth` delays a threshold crossing by about tau*ln2, and the skill carried
     that correction as an unscoped instruction while routing onsets only to
@@ -1338,7 +1338,7 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
     words "subtract" and "threshold crossing" each occur somewhere in the section. The
     repaired paragraph states both more than once, so deleting the scope from the instruction
     would leave the words behind and the check would stay green. That is how two mutants
-    survived the first repair of P-88. Each assertion below therefore pins one sentence and
+    survived the first repair. Each assertion below therefore pins one sentence and
     requires it to carry the instruction and its scope together, so removing either half kills
     it.
     """
@@ -1468,12 +1468,12 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
         )
 
     def test_a_second_unscoped_instruction_in_the_docstring_is_caught(self):
-        """The mutant 06-93 settled on, applied to the docstring.
+        """The mutant chosen for this check, applied to the docstring.
 
         Every word of the repaired text is left intact and one more unscoped instruction is
         added. A check for the presence of "subtract" and "threshold crossing" would stay green
         -- the repaired text states both more than once -- which is how two mutants survived
-        the first repair of P-88. Pinning one sentence is what kills it.
+        the first repair. Pinning one sentence is what kills it.
         """
         from jnwb.onset_fitting import causal_exp_smooth
 
@@ -1491,7 +1491,7 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
         "Correct every onset for the smoothing lag before comparing conditions.",
     ])
     def test_the_original_unscoped_wordings_are_seen(self, instruction):
-        """P-110's own wording survived the guard: it names neither a filter nor a group delay
+        """The original wording survived the guard: it names neither a filter nor a group delay
         and says "accounting for" rather than subtract, remove or correct."""
         from jnwb.onset_fitting import causal_exp_smooth
 

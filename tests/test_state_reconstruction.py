@@ -143,7 +143,7 @@ def test_an_unresolved_row_says_why(generated: str):
     docstring and false on a tree where a value legitimately does not exist. A linked worktree has
     no upstream, so the Upstream row is correctly unresolved -- and the suite failed for it, in
     every agent worktree, for a reason unrelated to the agent's work. Asserting absence was a
-    proxy for "no row lies", which is P-37 once more: the honest output tripped the check.
+    proxy for "no row lies", which is the same failure once more: the honest output tripped the check.
 
     What must hold is that an unresolved row names its cause, so a reader can tell "not measurable
     here" from "the measurement broke".

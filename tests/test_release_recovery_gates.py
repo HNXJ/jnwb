@@ -320,7 +320,7 @@ class TestCiRunSelection:
 
 
 class TestTheInstalledSmokeScriptRunsInTheSuite:
-    """P-352: the installed-package smoke script ran only at STEP 7, so an exact key set that went
+    """The installed-package smoke script ran only at STEP 7, so an exact key set that went
     stale in it passed a whole cycle of green suites. The suite runs the same script against the
     checkout. It must get through its checks before the installed-location check and refuse the
     checkout there, so a stale line fails the suite rather than the release."""

@@ -2,7 +2,7 @@
 
 `tests/test_skills_validation.py` checks every row against `inspect.signature`, which catches
 a swapped argument, a keyword-only argument passed positionally, an invented default and an
-omitted required parameter. Two of the six defects 05-67 corrected are not in the signature:
+omitted required parameter. Two of the six corrected defects are not in the signature:
 a row that named a result key the function does not return, and a row that described a
 two-trace estimator as working across channel pairs. Those are checked here by running the
 code, along with the behaviour that makes the argument order matter at all.

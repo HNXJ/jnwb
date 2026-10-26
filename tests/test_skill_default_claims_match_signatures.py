@@ -1,6 +1,6 @@
 """Every default a skill states in prose is checked against the live signature.
 
-P-99: routing rows are bound to `inspect.signature`, but a default quoted in a skill's prose sat
+Routing rows are bound to `inspect.signature`, but a default quoted in a skill's prose sat
 outside that check -- `max_trial_fraction` (0.5), which bounds how much `repair_lfp_trials` may
 alter, among them. A prose default goes stale without failing anything.
 

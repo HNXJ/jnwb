@@ -1,4 +1,4 @@
-"""0.2.4-04: zFLIP sign, units, identifiability and inference against constructed truth.
+"""zFLIP sign, units, identifiability and inference against constructed truth.
 
 Contact ``c`` is a band-limited source delayed by ``c * dt`` through an exact
 frequency-domain shift, so the per-contact delay ``dt`` and the apparent velocity

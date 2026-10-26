@@ -1,4 +1,4 @@
-"""Calibration tests for jnwb.laminar xFLIP operating characteristics (0.2.3-03)."""
+"""Calibration tests for jnwb.laminar xFLIP operating characteristics."""
 from __future__ import annotations
 
 import numpy as np

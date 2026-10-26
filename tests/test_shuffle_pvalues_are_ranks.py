@@ -1,6 +1,6 @@
 """The two shuffle p-values, held to an oracle instead of to an incidental guard.
 
-05-54 proposed that collapsing both `shuffle_pvalue_paired` and `shuffle_pvalue_unpaired`
+One proposal was that collapsing both `shuffle_pvalue_paired` and `shuffle_pvalue_unpaired`
 to the floor `1/(n_shuffles + 1)` survives the suite. It does not: the mutant dies against
 `tests/test_api_consistency.py::TestAlternativeAndAlpha::test_case_and_whitespace_are_folded_not_ignored`,
 through its closing `assert plain[1] != two[1]`. That is a case-folding test, and a folding

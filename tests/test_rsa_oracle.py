@@ -1,4 +1,4 @@
-"""0.2.4-04: RDM / RSA checked against direct formulas and the pre-delegation estimand.
+"""RDM / RSA checked against direct formulas and the pre-delegation estimand.
 
 Failures these tests discriminate:
 

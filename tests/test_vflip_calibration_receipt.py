@@ -191,7 +191,7 @@ def _with_prose_edited(source):
 
 
 def test_a_docstring_or_comment_edit_leaves_the_receipt_current(monkeypatch):
-    """P-229: the receipt hashed docstrings, so a docstring edit read as a changed estimator."""
+    """The receipt hashed docstrings, so a docstring edit read as a changed estimator."""
     generator = _generator()
     before = generator.estimator_sha256()
     real = inspect.getsource

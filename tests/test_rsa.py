@@ -159,7 +159,7 @@ def test_jrsa_delegation_parity():
 
 @pytest.mark.parametrize("value", [0.1, 0.3])
 def test_a_flat_condition_is_refused_by_name_whatever_its_value(value):
-    """P-332: a flat 0.1 row centred to rounding residue, so its correlation distances came
+    """A flat 0.1 row centred to rounding residue, so its correlation distances came
     out finite (all 0.0 for an all-flat input), while a flat 0.3 row gave NaN and the
     refusal."""
     X = np.random.default_rng(0).normal(size=(4, 3))

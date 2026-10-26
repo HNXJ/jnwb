@@ -62,7 +62,7 @@ SEEDED = (
 
 
 class TestNoRandomizedFunctionHidesItsSeed:
-    """05-35 acceptance, read straight off the signature."""
+    """Read straight off the signature: no randomized function hides its seed."""
 
     @pytest.mark.parametrize("name,fn,expected", SEEDED, ids=[s[0] for s in SEEDED])
     def test_the_default_seed_is_in_the_signature(self, name, fn, expected):
@@ -210,7 +210,7 @@ class TestOneSpellingAcceptsASeedOrAGenerator:
 
 
 class TestNestedCvPartitionIsControllable:
-    """05-34's discriminator: two different seeds give two different fold assignments."""
+    """Two different seeds give two different fold assignments."""
 
     def test_two_seeds_give_different_folds(self, decodable):
         X, y = decodable
@@ -259,7 +259,7 @@ class TestNestedCvPartitionIsControllable:
         assert np.isnan(res["accuracy"])
 
 
-# 06-203: the directed estimators resolved `rng` through a private helper that mapped
+# The directed estimators resolved `rng` through a private helper that mapped
 # `None` to seed 0 (recorded as `seed=None`), refused a Generator and truncated 2.7 to 2.
 _DG = np.random.default_rng(5)
 _DX = _DG.normal(size=(2, 400))

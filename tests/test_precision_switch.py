@@ -1,6 +1,6 @@
 """The stated precision policy is a value, and this file checks it against live code.
 
-Item 06-55 accepts when the dtype of every public return is a stated function of the input
+The requirement holds when the dtype of every public return is a stated function of the input
 dtype and the request. The statement lives in :data:`jnwb._precision.PRECISION_POLICY`.
 This file *reads* it. Nothing here carries its own copy of the table: a test that restated
 the policy would agree with itself while the table and the code disagreed, which is the
@@ -317,11 +317,11 @@ def test_declared_policy_matches_live_behaviour(dotted):
         )
 
 
-# ------------------------------------------------- P-136: the refusal, and its non-vacuity
+# ------------------------------------------------- the refusal, and its non-vacuity
 
 
 def test_a_32_bit_request_is_refused_not_silently_upcast():
-    """P-136. 32-bit Welford misses the accumulator's documented rtol=1e-8 by 43x-33973x."""
+    """32-bit Welford misses the accumulator's documented rtol=1e-8 by 43x-33973x."""
     TFRAccumulator = resolve("jnwb.tfr_accumulator.TFRAccumulator")
     for requested in (np.float32, np.complex64):
         with pytest.raises(PrecisionNotSupportedError) as excinfo:

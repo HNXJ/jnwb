@@ -125,7 +125,7 @@ class TestWiderTablesStillWork:
 
 
 class TestAnySingleColumnTableNotOnlyUnits:
-    """Found while mutation-testing 05-37, and broader than the audit reported.
+    """Found by mutation testing, and broader than the audit reported.
 
     The units-specific guard cannot help a table that is not called `units`. A
     `DynamicTable` with one column, anywhere in the file, has

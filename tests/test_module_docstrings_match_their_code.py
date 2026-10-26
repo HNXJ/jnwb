@@ -140,7 +140,7 @@ def runner_gate_calls(source: str) -> "dict[str, str]":
 
 
 #: How many identifying words a docstring entry must share with the check it describes.
-#: One was the bar until 06-64 rewrote gate 2's entry to "Uniqueness of the CI matrix: the Python
+#: One was the bar until gate 2's entry was rewritten to "Uniqueness of the CI matrix: the Python
 #: versions in the workflow are distinct" -- one word shared with `check_skill_tree_uniqueness`,
 #: describing a different check entirely, and the sweep passed. One shared word licenses any
 #: sentence containing it.
@@ -288,7 +288,7 @@ class TestTheHarnessGateListsTheGatesItRuns:
         assert "gate 2" in offenders[0] and "check_skill_tree_uniqueness" in offenders[0], offenders
 
     def test_one_shared_word_is_not_enough(self):
-        """06-64's G3: an entry sharing a single word described a different check and passed."""
+        """An entry sharing a single word described a different check and passed."""
         doc = "  2. Uniqueness of the CI matrix: the Python versions in the workflow are distinct."
         offenders = entries_not_naming_their_check(doc, {"2": "check_skill_tree_uniqueness"})
         assert len(offenders) == 1, (

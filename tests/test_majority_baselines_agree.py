@@ -85,7 +85,7 @@ class TestNeitherScoresAMissingLabel:
 
 class TestTheBehaviourThatWasAlreadyPinnedIsUnchanged:
     def test_no_labels_is_still_not_an_error(self):
-        """05-36 chose NaN for the empty case; that is explicit, not fabricated."""
+        """The empty case is NaN by choice: explicit, not fabricated."""
         assert np.isnan(majority_baseline(np.array([])))
 
     def test_string_labels_still_never_touch_the_finiteness_check(self):
