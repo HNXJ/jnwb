@@ -240,7 +240,7 @@ produced six false kills in 0.2.5 and hid a real gap behind them.
   contract for tables, vocabulary, length, navigation and figures. It is kept off the
   published site.
 - **Dashboard**: `scripts/build_dashboard.py` builds the site from committed records, and
-  `.github/workflows/dashboard.yml` publishes it from `main` to the `gh-pages` branch.
+  `.github/workflows/dashboard.yml` publishes it from `dev` to the `gh-pages` branch once its checks pass.
 - **Warning-Free Builds**: The documentation must compile with zero warnings:
   ```bash
   python scripts/docs_build.py
