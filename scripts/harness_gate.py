@@ -292,7 +292,7 @@ def _stack_and_record_checks() -> List[Tuple[str, List[str]]]:
 
 
 def _stack_and_record_pass_line() -> str:
-    """Gate 15's PASS line, naming what the record checks read; a check that read nothing says 0."""
+    """The stack and record checks' PASS line, naming what they read; nothing read says 0."""
     tables, read, phrases = examined_counts()
     return ("PASS: Stack form consistent (every declared write set names comparable paths and "
             "is not truncated by a stray full stop; no 'Blocked by: none' is contradicted by "
