@@ -46,7 +46,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | L laminar | 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
-| 2 | N numerics and I/O (audit 2026-10-25) | one lane per file set: 17-44, 17-45 (both await a ruling) | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
+| 2 | N numerics and I/O (audit 2026-10-25) | one lane per file set: 17-44, 17-45 (ruled 2026-10-25) | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-15, 17-34, 17-36 | Haiku writes, Muse reviews | nothing |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-32; 17-27, 17-30 | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
@@ -218,7 +218,7 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
 Writes: `jnwb/connectivity/_common.py`, its tests.
 - 17-44: `_surrogate_source` may draw a non-uniform derangement (inferred by reading, `_common.py:167`). Check: over 10,000 draws at n = 4 each of the 9 derangements appears within a chi-square bound (seeded `rng`); a draw that is uniform deletes this item. Source: O-16.
-- Confirmed 2026-10-25: the check fails on the current code (counts 411 to 3367 of 10,000; chi-square p = 0); the test is kept aside, not committed. A uniform draw changes `TestFewTrialSurrogates::test_seven_trials_keep_the_null_they_had` (p_y_to_x 0.70 to 0.55). Blocked by: Hamm's ruling on changing surrogate p-values at 7 or more trials.
+- Confirmed 2026-10-25: the check fails on the current code (counts 411 to 3367 of 10,000; chi-square p = 0); the test is kept aside, not committed. A uniform draw changes `TestFewTrialSurrogates::test_seven_trials_keep_the_null_they_had` (p_y_to_x 0.70 to 0.55). Ruled 2026-10-25: uniform redraw.
 
 ### 17-45 `epoch_continuous` reads the series start time
 
@@ -226,7 +226,7 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/continuous.py`, its tests.
 - 17-45: `epoch_continuous` may assume sample 0 at t = 0 (inferred by reading, `continuous.py:27`). Check: a series starting at t = 2 s epoched at 3 s returns the samples from 1 s in; a pass on the current code deletes this item. Source: O-16.
-- Confirmed 2026-10-25: onsets are mapped as if sample 0 sits at t = 0, so a series whose start time is not 0 is misaligned. Blocked by: Hamm's API ruling, a start-time argument or the caller subtracting `starting_time`.
+- Confirmed 2026-10-25: onsets are mapped as if sample 0 sits at t = 0, so a series whose start time is not 0 is misaligned. Ruled 2026-10-25: `start_s` keyword.
 
 ### 17-26 Fact checks fail on an empty examined set
 
