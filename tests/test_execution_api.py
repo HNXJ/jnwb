@@ -136,6 +136,63 @@ def test_store_refuses_an_object_array(tmp_path):
     assert not (tmp_path / "objects.npz").exists()
 
 
+def test_cache_key_tells_apart_the_pairs_that_used_to_share_a_key():
+    pairs = [
+        ((1, 2), [1, 2]),
+        ({1: 0}, {"1": 0}),
+        (np.float64(1.0), 1.0),
+        (np.str_("a"), "a"),
+        ({"__bytes__": "616263"}, b"abc"),
+    ]
+    for first, second in pairs:
+        assert jnwb.cache_key("op", first, {}) != jnwb.cache_key("op", second, {})
+
+
+def test_store_refuses_a_value_that_would_not_load_back_equal(tmp_path):
+    key = jnwb.cache_key("op", np.arange(3), {})
+    lossy = [
+        ({1: "a"}, TypeError),
+        ([1, {2: 3}], TypeError),
+        (np.float64(1.0), TypeError),
+        (np.int64(3), TypeError),
+        (2**63, ValueError),
+        (-(2**63) - 1, ValueError),
+        (b"ab\x00", ValueError),
+        (b"a\x00b", ValueError),
+        ("ab\x00", ValueError),
+    ]
+    for value, error in lossy:
+        with pytest.raises(error):
+            jnwb.cache_store(tmp_path, key, value)
+    assert not (tmp_path / f"{key}.npz").exists()
+
+
+def _same_type_and_value(loaded, stored) -> bool:
+    if type(loaded) is not type(stored):
+        return False
+    if isinstance(stored, np.ndarray):
+        return loaded.dtype == stored.dtype and loaded.shape == stored.shape and np.array_equal(loaded, stored)
+    if isinstance(stored, dict):
+        return loaded.keys() == stored.keys() and all(
+            _same_type_and_value(loaded[name], stored[name]) for name in stored)
+    if isinstance(stored, (list, tuple)):
+        return len(loaded) == len(stored) and all(
+            _same_type_and_value(a, b) for a, b in zip(loaded, stored))
+    return loaded == stored
+
+
+def test_every_accepted_value_loads_equal_in_type_and_value(tmp_path):
+    key = jnwb.cache_key("op", np.arange(3), {})
+    accepted = [
+        3, -(2**63), 2**63 - 1, True, 1.5, 2 + 3j, "", "ab", "a\x00b", b"", b"abc",
+        [1, "a"], (1, 2), {"k": (1, [2.0])}, np.asarray(1.5), np.asarray(b"ab"),
+        np.arange(3, dtype=np.int16),
+    ]
+    for value in accepted:
+        jnwb.cache_store(tmp_path, key, value)
+        assert _same_type_and_value(jnwb.cache_load(tmp_path, key), value), value
+
+
 def test_clear_removes_only_cache_entries_and_counts_them(tmp_path):
     keep = tmp_path / "notes.txt"
     keep.write_text("not a cache entry", encoding="utf-8")

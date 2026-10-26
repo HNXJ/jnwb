@@ -63,6 +63,13 @@ def _canonical(value: Any) -> Any:
     """A JSON-able form of ``value`` with arrays by dtype, shape and bytes."""
     import numpy as np
 
+    # Before the primitives: a NumPy float is a Python float subclass and must not share its form.
+    if isinstance(value, np.generic):
+        return {
+            "__numpy_scalar__": True,
+            "dtype": str(value.dtype),
+            "data": value.tobytes().hex(),
+        }
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
     if isinstance(value, bytes):
@@ -74,16 +81,17 @@ def _canonical(value: Any) -> Any:
             "shape": list(value.shape),
             "data": value.tobytes().hex(),
         }
-    if isinstance(value, np.generic):
-        return {
-            "__numpy_scalar__": True,
-            "dtype": str(value.dtype),
-            "data": value.tobytes().hex(),
-        }
+    # Keys are canonical values too: as JSON object keys, an int 1 and a str "1" would collide.
     if isinstance(value, dict):
-        return {key: _canonical(value[key]) for key in sorted(value, key=repr)}
-    if isinstance(value, (list, tuple)):
+        return {
+            "__dict__": [
+                [_canonical(key), _canonical(value[key])] for key in sorted(value, key=repr)
+            ]
+        }
+    if isinstance(value, list):
         return [_canonical(item) for item in value]
+    if isinstance(value, tuple):
+        return {"__tuple__": [_canonical(item) for item in value]}
     raise TypeError(
         f"unhashable value of type {type(value).__name__!r} has no canonical form"
     )
@@ -130,19 +138,35 @@ def _encode(value: Any, arrays: dict[str, Any], prefix: str) -> Any:
 
     if isinstance(value, (np.ndarray, np.generic)) and value.dtype.hasobject:
         raise TypeError(f"cache values hold no object arrays, got dtype {value.dtype}")
+    if isinstance(value, np.generic):
+        raise TypeError(
+            f"cache values hold no NumPy scalars, got {type(value).__name__!r}; "
+            "store it as a 0-d array"
+        )
     if isinstance(value, np.ndarray):
         leaf = prefix + f".a{len(arrays)}"
         arrays[leaf] = np.ascontiguousarray(value)
-        return {"__leaf__": leaf, "dtype": str(value.dtype), "shape": list(value.shape)}
-    if isinstance(value, np.generic):
-        leaf = prefix + f".a{len(arrays)}"
-        arrays[leaf] = np.ascontiguousarray(value)
-        return {"__leaf__": leaf, "dtype": str(value.dtype), "shape": []}
+        return {
+            "__leaf__": leaf,
+            "dtype": str(value.dtype),
+            "shape": list(value.shape),
+            "array": True,
+        }
     if isinstance(value, _SCALAR_TYPES):
+        if isinstance(value, int) and not isinstance(value, bool):
+            if not -(2**63) <= value < 2**63:
+                raise ValueError(f"cache ints must fit in int64, got {value!r}")
+        if isinstance(value, bytes) and b"\x00" in value:
+            raise ValueError("cache bytes cannot hold a NUL byte")
+        if isinstance(value, str) and value.endswith("\x00"):
+            raise ValueError("cache strings cannot end in a NUL character")
         leaf = prefix + f".a{len(arrays)}"
         arrays[leaf] = np.ascontiguousarray(np.asarray(value))
         return {"__leaf__": leaf, "dtype": str(np.asarray(value).dtype), "shape": []}
     if isinstance(value, dict):
+        for key in value:
+            if not isinstance(key, str):
+                raise TypeError(f"cache dict keys must be str, got {type(key).__name__!r}")
         return {
             "__dict__": True,
             "items": {key: _encode(value[key], arrays, prefix) for key in sorted(value, key=repr)},
@@ -162,7 +186,7 @@ def _decode(manifest: Any, arrays: dict[str, Any]) -> Any:
 
     if isinstance(manifest, dict) and "__leaf__" in manifest:
         arr = np.asarray(arrays[manifest["__leaf__"]])
-        if manifest["shape"] == [] and arr.dtype.kind not in "mM":
+        if manifest["shape"] == [] and "array" not in manifest and arr.dtype.kind not in "mM":
             return arr.reshape(()).tolist()
         return arr.reshape(manifest["shape"]).astype(manifest["dtype"], copy=False)
     if isinstance(manifest, dict) and "__dict__" in manifest:
@@ -178,8 +202,11 @@ def cache_store(cache_dir: str | Path, key: str, value: Any) -> Path:
     """Save ``value`` under ``key`` in ``cache_dir`` and return the file path.
 
     Arrays, scalars, dicts, lists and tuples are stored as ``.npz`` archives; anything
-    else, an object array included, raises ``TypeError``. The write lands
-    atomically: bytes go to a temporary sibling file that is flushed and synced, then
+    else, an object array included, raises ``TypeError``. A value that would not load back equal
+    in type and value is refused before anything is written: a NumPy scalar or a dict key that
+    is not a str raises ``TypeError``, and a 0-d array stores in its place; an int beyond int64,
+    bytes with a NUL byte or a str ending in a NUL character raises ``ValueError``. The write
+    lands atomically: bytes go to a temporary sibling file that is flushed and synced, then
     renamed over the target, so a reader never sees a half-written entry.
     """
     import numpy as np
