@@ -50,7 +50,7 @@ Operations whose signature takes `device` accept `device='cuda'` and `device='me
 
 - `jnwb.ExecutionRecord(device, n_jobs)`: names what ran where: the device string the backend resolved and the worker count the parallel loop ran with, held beside a result by the caller. The record selects nothing.
 - `jnwb.cache_key(name, inputs, params)`: builds the hex key for one operation from its name, its inputs and its parameters, mixed with the jnwb version, so a key from one version never reads a value another version wrote.
-- `jnwb.cache_store(cache_dir, key, value)`: saves one array, scalar, dict, list or tuple value under `key` in `cache_dir` as an `.npz` archive, writing through a temporary sibling file that is flushed, synced and renamed, so a reader never sees a half-written entry.
+- `jnwb.cache_store(cache_dir, key, value)`: saves one array, scalar, dict, list or tuple value under `key` in `cache_dir` as an `.npz` archive, writing through a temporary sibling file that is flushed, synced and renamed, so a reader never sees a half-written entry. A value that would not load back equal is refused: a NumPy scalar (store a 0-d array) or a non-str dict key raises `TypeError`; an int beyond int64, bytes holding a NUL or a str ending in NUL raises `ValueError`.
 - `jnwb.cache_load(cache_dir, key)`: reads the value stored under `key` in `cache_dir`, or None when no entry is there or the entry is stale: an archive whose stored key or stored version differs never reads as a hit.
 - `jnwb.cache_clear(cache_dir)`: removes the entries `cache_store` wrote directly under `cache_dir` and counts the removals.
 

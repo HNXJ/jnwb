@@ -46,7 +46,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | L laminar | 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
-| 2 | N numerics and I/O (audit 2026-10-25) | one lane per file set: 17-14, 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
+| 2 | N numerics and I/O (audit 2026-10-25) | one lane per file set: 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-15, 17-34, 17-36 | Haiku writes, Muse reviews | nothing |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-32; 17-27, 17-30 | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
@@ -204,13 +204,6 @@ Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutan
 ## Audit of 2026-10-25
 
 The items below come from the open stack of 2026-10-25 (`git show e00e8664:artifacts/open_stack.md`; the O- number in each source line traces a row to its probe). Each fix starts with a test that fails on the current code. Rulings: `artifacts/rulings/2026-10-25.md`.
-
-### 17-14 Cache keys tell types apart and stores refuse what cannot round-trip
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/execution.py`, `tests/test_execution_api.py`, `artifacts/changelog.d/cache-keys.changed.md`.
-- 17-14: `(1, 2)` and `[1, 2]` share a key, as do `{1: 0}` and `{"1": 0}`; `{1: a}` loads as `{'1': a}`; `2**70` stores and fails to load; `b"ab\x00"` loads as `b"ab"`; NumPy scalars load as Python floats (`execution.py:84,148,166`). Ruled 2026-10-25: type-tagged keys; `cache_store` refuses non-str dict keys, ints beyond int64, bytes with NUL and NumPy scalars unless stored as 0-d arrays. Check: each pair gets distinct keys; each lossy value raises at store; every accepted value loads equal in type and value. Source: O-10.
 
 ### 17-15 A ledger of the reference claim cells
 
