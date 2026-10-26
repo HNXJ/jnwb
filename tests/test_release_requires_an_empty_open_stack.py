@@ -44,6 +44,7 @@ from scripts.release_gate import (  # noqa: E402
     RELEASE_CYCLE,
     ROADMAP_PATH,
     blocker_fixpoint_receipt,
+    check_release_facts,
     check_release_readiness,
     roadmap_rows,
 )
@@ -1220,3 +1221,18 @@ def test_the_fixpoint_is_new_blockers_and_not_new_observations(tmp_path):
 def test_the_receipt_parser_reads_nothing_from_an_absent_receipt():
     commit, found = blocker_fixpoint_receipt(pathlib.Path("/nonexistent-tree"))
     assert commit is None and found is None
+
+
+def test_a_fact_violated_on_the_release_check_fails_step_0a(monkeypatch):
+    """The fact gate is planted, not run: one VIOLATED fact in release mode is a STEP 0a failure."""
+    from scripts import fact_gate
+
+    calls = []
+
+    def run(**kwargs):
+        calls.append(kwargs)
+        return REPO_ROOT / "artifacts" / "fact_stack.md", [("D9", fact_gate.VIOLATED, ["planted"])]
+
+    monkeypatch.setattr(fact_gate, "run", run)
+    assert check_release_facts() == ["fact D9 is VIOLATED on the release check: planted"]
+    assert calls == [{"release": True}]

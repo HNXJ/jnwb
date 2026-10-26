@@ -13,7 +13,9 @@ file. Each fact's ``Held by`` cell names its holders:
 
 A fact is VIOLATED when a computed predicate is false, a holder does not resolve, a ``todo:``
 names no live item, or it names no holder at all; UNHELD when it names a live ``todo:`` item;
-HELD otherwise. VIOLATED fails the gate. A ``gate:`` or ``test:`` holder is resolved, not run:
+HELD otherwise. VIOLATED fails the gate. In release mode (``run(release=True)``) an UNHELD fact
+whose item carries the declared release (``RELEASE_CYCLE`` of ``scripts/release_gate.py``) as
+``deferred-`` or ``required-`` is VIOLATED too. A ``gate:`` or ``test:`` holder is resolved, not run:
 the harness and the suite run those, so a fact held by a failing gate reads HELD here while the
 harness around it fails.
 
@@ -118,7 +120,7 @@ elif str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts import build_fact_graph  # noqa: E402
-from scripts.release_gate import ROADMAP_PATH as _ROADMAP, roadmap_rows  # noqa: E402
+from scripts.release_gate import RELEASE_CYCLE, ROADMAP_PATH as _ROADMAP, roadmap_rows  # noqa: E402
 from scripts.stack_parse import parse_todo_stack  # noqa: E402
 
 TODO_PATH = REPO_ROOT / "artifacts" / "todo_stack.md"
@@ -135,6 +137,13 @@ def live_items(todo_text: str, roadmap_text: str = "") -> List[str]:
     of the roadmap's readable rows."""
     return ([i for i, _, _ in parse_todo_stack(todo_text)[0]]
             + [i for i, _ in roadmap_rows(roadmap_text)[0]])
+
+
+def due_items(todo_text: str, roadmap_text: str, cycle: str) -> List[str]:
+    """Live item ids whose release holds ``cycle`` open: deferred to it or required in it."""
+    due = {f"deferred-{cycle}", f"required-{cycle}"}
+    return ([i for i, _, value in parse_todo_stack(todo_text)[0] if value in due]
+            + [i for i, value in roadmap_rows(roadmap_text)[0] if value in due])
 
 
 # ------------------------------------------------------------------------ computed predicates
@@ -184,10 +193,15 @@ def _states(graph: Graph, constants: Constants) -> Dict[str, Dict[str, Optional[
 
 
 def lifecycle(graph: Graph, constants: Constants) -> List[str]:
-    """Each name holding a lifecycle state while an earlier applicable state fails."""
+    """Each name holding a lifecycle state while an earlier applicable state fails, and the
+    failure of a graph that names no export or routed name."""
     order = constants["lifecycle"]
+    states = _states(graph, constants)
+    if not states:
+        return ["the graph names no export or routed name, "
+                "so no lifecycle state could be checked"]
     found = []
-    for name, state in _states(graph, constants).items():
+    for name, state in states.items():
         for i, later in enumerate(order):
             missing = [s for s in order[:i] if state[s] is False]
             if state[later] and missing:
@@ -197,9 +211,13 @@ def lifecycle(graph: Graph, constants: Constants) -> List[str]:
 
 
 def routes(graph: Graph, constants: Constants) -> List[str]:
-    """Each routing target that does not start at an export or does not resolve."""
+    """Each routing target that does not start at an export or does not resolve, and the
+    failure of a graph that names no routing target."""
+    targets = graph["entities"]["route_target"]
+    if not targets:
+        return ["the graph has no routing targets, so no route could be checked"]
     found = []
-    for target, record in sorted(graph["entities"]["route_target"].items()):
+    for target, record in sorted(targets.items()):
         if record["export"] is None:
             found.append(f"{target} does not start at an export of jnwb.__all__")
         elif not record["resolves"]:
@@ -440,8 +458,9 @@ def _resolves(holder: str, graph: Graph) -> bool:
 
 
 def evaluate(facts: Sequence[Dict[str, Any]], constants: Constants, graph: Graph,
-             items: Sequence[str]) -> List[Tuple[str, str, List[str]]]:
-    """Each fact as (id, status, reasons). Each computed predicate runs once."""
+             items: Sequence[str], *, due: Sequence[str] = ()) -> List[Tuple[str, str, List[str]]]:
+    """Each fact as (id, status, reasons). Each computed predicate runs once. A fact that a live
+    item in ``due`` holds is VIOLATED, not UNHELD: that item is due in this release."""
     cache: Dict[str, List[str]] = {}
     results = []
     for fact in facts:
@@ -466,6 +485,8 @@ def evaluate(facts: Sequence[Dict[str, Any]], constants: Constants, graph: Graph
                 reasons.extend(f"computed:{target}: {v}" for v in cache[target])
             elif not _resolves(holder, graph):
                 reasons.append(f"{holder} does not resolve")
+        reasons.extend(f"held by todo {i}, which is due in this release"
+                       for i in pending if i in due)
         if reasons:
             results.append((fact["id"], VIOLATED, reasons))
         elif pending:
@@ -477,17 +498,23 @@ def evaluate(facts: Sequence[Dict[str, Any]], constants: Constants, graph: Graph
 
 def run(package: Any = None, root: Path = REPO_ROOT, facts_path: Optional[Path] = None,
         todo_path: Path = TODO_PATH, graph: Optional[Graph] = None,
-        roadmap_path: Path = ROADMAP_PATH):
+        roadmap_path: Path = ROADMAP_PATH, *, release: bool = False):
     """Build the fact graph (unless given) and evaluate every fact of the fact source. A missing
-    roadmap holds no item, so a ``todo:`` holder naming one is VIOLATED."""
+    roadmap holds no item, so a ``todo:`` holder naming one is VIOLATED. A source that holds no
+    fact row is VIOLATED too: zero facts examined is no pass. With ``release`` set, a fact held
+    only by an item due in the declared release (``RELEASE_CYCLE``) is VIOLATED; the harness
+    gate runs without it."""
     source = facts_path or build_fact_graph.FACT_STACK
     facts = build_fact_graph.load_facts(source)
     constants = build_fact_graph.read_constants(source.read_text(encoding="utf-8"))
     if graph is None:
         graph = build_fact_graph.build(package, root, source)
     roadmap = roadmap_path.read_text(encoding="utf-8") if roadmap_path.is_file() else ""
-    results = evaluate(facts, constants, graph,
-                       live_items(todo_path.read_text(encoding="utf-8"), roadmap))
+    todo = todo_path.read_text(encoding="utf-8")
+    due = due_items(todo, roadmap, RELEASE_CYCLE) if release else ()
+    results = evaluate(facts, constants, graph, live_items(todo, roadmap), due=due)
+    if not results:
+        results = [(source.name, VIOLATED, ["the fact source holds no fact row"])]
     return source, results
 
 

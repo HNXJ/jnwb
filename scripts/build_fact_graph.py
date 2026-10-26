@@ -6,6 +6,8 @@ Entities come from the tree itself:
   export  every name in ``jnwb.__all__``, with its kind, its signature and the execution
           switches it takes (the parameter names ``scripts/computational_contract_gate.py``
           decides, read from there)
+  skipped_export  each export that is neither a class nor a function, which the callable scans
+          do not examine
   page    every hand-written ``docs/**/*.md`` page (the generated ``docs/api.md`` is left out,
           as harness gate 5 leaves it out)
   skill   every ``skills/*/SKILL.md``
@@ -26,7 +28,8 @@ Entities come from the tree itself:
 Relations, each a sorted list of ``[source, target]`` pairs:
 
   implements  module file -> export it defines
-  documents   page -> export it names as a whole word (the rule of harness gate 5)
+  documents   page -> export it names as a whole word in a heading or a code span; prose alone
+              documents nothing
   routes      skill -> target it routes. Two forms are read: a routing bullet (a line opening
               ``- `jnwb.``) routes every backticked ``jnwb.`` call in its head, before the
               "`: " that ends it, and a call after that colon is a mention; and a table whose
@@ -176,6 +179,8 @@ CONSTANTS_HEADING = "Constants"
 
 _ADDRESS = re.compile(r" at 0x[0-9A-Fa-f]+")
 _BACKTICKED = re.compile(r"`([^`]+)`")
+_HEADING_LINE = re.compile(r"#{1,6}[ \t]")
+_LINE_SPAN = re.compile(r"`([^`\n]+)`")
 _ROUTING_LINE = re.compile(r"^- `jnwb\.")
 _ROW_HEAD_END = re.compile(r"`:\s")
 _JNWB_NAME = re.compile(r"^jnwb\.([A-Za-z_][\w.]*)")
@@ -1175,6 +1180,15 @@ def _public_callables(package: Any) -> List[Tuple[str, Any, Any]]:
         elif inspect.isfunction(obj):
             found.append((name, obj, None))
     return found
+
+
+def _skipped_exports(package: Any) -> List[str]:
+    """Each export the callable walk does not examine: neither a class nor a function, and not a
+    submodule. A constant is counted here rather than dropped without a word."""
+    submodules = set(getattr(package, "SUBMODULES", ()))
+    return [name for name in sorted(set(package.__all__) - submodules)
+            if not inspect.isclass(getattr(package, name, None))
+            and not inspect.isfunction(getattr(package, name, None))]
 
 
 def _sign_flip(call: ast.Call) -> bool:
@@ -2523,10 +2537,17 @@ def _pages(root: Path) -> List[Path]:
 
 
 def _documents(pages: Sequence[Path], names: Sequence[str], root: Path) -> List[List[str]]:
+    """Each page and each export it names in a heading or a code span on one line. Prose alone
+    documents nothing: a name that only the running text mentions is not a documented export.
+    Spans are paired within a line, so one fenced block cannot shift the pairs after it."""
     edges = []
     for page in pages:
-        text = page.read_text(encoding="utf-8")
-        words = set(re.findall(r"\b\w+\b", text))
+        marked: List[str] = []
+        for line in page.read_text(encoding="utf-8").splitlines():
+            if _HEADING_LINE.match(line):
+                marked.append(line)
+            marked.extend(_LINE_SPAN.findall(line))
+        words = set(re.findall(r"\b\w+\b", "\n".join(marked)))
         edges.extend([_rel(page, root), n] for n in names if n in words)
     return edges
 
@@ -2747,6 +2768,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
         "fact_source": _rel(source, root),
         "entities": {
             "export": exports,
+            "skipped_export": _skipped_exports(package),
             "page": [_rel(p, root) for p in pages],
             "python": python,
             "prose": prose,

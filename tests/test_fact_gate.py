@@ -24,7 +24,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
-from scripts import build_fact_graph, fact_gate, harness_gate  # noqa: E402
+from scripts import build_fact_graph, fact_gate, harness_gate, release_gate  # noqa: E402
+from scripts.gates import boundary  # noqa: E402
 
 BUILDER = REPO_ROOT / "scripts" / "build_fact_graph.py"
 #: A synthetic item identifier; the todo text of each fixture declares it live or not.
@@ -397,6 +398,106 @@ def test_the_harness_gate_fails_on_a_violated_fact_and_names_the_source(monkeypa
     monkeypatch.setattr(fact_gate, "run", lambda: (REPO_ROOT / "facts.md", results))
     assert harness_gate.check_fact_predicates() == ["X1: planted"]
     assert "facts.md" in harness_gate._fact_pass_line()
+
+
+def empty_graph():
+    """A graph that names no export, routing target, test or gate, so nothing is examined."""
+    return {
+        "entities": {"export": {}, "route_target": {}, "test": {}, "gate": {}},
+        "relations": {"documents": [], "verifies": [], "routes": [], "constrains": []},
+    }
+
+
+def test_a_graph_with_no_routing_target_is_violated():
+    assert status(empty_graph(), "computed:routes")[0] == "VIOLATED"
+
+
+def test_a_graph_with_no_export_or_routed_name_is_violated_by_lifecycle():
+    found, reasons = status(empty_graph(), "computed:lifecycle")
+    assert found == "VIOLATED"
+    assert "no lifecycle state could be checked" in reasons[0]
+
+
+def test_a_fact_source_with_headers_and_no_rows_is_violated(tmp_path):
+    """Zero facts examined is no pass: the gate names the source, not HELD 0, UNHELD 0, VIOLATED 0."""
+    path = tmp_path / "facts.md"
+    path.write_bytes("".join(f"## {table}\n\n{FACT_HEADER}\n"
+                             for table in build_fact_graph.FACT_TABLES).encode("utf-8"))
+    _, results = fact_gate.run(facts_path=path, graph=empty_graph())
+    assert [status for _, status, _ in results] == ["VIOLATED"]
+
+
+def test_a_tree_with_neither_tests_nor_scripts_is_not_a_pass_for_the_test_path_scan(tmp_path):
+    assert boundary.check_no_hardcoded_test_paths(repo_root=tmp_path) != []
+
+
+def due_run(tmp_path, release_value, **kwargs):
+    """The statuses of a fact source whose every fact is held by ITEM, and a todo stack whose
+    ITEM carries ``release_value``, read through the gate's own ``run``."""
+    facts = tmp_path / "facts.md"
+    rows = [f"| T{i} | d | p | `todo:{ITEM}` | r |\n" for i in range(len(build_fact_graph.FACT_TABLES))]
+    facts.write_bytes(fact_source(rows=rows).encode("utf-8"))
+    todo = tmp_path / "todo.md"
+    todo.write_bytes(f"### {ITEM} A planted item\n\nRelease: {release_value}.\n".encode("utf-8"))
+    _, results = fact_gate.run(facts_path=facts, todo_path=todo,
+                               roadmap_path=tmp_path / "no_roadmap.md", graph=graph(), **kwargs)
+    return {status for _, status, _ in results}
+
+
+def test_an_unheld_fact_due_in_this_release_is_violated_only_in_release_mode(tmp_path):
+    due = f"deferred-{release_gate.RELEASE_CYCLE}"
+    assert due_run(tmp_path, due) == {"UNHELD"}
+    assert due_run(tmp_path, due, release=True) == {"VIOLATED"}
+
+
+def test_a_required_item_of_this_release_is_due_too(tmp_path):
+    assert due_run(tmp_path, f"required-{release_gate.RELEASE_CYCLE}", release=True) == {"VIOLATED"}
+
+
+def test_an_unheld_fact_whose_item_is_due_later_stays_unheld_in_release_mode(tmp_path):
+    assert due_run(tmp_path, f"deferred-{release_gate.NEXT_CYCLE}", release=True) == {"UNHELD"}
+
+
+def test_the_live_tree_has_no_fact_held_by_an_item_due_in_this_release(live):
+    source, g = live
+    _, results = fact_gate.run(facts_path=source, graph=g, release=True)
+    assert [r for r in results if r[1] == "VIOLATED"] == []
+
+
+def test_an_export_that_is_neither_a_class_nor_a_function_is_reported_as_skipped():
+    """The callable walk leaves a constant out; the graph names it, so the skip is counted."""
+    package = types.ModuleType("planted_pkg")
+    package.f = lambda x: x
+    package.LIMIT = 3
+    package.__all__ = ["f", "LIMIT"]
+    assert build_fact_graph._skipped_exports(package) == ["LIMIT"]
+
+
+def test_the_live_graph_reports_the_constant_exports_it_skips(live):
+    _, g = live
+    assert "RELATIVE_POWER_MODELS" in g["entities"]["skipped_export"]
+
+
+@pytest.mark.parametrize("text, documented", [
+    ("The op runs on each trial.\n", False),
+    ("# op\n\nThe trial runs.\n", True),
+    ("Call `op(x)` on each trial.\n", True),
+    ("## Usage\n\nThe trial runs with `jnwb.op`.\n", True),
+    ("```python\nx = 1\n```\n\nCall `op(x)` after the fence.\n", True),
+], ids=["prose", "heading", "code span", "code span in prose under a heading",
+        "code span after a fenced block"])
+def test_a_page_documents_an_export_only_by_a_heading_or_a_code_span(tmp_path, text, documented):
+    page = tmp_path / "docs" / "a.md"
+    page.parent.mkdir()
+    page.write_bytes(text.encode("utf-8"))
+    assert bool(build_fact_graph._documents([page], ["op"], tmp_path)) is documented
+
+
+@pytest.mark.parametrize("fact", ["D4", "D11"])
+def test_a_design_fact_held_by_a_named_test_is_held_on_the_live_tree(live, fact):
+    source, g = live
+    _, results = fact_gate.run(facts_path=source, graph=g)
+    assert {f: s for f, s, _ in results}[fact] == "HELD"
 
 
 PARTITION_CONSTANTS = {**CONSTANTS, "k": ["3"]}

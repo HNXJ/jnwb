@@ -1787,6 +1787,16 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
     return violations
 
 
+def check_release_facts() -> List[str]:
+    """STEP 0a's fact condition: no typed fact is VIOLATED in release mode. An UNHELD fact whose
+    item is due in this cycle (``RELEASE_CYCLE``) fails here; the everyday gate does not run it."""
+    from scripts import fact_gate  # the fact gate imports this module, so the import is local
+
+    _, results = fact_gate.run(release=True)
+    return [f"fact {fact_id} is VIOLATED on the release check: {'; '.join(reasons)}"
+            for fact_id, status, reasons in results if status == fact_gate.VIOLATED]
+
+
 def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
                              head: Optional[str] = None) -> List[str]:
     """Why the commit being released drops a commit of ``main``; empty when it does not.
@@ -1896,7 +1906,7 @@ def main() -> None:
     except (subprocess.CalledProcessError, OSError):
         head = None
     stack_violations = (check_state_is_current() + check_release_readiness(head=head)
-                        + main_ancestry_violations(head=head))
+                        + main_ancestry_violations(head=head) + check_release_facts())
     if stack_violations:
         for violation in stack_violations:
             log.error(violation)
@@ -1908,7 +1918,8 @@ def main() -> None:
             "from HEAD only in the receipt and %s, with no item it held open relabelled since "
             "or deleted without the receipt recording it as finished; and a commit that contains "
             "main (a merge's first parent contained in its second; otherwise origin/main, "
-            "fetched, an ancestor). Work deferred to %s, and "
+            "fetched, an ancestor); and no typed fact is VIOLATED in release mode. Work deferred "
+            "to %s, and "
             "%s items, stay in the todo stack.",
             TODO_PATH, NEXT_CYCLE, RELEASE_STEP_VALUE)
         sys.exit(1)

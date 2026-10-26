@@ -266,7 +266,8 @@ def check_no_hardcoded_test_paths(repo_root: Optional[Path] = None) -> List[str]
     root = repo_root or REPO_ROOT
     scan_dirs = [d for d in (root / "tests", root / "scripts") if d.exists()]
     if not scan_dirs:
-        return []
+        return [f"NO_SCAN_TREE: {root.as_posix()} holds neither tests/ nor scripts/, so no test "
+                "or script path was examined"]
     violations = []
     # Any drive letter, not C: and D:. This machine keeps its analysis data on E:, so the
     # allowlist shape of the original pattern exempted exactly the paths in use here: a
@@ -426,8 +427,9 @@ def check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> List[str]:
             return []
         try:
             tree = ast.parse(code_or_tree)
-        except Exception:
-            return []
+        except Exception as exc:
+            return [f"UNPARSEABLE: code that declares a raw_power estimand does not parse ({exc}), "
+                    "so its rule was not checked"]
     else:
         tree = code_or_tree
         doc = ast.get_docstring(tree) or ""
@@ -472,6 +474,25 @@ def check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> List[str]:
                     elif isinstance(arg, ast.Name):
                         if arg.id in db_assigned_vars or arg.id == "db" or arg.id.endswith("_db") or "db_" in arg.id:
                             violations.append(f"LOG_BEFORE_AVERAGE: Found '{func_name}' applied to decibel variable '{arg.id}' at line {node.lineno}")
+    return violations
+
+
+def check_logarithm_last_in_package(repo_root: Optional[Path] = None) -> List[str]:
+    """No declared raw-power estimand takes its log before its mean, in any module of ``jnwb/``.
+
+    Applies ``check_logarithm_last_rule`` to each module and names the module of each finding. A
+    package with no module is a failure: no estimand was examined.
+    """
+    root = repo_root or REPO_ROOT
+    modules = sorted((root / "jnwb").rglob("*.py")) if (root / "jnwb").is_dir() else []
+    if not modules:
+        return [f"NO_SOURCE: {(root / 'jnwb').as_posix()} holds no Python module, so no estimand "
+                "was examined"]
+    violations = []
+    for module in modules:
+        text = module.read_text(encoding="utf-8")
+        for reason in check_logarithm_last_rule(text):
+            violations.append(f"{module.relative_to(root).as_posix()}: {reason}")
     return violations
 
 

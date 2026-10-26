@@ -48,14 +48,14 @@ not re-run: its verdict is the harness's or the suite's, which run it themselves
 | D1 | public callables | a public callable delegates to at most one public analysis operation, or names every sequenced choice as a parameter; each Analyzer method is checked by its delegation edges | `todo:11-03` | fact stack; Q8 2026-09-29 |
 | D2 | public operations with NWB side effects | each carries exactly one category of `mutation categories` | `todo:11-03` | 2026-09-22; Q9 2026-09-29 |
 | D3 | public operations with caching side effects | each carries exactly one category of `cache categories` | `todo:11-03` | 2026-09-22; Q9 2026-09-29 |
-| D4 | NWB repair | a representation is repaired only when the intended representation is identifiable | `todo:11-03` | 2026-09-22 |
+| D4 | NWB repair | a representation is repaired only when the intended representation is identifiable | `test:tests/test_nwb_write.py::test_repair_vector_index_refuses_valid_foreign_target` | 2026-09-22 |
 | D5 | NWB operations | ambiguous scientific meaning is detected and reported, never resolved | `todo:11-03` | 2026-09-22 |
 | D6 | NWB operations | no undocumented condition meaning is inferred | `todo:11-03` | 2026-09-22 |
 | D7 | NWB operations | no anatomical identity and no unit is guessed | `todo:11-03` | 2026-09-22 |
 | D8 | NWB operations | no trial semantics are invented | `todo:11-03` | 2026-09-22 |
 | D9 | NWB operations | no choice is made among plausible mappings | `todo:11-03` | 2026-09-22 |
 | D10 | execution infrastructure | the core does not decide what to cache on scientific grounds | `todo:11-03` | 2026-09-22 |
-| D11 | public execution controls (device, precision, worker, resource) | a control is public only once it changes no number | `todo:11-03` | 2026-09-22 |
+| D11 | public execution controls (device, precision, worker, resource) | a control is public only once it changes no number | `gate:21`, `test:tests/test_parallel.py` | 2026-09-22 |
 | D12 | `jnwb.__all__` | each export's states follow `lifecycle`: a state holds only when every earlier one holds; `identity-verified` applies where the export takes an execution switch | `computed:lifecycle` | 2026-09-22; Q10 2026-09-29 |
 
 ## Identity

@@ -20,6 +20,7 @@ if str(REPO_ROOT) not in sys.path:
 
 import pytest
 
+from scripts import harness_gate
 from scripts.harness_gate import (
     GENERATED_FROM,
     INTERNAL_PROCESS_TERMS,
@@ -31,6 +32,7 @@ from scripts.harness_gate import (
     check_internal_process_vocabulary,
     check_line_ending_consistency,
     check_no_process_identifiers_in_library,
+    check_logarithm_last_in_package,
     check_logarithm_last_rule,
     check_modality_isolation,
     check_api_md_member_types,
@@ -110,6 +112,16 @@ def summarize_log_normal_effects(unit_db_modulations):
 """
         violations = check_logarithm_last_rule(legitimate_db_code)
         assert len(violations) == 0, "Legitimate mean-of-dB code was improperly rejected!"
+
+    def test_a_raw_power_declaration_in_code_that_does_not_parse_is_a_violation(self):
+        """A declared raw-power estimand in code that does not parse left the rule unchecked."""
+        unparseable = """
+# estimand: raw_power_average
+def compute_site_power(raw_power:
+"""
+        violations = check_logarithm_last_rule(unparseable)
+        assert len(violations) == 1, "a declared raw-power estimand that does not parse passed"
+        assert "UNPARSEABLE" in violations[0]
 
     def test_adversarial_probe_unnamespaced_modality_pooling_rejected(self):
         """Adversarial Probe 4: Mixing SPK and LFP without explicit namespaces must be rejected."""
@@ -2397,3 +2409,57 @@ class TestGate20StateFileHead:
         assert generator.main() == 0
         assert seen == [False], "build() ran while the file it replaces was still on disk"
         assert state.read_text(encoding="utf-8") == "built\n"
+
+
+LOG_BEFORE_MEAN = '''
+import numpy as np
+
+def site_power(raw_power):
+    """estimand: raw_power_average"""
+    return np.mean(to_db(raw_power))
+'''
+
+
+def _jnwb_with(tmp_path: Path, body: str) -> Path:
+    """A checkout whose jnwb/ holds one module, estimand.py, with ``body``."""
+    module = tmp_path / "jnwb" / "estimand.py"
+    module.parent.mkdir(parents=True)
+    module.write_text(body, encoding="utf-8")
+    return tmp_path
+
+
+def test_a_declared_log_before_mean_in_jnwb_is_violated_by_the_package_scan(tmp_path: Path):
+    found = check_logarithm_last_in_package(_jnwb_with(tmp_path, LOG_BEFORE_MEAN))
+    assert len(found) == 1 and found[0].startswith("jnwb/estimand.py: ")
+    assert "LOG_BEFORE_AVERAGE" in found[0]
+
+
+def test_a_declared_estimand_that_does_not_parse_in_jnwb_is_violated(tmp_path: Path):
+    body = "# estimand: raw_power_average\ndef f(:\n"
+    found = check_logarithm_last_in_package(_jnwb_with(tmp_path, body))
+    assert len(found) == 1 and "UNPARSEABLE" in found[0]
+
+
+def test_a_jnwb_with_no_module_is_not_a_pass(tmp_path: Path):
+    (tmp_path / "jnwb").mkdir()
+    found = check_logarithm_last_in_package(tmp_path)
+    assert len(found) == 1 and "NO_SOURCE" in found[0]
+
+
+@pytest.mark.parametrize("body, failure", [
+    (LOG_BEFORE_MEAN, "LOG_BEFORE_AVERAGE"),
+    ("# estimand: raw_power_average\ndef f(:\n", "UNPARSEABLE"),
+], ids=["log before mean", "does not parse"])
+def test_gate_21_runs_the_estimand_rule_on_the_jnwb_modules(tmp_path: Path, monkeypatch, body,
+                                                            failure):
+    monkeypatch.setattr(harness_gate, "REPO_ROOT", _jnwb_with(tmp_path, body))
+    monkeypatch.setattr(harness_gate, "check_computational_contract", lambda: [])
+    gate = {number: run for number, run, _ in harness_gate.GATES}[21]
+    [(header, violations)] = gate()
+    assert "raw-power estimand" in header
+    assert failure in violations[0]
+
+
+def test_gate_21_pass_line_names_the_estimand_rule():
+    pass_line = {number: line for number, _, line in harness_gate.GATES}[21]
+    assert "raw-power estimand" in pass_line()
