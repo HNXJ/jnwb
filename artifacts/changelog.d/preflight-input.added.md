@@ -1,0 +1,1 @@
+- `preflight(question, input_path=None)`: outcomes name the input by sha256 and path (`jnwb/ontology.py`).

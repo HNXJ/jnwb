@@ -192,6 +192,7 @@ $$\text{New Public Symbol} \iff \text{Implementation} + \text{Tests} + \text{Doc
 
 - **Internal vs. Public**: Helper functions, intermediate utilities, and implementation details must remain private (prefixed with `_`) and un-exported in `__all__`.
 - **No Inventions**: Never document or export unverified symbols.
+- **Intake**: A downstream agent reads `jnwb.preflight(question, input_path)` as data: `outcome`, `reason`, `missing`, and the input file's `input_sha256` and `input_path`.
 - **Breaking Changes**: Breaking changes to public signatures require an explicit deprecation cycle with informative `DeprecationWarning` or `FutureWarning` notices before removal.
 
 ## Testing rule

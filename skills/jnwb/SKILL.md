@@ -33,7 +33,7 @@ A task that needs several skills takes its row here, which names the whole set i
 
 Before routing, check the plan:
 
-- `jnwb.preflight(question)`: Takes a `jnwb.Question` and returns a `Preflight` whose `outcome` is `"decline"` when `unsupported_inference` is stated, else `"request"` when `signals`, `signal_units`, `contrast` or `inference_unit` is empty (`missing` names each), else `"failure"` when `non_identifiable` is stated, else `"supported"`. `reason` says why and names the optional fields left empty.
+- `jnwb.preflight(question, input_path=None)`: Takes a `jnwb.Question` and returns a `Preflight` whose `outcome` is `"decline"` when `unsupported_inference` is stated, else `"request"` when `signals`, `signal_units`, `contrast` or `inference_unit` is empty (`missing` names each), else `"failure"` when `non_identifiable` is stated, else `"supported"`. `reason` says why and names the optional fields left empty. Given `input_path`, `input_sha256` and `input_path` name that file; a path that is not a file is requested as `"input_path"`.
 
 ## 3. Execution
 Operations whose signature takes `device` accept `device='cuda'` and `device='metal'`. A request no GPU can serve warns and runs on the CPU.

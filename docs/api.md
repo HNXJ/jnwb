@@ -269,7 +269,7 @@ All 226 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.Query | class | *Data selection rules: what subset of data?* |
 | jnwb.Question | class | *Scientific hypothesis: what are we asking?* |
 | jnwb.Result | class | *Analysis output: statistics, provenance, lineage.* |
-| jnwb.preflight | function | `(question: jnwb.ontology.Question) -> jnwb.ontology.Preflight`<br>*Check a planned analysis before it runs and return one of the four outcomes.* |
+| jnwb.preflight | function | `(question: jnwb.ontology.Question, input_path: str | os.PathLike | None = None) -> jnwb.ontology.Preflight`<br>*Check a planned analysis before it runs and return one of the four outcomes.* |
 
 ## Module: jnwb.permutation
 

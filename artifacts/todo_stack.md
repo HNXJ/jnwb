@@ -48,7 +48,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
 | 2 | N numerics and I/O (audit 2026-10-25) | none left: every item landed 2026-10-25 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-34, 17-36 and 17-58 landed 2026-10-26 | Haiku writes, Muse reviews | nothing |
-| 3 | H harness | 12-07, 07-05, then 12-06 and 17-56; 17-26, 17-27, 17-30, 17-31, 17-32, 17-41, 17-54, 17-55 and 12-05 landed 2026-10-26, 11-03 went to the roadmap | Haiku | wave 2 merged |
+| 3 | H harness | 12-07, then 12-06 and 17-56; 07-05, 17-26, 17-27, 17-30, 17-31, 17-32, 17-41, 17-54, 17-55 and 12-05 landed 2026-10-26, 11-03 went to the roadmap | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
 
@@ -64,7 +64,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | item gone (11-01) |
 | 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 12-07; 11-07, 12-11 and 16-10 landed, 11-03 to roadmap (ruled 2026-10-26); 11-09 to roadmap (ruled 2026-10-25) |
 | 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 15-22; 16-03 landed |
-| 7 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 07-05, 12-06; 15-20, 12-05 and 09-07 landed 2026-10-26 |
+| 7 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 12-06; 07-05, 15-20, 12-05 and 09-07 landed 2026-10-26 |
 | 8 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18; 16-19 landed |
 | 9 | Docs pages carry still and interactive figures, after jaxfne's form (ruled 2026-10-24) | the form and the page set follow Hamm's preference rulings; a test builds each figure from committed inputs; the strict docs build passes | 17-01 landed 2026-10-26 |
 | 10 | A validation dashboard after jaxfne's, keeping the proof of work, the HTML outputs and the GLO cards (ruled 2026-10-23 and 2026-10-24) | `tests/test_build_dashboard.py` builds it from committed files with every receipt digest matching; the published page shows each section the preference rulings name, in light and dark | 17-02 landed 2026-10-26 |
@@ -119,15 +119,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/gates/**`, `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `tests/test_harness_gate_study_tokens.py`, `artifacts/fact_stack.md`.
 - 12-07: R2 (a verify-pypi job after publish-pypi) and B2 (gate 6 over `jnwb/`, `docs/`, `skills/` and `tests/`) report UNHELD; R5 (validated on `main` before the tag) and R7 (the full suite on every declared interpreter on Ubuntu and Windows) name this item too, each with a check against `.github/workflows/workflow.yml`. Check: a planted hash mismatch fails the job's check function; a planted study token in `tests/` fails. Waits: After 12-05; the upload step checks sha256 against the verified TestPyPI copy, and `tests/` is not in the wheel while shipped surfaces are scanned. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: B2, R2, R5 and R7 report HELD; no UNHELD fact names a 0.2.14 item; VIOLATED 0.
-
-### 07-05 A downstream paper agent can consume jnwb
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/ontology.py`, `jnwb/paths.py`, `tests/test_ontology.py`, `tests/test_paths.py`, `tests/test_paths_identity.py`, `skills/jnwb/SKILL.md`, `.github/CONTRIBUTING.md`.
-Stop: naming the input's sha256 and object path on returned results is a consequential public API choice, a stop under `AGENTS.md` §12; Hamm rules the fields before code. The inner curation stages stay private (ruled 2026-10-19).
-- 07-05: `jnwb.preflight` outcomes are not scored as data, results do not name their input's sha256 and object path (IA-27's tests for `resolve_nwb_path`, `sha256_file` and `require` land with it), `CONTRIBUTING.md` states no intake, and P-335's review (`artifacts/evidence/0.2.13/p335_laminar_curation_review.md`) leaves the working-value defaults uncited and the inner stages unexposed, for a ruling. Check: a test per outcome reads those three from the returned object (`tests/test_ontology.py`); a round trip by path and hash passes; `CONTRIBUTING.md` holds that sentence; the packet reports a pass or fail for each of the four. Waits: new downstream capability, not a defect. Moved to 0.2.14 by the 2026-10-19 theme ruling.
-Accept: a test per `preflight` outcome reads the outcome, the input's sha256 and its object path from the returned object; a round trip by path and hash passes; gate 6 passes.
 
 ### 16-18 The core freeze (goal F1)
 

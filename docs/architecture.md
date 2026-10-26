@@ -66,7 +66,8 @@ to pass instead, are listed on [Errors](errors.md).
 `jnwb.Question`, in the order drawn above, and returns a `Preflight` whose `outcome`, `reason`
 and `missing` a script can score. The caller declares an unsupported inference
 (`unsupported_inference`) or a non-identifiable result (`non_identifiable`); the required inputs
-are `signals`, `signal_units`, `contrast` and `inference_unit`.
+are `signals`, `signal_units`, `contrast` and `inference_unit`. Given `input_path`, the outcome
+names that file by `input_sha256` and `input_path`.
 
 ## From NWB file to result
 
