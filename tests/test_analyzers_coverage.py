@@ -106,6 +106,15 @@ class TestTFRAnalyzerBandExtraction(unittest.TestCase):
         self.assertEqual(result.shape, (1, 2))
         np.testing.assert_allclose(result, 11.0)
 
+    def test_empty_band_defs_is_refused_and_none_keeps_the_defaults(self):
+        """An empty mapping used to fall through `or` to the default bands."""
+        with self.assertRaisesRegex(ValueError, "band_defs must not be empty"):
+            TFRAnalyzer.extract_band(self.tfr_data, 'alpha', freqs=self.freqs, freq_axis=1,
+                                     band_defs={})
+        result = TFRAnalyzer.extract_band(self.tfr_data, 'alpha', freqs=self.freqs, freq_axis=1,
+                                          band_defs=None)
+        self.assertEqual(result.shape, (2, 3, 2))
+
 
 class TestTFRAnalyzerTrialAverage(unittest.TestCase):
     """Test trial averaging in TFRAnalyzer."""
@@ -513,6 +522,21 @@ class TestNanTrialOnsetIsRefused(unittest.TestCase):
             UnitAnalyzer.psth(spikes, np.array([0.0, np.nan]), bin_size_ms=50, window_ms=(-100, 100))
         res = UnitAnalyzer.psth(spikes, np.array([0.0, 1.0]), bin_size_ms=50, window_ms=(-100, 100))
         self.assertEqual(res['n_trials'], 2)
+
+
+class TestAutocorrelogramRefusesNonFiniteSpikes(unittest.TestCase):
+    """A NaN spike time was dropped, so 12 finite spikes and one NaN returned a histogram."""
+
+    def test_a_nan_spike_time_is_refused_naming_the_count(self):
+        spikes = np.concatenate([np.linspace(0.1, 1.2, 12), [np.nan]])
+        self.assertEqual(spikes.size, 13, "the case needs 12 finite spikes and one NaN")
+        with self.assertRaisesRegex(ValueError, r"UnitAnalyzer\.autocorrelogram: 1 of 13 spike time"):
+            UnitAnalyzer.autocorrelogram(spikes, max_lag_ms=50, bin_size_ms=1)
+
+    def test_the_finite_train_still_returns_a_histogram(self):
+        result = UnitAnalyzer.autocorrelogram(np.linspace(0.1, 1.2, 12), max_lag_ms=50, bin_size_ms=1)
+        self.assertEqual(set(result), {'acg', 'lag_times_ms', 'device_used'})
+        self.assertEqual(len(result['acg']), 50)
 
 
 class TestUnitAnalyzerQualityMetrics(unittest.TestCase):

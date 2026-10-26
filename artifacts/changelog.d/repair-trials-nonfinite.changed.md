@@ -1,2 +1,3 @@
 - `repair_lfp_trials` refuses NaN or Inf `segments`, naming the count (`artifact_repair.py`).
 - `repair_lfp_trials` refuses fewer than `min_trials` trials instead of returning its input (`artifact_repair.py`).
+- `repair_band_artifacts` refuses fewer than 5 trials instead of returning its input (`artifact_repair.py`).

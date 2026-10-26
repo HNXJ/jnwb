@@ -79,17 +79,19 @@ class TFRAnalyzer:
                 tfr_data.shape[freq_axis], be finite, and strictly increasing.
             freq_axis: Axis index for frequency dimension (default 1).
             band_defs: Optional custom band dictionary mapping band name to (f_min, f_max).
-                Defaults to TFRAnalyzer.BANDS.
+                None uses TFRAnalyzer.BANDS; an empty dictionary is refused.
 
         Returns:
             Extracted band power array with frequency dimension reduced via mean.
 
         Raises:
-            ValueError: If band is unknown, freqs is invalid (not 1D, length mismatch,
-                non-finite, not strictly increasing), or if no sampled frequencies
-                fall within the requested band.
+            ValueError: If band is unknown, band_defs is empty, freqs is invalid (not 1D,
+                length mismatch, non-finite, not strictly increasing), or if no sampled
+                frequencies fall within the requested band.
         """
-        bands_table = band_defs or TFRAnalyzer.BANDS
+        if band_defs is not None and len(band_defs) == 0:
+            raise ValueError("band_defs must not be empty; pass None for the default bands.")
+        bands_table = band_defs if band_defs is not None else TFRAnalyzer.BANDS
         if band not in bands_table:
             raise ValueError(f"Unknown band '{band}'. Valid: {list(bands_table.keys())}")
 
@@ -444,8 +446,18 @@ class UnitAnalyzer:
         Returns:
             Dict with ``acg``, ``lag_times_ms``, ``device_used`` (the device that computed
             the histogram).
+
+        Raises:
+            ValueError: If ``spike_times`` holds a NaN or an infinity; drop them first.
         """
         resolved = resolve_device(device, context='UnitAnalyzer.autocorrelogram', prefer='cupy')
+        spikes = np.asarray(spike_times, dtype=float)
+        n_nonfinite = int(np.count_nonzero(~np.isfinite(spikes)))
+        if n_nonfinite:
+            raise ValueError(
+                f"UnitAnalyzer.autocorrelogram: {n_nonfinite} of {spikes.size} spike time(s) are "
+                "non-finite; drop or impute the non-finite spike times first."
+            )
         if len(spike_times) < 10:
             return {'error': 'Insufficient spikes for ACG', 'n_spikes': len(spike_times)}
 

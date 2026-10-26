@@ -387,6 +387,9 @@ def repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=TFR_Z_THRESH,
     form exists so a caller holding channel-averaged power can call this instead of retyping it.
     Returns (repaired, frac_flagged_by_band).
 
+    Raises:
+        ValueError: If ``power`` is not 3-D or 4-D, or holds fewer than 5 trials.
+
     References:
         Leys, C., et al. (2013). Detecting outliers: do not use standard
         deviation around the mean, use absolute deviation around the median.
@@ -410,8 +413,10 @@ def repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=TFR_Z_THRESH,
         power = power[:, None, :, :]
     n_trials = power.shape[0]
     if n_trials < 5:
-        # too few trials for a cross-trial median to mean anything
-        return (power[:, 0] if channel_axis_added else power), {}
+        raise ValueError(
+            f"repair_band_artifacts needs at least 5 trials for a cross-trial "
+            f"median; got {n_trials}"
+        )
 
     repaired = power.copy()
     frac_flagged = {}

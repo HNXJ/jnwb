@@ -105,12 +105,18 @@ class TestRepairBandArtifacts:
         assert np.allclose(repaired[0], power[0])
         assert np.allclose(repaired[3, :, ~alpha_sel, :], power[3, :, ~alpha_sel, :])
 
-    def test_below_min_trials_returns_input_unchanged(self):
+    def test_below_min_trials_raises_naming_the_minimum_and_the_count(self):
         power, freqs, _ = self._synthetic()
-        power = power[:3]
-        repaired, frac = repair_band_artifacts(power, freqs)
-        assert frac == {}
-        assert np.array_equal(repaired, power)
+        with pytest.raises(ValueError, match=r"at least 5 trials.*got 4"):
+            repair_band_artifacts(power[:4], freqs)
+
+    def test_exactly_five_trials_still_repair_a_planted_spike(self):
+        power, freqs, alpha_sel = self._synthetic()
+        power = power[:5]
+        power[3, :, alpha_sel, 30] += 30.0
+        repaired, frac = repair_band_artifacts(power, freqs, band_ranges=DEFAULT_BANDS)
+        assert frac.get("Alpha(8-14Hz)", 0.0) > 0
+        assert np.abs(repaired[3, :, alpha_sel, 30] - power[3, :, alpha_sel, 30]).max() > 1.0
 
 
 class TestIntervalHelpers:
@@ -229,13 +235,11 @@ class TestRepairBandArtifactsShapeContract:
         with pytest.raises(ValueError, match="power must be"):
             repair_band_artifacts(np.ones((5, 5)), np.linspace(2, 100, 5))
 
-    def test_too_few_trials_returns_input_shape_unchanged(self):
+    def test_too_few_trials_raises_for_3d_input_too(self):
         power, freqs = self._power(n_trials=3)
         avg = power.mean(axis=1)
-        repaired, frac = repair_band_artifacts(avg, freqs)
-        assert repaired.shape == avg.shape
-        assert frac == {}
-        np.testing.assert_allclose(repaired, avg)
+        with pytest.raises(ValueError, match=r"at least 5 trials.*got 3"):
+            repair_band_artifacts(avg, freqs)
 
     def test_sided_both_is_reachable_and_flags_at_least_as_much(self):
         power, freqs = self._power()
