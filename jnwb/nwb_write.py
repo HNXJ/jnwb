@@ -7,6 +7,8 @@ each dataset the report's ``applied`` records do not name is byte-identical over
 rows with its attributes compared (``object_id`` ignored), ``file_create_date`` is ignored,
 object references are dereferenced and their targets compared by value, and scalars are read
 whole. Any difference in a dataset the report does not name is reported as unexplained.
+The attributes of each group and of the root are compared the same way, unless the report
+names the group.
 
 An ``applied`` record named ``"cast"`` declares its paths as dtype casts of the source, as
 ``transform_nwb``'s ``cast`` argument declares them; each must equal the source cast into
@@ -313,9 +315,10 @@ def _attr_value_equal(handle_first: h5py.File, value_first, handle_second: h5py.
     return _values_equal(first, second)
 
 
-def _attrs_equal(first: h5py.Dataset, second: h5py.Dataset, handle_first: h5py.File,
-                 handle_second: h5py.File, n_check: int) -> tuple[bool, str]:
-    """Two datasets carry the same attributes: references dereferenced to targets."""
+def _attrs_equal(first: h5py.Dataset | h5py.Group, second: h5py.Dataset | h5py.Group,
+                 handle_first: h5py.File, handle_second: h5py.File,
+                 n_check: int) -> tuple[bool, str]:
+    """Two datasets or groups carry the same attributes: references dereferenced to targets."""
     names_first = sorted(k for k in first.attrs.keys() if k not in IGNORED_ATTRIBUTES)
     names_second = sorted(k for k in second.attrs.keys() if k not in IGNORED_ATTRIBUTES)
     if names_first != names_second:
@@ -456,6 +459,38 @@ def _comparison_checks(dst_path: Path, against_path: Path, report: MutationRepor
             except Exception as exc:
                 out.append(MutationCheck(
                     f"/{normed} matches the source as declared", False,
+                    f"unexplained difference: unreadable ({type(exc).__name__})"))
+        group_names: list[str] = []
+        dst_group_names: set[str] = {""}
+
+        def visit_group(name: str, obj) -> None:
+            if isinstance(obj, h5py.Group):
+                group_names.append(_norm(name))
+
+        def visit_dst_group(name: str, obj) -> None:
+            if isinstance(obj, h5py.Group):
+                dst_group_names.add(_norm(name))
+
+        first.visititems(visit_group)
+        second.visititems(visit_dst_group)
+        for normed in sorted({""} | set(group_names)):
+            # A group absent from dst is skipped; the dataset checks above cover what it held.
+            if normed not in dst_group_names:
+                continue
+            if normed in exempt:
+                out.append(MutationCheck(
+                    f"/{normed} declared by the report", True,
+                    f"operation {sorted(exempt[normed])!r}; exempt from attribute comparison"))
+                continue
+            try:
+                same, detail = _attrs_equal(first["/" + normed], second["/" + normed],
+                                            first, second, n_check)
+                out.append(MutationCheck(
+                    f"/{normed} attributes match the source as declared", same,
+                    detail if same else f"unexplained difference: {detail}"))
+            except Exception as exc:
+                out.append(MutationCheck(
+                    f"/{normed} attributes match the source as declared", False,
                     f"unexplained difference: unreadable ({type(exc).__name__})"))
         src_names = {_norm(n) for n in names}
         for normed in sorted(dst_names - src_names):
@@ -922,7 +957,8 @@ def _rewrite_dataset(dst: h5py.File, path: str, dtype, comp: dict | None) -> Non
     attrs = {key: old.attrs[key] for key in old.attrs}
     chunks = old.chunks
     del dst[path]
-    if comp is not None:
+    # A scalar cannot be chunked or filtered, so it keeps its contiguous layout.
+    if comp is not None and old.shape != ():
         new = dst.create_dataset(path, data=values, dtype=np.dtype(dtype), chunks=True,
                                  compression="gzip", compression_opts=comp["level"],
                                  shuffle=comp["shuffle"])
@@ -986,7 +1022,8 @@ def transform_nwb(src: str | Path, *, dst: str | Path, keep=None, drop=None, cas
         or boolean sources only widen.
     compression : dict, optional
         ``{"filter": "gzip", "level": 1, "shuffle": True}``, applied to the
-        rewritten datasets; ``None`` keeps the source's own storage.
+        rewritten datasets; scalar datasets keep their layout, with no chunks
+        or filters. ``None`` keeps the source's own storage.
     overwrite : bool
         Allow writing over an existing ``dst``.
     verify : bool
@@ -1577,14 +1614,16 @@ def verify_nwb(dst: str | Path, *, against: str | Path | None = None,
     against : str or Path, optional
         The source file the writer started from. Compares content, not storage:
         ``file_create_date`` is ignored, object references are dereferenced and
-        their targets compared by value, and scalars are read whole. Dataset
-        attributes are compared except ``object_id``. Requires ``report``.
+        their targets compared by value, and scalars are read whole. Attributes
+        of every dataset, every group and the root are compared except
+        ``object_id``. Requires ``report``.
     report : MutationReport, optional
         The writer's report. Its ``applied`` records name the operation and the
         dataset paths that operation changed; ``verify_nwb`` exempts exactly
         those paths. A record named ``"cast"`` declares its paths as dtype casts
-        of the source. Dataset attributes are compared, with references in
-        attributes dereferenced to their targets.
+        of the source. Attributes of datasets, groups and the root are compared,
+        with references in attributes dereferenced to their targets; a group a
+        record names is not compared.
     n_check : int
         Rows compared per dataset (default 200000). Must be at least 1.
 

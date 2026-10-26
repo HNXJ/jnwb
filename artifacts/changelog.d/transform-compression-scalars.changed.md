@@ -1,0 +1,1 @@
+- `transform_nwb` with `compression=` alone no longer raises on a scalar `starting_time` (`jnwb/nwb_write.py`).

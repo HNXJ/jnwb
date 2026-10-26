@@ -372,6 +372,66 @@ def test_non_object_id_attribute_difference_is_reported_unexplained(tmp_path):
     assert failed == data_failed, [(c.name, c.detail) for c in failed]
 
 
+@pytest.mark.parametrize("key", ["description", "comments"])
+def test_group_attribute_difference_is_reported_with_its_path(tmp_path, key):
+    src = tmp_path / "src.nwb"
+    dst = tmp_path / "dst.nwb"
+    _make_nwb(src)
+    shutil.copy(src, dst)
+    with h5py.File(dst, "r+") as handle:
+        assert key in handle["acquisition/raw"].attrs, \
+            "the series group must carry the attribute"
+        handle["acquisition/raw"].attrs[key] = "tampered"
+    with h5py.File(src, "r") as f, h5py.File(dst, "r") as g:
+        assert _attr_str(f["acquisition/raw"].attrs[key]) != "tampered", \
+            "the group attribute must differ"
+        assert np.array_equal(f["acquisition/raw/data"][:], g["acquisition/raw/data"][:]), \
+            "the datasets must match so only the group attribute differs"
+    rep = verify_nwb(dst, against=src, report=_hand_report())
+    assert not rep.ok
+    failed = _failing(rep)
+    group_failed = [c for c in failed
+                    if c.name == "/acquisition/raw attributes match the source as declared"]
+    assert group_failed, [c.name for c in failed]
+    assert failed == group_failed, [(c.name, c.detail) for c in failed]
+    assert key in group_failed[0].detail and "unexplained" in group_failed[0].detail, \
+        group_failed[0].detail
+
+
+def test_root_attribute_difference_is_reported_at_the_root(tmp_path):
+    src = tmp_path / "src.nwb"
+    dst = tmp_path / "dst.nwb"
+    _make_nwb(src)
+    shutil.copy(src, dst)
+    with h5py.File(dst, "r+") as handle:
+        assert "comments" not in handle.attrs, "the root must not carry the attribute yet"
+        handle.attrs["comments"] = "tampered"
+    rep = verify_nwb(dst, against=src, report=_hand_report())
+    assert not rep.ok
+    root_failed = [c for c in _failing(rep)
+                   if c.name == "/ attributes match the source as declared"]
+    assert root_failed, [c.name for c in _failing(rep)]
+    assert "comments" in root_failed[0].detail, root_failed[0].detail
+
+
+def test_declared_group_attribute_change_passes(tmp_path):
+    src = tmp_path / "src.nwb"
+    dst = tmp_path / "dst.nwb"
+    _make_nwb(src)
+    shutil.copy(src, dst)
+    with h5py.File(dst, "r+") as handle:
+        handle["acquisition/raw"].attrs["description"] = "re-described"
+    with h5py.File(src, "r") as f:
+        assert _attr_str(f["acquisition/raw"].attrs["description"]) != "re-described", \
+            "the group attribute must differ"
+    applied = (AppliedOperation(name="squeeze_scalar_attributes",
+                                changed=("acquisition/raw",)),)
+    rep = verify_nwb(dst, against=src, report=_hand_report(applied=applied))
+    assert rep.ok, _failing(rep)
+    assert any(c.name == "/acquisition/raw declared by the report" for c in rep.checks), \
+        [c.name for c in rep.checks]
+
+
 def test_n_check_below_one_refuses(tmp_path):
     p = tmp_path / "ok.nwb"
     _make_nwb(p)
@@ -556,6 +616,28 @@ def test_transform_compression_is_stored(tmp_path):
     with h5py.File(dst, "r") as f:
         assert f["acquisition/raw/data"].compression == "gzip", \
             "the rewritten dataset must carry the declared storage"
+
+
+def test_transform_compression_alone_keeps_scalar_datasets_whole(tmp_path):
+    src = tmp_path / "src.nwb"
+    dst = tmp_path / "zip.nwb"
+    _make_nwb(src)
+    with h5py.File(src, "r") as f:
+        assert f["acquisition/raw/starting_time"].shape == (), \
+            "the rate-based series must hold a scalar starting_time"
+        assert f["acquisition/raw/starting_time"].dtype.kind == "f"
+        start = float(f["acquisition/raw/starting_time"][()])
+    rep = transform_nwb(src, dst=dst,
+                        compression={"filter": "gzip", "level": 1, "shuffle": True})
+    assert rep.ok, [c for c in rep.checks if not c.ok]
+    with h5py.File(dst, "r") as f:
+        assert f["acquisition/raw/data"].compression == "gzip", \
+            "the float series must carry the declared storage"
+        scalar = f["acquisition/raw/starting_time"]
+        assert scalar.shape == (), "the scalar must keep its shape"
+        assert scalar.chunks is None and scalar.compression is None, \
+            "the scalar must keep its layout: no chunks or filters"
+        assert float(scalar[()]) == start
 
 
 def test_transform_keep_and_drop_together_refuses(tmp_path):

@@ -1,0 +1,1 @@
+- `verify_nwb` with `against=` compares group and root attributes, not only dataset attributes (`jnwb/nwb_write.py`).
