@@ -440,7 +440,7 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    ahead of `main`, with no content on `main` that `dev` lacked and no conflict.
    The `dev` ruleset's deletion rule has no bypass, so no merge can delete `dev`; the
    delete-merged-branch setting still deletes a merged feature branch's head.
-4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build); when a `dev` push run
+4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build); when a `main` push run
    of the same commit passed, the test matrix and the floors leg skip their steps and name that
    run, and the build still runs in full. Then the `publish-testpypi` job uploads to TestPyPI,
    and the `verify-testpypi` job downloads only the `jnwb==X.Y.Z` wheel from TestPyPI, installs
@@ -450,7 +450,9 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
 5. In the same run, for a final version only, `publish-pypi` needs `verify-testpypi`: it
    downloads this run's distribution artifact, requires each file's sha256 to equal the one
    TestPyPI records for it, and uploads those files to production PyPI via trusted publishing
-   in the `pypi` environment, whose approval rule applies. Then `github-release` writes the
+   in the `pypi` environment, whose approval rule applies. Then `verify-pypi` downloads the
+   `jnwb==X.Y.Z` wheel from PyPI, requires its sha256 to equal this run's build artifact, and
+   runs `pip check` and `scripts/smoke_installed.py`; after it, `github-release` writes the
    notes with `scripts/release_body.py` (a fenced `pip install jnwb==X.Y.Z`, the supported
    Python range and the version's `CHANGELOG.md` section), fails if
    `check_release_body_claims` reports a violation, and otherwise runs `gh release create`.
@@ -464,7 +466,7 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
 `workflow_dispatch` with target `testpypi` is also
 available for maintainers; it uploads but does not verify, since no tag names the version.
 
-The build job, `verify-testpypi` and `release_gate.py` STEP 7 run the same
+The build job, `verify-testpypi`, `verify-pypi` and `release_gate.py` STEP 7 run the same
 `scripts/smoke_installed.py`.
 
 ## Reporting a problem

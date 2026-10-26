@@ -1491,6 +1491,28 @@ class TestGate6RecursiveCoverage:
             assert (REPO_ROOT / rel).exists(), f"probe target missing: {rel}"
         assert "README.md" in DATASET_SCAN_ROOT_DOCS
 
+    @pytest.mark.parametrize("rel", [
+        "tests/planted_surface.py",
+        "tests/deeply/nested/planted_surface.py",
+        "tests/fixtures/planted_surface.json",
+    ])
+    def test_forbidden_token_is_detected_in_a_file_under_tests(self, tmp_path, rel):
+        violations = self._plant(tmp_path, rel)
+        assert any(rel in v for v in violations), (
+            f"gate 6 did not detect {self.TOKEN} planted at {rel}; violations={violations}")
+
+    def test_each_reviewed_test_plant_is_a_real_file_with_a_reason_and_is_skipped(self, tmp_path):
+        """A file exempt because it carries tokens on purpose is named, exists, states its reason,
+        and is the only file the scan skips: its token is not reported there."""
+        from scripts.gates.docs import TESTS_PLANTED_TOKENS
+
+        assert TESTS_PLANTED_TOKENS, "no reviewed test plant is named"
+        for index, (rel, reason) in enumerate(TESTS_PLANTED_TOKENS):
+            assert (REPO_ROOT / rel).is_file(), f"reviewed test plant is missing: {rel}"
+            assert reason.strip(), f"reviewed test plant {rel} states no reason"
+            violations = self._plant(tmp_path / str(index), rel)
+            assert not any(rel in v for v in violations), violations
+
 
 class TestDeclaredEnvironmentPreflight:
     """Release qualification must verify the environment it claims to qualify.
