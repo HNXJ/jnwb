@@ -46,9 +46,9 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | L laminar | 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
-| 2 | N numerics and I/O (audit 2026-10-25) | by file set, in order: 17-21, 17-51; 17-57; 17-25, 17-42, 17-50; 17-12, 17-17, 17-46; then 17-14, 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
+| 2 | N numerics and I/O (audit 2026-10-25) | by file set, in order: 17-57; 17-25, 17-42, 17-50; 17-12, 17-17, 17-46; then 17-14, 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-15, 17-34, 17-36 | Haiku writes, Muse reviews | nothing |
-| 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-32; 17-27, 17-30, 17-33 | Haiku | wave 2 merged |
+| 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-32; 17-27, 17-30 | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
 
@@ -261,13 +261,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/tfr_accumulator.py`, its tests.
 - 17-20: (2,3,4) merged with (1,3,4), one trial in each, broadcasts and gives counts of 2 in every cell, against the docstring's merge equals summarize of the union (`tfr_accumulator.py:396`). Check: a mismatch raises ValueError naming both shapes. Source: O-12.
 
-### 17-21 `correlate` handles non-finite values
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/statistics/_analysis.py`, its tests.
-- 17-21: the mask drops NaN and keeps inf, so Pearson returns nan with only NumPy's RuntimeWarning (`_analysis.py:478`); ruled 2026-10-25 (S9 scope). Check: one inf in x gives a finite Pearson r on the finite pairs with `n` counting them, or a refusal, as the NaN path does. Source: O-13.
-
 ### 17-22 `classify_layer_from_depth` refuses bad arguments
 
 Release: deferred-0.2.14.
@@ -281,13 +274,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: 17-42 (same file).
 Writes: `jnwb/analyzers.py`, its tests.
 - 17-50: `autocorrelogram` drops NaN spike times and then returns `{'error'}` below 10 spikes (`analyzers.py:449`); ruled 2026-10-25 (S9 scope). Check: a NaN spike time raises ValueError naming the count; 12 finite spikes and one NaN no longer return a histogram. Source: O-15.
-
-### 17-51 `compare_groups` and `bootstrap_ci` warn on dropped NaN
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 17-21 (same file).
-Writes: `jnwb/statistics/_analysis.py`, its tests.
-- 17-51: `compare_groups` and `bootstrap_ci` drop NaN silently where their sibling `permutation_test` warns; ruled 2026-10-25 (S9 scope). Check: a NaN in either group warns with the count dropped, as `permutation_test` does, a test per function. Source: O-15.
 
 ### 17-52 `artifact_detection` flags outliers when the MAD is zero
 
@@ -386,13 +372,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/release_gate.py`, `tests/test_release_recovery_gates.py`.
 - 17-32: three helpers (`release_gate.py:1110`, `:1170`, `:1248`) have no production caller, so their tests check code the gate never runs. Check: the tests call `check_release_readiness`; the helpers are deleted; the suite passes. Source: O-25.
-
-### 17-33 `test_decoding` draws from a local generator
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `tests/test_decoding.py`.
-- 17-33: `tests/test_decoding.py:105` sets the global NumPy seed. Check: the test draws from a seeded `default_rng`; `tests/test_tests_draw_from_seeded_generators.py` passes. Source: O-26.
 
 ### 17-54 D12's "documented" reads a heading or code span
 
