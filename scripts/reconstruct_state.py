@@ -223,6 +223,39 @@ def open_defect_classes(path: pathlib.Path | None = None) -> str:
     return "; ".join(f"{name} (seen {-n})" for n, name in sorted(found)) or "none"
 
 
+#: Process tests, whose line counts are recorded so their growth shows per release.
+PROCESS_TESTS = (
+    "tests/test_findings_ledger.py",
+    "tests/test_single_agent_instruction_file.py",
+    "tests/test_standing_rules_name_no_cycle.py",
+    "tests/test_agents_md_stays_a_router.py",
+    "tests/test_release_recovery_gates.py",
+    "tests/test_jrsa.py",
+    "tests/test_api_md_is_interpreter_independent.py",
+    "tests/test_workflow_release_policy.py",
+    "tests/test_state_reconstruction.py",
+    "tests/test_state_basis_is_checked.py",
+    "tests/test_xflip_calibration_receipt.py",
+    "tests/test_vflip_calibration_receipt.py",
+    "tests/test_test_imports_survive_the_wheel_leg.py",
+    "tests/test_the_suite_can_qualify_an_installed_copy.py",
+    "tests/test_errors_documented.py",
+    "tests/test_readme_smoke.py",
+)
+
+
+def growth_rows() -> str:
+    scripts = sorted((REPO_ROOT / "scripts").glob("*.py"))
+    script_lines = sum(len(p.read_text(encoding="utf-8").splitlines()) for p in scripts)
+    rows = ["| Path | Lines |", "|---|---|", f"| `scripts/` | {script_lines} |"]
+    for rel in PROCESS_TESTS:
+        path = REPO_ROOT / rel
+        lines = (len(path.read_text(encoding="utf-8").splitlines()) if path.is_file()
+                 else "UNRESOLVED (file absent)")
+        rows.append(f"| `{rel}` | {lines} |")
+    return "\n".join(rows)
+
+
 def build() -> str:
     pkg = package_facts()
     gate_output, gate_verdict = harness_verdict()
@@ -337,6 +370,10 @@ that also has jnwb installed imports the installed copy; the probe fails rather 
 |---|---|
 | Newest CI run on `dev` | {newest_dev_run()} |
 | Open defect classes | {open_defect_classes()} |
+
+## Growth
+
+{growth_rows()}
 
 ## Release readiness
 

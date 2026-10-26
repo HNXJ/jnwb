@@ -399,3 +399,17 @@ def test_open_defect_classes_are_the_rows_with_no_landed_check(tmp_path: pathlib
         "| ruled: d | 2 | x | y | z | rule: a line |\n", encoding="utf-8")
     assert reconstruct_state.open_defect_classes(ledger) == "twice-seen (seen 2); once-seen (seen 1)"
     assert reconstruct_state.open_defect_classes(tmp_path / "absent.md").startswith("UNRESOLVED (")
+
+
+def test_growth_rows_count_the_scripts_and_each_process_test(generated: str):
+    assert "## Growth" in generated, "the state file records no line counts"
+    from scripts.reconstruct_state import PROCESS_TESTS
+
+    scripts = sorted((REPO_ROOT / "scripts").glob("*.py"))
+    total = sum(len(p.read_text(encoding="utf-8").splitlines()) for p in scripts)
+    assert f"| `scripts/` | {total} |" in generated, total
+    for rel in PROCESS_TESTS:
+        path = REPO_ROOT / rel
+        if path.is_file():
+            lines = len(path.read_text(encoding="utf-8").splitlines())
+            assert f"| `{rel}` | {lines} |" in generated, rel

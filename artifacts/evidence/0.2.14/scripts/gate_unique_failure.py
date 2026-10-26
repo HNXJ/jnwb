@@ -22,12 +22,24 @@ Method:
      A plant with phase "after" is applied after reconstruct, because reconstruct rewrites
      artifacts/state.md and a plant in that file would be overwritten.
   3. A plant after which its own gate does not fail is a broken plant, reported as such.
+
+Test mode (--tests SPEC --basetemp DIR --receipt FILE): SPEC is a Python file that assigns SPEC
+= {"files", "classes", "plants"}: the test files whose functions are measured, a probe class per
+file, and one group per planted edit with "own" test function keys (`file::name` or
+`file::Class::name`). For each group, the edits are applied,
+the own functions and every test file that names an edited path are run under pytest, and
+scripts/harness_gate.py runs; the bytes are restored and git status is compared. Failures on the
+unplanted tree are subtracted. --tabulate (with --header FILE and --md FILE) turns the receipt
+into the verdict table: a function is pruned only when each of its plants fails it and another
+check that stays fails too.
 """
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
+import runpy
 import subprocess
 import sys
 import time
@@ -401,12 +413,273 @@ def markdown_rows(results: List[Dict[str, Any]]) -> str:
     return "\n".join(rows) + "\n"
 
 
+#: Test mode. Pytest flags shared by every run; the basetemp is passed per run.
+PYTEST_FLAGS = ["-q", "-p", "no:cacheprovider", "--no-header", "-rfE"]
+PYTEST_TIMEOUT_S = 3600
+FAILED_LINE_RE = re.compile(r"^(?:FAILED|ERROR) (\S+)")
+
+
+def normalize_node(nodeid: str) -> str:
+    """`tests/x.py::Class::name[param]` -> `tests/x.py::Class::name`."""
+    path, _, rest = nodeid.partition("::")
+    rest = re.sub(r"\[.*$", "", rest)
+    return f"{path}::{rest}" if rest else path
+
+
+def run_pytest(tree: Path, targets: List[str], basetemp: str) -> Tuple[Set[str], str, int]:
+    """Failed node ids (normalized), the last output line, and the exit code."""
+    if not targets:
+        return set(), "no targets", 0
+    cmd = [sys.executable, "-m", "pytest", *PYTEST_FLAGS, "--basetemp", basetemp, *targets]
+    proc = subprocess.run(cmd, cwd=tree, capture_output=True, timeout=PYTEST_TIMEOUT_S)
+    text = (proc.stdout + proc.stderr).decode("utf-8", errors="replace")
+    failed = {normalize_node(match.group(1)) for match in
+              (FAILED_LINE_RE.match(line) for line in text.splitlines()) if match}
+    lines = [line for line in text.splitlines() if line.strip()]
+    return failed, (lines[-1] if lines else ""), proc.returncode
+
+
+def enumerate_functions(tree: Path, files: List[str]) -> Dict[str, str]:
+    """Function key -> its file, for every `test_*` function and method in `files`."""
+    found: Dict[str, str] = {}
+    for rel in files:
+        module = ast.parse((tree / rel).read_text(encoding="utf-8"))
+        for node in module.body:
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
+                found[f"{rel}::{node.name}"] = rel
+            elif isinstance(node, ast.ClassDef):
+                for sub in node.body:
+                    if isinstance(sub, ast.FunctionDef) and sub.name.startswith("test_"):
+                        found[f"{rel}::{node.name}::{sub.name}"] = rel
+    return found
+
+
+def edits_from_spec(raw: List[Dict[str, Any]]) -> List[Tuple[Any, ...]]:
+    """Spec edits as the tuples apply_edits takes. A `sub` matches its `text` literally."""
+    out: List[Tuple[Any, ...]] = []
+    for item in raw:
+        op = item["op"]
+        if op == "create":
+            out.append(("create", item["path"], item["data"].encode("utf-8")))
+        elif op == "append":
+            out.append(("append", item["path"], item["data"].encode("utf-8")))
+        elif op == "sub":
+            pattern = item.get("pattern")
+            pattern = re.escape(item["text"]) if pattern is None else pattern
+            out.append(("sub", item["path"], pattern.encode("utf-8"),
+                        item["repl"].encode("utf-8"), item.get("expect", 1)))
+        else:
+            raise SystemExit(f"STOP: unknown spec edit kind {op!r}")
+    return out
+
+
+def candidates_for(tree: Path, edits: List[Dict[str, Any]], own_files: Set[str]) -> List[str]:
+    """Test files (never an own file) whose text names an edited path or its stem."""
+    keys: Set[str] = set()
+    for edit in edits:
+        keys.add(edit["path"])
+        keys.add(Path(edit["path"]).name)
+        keys.add(Path(edit["path"]).stem)
+    found = []
+    for path in sorted((tree / "tests").glob("test_*.py")):
+        rel = path.relative_to(tree).as_posix()
+        if rel in own_files:
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if any(key in text for key in keys):
+            found.append(rel)
+    return found
+
+
+def load_spec(path: Path) -> Dict[str, Any]:
+    return runpy.run_path(str(path))["SPEC"]
+
+
+def test_mode(tree: Path, spec_path: Path, receipt: Path, basetemp: str) -> int:
+    spec = load_spec(spec_path)
+    files: List[str] = spec["files"]
+    plants: List[Dict[str, Any]] = spec["plants"]
+    functions = enumerate_functions(tree, files)
+    print(f"enumerated {len(functions)} test functions in {len(files)} files", flush=True)
+    ids = [plant["id"] for plant in plants]
+    if len(set(ids)) != len(ids):
+        print("REFUSED: plant ids are not unique")
+        return 2
+    own_files: Dict[str, Set[str]] = {}
+    candidates: Dict[str, List[str]] = {}
+    for plant in plants:
+        unknown = [key for key in plant["own"] if key not in functions]
+        if unknown or not plant["own"]:
+            print(f"REFUSED: {plant['id']} names no such test function: {unknown}")
+            return 2
+        for edit in plant["edits"]:
+            path = tree / edit["path"]
+            if edit["op"] == "create" and path.exists():
+                print(f"REFUSED: {plant['id']} creates {edit['path']}, which exists")
+                return 2
+            if edit["op"] != "create" and not path.is_file():
+                print(f"REFUSED: {plant['id']} needs {edit['path']}, which is absent")
+                return 2
+        own_files[plant["id"]] = {functions[key] for key in plant["own"]}
+        candidates[plant["id"]] = candidates_for(tree, plant["edits"], own_files[plant["id"]])
+
+    baseline = git_status(tree)
+    state_path = tree / "artifacts" / "state.md"
+    control_state = state_path.read_bytes() if state_path.is_file() else b""
+    rc_ctl, control_text = run_step(tree, "scripts/harness_gate.py")
+    not_passing = [line for line in control_text.splitlines()
+                   if line.startswith(("FAIL: ", "ERROR: ", "NOT RUN: "))]
+    if rc_ctl != 0 or not_passing or "ALL HARNESS GATES PASSED" not in control_text:
+        print(f"STOP: control harness is not all PASS: exit {rc_ctl}, {not_passing[:3]}")
+        return 2
+    prefixes = prefixes_from_control(control_text)
+    union = sorted({f for fs in candidates.values() for f in fs}
+                   | {f for fs in own_files.values() for f in fs})
+    try:
+        control_failed, control_summary, _ = run_pytest(tree, union, basetemp)
+    except subprocess.TimeoutExpired:
+        print(f"STOP: control pytest over {len(union)} files exceeded {PYTEST_TIMEOUT_S} s")
+        return 2
+    print(f"control pytest over {len(union)} files: {control_summary}; "
+          f"failed on the unplanted tree: {sorted(control_failed)}", flush=True)
+
+    results: List[Dict[str, Any]] = []
+    for plant in plants:
+        before = git_status(tree)
+        if before != baseline:
+            print(f"STOP: git status before {plant['id']} differs from the baseline")
+            return 3
+        ledger: Dict[str, Any] = {"orig": {}, "created": [], "dirs": []}
+        result: Dict[str, Any] = {"id": plant["id"], "own": plant["own"],
+                                  "cand_files": candidates[plant["id"]], "error": None,
+                                  "own_failed": [], "cand_failed": [], "gates_failed": [],
+                                  "problems": [], "notes": [], "harness_rc": None,
+                                  "own_summary": "", "cand_summary": "", "restore_problems": []}
+        started = time.monotonic()
+        try:
+            result["notes"] = apply_edits(tree, edits_from_spec(plant["edits"]), ledger,
+                                          state_path)
+            own_failed, result["own_summary"], _ = run_pytest(tree, plant["own"], basetemp)
+            cand_failed, result["cand_summary"], _ = run_pytest(
+                tree, candidates[plant["id"]], basetemp)
+            rc_gate, text = run_step(tree, "scripts/harness_gate.py")
+            failed, _, problems = parse_harness(text, prefixes)
+            result["harness_rc"] = rc_gate
+            result["problems"] = problems
+            result["own_failed"] = sorted(own_failed - control_failed)
+            result["cand_failed"] = sorted(cand_failed - control_failed)
+            result["gates_failed"] = sorted(failed)
+        except PlantError as exc:
+            result["error"] = f"plant error: {exc}"
+        except subprocess.TimeoutExpired:
+            result["error"] = f"timeout after {STEP_TIMEOUT_S} s"
+        except OSError as exc:
+            result["error"] = f"plant error: {type(exc).__name__}: {exc}"
+        finally:
+            result["restore_problems"] = restore(tree, ledger, control_state, state_path)
+            result["seconds"] = round(time.monotonic() - started, 1)
+        if result["restore_problems"]:
+            print(f"STOP: restore after {plant['id']} failed: {result['restore_problems']}")
+            return 3
+        if git_status(tree) != before:
+            print(f"STOP: git status after {plant['id']} restore differs from before the plant")
+            return 3
+        results.append(result)
+        print(f"{plant['id']} error={result['error']} own_failed={result['own_failed']} "
+              f"gates_failed={result['gates_failed']} cand_failed={len(result['cand_failed'])} "
+              f"seconds={result['seconds']}", flush=True)
+        receipt.write_text(json.dumps({"tree": str(tree), "control_failed": sorted(control_failed),
+                                       "control_summary": control_summary, "plants": results},
+                                      indent=2) + "\n", encoding="utf-8")
+    print(f"DONE: {len(results)} plant group(s); receipt {receipt}", flush=True)
+    return 0
+
+
+def tabulate(tree: Path, spec_path: Path, receipt: Path, header: Path, record: Path) -> int:
+    """Verdict per test function; writes the record (header text, then the table)."""
+    spec = load_spec(spec_path)
+    functions = enumerate_functions(tree, spec["files"])
+    plants = spec["plants"]
+    data = json.loads(receipt.read_text(encoding="utf-8"))
+    by_id = {r["id"]: r for r in data["plants"]}
+    missing = [p["id"] for p in plants if p["id"] not in by_id]
+    if missing:
+        print(f"STOP: no receipt for {missing}")
+        return 3
+    control = set(data["control_failed"])
+    groups: Dict[str, List[str]] = {key: [] for key in functions}
+    for plant in plants:
+        for key in plant["own"]:
+            groups[key].append(plant["id"])
+    broken: Dict[str, List[str]] = {}
+    catchers: Dict[Tuple[str, str], Set[str]] = {}
+    for key in functions:
+        for pid in groups[key]:
+            r = by_id[pid]
+            if key not in r["own_failed"]:
+                broken.setdefault(key, []).append(pid)
+            items = (set(r["own_failed"]) | set(r["cand_failed"])) - {key} - control
+            catchers[(key, pid)] = items | {f"A{g}" for g in r["gates_failed"]}
+    examined = [key for key in functions if groups[key]]
+    candidate = {key for key in examined if key not in broken}
+
+    def certain(item: str) -> bool:
+        """Kept whatever the verdicts: not a candidate of this run."""
+        return not (item in functions and item in candidate)
+
+    prune = {key for key in candidate
+             if all(any(certain(c) for c in catchers[(key, pid)]) for pid in groups[key])}
+    rows = ["| # | file | function | measured | plant(s) | own test failed | other checks that failed | verdict | probe class |",
+            "|---|---|---|---|---|---|---|---|---|"]
+    classes = spec.get("classes", {})
+
+    def probe_of(key: str) -> str:
+        """The class of the test, else of its class, else of its file."""
+        return classes.get(key) or classes.get(key.rsplit("::", 1)[0]) or classes.get(functions[key], "-")
+
+    for number, key in enumerate(functions, 1):
+        rel = functions[key]
+        short = key.split("::", 1)[1]
+        if not groups[key]:
+            rows.append(f"| {number} | {rel} | {short} | no | none designed | - | - | keep (not measured) | {probe_of(key)} |")
+            continue
+        own = "no (broken plant)" if key in broken else "yes"
+        found = sorted({c for pid in groups[key] for c in catchers[(key, pid)]})
+        names = [c.split("::")[-1] if "::" in c else c for c in found]
+        other = ", ".join(names[:4]) + (f" (+{len(names) - 4})" if len(names) > 4 else "")
+        if key in prune:
+            held = [c.split("::")[-1] if "::" in c else c for c in found if certain(c)]
+            verdict = f"prune (held by {', '.join(held)})"
+        else:
+            if key in broken:
+                reason = "broken plant"
+            elif any(not catchers[(key, pid)] for pid in groups[key]):
+                reason = "no other check fails"
+            else:
+                reason = "catchers are candidates too; undecided"
+            verdict = f"keep ({reason})"
+        rows.append(f"| {number} | {rel} | {short} | yes | {', '.join(groups[key])} | {own} | "
+                    f"{other or '-'} | {verdict} | {probe_of(key)} |")
+    counts = (f"Examined {len(examined)} of {len(functions)} test functions; pruned {len(prune)}; "
+              f"kept {len(functions) - len(prune)}; functions with a broken plant {len(broken)}; "
+              f"broken plant groups {sum(len(v) for v in broken.values())}.")
+    record.write_text(header.read_text(encoding="utf-8") + "\n" + "\n".join(rows) + "\n",
+                      encoding="utf-8")
+    print(counts)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("tree", help="repository tree to plant in; must hold scripts/harness_gate.py")
     parser.add_argument("--receipt", required=True, help="JSON receipt, written after each gate")
     parser.add_argument("--md", default="", help="markdown rows for section E, written at the end")
     parser.add_argument("--only", default="", help="comma-separated gate numbers to plant (smoke runs)")
+    parser.add_argument("--tests", default="", help="test mode: the plant spec (JSON)")
+    parser.add_argument("--basetemp", default="", help="test mode: pytest basetemp outside the tree")
+    parser.add_argument("--tabulate", action="store_true",
+                        help="test mode: write the verdict table (--tests spec, --header, --md)")
+    parser.add_argument("--header", default="", help="tabulate: markdown placed above the table")
     args = parser.parse_args()
 
     tree = Path(args.tree).resolve()
@@ -417,6 +690,17 @@ def main() -> int:
     if tree in receipt.parents:
         print("REFUSED: the receipt must be outside the tree")
         return 2
+    if args.tabulate:
+        if not (args.tests and args.header and args.md):
+            print("REFUSED: --tabulate needs --tests, --header and --md")
+            return 2
+        return tabulate(tree, Path(args.tests).resolve(), receipt, Path(args.header).resolve(),
+                        Path(args.md).resolve())
+    if args.tests:
+        if not args.basetemp:
+            print("REFUSED: test mode needs --basetemp")
+            return 2
+        return test_mode(tree, Path(args.tests).resolve(), receipt, args.basetemp)
     state_path = tree / "artifacts" / "state.md"
 
     selected = PLANTS
