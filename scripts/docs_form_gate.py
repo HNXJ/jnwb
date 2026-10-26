@@ -89,9 +89,9 @@ LIGHT_ONLY_PAGES: Dict[str, str] = {
 
 #: The sources that write a figure colour, relative to the root: the figure generators and the
 #: style module that holds the palette they draw with.
-GENERATORS: Tuple[Path, ...] = (Path("docs") / "generate_figures.py",
+GENERATORS: Tuple[Path, ...] = (Path("scripts") / "figures" / "generate_figures.py",
                                 Path("examples") / "quickstart_jnwb.py",
-                                Path("docs") / "figure_style.py")
+                                Path("scripts") / "figures" / "figure_style.py")
 
 #: A themed figure on a page, as a Markdown image line or an `<img>` tag: (stem, ".dark", scheme).
 #: A page below `docs/` reaches `assets/` through `../`; the stem keeps it, relative to the page.

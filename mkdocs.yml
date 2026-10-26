@@ -48,6 +48,7 @@ extra_css:
 
 extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+  - _figure_theme.js
 
 markdown_extensions:
   - admonition
@@ -147,3 +148,4 @@ not_in_nav: |
 # release, and nothing notices when it stops being.
 hooks:
   - scripts/mkdocs_version_hook.py
+  - scripts/figures/mkdocs_figure_hook.py

@@ -128,15 +128,15 @@ Releases 0.2.9, 0.2.8, 0.2.6.1, 0.2.6, 0.2.5, 0.2.4, 0.1.8 and 0.1.7 to 0.1.0 ar
 - `causal_gaussian_smooth` returns a causal smooth and its kernel's mean lag in bins; tests/test_onset_fitting.py
 - `fuse_laminar_anchors` takes `vflip2_um` and anchors on it before `vflip_um`; `jnwb/laminar_curation.py`.
 - `fuse_laminar_anchors`'s `distance_um` gains `vflip` and `vflip2`; `tests/test_laminar_curation.py`.
-- docs/generate_figures.py: figures of a cluster permutation test, spectral Granger and the narrowband PSI trap
+- scripts/figures/generate_figures.py: figures of a cluster permutation test, spectral Granger and narrowband PSI trap
 - The jnwb-laminar skill routes the laminar rows of jnwb-lfp-spectral; skills/jnwb-laminar/SKILL.md (pull request #31)
 - `map_peak_channel_to_layer` gives each unit its peak channel's curated layer; tests/test_laminar_curation.py
 - docs/references.md: 28 more routed methods cite their published source; each docstring cites the same DOI
-- docs/generate_figures.py: figures of RDMs with a windowed jRSA trace, and of bad channel and bad trial detection
-- docs/generate_figures.py: figures of Welch and multitaper PSDs, zero-lag coherence measures and vFLIP profiles
-- docs/generate_figures.py: figures of a smoothed rate step, causal against Gaussian, and of spike phase locking
+- scripts/figures/generate_figures.py: figures of RDMs with a windowed jRSA trace, and bad channel and trial detection
+- scripts/figures/generate_figures.py: figures of Welch and multitaper PSDs, zero-lag coherence and vFLIP profiles
+- scripts/figures/generate_figures.py: figures of a smoothed rate step, causal against Gaussian, and spike phase locking
 - The dashboard's OpenScope GLO tab: one card per work, its replications as rows; scripts/build_dashboard.py
-- docs/generate_figures.py: fig21, the open-data PSTH by layer and 50 to 80 Hz power by depth, from its analysis
+- scripts/figures/generate_figures.py: fig21, the open-data PSTH by layer and 50 to 80 Hz power by depth
 - `vflip2_from_lfp` runs `vflip2` on LFP with vFLIP2.m's raw and raw_cut PSD; tests/test_vflip2_from_lfp.py
 - `jnwb/laminar/_vflip2.py`: `vflip2`, a port of vFLIP2.m (Major et al. 2025); omega matches MATLAB
 - `xflip` takes `layer4_thickness_mm`, the layer 4 default for `min_block_size` (`jnwb/laminar/_xflip.py`).

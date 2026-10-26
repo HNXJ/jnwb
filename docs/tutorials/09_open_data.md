@@ -115,7 +115,7 @@ it by electrode id. `jnwb.map_peak_channel_to_area` keeps `VISpm2/3` whole but s
 ![PSTH of good cortical units by layer, and 50 to 80 Hz LFP power by depth, from the DANDI 000253 excerpt](../assets/figures/fig21_open_data_psth_db.png#only-light)
 ![PSTH of good cortical units by layer, and 50 to 80 Hz LFP power by depth, from the DANDI 000253 excerpt](../assets/figures/fig21_open_data_psth_db.dark.png#only-dark)
 
-Empirical, not synthetic: the data are the DANDI 000253 excerpt above. Panel A is the PSTH of good units on probe B's cortical contacts, averaged within each layer (`jnwb.raster_psth`); the legend gives each layer's unit count. Panel B is the trial-averaged 50 to 80 Hz power of each contact during the grating over the gray screen before it, in decibels taken once (`jnwb.aggregate_to_db`). The shaded span is the grating on screen, the window the tutorial's band power reads. `docs/generate_figures.py` draws it from this script's `analyze()`.
+Empirical, not synthetic: the data are the DANDI 000253 excerpt above. Panel A is the PSTH of good units on probe B's cortical contacts, averaged within each layer (`jnwb.raster_psth`); the legend gives each layer's unit count. Panel B is the trial-averaged 50 to 80 Hz power of each contact during the grating over the gray screen before it, in decibels taken once (`jnwb.aggregate_to_db`). The shaded span is the grating on screen, the window the tutorial's band power reads. `scripts/figures/generate_figures.py` draws it from this script's `analyze()`.
 
 ## Source
 

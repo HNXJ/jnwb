@@ -1763,7 +1763,7 @@ HIGHER_CLASS_TERMS: Dict[str, Dict[str, Tuple[str, ...]]] = {
 }
 #: The calls whose positional arguments, or whose ``label``/``title``/``xlabel``/``ylabel``
 #: keyword, the label rule reads as a figure label; ``panel_title`` is the docs figures' title
-#: wrapper (``docs/figure_style.py``) and ``set`` is ``Axes.set``.
+#: wrapper (``scripts/figures/figure_style.py``) and ``set`` is ``Axes.set``.
 LABEL_CALLEES = ("set_xlabel", "set_ylabel", "set_title", "xlabel", "ylabel", "title",
                  "panel_title", "set", "suptitle", "set_label", "text",
                  "annotate", "legend", "colorbar", "plot", "scatter", "bar", "errorbar",
@@ -2184,7 +2184,7 @@ OWNED_RULES: Tuple[Tuple[str, str, str, str], ...] = (
 #: R2 matches that are not a coefficient of determination, each read by hand:
 #: (module path, enclosing function, expression text) -> reason.
 R2_EXEMPT: Dict[Tuple[str, str, str], str] = {
-    ("docs/generate_figures.py", "_inches_axes", "1 - (top + height) / h"):
+    ("scripts/figures/generate_figures.py", "_inches_axes", "1 - (top + height) / h"):
         "the figure fraction of an axes' bottom edge, measured from the top",
     ("jnwb/jrsa/_inference.py", "_one_sided_parametric_p", "1.0 - p2 / 2.0"):
         "the one-sided p-value on the side away from the effect",
@@ -2215,12 +2215,12 @@ REVIEWED_EXEMPT: Dict[str, Dict[Tuple[str, str, str], str]] = {
     "percentile bootstrap": PERCENTILE_EXEMPT,
 }
 #: Modules whose figure functions are read: the docs figure generators and the plotting modules.
-FIGURE_FILES = ("docs/generate_figures.py", "jnwb/visual_qc.py")
+FIGURE_FILES = ("scripts/figures/generate_figures.py", "jnwb/visual_qc.py")
 FIGURE_TREES = ("jnwb/vis/",)
-#: Code the scan reads, as (tree prefix, suffix): the package, the docs generators, the examples
+#: Code the scan reads, as (tree prefix, suffix): the package, the docs figure modules, the examples
 #: (scripts and notebooks) and the skills' python fences.
-OWNED_SCOPE = (("jnwb/", ".py"), ("docs/", ".py"), ("examples/", ".py"), ("examples/", ".ipynb"),
-               ("skills/", ".md"))
+OWNED_SCOPE = (("jnwb/", ".py"), ("docs/", ".py"), ("scripts/figures/", ".py"), ("examples/", ".py"),
+               ("examples/", ".ipynb"), ("skills/", ".md"))
 _PYTHON_FENCE = re.compile(r"^```python[^\n]*\n(.*?)^```", re.MULTILINE | re.DOTALL)
 _MAGIC_LINE = re.compile(r"^\s*[%!]")
 _AVERAGING = ("mean", "nanmean", "average")

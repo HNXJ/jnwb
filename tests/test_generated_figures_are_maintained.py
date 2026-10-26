@@ -1,6 +1,6 @@
 """Every documentation figure is what its generator draws today.
 
-`docs/generate_figures.py` writes the ten PNGs under `docs/assets/figures/` from public jnwb
+`scripts/figures/generate_figures.py` writes the ten PNGs under `docs/assets/figures/` from public jnwb
 calls on seeded synthetic data. Nothing used to run it, so six committed figures drifted from
 it -- one still showed a causal filter starting from zero, which the library stopped doing.
 
@@ -40,7 +40,7 @@ matplotlib = pytest.importorskip("matplotlib")
 import matplotlib.image as mpimg  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-GENERATOR = REPO_ROOT / "docs" / "generate_figures.py"
+GENERATOR = REPO_ROOT / "scripts" / "figures" / "generate_figures.py"
 FIGURE_DIR = REPO_ROOT / "docs" / "assets" / "figures"
 
 CHANNEL_STEP = 2.0 / 255.0
@@ -68,7 +68,7 @@ def _registry():
     for node in tree.body:
         if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "FIGURES" for t in node.targets):
             return {k.value for k in node.value.keys}
-    raise AssertionError("docs/generate_figures.py defines no FIGURES registry")
+    raise AssertionError("scripts/figures/generate_figures.py defines no FIGURES registry")
 
 
 def _software(png: Path) -> str:
@@ -116,7 +116,7 @@ def test_the_committed_figure_is_what_the_generator_draws(name, regenerated):
     wrote = _software(committed)
     assert wrote.startswith("Matplotlib version"), (
         f"{name} records no Matplotlib version, so no environment could ever compare it; "
-        "regenerate it with docs/generate_figures.py"
+        "regenerate it with scripts/figures/generate_figures.py"
     )
     minor = ".".join(matplotlib.__version__.split(".")[:2])
     if not wrote.startswith(f"Matplotlib version{minor}."):
@@ -131,7 +131,7 @@ def test_the_committed_figure_is_what_the_generator_draws(name, regenerated):
         pytest.skip(why)
     fraction =_changed_fraction(mpimg.imread(committed), mpimg.imread(regenerated / name))
     assert fraction < CHANGED_FRACTION, (
-        f"{name}: {fraction:.4%} of pixels differ from `python docs/generate_figures.py "
+        f"{name}: {fraction:.4%} of pixels differ from `python scripts/figures/generate_figures.py "
         f"--only {name}`; regenerate it, or explain the drift"
     )
 

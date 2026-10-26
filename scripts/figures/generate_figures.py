@@ -3,7 +3,7 @@
 Each figure draws results of public jnwb calls on synthetic test signals with known ground
 truth, producing reproducible figures for docs/assets/figures/. Figure 21 is the one empirical
 figure: it draws the open-data tutorial's analysis of its DANDI 000253 excerpt. The palette, fonts, size tiers,
-line widths and the figure width come from docs/figure_style.py.
+line widths and the figure width come from scripts/figures/figure_style.py.
 
 Regenerate with the Matplotlib release the compared CI leg pins (`matplotlib==` in
 .github/workflows/workflow.yml; each PNG records the one that wrote it) and with the figure font:
@@ -11,13 +11,16 @@ set JNWB_FIGURE_FONT_DIR to the directory holding LiberationSans-Regular.ttf and
 LiberationSans-Bold.ttf from the 2.1.5 release tarball named in that workflow.
 
 Usage:
-    python docs/generate_figures.py                     # rewrite docs/assets/figures/
-    python docs/generate_figures.py --out-dir DIR       # write elsewhere, e.g. to compare
-    python docs/generate_figures.py --only fig07_population_decoding.png
+    python scripts/figures/generate_figures.py                     # rewrite docs/assets/figures/
+    python scripts/figures/generate_figures.py --out-dir DIR       # write elsewhere, e.g. to compare
+    python scripts/figures/generate_figures.py --only fig07_population_decoding.png
+    python scripts/figures/generate_figures.py --interactive build/figures   # Plotly HTML, no PNG
+    python scripts/figures/generate_figures.py --write-registry              # figure_registry.toml
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import os
 import shutil
@@ -30,7 +33,7 @@ from pathlib import Path
 # of an installed jnwb. Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it
 # names wins.
 HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parent
+REPO_ROOT = HERE.parent.parent
 if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
     if str(REPO_ROOT) not in sys.path:
         sys.path.append(str(REPO_ROOT))
@@ -66,8 +69,8 @@ OUT_DIR = FIGURE_DIR
 # Every figure is drawn twice on a transparent background, in the light theme as NAME.png and in
 # the dark theme as NAME.dark.png; a page shows the one matching its palette scheme through
 # Material's `#only-light` and `#only-dark`. No figure paints its own background.
-# Colours, text sizes and line widths come from docs/figure_style.py; this table holds only the
-# ink each theme draws text, edges and faint marks with.
+# Colours, text sizes and line widths come from scripts/figures/figure_style.py; this table holds
+# only the ink each theme draws text, edges and faint marks with.
 THEMES = {
     "light": {"fg": "#2d2d2d", "edge": "#8a8a8a", "faint": "#8a8a8a", "suffix": ".png"},
     "dark": {"fg": "#e0e0e0", "edge": "#707070", "faint": "#707070", "suffix": ".dark.png"},
@@ -101,7 +104,22 @@ def apply_theme(name):
     })
 
 
+#: Set by an interactive run: it receives each drawn figure in place of a PNG being written.
+_SINK = None
+#: Set by an interactive run: the (count, unit) each drawn figure's statistic rests on.
+_SAMPLE = None
+
+
+def sample(n, unit):
+    """Record the sample size a figure's statistic rests on: the count and the unit it counts."""
+    if _SAMPLE is not None:
+        _SAMPLE.append((int(n), unit))
+
+
 def _save(fig, name):
+    if _SINK is not None:
+        _SINK(fig, name)
+        return
     fig.savefig(OUT_DIR / name.replace(".png", SUFFIX))
 
 
@@ -170,6 +188,7 @@ def fig01_addressing():
     ], frameon=False, loc="upper right")
 
     fig.tight_layout()
+    sample(n_ch, "channels")
     _save(fig, "fig01_addressing_laminar.png")
     plt.close(fig)
 
@@ -217,6 +236,7 @@ def fig02_spikes_psth():
     ax2.legend(frameon=False, loc="upper right", ncol=2)
 
     fig.tight_layout()
+    sample(n_trials, "trials")
     _save(fig, "fig02_raster_psth.png")
     plt.close(fig)
 
@@ -262,6 +282,7 @@ def fig03_onset():
     ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(0.0, -0.2), ncol=1)
 
     fig.tight_layout()
+    sample(1, "signals")
     _save(fig, "fig03_onset_fitting.png")
     plt.close(fig)
 
@@ -318,6 +339,7 @@ def fig04_spectral_tilt():
     ax2.legend(frameon=False, loc="lower left")
 
     fig.tight_layout()
+    sample(1, "signals")
     _save(fig, "fig04_psd_spectral_tilt.png")
     plt.close(fig)
 
@@ -376,6 +398,7 @@ def fig05_complex_tfr():
     # tight_layout spaces the colorbar column like a panel; close it up to the TFR it keys.
     tfr_box = ax2.get_position()
     cax.set_position([tfr_box.x1 + 0.012, tfr_box.y0, 0.018, tfr_box.height])
+    sample(1, "signals")
     _save(fig, "fig05_complex_tfr_coi.png")
     plt.close(fig)
 
@@ -425,6 +448,7 @@ def fig06_aggregate_db():
     style.panel_title(ax2, "B", "Decibel aggregation\n(jnwb.aggregate_to_db)")
 
     fig.tight_layout()
+    sample(n_units, "units")
     _save(fig, "fig06_aggregate_to_db.png")
     plt.close(fig)
 
@@ -486,6 +510,7 @@ def fig07_decoding():
     ax2.legend(frameon=False, loc="upper right")
 
     fig.tight_layout()
+    sample(n_trials, "trials")
     _save(fig, "fig07_population_decoding.png")
     plt.close(fig)
 
@@ -535,6 +560,7 @@ def fig08_permutation():
     ax.legend(frameon=False, loc="upper left")
 
     fig.tight_layout()
+    sample(n, "pairs")
     _save(fig, "fig08_permutation_null.png")
     plt.close(fig)
 
@@ -599,6 +625,7 @@ def fig09_directed_connectivity():
     ax2.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
 
     fig.tight_layout()
+    sample(n_trials, "trials")
     _save(fig, "fig09_directed_connectivity.png")
     plt.close(fig)
 
@@ -670,6 +697,7 @@ def fig10_artifact_repair():
     ax2.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=1)
 
     fig.tight_layout()
+    sample(n_trials, "trials")
     _save(fig, "fig10_artifact_repair.png")
     plt.close(fig)
 
@@ -719,6 +747,7 @@ def fig11_spectra_bands():
     ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
 
     fig.tight_layout()
+    sample(1, "signals")
     _save(fig, "fig11_spectra_canonical_bands.png")
     plt.close(fig)
 
@@ -786,6 +815,7 @@ def fig12_coherence_zero_lag():
     ], frameon=False, loc="lower center", ncol=3)
 
     fig.tight_layout(rect=(0.0, 0.1, 1.0, 1.0))
+    sample(1, "signal pairs")
     _save(fig, "fig12_coherence_zero_lag.png")
     plt.close(fig)
 
@@ -843,6 +873,7 @@ def fig13_vflip_band_profiles():
     ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
 
     fig.tight_layout()
+    sample(24, "channels")
     _save(fig, "fig13_vflip_band_profiles.png")
     plt.close(fig)
 
@@ -905,6 +936,7 @@ def fig14_causal_vs_gaussian_step():
     ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
 
     fig.tight_layout()
+    sample(1, "signals")
     _save(fig, "fig14_causal_vs_gaussian_step.png")
     plt.close(fig)
 
@@ -980,6 +1012,7 @@ def fig15_spike_phase_locking():
     _phase_panel(ax2, "B", "Uniform-phase control", control, ppc_control)
 
     fig.tight_layout()
+    sample(FIG15_N_SPIKES, "spikes")
     _save(fig, "fig15_spike_phase_locking.png")
     plt.close(fig)
 
@@ -1044,6 +1077,7 @@ def fig16_cluster_permutation():
     ], frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
 
     fig.tight_layout()
+    sample(FIG16_TRIALS, "trials")
     _save(fig, "fig16_cluster_permutation.png")
     plt.close(fig)
 
@@ -1099,6 +1133,7 @@ def fig17_spectral_granger():
     ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
 
     fig.tight_layout()
+    sample(1, "signal pairs")
     _save(fig, "fig17_spectral_granger.png")
     plt.close(fig)
 
@@ -1165,6 +1200,7 @@ def fig18_psi_narrowband_trap():
     _psi_panel(ax2, "B", "Broadband", FIG18_BROAD_HZ, broad, ylim)
 
     fig.tight_layout()
+    sample(1, "signal pairs")
     _save(fig, "fig18_psi_narrowband_trap.png")
     plt.close(fig)
 
@@ -1262,6 +1298,7 @@ def fig19_rdms_and_jrsa():
     ax_c.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
 
     fig.tight_layout()
+    sample(FIG19_N_COND, "conditions")
     _save(fig, "fig19_rdms_and_jrsa.png")
     plt.close(fig)
 
@@ -1399,6 +1436,7 @@ def fig20_bad_channels_and_trials():
     style.panel_title(ax_d, "D", "Consensus bad trials across good channels\n(jnwb.consensus_bad_trials)")
 
     fig.tight_layout()
+    sample(FIG20_N_TRIALS, "trials")
     _save(fig, "fig20_bad_channels_and_trials.png")
     plt.close(fig)
 
@@ -1445,6 +1483,7 @@ def fig21_open_data_psth_db():
     style.panel_title(ax_b, "B", "LFP band power by depth\n(jnwb.aggregate_to_db)")
 
     fig.tight_layout()
+    sample(sum(layer["n_units"] for layer in res["psth"]["layers"].values()), "units")
     _save(fig, "fig21_open_data_psth_db.png")
     plt.close(fig)
 
@@ -1498,6 +1537,7 @@ def fig24_statistics_groups_cluster():
     ax_b.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=1)
 
     fig.tight_layout()
+    sample(group_a.size, "trials per group")
     _save(fig, "fig24_statistics_groups_cluster.png")
     plt.close(fig)
 
@@ -1592,6 +1632,7 @@ def fig25_laminar_csd_flips():
                 frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.3))
 
     fig.tight_layout()
+    sample(FIG25_N_CH, "channels")
     _save(fig, "fig25_laminar_csd_flips.png")
     plt.close(fig)
 
@@ -1644,6 +1685,7 @@ def fig26_ensembles_rdm_decoding():
     ax_c.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=1)
 
     fig.tight_layout()
+    sample(n_units, "units")
     _save(fig, "fig26_ensembles_rdm_decoding.png")
     plt.close(fig)
 
@@ -1714,6 +1756,7 @@ def fig27_spiking_psth_onset():
     ax_b.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.25), ncol=2)
 
     fig.tight_layout()
+    sample(FIG27_N_TRIALS, "trials")
     _save(fig, "fig27_spiking_psth_onset.png")
     plt.close(fig)
 
@@ -1787,6 +1830,7 @@ def fig28_lfp_spectral_wpli():
     ], frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.25), ncol=1)
 
     fig.tight_layout()
+    sample(1, "signal pairs")
     _save(fig, "fig28_lfp_spectral_wpli.png")
     plt.close(fig)
 
@@ -1915,6 +1959,7 @@ def fig29_laminar_one_call():
     ax_c.legend(handles=[Patch(visible=False, label=f"Apparent velocity {velocity_text}")],
                 frameon=False, loc="lower right", fontsize=style.SMALL)
 
+    sample(FIG29_N_CONTACTS, "channels")
     _save(fig, "fig29_laminar_one_call.png")
     plt.close(fig)
 
@@ -2030,6 +2075,7 @@ def fig30_unit_quality_waveforms():
     style.panel_title(ax_b2, "C", "Refractory contamination\n(jnwb.refractory_contamination)")
 
     fig.tight_layout()
+    sample(len(FIG30_UNITS), "units")
     _save(fig, "fig30_unit_quality_waveforms.png")
     plt.close(fig)
 
@@ -2067,6 +2113,7 @@ def fig31_table_alignment():
         ax.set_ylabel("Firing rate (Hz)")
 
     fig.tight_layout()
+    sample(psths[0][1], "onsets")
     _save(fig, "fig31_table_alignment.png")
     plt.close(fig)
 
@@ -2097,6 +2144,7 @@ def fig32_interval_tables():
     style.panel_title(ax_b, "B", "Onset spacing\n(jnwb.event_onsets)")
 
     fig.tight_layout()
+    sample(len(names), "interval tables")
     _save(fig, "fig32_interval_tables.png")
     plt.close(fig)
 
@@ -2131,6 +2179,7 @@ def fig33_addressing_contacts():
     style.panel_title(ax_b, "B", "Condition onsets in seconds\n(jnwb.event_onsets)")
 
     fig.tight_layout()
+    sample(len(inventory), "contacts")
     _save(fig, "fig33_addressing_contacts.png")
     plt.close(fig)
 
@@ -2204,6 +2253,7 @@ def fig34_end_to_end_synthetic():
     ax_b.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
 
     fig.tight_layout()
+    sample(FIG34_N_TRIALS, "trials")
     _save(fig, "fig34_end_to_end_synthetic.png")
     plt.close(fig)
 
@@ -2302,6 +2352,7 @@ def fig35_ragged_index_defect():
     ], frameon=False, loc="upper right", fontsize=style.SMALL)
 
     fig.tight_layout()
+    sample(sizes.size, "rows")
     _save(fig, "fig35_ragged_index_defect.png")
     plt.close(fig)
 
@@ -2356,6 +2407,7 @@ def fig36_wavemap_steps():
     style.panel_title(ax_b, "B", "Aligned, then normalized\n(jnwb.normalize_waveforms)")
 
     fig.tight_layout()
+    sample(raw.shape[0], "waveforms")
     _save(fig, "fig36_wavemap_steps.png")
     plt.close(fig)
 
@@ -2460,6 +2512,7 @@ def fig37_verify_written_nwb():
     style.panel_title(ax_b, "B", "Against the source\n(jnwb.verify_nwb)")
 
     fig.tight_layout()
+    sample(len(passed), "checks")
     _save(fig, "fig37_verify_written_nwb.png")
     plt.close(fig)
 
@@ -2542,6 +2595,90 @@ FIGURES = {
 }
 
 
+#: The figures that read a recorded file, and the file each reads. Every other figure is synthetic:
+#: its data come from seeded draws in its own function.
+REAL_DATA = {
+    "fig21_open_data_psth_db.png": REPO_ROOT / "examples" / "data" / "dandi000253_excerpt.nwb",
+}
+
+
+def convert_figure(name):
+    """Draw one figure in the light theme and convert it to Plotly.
+
+    Returns the conversion, the seeds the figure drew with, from the calls the generator made, and the
+    (count, unit) the figure records as its sample size."""
+    global _SINK, _SAMPLE
+    import figure_interactive
+
+    drawn = []
+    seeds = []
+    samples = []
+    real_default_rng = np.random.default_rng
+
+    def recording_default_rng(seed=None, *args, **kwargs):
+        if isinstance(seed, int) and not isinstance(seed, bool):
+            seeds.append(seed)
+        return real_default_rng(seed, *args, **kwargs)
+
+    apply_theme("light")
+    _SINK = lambda fig, _name: drawn.append(fig)  # noqa: E731
+    _SAMPLE = samples
+    np.random.default_rng = recording_default_rng
+    try:
+        FIGURES[name]()
+    finally:
+        np.random.default_rng = real_default_rng
+        _SINK = None
+        _SAMPLE = None
+    if len(samples) != 1:
+        raise AssertionError(f"{name} records {len(samples)} sample sizes; it must record one")
+    converted = figure_interactive.convert(drawn[0])
+    plt.close("all")
+    return converted, sorted(set(seeds)), samples[0]
+
+
+def registry_entry(name, converted, seeds, sample_size):
+    import figure_registry
+
+    source = REAL_DATA.get(name)
+    return {
+        "status": "real data" if source else "synthetic",
+        "n": sample_size[0],
+        "n_unit": sample_size[1],
+        "height_px": converted.height_px,
+        "seeds": seeds,
+        "input_sha256": hashlib.sha256(source.read_bytes()).hexdigest() if source else "synthetic",
+        "code_sha256": figure_registry.code_sha256(HERE),
+        "jnwb_version": jnwb.__version__,
+        "unconvertible": converted.reasons,
+    }
+
+
+def interactive_run(args):
+    """Write each figure's Plotly HTML, where every panel converts, and the registry from this run."""
+    import figure_interactive
+    import figure_registry
+
+    entries = {}
+    if figure_registry.REGISTRY.exists():
+        entries = figure_registry.loads(figure_registry.REGISTRY.read_text(encoding="utf-8"))
+    if args.interactive:
+        args.interactive.mkdir(parents=True, exist_ok=True)
+    for name in args.only:
+        converted, seeds, sample_size = convert_figure(name)
+        entries[name] = registry_entry(name, converted, seeds, sample_size)
+        if converted.figure is None:
+            print(f"  [NAMED] {name}: {'; '.join(converted.reasons)}")
+            continue
+        if args.interactive:
+            target = args.interactive / (name[: -len(".png")] + ".html")
+            target.write_bytes(figure_interactive.to_html(converted).encode("utf-8"))
+        print(f"  [OK] {name}")
+    if args.write_registry:
+        figure_registry.REGISTRY.write_bytes(figure_registry.dumps(entries).encode("utf-8"))
+        print(f"registry: {len(entries)} entries written to {figure_registry.REGISTRY}")
+
+
 def main(argv=None):
     global OUT_DIR
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -2549,7 +2686,14 @@ def main(argv=None):
     parser.add_argument("--only", nargs="+", choices=sorted(FIGURES), default=sorted(FIGURES))
     parser.add_argument("--vis", action="store_true",
                         help="write the plotting page's sealed jnwb.vis example, and no figure")
+    parser.add_argument("--interactive", type=Path, metavar="DIR",
+                        help="write each figure's Plotly HTML to DIR, where every panel converts")
+    parser.add_argument("--write-registry", action="store_true",
+                        help="write scripts/figures/figure_registry.toml from this run")
     args = parser.parse_args(argv)
+    if args.interactive or args.write_registry:
+        interactive_run(args)
+        return
     try:
         style.check_font()
     except style.FontMissing as exc:

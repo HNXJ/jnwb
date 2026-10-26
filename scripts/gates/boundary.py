@@ -308,8 +308,9 @@ def check_no_hardcoded_test_paths(repo_root: Optional[Path] = None) -> List[str]
 # documented in docs/install.md -- nothing else may join them.
 OWNED_ROOT_PACKAGES = {"jnwb"}
 # jnwb's own directories, all excluded from the wheel. `docs/` and `examples/` joined the list
-# when this gate started seeing namespace packages: `docs/generate_figures.py` and
-# `examples/quickstart_jnwb.py` make both importable without an __init__.py, which is the same
+# when this gate started seeing namespace packages: `examples/quickstart_jnwb.py` and, before it
+# moved to `scripts/figures/`, `docs/generate_figures.py` make both importable without an
+# __init__.py, which is the same
 # exposure and the same residual hazard documented in docs/install.md. Nothing else may join.
 INTERNAL_ROOT_PACKAGES = {"scripts", "tests", "docs", "examples"}
 

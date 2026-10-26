@@ -2401,8 +2401,8 @@ def test_the_owned_rule_scan_reads_its_scope_and_not_the_tests(tmp_path):
     retyped = "def f(a, b):\n    return 1 - a / b\n"
     notebook = json.dumps({"cells": [{"cell_type": "markdown", "source": ["1 - a / b"]},
                                      {"cell_type": "code", "source": ["x = 1 - a / b\n"]}]})
-    files = {"jnwb/a.py": retyped, "docs/generate_figures.py": retyped, "examples/e.py": retyped,
-             "examples/n.ipynb": notebook,
+    files = {"jnwb/a.py": retyped, "scripts/figures/generate_figures.py": retyped,
+             "examples/e.py": retyped, "examples/n.ipynb": notebook,
              "skills/s/SKILL.md": "# S\n\n```python\nx = 1 - a / b\n```\n",
              "tests/t.py": retyped}
     for rel, text in files.items():
@@ -2411,9 +2411,10 @@ def test_the_owned_rule_scan_reads_its_scope_and_not_the_tests(tmp_path):
     examined, found = build_fact_graph.owned_rule_scans(tmp_path, sorted(files))
     assert examined == {"units": 5, "figure_functions": 1}, examined
     assert sorted({rel for rel, _ in found["owned_rules"]}) == [
-        "docs/generate_figures.py", "examples/e.py", "examples/n.ipynb", "jnwb/a.py",
+        "examples/e.py", "examples/n.ipynb", "jnwb/a.py", "scripts/figures/generate_figures.py",
         "skills/s/SKILL.md"]
-    assert [rel for rel, _ in found["figure_owner_calls"]] == ["docs/generate_figures.py"]
+    assert [rel for rel, _ in found["figure_owner_calls"]] == [
+        "scripts/figures/generate_figures.py"]
 
 
 def test_a_unit_that_cannot_be_parsed_is_a_violation_and_not_an_examined_unit(tmp_path):
