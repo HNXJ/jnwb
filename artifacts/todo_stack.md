@@ -48,7 +48,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
 | 2 | N numerics and I/O (audit 2026-10-25) | none left: every item landed 2026-10-25 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-58, 17-34; 17-36 landed 2026-10-26 | Haiku writes, Muse reviews | nothing |
-| 3 | H harness | 12-05, 11-03, 12-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-27, 17-30 and 17-32 landed 2026-10-26 | Haiku | wave 2 merged |
+| 3 | H harness | 12-05, 12-07, 07-05, 17-31, then 12-06 and 17-56; 17-26, 17-27, 17-30, 17-32, 17-41, 17-54 and 17-55 landed 2026-10-26, 11-03 went to the roadmap | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
 
@@ -62,7 +62,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | The four pitfall estimators, `noise_correlation` and `screen_units_against_labels`, as ruled 2026-10-20 | each has a planted-case test that recovers the planted value and one that refuses the documented bad input; each cites its source in `docs/references.md` | items gone (14-06, 14-07, 13-04) |
 | 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | items gone (16-01, 16-02) |
 | 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | item gone (11-01) |
-| 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 11-03, 12-07; 11-07, 12-11 and 16-10 landed; 11-09 to roadmap (ruled 2026-10-25) |
+| 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 12-07; 11-07, 12-11 and 16-10 landed, 11-03 to roadmap (ruled 2026-10-26); 11-09 to roadmap (ruled 2026-10-25) |
 | 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 15-22; 16-03 landed |
 | 7 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 15-20, 12-05, 09-07, 07-05, 12-06 |
 | 8 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18; 16-19 landed |
@@ -126,14 +126,6 @@ Writes: `artifacts/evidence/0.2.14/process_tests/**`, `artifacts/evidence/0.2.14
 - 12-05: The process tests have never been pruned against measured unique detection (the 0.2.10 prune list was dropped as stale, 2026-10-19), P-290 is enforced by nothing and the apparatus bound of `artifacts/goal.md` section 10 has no check. Check: the prune set is the one 15-20's inventory and Hamm's pruning constraint select; each pruned case is shown held by a stronger test first, named in the audit; each kept process test is named under one probe class in the prune record; a taxonomy change goes to 12-06, which owns `CONTRIBUTING.md`; `scripts/reconstruct_state.py` records the line counts of `scripts/` and the process tests, so growth is visible per release; a refusal is a new item's to add if Hamm asks. Waits: Ruled 2026-10-26 ("Plant-covered only"): a process test is pruned only when every failure its own tests plant is caught by another kept check, measured by `gate_unique_failure.py` extended to tests; no count ceiling.
 Accept: the pruned files' cases are held by the stronger tests named in the audit.
 
-### 11-03 Design facts held
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- 11-03: D1 to D11 of the Design table report UNHELD. Check: a planted two-step convenience is VIOLATED (D1); an untagged planted writer and an untagged planted cache operation are VIOLATED (D2, D3); D4, D5, D7 and D9 are held by the mutation API's refusal tests (`UnidentifiableRepairError`, `AmbiguousMappingError`, `UndeclaredUnitError`), each named as a `test:` holder and read to test its fact's claim; D6 (condition meaning) and D8 (trial semantics) name the test that holds each, or go to Hamm for a roadmap row; D10 and D11 by the execution-switch tests; a fact no test holds goes to Hamm for a roadmap row. Waits: the facts report UNHELD and nothing public claims them; 07-22 landed. Moved to 0.2.14 by the 2026-10-19 theme ruling.
-Accept: the Design table reports no UNHELD fact.
-
 ### 12-07 Release and study-vocabulary facts held
 
 Release: deferred-0.2.14.
@@ -162,33 +154,12 @@ Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutan
 
 The items below come from the open stack of 2026-10-25 (`git show e00e8664:artifacts/open_stack.md`; the O- number in each source line traces a row to its probe). Each fix starts with a test that fails on the current code. Rulings: `artifacts/rulings/2026-10-25.md`.
 
-### 17-26 Fact checks fail on an empty examined set
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/fact_gate.py`, `scripts/gates/boundary.py`, `tests/test_fact_gate.py`.
-- 17-26: `routes` returns [] on an empty graph and `lifecycle` may too (`fact_gate.py:175-196`); a fact file with headers and no rows gives HELD 0, UNHELD 0, VIOLATED 0 (`:404-437`); `boundary.py:268` returns [] with neither `tests/` nor `scripts/` present. Check: each fails on its planted empty case. Source: O-19.
-
 ### 17-31 The boundary checks fail on what they cannot parse, or go
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 17-26 (same file).
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/gates/boundary.py`, `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`.
-- 17-31: `check_logarithm_last_rule` returns [] on code it cannot parse (`boundary.py:429-430`), and it and `check_modality_isolation` run in no numbered gate. Check: a parse failure is a violation; each check joins a numbered gate (`GATES` stays 22) or is deleted with its tests, whichever the 15-20 inventory supports. Source: O-24.
-
-### 17-54 D12's "documented" reads a heading or code span
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 17-41 (same files).
-Writes: `scripts/fact_gate.py`, `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`.
-- 17-54: D12's `documented` state holds on any word match of the name. Check: a name present only in prose fails; a heading or code span passes. Source: O-26.
-
-### 17-55 The export scan reports what it does not examine
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 17-54 (same files).
-Writes: `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`.
-- 17-55: one export scan of `scripts/build_fact_graph.py` skips exports that are neither classes nor functions without counting them (the lane names the scan first). Check: the scan reports the count it skipped; a planted constant export is counted. Source: O-26.
+- 17-31: the log-last check fails on unparsable code and runs in gate 21 (2026-10-26); `check_modality_isolation` runs in no numbered gate and has no source of feature names on the tree. Check: it joins a numbered gate with a source it reads (`GATES` stays 22), or is deleted with its tests under the 2026-10-26 pruning rule. Source: O-24.
 
 ### 17-56 Test files stop appending to `sys.path`
 
@@ -203,13 +174,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `artifacts/evidence/0.2.14/jaxfne_docs_dashboard_comparison.md`.
 - 17-34: 17-01, 17-02 and checklist rows 9 and 10 wait on a comparison with jaxfne's docs and dashboard and on Hamm's preference rulings (2026-10-24), and no item holds that work. Check: the comparison is committed, and its questions go to Hamm one per message; each answer is a row in that day's rulings. Source: O-32.
-
-### 17-41 No UNHELD fact names an item of the declared version
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 17-26 (same files).
-Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`.
-- 17-41: the fact gate requires only that an UNHELD fact names a live item, so checklist row 5 and goal G2 are read by eye. Check: at the checkpoint, an UNHELD fact whose item carries the declared version's release fails the gate; a planted one fails. Source: O-41.
 
 ### 17-58 The unrecorded reference claim cells get verdicts
 
