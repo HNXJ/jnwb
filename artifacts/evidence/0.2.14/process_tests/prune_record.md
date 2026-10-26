@@ -1,6 +1,6 @@
 # Prune record: process tests
 
-Rule (ruled 2026-10-26, plant-covered only): a test is pruned only when each plant it owns fails it and a check kept whatever the verdicts also fails. No test is pruned here.
+Rule (ruled 2026-10-26, plant-covered only): a test is pruned only when each plant it owns fails it and a check kept whatever the verdicts also fails. No test is pruned under the rule; one test that cannot fail is deleted (row 20).
 `measured` yes: a plant ran for the test. `measured` no: no plant ran, and the rule keeps the test.
 Each plant edits the lane tree, runs its own tests, the test files that name the edited path and the harness gate, then restores the bytes and checks git status.
 A mutual cover between two measured tests counts for neither, so both stay kept, marked undecided. `A<n>` is harness gate n; the probe class is the test's class, else its file's.
@@ -26,7 +26,7 @@ A mutual cover between two measured tests counts for neither, so both stay kept,
 | 17 | tests/test_agents_md_stays_a_router.py | test_the_measurement_still_finds_something_to_measure | no | none designed | - | - | keep (not measured) | agents router |
 | 18 | tests/test_agents_md_stays_a_router.py | test_duplicated_claims_do_not_increase | no | none designed | - | - | keep (not measured) | agents router |
 | 19 | tests/test_agents_md_stays_a_router.py | test_echoed_claims_do_not_increase | no | none designed | - | - | keep (not measured) | agents router |
-| 20 | tests/test_agents_md_stays_a_router.py | test_the_baseline_is_lowered_when_it_is_beaten | no | none designed | - | - | keep (not measured) | agents router |
+| 20 | tests/test_agents_md_stays_a_router.py | test_the_baseline_is_lowered_when_it_is_beaten | no | none possible | - | - | deleted: with the baseline at 0 it asserts `>= -2` and cannot fail | agents router |
 | 21 | tests/test_release_recovery_gates.py | TestGrangercausalitytestsCompatibility::test_compat_omits_verbose_when_statsmodels_drops_it | no | none designed | - | - | keep (not measured) | statsmodels compat |
 | 22 | tests/test_release_recovery_gates.py | TestGrangercausalitytestsCompatibility::test_compat_passes_verbose_when_supported | no | none designed | - | - | keep (not measured) | statsmodels compat |
 | 23 | tests/test_release_recovery_gates.py | TestGrangercausalitytestsCompatibility::test_granger_ssr_ftest_works_when_statsmodels_drops_verbose | no | none designed | - | - | keep (not measured) | statsmodels compat |

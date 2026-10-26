@@ -152,11 +152,3 @@ def test_echoed_claims_do_not_increase(measurement):
     assert measurement["echoed"] <= BASELINE_ECHOED, (
         f"{measurement['echoed']} echoed claims against a baseline of {BASELINE_ECHOED}"
     )
-
-
-def test_the_baseline_is_lowered_when_it_is_beaten(measurement):
-    """A ratchet nobody tightens is a ceiling. 06-72 drives these to zero."""
-    assert measurement["duplicated"] >= BASELINE_DUPLICATED - 2, (
-        f"duplicates dropped to {measurement['duplicated']}; lower BASELINE_DUPLICATED here and "
-        "in artifacts/evidence/0.2.6/agents_md_duplication.md so the gain cannot be given back silently"
-    )
