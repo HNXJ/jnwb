@@ -46,7 +46,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | L laminar | 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
-| 2 | N numerics and I/O (audit 2026-10-25) | by file set, in order: 17-25; 17-12, 17-17, 17-46; then 17-14, 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
+| 2 | N numerics and I/O (audit 2026-10-25) | by file set, in order: 17-46 (Hamm's ruling first); then 17-14, 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-15, 17-34, 17-36 | Haiku writes, Muse reviews | nothing |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-32; 17-27, 17-30 | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
@@ -205,13 +205,6 @@ Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutan
 
 The items below come from the open stack of 2026-10-25 (`git show e00e8664:artifacts/open_stack.md`; the O- number in each source line traces a row to its probe). Each fix starts with a test that fails on the current code. Rulings: `artifacts/rulings/2026-10-25.md`.
 
-### 17-12 `transform_nwb` compresses without touching scalar datasets
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
-Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`.
-- 17-12: `transform_nwb(..., compression=...)` without `cast` passes chunk and filter options to scalar float datasets (`starting_time`) and raises TypeError (`nwb_write.py:925`, `:1060-1067`); the existing test always pairs compression with a cast. Check: compression alone round-trips a file with a rate-based series; shape `()` datasets keep their layout. Source: O-4.
-
 ### 17-14 Cache keys tell types apart and stores refuse what cannot round-trip
 
 Release: deferred-0.2.14.
@@ -232,13 +225,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/compression.py`, its tests.
 - 17-16: `compress_fp32(src, dst=src, overwrite=True)` turns the source into float32 and verifies it against itself as ok, against its docstring's "never modified" (`compression.py:927-1021`). Check: a `dst` resolving to `src` raises, as in `transform_nwb`; the source's sha256 is unchanged. Source: O-7.
-
-### 17-17 `verify_nwb` compares group attributes
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 17-12 (same file).
-Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`, `artifacts/changelog.d/verify-group-attributes.changed.md`.
-- 17-17: with `against=`, a changed group or root attribute (`description`, `comments`) verifies ok (`nwb_write.py:402-470`); ruled 2026-10-25: every group's and the root's attributes are compared, `object_id` and declared paths exempt. Check: the tamper fails verification naming the path; a declared change passes. Source: O-8.
 
 ### 17-18 `jrsa` corrects only finite p-values
 
@@ -275,13 +261,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/artifact_detection.py`, its tests.
 - 17-52: when more than half the values tie, the MAD is 0 and every z is set to 0, so a gross outlier among ties is not flagged (`artifact_detection.py:47`). Check: [0]*9 + [1e6] flags the last value; all-equal input flags none. Source: O-15.
 
-### 17-25 `UnitAnalyzer.psth` and `raster_psth` agree on time units
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/analyzers.py`, its tests.
-- 17-25: `UnitAnalyzer.psth` returns bin centres in s while `raster_psth` returns ms (`analyzers.py:363`); ruled 2026-10-25 (revised): milliseconds, so `UnitAnalyzer.psth` changes, announced in the changelog. Check: both return ms, named in the returned key or docstring; a test compares their bin centres on one input. Source: O-16.
-
 ### 17-43 PSI refuses an `nperseg` longer than the signal
 
 Release: deferred-0.2.14.
@@ -306,9 +285,9 @@ Writes: `jnwb/continuous.py`, its tests.
 ### 17-46 The uint8 index check fires
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 17-17 (same file).
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
 Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`.
-- 17-46: the uint8 index test compares `dtype.kind` with "uint8", which never matches (`nwb_write.py:1320`). Check: a uint8 index dataset reaches the branch the test guards; a test plants one. Source: O-16.
+- 17-46: the uint8 index test compares `dtype.kind` with "uint8", which never matches (`nwb_write.py:1320`); ruled 2026-10-25: skip a uint8 index only when it already carries its VectorIndex type, target and description, and keep repairing an untyped one. Check: a typed uint8 index is not planned; an untyped uint8 index still gets its attributes; tests plant both. Source: O-16.
 
 ### 17-48 Event `codes` refuse bytes and bool
 
@@ -385,7 +364,7 @@ Writes: `artifacts/evidence/0.2.14/jaxfne_docs_dashboard_comparison.md`.
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `artifacts/rulings/standing.md` (Hamm reviews).
-- 17-36: `standing.md` reads "as of 7cb72f4b" and has no row for the standing rulings of 2026-10-20 to 2026-10-25 (B3, S8, I3 and S9 scopes, the I1 split, the F1 list, the verdict set, 0.2.14 scope). Check: each such ruling has a row citing its dated file; the "as of" commit is current. Source: O-34.
+- 17-36: `standing.md` reads "as of 7cb72f4b" and has no row for the standing rulings of 2026-10-20 to 2026-10-25 (B3, S8, I3 and S9 scopes, the I1 split, the F1 list, the verdict set, 0.2.14 scope), and its "Planned cycles" row (`standing.md:23`) still reads 0.2.8 to 0.2.12 with at most three writers, which the 2026-10-06 and 2026-10-24 rulings replaced. Check: each such ruling has a row citing its dated file; the "Planned cycles" row states the current cycle and writer policy; the "as of" commit is current. Source: O-34.
 
 ### 17-41 No UNHELD fact names an item of the declared version
 
