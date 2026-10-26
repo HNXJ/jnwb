@@ -47,7 +47,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
 | 2 | N numerics and I/O (audit 2026-10-25) | none left: every item landed 2026-10-25 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
-| 2 | P process and docs (audit 2026-10-25) | 17-15, 17-34, 17-36 | Haiku writes, Muse reviews | nothing |
+| 2 | P process and docs (audit 2026-10-25) | 17-58, 17-34, 17-36 | Haiku writes, Muse reviews | nothing |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-32; 17-27, 17-30 | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
@@ -68,7 +68,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 8 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18; 16-19 landed |
 | 9 | Docs pages carry still and interactive figures, after jaxfne's form (ruled 2026-10-24) | the form and the page set follow Hamm's preference rulings; a test builds each figure from committed inputs; the strict docs build passes | 17-01 |
 | 10 | A validation dashboard after jaxfne's, keeping the proof of work, the HTML outputs and the GLO cards (ruled 2026-10-23 and 2026-10-24) | `tests/test_build_dashboard.py` builds it from committed files with every receipt digest matching; the published page shows each section the preference rulings name, in light and dark | 17-02 |
-| 11 | Reference claims checked against full text where an abstract decides nothing | each claim cell of `docs/references.md` has a ledger line, confirmed, reworded, or cut; the 14 core texts keep their cells (ruled 2026-10-23, ledger ruled 2026-10-25) | landed (3ba28202); 17-15 |
+| 11 | Reference claims checked against full text where an abstract decides nothing | each claim cell of `docs/references.md` has a ledger line, confirmed, reworded, or cut; the 14 core texts keep their cells (ruled 2026-10-23, ledger ruled 2026-10-25) | ledger landed (3ed1efca): 93 cells, 60 cut, 2 reworded, 14 kept, 17 unrecorded; 17-58 |
 | 12 | Release form (`AGENTS.md` §11): low-verbosity docs, low-complexity code, an empty open stack, no required item | `match-checker` runs once at the checkpoint on every file changed since v0.2.13, its report committed (ruled 2026-10-25); the closure pass (checkpoint step 5) finds 0 new blockers | checkpoint steps 1 to 5 |
 | 13 | The audit of 2026-10-25 closed | every item 17-09 to 17-56 has left this file | 17-09 to 17-56 |
 | 14 | `dev` is green and release-ready | the suite stamp equals HEAD; CI green on `dev` at that SHA; `python scripts/release_gate.py` exits 0 | checkpoint steps 6 and 7 |
@@ -205,13 +205,6 @@ Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutan
 
 The items below come from the open stack of 2026-10-25 (`git show e00e8664:artifacts/open_stack.md`; the O- number in each source line traces a row to its probe). Each fix starts with a test that fails on the current code. Rulings: `artifacts/rulings/2026-10-25.md`.
 
-### 17-15 A ledger of the reference claim cells
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `artifacts/evidence/0.2.14/reference_claims_ledger.md`, `tests/test_reference_claims_ledger.py`.
-- 17-15: checklist row 11 rests on "46 claim cells" with no committed ledger, and the ruling's arithmetic does not sum to 46; ruled 2026-10-25: a ledger, one line per claim cell of `docs/references.md` with its verdict (confirmed, reworded, cut) and the source read. Check: a test recounts the claim cells in `docs/references.md` and requires one ledger line each; the row cites the count it finds. Source: O-40.
-
 ### 17-26 Fact checks fail on an empty examined set
 
 Release: deferred-0.2.14.
@@ -288,3 +281,10 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: 17-26 (same files).
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`.
 - 17-41: the fact gate requires only that an UNHELD fact names a live item, so checklist row 5 and goal G2 are read by eye. Check: at the checkpoint, an UNHELD fact whose item carries the declared version's release fails the gate; a planted one fails. Source: O-41.
+
+### 17-58 The unrecorded reference claim cells get verdicts
+
+Release: deferred-0.2.14.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `artifacts/evidence/0.2.14/reference_claims_ledger.md`, `docs/references.md`.
+- 17-58: the ledger (3ed1efca) counts 93 claim cells; 17 carry `unrecorded`, since no record names them (the 2026-10-23 ruling counts 7 confirmed without naming cells), and 14 core texts carry `kept`, a verdict row 11 does not list. Check: no `unrecorded` line remains; each such cell is read against its source and marked confirmed, reworded or cut, the source named. Whether `kept` satisfies row 11 is Hamm's reading of the 2026-10-23 ruling. Source: 17-15.
