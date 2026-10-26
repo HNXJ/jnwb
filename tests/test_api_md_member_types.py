@@ -13,7 +13,7 @@ harness still reported `ALL HARNESS GATES PASSED. 16 of 16`.
 
 The oracle is `scripts.harness_gate.api_member_kind`, and what matters is which module it is
 *not* imported from: `scripts.generate_api_md`. Importing the generator's own classifier would
-rebuild that fixed point. It lived in this file until 06-106 landed the gate half; it moved to
+rebuild that fixed point. It lived in this file until the gate half landed; it moved to
 `harness_gate.py` so that gate 18 and these tests share one definition rather than two that can
 drift, and this file kept the assertions.
 """
@@ -32,7 +32,7 @@ import jnwb
 from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
 # No `sys.path.insert(0, REPO_ROOT)` here, deliberately. Prepending the checkout re-shadows the
-# installed copy for the whole session, which is what P-39 recorded and what
+# installed copy for the whole session, which is what
 # `test_the_suite_can_qualify_an_installed_copy.py` fails the suite over. REPO_ROOT stays -- it
 # locates the page on disk, which is a file lookup rather than an import path.
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -65,7 +65,7 @@ def parsed_rows() -> List[Tuple[str, str, str]]:
 #: What the object is, asked of the object -- a property rather than a list of known constant
 #: types. The defect this file pins existed because the generator asked
 #: `isinstance(obj, (dict, tuple, frozenset, list))`: an enumeration has to be maintained, and
-#: the one scalar constant in `__all__` was missing from it. Gate 18's, as of 06-106.
+#: the one scalar constant in `__all__` was missing from it. Gate 18's, as of the move to `harness_gate.py`.
 expected_kind = api_member_kind
 
 

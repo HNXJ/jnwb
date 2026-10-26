@@ -536,7 +536,7 @@ class TestGate4AllowlistCarriesNoDeadEntries:
         """Two entries are intentionally untracked, and the reason is written where they live.
 
         Tracked, not present: the first form of this test asked whether the file exists, so
-        it passed on any machine carrying a leftover -- a `.coverage` from before 05-78
+        it passed on any machine carrying a leftover -- a `.coverage` from before the change that
         removed `pytest-cov` -- and failed on all four CI cells, which check out clean. What
         the allowlist is claiming is that the entry corresponds to something the repository
         has, and a working tree's untracked residue is not that.

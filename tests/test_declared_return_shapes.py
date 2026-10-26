@@ -1,4 +1,4 @@
-"""05-85 shape dimension: a declared return shape, checked by calling the function.
+"""Shape dimension: a declared return shape, checked by calling the function.
 
 A wrong return shape in a docstring is invisible from inside the library. The array is
 whatever shape the code makes it, every test of that array passes, and only a reader building

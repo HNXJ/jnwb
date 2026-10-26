@@ -1,6 +1,6 @@
 """The release gate must resolve CI for the exact commit it is qualifying.
 
-Before 06-108 it did not resolve CI at all: ``grep -niE "gh run|workflow|actions|conclusion"
+Before the change it did not resolve CI at all: ``grep -niE "gh run|workflow|actions|conclusion"
 scripts/release_gate.py`` returned one hit at 30c425cf, a ``# 4. Workflows`` heading inside
 the wheel smoke script with nothing to do with GitHub Actions. Measured the same day, the
 pipeline at that commit concluded ``failure``, as it had on all twelve most recent pushes to

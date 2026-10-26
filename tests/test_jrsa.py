@@ -2,7 +2,7 @@
 
 Two defects on the public surface, both measured against the tree before repair.
 
-P-83. `docs/quickstart.md` prints ``float(jrsa_res.p)``. That raised `TypeError: only
+First: `docs/quickstart.md` prints ``float(jrsa_res.p)``. That raised `TypeError: only
 0-dimensional arrays can be converted to Python scalars`, because `p` and `q` came back
 as shape ``(1,)`` while their siblings `value`, `statistic` and `effect` were 0-d. The
 asymmetry, not the page, was the defect: `_p_from_null` wrapped its single scalar in
@@ -10,15 +10,14 @@ asymmetry, not the page, was the defect: `_p_from_null` wrapped its single scala
 `float()` on a one-element array raises under NumPy>=2, the declared floor, so the documented
 line was unrunnable on every supported NumPy.
 
-P-85. The `correction` docstring listed ``cluster`` and ``maxT``. Neither exists; both
+Second: the `correction` docstring listed ``cluster`` and ``maxT``. Neither exists; both
 raise. Public documentation that causes wrong use.
 
 The shape assertions here compare `p` against `value` rather than against a literal
 ``()``, so they hold for the multi-lag case too, where a vector-valued `p` is real. The
 correction assertions derive the documented set by parsing the docstring and the accepted
 set from the implementation, in both directions; neither side is written out here. A
-literal list on both sides is a fixed point that agrees with itself whatever the code says
-(P-151).
+literal list on both sides is a fixed point that agrees with itself whatever the code says.
 """
 
 import contextlib
@@ -36,7 +35,7 @@ from jnwb.jrsa import _CORRECTION_METHOD_MAP
 
 
 # ---------------------------------------------------------------------------
-# P-83 -- the scalar result carries scalar fields
+# The scalar result carries scalar fields
 # ---------------------------------------------------------------------------
 
 SCALAR_SIBLINGS = ("value", "statistic", "effect")
@@ -54,7 +53,7 @@ def quickstart_inputs():
 def test_the_documented_quickstart_line_runs(quickstart_inputs):
     """The literal line from `docs/quickstart.md`, executed rather than read.
 
-    This is the discriminator for P-83. Before the repair it raised `TypeError`.
+    This is the discriminator for the scalar-field defect. Before the repair it raised `TypeError`.
     """
     X, Y = quickstart_inputs
     page = (Path(__file__).resolve().parents[1] / "docs" / "quickstart.md").read_text(encoding="utf-8")
@@ -193,7 +192,7 @@ def test_a_nonfinite_input_still_reports_a_scalar_nan():
 
 
 # ---------------------------------------------------------------------------
-# P-85 -- the documented correction set is the accepted correction set
+# The documented correction set is the accepted correction set
 # ---------------------------------------------------------------------------
 
 def _documented_corrections():
@@ -254,7 +253,7 @@ def _independent_q(p, method):
 
 @pytest.mark.parametrize("method", _documented_corrections())
 def test_every_documented_correction_is_actually_accepted(method):
-    """Discriminator for P-85, run against behaviour rather than against the map.
+    """Discriminator for the correction set, run against behaviour rather than against the map.
 
     `cluster` and `maxT` were documented and raised `ValueError`. Parametrised over the
     parsed docstring, so a future addition to the prose is checked the moment it is made.
@@ -285,7 +284,7 @@ def test_every_documented_correction_is_actually_accepted(method):
 def test_every_implemented_correction_is_documented():
     """The other direction: nothing the implementation accepts is left out of the prose.
 
-    The half of P-85 claiming `bonferroni`, `holm` and `none` were omitted is refuted --
+    The half claiming `bonferroni`, `holm` and `none` were omitted is refuted --
     all three are present at the baseline and this test says so by construction.
     """
     documented = set(_documented_corrections())

@@ -235,7 +235,7 @@ class TestGranger:
                 _granger(x, y, max_lag=1)
 
     def test_granger_null_non_negative_ml_variance(self):
-        """Granger causality using ML residual variance RSS/N is non-negative under plain OLS (0.2.3-REV-07)."""
+        """Granger causality using ML residual variance RSS/N is non-negative under plain OLS."""
         rng = np.random.default_rng(42)
         # 10 independent noise trials under true null
         x = rng.standard_normal((10, 500))
@@ -447,7 +447,7 @@ class TestPhaseSlopeIndex:
         assert res.params["nperseg"] == 500
 
     def test_multiband_psi_omnibus_pvalue(self):
-        """Multi-band PSI computes omnibus top-level p-value rather than extracting first band (0.2.3-REV-08)."""
+        """Multi-band PSI computes omnibus top-level p-value rather than extracting first band."""
         from scipy import signal, stats
         rng = np.random.default_rng(42)
         n = 4000
@@ -489,7 +489,7 @@ class TestTransferEntropy:
         assert result.x_to_y > 0
 
     def test_the_symbolic_estimator_is_refused_and_points_to_quantile(self):
-        """06-202: two noisy copies of one white source tested significant both ways under
+        """Two noisy copies of one white source tested significant both ways under
         it. The generic unknown-estimator error also names 'quantile', so the match
         requires the reason as well."""
         x = np.random.default_rng(0).normal(size=(2, 200))
@@ -626,7 +626,7 @@ class TestDirectedConnectivityAndNetwork:
         assert set(result["labels"]) == {"A", "B", "C"}
 
     def test_directed_network_draws_a_generator_once_per_pair_up_front(self):
-        """06-203: a Generator copied into each worker would replay one stream, so the
+        """A Generator copied into each worker would replay one stream, so the
         surrogates would depend on n_jobs. Each pair gets an int seed drawn before any
         worker starts, in pair order, and records it."""
         rng = np.random.default_rng(8)
@@ -779,7 +779,7 @@ class TestFewTrialSurrogates:
 
 
 class TestCrossAreaCoherenceContract:
-    """0.2.4-09: out-of-contract input must fail loudly, not plausibly.
+    """Out-of-contract input must fail loudly, not plausibly.
 
     Both cases below previously produced a result a caller could not distinguish from a
     real measurement, or an error naming neither the argument nor the contract.
@@ -1269,7 +1269,7 @@ class TestDirectedEstimatorEdges:
         assert (res.params["nperseg"], res.params["n_segments"]) == (nperseg, n_segments)
 
     def test_psi_freqs_and_the_first_term_are_pinned(self):
-        """P-196: `psi_freqs` and `psi_per_freq` were returned and never checked. The first
+        """`psi_freqs` and `psi_per_freq` were returned and never checked. The first
         term is recomputed here from eq. 3 of Nolte et al. (2008) on the same segments."""
         rng = np.random.default_rng(3)
         x = rng.normal(size=640)
@@ -1292,7 +1292,7 @@ class TestDirectedEstimatorEdges:
         assert res.spectrum["psi_per_freq"][0] != 0.0
 
     def test_net_sums_only_the_bands_with_a_slope(self):
-        """P-264: a band with fewer than two bins is left out of `net`, as the docstring
+        """A band with fewer than two bins is left out of `net`, as the docstring
         says, not counted as zero or as NaN."""
         rng = np.random.default_rng(0)
         x = rng.normal(size=2000)
@@ -1320,7 +1320,7 @@ class TestDirectedEstimatorEdges:
                                     binary_occupancy_mutual_information,
                                     spike_count_mutual_information])
     def test_each_mutual_information_function_names_itself(self, fn):
-        """P-256: the two wrappers raised under the name spike_mutual_information."""
+        """The two wrappers raised under the name spike_mutual_information."""
         name = fn.__name__
         with pytest.raises(ValueError, match=rf"^{name} requires non-empty"):
             fn(np.array([]), np.array([0.1]), (0.0, 1.0))
@@ -1329,7 +1329,7 @@ class TestDirectedEstimatorEdges:
 
 
 class TestPsiJackknifeUnit:
-    """P-227, ruled 2026-10-06: the jackknife leaves out one trial from three trials on, and
+    """The jackknife leaves out one trial from three trials on, and
     one segment with a warning below that. Leaving out one of a trial's overlapping segments
     rejected in 0.059 to 0.068 under zero-lag mixing on 3 to 30 trials; one trial, 0.040 to
     0.059 (artifacts/evidence/0.2.10/10-06/records.md)."""
@@ -1367,7 +1367,7 @@ class TestPsiJackknifeUnit:
         assert res.p_net == pytest.approx(2 * stats.t.sf(abs(z), df=n_seg - 1), rel=1e-12)
 
     def test_the_round_off_bound_is_k_n_eps_scale(self):
-        """P-331: k = 4, n the segments, scale the bin pairs times sqrt(units - 1), as the
+        """The round-off bound: k = 4, n the segments, scale the bin pairs times sqrt(units - 1), as the
         docstring of `_psi_round_off` derives."""
         from jnwb.connectivity._psi import _psi_round_off
 
@@ -1380,7 +1380,7 @@ class TestPsiJackknifeUnit:
 
 
 class TestRoundOffBounds:
-    """P-331 (ruled 2026-10-06): width and constant checks use a round-off bound
+    """Width and constant checks use a round-off bound
     k * n * eps * scale, with k stated and derived where the bound is defined."""
 
     def test_a_linearly_detrended_line_is_exactly_zero_and_noise_survives(self):

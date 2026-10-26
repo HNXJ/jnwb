@@ -31,7 +31,7 @@ def blocked_import(name):
     the process's first `import torch` and adds ~730 `torch*` entries; the restore removed
     all of them while torch's C extensions stayed loaded, and the next `import torch`
     re-executed `torch/__init__.py` against an already-initialised `torch._C` and crashed
-    the interpreter with an access violation. That was P-12.
+    the interpreter with an access violation. Restoring only that key prevents the crash.
     """
     missing = object()
     previous = sys.modules.get(name, missing)

@@ -100,7 +100,7 @@ class TestTheThirdDenialReasonExists:
 
 
 class TestEveryDeniedRequestSaysSo:
-    """05-44's accept condition: every `device='cuda'` call either reaches the GPU or
+    """The accept condition: every `device='cuda'` call either reaches the GPU or
     warns. These run with a pretended GPU, so a denial cannot hide behind
     `resolve_device`'s own no-device warning."""
 

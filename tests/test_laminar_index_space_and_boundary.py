@@ -1,15 +1,13 @@
 """The two index axes `vflip` can return on, and the granular boundary at exact equality.
 
-Items P-49 and P-166.
-
-P-49: ``vflip`` reorders the PSD rows along the shaft only when it is given a
+First: ``vflip`` reorders the PSD rows along the shaft only when it is given a
 ``probe_geometry``; ``label_layers`` always places contacts by shaft rank. A caller who
 omits geometry from one call and supplies it to the other crosses two index axes, and the
 only check across that boundary was a channel *count*. Measured on the fixtures below
 before the repair: ``accepted=True``, no warning, and 10 of 24 contacts labelled
 differently on a two-bank table -- two of them a full superficial/deep swap.
 
-P-166: the granular interval is closed, and its half-span is an exact integer number of
+Second: the granular interval is closed, and its half-span is an exact integer number of
 contacts on the pitches most used in the field, so one ulp of the pitch decided a
 contact's layer.
 
@@ -197,7 +195,7 @@ class TestTheIndexSpaceIsRecordedAndChecked:
 
 
 class TestTheGranularBoundaryIsPinnedNotEmergent:
-    """P-166: the closed interval at exact equality, on real hardware pitches."""
+    """The closed interval at exact equality, on real hardware pitches."""
 
     # (pitch um, n contacts, crossover contact, expected half-span in contacts)
     HARDWARE = [

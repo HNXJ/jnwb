@@ -85,7 +85,7 @@ def _mentions(text, name):
 
 
 class TestEveryErrorClassIsExplained:
-    """The discriminator for 05-41."""
+    """The discriminator for the check that every error class is explained."""
 
     @pytest.mark.parametrize("name", _exported_errors())
     def test_the_error_appears_on_a_hand_written_page(self, name):
@@ -154,7 +154,7 @@ class TestTheErrorsPageIsReachable:
 
 
 class TestEveryExportIsWrittenAboutSomewhere:
-    """05-41's accept condition: the Gate 5 check, exercised here so a `pytest` run sees
+    """The accept condition: the Gate 5 check, exercised here so a `pytest` run sees
     it too, not only a gate invocation."""
 
     def test_no_export_lives_only_in_the_generated_reference(self):

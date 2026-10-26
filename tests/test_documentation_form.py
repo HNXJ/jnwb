@@ -84,7 +84,7 @@ def test_the_corpus_reaches_the_authored_pages():
 
 
 def test_the_corpus_reaches_the_three_surfaces_it_used_to_exclude():
-    """P-95: a widening that silently globs nothing looks exactly like a clean tree.
+    """A widening that silently globs nothing looks exactly like a clean tree.
 
     Each of the three additions is asserted to be present and non-trivial, because an empty
     glob returns an empty list and every scan above then passes over it without a word.
@@ -224,7 +224,7 @@ def test_every_preferred_term_occurs_in_the_prose():
 
 @pytest.mark.parametrize("row", VOCABULARY, ids=lambda r: r.concept)
 def test_a_reintroduced_superseded_term_is_named_with_its_page(row):
-    """06-49's discriminator, per row: reintroduce a superseded term on one page and
+    """The discriminator, per row: reintroduce a superseded term on one page and
     require the check to name the page and the term.
 
     Seeded in memory rather than on disk -- a test that writes into `docs/` and restores

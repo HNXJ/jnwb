@@ -221,7 +221,7 @@ def test_the_reader_accepts_a_subgraph():
 
 
 def test_the_dependency_diagram_names_every_runtime_dependency():
-    """P-278: the diagram omitted six of the ten libraries jnwb imports at install."""
+    """The diagram omitted six of the ten libraries jnwb imports at install."""
     project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     declared = {re.split(r"[<>=!~\[; ]", dep, maxsplit=1)[0].lower()
                 for dep in project["project"]["dependencies"]}

@@ -135,7 +135,7 @@ def test_classify_layer_from_depth_with_explicit_channel_id_column_and_reset_ind
 
 
 class TestClassifyLayerUnitSafety:
-    """Regression suite for 0.2.0-04: unit-safety in classify_layer_from_depth.
+    """Regression suite for unit-safety in classify_layer_from_depth.
 
     Acceptance invariant:
         unknown or incompatible depth units -/-> plausible layer label.

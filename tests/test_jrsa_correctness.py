@@ -815,7 +815,7 @@ class TestJrsaDoesNotSwallowUnknownKeywords:
                     metric="transfer_entropy_histogram_nats", k=2, stats=False)
 
     def test_passing_both_spellings_is_refused(self):
-        """05-34 made `rng` canonical and routed jrsa through the package's shared alias
+        """Making `rng` canonical and routing jrsa through the package's shared alias
         resolver, so the conflict is now the same `ValueError: Conflicting values` that
         `band_power(fs=, sampling_rate=)` and the nine unit-suffixed parameters raise.
         jrsa was the only place spelling this refusal `TypeError`.
@@ -1327,7 +1327,7 @@ class TestTimeAxisNullKeepsAutocorrelation:
 
 
 class TestSimilarityEdges:
-    """P-332 similarity part, the resampling fallback and IB-48."""
+    """The similarity part, the resampling fallback and IB-48."""
 
     @pytest.mark.parametrize("metric", ["cka", "rv"])
     @pytest.mark.parametrize("pattern", ["one_value", "per_column"])
@@ -1363,7 +1363,7 @@ class TestSimilarityEdges:
         assert out2 is x2
 
     def test_a_detrended_straight_line_is_constant_not_standardized_round_off(self):
-        """P-331: the detrend residue of a line (about 1e-14) was standardized to unit
+        """The detrend residue of a line (about 1e-14) was standardized to unit
         variance, and pearson against noise returned -0.026 instead of NaN."""
         line = 2.0 + 0.37 * np.arange(200.0)
         noise = np.random.default_rng(0).normal(size=200)

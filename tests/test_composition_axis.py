@@ -171,7 +171,7 @@ def test_h2_naming_each_axis_makes_the_two_layouts_agree(consumer: str) -> None:
 
 @pytest.mark.parametrize("consumer", LAMINAR_CONSUMERS)
 def test_h2_the_time_major_default_spelling_must_raise_or_agree(consumer: str) -> None:
-    """Measured when P-115 was raised: shape (5998, 64) against (62, 6000), RMS ratio 0.109,
+    """Measured when the defect was reported: shape (5998, 64) against (62, 6000), RMS ratio 0.109,
     no error. The strict xfail this carried is removed: `jnwb._layout` refuses the time-major
     spelling on two independent physical bounds, and this test takes a refusal as satisfaction.
 
@@ -282,7 +282,7 @@ def test_h3_as_trials_reads_the_named_axis_and_a_transpose_swaps_the_meaning() -
 
 @pytest.mark.parametrize("estimator", SILENT_ESTIMATORS)
 def test_h3_a_transposed_trial_array_must_not_read_as_no_coupling(estimator: str) -> None:
-    """Measured when P-116 was raised, at 7 x 400: x_to_y 1.90 correct against 1.1e-07
+    """Measured when the defect was reported, at 7 x 400: x_to_y 1.90 correct against 1.1e-07
     transposed. The strict xfail this carried is removed: `require_trial_length` refuses a
     trial too short to carry the estimator's own lag structure, which is the quantity pooling
     hid -- 400 trials of 7 samples supply thousands of design rows in total.
@@ -377,7 +377,7 @@ def test_h4_the_channel_major_verdict_has_one_entry_per_channel_and_finds_bad_on
 
 
 def test_h4_a_time_major_array_must_not_yield_a_verdict_over_samples() -> None:
-    """Measured when P-117 was raised: (6000, 64) in, a (6000, 6000) matrix out, a 6000-entry
+    """Measured when the defect was reported: (6000, 64) in, a (6000, 6000) matrix out, a 6000-entry
     verdict flagging 0 "channels", and no error anywhere. The strict xfail this carried is
     removed: `channel_correlation_matrix` now refuses at the point where rows stop being
     channels. The caller read "no bad channels" from a

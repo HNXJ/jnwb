@@ -134,12 +134,12 @@ def test_no_reported_bias_correction_ever_equals_the_raw_estimate(pair):
                 )
 
 
-# --- P-94 regression guard: the surrogate debias is real and must survive ----
+# --- Regression guard: the surrogate debias is real and must survive ----
 
 
 @pytest.mark.parametrize("estimator", ["granger", "te"])
 def test_surrogate_debias_is_exactly_raw_minus_null_mean(pair, estimator):
-    """P-94 calls ``bias_corrected_*`` a mislabel in general. It is not: on the
+    """The name ``bias_corrected_*`` is not a mislabel in general: on the
     ``n_surrogates > 0`` path the value is the raw estimate minus the surrogate
     null mean. This test fails if a repair to the n_surrogates=0 path ever
     disturbs the correction that does run.

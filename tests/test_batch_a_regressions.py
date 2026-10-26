@@ -78,7 +78,7 @@ class TestStatisticsRNG:
         assert res1["bootstrap_std"] == res3["bootstrap_std"]
 
     def test_invalid_rng_type_raises_type_error(self):
-        """05-35 retargeted an int from "rejected" to "a seed".
+        """An int for `rng` moved from "rejected" to "a seed".
 
         This used to assert that `bootstrap_ci(data, rng=42)` raises, while the same
         function ran `np.random.default_rng(42)` whenever `rng` was omitted. The strict

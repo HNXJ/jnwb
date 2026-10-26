@@ -251,7 +251,7 @@ class TestBuildRepresentationLadder:
 
 
 class TestCrossValidationIsolation:
-    """0.2.4-05: the decoder must not see its own test folds.
+    """The decoder must not see its own test folds.
 
     Nested CV was exercised but never asserted leak-free. The discriminating regime is
     many features and few trials: if any step that sees the labels or the full feature

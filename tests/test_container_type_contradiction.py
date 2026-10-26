@@ -1,6 +1,6 @@
 """A container whose declared `neurodata_type` contradicts its contents warns; one that agrees does not.
 
-Ruled 2026-09-20 (06-84): jnwb warns and proceeds. Refusing would make jnwb the arbiter of a
+jnwb warns and proceeds. Refusing would make jnwb the arbiter of a
 corpus's metadata and would make a measured 9 of 22 real sessions unreadable without an override;
 indifference would let a container declared `ElectricalSeries` hand back an int16 array that is
 not extracellular voltage, substituting a signal class silently across a jnwb boundary.
@@ -68,7 +68,7 @@ def _write(nwbfile: NWBFile, path) -> None:
 def corpus_shapes(tmp_path_factory) -> str:
     """All three measured corpus shapes, plus a consistent control, in one file.
 
-    The three shapes P-54 measured across 22 real sessions: a spike-train container declared
+    The three shapes measured across 22 real sessions: a spike-train container declared
     `ElectricalSeries` (9 sessions, one of them int16), the same logical series declared
     `TimeSeries` (12), and one omitting `neurodata_type` entirely (1).
 
@@ -166,7 +166,7 @@ def test_the_mistyped_warning_names_the_declared_type_and_the_contents(corpus_sh
     assert "ElectricalSeries" in message, "names the declared type"
     assert "'volts'" in message, "names what that declared type requires"
     assert "'n.a.'" in message, "names what the contents actually say"
-    assert "int16" in message, "names the stored dtype, the int16 case P-54 measured"
+    assert "int16" in message, "names the stored dtype, the int16 case measured"
 
 
 def test_the_untyped_warning_says_nothing_declares_the_type(corpus_shapes):
@@ -211,7 +211,7 @@ def test_a_clean_file_raises_no_contradiction_warning(tmp_path):
 
 
 def test_a_container_wrapping_many_series_warns_once(tmp_path):
-    """06-84's own stop condition, as a test.
+    """The stop condition, as a test.
 
     A warning nobody can read through is not the ruled behaviour. An `LFP` container wrapping
     three mistyped series is one container, so it produces one warning naming all three, not

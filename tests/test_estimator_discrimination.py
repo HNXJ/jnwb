@@ -4,7 +4,7 @@ Every test here exists because a mutation of the implementation it covers change
 result anywhere in the full suite. Each one names the mutation it kills.
 
 The four covered here are the survivors of an eight-mutant sweep. The other four
-mutations the 05-54 audit listed -- the two shuffle p-values collapsing to `1/(n+1)`,
+mutations listed earlier -- the two shuffle p-values collapsing to `1/(n+1)`,
 `shuffle_r2_ci.p_val` pinned to 0.001, `fdr_correct` returning its input, and
 `laplacian_reference` dropping its un-permute -- all died against the existing suite, so
 they are already covered and nothing is added for them here.

@@ -1,4 +1,4 @@
-"""P-12: an ad-hoc pytest subset must not crash the interpreter.
+"""An ad-hoc pytest subset must not crash the interpreter.
 
 The measured defect. `unittest.mock.patch.dict(sys.modules, ...)` restores by
 `sys.modules.clear()` followed by `update(original)`, so every module imported *inside*
@@ -12,7 +12,7 @@ already-initialised `torch._C` and took an access violation (0xC0000005).
 
 The full suite never saw it because collecting all of `tests/` imports torch and cupy
 before any test runs, so both are in the dict `patch.dict` saved and restores. Only a
-subset that does not collect that importer is exposed. That is the whole of P-12's
+subset that does not collect that importer is exposed. That is the whole of the
 "collection-order fragility": not an ordering hazard in pytest, and not a property of
 torch, but one test mutating process-global state destructively.
 
