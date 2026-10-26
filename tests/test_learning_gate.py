@@ -154,6 +154,13 @@ def test_gate_20_runs_the_state_row_check(monkeypatch):
     assert any("SEEDED state row" in v for _, violations in found for v in violations)
 
 
+def _need_commit(rev: str) -> None:
+    """Skip where a shallow clone (CI's checkout) lacks the commit the test replays."""
+    if subprocess.run(["git", "-C", str(REPO_ROOT), "cat-file", "-e", f"{rev}^{{commit}}"],
+                      capture_output=True).returncode:
+        pytest.skip(f"commit {rev} is not in this clone's history")
+
+
 def _git_text(rev: str, path: str) -> str:
     done = subprocess.run(["git", "-C", str(REPO_ROOT), "show", f"{rev}:{path}"],
                           capture_output=True, check=True)
@@ -210,6 +217,7 @@ def test_a_tree_with_no_mapping_table_examines_none_and_says_so(tmp_path):
 def test_the_mapping_table_of_commit_8482c7bc_is_red_for_the_two_clauses_it_dropped(tmp_path):
     table = "artifacts/evidence/0.2.8/agents_md_mapping.md"
     draft = "artifacts/evidence/0.2.8/agents_md_draft.md"
+    _need_commit("8482c7bc")
     root = _tree(tmp_path, {table: _git_text("8482c7bc", table),
                             draft: _git_text("8482c7bc", draft)})
     tables, clauses, found = lg.mapping_check(root)
@@ -226,6 +234,7 @@ def test_a_row_that_names_a_forbidden_phrase_yields_it():
 
 @pytest.mark.requires_git_checkout
 def test_a_pooling_phrase_named_by_a_row_is_red_on_commit_b0119d07():
+    _need_commit("b0119d07")
     phrase = lg.forbidden_in('Forbidden: "pool across them without namespacing"')[0]
     found = lg.forbidden_violations([("artifacts/rulings/fixture.md", phrase)], rev="b0119d07")
     assert any(v.startswith("b0119d07:AGENTS.md:") for v in found), found

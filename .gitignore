@@ -179,3 +179,6 @@ artifacts/fact_graph.json
 # P-10. Excluded by path, so the suffix no longer decides. The extension rules above stay: they
 # cover *.pkl and *.json everywhere else in the repository, which a rule anchored here cannot.
 artifacts/developer/.cache/
+
+# Scratch output of local work; nothing here is tracked.
+artifacts/_temp/
