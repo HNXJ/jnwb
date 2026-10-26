@@ -42,7 +42,7 @@ elsewhere as `python -m pytest tests/ -q`.
 |---|---|---|---|---|
 | 0 | Proposals | 15-20's prune rule was ruled 2026-10-26; 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
 | 1 | M mutation | none left: 07-21's core five and 07-22's execution and cache API landed (CI green on `dev` at f5c55f2b) | integrator | nothing |
-| 2 | F facts | 11-07 (S1, S5; S2 held 2026-10-25), 12-11 | Cursor GLM or Muse writes, Haiku checks | nothing |
+| 2 | F facts | 11-07 and 12-11 landed 2026-10-26 (S1, S2, S5, S7 held) | Cursor GLM or Muse writes, Haiku checks | nothing |
 | 2 | L laminar | 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
@@ -62,7 +62,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | The four pitfall estimators, `noise_correlation` and `screen_units_against_labels`, as ruled 2026-10-20 | each has a planted-case test that recovers the planted value and one that refuses the documented bad input; each cites its source in `docs/references.md` | items gone (14-06, 14-07, 13-04) |
 | 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | items gone (16-01, 16-02) |
 | 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | item gone (11-01) |
-| 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 11-07, 12-11, 11-03, 12-07; 16-10 landed; 11-09 to roadmap (ruled 2026-10-25) |
+| 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 11-03, 12-07; 11-07, 12-11 and 16-10 landed; 11-09 to roadmap (ruled 2026-10-25) |
 | 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 15-22; 16-03 landed |
 | 7 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 15-20, 12-05, 09-07, 07-05, 12-06 |
 | 8 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18; 16-19 landed |
@@ -102,23 +102,6 @@ Before step 8, merge `main` into `dev`, so the release merge's first parent is i
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: jnwb-figures. Blocked by: nothing.
 - 17-01: docs pages show still figures only (75 PNGs with dark twins, 0 iframes); ruled 2026-10-24, every figure gets a Still tab and an Interactive tab, the HTML built in CI and served from gh-pages `/figures/`, one HTML that follows the site theme, and a registry-generated state line above each figure; `docs/generate_figures.py` and `docs/figure_style.py` move out of the docs source, which MkDocs copies into the site. Check: a test fails on a figure missing either tab or its state line, and on an iframe outside the allowlist; the strict docs build passes. Waits: not stated.
-
-### 11-07 The S1, S2 and S5 scans
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/fact_gate.py`, `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`, `jnwb/spectral/_psd.py`, `jnwb/visual_qc.py`, `jnwb/onset_fitting.py`, `docs/generate_figures.py` (`:308`, `:524`, `:1218` call owners, ruled 2026-10-26).
-- 11-07: S1, S2 and S5 report UNHELD: the scans in `scripts/build_fact_graph.py` flag `jnwb/spectral/_psd.py:390` and `:564` (S2) and 6 functions drawing randomness without an `rng` parameter, with 0 global seeds (S5), re-measured 2026-10-25; S1's only test covers its reference-line clause; S2's clause 1 and the S5 sites wait on Hamm's reading. The full text is in `git log -S '### 11-07' -- artifacts/todo_stack.md`. Check: each scan reports its own planted case in `tests/test_fact_gate.py`. Waits: Ruled 2026-10-20: S2 covers returned power and dB estimates (log-space fit statistics exempt by rule); S5 exempts draws traced to a caller's rng, documented fixed-seed self-checks and rng-like `random_state`, and `visual_qc`'s jitter gains `rng`.
-Accept: S1, S2 and S5 report HELD; no UNHELD fact names a 0.2.14 item.
-- S2 HELD 2026-10-25 (0bbbac49); S5 HELD 2026-10-26 (rulings of 2026-10-26: int worker seeds trace, `jnwb/` only). S1's first clause ("figures call a public operation", Q13 2026-09-29) remains: its check sits in `tests/test_figure_form.py`, and "a computation" a figure retypes has no mechanical definition yet; the scan defines it from S7's registry of owned rules (a figure that evaluates a registered signature expression instead of calling its owner).
-
-### 12-11 The S7 scan
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/fact_gate.py`, `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`, `jnwb/spectral/_psd.py` (the R² sites, `:391` and `:595` on 2026-10-25), `jnwb/onset_fitting.py` (the third R² site the ruling names, `:296`), `jnwb/statistics/_analysis.py`, `jnwb/statistics/_tests.py`, `jnwb/connectivity/_network.py`, `jnwb/laminar/_vflip2.py`, `jnwb/statistics/_firing.py`, `jnwb/jrsa/_inference.py`, `jnwb/unit_quality.py`, `jnwb/artifact_detection.py`, `jnwb/laminar_curation.py`, `jnwb/artifact_repair.py` (owner calls, bit-identical).
-- 2026-10-26: the three R² sites call `r_squared` (b3385d1c); the second FDR and Clopper-Pearson bodies already forward to their owners. Ruled 2026-10-26: a registry entry per robust-z variant; R² matched by the shape `1 - A / B` with a reviewed exemption table (`statistics/_tests.py:51`); `_vflip2.py:145` calls `r_squared`.
-- 12-11: S7 (a caller uses the library function instead of retyping its rule) has no scan that reports its own planted case. Accept (carried from 11-07 by the 2026-10-11 ruling): the S7 scan reports its own planted case in `tests/test_fact_gate.py`, and S7 reports no UNHELD fact. Check: the S7 scan reports its own planted case in `tests/test_fact_gate.py`, and S7 reports no UNHELD fact. Waits: Ruled 2026-10-20: a registry of owned rules and their signature expressions, scanned in S7's scope and in `jnwb/`; the three R² sites share one helper.
 
 ### 12-06 No process identifiers outside the stacks
 
