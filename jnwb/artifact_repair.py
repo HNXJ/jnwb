@@ -130,6 +130,19 @@ def interpolate_intervals(seg, intervals):
     return out
 
 
+def _floored_robust_z(values, centre):
+    """Robust z over the last axis: (values - centre) / (1.4826 * MAD), with the MAD floored at
+    1e-9 so a constant channel gives z = 0, not NaN."""
+    mad = np.median(np.abs(values - centre), axis=2, keepdims=True) * 1.4826
+    mad = np.where(mad < 1e-9, 1e-9, mad)
+    return (values - centre) / mad
+
+
+def _pooled_robust_z(resid, scale):
+    """Residual / (1.4826 * pooled MAD scale). The caller refuses a zero scale."""
+    return resid / (1.4826 * scale)
+
+
 def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
                       exclude_window_ms=None, reward_window_ms=None, min_trials=5,
                       max_trial_fraction=0.5):
@@ -243,9 +256,7 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
 
     # ---- per-trial, per-channel robust z over time -------------------------------------------
     med_t = np.median(segments, axis=2, keepdims=True)                       # (trials, ch, 1)
-    mad_t = np.median(np.abs(segments - med_t), axis=2, keepdims=True) * 1.4826
-    mad_t = np.where(mad_t < 1e-9, 1e-9, mad_t)
-    z = (segments - med_t) / mad_t                                          # (trials, ch, times)
+    z = _floored_robust_z(segments, med_t)                                  # (trials, ch, times)
 
     # ---- cross-channel synchrony statistic per (trial, time) ---------------------------------
     synchrony = np.median(np.abs(z), axis=1)                                # (trials, times)
@@ -356,7 +367,7 @@ def detect_band_outliers(band_trace, z_thresh=TFR_Z_THRESH, sided="upper"):
     # 1e-12 cutoff this replaces flagged nothing in power expressed at small amplitude.
     if scale <= np.finfo(float).eps * np.max(np.abs(band_trace)):
         return np.zeros(band_trace.shape, dtype=bool), 0.0
-    z = resid / (1.4826 * scale)
+    z = _pooled_robust_z(resid, scale)
     flagged = np.abs(z) > z_thresh if sided == "both" else z > z_thresh
     return flagged, float(scale)
 

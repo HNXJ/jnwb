@@ -2134,3 +2134,234 @@ def test_the_live_tree_examines_named_unit_boundaries(live):
     examined = g["entities"]["boundary_examined"]
     assert examined["edges"] > 0, "the live tree holds suffixed boundary edges to examine"
     assert g["relations"]["boundary_units"] == [], g["relations"]["boundary_units"]
+
+
+# ------------------------------------------------------------------------ owned rules
+
+R2_RETYPED = "def fit(ss_res, ss_tot):\n    return 1.0 - ss_res / ss_tot\n"
+R2_CALLED = ("from jnwb._spread import r_squared\n\n\ndef fit(ss_res, ss_tot):\n"
+             "    return r_squared(ss_res, ss_tot)\n")
+R2_OWNER = ("def r_squared(ss_res, ss_tot, *, floor=0.0):\n"
+            "    return float(1.0 - ss_res / ss_tot) if ss_tot > floor else float('nan')\n")
+CP_UPPER = ("import scipy.stats as stats\n\n\ndef clopper_pearson(k, n, alpha=0.05):\n"
+            "    return stats.beta.ppf(1.0 - alpha / 2.0, k + 1, n - k)\n")
+CP_RETYPED = ("import scipy.stats as stats\n\n\ndef lo(k, n, alpha):\n"
+              "    return stats.beta.ppf(alpha / 2.0, k, n - k + 1)\n")
+FDR_RETYPED = ("from scipy import stats\n\n\ndef q(p):\n"
+               "    return stats.false_discovery_control(p, method='bh')\n")
+FDR_OWNER = ("from scipy import stats\n\n\nclass StatisticalAnalysis:\n"
+             "    @staticmethod\n    def fdr_correct(p, method='bh'):\n"
+             "        return stats.false_discovery_control(p, method=method)\n")
+PERCENTILE_LIST = "import numpy as np\n\n\ndef ci(x):\n    return np.percentile(x, [2.5, 97.5])\n"
+PERCENTILE_PAIR = ("import numpy as np\n\n\ndef ci(x):\n"
+                   "    return np.percentile(x, 2.5), np.percentile(x, 97.5)\n")
+PERCENTILE_ONE = "import numpy as np\n\n\ndef q(x):\n    return np.percentile(x, 50)\n"
+BOOTSTRAP_OWNER = ("import numpy as np\n\n\nclass StatisticalAnalysis:\n"
+                   "    @staticmethod\n    def bootstrap_ci(x, alpha):\n"
+                   "        return np.percentile(x, alpha * 100), "
+                   "np.percentile(x, (1 - alpha) * 100)\n")
+DB_OF_AVERAGE = ("import numpy as np\n\n\ndef db(power, baseline):\n"
+                 "    return 10 * np.log10(np.mean(power / baseline))\n")
+DB_TO_DB_OF_AVERAGE = ("import jnwb\n\n\ndef db(power):\n"
+                       "    return jnwb.to_db(power.mean(axis=0))\n")
+DB_PER_TRIAL = ("import numpy as np\n\n\ndef db(power, baseline):\n"
+                "    return 10 * np.log10(power / baseline)\n")
+DB_MEAN_OF_DB = ("import numpy as np\n\n\ndef avg(power):\n"
+                 "    return np.mean(10 * np.log10(power))\n")
+MAD_MEAN_FALLBACK = ("import numpy as np\n\n\ndef robust(x):\n    c = np.median(x)\n"
+                     "    s = np.median(np.abs(x - c)) * 1.4826\n"
+                     "    if s <= 0:\n        s = np.mean(np.abs(x - c)) * 1.253314\n"
+                     "    return (x - c) / s\n")
+MAD_SD_FALLBACK = ("import numpy as np\n\n\ndef robust(x):\n    c = np.median(x)\n"
+                   "    s = np.median(np.abs(x - c)) * 1.4826\n"
+                   "    if s <= 0:\n        s = np.std(x)\n"
+                   "    return (x - c) / s\n")
+MAD_ONLY = ("import numpy as np\n\n\ndef robust(x):\n    c = np.median(x)\n"
+            "    return (x - c) / (np.median(np.abs(x - c)) * 1.4826)\n")
+FLOOR_RETYPED = ("import numpy as np\n\n\ndef robust(x, c):\n"
+                 "    s = np.median(np.abs(x - c), axis=2, keepdims=True) * 1.4826\n"
+                 "    s = np.where(s < 1e-9, 1e-9, s)\n    return (x - c) / s\n")
+FLOOR_ONLY = "import numpy as np\n\n\ndef clip(s):\n    return np.where(s < 1e-9, 1e-9, s)\n"
+POOLED_RETYPED = "def band(resid, scale):\n    return resid / (1.4826 * scale)\n"
+MODIFIED_RETYPED = ("import numpy as np\n\n\ndef mz(d):\n"
+                    "    return 0.6745 * d / np.median(d)\n")
+
+
+def rules_of(reasons):
+    """The rule each reason names, in order."""
+    return [reason.split(" evaluates ")[1].split(" (")[0] for reason in reasons]
+
+
+def test_a_retyped_r_squared_is_flagged_and_its_owner_call_is_not():
+    assert "1.0 - ss_res / ss_tot" in R2_RETYPED, "fixture must retype the R2 expression"
+    assert build_fact_graph.owned_rule_sites("jnwb/laminar/a.py", R2_RETYPED) == [
+        "line 2: fit evaluates R2 (1.0 - ss_res / ss_tot) outside its owner "
+        "jnwb/_spread.py:r_squared"]
+    assert build_fact_graph.owned_rule_sites("jnwb/laminar/a.py", R2_CALLED) == []
+
+
+def test_the_owner_body_is_not_flagged_and_a_retyping_beside_it_is():
+    assert "1.0 - ss_res / ss_tot" in R2_OWNER, "fixture must hold the owner's expression"
+    assert build_fact_graph.owned_rule_sites("jnwb/_spread.py", R2_OWNER) == []
+    beside = build_fact_graph.owned_rule_sites("jnwb/_spread.py", R2_OWNER + R2_RETYPED)
+    assert [reason.startswith("line 4: fit ") for reason in beside] == [True]
+
+
+def test_a_reviewed_exemption_holds_in_its_module_and_is_flagged_elsewhere():
+    assert "1.0 - alpha / 2.0" in CP_UPPER, "fixture must hold the exempt expression"
+    assert build_fact_graph.owned_rule_sites("jnwb/statistics/_tests.py", CP_UPPER) == []
+    elsewhere = build_fact_graph.owned_rule_sites("jnwb/other.py", CP_UPPER)
+    assert rules_of(elsewhere) == ["Clopper-Pearson", "R2"]
+
+
+def test_a_clopper_pearson_lower_quantile_outside_its_owner_is_flagged():
+    assert "beta.ppf(alpha / 2.0" in CP_RETYPED, "fixture must take the lower Beta quantile"
+    assert rules_of(build_fact_graph.owned_rule_sites("jnwb/x.py", CP_RETYPED)) == [
+        "Clopper-Pearson"]
+
+
+def test_an_fdr_correction_outside_its_owner_is_flagged_and_its_owner_is_not():
+    assert "false_discovery_control" in FDR_RETYPED, "fixture must call the scipy correction"
+    assert rules_of(build_fact_graph.owned_rule_sites("jnwb/connectivity/a.py", FDR_RETYPED)) == [
+        "FDR"]
+    assert build_fact_graph.owned_rule_sites("jnwb/statistics/_analysis.py", FDR_OWNER) == []
+
+
+@pytest.mark.parametrize("source, count", [(PERCENTILE_LIST, 1), (PERCENTILE_PAIR, 2),
+                                           (PERCENTILE_ONE, 0)])
+def test_a_percentile_interval_outside_its_owner_is_flagged(source, count):
+    reasons = build_fact_graph.owned_rule_sites("jnwb/x.py", source)
+    assert rules_of(reasons) == ["percentile bootstrap"] * count
+
+
+def test_the_bootstrap_ci_pair_is_flagged_outside_the_helper():
+    assert "np.percentile(x, (1 - alpha) * 100)" in BOOTSTRAP_OWNER, "fixture must hold the pair"
+    reasons = build_fact_graph.owned_rule_sites("jnwb/statistics/_analysis.py", BOOTSTRAP_OWNER)
+    assert rules_of(reasons) == ["percentile bootstrap"] * 2
+
+
+def test_the_percentile_owner_is_the_spread_helper():
+    owners = {rule: (path, name) for rule, path, name, _ in build_fact_graph.OWNED_RULES}
+    assert owners["percentile bootstrap"] == ("jnwb/_spread.py", "percentile_interval")
+
+
+def test_a_reviewed_percentile_exemption_holds_in_its_module_and_is_flagged_elsewhere():
+    shuffle_null = ("import numpy as np\n\n\ndef shuffle_r2_ci(null):\n"
+                    "    return {'lo': float(np.percentile(null, 2.5)),\n"
+                    "            'hi': float(np.percentile(null, 97.5))}\n")
+    assert rules_of(build_fact_graph.owned_rule_sites("jnwb/statistics/_regression.py",
+                                                      shuffle_null)) == []
+    assert rules_of(build_fact_graph.owned_rule_sites("jnwb/other.py", shuffle_null)) == [
+        "percentile bootstrap"] * 2
+
+
+@pytest.mark.parametrize("source, flagged", [
+    (DB_OF_AVERAGE, True), (DB_TO_DB_OF_AVERAGE, True),
+    (DB_PER_TRIAL, False), (DB_MEAN_OF_DB, False),
+])
+def test_a_decibel_conversion_of_an_average_is_flagged(source, flagged):
+    assert "log10" in source or "to_db" in source, "fixture must convert to dB"
+    assert rules_of(build_fact_graph.owned_rule_sites("jnwb/x.py", source)) == (
+        ["dB aggregation"] if flagged else [])
+
+
+def test_a_mad_scale_without_a_fallback_is_the_pooled_rule_and_no_fallback():
+    assert "1.4826" in MAD_ONLY, "fixture must scale by the MAD"
+    assert rules_of(build_fact_graph.owned_rule_sites("jnwb/x.py", MAD_ONLY)) == [
+        "robust z, pooled MAD scale, zero-guarded at the call site"]
+
+
+@pytest.mark.parametrize("source, def_name, rule, owner_path, owner_name", [
+    (MAD_MEAN_FALLBACK, "robust", "robust z, MAD with a mean-absolute-deviation fallback",
+     "jnwb/artifact_detection.py", "_robust_z_zero_fallback"),
+    (MAD_SD_FALLBACK, "robust", "robust z, MAD with a standard-deviation fallback",
+     "jnwb/laminar_curation.py", "_robust_z_std_fallback"),
+    (FLOOR_RETYPED, "robust", "robust z, MAD with an absolute floor of 1e-9",
+     "jnwb/artifact_repair.py", "_floored_robust_z"),
+    (POOLED_RETYPED, "band", "robust z, pooled MAD scale, zero-guarded at the call site",
+     "jnwb/artifact_repair.py", "_pooled_robust_z"),
+    (MODIFIED_RETYPED, "mz", "modified z, 0.6745 over the median deviation",
+     "jnwb/unit_quality.py", "_modified_z"),
+])
+def test_a_robust_z_rule_copied_outside_its_owner_is_flagged(source, def_name, rule,
+                                                             owner_path, owner_name):
+    assert f"def {def_name}(" in source, "fixture must define the function it copies"
+    assert rules_of(build_fact_graph.owned_rule_sites("jnwb/x.py", source)) == [rule]
+    owner_copy = source.replace(f"def {def_name}(", f"def {owner_name}(")
+    assert build_fact_graph.owned_rule_sites(owner_path, owner_copy) == []
+
+
+def test_a_floor_without_a_mad_scale_is_not_a_registered_rule():
+    assert "1e-9" in FLOOR_ONLY, "fixture must floor a value"
+    assert build_fact_graph.owned_rule_sites("jnwb/x.py", FLOOR_ONLY) == []
+
+
+def test_the_owned_rule_scan_reads_its_scope_and_not_the_tests(tmp_path):
+    retyped = "def f(a, b):\n    return 1 - a / b\n"
+    notebook = json.dumps({"cells": [{"cell_type": "markdown", "source": ["1 - a / b"]},
+                                     {"cell_type": "code", "source": ["x = 1 - a / b\n"]}]})
+    files = {"jnwb/a.py": retyped, "docs/generate_figures.py": retyped, "examples/e.py": retyped,
+             "examples/n.ipynb": notebook,
+             "skills/s/SKILL.md": "# S\n\n```python\nx = 1 - a / b\n```\n",
+             "tests/t.py": retyped}
+    for rel, text in files.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(text, encoding="utf-8")
+    examined, found = build_fact_graph.owned_rule_scans(tmp_path, sorted(files))
+    assert examined == {"units": 5, "figure_functions": 1}, examined
+    assert sorted({rel for rel, _ in found["owned_rules"]}) == [
+        "docs/generate_figures.py", "examples/e.py", "examples/n.ipynb", "jnwb/a.py",
+        "skills/s/SKILL.md"]
+    assert [rel for rel, _ in found["figure_owner_calls"]] == ["docs/generate_figures.py"]
+
+
+def test_a_unit_that_cannot_be_parsed_is_a_violation_and_not_an_examined_unit(tmp_path):
+    (tmp_path / "jnwb").mkdir()
+    (tmp_path / "jnwb" / "bad.py").write_text("def f(:\n", encoding="utf-8")
+    examined, found = build_fact_graph.owned_rule_scans(tmp_path, ["jnwb/bad.py"])
+    assert examined["units"] == 0
+    assert [rel for rel, _ in found["owned_rules"]] == ["jnwb/bad.py"]
+    assert "cannot be parsed" in found["owned_rules"][0][1]
+
+
+def test_an_owned_rule_scan_that_examines_nothing_is_a_failure():
+    g = {"entities": {"owned_rule_examined": 0}, "relations": {"owned_rules": []}}
+    assert status(g, "computed:owned_rules") == (fact_gate.VIOLATED, [
+        "computed:owned_rules: the scan examined no python unit in its scope"])
+    g = {"entities": {"figure_examined": 0}, "relations": {"figure_owner_calls": []}}
+    assert status(g, "computed:figure_owner_calls") == (fact_gate.VIOLATED, [
+        "computed:figure_owner_calls: the scan examined no figure function"])
+
+
+def test_the_owned_rule_predicates_report_a_planted_site_and_hold_without_one():
+    site = "line 3: f evaluates R2 (1 - a / b) outside its owner jnwb/_spread.py:r_squared"
+    g = {"entities": {"owned_rule_examined": 2, "figure_examined": 1},
+         "relations": {"owned_rules": [["jnwb/a.py", site]], "figure_owner_calls": []}}
+    found_status, reasons = status(g, "computed:owned_rules")
+    assert found_status == fact_gate.VIOLATED
+    assert reasons == [f"computed:owned_rules: jnwb/a.py: {site}"]
+    assert status(g, "computed:figure_owner_calls") == (fact_gate.HELD, [])
+    g["relations"]["owned_rules"] = []
+    assert status(g, "computed:owned_rules") == (fact_gate.HELD, [])
+
+
+def test_the_live_figure_functions_call_their_owners(live):
+    _, g = live
+    assert g["entities"]["figure_examined"] > 0, "the live tree holds figure functions to read"
+    assert g["entities"]["owned_rule_examined"] > 0, "the live tree holds python units to read"
+    assert status(g, "computed:figure_owner_calls") == (fact_gate.HELD, [])
+
+
+def test_the_live_robust_z_sites_are_read_through_their_owners(live):
+    _, g = live
+    named = [reason for _, reason in g["relations"]["owned_rules"]
+             if "absolute floor of 1e-9" in reason or "pooled MAD scale" in reason
+             or "0.6745" in reason]
+    assert named == [], named
+
+
+def test_the_live_percentile_intervals_are_read_through_their_owner_or_exempt(live):
+    _, g = live
+    named = [reason for _, reason in g["relations"]["owned_rules"]
+             if "percentile bootstrap" in reason]
+    assert named == [], named

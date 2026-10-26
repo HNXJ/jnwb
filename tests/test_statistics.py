@@ -4,11 +4,16 @@ arrays and boolean pairs in; no session or condition semantics.
 """
 from __future__ import annotations
 
+import inspect
+
 import numpy as np
 import pytest
 
 import pandas as pd
 
+import jnwb
+from jnwb._spread import percentile_interval
+from jnwb.jrsa._inference import _bootstrap
 from jnwb.statistics import (
     fires_in_window, fire_indicator, paired_fire_prob_test,
     rate_in_window, shuffle_pvalue_paired, shuffle_pvalue_unpaired,
@@ -1399,8 +1404,12 @@ def test_bootstrap_ci_draws_the_resamples_a_per_resample_loop_draws(statistic_fu
     rng = np.random.default_rng(5)
     res = StatisticalAnalysis.bootstrap_ci(data, statistic_func, n_bootstrap=300, rng=rng)
     alpha = (1 - 0.95) / 2                     # bootstrap_ci's own arithmetic, not 2.5
-    assert res["bootstrap_ci"] == (float(np.percentile(stats_ref, alpha * 100)),
-                                   float(np.percentile(stats_ref, (1 - alpha) * 100)))
+    # percentile_interval rounds the levels to 10 decimals, so a bound can differ from
+    # alpha * 100 by about 1e-16 relative. The draws are still checked exactly through
+    # bootstrap_std and the caller's stream below.
+    np.testing.assert_allclose(res["bootstrap_ci"],
+                               (np.percentile(stats_ref, alpha * 100),
+                                np.percentile(stats_ref, (1 - alpha) * 100)), rtol=1e-12)
     assert res["bootstrap_std"] == float(np.std(stats_ref))
     assert rng.random() == reference.random()
 
@@ -1509,4 +1518,62 @@ def test_bootstrap_ci_warns_with_the_count_it_dropped():
         res = StatisticalAnalysis.bootstrap_ci(np.append(data, [np.nan, -np.inf]),
                                                n_bootstrap=200, rng=5)
     assert res == ref
+
+
+# --- the percentile interval, owned by jnwb._spread ---------------------------------------
+
+def test_percentile_interval_at_0_95_is_the_2_5_and_97_5_percentiles():
+    x = np.random.default_rng(2).normal(size=500)
+    np.testing.assert_array_equal(percentile_interval(x, 0.95), np.percentile(x, [2.5, 97.5]))
+
+
+@pytest.mark.parametrize("alpha", [0.05, 0.025, 0.1])
+def test_percentile_interval_at_one_minus_two_alpha_is_the_alpha_pair(alpha):
+    x = np.random.default_rng(2).normal(size=500)
+    np.testing.assert_allclose(percentile_interval(x, 1 - 2 * alpha),
+                               np.percentile(x, [alpha * 100, (1 - alpha) * 100]), rtol=1e-12)
+
+
+def test_the_percentile_helper_is_not_a_public_export():
+    assert not hasattr(jnwb, "percentile_interval")
+
+
+@pytest.mark.parametrize("func", [StatisticalAnalysis.bootstrap_ci,
+                                  StatisticalAnalysis._bootstrap_mean_diff_ci,
+                                  _bootstrap, paired_fire_prob_test])
+def test_the_percentile_sites_call_the_helper(func):
+    assert "percentile_interval(" in inspect.getsource(func)
+
+
+def test_jrsa_bootstrap_interval_keeps_its_values_on_a_fixed_input():
+    rng = np.random.default_rng(3)
+    x1 = rng.normal(size=40)
+    x2 = 0.5 * x1 + rng.normal(size=40)
+    ci = _bootstrap(x1, x2, lambda a, b, axis=-1: (np.mean(a - b, axis=axis),), 300,
+                    np.random.default_rng(11))
+    np.testing.assert_allclose(ci, [-0.22439953801517257, 0.4905188601250156], rtol=1e-12)
+
+
+def test_paired_fire_prob_test_keeps_its_risk_difference_interval_on_a_fixed_input():
+    r = np.random.default_rng(21)
+    fires_target = r.random(60) < 0.4
+    fires_null = r.random(60) < 0.25
+    res = paired_fire_prob_test(fires_target, fires_null, n_shuffles=200, n_bootstrap=400, rng=5)
+    np.testing.assert_allclose([res["risk_difference_ci_lo"], res["risk_difference_ci_hi"]],
+                               [0.03291666666666669, 0.3333333333333333], rtol=1e-12)
+
+
+def test_mean_difference_interval_keeps_its_values_at_0_9_on_a_fixed_input():
+    a = np.random.default_rng(8).normal(0.3, 1.0, size=30)
+    b = np.random.default_rng(9).normal(0.0, 1.0, size=30)
+    res = StatisticalAnalysis._bootstrap_mean_diff_ci(a, b, False, 500, 0.9, 9)
+    np.testing.assert_allclose(res["bootstrap_ci"],
+                               [-0.35404071427792144, 0.5641095642614554], rtol=1e-12)
+
+
+def test_bootstrap_ci_keeps_its_interval_at_0_9_on_a_fixed_input():
+    data = np.random.default_rng(4).normal(size=50)
+    res = StatisticalAnalysis.bootstrap_ci(data, np.mean, 500, 0.9, 4)
+    np.testing.assert_allclose(res["bootstrap_ci"],
+                               [-0.3205184816062278, 0.1500022579842534], rtol=1e-12)
 

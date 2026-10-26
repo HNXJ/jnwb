@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
+from jnwb.laminar._vflip2 import _band_regress
 from jnwb.onset_fitting import fit_exponential_onset, onset_model
 from jnwb.spectral._psd import aperiodic_fit, spectral_tilt
 
@@ -62,6 +63,19 @@ def test_the_helper_is_one_minus_the_ratio_as_a_float_and_nan_without_variance()
     (fit_exponential_onset, "r_squared(ss_res, ss_tot)"),
     (spectral_tilt, "_r_squared(ss_res, ss_tot)"),
     (aperiodic_fit, "_r_squared(ss_res, ss_tot, floor=flat_tol)"),
+    (_band_regress, "r_squared(sse, tss)"),
 ])
 def test_each_site_calls_the_shared_helper(site, call):
     assert call in inspect.getsource(site), f"{site.__name__} must call the shared helper"
+
+
+def test_the_band_regression_keeps_its_r_squared_on_a_fixed_input():
+    band = np.random.default_rng(11).normal(size=40)
+    band[[5, 17]] = np.nan
+    _, r2, _ = _band_regress(band)
+    assert_allclose(r2, 0.11596152714165153, rtol=1e-12)
+
+
+def test_a_flat_band_keeps_its_minus_infinite_r_squared():
+    """A band with no variance but a residual keeps -inf; the helper would give NaN."""
+    assert _band_regress(np.full(12, 3.0))[1] == -math.inf

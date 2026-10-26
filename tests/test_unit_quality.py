@@ -7,6 +7,7 @@ compares two independent computations.
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -532,6 +533,24 @@ def test_spread_refuses_bad_geometry():
         waveform_spread(w, site_spacing_um=20.0, threshold=1.0)
     with pytest.raises(ValueError, match="site_spacing_um"):
         waveform_spread(w, site_spacing_um=float("nan"))
+
+
+def test_spread_takes_its_outlier_z_from_the_modified_z_owner():
+    assert "_modified_z(deviation) <= z_max" in inspect.getsource(waveform_spread)
+
+
+def test_waveform_spread_keeps_its_outlier_filter_on_a_fixed_input():
+    amps = np.zeros(40)
+    amps[18:23] = 1.0
+    amps[34] = 0.5
+    amps[27] = 0.4
+    wave = np.outer(amps, np.linspace(0.0, 1.0, 30))
+    wave = wave + 0.001 * np.random.default_rng(8).normal(size=wave.shape)
+    np.testing.assert_allclose(waveform_spread(wave, site_spacing_um=25.0), 75.0, rtol=1e-12)
+    np.testing.assert_allclose(waveform_spread(wave, site_spacing_um=25.0, outlier_z=1e9),
+                               100.0, rtol=1e-12)
+    np.testing.assert_allclose(waveform_spread(wave, site_spacing_um=25.0, outlier_z=0.5),
+                               50.0, rtol=1e-12)
 
 
 @pytest.mark.parametrize("call", [

@@ -4,6 +4,8 @@ synthetic self-tests, converted to pytest so they run under the standard suite.
 """
 from __future__ import annotations
 
+import inspect
+
 import numpy as np
 import pytest
 
@@ -306,3 +308,37 @@ class TestRepairDoesNotSubstituteAwayTheEvokedResponse:
         _, _, diag = repair_lfp_trials(seg, times_ms=times)
         assert diag["max_fraction_trials_flagged_at_a_sample"] > 0.5
         assert diag["max_trial_fraction"] == 0.5
+
+
+def test_the_per_trial_robust_z_is_the_floored_owner_call():
+    assert "_floored_robust_z(segments, med_t)" in inspect.getsource(repair_lfp_trials)
+
+
+def test_the_band_robust_z_is_the_pooled_owner_call():
+    assert "_pooled_robust_z(resid, scale)" in inspect.getsource(detect_band_outliers)
+
+
+def test_repair_lfp_trials_keeps_its_robust_z_on_a_fixed_input():
+    """A constant channel has a zero MAD: the 1e-9 floor keeps its z at 0, not NaN."""
+    segments = np.random.default_rng(21).normal(size=(12, 3, 200))
+    segments[2, 1, 50:60] += 40.0
+    segments[:, 2, :] = 0.0
+    times = np.arange(200) * 1.0
+    _, _, diag = repair_lfp_trials(segments, times_ms=times)
+    assert diag["n_flagged_cells"] == 0
+    np.testing.assert_allclose(diag["synchrony_z_max"], 2.9797563375532956, rtol=1e-12)
+    repaired, frac, diag = repair_lfp_trials(segments, times_ms=times, z_thresh=2.0)
+    assert diag["n_flagged_cells"] == 10
+    np.testing.assert_allclose(frac, 0.004166666666666667, rtol=1e-12)
+    np.testing.assert_allclose(repaired.sum(), 377.38092678317275, rtol=1e-12)
+    np.testing.assert_allclose(np.abs(repaired).max(), 41.63158249260414, rtol=1e-12)
+
+
+def test_detect_band_outliers_keeps_its_pooled_scale_on_a_fixed_input():
+    band = np.random.default_rng(5).normal(size=(10, 60))
+    band[3, 20:24] += 9.0
+    flagged, scale = detect_band_outliers(band)
+    assert int(flagged.sum()) == 4
+    np.testing.assert_allclose(scale, 0.5836889404957837, rtol=1e-12)
+    flat, flat_scale = detect_band_outliers(np.full((6, 9), 2.5))
+    assert not flat.any() and flat_scale == 0.0

@@ -1,0 +1,1 @@
+- [results change] `jnwb/statistics/_analysis.py`: bootstrap interval bounds move up to 3e-16 relative (deterministic).

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from .._parallel import parallel_map
+from .._spread import percentile_interval
 from ..permutation import _count_at_least_as_extreme, _p_from_count
 
 
@@ -248,7 +249,7 @@ def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=1, **kwargs):
 
     boot_vals = parallel_map(_run_single_boot, seeds, n_jobs=n_jobs)
     boot_arr = np.asarray(boot_vals)
-    ci = np.percentile(boot_arr, [2.5, 97.5])
+    ci = percentile_interval(boot_arr, 0.95)
     return ci
 
 

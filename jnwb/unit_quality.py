@@ -293,6 +293,11 @@ def repolarization_slope(waveform, fs: float, *,
     return float(np.dot(tc, y - y.mean()) / np.dot(tc, tc))
 
 
+def _modified_z(deviation):
+    """Modified z-score of each deviation: 0.6745 times the deviation over their median."""
+    return 0.6745 * deviation / np.median(deviation)
+
+
 def waveform_spread(waveform, *, site_spacing_um: float, threshold: float = 0.12,
                     site_range: int = 16, site_step: int = 2,
                     outlier_z: float = 1.5) -> float:
@@ -369,7 +374,7 @@ def waveform_spread(waveform, *, site_spacing_um: float, threshold: float = 0.12
     carrying = np.flatnonzero(site_amplitudes > thr * site_amplitudes.max())
     if carrying.size > 1:
         deviation = np.abs(carrying - np.median(carrying))
-        carrying = carrying[0.6745 * deviation / np.median(deviation) <= z_max]
+        carrying = carrying[_modified_z(deviation) <= z_max]
     return float(carrying.size * spacing)
 
 

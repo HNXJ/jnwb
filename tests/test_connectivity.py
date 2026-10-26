@@ -1864,3 +1864,30 @@ def test_the_trial_permutation_draws_the_nine_derangements_of_four_uniformly(mon
     keys = sorted(counts)
     _, p_value = stats.chisquare([counts[k] for k in keys], np.full(9, 10000 / 9))
     assert p_value > 0.01, f"chi-square p = {p_value} over {dict(counts)}"
+
+
+def test_directed_network_corrects_its_family_through_the_fdr_owner(monkeypatch):
+    from jnwb.statistics._analysis import StatisticalAnalysis
+
+    calls = []
+    original = StatisticalAnalysis.fdr_correct
+
+    def spy(p_values, method="bh"):
+        calls.append(np.asarray(p_values).size)
+        return original(p_values, method=method)
+
+    monkeypatch.setattr(StatisticalAnalysis, "fdr_correct", staticmethod(spy))
+    signals = np.random.default_rng(4).normal(size=(3, 800))
+    directed_network(signals, method="granger", order=2, fdr=True)
+    assert calls == [6], f"the six off-diagonal p-values go through the owner, got {calls}"
+
+
+def test_directed_network_keeps_its_q_values_on_a_fixed_input():
+    signals = np.random.default_rng(4).normal(size=(3, 800))
+    q = directed_network(signals, method="granger", order=2, fdr=True)["q_matrix"]
+    off = ~np.eye(3, dtype=bool)
+    np.testing.assert_allclose(
+        q[off],
+        [0.9662791037032177, 0.5622007263736049, 0.35949900918963834,
+         0.9662791037032177, 0.5622007263736049, 0.9662791037032177],
+        rtol=1e-12)

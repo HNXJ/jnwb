@@ -6,7 +6,7 @@ import warnings
 from typing import Dict, Optional, Sequence, Tuple, Union
 import numpy as np
 from .._rng import DEFAULT_SEED, RNGLike, surrogate_rng
-from .._spread import is_constant as _is_constant
+from .._spread import is_constant as _is_constant, percentile_interval
 from scipy import stats
 from ..permutation import _count_at_least_as_extreme, _p_from_count
 from ._tests import clopper_pearson, mann_whitney_p_floor, exact_sign_flip, _tie_tolerance, _zero_spread_t
@@ -179,8 +179,7 @@ class StatisticalAnalysis:
                 stats_boot[i] = np.mean(sa) - np.mean(sb)
             observed = float(np.mean(a) - np.mean(b))
 
-        alpha = (1.0 - ci) / 2.0
-        lo, hi = np.percentile(stats_boot, [alpha * 100, (1 - alpha) * 100])
+        lo, hi = percentile_interval(stats_boot, ci)
         return {
             "observed_mean_diff": observed,
             "bootstrap_ci": (float(lo), float(hi)),
@@ -585,11 +584,7 @@ class StatisticalAnalysis:
             else:
                 blocks.append(np.array([statistic_func(r) for r in resamples]))
         bootstrap_stats = np.concatenate(blocks) if blocks else np.array([])
-        alpha = (1 - ci) / 2
-        bootstrap_ci = (
-            np.percentile(bootstrap_stats, alpha * 100),
-            np.percentile(bootstrap_stats, (1 - alpha) * 100),
-        )
+        bootstrap_ci = tuple(percentile_interval(bootstrap_stats, ci))
 
         return {
             "statistic": float(statistic_func(data)),

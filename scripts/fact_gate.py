@@ -92,6 +92,13 @@ Computed predicates:
   boundary_units  no call in ``jnwb/`` passes a bare name whose suffix (a unit or base suffix)
                    differs from the callee parameter's suffix, by keyword or position (the
                    graph's ``boundary_units``); an examined count of zero is a failure
+  owned_rules      no registered signature expression (``OWNED_RULES`` of the fact graph
+                   builder) sits outside its owner in the docs generators, the examples, the
+                   skills' python fences and ``jnwb/``, unless a reviewed exemption matches (the
+                   graph's ``owned_rules``); an examined count of zero is a failure
+  figure_owner_calls  the same sites in the docs figure generators and the plotting modules: a
+                   figure function evaluates one instead of calling its owner (the graph's
+                   ``figure_owner_calls``); an examined count of zero is a failure
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -376,6 +383,21 @@ def routed_citations(graph: Graph, constants: Constants) -> List[str]:
             for head in uncited if head not in excluded]
 
 
+def owned_rules(graph: Graph, constants: Constants) -> List[str]:
+    """No registered signature expression sits outside its owner (the graph's ``owned_rules``)."""
+    if not graph["entities"].get("owned_rule_examined"):
+        return ["the scan examined no python unit in its scope"]
+    return [f"{rel}: {reason}" for rel, reason in graph["relations"]["owned_rules"]]
+
+
+def figure_owner_calls(graph: Graph, constants: Constants) -> List[str]:
+    """No figure function evaluates a registered signature expression instead of calling its
+    owner (the graph's ``figure_owner_calls``)."""
+    if not graph["entities"].get("figure_examined"):
+        return ["the scan examined no figure function"]
+    return [f"{rel}: {reason}" for rel, reason in graph["relations"]["figure_owner_calls"]]
+
+
 COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "lifecycle": lifecycle,
     "routes": routes,
@@ -395,6 +417,8 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "signature_types": signature_types,
     "claim_class_labels": claim_class_labels,
     "boundary_units": boundary_units,
+    "owned_rules": owned_rules,
+    "figure_owner_calls": figure_owner_calls,
 }
 
 

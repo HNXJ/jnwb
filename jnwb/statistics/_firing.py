@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Dict, Tuple
 import numpy as np
 from .._rng import RNGLike, surrogate_rng
+from .._spread import percentile_interval
 from ..permutation import _count_at_least_as_extreme
 from ._tests import _tie_tolerance
 
@@ -137,7 +138,7 @@ def paired_fire_prob_test(
 
     boot_idx = rng.integers(0, n, size=(n_bootstrap, n))
     boot_diffs = diff[boot_idx].mean(axis=1)
-    ci_lo, ci_hi = np.percentile(boot_diffs, [2.5, 97.5])
+    ci_lo, ci_hi = percentile_interval(boot_diffs, 0.95)
 
     n10 = float(np.sum((ta == 1) & (ua == 0)))
     n01 = float(np.sum((ta == 0) & (ua == 1)))
