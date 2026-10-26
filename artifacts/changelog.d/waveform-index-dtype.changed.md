@@ -1,0 +1,1 @@
+- `repair_nwb`'s `waveform_index_dtype` skips a uint8 index that already carries its VectorIndex type (`nwb_write.py`).

@@ -1342,6 +1342,14 @@ def _plan_vector_index_types(handle: h5py.File) -> list[tuple[str, str]]:
     return plans
 
 
+def _is_typed_index(obj: h5py.Dataset) -> bool:
+    """The index already carries what the repair writes: its VectorIndex type, a target and a
+    description. ``verify_nwb`` resolves the target reference of every written file."""
+    target_ref = obj.attrs.get("target")
+    return (_stored_ndt(obj) == "VectorIndex" and "description" in obj.attrs
+            and target_ref is not None and not _is_null(target_ref))
+
+
 def _plan_waveform_index_dtype(handle: h5py.File) -> list[str]:
     """``waveform_mean_index`` datasets whose values are integral 0-255 bytes.
 
@@ -1354,7 +1362,7 @@ def _plan_waveform_index_dtype(handle: h5py.File) -> list[str]:
     def visit(name: str, obj) -> None:
         if not (isinstance(obj, h5py.Dataset) and name.split("/")[-1] == "waveform_mean_index"):
             return
-        if obj.dtype.kind == "uint8":
+        if obj.dtype == np.uint8 and _is_typed_index(obj):
             return
         values = np.asarray(obj[...])
         if values.dtype.kind == "f":
@@ -1376,8 +1384,8 @@ def _plan_waveform_index_dtype(handle: h5py.File) -> list[str]:
     handle.visititems(visit)
     if not plans:
         raise UnidentifiableRepairError(
-            "repair_nwb: waveform_index_dtype changes nothing; no floating "
-            "waveform_mean_index needs the uint8 cast; nothing written")
+            "repair_nwb: waveform_index_dtype changes nothing; every "
+            "waveform_mean_index is already a typed uint8 index; nothing written")
     return plans
 
 

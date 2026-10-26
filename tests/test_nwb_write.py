@@ -837,6 +837,37 @@ def test_repair_waveform_index_dtype_round_trip(tmp_path):
         assert f[index.attrs["target"]].name == f["units/waveform_mean"].name
 
 
+def test_a_typed_uint8_waveform_index_is_not_planned(tmp_path):
+    """A uint8 index that already carries its type, target and description needs no repair."""
+    src = tmp_path / "src.nwb"
+    _make_nwb_with_waveform(src)
+    with h5py.File(src, "r+") as f:
+        index = f["units"].create_dataset("waveform_mean_index", data=np.array([2], dtype="u1"))
+        index.attrs["description"] = "Index for VectorData 'waveform_mean'"
+        index.attrs["neurodata_type"] = "VectorIndex"
+        index.attrs["target"] = f["units/waveform_mean"].ref
+    with pytest.raises(jnwb.UnidentifiableRepairError, match="changes nothing"):
+        repair_nwb(src, dst=tmp_path / "fixed.nwb", repairs=["waveform_index_dtype"])
+
+
+def test_an_untyped_uint8_waveform_index_still_gets_its_attributes(tmp_path):
+    src = tmp_path / "src.nwb"
+    dst = tmp_path / "fixed.nwb"
+    _make_nwb_with_waveform(src)
+    with h5py.File(src, "r+") as f:
+        f["units"].create_dataset("waveform_mean_index", data=np.array([2], dtype="u1"))
+    with h5py.File(src, "r") as f:
+        assert f["units/waveform_mean_index"].dtype == np.dtype("uint8"), "fixture is uint8"
+        assert "neurodata_type" not in f["units/waveform_mean_index"].attrs, "fixture is untyped"
+    rep = repair_nwb(src, dst=dst, repairs=["waveform_index_dtype"])
+    assert rep.ok, [c for c in rep.checks if not c.ok]
+    with h5py.File(dst, "r") as f:
+        index = f["units/waveform_mean_index"]
+        assert _attr_str(index.attrs["neurodata_type"]) == "VectorIndex"
+        assert _attr_str(index.attrs["description"]) == "Index for VectorData 'waveform_mean'"
+        assert f[index.attrs["target"]].name == f["units/waveform_mean"].name
+
+
 def test_repair_contradiction_is_reported_never_rewritten(tmp_path):
     src = tmp_path / "src.nwb"
     dst = tmp_path / "fixed.nwb"
