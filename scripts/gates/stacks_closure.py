@@ -15,14 +15,14 @@ from scripts.gates.stacks_form import (
 
 #: Unescaped `|` delimits a GFM table cell. `\|` is content wherever it appears, including
 #: inside a code span: GFM splits a row into cells *before* it parses inline code, which is
-#: why P-29 and P-81 shipped rows whose backticked pipes silently became extra columns.
+#: why earlier rows shipped whose backticked pipes silently became extra columns.
 _ESCAPED_PIPE = re.compile(r"\\\|")
 
 
 #: Files that are *derived*, with what invalidates each and what regenerates it. This is the
-#: generation closure P-173 asked for, written down: a lane's write set can be complete,
+#: generation closure that was asked for, written down: a lane's write set can be complete,
 #: correct and disjoint and still invalidate a file outside it, so disjointness alone is not
-#: sufficient for concurrency. 06-47 added a parameter to `probe_geometry`'s signature and
+#: sufficient for concurrency. One change added a parameter to `probe_geometry`'s signature and
 #: `docs/api.md` went stale the moment it landed, because no lane edits that page by hand and
 #: so it was in no lane's write set. The integrated suite went 25 failed, 18 of them
 #: `test_every_gate_runs.py` cascading from one real gate-9 failure -- 25 masks on one defect,
@@ -32,7 +32,7 @@ _ESCAPED_PIPE = re.compile(r"\\\|")
 #: measured rather than assumed: 7 of 52 live items name a path under `jnwb/` and none names
 #: `docs/api.md`, so requiring them all to name it would make those 7 mutually exclusive with
 #: one another and declare a maximum parallelism of one across every item that touches the
-#: package. That is exactly the defect P-108 recorded for bare directories, in a new spelling.
+#: package. That is exactly the defect recorded for bare directories, in a new spelling.
 #:
 #: `tracked` distinguishes a file that must be committed in step from one generated per tree
 #: and deliberately gitignored -- `artifacts/state.md` is the latter, so its absence in a
@@ -70,7 +70,7 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
     their `Writes` sets are provably disjoint, so a `Writes:` field naming a bare directory
     answers no question a scheduler asks. Measured at `5257e430`: 37 of 60 items named one and
     31 named the same directory, which declared a maximum parallelism of one across more than
-    half the work (P-108). A glob passes, because `docs/*.md` conflicts honestly with
+    half the work. A glob passes, because `docs/*.md` conflicts honestly with
     `docs/api.md` while `docs/` conflicts with everything and says nothing.
 
     **Every table row carries its own table's column count.** Each table in the open stack is
@@ -110,8 +110,8 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
                 "the field, so the item is offered as dispatchable. Record the block in the "
                 "field, or reword the sentence if the block is discharged."
             )
-        # Printed whether or not anything was flagged. A suppression nobody reads is how the
-        # narrowing in P-125 turned a false positive into a blind spot -- one of the two cases
+        # Printed whether or not anything was flagged. A suppression nobody reads is how a
+        # narrowing turned a false positive into a blind spot -- one of the two cases
         # silenced there was real. These go to stdout rather than into `violations`: they are
         # not defects, and a reader has to be able to check that each narrowing was right.
         for lineno, item_id, sentence, why in suppressed:

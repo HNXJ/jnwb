@@ -514,7 +514,7 @@ def _wholesale_conversions(root: Path) -> List[str]:
     """Files whose line-ending convention differs from the bytes committed at HEAD.
 
     **Gate 16 fails a file that MIXES the two conventions; it cannot see a file whose
-    convention was CONVERTED wholesale, which is the failure that actually happens** (P-159).
+    convention was CONVERTED wholesale, which is the failure that actually happens**.
     The dispatcher inserted a 13-line notice into `artifacts/evidence/0.2.6/compress_fp32_policy.md` with
     `pathlib.Path.write_text`, which opens with `newline=None` and translates `\\n` to
     `os.linesep` on Windows. The file was pure LF, 206 lines, 0 CRLF; afterwards it was 0 LF
@@ -523,9 +523,9 @@ def _wholesale_conversions(root: Path) -> List[str]:
 
     `.gitattributes` states the invariant correctly -- the tree is `-text`, so the committed
     bytes are the convention. The mixed-file rule is a *proxy* for it, and the two are not the
-    same: the gap is exactly where the conversion lives. That is P-37's shape, and P-159
-    records it as the seventh measured instance this cycle of a check that passes for the
-    wrong reason.
+    same: the gap is exactly where the conversion lives. That is the shape of an earlier defect,
+    and this is the seventh measured instance this cycle of a check that passes for the wrong
+    reason.
 
     So this compares against the committed bytes rather than against the file itself. It is a
     working-tree check by nature, which is also when the accident is recoverable: once the
@@ -583,14 +583,14 @@ def _wholesale_conversions(root: Path) -> List[str]:
 def check_line_ending_consistency(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 16 (Line Ending Consistency): no tracked text file mixes CRLF and bare LF.
 
-    P-124. Nothing declared a convention and eight tracked files carried both at once. This is
+    Nothing declared a convention and eight tracked files carried both at once. This is
     not cosmetic: a byte-mode edit anchored with the wrong ending matches nothing and reads
     exactly like "the text is not there", and `git apply` refuses a patch whose context lines
     disagree -- five `git apply --check` runs failed in one release before the cause was found.
 
     The gate deliberately holds each file only against *itself*. Whether `skills/` should stay
-    CRLF while every other directory is LF is a cross-directory policy question that P-124
-    records the measurement for and does not answer; a mixed file is a defect under either
+    CRLF while every other directory is LF is a cross-directory policy question that the measurement
+    records and does not answer; a mixed file is a defect under either
     answer. `.gitattributes` marks the tree `-text` so a clone reproduces the committed bytes
     on every platform rather than leaving it to each contributor's `core.autocrlf`.
     """

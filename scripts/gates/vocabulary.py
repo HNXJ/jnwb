@@ -90,7 +90,7 @@ def check_no_project_identifiers_in_code(repo_root: Optional[Path] = None) -> Li
 #: been gating a common word to catch one sentence, which is the 06-02 failure mode. That
 #: sentence now reads "any change that trims, retitles or reformats documentation", and `grep`
 #: across `docs/` finds **zero** remaining occurrences of the word in any form, so the bare term
-#: is gated and its live zero is a true negative rather than a gap (P-98). The use that would
+#: is gated and its live zero is a true negative rather than a gap. The use that would
 #: legitimately reintroduce it is a networking one -- a streaming page describing packets on the
 #: wire -- and that is the case to revisit this entry for, not a reason to leave it ungated now.
 INTERNAL_PROCESS_TERMS: Tuple[str, ...] = (
@@ -150,7 +150,7 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
     practical*, and that qualifier is load-bearing -- the rule it replaced gated the word "agent"
     and was broken by four published pages the day it was written.
 
-    Scope is `docs/**/*.md`, which is the surface 06-02 and 06-68 both name. A generated or
+    Scope is `docs/**/*.md`, which is the surface 06-02 and one other entry name. A generated or
     included page is scanned like any other, and its fix goes to the generator.
 
     `README.md` is scanned as well: it is the PyPI description, the most public page there is.
@@ -522,9 +522,27 @@ def _rel(path: Path, root: Path) -> str:
         return path.as_posix()
 
 
+#: Files whose process identifiers are data the code reads, or planted identifiers that a probe
+#: seeds on purpose. Each entry is (repository-relative path, reason). An entry exempts the whole
+#: file, so an identifier cited later in one of them goes unseen; keep the list to data files.
+PROCESS_ID_DATA_FILES: Tuple[Tuple[str, str], ...] = (
+    (
+        "scripts/mutation_harness.py",
+        "the recorded gap `name` is data: tests/test_mutation_harness_validity.py splits it at "
+        "' | ' and asserts the identifier",
+    ),
+    (
+        "tests/test_harness_adversarial_gates.py",
+        "its probes plant identifiers in temporary trees to show that the gate catches them",
+    ),
+)
+
+
 def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) -> List[str]:
     """Part of gate 14: no item or problem identifier in `jnwb/**/*.py`, `docs/**/*.md`,
-    `README.md`, or any file a page includes through pymdownx.snippets.
+    `README.md`, `scripts/**/*.py`, the text files under `tests/`, or any file a page includes
+    through pymdownx.snippets. The files `PROCESS_ID_DATA_FILES` names, and this module, which
+    holds the pattern and the examples that document it, are not scanned.
 
     The head rule of `AGENTS.md` keeps internal process terminology out of the library surface,
     comments and docstrings included, and out of the published pages. Identifiers were the form
@@ -535,7 +553,8 @@ def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) ->
     An included file is published as part of the page that includes it, so it is scanned too.
     The tutorial pages are almost entirely `--8<--` includes of `examples/tutorials/*.py`, and a
     scan of `docs/` alone saw none of that text. Includes resolve against the `base_path` that
-    `mkdocs.yml` gives the extension.
+    `mkdocs.yml` gives the extension. A binary file under `tests/` (one with a NUL byte) has no
+    text to cite an identifier in, and is skipped.
     """
     root = repo_root or REPO_ROOT
     modules = sorted(
@@ -552,10 +571,23 @@ def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) ->
     readme = root / "README.md"
     scan_pages = pages + ([readme] if readme.is_file() else [])
     included, violations = _included_sources(root, scan_pages)
-    targets = [(path, "") for path in modules + scan_pages]
+    # The gate's own module holds the pattern and the examples that document it.
+    own = Path(__file__).resolve()
+    scripts = sorted(
+        py for py in (root / "scripts").rglob("*.py")
+        if "__pycache__" not in py.parts and py.resolve() != own
+    )
+    tests = sorted(
+        path for path in (root / "tests").rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts and b"\0" not in path.read_bytes()
+    )
+    exempt = {path for path, _reason in PROCESS_ID_DATA_FILES}
+    targets = [(path, "") for path in modules + scan_pages + scripts + tests]
     targets += [(path, f" (published by {_rel(page, root)})") for path, page in included]
     for path, via in targets:
         rel = _rel(path, root)
+        if rel in exempt:
+            continue
         for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             for found in PROCESS_IDENTIFIER.finditer(line):
                 if _is_month_day(found.group(0)):

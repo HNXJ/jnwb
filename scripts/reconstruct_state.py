@@ -15,8 +15,8 @@ disappears rather than lingering.
 `--check` is what `AGENTS.md` section 3 Prepare runs before reading the file, and what
 `tests/test_state_basis_is_checked.py` runs on every suite run. Harness gate 20 makes the same
 comparison through `recorded_head` whenever the file is present; it never regenerates, because
-this script runs the harness, and the prose this script emits must say exactly that much: P-65
-is what happened when it claimed more. Staleness is HEAD having moved since the file was
+this script runs the harness, and the prose this script emits must say exactly that much: an
+earlier version that claimed more was a defect. Staleness is HEAD having moved since the file was
 written, so that is all it compares: a full-text comparison would fail on every uncommitted
 edit, and a check that fails all day is one people stop running. It runs no probes and no gate.
 
@@ -266,7 +266,7 @@ def build() -> str:
 
     todo_path = REPO_ROOT / "artifacts" / "todo_stack.md"
     todo_items = (
-        # `\d\d-\d+`: ids passed three digits at 06-100 and the two-digit form matched none of
+        # `\d\d-\d+`: ids passed three digits, and the two-digit form matched none of
         # them, undercounting 57 items as 46. See the same repair in release_gate.py.
         len(re.findall(r"^### \d\d-\d+ ", todo_path.read_text(encoding="utf-8"), re.MULTILINE))
         if todo_path.exists()

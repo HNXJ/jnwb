@@ -13,7 +13,7 @@ answer* rather than an error:
 * **A write-restore harness left live mutants**, because the restore was verified once at the
   end of the run instead of after each mutant. Every restore is verified by sha256, per mutant,
   in a ``finally``.
-* **Two lanes overwrote each other's harness state** in a shared session scratchpad (P-134). A
+* **Two lanes overwrote each other's harness state** in a shared session scratchpad. A
   worktree isolates the repository, not the scratchpad. State lives under a path derived from
   the worktree being operated on, a path outside that worktree is never written or restored,
   and one worktree admits one session at a time under an OS-level lock.
@@ -23,7 +23,7 @@ answer* rather than an error:
   that merely went red is a :class:`ConditionFailed`, not a kill -- and a node that ``ERROR``\\ ed
   is not an observation either, because the test body never ran.
 
-* **A mutant that breaks nothing, left live for three days** (P-174). ``test_no_broken_links``
+* **A mutant that breaks nothing, left live for three days.** ``test_no_broken_links``
   ran with ``if False and`` wired into its own check and passed vacuously through four green
   suite runs. The suite could not catch it: *a mutant that suppresses a check cannot be caught
   by the check it suppresses.* Neither could the journal, which predates the mutant and answers
@@ -40,11 +40,11 @@ load-bearing.
 
 A case may also declare itself an **expected survivor** (:attr:`MutationCase.expected_survivor`).
 A ``Verdict`` with ``killed=False`` was otherwise only ever a failure, so a *measured* coverage
-gap had nowhere to live but a lane report, and a measured hole becomes a forgotten one (P-172).
+gap had nowhere to live but a lane report, and a measured hole becomes a forgotten one.
 An expected survivor inverts the assertion: the gap is asserted to still be a gap, and the run
 fails when the mutant starts being killed and nobody updated the record.
 
-Recipe for running a mutation oracle over ``jnwb/`` (P-305):
+Recipe for running a mutation oracle over ``jnwb/``:
 
 * ``tests/test_semantic_mutation_classes.py`` compares each target's bytes in a clone of ``HEAD``
   against the checkout and fails on any uncommitted byte change to a target. A selector that
@@ -127,7 +127,7 @@ class ConditionFailed(MutationHarnessError):
 
 
 class OutsideWorktree(MutationHarnessError):
-    """A path the session was asked to touch does not live under its worktree (P-134)."""
+    """A path the session was asked to touch does not live under its worktree."""
 
 
 class HarnessBusy(MutationHarnessError):
@@ -142,7 +142,7 @@ class JournalUnreadable(MutationHarnessError):
     """The journal file exists but cannot be read as a list of entries.
 
     Distinct from "there is no journal", and from "the journal lists nothing outstanding". All
-    three used to be spelled ``[]`` (P-174), so a corrupted journal read as a clean bill of
+    three used to be spelled ``[]``, so a corrupted journal read as a clean bill of
     health -- the one answer it must never give.
     """
 
@@ -321,7 +321,7 @@ def default_state_root() -> Path:
 
 
 def state_dir_for(worktree: Path, state_root: Path | None = None) -> Path:
-    """The state directory for one worktree, derived from that worktree (P-134).
+    """The state directory for one worktree, derived from that worktree.
 
     Two worktrees must never share a directory: a backup written by one lane and restored by
     another is how a mutant reaches a commit. The resolved path is hashed as well as named, so
@@ -354,7 +354,7 @@ def ensure_inside_worktree(path: Path, worktree: Path) -> Path:
         resolved.relative_to(root)
     except ValueError:
         raise OutsideWorktree(
-            f"{resolved} is outside the worktree {root} this session owns. P-134: a restore "
+            f"{resolved} is outside the worktree {root} this session owns. A restore "
             "driven by another lane's state writes into another lane's tree."
         ) from None
     return resolved
@@ -460,7 +460,7 @@ class MutationCase:
     semantic_property: str
     #: True when this mutant is *known* not to be caught and the gap is on the record. The run
     #: then fails if the mutant is killed, which is the only way a measured hole stops being a
-    #: narrated one (P-172).
+    #: narrated one.
     expected_survivor: bool = False
     #: Why the gap is tolerated, and where it is recorded. Required with ``expected_survivor``,
     #: refused without it: a reason attached to a case nobody expects to survive is a note that
@@ -587,7 +587,7 @@ JOURNAL_STATUSES: tuple[str, ...] = (JOURNAL_PRESENT, JOURNAL_ABSENT, JOURNAL_UN
 
 @dataclass(frozen=True)
 class JournalState:
-    """What the journal says, and whether it is in a position to say anything (P-174).
+    """What the journal says, and whether it is in a position to say anything.
 
     The defect this replaces: ``_read_journal`` answered ``[]`` for a missing file, an
     unparseable file, and a file recording nothing outstanding. "No mutant is open" and "I have
@@ -634,7 +634,7 @@ class TreeStatement:
     """What the worktree looked like at session entry, and what the caller said to expect.
 
     A run that cannot say which tree it ran against is not evidence about a tree. This is the
-    second half of the P-174 repair: the journal says what *this* harness opened, and this says
+    second half of the repair: the journal says what *this* harness opened, and this says
     what is actually modified, so a mutant left by something else -- an older harness, a killed
     editor, a hand edit -- is named rather than inherited.
     """
@@ -1004,7 +1004,7 @@ class MutationSession:
     # -- journal ---------------------------------------------------------------------------
 
     def read_journal(self) -> JournalState:
-        """What the journal is able to say -- which may be nothing, and says so (P-174).
+        """What the journal is able to say -- which may be nothing, and says so.
 
         Three answers, never one. An absent journal is *unknown*, not empty: the 0.2.5 harness
         predates this file and journals nothing, so "all four journals read ``[]``" was true and
@@ -1029,7 +1029,7 @@ class MutationSession:
         if state.status == JOURNAL_UNREADABLE:
             raise JournalUnreadable(
                 f"{self.journal} exists and cannot be read ({state.detail}). It may record a live "
-                "mutant. Treating it as empty is the P-174 defect: restore the tree from version "
+                "mutant. Treating it as empty is the old defect: restore the tree from version "
                 "control and delete the journal deliberately."
             )
         return list(state.entries)
@@ -1085,7 +1085,7 @@ class MutationSession:
     # -- the tree this run ran against -------------------------------------------------------
 
     def state_tree(self) -> TreeStatement:
-        """Say which tree the run is about, and refuse an undeclared modification (P-174).
+        """Say which tree the run is about, and refuse an undeclared modification.
 
         The journal can only speak for mutations *this* harness opened. A mutant left by a
         different harness, an interrupted editor or a hand edit is outside its knowledge, and the
@@ -1275,7 +1275,7 @@ def load_cases(path: Path) -> list[MutationCase]:
 #: Coverage gaps that were **measured**, not guessed, and are on the record rather than in prose.
 #:
 #: Each is a real mutation of library source that the test *named for the property* does not
-#: catch. Declaring them here is what P-172 asks for: the gap is asserted to still be a gap, so
+#: catch. Declaring them here is required: the gap is asserted to still be a gap, so
 #: closing one without updating the record fails the run as an ``UNEXPECTED-KILL`` instead of
 #: leaving a note that quietly stops being true.
 #:
@@ -1312,7 +1312,7 @@ def known_gaps(repo: Path) -> tuple[MutationCase, ...]:
         ),
         expected_survivor=True,
         survivor_reason=(
-            "P-171. The test compares narrow/wide, a *ratio* of two means, and Welch's scaling "
+            "The test compares narrow/wide, a *ratio* of two means, and Welch's scaling "
             "enters both sides as the same constant factor -- so it detects the bandwidth error "
             "and not the scaling error. It was named for density-versus-power; it is now named "
             "for the bandwidth property it checks. The mutation class itself is covered: "

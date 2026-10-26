@@ -1,6 +1,6 @@
-"""P-15: measure how much of AGENTS.md duplicates truth that lives somewhere else.
+"""Measure how much of AGENTS.md duplicates truth that lives somewhere else.
 
-P-15 says AGENTS.md is 360+ lines against a contract requiring a thin router, and that the
+The finding says AGENTS.md is 360+ lines against a contract requiring a thin router, and that the
 duplication "has not been measured, so the size is not yet evidence of a defect". Size is a proxy
 for duplication; duplication is the invariant. This measures the invariant.
 
@@ -23,7 +23,7 @@ import unicodedata
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
 
-#: Derived, never literal. This read `C:\workspace\jnwb` until 06-64 showed what that costs: the
+#: Derived, never literal. This read `C:\workspace\jnwb` until a check showed what that costs: the
 #: script measured that one tree no matter which tree invoked it, so the ratchet in
 #: `tests/test_agents_md_stays_a_router.py` stayed green with the AGENTS.md under test deleted.
 #: A machine-local path in a script the suite shells out to makes the check a property of a laptop.

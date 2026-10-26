@@ -412,7 +412,7 @@ def release_metadata(root: Optional[pathlib.Path] = None) -> ReleaseMetadata:
 
     Every field is read, never written down here. A second copy of the supported-Python
     window in this file would be the defect the body check exists to catch, one surface
-    further in: P-126 records four places in this repository asserting a stale gate count
+    further in: a record lists four places in this repository asserting a stale gate count
     right now, each of them a replica that drifted because nothing derived it.
 
     The floor comes from ``requires-python`` and the ceiling from the highest versioned
@@ -766,7 +766,7 @@ def select_run_for_commit(sha: str, stdout: str) -> Tuple[Optional[dict], Option
     The SHA comparison is the whole point. ``gh run list --commit`` is asked for the right
     run, and the answer is checked anyway: a gate that trusts the query and reports on the
     branch's latest run would pass while a *different* commit was being tagged, which is this
-    repository's dominant defect shape (P-37) rather than a hypothetical one.
+    repository's dominant defect shape rather than a hypothetical one.
     """
     try:
         payload = json.loads(stdout)
@@ -807,7 +807,7 @@ class JobVerdict(NamedTuple):
     ``failures`` are statements about the commit; ``unresolved`` are statements about the
     measurement. Deciding between them by sniffing for a substring in the rendered message
     would make the verdict depend on the wording of its own error string -- a proxy for the
-    thing, and the class of defect P-37 enumerates.
+    thing, and the class of defect a recorded finding enumerates.
     """
 
     legs: List[Tuple[str, str, str]]
@@ -2124,7 +2124,7 @@ def main() -> None:
         log.info("=== STEP 8: Executing tutorials against the installed wheel ===")
         tutorials = sorted((REPO_ROOT / "examples" / "tutorials").glob("[0-9][0-9]_*.py"))
         if not tutorials:
-            log.error("No numbered tutorials found; 0.2.4-03 cannot be verified.")
+            log.error("No numbered tutorials found; the tutorial step cannot be verified.")
             sys.exit(1)
         # As CI does: the extras the tutorials draw are installed only now, after STEP 7 has
         # checked the wheel without them (tutorial 10 needs `vis` and `wavemap`).

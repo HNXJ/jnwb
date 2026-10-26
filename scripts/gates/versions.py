@@ -159,7 +159,7 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
                     f">={PYTHON_FLOOR} floor"
                 )
             # And against the surfaces themselves, with no constant in between. Comparing only to
-            # PYTHON_FLOOR let 06-64 move requires-python, PYTHON_FLOOR and the order of
+            # PYTHON_FLOOR let one change move requires-python, PYTHON_FLOOR and the order of
             # PYTHON_SUPPORTED together and pass 13 gates and 241 tests while pip would refuse to
             # install on a version whose classifier the package still advertises. An editor can
             # change a constant; it cannot make the lowest classifier stop being the lowest.
@@ -230,7 +230,7 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
     if workflow_path.exists():
         wf_text = workflow_path.read_text(encoding="utf-8")
         # By path, not by first match. `re.search` took whichever `python-version:` list came
-        # first in the file, so 06-64 put a decoy job above `jobs.test` and passed gate 8 with the
+        # first in the file, so a decoy job above `jobs.test` passed gate 8 with the
         # real matrix saying something else. "The first matrix in the file" was the proxy; "the
         # matrix the test job runs" is the invariant, and only a parse reaches it.
         tested = _test_job_matrix(wf_text)

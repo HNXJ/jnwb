@@ -1327,6 +1327,29 @@ class TestGate14ProcessIdentifiersInLibrary:
     def test_dates_versions_and_ranges_pass(self, tmp_path: Path, line: str):
         assert check_no_process_identifiers_in_library(self._library(tmp_path, line)) == []
 
+    def test_a_seeded_identifier_in_a_test_file_fails(self, tmp_path: Path):
+        root = self._library(tmp_path, "Plain summary.")
+        assert check_no_process_identifiers_in_library(root) == [], "the control tree must be clean"
+        (root / "tests").mkdir()
+        (root / "tests" / "test_planted.py").write_text('LABEL = "P-12"\n', encoding="utf-8")
+        violations = check_no_process_identifiers_in_library(root)
+        assert len(violations) == 1 and "tests/test_planted.py:1" in violations[0], violations
+
+    def test_a_seeded_identifier_in_a_script_fails(self, tmp_path: Path):
+        root = self._library(tmp_path, "Plain summary.")
+        (root / "scripts").mkdir()
+        (root / "scripts" / "planted.py").write_text('LABEL = "P-12"\n', encoding="utf-8")
+        violations = check_no_process_identifiers_in_library(root)
+        assert len(violations) == 1 and "scripts/planted.py:1" in violations[0], violations
+
+    def test_every_exempt_file_exists(self):
+        """An exemption that names a moved file exempts nothing, and nothing reports it."""
+        from scripts.gates.vocabulary import PROCESS_ID_DATA_FILES
+
+        for path, reason in PROCESS_ID_DATA_FILES:
+            assert (REPO_ROOT / path).is_file(), path
+            assert reason.strip(), path
+
     def test_the_pristine_library_passes(self):
         assert check_no_process_identifiers_in_library(REPO_ROOT) == []
 
@@ -1354,7 +1377,7 @@ class TestGate14ProcessIdentifiersInLibrary:
         run = dict((n, r) for n, r, _ in harness_gate.GATES)[14]
         failures = run()
         assert [header for header, _ in failures] == [
-            "FAIL: Item or problem identifiers found in jnwb/ or docs/:"
+            "FAIL: Item or problem identifiers found in jnwb/, docs/, scripts/ or tests/:"
         ], failures
 
     @pytest.mark.parametrize("line", ["Fixed under 06-55.", "The anchors were missing (P-12)."])

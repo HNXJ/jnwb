@@ -15,7 +15,7 @@ GENERATED_REFERENCE = "api.md"
 def check_public_symbols_documented(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 5 (API Completeness): every public export is written about by a person.
 
-    05-41: this searched every ``docs/*.md``, and ``docs/api.md`` is generated from
+    This searched every ``docs/*.md``, and ``docs/api.md`` is generated from
     ``jnwb.__all__``. The gate therefore asserted that every export appears in a file
     guaranteed to contain every export. It passed while twelve symbols -- seven error
     classes, the two NWB resolvers, ``EventTable`` and ``DETECTION_TAILS`` -- appeared on

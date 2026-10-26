@@ -9,19 +9,19 @@ rather than an error:
   ``artifacts/goal.md``, ``artifacts/problem_stack.md`` and ``artifacts/agents/jnwb-developer.md``
   do not exist, cited line numbers point at unrelated code, and the todo items are absent.
   Nothing errors. Every lane so far detected it independently, which is luck: a packet that
-  trusted its baseline would have measured the 0.1.8 tree and reported against it (P-28, P-153).
+  trusted its baseline would have measured the 0.1.8 tree and reported against it.
 
 * **A packet that quotes a distance is stale the moment the dispatcher commits again.** One
   packet stated 213 against a baseline two commits later than the figure was measured from, and
   the lane measured 216. Only the baseline *commit* is stable, so a distance is refused here
-  rather than accepted and compared (P-153).
+  rather than accepted and compared.
 
 * **A fan-out can land in the main tree.** Wave 2's six lanes were dispatched without
   requesting isolation and all six operated directly on the main checkout -- six writers and
   several readers in one tree, the exact failure the one-writable-agent rule exists to prevent.
   No damage occurred, and the reason is worth recording: the packets' own invariants held where
   the provisioning did not. Three lanes had not yet written, one caught the intrusion and began
-  investigating it, and one stopped of its own accord (P-144).
+  investigating it, and one stopped of its own accord.
 
 Usage::
 

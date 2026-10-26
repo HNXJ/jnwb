@@ -287,7 +287,8 @@ def _internal_vocabulary_checks() -> List[Tuple[str, List[str]]]:
     library_violations = check_no_process_identifiers_in_library()
     if library_violations:
         found.append(
-            ("FAIL: Item or problem identifiers found in jnwb/ or docs/:", library_violations))
+            ("FAIL: Item or problem identifiers found in jnwb/, docs/, scripts/ or tests/:",
+             library_violations))
     changelog_violations = check_changelog_form()
     if changelog_violations:
         found.append(
@@ -460,8 +461,8 @@ def run_full_preflight() -> bool:
     # The report is a function and the loop is wrapped, because `not_run` used to be unreachable:
     # both the success and the `except` path appended to `executed`, so the only way to skip a
     # gate was an escaping BaseException -- which also skipped the reporting that would have said
-    # so. A NOT RUN line nothing can produce is not a safeguard, it is a comment. 06-64 deleted
-    # the whole block and the suite stayed green.
+    # so. A NOT RUN line nothing can produce is not a safeguard, it is a comment. An earlier
+    # change deleted the whole block and the suite stayed green.
     try:
         for number, run, pass_line in GATES:
             try:
