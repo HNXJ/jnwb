@@ -24,13 +24,15 @@ protected paths to skill-tree uniqueness without the list noticing.
       CHANGELOG held to its entry template, and item or problem identifiers out of jnwb/,
       docs/ and the files its pages include.
   15. Stack form consistency: declared write sets are comparable, and table rows, the open
-      stack's included, keep their header's shape.
+      stack's included, keep their header's shape; defect-class counts match their instances,
+      and each date a file cites has a dated record.
   16. Line ending consistency: no tracked text file carries both conventions at once.
   17. Stack pointers resolve: Skill, Role and Blocked by name something on this tree.
   18. API member types: each docs/api.md Type cell, and each signature's parameter kinds, are
       true of the runtime object.
   19. Frozen functions: each registered body still hashes to its independently verified value.
-  20. State file head: a present artifacts/state.md records the live HEAD; an absent one passes.
+  20. State file: a present artifacts/state.md records the live HEAD and carries its generated
+      worktree, branch and open-defect rows; an absent one passes.
   21. Computational contract: execution switches select, precision requests are honoured, and
       every export has a recorded computational order.
   22. Fact predicates: no typed fact is VIOLATED on the generated fact graph; the source read
@@ -213,6 +215,12 @@ from scripts.gates.state import (
     check_fact_predicates,
 )
 
+from scripts.learning_gate import (
+    awareness_violations,
+    citation_violations,
+    ledger_violations,
+)
+
 
 def _one(check: Any, header: str) -> Any:
     """Adapt a check returning violations into the (header, violations) shape the runner wants."""
@@ -262,6 +270,32 @@ def _internal_vocabulary_checks() -> List[Tuple[str, List[str]]]:
     if changelog_violations:
         found.append(
             ("FAIL: CHANGELOG.md does not hold the entry template:", changelog_violations))
+    return found
+
+
+def _stack_and_record_checks() -> List[Tuple[str, List[str]]]:
+    """Adapter, not a gate: the stack's form and the process records under one PASS line."""
+    found: List[Tuple[str, List[str]]] = []
+    stack_violations = check_stack_form_consistency()
+    if stack_violations:
+        found.append(("FAIL: Coordination stack form is not machine-readable:", stack_violations))
+    record_violations = ledger_violations() + citation_violations()
+    if record_violations:
+        found.append(("FAIL: A process record disagrees with its own count or its citations:",
+                      record_violations))
+    return found
+
+
+def _state_file_checks() -> List[Tuple[str, List[str]]]:
+    """Adapter, not a gate: the state file's recorded HEAD and its generated rows, one PASS line."""
+    found: List[Tuple[str, List[str]]] = []
+    head_violations = check_state_file_head()
+    if head_violations:
+        found.append(("FAIL: artifacts/state.md does not record the live HEAD:", head_violations))
+    row_violations = awareness_violations()
+    if row_violations:
+        found.append(("FAIL: artifacts/state.md does not carry its generated rows:",
+                      row_violations))
     return found
 
 
@@ -324,14 +358,14 @@ GATES: List[Tuple[int, Any, Any]] = [
              "includes, and CHANGELOG.md holds the entry template: six kinds, one line of at most "
              f"{CHANGELOG_ENTRY_LIMIT} characters naming its file, a seed kind on [results change], "
              f"{CHANGELOG_RELEASES_KEPT} releases, and no process phrase."),
-    (15, _one(check_stack_form_consistency,
-              "FAIL: Coordination stack form is not machine-readable:"),
+    (15, _stack_and_record_checks,
      lambda: "PASS: Stack form consistent (every declared write set names comparable paths and "
              "is not truncated by a stray full stop; no 'Blocked by: none' is contradicted by "
              "its own item's text; every summary count agrees with the items it names; "
              "no summary states an item total the stack does not hold; "
              "every table row in the open stack carries its own table's column count; "
-             "every GENERATED_FROM entry resolves against the tree)."),
+             "every GENERATED_FROM entry resolves against the tree); every defect-class count "
+             "matches its instances, and every date a file cites has a dated record."),
     (16, _one(check_line_ending_consistency,
               "FAIL: Tracked files carry both line-ending conventions:"),
      lambda: "PASS: Line endings consistent (no tracked text file mixes CRLF and bare LF)."),
@@ -348,9 +382,10 @@ GATES: List[Tuple[int, Any, Any]] = [
               "FAIL: A frozen-validated function no longer matches its verified body:"),
      lambda: "PASS: Every frozen-validated function matches its verified body and names a "
              "killing test that exists."),
-    (20, _one(check_state_file_head, "FAIL: artifacts/state.md does not record the live HEAD:"),
-     lambda: "PASS: artifacts/state.md is absent or records the live HEAD (read only; the "
-             "generator runs this harness, so this gate never regenerates the file)."),
+    (20, _state_file_checks,
+     lambda: "PASS: artifacts/state.md is absent or records the live HEAD and carries its "
+             "generated worktree, branch and open-defect rows (read only; the generator runs "
+             "this harness, so this gate never regenerates the file)."),
     (21, _one(check_computational_contract,
               "FAIL: The computational contract is broken:"),
      lambda: "PASS: Computational contract holds (every device, backend and n_jobs argument "
