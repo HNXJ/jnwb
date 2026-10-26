@@ -179,6 +179,8 @@ def test_a_browser_step_pins_playwright_runs_the_route_test_and_must_not_skip_be
     step = steps[hits[0]]
     assert 'playwright==1.62.0' in step["run"], "Playwright must be pinned to 1.62.0"
     assert "python -m playwright install --with-deps chromium" in step["run"]
+    # pyproject's addopts passes --dist, which pytest rejects (exit 4) without pytest-xdist.
+    assert "pytest-xdist" in step["run"], "the step must install pytest-xdist for --dist"
     assert (step.get("env") or {}).get("JNWB_REQUIRE_BROWSER") == "1", (
         "the step must refuse to skip when Chromium cannot launch")
     assert hits[0] < _publish_index(steps), "the browser step must run before publish"

@@ -54,7 +54,7 @@ jobs:
         env:
           JNWB_REQUIRE_BROWSER: "1"
         run: |
-          python -m pip install "playwright==1.62.0" pytest
+          python -m pip install "playwright==1.62.0" pytest "pytest-xdist>=3.0"
           python -m playwright install --with-deps chromium
           python -m pytest tests/test_dashboard_page.py::test_every_route_renders_in_light_and_dark_without_errors -q -p no:cacheprovider
 
