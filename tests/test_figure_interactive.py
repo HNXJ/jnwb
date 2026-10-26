@@ -87,6 +87,26 @@ def test_an_axvspan_band_converts_as_a_shape_with_its_height_in_axes_fractions()
     assert (band.x0, band.x1, band.y0, band.y1) == (0.5, 1.5, 0.0, 1.0)
 
 
+def test_a_band_drawn_as_a_rectangular_polygon_converts_as_a_shape():
+    """Matplotlib before 3.9 returns axvspan's band as a Polygon of its five corners."""
+    from matplotlib.patches import Polygon
+
+    fig, ax = plt.subplots()
+    ax.plot([0.0, 1.0, 2.0], [0.0, 1.0, 0.0])
+    corners = [(0.5, 0.0), (0.5, 1.0), (1.5, 1.0), (1.5, 0.0), (0.5, 0.0)]
+    ax.add_patch(Polygon(corners, transform=ax.get_xaxis_transform(), color="#cfb87c"))
+    triangle = Polygon([(0.0, 0.0), (1.0, 1.0), (2.0, 0.0)], color="#cfb87c")
+    result = interactive.convert(fig)
+    ax.add_patch(triangle)
+    refused = interactive.convert(fig)
+    plt.close("all")
+    assert result.reasons == [], result.reasons
+    (band,) = result.figure.layout.shapes
+    assert (band.xref, band.yref) == ("x", "y domain"), (band.xref, band.yref)
+    assert (band.x0, band.x1, band.y0, band.y1) == (0.5, 1.5, 0.0, 1.0)
+    assert refused.reasons == ["panel 1: patch Polygon"], refused.reasons
+
+
 def test_an_annotation_with_an_arrow_is_named():
     fig, ax = plt.subplots()
     ax.annotate("peak", xy=(1.0, 1.0), xytext=(0.2, 0.8), arrowprops=dict(arrowstyle="->"))

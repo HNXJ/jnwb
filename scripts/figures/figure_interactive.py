@@ -14,7 +14,7 @@ import copy
 import json
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import plotly.graph_objects as go
@@ -23,7 +23,7 @@ from matplotlib.collections import LineCollection, PathCollection, PolyCollectio
 from matplotlib.colors import to_rgba
 from matplotlib.contour import QuadContourSet
 from matplotlib.image import AxesImage
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Polygon, Rectangle
 
 from jnwb.vis.theme import get_publication_layout_template
 
@@ -211,9 +211,22 @@ def _same_axis(transform, reference, axis: int) -> bool:
                             reference.transform(probes)[:, axis], atol=1e-6))
 
 
+def _corners(patch) -> Tuple[float, float, float, float]:
+    """`(x0, x1, y0, y1)` of a Rectangle, or of a Polygon whose corners make an axis-aligned
+    rectangle, as axvspan returns before Matplotlib 3.9."""
+    if isinstance(patch, Rectangle):
+        x0, y0 = patch.get_xy()
+        return x0, x0 + patch.get_width(), y0, y0 + patch.get_height()
+    if isinstance(patch, Polygon):
+        xy = np.asarray(patch.get_xy(), dtype=float)
+        xs, ys = np.unique(xy[:, 0]), np.unique(xy[:, 1])
+        if len(xy) in (4, 5) and len(xs) == 2 and len(ys) == 2 and len({tuple(p) for p in xy}) == 4:
+            return xs[0], xs[1], ys[0], ys[1]
+    raise Unconvertible(f"patch {type(patch).__name__}")
+
+
 def _rectangle(ax, patch, xa: str, ya: str) -> Dict[str, Any]:
-    if not isinstance(patch, Rectangle):
-        raise Unconvertible(f"patch {type(patch).__name__}")
+    x0, x1, y0, y1 = _corners(patch)
     transform = patch.get_data_transform()
     if transform is ax.transData:
         xref, yref = xa, ya
@@ -225,10 +238,9 @@ def _rectangle(ax, patch, xa: str, ya: str) -> Dict[str, Any]:
             raise Unconvertible("patch in axes coordinates")
         xref = xa if x_data else f"{xa} domain"
         yref = ya if y_data else f"{ya} domain"
-    x0, y0 = patch.get_xy()
     face = to_rgba(patch.get_facecolor())[3] * (patch.get_alpha() if patch.get_alpha() is not None else 1.0)
-    return dict(type="rect", xref=xref, yref=yref, x0=float(x0), x1=float(x0 + patch.get_width()),
-                y0=float(y0), y1=float(y0 + patch.get_height()), layer="below",
+    return dict(type="rect", xref=xref, yref=yref, x0=float(x0), x1=float(x1),
+                y0=float(y0), y1=float(y1), layer="below",
                 fillcolor=_css(patch.get_facecolor(), face),
                 line=dict(width=float(patch.get_linewidth()) * PX_PER_PT,
                           color=_css(patch.get_edgecolor())))
