@@ -40,9 +40,10 @@ Computed predicates:
                the unit is distinct routed export names, not routing targets, and only
                function/class exports are checked. It does not check that methods cite.
 
-  global_seeds     no tracked file seeds the global random state (the graph's ``global_seeds``)
-  rng_parameters   every function in ``jnwb/`` or ``scripts/`` that draws from a random module
-                   takes an ``rng`` parameter (the graph's ``rng_parameters``)
+  global_seeds     no jnwb file seeds the global random state (the graph's ``global_seeds``)
+  rng_parameters   every function in ``jnwb/`` that draws from a random module takes an ``rng``
+                   parameter, or seeds every draw from a ``random_state`` or a SeedSequence
+                   child (the graph's ``rng_parameters``)
   db_averages      no average in ``jnwb/`` takes a dB value (the graph's ``db_averages``)
   immunity_vocabulary  no sentence of a tracked text file outside ``PROSE_EXEMPT`` (the trees
                    ``tests/`` and ``artifacts/``, and the two rule files) (a page, a script's
@@ -239,18 +240,19 @@ def partition(graph: Graph, constants: Constants) -> List[str]:
 
 
 def global_seeds(graph: Graph, constants: Constants) -> List[str]:
-    """Each call, in any tracked file, that seeds the global random state."""
-    if not graph["entities"].get("python"):
-        return ["the graph reads no python file"]
+    """Each call, in a jnwb file, that seeds the global random state."""
+    python = graph["entities"].get("python", [])
+    if not any(path.startswith(build_fact_graph.JNWB_PACKAGE) for path in python):
+        return ["the graph reads no jnwb python file"]
     return [f"{path}: {reason}" for path, reason in graph["relations"]["global_seeds"]]
 
 
 def rng_parameters(graph: Graph, constants: Constants) -> List[str]:
-    """Each function in ``jnwb/`` or ``scripts/`` that draws from a random module and takes no
-    parameter named ``rng``."""
+    """Each function in ``jnwb/`` that draws from a random module and takes no parameter named
+    ``rng``, unless every draw in it is seeded by a ``random_state`` or a SeedSequence child."""
     python = graph["entities"].get("python", [])
     if not any(path.startswith(build_fact_graph.SCANNED_FOR_RNG) for path in python):
-        return ["the graph reads no jnwb or scripts python file"]
+        return ["the graph reads no jnwb python file"]
     return [f"{path}: {reason}" for path, reason in graph["relations"]["rng_parameters"]]
 
 

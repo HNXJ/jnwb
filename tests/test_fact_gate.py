@@ -543,7 +543,7 @@ def test_a_global_seed_anywhere_in_the_tree_is_violated_and_an_unread_tree_is_no
         "VIOLATED", ["computed:global_seeds: tests/t.py: line 2: np.random.seed"])
     assert status(scanned(), "computed:global_seeds") == ("HELD", [])
     assert status(scanned(python=()), "computed:global_seeds") == (
-        "VIOLATED", ["computed:global_seeds: the graph reads no python file"])
+        "VIOLATED", ["computed:global_seeds: the graph reads no jnwb python file"])
 
 
 def test_a_consumer_without_an_rng_parameter_is_violated():
@@ -554,13 +554,41 @@ def test_a_consumer_without_an_rng_parameter_is_violated():
     assert build_fact_graph.rng_violations(NAMED_RNG) == []
 
 
-def test_the_rng_rule_is_read_from_the_jnwb_and_scripts_files():
-    violated = [["scripts/s.py", "line 3: f draws without an rng parameter"]]
+def test_the_rng_rule_is_read_from_the_jnwb_files():
+    violated = [["jnwb/a.py", "line 3: f draws without an rng parameter"]]
     assert status(scanned(rng_parameters=violated), "computed:rng_parameters") == (
-        "VIOLATED", ["computed:rng_parameters: scripts/s.py: line 3: f draws without an rng parameter"])
+        "VIOLATED", ["computed:rng_parameters: jnwb/a.py: line 3: f draws without an rng parameter"])
     assert status(scanned(), "computed:rng_parameters") == ("HELD", [])
     assert status(scanned(python=("docs/x.py",)), "computed:rng_parameters") == (
-        "VIOLATED", ["computed:rng_parameters: the graph reads no jnwb or scripts python file"])
+        "VIOLATED", ["computed:rng_parameters: the graph reads no jnwb python file"])
+
+
+def test_the_rng_and_seed_scans_read_jnwb_and_not_scripts_or_tests(tmp_path):
+    body = "import numpy as np\n\ndef f(x):\n    return np.random.default_rng(0).normal(size=x)\n"
+    files = {"jnwb/a.py": body, "jnwb/b.py": "import numpy as np\n\nnp.random.seed(3)\n",
+             "scripts/s.py": body, "tests/t.py": "import numpy as np\n\nnp.random.seed(2)\n"}
+    for rel, text in files.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(text, encoding="utf-8")
+    found = build_fact_graph._source_scans(tmp_path, sorted(files), LIVE_CONSTANTS)
+    assert found["rng_parameters"] == [["jnwb/a.py", "line 3: f draws without an rng parameter"]]
+    assert found["global_seeds"] == [["jnwb/b.py", "line 3: np.random.seed"]]
+
+
+SEED_SEQUENCE_WORKER = ("import numpy as np\n\ndef f(rng):\n    def _one(seed: np.random.SeedSequence):\n"
+                        "        return np.random.default_rng(seed).normal()\n    return _one\n")
+RANDOM_STATE_DRAW = ("import numpy as np\n\nclass E:\n    def fit(self, x):\n"
+                     "        return np.random.default_rng(self.random_state).normal(size=x)\n")
+
+
+def test_a_worker_seeded_by_a_seed_sequence_child_is_held():
+    assert "seed: np.random.SeedSequence" in SEED_SEQUENCE_WORKER, "fixture must seed from a child"
+    assert build_fact_graph.rng_violations(SEED_SEQUENCE_WORKER) == []
+
+
+def test_a_draw_seeded_by_a_random_state_is_held():
+    assert "self.random_state" in RANDOM_STATE_DRAW, "fixture must draw from random_state"
+    assert build_fact_graph.rng_violations(RANDOM_STATE_DRAW) == []
 
 
 @pytest.mark.parametrize("source, expected", [

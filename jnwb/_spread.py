@@ -82,3 +82,11 @@ def zero_detrend_residue(residue: Any, original: Any, axis: int, *, xp: Any = np
                                                        keepdims=True)
         within = xp.max(xp.abs(residue), axis=axis, keepdims=True) <= bound
     return xp.where(within, residue * 0, residue)
+
+
+def r_squared(ss_res: Any, ss_tot: Any, *, floor: float = 0.0) -> float:
+    """The coefficient of determination, ``1 - ss_res / ss_tot``, as a float.
+
+    NaN where ``ss_tot`` does not exceed ``floor``: the data hold no variance to explain.
+    """
+    return float(1.0 - ss_res / ss_tot) if ss_tot > floor else float("nan")

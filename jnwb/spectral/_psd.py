@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from scipy import optimize, signal
 from .._dictlike import DictAccessMixin
-from .._spread import is_constant as _is_constant
+from .._spread import is_constant as _is_constant, r_squared as _r_squared
 from .._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._common import (
     _require_band_bins,
@@ -388,7 +388,7 @@ def spectral_tilt(
     fitted = np.polyval(coeffs, log_freqs)
     ss_res = np.sum((log_power - fitted) ** 2)
     ss_tot = np.sum((log_power - np.mean(log_power)) ** 2)
-    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else float('nan')
+    r_squared = _r_squared(ss_res, ss_tot)
     result['fit_quality'] = float(r_squared)
 
     return result
@@ -592,7 +592,7 @@ def aperiodic_fit(
         # A total at or below len * eps * max(1, max|log_power|)**2 is round-off over round-off:
         # a flat spectrum has no variance to explain, so r2 is NaN there.
         flat_tol = log_power.size * np.finfo(float).eps * max(1.0, float(np.max(np.abs(log_power)))) ** 2
-        r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > flat_tol else float("nan")
+        r2 = _r_squared(ss_res, ss_tot, floor=flat_tol)
         return b, chi, k, r2, fitted
 
     def _fit_single_1d(p_1d: np.ndarray) -> AperiodicFitResult:

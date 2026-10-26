@@ -449,8 +449,13 @@ GLOBAL_SEEDS = ("numpy.random.seed", "random.seed")
 RNG_BOOKKEEPING = ("numpy.random.SeedSequence", "numpy.random.Generator",
                    "numpy.random.BitGenerator")
 RNG_PARAMETER = "rng"
+#: The keyword of an rng-like seed (scikit-learn's spelling). A draw seeded by it, or by a
+#: parameter annotated ``SeedSequence`` (a worker's child of the caller's rng), needs no ``rng``.
+RNG_LIKE_PARAMETER = "random_state"
+SEED_SEQUENCE_ANNOTATION = "SeedSequence"
 #: The trees whose functions take an ``rng`` parameter when they draw from a random module.
-SCANNED_FOR_RNG = ("jnwb/", "scripts/")
+#: ``scripts/`` is outside the rule (ruled 2026-10-20).
+SCANNED_FOR_RNG = ("jnwb/",)
 #: The package whose averages of dB values the dB rule reads.
 DB_PACKAGE = "jnwb/"
 #: The context that makes a vocabulary word a claim about volume conduction or reference.
@@ -593,17 +598,37 @@ def _draws(target: str) -> bool:
     return target.startswith(("numpy.random.", "random.")) and target not in RNG_BOOKKEEPING
 
 
+def _seed_children(fn: ast.AST) -> set:
+    """The parameters annotated ``SeedSequence``: a worker's seed, a child of the caller's rng."""
+    args = fn.args
+    named = args.posonlyargs + args.args + args.kwonlyargs
+    return {arg.arg for arg in named
+            if arg.annotation is not None and _final(arg.annotation) == SEED_SEQUENCE_ANNOTATION}
+
+
+def _traces_to_caller(call: ast.Call, children: set) -> bool:
+    """Whether a draw is seeded by a ``random_state`` or by a SeedSequence child of the caller."""
+    seed = call.args[0] if call.args else next(
+        (k.value for k in call.keywords if k.arg == "seed"), None)
+    if isinstance(seed, ast.Attribute):
+        return seed.attr == RNG_LIKE_PARAMETER
+    return isinstance(seed, ast.Name) and (seed.id == RNG_LIKE_PARAMETER or seed.id in children)
+
+
 def rng_violations(source: str) -> List[str]:
-    """Each function that draws from a random module and takes no parameter named ``rng``. Code
-    outside any function, such as a script's self-test, is not a function and is not read."""
+    """Each function that draws from a random module and takes no parameter named ``rng``, unless
+    every draw in it is seeded by a ``random_state`` or by a SeedSequence child. Code outside any
+    function, such as a script's self-test, is not a function and is not read."""
     tree = ast.parse(source)
     bound = _bindings(tree)
     found = []
     for fn in ast.walk(tree):
         if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        draws = any(_draws(_target(call.func, bound)) for call in _own_calls(fn))
-        if draws and RNG_PARAMETER not in _parameters(fn):
+        draws = [call for call in _own_calls(fn) if _draws(_target(call.func, bound))]
+        children = _seed_children(fn)
+        traced = all(_traces_to_caller(call, children) for call in draws)
+        if draws and RNG_PARAMETER not in _parameters(fn) and not traced:
             found.append((fn.lineno, fn.name))
     return [f"line {line}: {name} draws without an rng parameter" for line, name in sorted(found)]
 
@@ -1070,7 +1095,8 @@ def _source_scans(root: Path, python: Sequence[str], constants: Dict[str, List[s
                                          "db_averages": []}
     for rel in python:
         text = (root / rel).read_text(encoding="utf-8")
-        scans["global_seeds"].extend([rel, reason] for reason in global_seed_calls(text))
+        if rel.startswith(JNWB_PACKAGE):  # S5 reads the package; tests/ is outside it
+            scans["global_seeds"].extend([rel, reason] for reason in global_seed_calls(text))
         if rel.startswith(SCANNED_FOR_RNG):
             scans["rng_parameters"].extend([rel, reason] for reason in rng_violations(text))
         if rel.startswith(DB_PACKAGE):

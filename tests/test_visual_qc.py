@@ -1,3 +1,5 @@
+import inspect
+
 import matplotlib
 matplotlib.use("Agg")  # headless test environment, no display needed
 
@@ -6,6 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import pytest
 
+from jnwb._rng import DEFAULT_SEED
 from jnwb.visual_qc import (
     plot_unit_waveforms,
     plot_unit_quality_distribution,
@@ -219,6 +222,30 @@ def test_plot_unit_quality_distribution_session_filter_reduces_data():
     fr_title = fig.axes[0].get_title()
     assert "n=10" in fr_title
     plt.close(fig)
+
+
+def test_plot_unit_quality_distribution_takes_a_keyword_rng_that_defaults_to_the_seed():
+    param = inspect.signature(plot_unit_quality_distribution).parameters["rng"]
+    assert param.kind is inspect.Parameter.KEYWORD_ONLY
+    assert param.default == DEFAULT_SEED
+
+
+def _area_jitter(fig):
+    """The x positions of every point in the quality-by-area panel, in draw order."""
+    return np.concatenate([c.get_offsets()[:, 0] for c in fig.axes[4].collections])
+
+
+def test_the_by_area_jitter_follows_rng_and_the_default_is_the_seed():
+    units = _units_df(n=30)
+    default = plot_unit_quality_distribution(units)
+    seeded = plot_unit_quality_distribution(units, rng=DEFAULT_SEED)
+    other = plot_unit_quality_distribution(units, rng=7)
+    base, same, moved = _area_jitter(default), _area_jitter(seeded), _area_jitter(other)
+    assert base.size == 30, "fixture must plot every unit in the quality-by-area panel"
+    assert np.array_equal(base, same), "the default must draw the seed's positions"
+    assert not np.array_equal(base, moved), "two seeds must move the jitter"
+    for fig in (default, seeded, other):
+        plt.close(fig)
 
 
 def _stability_bars(stable):
