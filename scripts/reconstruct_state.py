@@ -77,19 +77,32 @@ def run(*cmd: str, timeout: float | None = None) -> str:
 
 def package_facts() -> dict[str, str]:
     """Import the checkout and read its own metadata, never a copy in site-packages."""
+    # A lazy export whose optional extra is absent raises ImportError on access; it resolves
+    # once the extra is installed, so only an AttributeError counts as unresolved.
     probe = (
-        "import pathlib, sys, jnwb;"
-        "root = pathlib.Path(r'" + str(REPO_ROOT) + "');"
-        "assert root in pathlib.Path(jnwb.__file__).resolve().parents, jnwb.__file__;"
-        "print(jnwb.__version__);"
-        "print(len(jnwb.__all__));"
-        "print(len(set(jnwb.__all__)));"
-        "print(sum(1 for n in jnwb.__all__ if not hasattr(jnwb, n)))"
+        "import pathlib, sys, jnwb\n"
+        "root = pathlib.Path(r'" + str(REPO_ROOT) + "')\n"
+        "assert root in pathlib.Path(jnwb.__file__).resolve().parents, jnwb.__file__\n"
+        "def unresolved(name):\n"
+        "    try:\n"
+        "        getattr(jnwb, name)\n"
+        "    except AttributeError:\n"
+        "        return True\n"
+        "    except ImportError:\n"
+        "        return False\n"
+        "    return False\n"
+        "print(jnwb.__version__)\n"
+        "print(len(jnwb.__all__))\n"
+        "print(len(set(jnwb.__all__)))\n"
+        "print(sum(1 for n in jnwb.__all__ if unresolved(n)))\n"
     )
     out = run(sys.executable, "-c", probe)
-    if out.startswith("UNRESOLVED"):
-        return {k: out for k in ("version", "exports", "unique", "unresolved")}
-    version, exports, unique, unresolved = out.splitlines()[:4]
+    lines = out.splitlines()
+    if out.startswith("UNRESOLVED") or len(lines) < 4:
+        reason = out if out.startswith("UNRESOLVED") else (
+            f"UNRESOLVED (the package probe printed {len(lines)} of 4 lines)")
+        return {k: reason for k in ("version", "exports", "unique", "unresolved")}
+    version, exports, unique, unresolved = lines[:4]
     return {
         "version": version,
         "exports": exports,

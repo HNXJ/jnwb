@@ -56,6 +56,18 @@ def generated() -> str:
     return build()
 
 
+def test_package_facts_survive_an_absent_optional_extra(tmp_path, monkeypatch):
+    """A lazy export whose extra is not installed raises ImportError on access, as on the build
+    job, which installs neither `vis` nor `wavemap`; the probe counts it as no unresolved name."""
+    from scripts import reconstruct_state
+
+    (tmp_path / "plotly.py").write_text('raise ImportError("plotly absent")\n', encoding="utf-8")
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path))
+    facts = reconstruct_state.package_facts()
+    assert not facts["version"].startswith("UNRESOLVED"), facts
+    assert facts["unresolved"] == "0", facts
+
+
 @pytest.mark.requires_git_checkout
 def test_the_state_file_is_not_committed():
     """Committing mutable truth makes it record the commit before its own.
