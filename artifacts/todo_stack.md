@@ -294,7 +294,7 @@ Writes: `jnwb/artifact_repair.py`, `tests/test_artifact_repair.py`, `artifacts/c
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/analyzers.py`, its tests.
-- 17-25: `UnitAnalyzer.psth` returns bin centres in s while `raster_psth` returns ms (`analyzers.py:363`). Check: both return the same unit, named in the returned key or docstring; a test compares their bin centres on one input. Source: O-16.
+- 17-25: `UnitAnalyzer.psth` returns bin centres in s while `raster_psth` returns ms (`analyzers.py:363`); ruled 2026-10-25: seconds, so `raster_psth` changes, announced in the changelog. Check: both return seconds, named in the returned key or docstring; a test compares their bin centres on one input. Source: O-16.
 
 ### 17-42 `extract_band` refuses an empty `band_defs`
 
