@@ -499,6 +499,10 @@ DB_AVERAGE_BY_NAME = ("import numpy as np\n\ndef f(p):\n    db = 10 * np.log10(p
 DB_SUM_OVER_COUNT = "import numpy as np\n\ndef f(p):\n    return np.sum(10 * np.log10(p)) / p.size\n"
 DB_MEDIAN = "import numpy as np\n\ndef f(p):\n    return np.median(10 * np.log10(p))\n"
 RAW_AVERAGE_THEN_LOG = "import numpy as np\n\ndef f(p):\n    m = np.mean(p)\n    return 10 * np.log10(m)\n"
+DB_CENTRED_SQUARES = ("import numpy as np\n\ndef f(p):\n    x = 10 * np.log10(p)\n"
+                      "    return np.sum((x - np.mean(x)) ** 2)\n")
+DB_MEAN_SQUARED = ("import numpy as np\n\ndef f(p):\n    x = 10 * np.log10(p)\n"
+                   "    return np.mean(x) ** 2\n")
 LIVE_CONSTANTS = build_fact_graph.read_constants(build_fact_graph.FACT_STACK.read_text(encoding="utf-8"))
 SCAN_RELATIONS = ("global_seeds", "rng_parameters", "db_averages")
 
@@ -573,6 +577,18 @@ def test_an_average_of_dB_values_is_violated(source, expected):
 def test_a_median_of_dB_values_and_an_average_of_raw_power_are_not_flagged(source):
     assert "log10" in source, "fixture must convert to dB"
     assert build_fact_graph.db_average_violations(source, LIVE_CONSTANTS) == []
+
+
+def test_the_centre_of_a_squared_dB_deviation_is_not_flagged():
+    assert "log10" in DB_CENTRED_SQUARES, "fixture must convert to dB"
+    assert "(x - np.mean(x)) ** 2" in DB_CENTRED_SQUARES, "fixture must centre a square"
+    assert build_fact_graph.db_average_violations(DB_CENTRED_SQUARES, LIVE_CONSTANTS) == []
+
+
+def test_a_squared_dB_mean_that_is_no_deviation_is_still_flagged():
+    assert "log10" in DB_MEAN_SQUARED, "fixture must convert to dB"
+    assert build_fact_graph.db_average_violations(DB_MEAN_SQUARED, LIVE_CONSTANTS) == [
+        "line 5: np.mean over a dB value"]
 
 
 def test_the_dB_rule_is_read_from_the_jnwb_files():

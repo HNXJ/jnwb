@@ -627,6 +627,8 @@ def db_average_violations(source: str, constants: Dict[str, List[str]]) -> List[
     """Each average in one module of a dB value: an averaging call, or a sum divided by a count,
     whose input is a dB conversion or holds a name assigned from one in the same function. A
     median of dB values is not an average, and an average taken before the log is not read here.
+    The centre of a squared deviation, ``(x - mean(x)) ** 2``, is a log-space fit statistic and is
+    not read either.
     """
     for key in ("dB log forms", "dB averaging forms"):
         if key not in constants:
@@ -634,6 +636,7 @@ def db_average_violations(source: str, constants: Dict[str, List[str]]) -> List[
     log_names, log_suffixes, _ = _lexicon(constants["dB log forms"])
     avg_names, _, numerators = _lexicon(constants["dB averaging forms"])
     tree = ast.parse(source)
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
 
     def is_log(call: ast.Call) -> bool:
         name = _final(call.func)
@@ -654,6 +657,15 @@ def db_average_violations(source: str, constants: Dict[str, List[str]]) -> List[
                 and isinstance(node.left, ast.Call) and _final(node.left.func) in numerators):
             return [node.left], f"{_dotted(node.left.func)} over a dB value divided by a count"
         return None
+
+    def centres_a_squared_deviation(node: ast.AST) -> bool:
+        """Whether an average is the centre of a squared deviation, ``(x - mean(x)) ** 2``: the
+        total sum of squares of a fit statistic computed in log space, which the rule exempts."""
+        sub = parents.get(node)
+        power = parents.get(sub)
+        return (isinstance(sub, ast.BinOp) and isinstance(sub.op, ast.Sub)
+                and isinstance(power, ast.BinOp) and isinstance(power.op, ast.Pow)
+                and isinstance(power.right, ast.Constant) and power.right.value == 2)
 
     def named_dB(fn: ast.AST) -> set:
         """The names a function assigns a dB value, to a fixpoint through other such names."""
@@ -678,7 +690,9 @@ def db_average_violations(source: str, constants: Dict[str, List[str]]) -> List[
     for scope, tainted in scopes:
         for node in ast.walk(scope):
             hit = averaged(node)
-            if hit and any(dB_valued(expr, tainted) for expr in hit[0]):
+            if not hit or centres_a_squared_deviation(node):
+                continue
+            if any(dB_valued(expr, tainted) for expr in hit[0]):
                 found.add((node.lineno, hit[1]))
     return [f"line {line}: {wording}" for line, wording in sorted(found)]
 
