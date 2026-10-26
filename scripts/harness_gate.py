@@ -218,7 +218,11 @@ from scripts.gates.state import (
 from scripts.learning_gate import (
     awareness_violations,
     citation_violations,
+    examined_counts,
+    forbidden_sources,
+    forbidden_violations,
     ledger_violations,
+    mapping_check,
 )
 
 
@@ -279,11 +283,26 @@ def _stack_and_record_checks() -> List[Tuple[str, List[str]]]:
     stack_violations = check_stack_form_consistency()
     if stack_violations:
         found.append(("FAIL: Coordination stack form is not machine-readable:", stack_violations))
-    record_violations = ledger_violations() + citation_violations()
+    record_violations = (ledger_violations() + citation_violations() + mapping_check()[2]
+                         + forbidden_violations(forbidden_sources()))
     if record_violations:
         found.append(("FAIL: A process record disagrees with its own count or its citations:",
                       record_violations))
     return found
+
+
+def _stack_and_record_pass_line() -> str:
+    """Gate 15's PASS line, naming what the record checks read; a check that read nothing says 0."""
+    tables, read, phrases = examined_counts()
+    return ("PASS: Stack form consistent (every declared write set names comparable paths and "
+            "is not truncated by a stray full stop; no 'Blocked by: none' is contradicted by "
+            "its own item's text; every summary count agrees with the items it names; "
+            "no summary states an item total the stack does not hold; "
+            "every table row in the open stack carries its own table's column count; "
+            "every GENERATED_FROM entry resolves against the tree); every defect-class count "
+            "matches its instances, and every date a file cites has a dated record; examined: "
+            f"{tables} mapping tables ({read} obligation clauses; before, after, never, must, "
+            f"only) and {phrases} forbidden phrases.")
 
 
 def _state_file_checks() -> List[Tuple[str, List[str]]]:
@@ -358,14 +377,7 @@ GATES: List[Tuple[int, Any, Any]] = [
              "includes, and CHANGELOG.md holds the entry template: six kinds, one line of at most "
              f"{CHANGELOG_ENTRY_LIMIT} characters naming its file, a seed kind on [results change], "
              f"{CHANGELOG_RELEASES_KEPT} releases, and no process phrase."),
-    (15, _stack_and_record_checks,
-     lambda: "PASS: Stack form consistent (every declared write set names comparable paths and "
-             "is not truncated by a stray full stop; no 'Blocked by: none' is contradicted by "
-             "its own item's text; every summary count agrees with the items it names; "
-             "no summary states an item total the stack does not hold; "
-             "every table row in the open stack carries its own table's column count; "
-             "every GENERATED_FROM entry resolves against the tree); every defect-class count "
-             "matches its instances, and every date a file cites has a dated record."),
+    (15, _stack_and_record_checks, _stack_and_record_pass_line),
     (16, _one(check_line_ending_consistency,
               "FAIL: Tracked files carry both line-ending conventions:"),
      lambda: "PASS: Line endings consistent (no tracked text file mixes CRLF and bare LF)."),

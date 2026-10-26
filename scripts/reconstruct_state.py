@@ -29,12 +29,14 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import http.client
 import json
 import pathlib
 import re
 import subprocess
 import os
 import sys
+import urllib.request
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 STATE_PATH = REPO_ROOT / "artifacts" / "state.md"
@@ -55,8 +57,14 @@ def recorded_head(text: str) -> str | None:
 COMMAND_TIMEOUT_S = 900
 
 
+#: The public runs API for `dev`: one request, and the newest run is the one the state names.
+CI_RUNS_URL = "https://api.github.com/repos/hnxj/jnwb/actions/runs?branch=dev&per_page=1"
+
 #: Seconds the CI query may take: it reaches the network, and a reader waits on it.
-CI_TIMEOUT_S = 30
+CI_TIMEOUT_S = 10
+
+#: Conclusions that read red. A run with no conclusion yet reads unknown, never a pass.
+RED_CONCLUSIONS = frozenset({"failure", "timed_out"})
 
 
 def run(*cmd: str, timeout: float | None = None) -> str:
@@ -175,21 +183,25 @@ def branch_rows(base: str = "dev") -> list[str]:
 
 
 def newest_dev_run() -> str:
-    """The newest CI run on ``dev``, and ``RED`` when it failed; unresolved without ``gh``."""
-    out = run("gh", "run", "list", "--branch", "dev", "--limit", "1",
-              "--json", "headSha,status,conclusion,workflowName", timeout=CI_TIMEOUT_S)
-    if out.startswith("UNRESOLVED"):
-        return out
+    """The head SHA and conclusion of the newest CI run on ``dev``, from the public runs API.
+
+    ``RED`` when the run failed. An unreachable API, a body with no run in ``workflow_runs``, or a
+    run with no conclusion yet reads ``unknown``: never a pass.
+    """
+    request = urllib.request.Request(CI_RUNS_URL, headers={
+        "Accept": "application/vnd.github+json", "User-Agent": "jnwb-state"})
     try:
-        runs = json.loads(out)
-    except ValueError:
-        return "UNRESOLVED (gh printed no JSON)"
-    if not runs:
-        return "UNRESOLVED (no run listed)"
-    newest = runs[0]
-    text = (f"`{newest['headSha'][:12]}` {newest['workflowName']} {newest['status']} "
-            f"{newest['conclusion'] or ''}").rstrip()
-    return f"RED: {text}" if newest["conclusion"] in {"failure", "timed_out"} else text
+        with urllib.request.urlopen(request, timeout=CI_TIMEOUT_S) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except (OSError, ValueError, http.client.HTTPException):
+        return "unknown"
+    runs = body.get("workflow_runs") if isinstance(body, dict) else None
+    newest = runs[0] if isinstance(runs, list) and runs and isinstance(runs[0], dict) else {}
+    sha, conclusion = newest.get("head_sha"), newest.get("conclusion")
+    if not (isinstance(sha, str) and isinstance(conclusion, str)):
+        return "unknown"
+    text = f"`{sha[:12]}` {conclusion}"
+    return f"RED: {text}" if conclusion in RED_CONCLUSIONS else text
 
 
 #: A ledger status that names a landed check, gate, rule or repair; any other status is open.
