@@ -90,7 +90,6 @@ from scripts.gates.boundary import (
     check_no_shadow_packages,
     check_logarithm_last_in_package,
     check_logarithm_last_rule,
-    check_modality_isolation,
     _convention,
     _wholesale_conversions,
     check_line_ending_consistency,

@@ -48,7 +48,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
 | 2 | N numerics and I/O (audit 2026-10-25) | none left: every item landed 2026-10-25 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-34, 17-36 and 17-58 landed 2026-10-26 | Haiku writes, Muse reviews | nothing |
-| 3 | H harness | 12-07, 07-05, 17-31, then 12-06 and 17-56; 17-26, 17-27, 17-30, 17-32, 17-41, 17-54, 17-55 and 12-05 landed 2026-10-26, 11-03 went to the roadmap | Haiku | wave 2 merged |
+| 3 | H harness | 12-07, 07-05, then 12-06 and 17-56; 17-26, 17-27, 17-30, 17-31, 17-32, 17-41, 17-54, 17-55 and 12-05 landed 2026-10-26, 11-03 went to the roadmap | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
 
@@ -139,13 +139,6 @@ Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutan
 ## Audit of 2026-10-25
 
 The items below come from the open stack of 2026-10-25 (`git show e00e8664:artifacts/open_stack.md`; the O- number in each source line traces a row to its probe). Each fix starts with a test that fails on the current code. Rulings: `artifacts/rulings/2026-10-25.md`.
-
-### 17-31 The boundary checks fail on what they cannot parse, or go
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/gates/boundary.py`, `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`.
-- 17-31: the log-last check fails on unparsable code and runs in gate 21 (2026-10-26); `check_modality_isolation` runs in no numbered gate and has no source of feature names on the tree. Check: it joins a numbered gate with a source it reads (`GATES` stays 22), or is deleted with its tests under the 2026-10-26 pruning rule. Source: O-24.
 
 ### 17-56 Test files stop appending to `sys.path`
 

@@ -497,25 +497,6 @@ def check_logarithm_last_in_package(repo_root: Optional[Path] = None) -> List[st
     return violations
 
 
-def check_modality_isolation(feature_names: List[str]) -> Tuple[bool, List[str]]:
-    """Modality-isolation check (not a numbered preflight gate; argument-driven).
-
-    Enforce signal class separation.
-    
-    Disallows un-namespaced pooling of SPK and LFP without explicit modality tags.
-    """
-    has_spk = any("spk" in f.lower() or "unit" in f.lower() or "sua" in f.lower() for f in feature_names)
-    has_lfp = any("lfp" in f.lower() or "band" in f.lower() or "power" in f.lower() for f in feature_names)
-    
-    if has_spk and has_lfp:
-        # Check if all features have clear namespace prefix (e.g. 'spk_' and 'lfp_')
-        unprefixed = [f for f in feature_names if not (f.startswith("spk_") or f.startswith("lfp_") or f.startswith("mua_") or f.startswith("bhv_"))]
-        if len(unprefixed) > 0:
-            return False, [f"UNNAMESPACED_MODALITY_POOLING: Found {len(unprefixed)} mixed features without namespace prefix (e.g. {unprefixed[:3]})"]
-            
-    return True, []
-
-
 def _convention(data: bytes) -> Optional[str]:
     """`"CRLF"`, `"LF"`, `"mixed"`, or `None` for a file with no line endings at all."""
     crlf = data.count(b"\r\n")

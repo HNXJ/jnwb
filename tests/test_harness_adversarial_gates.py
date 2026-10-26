@@ -34,7 +34,6 @@ from scripts.harness_gate import (
     check_no_process_identifiers_in_library,
     check_logarithm_last_in_package,
     check_logarithm_last_rule,
-    check_modality_isolation,
     check_api_md_member_types,
     check_stack_form_consistency,
     check_stack_pointers_resolve,
@@ -122,21 +121,6 @@ def compute_site_power(raw_power:
         violations = check_logarithm_last_rule(unparseable)
         assert len(violations) == 1, "a declared raw-power estimand that does not parse passed"
         assert "UNPARSEABLE" in violations[0]
-
-    def test_adversarial_probe_unnamespaced_modality_pooling_rejected(self):
-        """Adversarial Probe 4: Mixing SPK and LFP without explicit namespaces must be rejected."""
-        # Bad feature list: mixes spikes and LFP channels with generic indices
-        bad_features = ["channel_01", "unit_alpha", "power_theta", "channel_02"]
-        ok, violations = check_modality_isolation(bad_features)
-        assert not ok
-        assert len(violations) > 0
-        assert "UNNAMESPACED_MODALITY_POOLING" in violations[0]
-
-        # Good feature list: strictly namespaced
-        good_features = ["spk_unit_01", "spk_unit_02", "lfp_theta_ch01", "lfp_gamma_ch01"]
-        ok, violations = check_modality_isolation(good_features)
-        assert ok
-        assert len(violations) == 0
 
     def test_adversarial_probe_root_allowlist_violation_rejected(self, tmp_path: Path):
         """Adversarial Probe 5: Disallowed files or directories at root must be rejected."""
