@@ -615,18 +615,34 @@ def _traces_to_caller(call: ast.Call, children: set) -> bool:
     return isinstance(seed, ast.Name) and (seed.id == RNG_LIKE_PARAMETER or seed.id in children)
 
 
+def _workers_of_an_rng(tree: ast.AST) -> set:
+    """The ids of the functions defined inside a function that takes ``rng``: workers whose own
+    parameters carry seeds drawn from the caller's rng (ruled 2026-10-26)."""
+    found = set()
+    for outer in ast.walk(tree):
+        if (isinstance(outer, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and RNG_PARAMETER in _parameters(outer)):
+            found.update(id(node) for node in ast.walk(outer) if node is not outer
+                         and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)))
+    return found
+
+
 def rng_violations(source: str) -> List[str]:
     """Each function that draws from a random module and takes no parameter named ``rng``, unless
-    every draw in it is seeded by a ``random_state`` or by a SeedSequence child. Code outside any
-    function, such as a script's self-test, is not a function and is not read."""
+    every draw in it is seeded by a ``random_state``, by a SeedSequence child, or, in a worker
+    defined inside a function that takes ``rng``, by one of the worker's own parameters. Code
+    outside any function, such as a script's self-test, is not a function and is not read."""
     tree = ast.parse(source)
     bound = _bindings(tree)
+    workers = _workers_of_an_rng(tree)
     found = []
     for fn in ast.walk(tree):
         if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         draws = [call for call in _own_calls(fn) if _draws(_target(call.func, bound))]
         children = _seed_children(fn)
+        if id(fn) in workers:
+            children |= _parameters(fn)
         traced = all(_traces_to_caller(call, children) for call in draws)
         if draws and RNG_PARAMETER not in _parameters(fn) and not traced:
             found.append((fn.lineno, fn.name))

@@ -75,7 +75,7 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 |---|---|---|---|---|
 | S1 | every output | no empirical value appears that no script computed from data; a hardcoded value is a visual constant or sits in output marked synthetic | `todo:11-07` | `AGENTS.md` §4.1; Q13 2026-09-29 |
 | S2 | decibel outputs | raw power is averaged, divided by baseline, and `10*log10` is taken once, last | `computed:db_averages` | `AGENTS.md` §4.2; Q13 2026-09-29 |
-| S5 | randomness consumers | anything consuming randomness takes an `rng` parameter, and nothing calls `np.random.seed()` | `todo:11-07` | `AGENTS.md` §4.5; Q13 2026-09-29 |
+| S5 | randomness consumers | anything consuming randomness takes an `rng` parameter, and nothing calls `np.random.seed()` | `computed:global_seeds`, `computed:rng_parameters` | `AGENTS.md` §4.5; Q13 2026-09-29 |
 | S6 | `device` and `n_jobs` | device and worker count never change a number | `gate:21`, `test:tests/test_execution_switch.py`, `test:tests/test_parallel.py` | `AGENTS.md` §4.6; Q13 2026-09-29 |
 | S7 | docs generators, examples, skills | a caller uses the library function instead of retyping its rule | `todo:12-11` | `AGENTS.md` §4.7; Q13 2026-09-29 |
 | S8 | a figure label or a returned unit naming a magnitude or direction estimand | it uses no vocabulary of a higher class of `claim classes` than the estimand declares | `computed:claim_class_labels` | `AGENTS.md` §4.8; Q12 2026-09-29; narrowed to labels and units, Hamm 2026-10-25 |

@@ -586,6 +586,23 @@ def test_a_worker_seeded_by_a_seed_sequence_child_is_held():
     assert build_fact_graph.rng_violations(SEED_SEQUENCE_WORKER) == []
 
 
+INT_SEED_WORKER = ("import numpy as np\n\ndef f({outer}):\n    seeds = {draw}\n"
+                   "    def _one(seed):\n        return np.random.default_rng(seed).normal()\n"
+                   "    return [_one(s) for s in seeds]\n")
+
+
+def test_a_worker_seeded_by_an_int_drawn_from_the_callers_rng_is_held():
+    held = INT_SEED_WORKER.format(outer="rng", draw="rng.integers(0, 2**31 - 1, size=3)")
+    assert "def _one(seed)" in held, "fixture must seed the worker by its own parameter"
+    assert build_fact_graph.rng_violations(held) == []
+
+
+def test_a_worker_seeded_by_its_parameter_without_a_callers_rng_is_violated():
+    unheld = INT_SEED_WORKER.format(outer="n", draw="range(n)")
+    assert build_fact_graph.rng_violations(unheld) == [
+        "line 5: _one draws without an rng parameter"]
+
+
 def test_a_draw_seeded_by_a_random_state_is_held():
     assert "self.random_state" in RANDOM_STATE_DRAW, "fixture must draw from random_state"
     assert build_fact_graph.rng_violations(RANDOM_STATE_DRAW) == []

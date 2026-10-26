@@ -47,8 +47,8 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
 | 2 | N numerics and I/O (audit 2026-10-25) | none left: every item landed 2026-10-25 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
-| 2 | P process and docs (audit 2026-10-25) | 17-58, 17-34, 17-36 | Haiku writes, Muse reviews | nothing |
-| 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-32; 17-27, 17-30 | Haiku | wave 2 merged |
+| 2 | P process and docs (audit 2026-10-25) | 17-58, 17-34; 17-36 landed 2026-10-26 | Haiku writes, Muse reviews | nothing |
+| 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-27, 17-30 and 17-32 landed 2026-10-26 | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
 
@@ -123,12 +123,14 @@ Writes: `scripts/fact_gate.py`, `scripts/build_fact_graph.py`, `tests/test_fact_
 - 11-07: S1, S2 and S5 report UNHELD: the scans in `scripts/build_fact_graph.py` flag `jnwb/spectral/_psd.py:390` and `:564` (S2) and 6 functions drawing randomness without an `rng` parameter, with 0 global seeds (S5), re-measured 2026-10-25; S1's only test covers its reference-line clause; S2's clause 1 and the S5 sites wait on Hamm's reading. The full text is in `git log -S '### 11-07' -- artifacts/todo_stack.md`. Check: each scan reports its own planted case in `tests/test_fact_gate.py`. Waits: Ruled 2026-10-20: S2 covers returned power and dB estimates (log-space fit statistics exempt by rule); S5 exempts draws traced to a caller's rng, documented fixed-seed self-checks and rng-like `random_state`, and `visual_qc`'s jitter gains `rng`.
 Accept: S1, S2 and S5 report HELD; no UNHELD fact names a 0.2.14 item.
 - 2026-10-25: S2 HELD (0bbbac49). S1's first clause ("figures call a public operation", Q13 2026-09-29) and S5 under the 2026-10-20 reading (which puts `scripts/` outside S5 and gives the `visual_qc` jitter an `rng` argument) remain.
+- 2026-10-26: S5 HELD (rulings of 2026-10-26: int worker seeds trace, `jnwb/` only). S1's first clause remains: its check sits in `tests/test_figure_form.py`, and "a computation" a figure retypes has no mechanical definition yet; the scan defines it from S7's registry of owned rules (a figure that evaluates a registered signature expression instead of calling its owner).
 
 ### 12-11 The S7 scan
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/fact_gate.py`, `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`, `jnwb/spectral/_psd.py` (the R² sites, `:391` and `:595` on 2026-10-25), `jnwb/onset_fitting.py` (the third R² site the ruling names, `:296`).
+Writes: `scripts/fact_gate.py`, `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`, `jnwb/spectral/_psd.py` (the R² sites, `:391` and `:595` on 2026-10-25), `jnwb/onset_fitting.py` (the third R² site the ruling names, `:296`), `jnwb/statistics/_analysis.py`, `jnwb/statistics/_tests.py` (the second FDR and Clopper-Pearson owners).
+- 2026-10-26: the three R² sites call `r_squared` (b3385d1c). The registry remains, and it finds two owners each for FDR (`statistics/_analysis.py:15`, `:85`) and Clopper-Pearson (`_analysis.py:879`, `_tests.py:13`): one becomes the owner and the other calls it, bit-identical.
 - 12-11: S7 (a caller uses the library function instead of retyping its rule) has no scan that reports its own planted case. Accept (carried from 11-07 by the 2026-10-11 ruling): the S7 scan reports its own planted case in `tests/test_fact_gate.py`, and S7 reports no UNHELD fact. Check: the S7 scan reports its own planted case in `tests/test_fact_gate.py`, and S7 reports no UNHELD fact. Waits: Ruled 2026-10-20: a registry of owned rules and their signature expressions, scanned in S7's scope and in `jnwb/`; the three R² sites share one helper.
 
 ### 12-06 No process identifiers outside the stacks
@@ -177,6 +179,7 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py`, `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/process/defect_classes.md`.
 - 09-07: One class has no check: second-home-contradiction; `artifacts/state.md` names the worktrees, stale branches, the newest `dev` run (`RED` when it failed) and the open defect classes (2026-10-18); rewrite-drops-obligation is listed by `scripts/obligation_diff.py --base <commit>` (2026-10-18), which finds both 08-06 instances in 8482c7bc; ruling-cited-not-recorded is checked to the date (`tests/test_process_records_are_counted.py`, 2026-10-17), and matching a citation to its row stays a review rule. The ledger is recounted by the same file. Check: a gate reads every such citation and finds its row in `artifacts/rulings/<date>.md`; it is red on the 08-06 commit `8482c7bc`; for a mapping table with old and new columns, every obligation word (`before`, `after`, `never`, `must`, `only`) in an old rule appears in its new home; red on `8482c7bc` for D1 and D2; each ruling row may name a forbidden phrase and the gate greps the repository for it; red on the pooling phrase before 08-07; the section is generated, and a stale worktree or a red run is named; the gate recounts it. Waits: Process evidence only, no shipped behaviour; rewrites are rare and reviewed, review found every instance so far, and the integrator reads state by hand today. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: each check is red on the instance its bullet names and green on the live tree; the checks join an existing gate or replace a named weaker one, so `GATES` stays at 22 (goal F4, `tests/test_every_gate_runs.py`).
+- 2026-10-26 (4441bd78): `scripts/learning_gate.py` recounts the ledger and checks cited dates (gate 15, red on 314d7329^ and 8482c7bc) and the state rows (gate 20); `tests/test_process_records_are_counted.py` is gone. Left: matching a citation to its row (the bullet keeps it a review rule, the Check asks for a gate); the mapping-table obligation check (no mapping table on HEAD since 74d244d3: test it on 8482c7bc's table); forbidden phrases (no ruling row names one yet); naming a red `dev` run in the state (the public runs API answers by `curl`).
 
 ### 07-05 A downstream paper agent can consume jnwb
 
@@ -226,13 +229,6 @@ Role: jnwb-developer. Skill: none. Blocked by: 17-26 (same file), 15-20 (the inv
 Writes: `scripts/gates/boundary.py`, `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`.
 - 17-31: `check_logarithm_last_rule` returns [] on code it cannot parse (`boundary.py:429-430`), and it and `check_modality_isolation` run in no numbered gate. Check: a parse failure is a violation; each check joins a numbered gate (`GATES` stays 22) or is deleted with its tests, whichever the 15-20 inventory supports. Source: O-24.
 
-### 17-32 The release gate's helpers that nothing runs
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/release_gate.py`, `tests/test_release_recovery_gates.py`, `tests/test_release_requires_an_empty_open_stack.py` (the helpers' tests live there).
-- 17-32: three helpers (`release_gate.py:1110`, `:1170`, `:1248`) have no production caller, so their tests check code the gate never runs. Check: the tests call `check_release_readiness`; the helpers are deleted; the suite passes. Source: O-25.
-
 ### 17-54 D12's "documented" reads a heading or code span
 
 Release: deferred-0.2.14.
@@ -260,13 +256,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `artifacts/evidence/0.2.14/jaxfne_docs_dashboard_comparison.md`.
 - 17-34: 17-01, 17-02 and checklist rows 9 and 10 wait on a comparison with jaxfne's docs and dashboard and on Hamm's preference rulings (2026-10-24), and no item holds that work. Check: the comparison is committed, and its questions go to Hamm one per message; each answer is a row in that day's rulings. Source: O-32.
-
-### 17-36 The standing rulings table is current
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `artifacts/rulings/standing.md` (Hamm reviews).
-- 17-36: `standing.md` reads "as of 7cb72f4b" and has no row for the standing rulings of 2026-10-20 to 2026-10-25 (B3, S8, I3 and S9 scopes, the I1 split, the F1 list, the verdict set, 0.2.14 scope), and its "Planned cycles" row (`standing.md:23`) still reads 0.2.8 to 0.2.12 with at most three writers, which the 2026-10-06 and 2026-10-24 rulings replaced. Check: each such ruling has a row citing its dated file; the "Planned cycles" row states the current cycle and writer policy; the "as of" commit is current. Source: O-34.
 
 ### 17-41 No UNHELD fact names an item of the declared version
 
