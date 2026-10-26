@@ -23,9 +23,9 @@ Source read names the commit whose diff of the cell was read, or the ruling, or 
 - claim cells: 93
 - cut: 60
 - reworded: 6
-- confirmed: 9
+- confirmed: 11
 - kept: 14
-- unrecorded: 4
+- unrecorded: 2
 
 | Section | Reference | Column | Verdict | Source read |
 |---|---|---|---|---|
@@ -114,8 +114,8 @@ Source read names the commit whose diff of the cell was read, or the ruling, or 
 | Core texts | Mardia, K. V., & Jupp, P. E. (2000) | claim | kept | ruling 2026-10-23 (keep the 14 core texts); todo row 11 |
 | Studies jnwb reproduces | Fleiss, J. L. (1971) | claim | unrecorded | none: doi.apa.org returned 403; the Europe PMC record has no abstract |
 | Studies jnwb reproduces | Hill, D. N., Mehta, S. B., & Kleinfeld, D. (2011) | claim | confirmed | https://pmc.ncbi.nlm.nih.gov/articles/PMC3123734/ "an observation of r = 20 refractory period violations yields an estimate of" |
-| Studies jnwb reproduces | Major, A. J., et al. (2025) | claim | unrecorded | none: the reply (PMC13504716) states no replication; the check is the vFLIP2.m output, not run here |
-| Studies jnwb reproduces | Siegle, J. H., et al. (2021) | claim | unrecorded | none: PMC10399640 states no replication; Jia 2019 full text returned 403 and its Europe PMC abstract names none of its measures |
+| Studies jnwb reproduces | Major, A. J., et al. (2025) | claim | confirmed | receipts tests/fixtures/vflip2_matlab_reference.json (e5c56bcf; source vFLIP2.m, dryad_version 8, 2025-11-04) and tests/fixtures/vflip2_from_lfp_matlab_reference.json (fc942bd5): "run in MATLAB R2024a on seeded synthetic laminar LFP"; the cited tests pass at 4c192be9 |
+| Studies jnwb reproduces | Siegle, J. H., et al. (2021) | claim | confirmed | receipt artifacts/evidence/0.2.9/unit_qc_inventory.md (b48bd9a7; section D, read at 919992748a53): "Agreement with the source functions, run on the same inputs with no correction factor"; tests/test_unit_quality.py (6893ef47) pins the values; the "(Jia et al.)" attribution is unchecked, since neither paper was read |
 | Pitfalls | Bastos, A. M., & Schoffelen, J.-M. (2016) | claim | confirmed | https://www.frontiersin.org/journals/systems-neuroscience/articles/10.3389/fnsys.2015.00175/full "which is inherently unbiased, such as PPC" |
 | Pitfalls | Vezoli, J., et al. (2021) | claim | confirmed | https://pmc.ncbi.nlm.nih.gov/articles/PMC8639786/ "excluding sites within a 2-mm radius to avoid residual volume conduction effects" |
 | Pitfalls | Friston, K. J., et al. (2014) | claim | reworded | 00947a48 diff: claim reworded to what the abstract says (Friston 2014 row) |
