@@ -91,6 +91,41 @@ Date 2026-10-21.
 | D19 | (no docstring) [tests/test_state_reconstruction.py::test_generation_is_deterministic_apart_from_its_timestamp] | 33.33 s setup (this run, -n 4: durations.txt) | CI test jobs (scripts/ci_pytest.py); release STEP 1 (pytest -n auto); local pytest | none by name in tests/ (inferred) | not measured | tests/test_state_reconstruction.py: 13 commits since 2026-07-23; test function 3 lines |
 | D20 | The wheel leg's condition: jnwb is already imported from elsewhere, the variable names it. [tests/test_the_suite_can_qualify_an_installed_copy.py::test_every_script_a_test_imports_accepts_the_installed_copy] | 33.31 s call (this run, -n 4: durations.txt) | CI test jobs (scripts/ci_pytest.py); release STEP 1 (pytest -n auto); local pytest | none by name in tests/ (inferred) | not measured | tests/test_the_suite_can_qualify_an_installed_copy.py: 13 commits since 2026-07-23; test function 62 lines |
 
+## E. Unique failure among the gates (measured 2026-10-26, baseline dc2fdf41)
+
+Measured by `artifacts/evidence/0.2.14/scripts/gate_unique_failure.py`. For each gate, one plant is applied to the tree, `scripts/reconstruct_state.py` and `scripts/harness_gate.py` run, the FAIL lines name the gates that failed, and the planted bytes are restored; `git status` is compared before and after each plant. The control run passed 22 of 22. Every row's own gate is among its failures.
+
+- A1's plant also fails A12: gate 12 reads the module name `omission` as a project identifier.
+- A18's plant also fails A9: any edit to `docs/api.md` fails gate 9's byte comparison with the generator, so no edit to that file fails A18 alone.
+- A22's first plant, a new untracked file in `jnwb/`, did not fail A22: the fact graph reads `git ls-files`. The row uses the second plant, an appended function in tracked `jnwb/_bins.py`.
+- Plants A21 and A22 are `(designed)`: no test plants them.
+- The plants edit the real tree; the tests' own probes run on temporary trees.
+
+| id | plant | gates that failed | unique | source of the plant |
+|---|---|---|---|---|
+| A1 | `jnwb/_u1_probe.py` created; its line is `import omission.jnwb_ext.trial_ontology as onto` | A1, A12 | no | `tests/test_harness_adversarial_gates.py::TestHarnessAdversarialProbes::test_adversarial_probe_unauthorized_jnwb_import_rejected` |
+| A2 | `artifacts/u1_probe/SKILL.md` created; a SKILL.md outside `skills/` | A2 | yes | `tests/test_gate2_ignores_nested_checkouts.py::test_a_plain_duplicate_tree_still_fails` |
+| A3 | `tests/_u1_probe.py` created; its line is `PATH = "C:/workspace/data/session.nwb"` | A3 | yes | `tests/test_gates_reject_the_trees_they_passed.py::TestGate3SeesEveryDriveLetter::test_a_machine_local_path_on_any_drive_is_rejected` |
+| A4 | `untracked_scratch.csv` created at the repository root | A4 | yes | `tests/test_harness_adversarial_gates.py::TestHarnessAdversarialProbes::test_adversarial_probe_root_allowlist_violation_rejected` |
+| A5 | `docs/errors.md`: every `UnitNotFoundError` renamed to `unit-not-found error` (the only hand-written page that names it) | A5 | yes | `tests/test_errors_documented.py::TestTheGateWouldNoticeAMissingPage::test_one_missing_symbol_is_reported_by_name` |
+| A6 | `jnwb/_u1_probe.py` created; its line is `CONDITION = 'AXAB'` | A6 | yes | `tests/test_harness_adversarial_gates.py::TestHarnessAdversarialProbes::test_adversarial_probe_dataset_leakage_rejected` |
+| A7 | `pyproject.toml`: `version = "0.0.1"` added under `[project]`, which differs from `jnwb.__version__` | A7 | yes | `tests/test_harness_adversarial_gates.py::TestHarnessAdversarialProbes::test_adversarial_probe_version_inconsistency_rejected` |
+| A8 | `pyproject.toml`: `requires-python` changed from `>=3.12` to `>=3.12,<3.13` (an upper pin) | A8 | yes | `tests/test_harness_adversarial_gates.py::TestHarnessAdversarialProbes::test_adversarial_probe_python_upper_pin_rejected` |
+| A9 | `docs/api.md`: one prose line appended, so the generator's byte comparison fails | A9 | yes | `tests/test_harness_adversarial_gates.py::TestDocumentationDriftGates::test_api_md_generator_drift_is_caught` |
+| A10 | `README.md`: `pip install jnwb==0.0.9` appended as prose | A10 | yes | `tests/test_harness_adversarial_gates.py::TestDocumentationDriftGates::test_stale_install_pin_in_prose_is_caught` |
+| A11 | `artifacts/_u1_probe.py` created; a .py file directly under the root directory `artifacts/` | A11 | yes | `tests/test_gates_reject_the_trees_they_passed.py::TestGate11SeesNamespacePackages::test_a_directory_with_py_files_and_no_init_is_rejected` |
+| A12 | `jnwb/_u1_probe.py` created; its line is `NAME = "omission"` | A12 | yes | `tests/test_harness_adversarial_gates.py::TestProjectIdentifierGate::test_catches_project_name_in_identifier` |
+| A13 | `mkdocs.yml`: the nav line for `tutorials/01_nwb_basics.md` commented out | A13 | yes | `tests/test_gates_reject_the_trees_they_passed.py::TestGate13ChecksBehaviourNotPresence::test_a_commented_out_nav_entry_is_rejected` |
+| A14 | `docs/glossary.md`: a line with the word `packet` appended | A14 | yes | `tests/test_harness_adversarial_gates.py::TestGate14InternalProcessVocabulary::test_a_page_naming_a_delegation_packet_fails` |
+| A15 | `artifacts/open_stack.md`: a three-column table with a two-cell row appended | A15 | yes | `tests/test_harness_adversarial_gates.py::TestGate15ProblemRowsKeepTheirTableShape::test_a_row_missing_a_cell_is_rejected` |
+| A16 | `LICENSE`: a CRLF line appended to an LF file | A16 | yes | `tests/test_harness_adversarial_gates.py::TestGate16LineEndingConsistency::test_a_mixed_file_is_rejected` |
+| A17 | `artifacts/todo_stack.md`: `Blocked by: 15-20.` changed to `Blocked by: 99-99.` | A17 | yes | `tests/test_harness_adversarial_gates.py::TestStackPointersResolve::test_a_block_on_a_retired_item_fails` |
+| A18 | `docs/api.md`: the Type cell of `jnwb.ChannelIndexError` changed from `class` to `function` | A9, A18 | no | `tests/test_harness_adversarial_gates.py::TestApiMdMemberTypes::test_one_wrong_cell_is_enough` |
+| A19 | `jnwb/_bins.py`: `+ 0.0` added to the `bins_within` body (a code change, same value) | A19 | yes | `tests/test_frozen_validated.py::test_a_changed_body_fails` |
+| A20 | `artifacts/state.md`, regenerated first: its HEAD row set to 40 zeros | A20 | yes | `tests/test_harness_adversarial_gates.py::TestGate20StateFileHead::test_a_zeroed_head_row_fails_naming_both_commits` |
+| A21 | `artifacts/evidence/0.2.6/computational_order.md`: the section 3 row for `classify_layer_from_depth` deleted | A21 | yes | (designed) |
+| A22 | `jnwb/_bins.py`: a function appended whose body calls `np.random.seed(0)` (the fact graph reads tracked files only) | A22 | yes | (designed) |
+
 ## Commands
 
 - Tree: `git clone -q --shared C:/workspace/jnwb C:/Users/nejath/AppData/Local/Temp/claude/C--workspace-jnwb/77eb0381-64a4-4a12-9f40-20e72d9557e4/scratchpad/_temp_cl-1520`, then `git -C <tree> checkout -q --detach 7e25090b`. Every command below runs with the tree as cwd unless it names an absolute path.
@@ -102,3 +137,4 @@ Date 2026-10-21.
 - Table assembly: `python -u C:/Users/nejath/AppData/Local/Temp/claude/C--workspace-jnwb/77eb0381-64a4-4a12-9f40-20e72d9557e4/scratchpad/_temp_1520/build_inventory.py <tree> C:/Users/nejath/AppData/Local/Temp/claude/C--workspace-jnwb/77eb0381-64a4-4a12-9f40-20e72d9557e4/scratchpad/_temp_1520 C:/Users/nejath/AppData/Local/Temp/_rgm4.txt <date from date -u +%Y-%m-%d> <tree>/artifacts/evidence/0.2.14/verification_inventory.md`.
 - Method: `(module level)` import lines are not counted as duplicates; a hit inside a helper is labelled `(helper)`. Literal matches use the distinctive literal named by the check's FAIL header or log label. Every `(inferred)` duplicate or uniqueness cell was judged from reading the code; no mutant was run.
 - Acceptance: `python scripts/harness_gate.py > C:/Users/nejath/AppData/Local/Temp/claude/C--workspace-jnwb/77eb0381-64a4-4a12-9f40-20e72d9557e4/scratchpad/_temp_1520/gate.txt 2>&1; echo rc=$?` (tree as cwd); `git -C <tree> status --porcelain`.
+- Unique failure (E): `python -u artifacts/evidence/0.2.14/scripts/gate_unique_failure.py <tree> --receipt <file.json> --md <file.md>`, with the tree as cwd; `--only N` plants one gate. The run is 23 harness runs of about 80 s each: launch it detached and wait on the rc line. The receipt and the markdown go outside the tree.
