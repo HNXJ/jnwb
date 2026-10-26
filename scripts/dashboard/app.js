@@ -316,11 +316,13 @@
   }
 
   // Shows one tab panel and returns the name shown; an unknown name shows the overview.
+  // A name is a tab, or a tab and a page of it (`validation/<id>`).
   function selectTab(name, moveFocus) {
+    var route = name.split('/');
     var names = tabs.map(function (tab) {
       return tab.getAttribute('aria-controls');
     });
-    var shown = names.indexOf(name) === -1 ? 'overview' : name;
+    var shown = names.indexOf(route[0]) === -1 ? 'overview' : route[0];
     tabs.forEach(function (tab) {
       var on = tab.getAttribute('aria-controls') === shown;
       tab.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -336,6 +338,9 @@
       }
     });
     drawChartsIn(document.getElementById(shown));
+    if (shown === VALIDATION_ROUTE) {
+      showValidation(route.slice(1).join('/'));
+    }
     return shown;
   }
 
@@ -1217,7 +1222,15 @@
     table.appendChild(header);
     rows.forEach(function (row) {
       var tr = make('tr');
-      tr.appendChild(cellWith(row.verdict));
+      var verdict = make('td');
+      if (isBlank(row.label)) {
+        setText(verdict, row.verdict);
+      } else {
+        verdict.appendChild(verdictChip(row.label));
+        verdict.appendChild(document.createTextNode(' '));
+        textInto(verdict, row.verdict, true);
+      }
+      tr.appendChild(verdict);
       tr.appendChild(cellWith(row.by));
       tr.appendChild(cellWith(row.date));
       tr.appendChild(cellWith(row.scope));
@@ -1333,6 +1346,214 @@
 
   // ---- overview and page --------------------------------------------------
 
+  // ---- validations: an index, and one page per validation -----------------
+
+  // The dashboard's verdict words with their chip class and symbol. The build maps each record
+  // verdict to one of them (reproduces, partial, does_not); the page names none of its own.
+  var VERDICT_CLASSES = [
+    { label: 'reproduced', slug: 'reproduced', symbol: '✓' },
+    { label: 'reproduced (conditional)', slug: 'reproduced-conditional', symbol: '◐' },
+    { label: 'mixed', slug: 'mixed', symbol: '◑' },
+    { label: 'in progress', slug: 'in-progress', symbol: '…' },
+    { label: 'not started', slug: 'not-started', symbol: '○' },
+    { label: 'failed', slug: 'failed', symbol: '✗' }
+  ];
+  var VALIDATION_ROUTE = 'validation';
+
+  function verdictInfo(label) {
+    var hit = null;
+    VERDICT_CLASSES.forEach(function (info) {
+      if (info.label === label) {
+        hit = info;
+      }
+    });
+    return hit;
+  }
+
+  // A verdict as a chip: its symbol and its words, never colour alone.
+  function verdictChip(label) {
+    if (isBlank(label)) {
+      return make('span', 'empty', NOT_RECORDED);
+    }
+    var info = verdictInfo(label);
+    if (!info) {
+      return make('span', 'chip', String(label));
+    }
+    return make('span', 'chip chip-' + info.slug, info.symbol + ' ' + info.label);
+  }
+
+  // One chip per replication of a record; a record with none says so.
+  function verdictChips(replications) {
+    var box = make('span');
+    if (!Array.isArray(replications)) {
+      box.appendChild(make('span', 'empty', NOT_RECORDED));
+      return box;
+    }
+    if (!replications.length) {
+      box.appendChild(make('span', 'empty', NONE_RECORDED));
+      return box;
+    }
+    replications.forEach(function (row, index) {
+      if (index) {
+        box.appendChild(document.createTextNode(' '));
+      }
+      box.appendChild(verdictChip(row.label));
+    });
+    return box;
+  }
+
+  // One row per validation: each OpenScope record, then each roadmap row, read as not started.
+  function validationRows(data) {
+    var record = lookup(data, 'showcases');
+    var entries = record && Array.isArray(record.entries) ? record.entries : [];
+    var deferred = lookup(data, 'deferred');
+    var rows = entries.map(function (entry) {
+      return { id: String(entry.id), title: entry.title, kind: 'OpenScope GLO record',
+        status: entry.status, replications: entry.replications, entry: entry, item: null };
+    });
+    (Array.isArray(deferred) ? deferred : []).forEach(function (item) {
+      rows.push({ id: String(item.id), title: item.theme, kind: 'Roadmap, deferred',
+        status: null, replications: null, entry: null, item: item });
+    });
+    return rows;
+  }
+
+  function verdictOf(row) {
+    return row.item ? verdictChip(row.item.label) : verdictChips(row.replications);
+  }
+
+  function verdictText(row) {
+    if (row.item) {
+      return row.item.label;
+    }
+    return Array.isArray(row.replications)
+      ? row.replications.map(function (replication) { return replication.label; }).join(', ')
+      : '';
+  }
+
+  function validationLink(row) {
+    var link = make('a', '', row.id);
+    link.setAttribute('href', '#' + VALIDATION_ROUTE + '/' + encodeURIComponent(row.id));
+    return link;
+  }
+
+  // Text with its code spans and links, as the rest of the page shows text.
+  function markdownCell(text) {
+    var span = make('span');
+    if (isBlank(text)) {
+      setText(span, text);
+    } else {
+      span.innerHTML = markdownLite(text);
+    }
+    return span;
+  }
+
+  function renderValidationIndex(data) {
+    var legend = document.getElementById('validation-legend');
+    legend.textContent = '';
+    VERDICT_CLASSES.forEach(function (info) {
+      legend.appendChild(verdictChip(info.label));
+    });
+    makeTable(
+      document.getElementById('validation-index-table'),
+      document.getElementById('validation-index-search'),
+      [
+        { label: 'ID', sort: field('id'), cell: validationLink },
+        { label: 'Validation', sort: field('title'), cell: function (row) { return markdownCell(row.title); } },
+        { label: 'Source', sort: field('kind'), cell: field('kind') },
+        { label: 'Status', sort: field('status'), cell: field('status') },
+        { label: 'Verdict', sort: verdictText, cell: verdictOf }
+      ],
+      validationRows(data),
+      function (row, query) {
+        return (row.id + ' ' + String(row.title) + ' ' + row.kind).toLowerCase().indexOf(query) !== -1;
+      }
+    );
+  }
+
+  function markdownRow(parent, label, text) {
+    var row = make('p');
+    row.appendChild(make('strong', '', label + ': '));
+    var body = make('span');
+    if (isBlank(text)) {
+      setText(body, text);
+    } else {
+      body.innerHTML = markdownLite(text);
+    }
+    row.appendChild(body);
+    parent.appendChild(row);
+  }
+
+  // A roadmap row: its theme, its verdict (not started) and the text it carries.
+  function deferredPage(page, item) {
+    var title = make('h3');
+    title.innerHTML = markdownLite(item.theme);
+    page.appendChild(title);
+    var verdict = make('p');
+    verdict.appendChild(make('strong', '', 'Verdict: '));
+    verdict.appendChild(verdictChip(item.label));
+    page.appendChild(verdict);
+    markdownRow(page, 'Defect', item.defect);
+    markdownRow(page, 'Waits', item.waits);
+    markdownRow(page, 'Release', item.release);
+  }
+
+  // An OpenScope record: its verdicts beside its status, then the record as its card shows it.
+  function entryPage(page, entry, docs, modules) {
+    var verdict = make('p');
+    verdict.appendChild(make('strong', '', 'Verdict: '));
+    verdict.appendChild(verdictChips(entry.replications));
+    page.appendChild(verdict);
+    showcaseRow(page, 'Status', entry.status);
+    page.appendChild(showcaseCard(entry, docs, modules));
+  }
+
+  function renderValidationPages(data) {
+    var box = document.getElementById('validation-pages');
+    var docs = docsBase(data);
+    var modules = symbolModules(data);
+    box.textContent = '';
+    validationRows(data).forEach(function (row) {
+      var page = make('article', 'validation-page');
+      page.setAttribute('data-page', row.id);
+      page.hidden = true;
+      var back = make('p');
+      var link = make('a', '', 'All validations');
+      link.setAttribute('href', '#' + VALIDATION_ROUTE);
+      back.appendChild(link);
+      page.appendChild(back);
+      if (row.item) {
+        deferredPage(page, row.item);
+      } else {
+        entryPage(page, row.entry, docs, modules);
+      }
+      box.appendChild(page);
+    });
+  }
+
+  // Shows one validation's page; with no page named, or none that matches, the index and the
+  // proof of work show instead.
+  function showValidation(id) {
+    var box = document.getElementById('validation-pages');
+    var found = false;
+    Array.prototype.forEach.call(box.children, function (page) {
+      var on = id !== '' && page.getAttribute('data-page') === id;
+      page.hidden = !on;
+      found = found || on;
+    });
+    document.getElementById('validation-index').hidden = found;
+    document.getElementById('validation-proof').hidden = found;
+    box.hidden = !found;
+  }
+
+  // The pages are built after the first hash is read, so the route is read again once they exist.
+  function refreshValidationRoute() {
+    var route = hashName().split('/');
+    if (route[0] === VALIDATION_ROUTE) {
+      showValidation(route.slice(1).join('/'));
+    }
+  }
+
   function render(data) {
     charts = [];
     fillSlots(data);
@@ -1346,6 +1567,9 @@
     renderApi(data);
     renderFigures(data);
     renderShowcases(data);
+    renderValidationIndex(data);
+    renderValidationPages(data);
+    refreshValidationRoute();
     renderReleaseCounts(Array.isArray(data.releases) ? data.releases : []);
     applyTheme(theme);
   }

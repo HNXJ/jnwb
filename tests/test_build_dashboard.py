@@ -649,3 +649,72 @@ def test_verify_refuses_a_receipt_with_uncommitted_changes_even_when_its_digest_
     git("add", "receipt.md")
     git("commit", "-q", "-m", "edit")
     assert builder.verify_validations(site) == [], "once committed, the card holds"
+
+
+# ---- verdict labels and deferred validations ----------------------------------------------
+
+LABEL_OF_VERDICT = {"reproduces": "reproduced", "partial": "mixed", "does_not": "failed"}
+VALIDATION_TAG = "(validation)"
+ROADMAP_PATH = REPO_ROOT / "artifacts" / "roadmap.md"
+
+
+@pytest.mark.parametrize("verdict", sorted(LABEL_OF_VERDICT))
+def test_each_replication_verdict_carries_its_dashboard_label(point_at, verdict):
+    record = _record()
+    entry = record["entries"][0]
+    entry["status"] = "exploratory"  # a verified entry needs a reproducing replication
+    entry["replications"] = [dict(entry["replications"][0], verdict=verdict)]
+    point_at(record)
+    rows = _builder().build_data()["showcases"]["entries"][0]["replications"]
+    assert [row["label"] for row in rows] == [LABEL_OF_VERDICT[verdict]]
+
+
+def test_a_replication_verdict_outside_the_record_vocabulary_is_refused(point_at):
+    record = _record()
+    entry = record["entries"][0]
+    entry["status"] = "exploratory"
+    entry["replications"][0]["verdict"] = "maybe"
+    point_at(record)
+    with pytest.raises(ValueError) as info:
+        _builder().build_data()
+    assert "fixture_entry" in str(info.value)
+    assert "maybe" in str(info.value)
+
+
+def test_the_deferred_section_is_the_tagged_roadmap_rows_and_reads_not_started(data):
+    rows = [line for line in ROADMAP_PATH.read_text(encoding="utf-8").splitlines()
+            if line.startswith("| ") and "| deferred-" in line]
+    validating = [line for line in rows if line.split("|")[2].strip().endswith(VALIDATION_TAG)]
+    assert validating, "the roadmap must hold a tagged deferred validation row"
+    deferred = data["deferred"]
+    assert len(deferred) == len(validating), (len(deferred), len(validating))
+    for item in deferred:
+        assert item["label"] == "not started", item["id"]
+        assert item["release"].startswith("deferred-"), item["id"]
+        assert any(line.startswith(f"| {item['id']} |") for line in validating), item["id"]
+
+
+def test_a_deferred_row_is_a_validation_only_when_its_theme_carries_the_tag(tmp_path, monkeypatch):
+    """Text is not the test: an untagged row that says it recovers something is left out, and a
+    tagged row is listed with the tag left off its theme."""
+    builder = _builder()
+    roadmap = tmp_path / "roadmap.md"
+    roadmap.write_text(
+        "| ID | Theme | Defect | Waits | Release |\n"
+        "|---|---|---|---|---|\n"
+        "| row-a | A model recovers a planted signal | Recovery is measured | Waits | deferred-0.2.15 |\n"
+        "| row-b | A model recovers a planted signal (validation) | Recovery is measured | Waits "
+        "| deferred-0.2.15 |\n",
+        encoding="utf-8", newline="\n")
+    monkeypatch.setattr(builder, "ROADMAP", roadmap)
+    rows = builder.deferred_section()
+    assert [row["id"] for row in rows] == ["row-b"], rows
+    assert rows[0]["theme"] == "A model recovers a planted signal", rows[0]["theme"]
+    assert rows[0]["label"] == "not started"
+
+
+def test_the_schema_declares_the_deferred_section_and_the_replication_label():
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    assert "deferred" in schema["properties"], "the schema must name the deferred section"
+    replication = schema["$defs"]["showcase"]["properties"]["replications"]["items"]
+    assert set(replication["properties"]["label"]["enum"]) == set(LABEL_OF_VERDICT.values())

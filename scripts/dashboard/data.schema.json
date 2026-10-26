@@ -167,6 +167,20 @@
         }
       }
     },
+    "deferred": {
+      "type": ["array", "null"],
+      "description": "Roadmap rows whose theme cell carries the validation tag, each read as not started, with the tag left off the theme. Null while the roadmap is absent.",
+      "items": {
+        "type": "object",
+        "required": ["id", "theme", "defect", "waits", "release", "label"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"}, "theme": {"type": "string"}, "defect": {"type": "string"},
+          "waits": {"type": "string"}, "release": {"type": "string", "pattern": "^deferred-"},
+          "label": {"enum": ["not started"]}
+        }
+      }
+    },
     "validations": {
       "type": "array",
       "description": "Validation cards, one per receipt the build reads. Each names the file, the commit git last changed it in, its SHA-256 and the fields it states; a receipt that states its own commit also gives recorded_commit. html is the HTML output copied for the card, or null.",
@@ -300,6 +314,7 @@
               "verdict": {"enum": ["reproduces", "partial", "does_not"]},
               "seed": {"type": ["string", "null"]},
               "report_sha256": {"$ref": "#/$defs/sha256"},
+              "label": {"enum": ["reproduced", "mixed", "failed"], "description": "the dashboard's name for the verdict; the build adds it"},
               "note": {"type": "string"}
             }
           }

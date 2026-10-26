@@ -13,6 +13,9 @@ keyed by ``spec`` and ``parameter`` and are not read.
 it, its SHA-256 and the fields it states. ``verify_validations`` checks a built site against the
 repository.
 
+``deferred`` has one row per roadmap row that is a validation, each read as not started. Each
+replication in ``showcases`` carries a ``label``: the dashboard's name for the record's verdict.
+
     python scripts/build_dashboard.py --out <dir>    # writes <dir>/data.json and the page
 """
 from __future__ import annotations
@@ -51,6 +54,7 @@ FIGURES = ASSETS / "figures"
 DOCS = REPO_ROOT / "docs"
 ORDER_RECORD = REPO_ROOT / "artifacts" / "evidence" / "0.2.6" / "computational_order.md"
 SHOWCASE_RECORD = REPO_ROOT / "artifacts" / "showcases" / "openscope_glo.json"
+ROADMAP = REPO_ROOT / "artifacts" / "roadmap.md"
 CALIBRATION = BENCHMARKS / "calibration"
 #: The calibration receipts a card reads. Their raw records are not read, so they get no card.
 CALIBRATION_RECEIPTS = (CALIBRATION / "xflip_calibration_0.2.5.md",
@@ -65,7 +69,7 @@ from scripts.release_gate import (RECEIPT_PATH as CLOSURE_RECEIPT_PATH,  # noqa:
 CLOSURE_RECEIPT = REPO_ROOT / CLOSURE_RECEIPT_PATH
 VALIDATION_HTML = ASSETS / "validations"
 SECTIONS =("generated", "release", "releases", "ci", "api", "verified", "performance",
-            "order", "references", "figures", "showcases", "validations")
+            "order", "references", "figures", "showcases", "validations", "deferred")
 
 _VERSION_LINE = re.compile(r"^## \[(?P<version>[^\]]+)\](?: - (?P<date>\S+))?$")
 _INIT_VERSION = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
@@ -81,6 +85,11 @@ _STATED_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 _RESULT_HEADING = re.compile(r"^#+\s*(?:result|verdict|summary)\b", re.IGNORECASE)
 #: The Read the Docs version the dashboard links: the newest build of the default branch.
 DOCS_VERSION_PATH = "en/latest/"
+#: The dashboard's name for each replication verdict in the record; the record keeps its own words.
+VERDICT_LABELS = {"reproduces": "reproduced", "partial": "mixed", "does_not": "failed"}
+#: A roadmap row is a validation when its theme cell ends with this tag; the tag is left off the
+#: theme the dashboard shows.
+VALIDATION_TAG = "(validation)"
 
 
 def _rel(path: Path) -> str:
@@ -455,8 +464,8 @@ def showcases_section() -> dict | None:
     """The showcase record, its figure paths relative to the built site; null while none exists.
 
     Refuses, naming the entry: a figure without its dark twin, a verified entry without a
-    reproducing replication that carries a report digest, an asset without its SHA-256. The data
-    schema holds the rest of the shape.
+    reproducing replication that carries a report digest, a verdict without a dashboard label, an
+    asset without its SHA-256. The data schema holds the rest of the shape.
     """
     if not SHOWCASE_RECORD.is_file():
         return None
@@ -477,6 +486,11 @@ def showcases_section() -> dict | None:
         if entry["status"] == "verified" and not reproduced:
             raise ValueError(f"{where}: entry {ident!r} is verified but has no reproducing "
                              "replication with a report_sha256")
+        for row in entry["replications"]:
+            if row["verdict"] not in VERDICT_LABELS:
+                raise ValueError(f"{where}: entry {ident!r} has verdict {row['verdict']!r}, "
+                                 "which has no dashboard label")
+            row["label"] = VERDICT_LABELS[row["verdict"]]
         for asset in entry["dandi"]["assets"]:
             if not asset.get("sha256"):
                 raise ValueError(f"{where}: entry {ident!r} asset {asset.get('asset_id')!r} "
@@ -486,6 +500,29 @@ def showcases_section() -> dict | None:
             for key in ("light", "dark"):
                 figure[key] = f"assets/showcases/{figure[key]}"
     return record
+
+
+def deferred_section() -> list[dict] | None:
+    """The roadmap rows that are validations, each read as not started. A row is one when its
+    theme cell ends with the validation tag, and the tag is left off the theme returned; a deferred
+    row without the tag is left out. Null while the roadmap is absent."""
+    if not ROADMAP.is_file():
+        _note(f"{_rel(ROADMAP)} is missing; deferred is null")
+        return None
+    rows: list[dict] = []
+    for raw in _read(ROADMAP).splitlines():
+        line = raw.strip()
+        if not line.startswith("|"):
+            continue
+        cells = _cells(line)
+        if len(cells) != 5 or not cells[4].startswith("deferred-"):
+            continue
+        if not cells[1].endswith(VALIDATION_TAG):
+            continue
+        theme = cells[1][:-len(VALIDATION_TAG)].rstrip()
+        rows.append({"id": cells[0], "theme": theme, "defect": cells[2], "waits": cells[3],
+                     "release": cells[4], "label": "not started"})
+    return rows
 
 
 def _digest(path: Path) -> str:
@@ -712,6 +749,7 @@ def build_data() -> dict:
     figures = figures_section()
     showcases = showcases_section()
     validations = validations_section()
+    deferred = deferred_section()
     pages = sorted({_rel(page) for figure in figures
                     if (page := _explaining_page(Path(figure["light"]).name))})
     sources = {
@@ -727,6 +765,7 @@ def build_data() -> dict:
         "figures": [_rel(FIGURES), *pages],
         "showcases": _present(SHOWCASE_RECORD) if showcases else [],
         "validations": list(dict.fromkeys(card["path"] for card in validations)),
+        "deferred": _present(ROADMAP) if deferred is not None else [],
     }
     return {
         "generated": generated_section(),
@@ -742,6 +781,7 @@ def build_data() -> dict:
         "figures": figures,
         "showcases": showcases,
         "validations": validations,
+        "deferred": deferred,
     }
 
 
@@ -796,6 +836,8 @@ def _size(name: str, value) -> str:
         return f"{len(value['entries'])} entries"
     if name == "validations":
         return f"{len(value)} cards"
+    if name == "deferred":
+        return f"{len(value)} rows"
     return "present"
 
 
