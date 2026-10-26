@@ -1350,6 +1350,24 @@ class TestGate14ProcessIdentifiersInLibrary:
             assert (REPO_ROOT / path).is_file(), path
             assert reason.strip(), path
 
+    def test_every_exempt_literal_is_still_in_its_file(self):
+        from scripts.gates.vocabulary import PROCESS_ID_DATA_LITERALS
+
+        for path, literal, reason in PROCESS_ID_DATA_LITERALS:
+            assert literal in (REPO_ROOT / path).read_text(encoding="utf-8"), (path, literal)
+            assert reason.strip(), path
+
+    def test_a_literal_exemption_covers_that_literal_in_that_file_only(self, tmp_path: Path):
+        root = self._library(tmp_path, "Plain summary.")
+        (root / "tests").mkdir()
+        (root / "tests" / "test_fact_gate.py").write_text(
+            'ITEM = "00-01"\nLABEL = "P-12"\n', encoding="utf-8")
+        (root / "tests" / "test_other.py").write_text('ITEM = "00-01"\n', encoding="utf-8")
+        violations = check_no_process_identifiers_in_library(root)
+        assert len(violations) == 2, violations
+        assert "tests/test_fact_gate.py:2" in violations[0] and "'P-12'" in violations[0]
+        assert "tests/test_other.py:1" in violations[1]
+
     def test_the_pristine_library_passes(self):
         assert check_no_process_identifiers_in_library(REPO_ROOT) == []
 

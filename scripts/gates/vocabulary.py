@@ -527,14 +527,34 @@ def _rel(path: Path, root: Path) -> str:
 #: file, so an identifier cited later in one of them goes unseen; keep the list to data files.
 PROCESS_ID_DATA_FILES: Tuple[Tuple[str, str], ...] = (
     (
-        "scripts/mutation_harness.py",
-        "the recorded gap `name` is data: tests/test_mutation_harness_validity.py splits it at "
-        "' | ' and asserts the identifier",
-    ),
-    (
         "tests/test_harness_adversarial_gates.py",
         "its probes plant identifiers in temporary trees to show that the gate catches them",
     ),
+    (
+        "tests/test_release_requires_an_empty_open_stack.py",
+        "its fixtures are open-stack rows, whose identifiers the release check parses",
+    ),
+    (
+        "tests/test_stack_metadata_contradictions.py",
+        "its fixtures are todo-stack items, whose identifiers the stack checks parse and report",
+    ),
+)
+
+#: One identifier in one file that is data, where exempting the whole file would hide later
+#: citations in it. Each entry is (repository-relative path, identifier, reason).
+PROCESS_ID_DATA_LITERALS: Tuple[Tuple[str, str, str], ...] = (
+    ("scripts/mutation_harness.py", "P-171",
+     "the recorded gap's name, which tests/test_mutation_harness_validity.py splits and asserts"),
+    ("tests/test_mutation_harness_validity.py", "P-171", "the recorded gap's name, asserted"),
+    ("tests/test_fact_gate.py", "00-01", "the synthetic item the fixtures' todo headings carry"),
+    ("tests/test_shipped_code_names_no_process_ids.py", "15-19",
+     "a probe line the identifier pattern must match"),
+    ("tests/test_shipped_code_names_no_process_ids.py", "P-335",
+     "a probe line the identifier pattern must match"),
+    ("tests/test_workflow_release_policy.py", "9.9.9-03",
+     "a probe that a version with an item suffix is not read as a pinned version"),
+    ("tests/fixtures/dashboard_data.json", "0.2.4-15",
+     "a receipt title copied from the dashboard data the page renders"),
 )
 
 
@@ -582,6 +602,7 @@ def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) ->
         if path.is_file() and "__pycache__" not in path.parts and b"\0" not in path.read_bytes()
     )
     exempt = {path for path, _reason in PROCESS_ID_DATA_FILES}
+    data = {(path, literal) for path, literal, _reason in PROCESS_ID_DATA_LITERALS}
     targets = [(path, "") for path in modules + scan_pages + scripts + tests]
     targets += [(path, f" (published by {_rel(page, root)})") for path, page in included]
     for path, via in targets:
@@ -590,7 +611,7 @@ def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) ->
             continue
         for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             for found in PROCESS_IDENTIFIER.finditer(line):
-                if _is_month_day(found.group(0)):
+                if _is_month_day(found.group(0)) or (rel, found.group(0)) in data:
                     continue
                 violations.append(
                     f"PROCESS_IDENTIFIER: {rel}:{lineno}{via} cites {found.group(0)!r}. State the "
