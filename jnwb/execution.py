@@ -207,7 +207,9 @@ def cache_store(cache_dir: str | Path, key: str, value: Any) -> Path:
     is not a str raises ``TypeError``, and a 0-d array stores in its place; an int beyond int64,
     bytes with a NUL byte or a str ending in a NUL character raises ``ValueError``. The write
     lands atomically: bytes go to a temporary sibling file that is flushed and synced, then
-    renamed over the target, so a reader never sees a half-written entry.
+    renamed over the target, so a reader never sees a half-written entry. A rename that another
+    process briefly holds (a scanner on Windows) is retried for about 1.5 s; a lock that persists
+    raises ``PermissionError``, the previous entry stays and no temporary file is left.
     """
     import numpy as np
 
@@ -231,8 +233,34 @@ def cache_store(cache_dir: str | Path, key: str, value: Any) -> Path:
         np.savez(handle, **payload)
         handle.flush()
         os.fsync(handle.fileno())
-    os.replace(tmp, target)
+    try:
+        _replace_with_retry(tmp, target)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
     return target
+
+
+#: Waits in seconds before each retry of a rename another process holds (about 1.5 s in all).
+_REPLACE_RETRY_WAITS_S = (0.05, 0.1, 0.2, 0.4, 0.8)
+
+
+def _replace_with_retry(src: Path, dst: Path) -> None:
+    """``os.replace``, retried while another process briefly holds ``dst`` open.
+
+    On Windows a virus scanner or the search indexer can hold a just-written file for a moment,
+    and a rename over it raises ``PermissionError``. The same error after the last wait raises.
+    """
+    import time
+
+    for wait_s in (*_REPLACE_RETRY_WAITS_S, None):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if wait_s is None:
+                raise
+            time.sleep(wait_s)
 
 
 def cache_load(cache_dir: str | Path, key: str) -> Any:

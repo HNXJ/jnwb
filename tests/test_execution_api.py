@@ -193,6 +193,37 @@ def test_every_accepted_value_loads_equal_in_type_and_value(tmp_path):
         assert _same_type_and_value(jnwb.cache_load(tmp_path, key), value), value
 
 
+def test_store_retries_a_rename_another_process_briefly_holds(tmp_path, monkeypatch):
+    """On Windows a scanner can hold a just-written entry for a moment, and the rename over it
+    then raises PermissionError; the store retries, and a lock that persists still raises."""
+    import jnwb.execution as execution
+
+    key = jnwb.cache_key("op", [0], {})
+    jnwb.cache_store(tmp_path, key, 1)
+    real_replace = execution.os.replace
+    failures = {"left": 2}
+
+    def held(src, dst):
+        if failures["left"]:
+            failures["left"] -= 1
+            raise PermissionError(5, "Access is denied", str(dst))
+        real_replace(src, dst)
+
+    monkeypatch.setattr(execution.os, "replace", held)
+    jnwb.cache_store(tmp_path, key, 2)
+    assert failures["left"] == 0, "precondition: the rename failed twice"
+    assert jnwb.cache_load(tmp_path, key) == 2
+
+    def always_held(src, dst):
+        raise PermissionError(5, "Access is denied", str(dst))
+
+    monkeypatch.setattr(execution.os, "replace", always_held)
+    with pytest.raises(PermissionError):
+        jnwb.cache_store(tmp_path, key, 3)
+    assert jnwb.cache_load(tmp_path, key) == 2
+    assert [p.name for p in tmp_path.iterdir() if p.name.endswith(".tmp")] == []
+
+
 def test_clear_removes_only_cache_entries_and_counts_them(tmp_path):
     keep = tmp_path / "notes.txt"
     keep.write_text("not a cache entry", encoding="utf-8")
