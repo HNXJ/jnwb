@@ -87,7 +87,7 @@ All 226 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.TickClock | class | *Map from timestamp ticks to seconds on a spike clock, built by `derive_tick_clock`.* |
 | jnwb.derive_tick_clock | function | `(tick_segments: 'Sequence[np.ndarray]', spike_times) -> 'TickClock'`<br>*Derive the map from acquisition ticks to spike-clock seconds from one recording.* |
-| jnwb.epoch_continuous | function | `(data: 'np.ndarray', onsets: 'np.ndarray | Sequence[float]', *, win_s: 'tuple[float, float]', fs: 'float', onset_unit: 'OnsetUnit' = 'seconds', boundary_policy: 'BoundaryPolicy' = 'nan', return_indices: 'bool' = False) -> 'tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]'`<br>*Extract fixed-duration epochs from a continuous signal aligned to event onsets.* |
+| jnwb.epoch_continuous | function | `(data: 'np.ndarray', onsets: 'np.ndarray | Sequence[float]', *, win_s: 'tuple[float, float]', fs: 'float', start_s: 'float' = 0.0, onset_unit: 'OnsetUnit' = 'seconds', boundary_policy: 'BoundaryPolicy' = 'nan', return_indices: 'bool' = False) -> 'tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]'`<br>*Extract fixed-duration epochs from a continuous signal aligned to event onsets.* |
 
 ## Module: jnwb.decoding
 

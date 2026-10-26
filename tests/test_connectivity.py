@@ -734,7 +734,7 @@ class TestFewTrialSurrogates:
         assert granger(x, y, order=1).params["surrogate_scheme"] is None
 
     def test_seven_trials_keep_the_null_they_had(self):
-        """Pinned before the threshold moved from 3 to 7. The means differ across BLAS builds
+        """Pinned when derangements became uniform (0.2.14). The means differ across BLAS builds
         in the last bits, so they are compared to 1e-12; another null differs far more."""
         g = np.random.default_rng(11)
         x = g.normal(size=(7, 200))
@@ -742,10 +742,10 @@ class TestFewTrialSurrogates:
         res = granger(x, y, order=1, n_surrogates=19, rng=0)
         sur = res.diagnostics["surrogates"]
         # p_net is two-sided: twice the smaller tail's 1 / 20. The 0.2.6 value was 0.05.
-        assert (res.p_x_to_y, res.p_y_to_x, res.p_net) == (0.05, 0.7, 0.1)
+        assert (res.p_x_to_y, res.p_y_to_x, res.p_net) == (0.05, 0.55, 0.1)
         np.testing.assert_allclose(
             [sur["null_mean_x_to_y"], sur["null_mean_y_to_x"]],
-            [0.00035468224425054724, 0.0006370039765307248], rtol=1e-12, atol=0,
+            [0.0005044678744673741, 0.0006522710045268378], rtol=1e-12, atol=0,
         )
 
     @pytest.mark.parametrize("n_trials", [1, 2, 3, 4, 5, 6])
@@ -1843,3 +1843,24 @@ def test_a_zero_spectral_denominator_is_undefined_not_zero_influence():
     y_to_x, x_to_y = _geweke_gc(degenerate, sigma)
     assert np.isnan(y_to_x[0])
     assert np.isfinite(x_to_y[0])
+
+
+def test_the_trial_permutation_draws_the_nine_derangements_of_four_uniformly(monkeypatch):
+    """Each of the 9 derangements of four trials should be drawn with equal frequency. The
+    trial-permutation branch runs from 7 trials up, so its threshold is lowered to 4 here to
+    reach it at four trials; the trial index of each output row identifies the permutation."""
+    from collections import Counter
+
+    from jnwb.connectivity import _common
+
+    monkeypatch.setattr(_common, "_MIN_TRIALS_FOR_TRIAL_PERMUTATION", 4)
+    assert _common._surrogate_scheme(4) == "trial_permutation", "precondition: the branch runs"
+    a = np.arange(4.0)[:, None] * np.ones((4, 5))
+    rng = np.random.default_rng(0)
+    draws = [tuple(int(v) for v in _common._surrogate_source(a, rng)[:, 0]) for _ in range(10000)]
+    assert all(all(p[i] != i for i in range(4)) for p in draws), "a draw keeps a trial's partner"
+    counts = Counter(draws)
+    assert len(counts) == 9, f"expected all 9 derangements of 4 trials, saw {sorted(counts)}"
+    keys = sorted(counts)
+    _, p_value = stats.chisquare([counts[k] for k in keys], np.full(9, 10000 / 9))
+    assert p_value > 0.01, f"chi-square p = {p_value} over {dict(counts)}"
