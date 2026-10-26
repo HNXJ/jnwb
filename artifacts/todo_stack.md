@@ -46,7 +46,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | L laminar | 15-22 (a draft to Hamm) | Muse | nothing |
 | 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
-| 2 | N numerics and I/O (audit 2026-10-25) | by file set, in order: 17-57; 17-25, 17-42, 17-50; 17-12, 17-17, 17-46; then 17-14, 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
+| 2 | N numerics and I/O (audit 2026-10-25) | by file set, in order: 17-25; 17-12, 17-17, 17-46; then 17-14, 17-16, 17-18, 17-19, 17-20, 17-22, 17-43, 17-44, 17-45, 17-48, 17-52 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-15, 17-34, 17-36 | Haiku writes, Muse reviews | nothing |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-32; 17-27, 17-30 | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
@@ -268,13 +268,6 @@ Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: nothing.
 Writes: `jnwb/addressing.py`, its tests, `artifacts/changelog.d/layer-depth-arguments.changed.md`.
 - 17-22: an unrecognised `depth_unit` ("micrometre") or a negative `threshold` returns the label "Unknown" (`addressing.py:650-716`); ruled 2026-10-25: both raise ValueError, and "Unknown" stays for data that cannot be placed. Check: both inputs raise naming the argument; the docstring and changelog say so. Source: O-14.
 
-### 17-50 `autocorrelogram` refuses NaN spike times
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 17-42 (same file).
-Writes: `jnwb/analyzers.py`, its tests.
-- 17-50: `autocorrelogram` drops NaN spike times and then returns `{'error'}` below 10 spikes (`analyzers.py:449`); ruled 2026-10-25 (S9 scope). Check: a NaN spike time raises ValueError naming the count; 12 finite spikes and one NaN no longer return a histogram. Source: O-15.
-
 ### 17-52 `artifact_detection` flags outliers when the MAD is zero
 
 Release: deferred-0.2.14.
@@ -282,26 +275,12 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/artifact_detection.py`, its tests.
 - 17-52: when more than half the values tie, the MAD is 0 and every z is set to 0, so a gross outlier among ties is not flagged (`artifact_detection.py:47`). Check: [0]*9 + [1e6] flags the last value; all-equal input flags none. Source: O-15.
 
-### 17-57 `repair_band_artifacts` refuses fewer than 5 trials
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/artifact_repair.py`, `tests/test_artifact_repair.py`, `artifacts/changelog.d/repair-trials-nonfinite.changed.md`.
-- 17-57: below 5 trials it returns its input and `{}` with no warning (`artifact_repair.py`, `if n_trials < 5`), the pass-through `repair_lfp_trials` dropped for a refusal; `test_below_min_trials_returns_input_unchanged` in `TestRepairBandArtifacts` pins it. Check: 4 trials raise ValueError naming the minimum and the count, as `repair_lfp_trials` does; that test changes with it. Source: found integrating 17-47.
-
 ### 17-25 `UnitAnalyzer.psth` and `raster_psth` agree on time units
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/analyzers.py`, its tests.
 - 17-25: `UnitAnalyzer.psth` returns bin centres in s while `raster_psth` returns ms (`analyzers.py:363`); ruled 2026-10-25: seconds, so `raster_psth` changes, announced in the changelog. Check: both return seconds, named in the returned key or docstring; a test compares their bin centres on one input. Source: O-16.
-
-### 17-42 `extract_band` refuses an empty `band_defs`
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 17-25 (same file).
-Writes: `jnwb/analyzers.py`, its tests.
-- 17-42: `extract_band(band_defs={})` uses the default bands through `x or d` (`analyzers.py:65`). Check: `{}` raises ValueError; `None` keeps the defaults. Source: O-16.
 
 ### 17-43 PSI refuses an `nperseg` longer than the signal
 
