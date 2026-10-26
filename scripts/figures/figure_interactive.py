@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import plotly.graph_objects as go
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.collections import LineCollection, PathCollection, PolyCollection, QuadMesh
 from matplotlib.colors import to_rgba
 from matplotlib.contour import QuadContourSet
@@ -320,8 +321,11 @@ def _template(scheme: str):
 
 def convert(fig) -> Converted:
     """The figure as one Plotly figure, or the reasons it has none."""
-    fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
+    # An Agg canvas of its own: a figure built outside pyplot, or closed by it, holds a
+    # FigureCanvasBase, which cannot render.
+    canvas = FigureCanvasAgg(fig)
+    canvas.draw()
+    renderer = canvas.get_renderer()
     height_px = round(fig.get_figheight() * PX_PER_INCH)
     width_px = round(fig.get_figwidth() * PX_PER_INCH)
     reasons: List[str] = []

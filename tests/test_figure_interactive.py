@@ -54,6 +54,18 @@ def test_a_figure_of_supported_artists_converts_with_no_reasons():
     assert result.n_points == 5, result.n_points
 
 
+def test_a_figure_without_a_drawing_canvas_converts():
+    """A figure built outside pyplot, or closed by it, holds a canvas that cannot render."""
+    from matplotlib.backend_bases import FigureCanvasBase
+    from matplotlib.figure import Figure
+
+    fig = Figure()
+    fig.add_subplot().plot([0.0, 1.0], [0.0, 1.0])
+    assert type(fig.canvas) is FigureCanvasBase, "the fixture must hold a canvas that cannot render"
+    result = interactive.convert(fig)
+    assert result.reasons == [] and len(result.figure.data) == 1
+
+
 def test_a_contour_panel_is_named_and_the_figure_is_not_converted():
     fig, ax = plt.subplots()
     ax.contour(np.arange(9.0).reshape(3, 3))
