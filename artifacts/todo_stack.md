@@ -40,7 +40,7 @@ elsewhere as `python -m pytest tests/ -q`.
 
 | Wave | Lane | Items, in order | Writer | Waits for |
 |---|---|---|---|---|
-| 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
+| 0 | Proposals | 15-20's prune rule was ruled 2026-10-26; 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
 | 1 | M mutation | none left: 07-21's core five and 07-22's execution and cache API landed (CI green on `dev` at f5c55f2b) | integrator | nothing |
 | 2 | F facts | 11-07 (S1, S5; S2 held 2026-10-25), 12-11 | Cursor GLM or Muse writes, Haiku checks | nothing |
 | 2 | L laminar | 15-22 (a draft to Hamm) | Muse | nothing |
@@ -48,7 +48,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
 | 2 | N numerics and I/O (audit 2026-10-25) | none left: every item landed 2026-10-25 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-58, 17-34; 17-36 landed 2026-10-26 | Haiku writes, Muse reviews | nothing |
-| 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-27, 17-30 and 17-32 landed 2026-10-26 | Haiku | wave 2 merged |
+| 3 | H harness | 12-05, 11-03, 12-07, 07-05, then 12-06 and 17-56; 17-26, 17-41, 17-54, 17-55 after the F lane, in its files; 17-26 then 17-31; 17-27, 17-30 and 17-32 landed 2026-10-26 | Haiku | wave 2 merged |
 | 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
 
@@ -103,18 +103,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: jnwb-figures. Blocked by: nothing.
 - 17-01: docs pages show still figures only (75 PNGs with dark twins, 0 iframes); ruled 2026-10-24, every figure gets a Still tab and an Interactive tab, the HTML built in CI and served from gh-pages `/figures/`, one HTML that follows the site theme, and a registry-generated state line above each figure; `docs/generate_figures.py` and `docs/figure_style.py` move out of the docs source, which MkDocs copies into the site. Check: a test fails on a figure missing either tab or its state line, and on an iframe outside the allowlist; the strict docs build passes. Waits: not stated.
 
-### 17-02 A validation dashboard after jaxfne's
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: nothing.
-- 17-02: the dashboard is one page of sections with jnwb's own verdicts, published from `main` (`dashboard.yml`) where the ruling says each `dev` push; ruled 2026-10-24, hash-routed tabs with a page per validation, jaxfne's verdict set (reproduces to reproduced, partial to mixed, does_not to failed), no stage track, roadmap rows as `not started`, publish on each `dev` push after the checks, jaxfne's colours and chips by convention. Check: `tests/test_build_dashboard.py` builds it from committed files with every receipt digest matching, and a page test loads each tab in light and dark. Waits: not stated.
-
-### 15-20 An inventory of the verification apparatus
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-- 15-20: Goal 10 bounds the apparatus ("a new gate or process replaces one") with no check; `artifacts/evidence/0.2.14/verification_inventory.md` (2c0df23f) lists each gate's purpose and runtime but leaves unique failure detection unmeasured, and no pruning constraint has been put to Hamm (checklist row 7 needs one). Accept (ruled 2026-10-15): that inventory first, then a measurable constraint proposed to Hamm that does not reward deleting valuable tests; no universal gate-count ceiling. Two candidate checks were built and not integrated (2026-10-15), each to land only by replacing a check the inventory shows weaker: warning reads filter by category (it found one site beyond 51a29bb7's seven), and every artifact path code names is tracked. Check: that inventory first, then a measurable constraint proposed to Hamm that does not reward deleting valuable tests; no universal gate-count ceiling. Waits: Ruled 2026-10-19 with 12-05: the inventory and a prune proposal land in 0.2.14.
-
 ### 11-07 The S1, S2 and S5 scans
 
 Release: deferred-0.2.14.
@@ -150,9 +138,9 @@ Writes: `skills/jnwb-sim-benchmark/**`, `artifacts/process/public_surface.json` 
 ### 12-05 Process tests pruned and merged
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 15-20.
-Writes: `artifacts/evidence/0.2.14/process_tests/**`, `tests/test_findings_ledger.py`, `tests/test_single_agent_instruction_file.py`, `tests/test_standing_rules_name_no_cycle.py`, `tests/test_agents_md_stays_a_router.py`, `scripts/measure_agents_md_duplication.py`, `tests/test_release_recovery_gates.py`, `tests/test_jrsa.py`, `tests/test_api_md_is_interpreter_independent.py`, `tests/test_workflow_release_policy.py`, `tests/test_state_reconstruction.py`, `tests/test_state_basis_is_checked.py`, `tests/test_xflip_calibration_receipt.py`, `tests/test_vflip_calibration_receipt.py`, `tests/test_test_imports_survive_the_wheel_leg.py`, `tests/test_the_suite_can_qualify_an_installed_copy.py`, `tests/test_errors_documented.py`, `tests/test_readme_smoke.py`, `scripts/reconstruct_state.py`.
-- 12-05: The process tests have never been pruned against measured unique detection (the 0.2.10 prune list was dropped as stale, 2026-10-19), P-290 is enforced by nothing and the apparatus bound of `artifacts/goal.md` section 10 has no check. Check: the prune set is the one 15-20's inventory and Hamm's pruning constraint select; each pruned case is shown held by a stronger test first, named in the audit; each kept process test is named under one probe class in the prune record; a taxonomy change goes to 12-06, which owns `CONTRIBUTING.md`; `scripts/reconstruct_state.py` records the line counts of `scripts/` and the process tests, so growth is visible per release; a refusal is a new item's to add if Hamm asks. Waits: Ruled 2026-10-19: 15-20's inventory re-measures unique detection on the current suite and returns a prune proposal.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `artifacts/evidence/0.2.14/process_tests/**`, `artifacts/evidence/0.2.14/scripts/gate_unique_failure.py`, `tests/test_findings_ledger.py`, `tests/test_single_agent_instruction_file.py`, `tests/test_standing_rules_name_no_cycle.py`, `tests/test_agents_md_stays_a_router.py`, `scripts/measure_agents_md_duplication.py`, `tests/test_release_recovery_gates.py`, `tests/test_jrsa.py`, `tests/test_api_md_is_interpreter_independent.py`, `tests/test_workflow_release_policy.py`, `tests/test_state_reconstruction.py`, `tests/test_state_basis_is_checked.py`, `tests/test_xflip_calibration_receipt.py`, `tests/test_vflip_calibration_receipt.py`, `tests/test_test_imports_survive_the_wheel_leg.py`, `tests/test_the_suite_can_qualify_an_installed_copy.py`, `tests/test_errors_documented.py`, `tests/test_readme_smoke.py`, `scripts/reconstruct_state.py`.
+- 12-05: The process tests have never been pruned against measured unique detection (the 0.2.10 prune list was dropped as stale, 2026-10-19), P-290 is enforced by nothing and the apparatus bound of `artifacts/goal.md` section 10 has no check. Check: the prune set is the one 15-20's inventory and Hamm's pruning constraint select; each pruned case is shown held by a stronger test first, named in the audit; each kept process test is named under one probe class in the prune record; a taxonomy change goes to 12-06, which owns `CONTRIBUTING.md`; `scripts/reconstruct_state.py` records the line counts of `scripts/` and the process tests, so growth is visible per release; a refusal is a new item's to add if Hamm asks. Waits: Ruled 2026-10-26 ("Plant-covered only"): a process test is pruned only when every failure its own tests plant is caught by another kept check, measured by `gate_unique_failure.py` extended to tests; no count ceiling.
 Accept: the pruned files' cases are held by the stronger tests named in the audit.
 
 ### 11-03 Design facts held
@@ -201,7 +189,7 @@ Writes: `scripts/fact_gate.py`, `scripts/gates/boundary.py`, `tests/test_fact_ga
 ### 17-31 The boundary checks fail on what they cannot parse, or go
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 17-26 (same file), 15-20 (the inventory decides).
+Role: jnwb-developer. Skill: none. Blocked by: 17-26 (same file).
 Writes: `scripts/gates/boundary.py`, `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`.
 - 17-31: `check_logarithm_last_rule` returns [] on code it cannot parse (`boundary.py:429-430`), and it and `check_modality_isolation` run in no numbered gate. Check: a parse failure is a violation; each check joins a numbered gate (`GATES` stays 22) or is deleted with its tests, whichever the 15-20 inventory supports. Source: O-24.
 
