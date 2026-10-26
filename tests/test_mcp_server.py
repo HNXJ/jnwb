@@ -403,8 +403,8 @@ class TestMCPServer(unittest.TestCase):
         name cannot hold that: `open(..., "w")`, an h5py or pynwb write mode and a sidecar
         file all pass it. This runs every registered tool on its success path and compares
         the bytes on disk before and after, and the repository tree (paths, sizes and
-        mtimes, `.git` excluded) before and after, so a write under the repository root
-        is caught as well.
+        mtimes, `.git` and the ignored scratch directory `artifacts/_temp` excluded) before and
+        after, so a write under the repository root is caught as well.
         """
         import asyncio
         import hashlib
@@ -434,7 +434,8 @@ class TestMCPServer(unittest.TestCase):
         def tree(root):
             entries = {}
             for folder, dirs, files in os.walk(root):
-                dirs[:] = [name for name in dirs if name != ".git"]
+                dirs[:] = [name for name in dirs if name != ".git"
+                           and pathlib.Path(folder, name) != pathlib.Path(root, "artifacts", "_temp")]
                 for name in files:
                     path = pathlib.Path(folder, name)
                     stat = path.stat()
