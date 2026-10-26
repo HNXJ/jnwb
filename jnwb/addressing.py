@@ -582,6 +582,24 @@ def _depth_from_shallow_contact(row, electrodes_df: pd.DataFrame, depth_axis: st
     return abs(float(coordinate) - float(shallow)) * scale
 
 
+def _refuse_bad_depth_arguments(depth_unit: Optional[str], threshold: Optional[float]) -> None:
+    """Refuse an explicit ``depth_unit`` that names no length unit, or a negative ``threshold``.
+
+    Only the arguments are checked. Data the table cannot place still gives 'Unknown'.
+    """
+    if depth_unit is not None:
+        if _resolve_depth_unit(depth_unit, None, None) not in _DEPTH_UNIT_SCALES:
+            raise ValueError(
+                "classify_layer_from_depth: depth_unit must be a length unit ('um', 'mm' or 'm', "
+                f"or a spelling of one) or None, got {depth_unit!r}"
+            )
+    if threshold is not None and isinstance(threshold, (int, float, np.integer, np.floating)):
+        if threshold < 0:
+            raise ValueError(
+                f"classify_layer_from_depth: threshold must not be negative, got {threshold!r}"
+            )
+
+
 def classify_layer_from_depth(
     peak_channel_id: float,
     electrodes_df: pd.DataFrame,
@@ -598,7 +616,8 @@ def classify_layer_from_depth(
     'Deep' for > threshold). To prevent scientific errors from unit ambiguity,
     depth units must be explicitly provided via ``depth_unit`` or declared in
     ``electrodes_df`` metadata/columns ('depth_unit', 'z_unit', 'unit').
-    If depth units are unknown or unsupported, returns 'Unknown'.
+    If the table declares depth units that are unknown or unsupported, returns 'Unknown'; an
+    unsupported ``depth_unit`` argument raises ``ValueError``.
 
     With ``depth_axis`` and ``shallow_end`` declared together, a unit's depth is its distance
     along ``depth_axis`` from the contact at the shallow end among the electrodes of its probe,
@@ -634,8 +653,14 @@ def classify_layer_from_depth(
 
     Returns:
         Geometric depth class ('Deep', 'Superficial', or 'Unknown'), not a cortical layer
+
+    Raises:
+        ValueError: ``depth_unit`` is not a length unit or a spelling of one, or ``threshold`` is
+            negative. Data the table cannot place (an unsupported unit declared in the table, a
+            missing or implausible coordinate) still gives 'Unknown'.
     """
     _declared_depth_axis(depth_axis, shallow_end, electrodes_df, "classify_layer_from_depth")
+    _refuse_bad_depth_arguments(depth_unit, threshold)
     if pd.isna(peak_channel_id) or electrodes_df is None or len(electrodes_df) == 0:
         return "Unknown"
 

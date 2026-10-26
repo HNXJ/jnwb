@@ -86,6 +86,17 @@ class TestMergeEquivalence:
         mask = direct.n > 0
         np.testing.assert_allclose(merged.mean[mask], direct.mean[mask], rtol=1e-9, atol=1e-11)
 
+    def test_merge_refuses_a_shape_mismatch_and_names_both_shapes(self):
+        """A (1, 3, 4) accumulator broadcast against (2, 3, 4) and counted 2 in every cell."""
+        acc_a = _summarize(_random_trials(1, (2, 3, 4), seed=3))
+        acc_b = _summarize(_random_trials(1, (1, 3, 4), seed=4))
+        assert acc_a.shape != acc_b.shape, "fixture must give the two accumulators different shapes"
+
+        with pytest.raises(ValueError, match=r"\(2, 3, 4\).*\(1, 3, 4\)"):
+            acc_a.merge(acc_b)
+        with pytest.raises(ValueError, match=r"\(1, 3, 4\).*\(2, 3, 4\)"):
+            acc_b.merge(acc_a)
+
 
 class TestPerBinN:
     """Spec 2.4: n must be an array, not a scalar -- per-bin counts must differ correctly."""

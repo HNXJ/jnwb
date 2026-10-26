@@ -1,0 +1,1 @@
+- `classify_layer_from_depth` raises ValueError on unknown `depth_unit` or negative `threshold` (`jnwb/addressing.py`).

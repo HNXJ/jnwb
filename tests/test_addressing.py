@@ -177,11 +177,22 @@ class TestClassifyLayerUnitSafety:
         assert classify_layer_from_depth(2, df, depth_unit="um", threshold=0.75, threshold_unit="mm") == "Deep"
         assert classify_layer_from_depth(2, df, depth_unit="um", threshold=0.85, threshold_unit="mm") == "Superficial"
 
-    def test_unsupported_units_return_unknown(self):
+    def test_unsupported_depth_unit_argument_is_refused(self):
         df = pd.DataFrame({"z": [500.0, 1500.0]}, index=[0, 1])
         for bad_unit in ["inches", "furlongs", "lightyears", "volts", ""]:
-            assert classify_layer_from_depth(0, df, depth_unit=bad_unit) == "Unknown"
-            assert classify_layer_from_depth(1, df, depth_unit=bad_unit) == "Unknown"
+            with pytest.raises(ValueError, match="depth_unit"):
+                classify_layer_from_depth(0, df, depth_unit=bad_unit)
+
+    def test_unsupported_unit_declared_in_the_table_still_gives_unknown(self):
+        df = pd.DataFrame({"z": [500.0, 1500.0], "depth_unit": ["volts", "volts"]}, index=[0, 1])
+        assert classify_layer_from_depth(0, df) == "Unknown"
+        assert classify_layer_from_depth(1, df) == "Unknown"
+
+    def test_negative_threshold_is_refused(self):
+        df = pd.DataFrame({"z": [500.0, 1500.0]}, index=[0, 1])
+        assert classify_layer_from_depth(0, df, depth_unit="um") == "Superficial"
+        with pytest.raises(ValueError, match="threshold"):
+            classify_layer_from_depth(0, df, depth_unit="um", threshold=-1.0)
 
     def test_missing_nan_and_infinite_depth(self):
         df = pd.DataFrame({"z": [np.nan, np.inf, -np.inf, None]}, index=[0, 1, 2, 3])

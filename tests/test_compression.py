@@ -1,3 +1,4 @@
+import hashlib
 import importlib
 import re
 import pathlib
@@ -33,6 +34,19 @@ def test_compress_fp32_dst_exists_raises_file_exists(tmp_path):
 
     with pytest.raises(FileExistsError):
         jnwb.compress_fp32(src, dst, overwrite=False, select=[])
+
+
+@pytest.mark.parametrize("spelling", ["same", "dotdot"])
+def test_compress_fp32_dst_resolving_to_src_raises_and_leaves_src_unchanged(tmp_path, spelling):
+    src = _lfp_only_file(tmp_path / "same.nwb", (64, 4))
+    dst = src if spelling == "same" else tmp_path / ".." / tmp_path.name / "same.nwb"
+    assert dst.resolve() == src.resolve(), "fixture must name the source through dst"
+    before = hashlib.sha256(src.read_bytes()).hexdigest()
+
+    with pytest.raises(ValueError, match="dst resolves to src"):
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[LFP])
+
+    assert hashlib.sha256(src.read_bytes()).hexdigest() == before
 
 
 def test_compress_fp32_unrecognized_processing_raises_key_error(tmp_path):

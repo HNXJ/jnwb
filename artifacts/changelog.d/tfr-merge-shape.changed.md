@@ -1,0 +1,1 @@
+- `TFRAccumulator.merge` raises ValueError for accumulators of different shapes (`jnwb/tfr_accumulator.py`).
