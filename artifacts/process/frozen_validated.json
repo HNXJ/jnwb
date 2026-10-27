@@ -265,7 +265,8 @@
       "sha256": "0f3157f1c52f07f12bfe07898a1c4df70ff2b75a42e009203293ca201f2656e1",
       "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
       "killed_by": [
-        "tests/test_composition_identifier_survival.py::test_geometry_at_both_ends_recovers_the_depth_ordered_labels"
+        "tests/test_composition_identifier_survival.py::test_geometry_at_both_ends_recovers_the_depth_ordered_labels",
+        "tests/test_frozen_core_mutants.py::TestLayerLabelsFollowTheShaftRank::test_each_contact_gets_the_label_of_its_depth"
       ]
     },
     {

@@ -3,16 +3,57 @@
 Each test builds a case whose answer the function's own body fixes, asserts the case's
 precondition before it checks the answer, and therefore fails under a planted change to the
 body it names. Tests that already kill a planted change live in their own modules and are
-named in the register; these two cover the gaps they leave.
+named in the register; these cover the gaps they leave.
 """
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
+import pandas as pd
 import pytest
 
+import jnwb
+from jnwb.laminar import label_layers
 from jnwb.spectral import harmonic_analysis
 from jnwb.statistics import cluster_permutation_test
+
+
+class TestLayerLabelsFollowTheShaftRank:
+    """Labels on a shuffled table, against labels written out by depth, not computed."""
+
+    #: Physical contact k sits at depth k * 100 um; the table lists them in this order.
+    TABLE_ORDER = [3, 0, 6, 1, 7, 2, 5, 4]
+    #: Crossover at contact 3 and a 200 um input zone on a 100 um pitch: contacts 2 to 4.
+    BY_DEPTH = {
+        "superficial_to_deep": ["superficial"] * 2 + ["input"] * 3 + ["deep"] * 3,
+        "deep_to_superficial": ["deep"] * 2 + ["input"] * 3 + ["superficial"] * 3,
+    }
+
+    @pytest.mark.parametrize("orientation", sorted(BY_DEPTH))
+    def test_each_contact_gets_the_label_of_its_depth(self, orientation):
+        n = len(self.TABLE_ORDER)
+        geometry = jnwb.probe_geometry(
+            pd.DataFrame({
+                "x": np.zeros(n),
+                "y": np.zeros(n),
+                "z": [100.0 * k for k in self.TABLE_ORDER],
+                "channel_id": [f"c{k}" for k in self.TABLE_ORDER],
+            }),
+            units="um", nominal_pitch=100.0,
+        )
+        # Precondition: the table is out of depth order, so a wrong rank shows.
+        assert not np.array_equal(np.asarray(geometry.linear_order), np.arange(n)), (
+            "fixture must list contacts out of depth order")
+        result = SimpleNamespace(
+            accepted=True, crossover_contact=3.0, n_channels=n, index_space="shaft_rank",
+            orientation=orientation, bad_channel_mask=None,
+        )
+
+        labels = label_layers(result, geometry, granular_thickness_um=200.0)
+
+        assert labels == {f"c{k}": label for k, label in enumerate(self.BY_DEPTH[orientation])}
 
 
 class TestHarmonicRatioCountsEveryHigherOrder:
