@@ -63,6 +63,26 @@ def test_docstrings_comments_and_layout_do_not_count(tmp_path):
     assert frozen_body_hash(edited, "Box.width") == frozen_body_hash(BODY, "Box.width")
 
 
+def test_an_eager_import_hashes_alike_with_or_without_the_lazy_field():
+    """3.15 gives `Import` and `ImportFrom` an `is_lazy` field; an eager import must not count it."""
+    import ast
+
+    from scripts.gates.frozen import _canonical_ast
+
+    def node(cls, **fields):
+        return cls(names=[ast.alias(name="x")], **fields)
+
+    for base in (ast.Import, ast.ImportFrom):
+        fields = tuple(f for f in base._fields if f != "is_lazy")
+        types = {k: v for k, v in getattr(base, "_field_types", {}).items() if k != "is_lazy"}
+        lazy_aware = type(base.__name__, (base,), {"_fields": fields + ("is_lazy",),
+                                                   "_field_types": {**types, "is_lazy": int}})
+        plain = type(base.__name__, (base,), {"_fields": fields, "_field_types": types})
+        assert "is_lazy" in lazy_aware._fields, "fixture must carry the field"
+        assert _canonical_ast(node(lazy_aware, is_lazy=0)) == _canonical_ast(node(plain))
+        assert _canonical_ast(node(lazy_aware, is_lazy=1)) != _canonical_ast(node(plain))
+
+
 def test_a_missing_function_or_killing_test_fails(tmp_path):
     violations = check_frozen_validated(_repo(
         tmp_path, BODY.replace("def width", "def height"),
