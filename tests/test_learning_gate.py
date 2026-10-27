@@ -128,8 +128,9 @@ def test_the_live_generated_rows_are_in_the_generated_state(monkeypatch):
 
     from scripts import reconstruct_state
 
+    # A tag checkout has no local branch, so only the worktree and defect-class rows are certain.
     rows = lg.generated_rows()
-    assert len(rows) >= 3, f"too few generated rows read: {rows}"
+    assert len(rows) >= 2, f"too few generated rows read: {rows}"
 
     def unreachable(request, timeout=None):
         raise urllib.error.URLError("tests do not reach the network")
