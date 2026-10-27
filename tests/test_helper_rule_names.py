@@ -1,4 +1,4 @@
-"""Same-named helpers that applied different rules (item 12-12).
+"""Same-named helpers that applied different rules.
 
 Each pair now has one name per rule. The tests call the public functions that use each
 helper and pin the rule they apply; the import test fails on a tree that still has the

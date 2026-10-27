@@ -230,7 +230,7 @@ class TestANoiseOnlyPSTH:
 
 
 class TestCausalGaussianSmooth:
-    """A past-only Gaussian kernel that reports its exact mean lag (item 12-19)."""
+    """A past-only Gaussian kernel that reports its exact mean lag."""
 
     def test_an_impulse_gives_exactly_zero_before_its_bin(self):
         from jnwb.onset_fitting import causal_gaussian_smooth

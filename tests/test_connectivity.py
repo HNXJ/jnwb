@@ -1254,7 +1254,7 @@ class TestGrangerNotTestedIsNotPassed:
 
 
 class TestDirectedEstimatorEdges:
-    """Item 10-06: the PSI segment default, its pinned spectrum, the partial-band `net`, the
+    """The PSI segment default, its pinned spectrum, the partial-band `net`, the
     silent all-NaN q_matrix and the mutual-information error names."""
 
     @pytest.mark.parametrize("shape, nperseg, n_segments", [
@@ -1497,7 +1497,7 @@ class TestRoundOffBounds:
 
 
 class TestEstimatorEdgesRound2:
-    """Round-2 reach of 10-06: each assertion is on the quantity a one-line mutant moves."""
+    """Each assertion is on the quantity a one-line mutant moves."""
 
     def test_conditioning_uses_every_other_node_not_the_first(self):
         """Four nodes, pair (A, D): the others are X then B. A -> B -> D has no direct

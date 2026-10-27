@@ -1,4 +1,4 @@
-"""Fusion agreement (15-18): `fuse_laminar_anchors` reports agreement from a threshold.
+"""Fusion agreement: `fuse_laminar_anchors` reports agreement from a threshold.
 
 Two present landmarks are compared against ``VFLIP2_VFLIP_AGREEMENT_T_CONTACTS``, the
 95th percentile of the ``|vFLIP2 - vFLIP|`` gap on a null probe

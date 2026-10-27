@@ -1,4 +1,4 @@
-"""Recovery of a planted jaxfne planar wave by jnwb's Welch PSD (item 12-21).
+"""Recovery of a planted jaxfne planar wave by jnwb's Welch PSD.
 
 The excerpt is jaxfne's protocol_c planar traveling wave at the frozen spec values, with
 seeded additive noise, plus a noise-only control. Its commit, seeds, generator settings and
