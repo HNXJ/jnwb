@@ -821,7 +821,7 @@ def unit_spike_times(path_or_nwb: InspectInput, unit_index: int = 0) -> np.ndarr
 def _warn_if_declared_unit_contradicts_storage(series: Any, acq_name: str, channel: int) -> None:
     """Warn when the type this series declares fixes a data unit the file does not store.
 
-    `inspect` warns where the contradiction is *declared*; this is where the harm *lands*.
+    `inspect` warns where the contradiction is *declared*; the harm *lands* here.
     An int16 spike container declared `ElectricalSeries` is exactly the case where applying
     the volts conversion is wrong, and this function returned the converted array and warned
     nothing.

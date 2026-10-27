@@ -215,8 +215,7 @@ A mutation run — editing the tree to check that a test can fail, then restorin
 `scripts/mutation_harness.py`. Do not hand-roll one.
 
 The harness derives its state directory from the worktree being operated on, refuses to touch a
-path outside that worktree, and admits one session per worktree under an OS-level lock. That is
-not ceremony. A worktree isolates the repository and **not** the session scratchpad, so two
+path outside that worktree, and admits one session per worktree under an OS-level lock. A worktree isolates the repository and **not** the session scratchpad, so two
 lanes writing a file called `mutate.py` into the shared scratchpad collide — measured three
 times across two batches, once between a live mutation harness and another lane's harness
 pointing at a third worktree.
@@ -362,13 +361,13 @@ artifacts/
 Every contributor adheres to these scientific invariants:
 
 1. **Signal Class Independence**: SUA/SPK, MUA, and LFP represent physically distinct observables. Never pool spikes and LFP.
-2. **Estimand Disambiguation**: Clearly distinguish between prevalence, magnitude, decodable information, and biophysical mechanism.
+2. **Estimand Disambiguation**: Distinguish between prevalence, magnitude, decodable information, and biophysical mechanism.
 3. **Causal & Directional Verbs**: $\text{Association} \ne \text{Directionality} \ne \text{Causality}$. Metrics like Granger causality or phase slope index measure temporal predictive asymmetry, not physical perturbation causality.
 4. **Logarithm Last**: Every decibel output aggregates on the power-ratio scale and takes `10*log10` once, last (fact S2 of `artifacts/fact_stack.md`; `aggregate_to_db` enforces it). Averaging decibels is never an option of a decibel output. A mean-of-decibels quantity, if one is ever needed, is a separately named function.
 5. **Unit of Inference**: Always declare whether statistical degrees of freedom reside at the unit, channel, trial, or session level.
 6. **Valid Nulls**: A valid null is an empirical finding. Never alter test windows or parameters to artificially force statistical significance.
 7. **No Synthetic Science**: Never present synthetic or dummy data as real electrophysiological observations.
-8. **Scientific Vocabulary & Methodological Distinctions**: Prefer direct, compact, quantitative scientific terminology (`result`, `test`, `analysis`, `table`, `figure`, `method`, `limit`, `condition`) over process/governance jargon. Preserve critical distinctions: response magnitude does not imply temporal precision; detecting an effect does not by itself establish precise timing or an admissible latency; distinguish measurement precision, latency, estimator disagreement, and boundary censoring; descriptive lower-level percentages do not substitute for hypothesis tests at the declared higher-level inferential unit; association or directionality metrics do not establish physical causality.
+8. **Scientific Vocabulary & Methodological Distinctions**: Prefer direct, compact, quantitative scientific terminology (`result`, `test`, `analysis`, `table`, `figure`, `method`, `limit`, `condition`) over process jargon. Preserve critical distinctions: response magnitude does not imply temporal precision; detecting an effect does not by itself establish precise timing or an admissible latency; distinguish measurement precision, latency, estimator disagreement, and boundary censoring; descriptive lower-level percentages do not substitute for hypothesis tests at the declared higher-level inferential unit; association or directionality metrics do not establish physical causality.
 
 ## Standard development flow
 

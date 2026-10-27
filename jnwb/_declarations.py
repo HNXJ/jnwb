@@ -39,7 +39,7 @@ class Declaration:
 
 #: The declared operations, keyed by ``module.qualname``. A domain callable with no
 #: entry here is undeclared, which the signature scan reports; the reason for each
-#: omission is recorded in the packet report, not guessed into this dict.
+#: omission is recorded in the report, not guessed into this dict.
 DECLARATIONS: Dict[str, Declaration] = {
     # "Autocorrelogram of one spike train"; spike_times in seconds; acg histogram.
     "jnwb.analyzers.UnitAnalyzer.autocorrelogram": Declaration(

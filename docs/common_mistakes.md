@@ -21,7 +21,7 @@ $$\mathbb{E}[\log_{10}(X)] \le \log_{10}(\mathbb{E}[X])$$
 Averaging decibels underestimates physical power and disproportionately weights noisy trials with near-zero baseline power, pulling the aggregate away from the true population effect.
 
 ### The Correct Pattern
-Form the ratio on the linear power scale, aggregate the *ratios*, and take the logarithm **exactly once** at the very end:
+Form the ratio on the linear power scale, aggregate the *ratios*, and take the logarithm **exactly once** at the end:
 
 ```python
 # CORRECT: Log-last rule via jnwb.aggregate_to_db

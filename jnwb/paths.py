@@ -58,7 +58,7 @@ __all__ = [
 # Named PACKAGE_ROOT, not REPO_ROOT, because it is jnwb's root and never the caller's.
 # Under the old name every consumer read it as "my repository root": it resolves from
 # this file's location, so in a consuming project it points at the jnwb checkout. The
-# path is well-formed, it is simply the wrong tree, so the failure is silent. One
+# path is well-formed, it is the wrong tree, so the failure is silent. One
 # project had 41 live files building inputs and outputs from it; they resolved under
 # the jnwb checkout, and the script producing its stable-unit presence table had
 # therefore never run. A consumer wanting its own root should anchor explicitly, e.g.

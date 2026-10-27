@@ -24,9 +24,9 @@ theme:
     - search.highlight
     - content.code.copy
   palette:
-    # Two schemes with a toggle, added 2026-09-19. There was one, `slate`, so item 06-52's
-    # acceptance -- "renders legibly in both the light and the dark theme" -- named a comparison
-    # this site could not make, and a figure that hardcoded a light background was unfalsifiable.
+    # Two schemes with a toggle, added 2026-09-19. With one, `slate`, a check that a
+    # figure "renders legibly in both the light and the dark theme" could not be made, and a
+    # figure that hardcoded a light background was unfalsifiable.
     # `media` makes the first entry the default for a visitor whose OS prefers dark.
     - media: "(prefers-color-scheme: dark)"
       scheme: slate

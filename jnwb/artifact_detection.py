@@ -157,7 +157,7 @@ def bad_trials_single_channel(
     summaries they are computed from. This said ``corr_summary_per_trial, amp_per_trial``, so a
     reader took the third element for an amplitude in the signal's own unit; measured on one
     fixture, element seven was 332.40 against a true max |amplitude| of 54.21. The docs and the
-    tests already named them ``corr_z`` and ``amp_z``; only this line did not. Note that
+    tests already named them ``corr_z`` and ``amp_z``; only this line did not.
     ``bad_channels_from_correlation`` above returns the summary *and* its z, so the two are not
     the same shape of return.
 

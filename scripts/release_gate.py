@@ -1803,7 +1803,7 @@ def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
 
     ``main`` moves by merging ``dev`` into it. At a two-parent commit that is ``origin/main``
     (else ``main``) or whose first parent is, the first parent (the old ``main``) must be an
-    ancestor of the second (``dev``). At any other commit, including a lane merged into ``dev``,
+    ancestor of the second (``dev``). At any other commit, including a branch merged into ``dev``,
     ``origin/main`` (else ``main``) must be an ancestor of it; with neither, the answer is
     unknown and refused. Nothing here fetches.
     """
@@ -1824,7 +1824,7 @@ def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
                 "the commit being released is unknown"]
     main_sha = git("rev-parse", f"{ref}^{{commit}}").stdout.strip()
     # A merge commit is a release merge only when it is main or merges onto main; any other
-    # two-parent commit (a lane merged into dev) is read as a plain commit.
+    # two-parent commit (a branch merged into dev) is read as a plain commit.
     if len(parents) == 2 and main_sha in (full, parents[0]):
         container, contained = parents[1], parents[0]
         what = f"the first parent {contained[:12]} (the old main) of the merge {target[:12]}"
@@ -2108,8 +2108,8 @@ def main() -> None:
         log.info("PASS: pip check verified zero broken requirements.")
 
         log.info("=== STEP 7: Executing installed-package smoke tests outside repository ===")
-        # The one installed smoke, scripts/smoke_installed.py, with the arguments CI passes (Hamm
-        # 2026-10-13). PYTHONPATH is stripped, as for the tutorials below: the checkout must not
+        # The one installed smoke, scripts/smoke_installed.py, with the arguments CI passes
+        # (2026-10-13). PYTHONPATH is stripped, as for the tutorials below: the checkout must not
         # satisfy `import jnwb`.
         smoke_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
         res = subprocess.run(
