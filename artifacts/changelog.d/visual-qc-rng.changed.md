@@ -1,1 +1,0 @@
-- `plot_unit_quality_distribution` gains keyword `rng` for its by-area jitter; default unchanged (`jnwb/visual_qc.py`).

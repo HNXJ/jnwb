@@ -1,1 +1,0 @@
-- `cache_store` retries a rename another process briefly holds, then raises, leaving no temp file (`jnwb/execution.py`).

@@ -1,1 +1,0 @@
-- `compute_response_metrics` refuses non-finite spike times, naming the count; they were dropped (`spiking.py`).

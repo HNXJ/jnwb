@@ -1,1 +1,0 @@
-- Event `codes=` refuses bytes and bool values with TypeError; str and int codes are unchanged (`jnwb/nwb_events.py`).

@@ -1,1 +1,0 @@
-- `classify_layer_from_depth` takes a declared `depth_axis` and `shallow_end`, per probe (`jnwb/addressing.py`).

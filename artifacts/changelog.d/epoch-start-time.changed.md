@@ -1,1 +1,0 @@
-- `epoch_continuous` takes `start_s`, the time of sample 0; default `0.0` keeps current output (`jnwb/continuous.py`).

@@ -1,1 +1,0 @@
-- `noise_correlation(counts, condition_id, *, min_trials)`: trial-based noise correlation (`jnwb/spiking.py`).

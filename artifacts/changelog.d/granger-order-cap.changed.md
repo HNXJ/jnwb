@@ -1,2 +1,0 @@
-- `granger` records the `order='auto'` cap in `params['order_cap']`, warning when below `max_lag` (`_granger.py`).
-- `granger` refuses `max_lag` below 1 with `ValueError` instead of running order 1 (`_granger.py`).

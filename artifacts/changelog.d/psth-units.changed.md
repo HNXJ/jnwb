@@ -1,1 +1,0 @@
-- Breaking for callers reading seconds: `UnitAnalyzer.psth` returns `bin_centers_ms` in ms (`analyzers.py`).

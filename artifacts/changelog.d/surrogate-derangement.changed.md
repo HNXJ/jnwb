@@ -1,1 +1,0 @@
-- Surrogates at 7+ trials draw uniform derangements, so p-values change for a seed (`jnwb/connectivity/_common.py`).

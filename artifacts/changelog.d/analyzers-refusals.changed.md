@@ -1,2 +1,0 @@
-- `UnitAnalyzer.autocorrelogram` refuses NaN or infinite spike times, naming the count (`analyzers.py`).
-- `TFRAnalyzer.extract_band` refuses an empty `band_defs`; `None` keeps the default bands (`analyzers.py`).

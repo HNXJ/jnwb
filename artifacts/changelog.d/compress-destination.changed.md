@@ -1,1 +1,0 @@
-- `compress_fp32` refuses a `dst` that resolves to `src`; the source is never modified (`jnwb/compression.py`).

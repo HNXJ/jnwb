@@ -1,6 +1,0 @@
-- A channel id that is not a number, or an unreadable depth unit, warns once per call (`jnwb/addressing.py`).
-- An electrode region with no length, or an undefined-type check that cannot run, now warns (`jnwb/nwb_inspect.py`).
-- A stored unit that cannot be read warns that the volts check did not run (`jnwb/nwb_inspect.py`).
-- A refused series says why its file could not be read: the exception class and text (`jnwb/nwb_inspect.py`).
-- `AperiodicFitResult` gains `reason`, the exception behind a failed fit, also in `to_dict()` (`jnwb/spectral/_psd.py`).
-- A singular covariance in a partial correlation warns that its pseudo-inverse was used (`jnwb/laminar/_xflip.py`).

@@ -1,1 +1,0 @@
-- `artifact_detection` scores a zero-MAD outlier by the mean absolute deviation, not z 0 (`jnwb/artifact_detection.py`).

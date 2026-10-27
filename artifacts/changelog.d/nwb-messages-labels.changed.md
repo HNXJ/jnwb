@@ -1,4 +1,0 @@
-- A container that wraps its series is labelled `wrapped` by `inspect`, not `direct` (`jnwb/nwb_inspect.py`).
-- A `session_description` stored as a group raises `MissingRequiredNWBFieldError`, not `ValueError` (`jnwb/nwb_io.py`).
-- A series with `timestamps` and no `rate` says it stores no constant rate, and why (`jnwb/nwb_inspect.py`).
-- A unit-scale contradiction warning opens with its own first sentence, not the type one (`jnwb/nwb_inspect.py`).

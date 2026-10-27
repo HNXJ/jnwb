@@ -1,1 +1,0 @@
-- `cluster_permutation_test` reports `scheme='global'` for `paired=True`, groups or not (`jnwb/statistics/_cluster.py`).

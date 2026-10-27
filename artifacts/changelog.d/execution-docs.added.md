@@ -1,1 +1,0 @@
-- `docs/execution.md`: run records and the result cache, with signatures and staleness rules.

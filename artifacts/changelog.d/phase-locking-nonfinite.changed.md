@@ -1,1 +1,0 @@
-- `phase_locking_index` refuses a non-finite LFP phase at a spike's sample, naming the count (`spiking.py`).

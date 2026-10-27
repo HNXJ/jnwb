@@ -1,4 +1,0 @@
-- `cache_key` separates tuples from lists, int dict keys from str keys, NumPy scalars from Python (`jnwb/execution.py`).
-- `cache_store` refuses a NumPy scalar or a non-str dict key; a 0-d array stores instead (`jnwb/execution.py`).
-- `cache_store` refuses an int beyond int64, bytes with a NUL byte, a str ending in NUL (`jnwb/execution.py`).
-- `cache_load` returns a 0-d array stored as one, not a Python scalar (`jnwb/execution.py`).
