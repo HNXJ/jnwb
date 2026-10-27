@@ -222,7 +222,7 @@ def compute_site_power(raw_power:
         assert len(violations) == 1 and "Paper2Agent" in violations[0] and "jnwb/sidecar.py" in violations[0]
 
     def test_gate_6_ignores_study_prose_outside_forbidden_token_list(self, tmp_path: Path):
-        """Gate 6 checks a fixed token list — not all study-specific comments."""
+        """Gate 6 checks a fixed token list, not all study-specific comments."""
         from scripts.harness_gate import check_dataset_leakage
         fake_jnwb = tmp_path / "jnwb"
         fake_jnwb.mkdir()

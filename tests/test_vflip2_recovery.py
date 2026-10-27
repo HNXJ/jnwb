@@ -1,4 +1,4 @@
-"""Item 15-11: the planted vFLIP2 crossover generator, its oracle, and scripts/vflip2_recovery.py.
+"""The planted vFLIP2 crossover generator, its oracle, and scripts/vflip2_recovery.py.
 
 The contract is artifacts/evidence/0.2.13/vflip2_generator_design.md. The tests check the generator's
 definitions, the window definition, the helper table against its plain-numpy recomputation, the frozen

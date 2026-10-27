@@ -139,7 +139,7 @@ def test_the_measurement_still_finds_something_to_measure(measurement):
 
 
 def test_duplicated_claims_do_not_increase(measurement):
-    """Eight claims have two homes. A ninth is a regression, not a style question."""
+    """Eight claims have two homes. A ninth is a regression."""
     assert measurement["duplicated"] <= BASELINE_DUPLICATED, (
         f"{measurement['duplicated']} duplicated claims against a baseline of "
         f"{BASELINE_DUPLICATED}. Run `python scripts/measure_agents_md_duplication.py` to see "

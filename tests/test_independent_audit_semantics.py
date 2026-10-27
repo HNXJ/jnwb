@@ -1,4 +1,4 @@
-"""Regression tests from independent_audit_0.1.7 — discriminating probes per finding."""
+"""Regression tests from independent_audit_0.1.7: discriminating probes per finding."""
 from __future__ import annotations
 
 import numpy as np
@@ -111,7 +111,7 @@ class TestCrossModalComparisonAxes:
 
     def test_trials_time_freq_layout_raises(self):
         rng = np.random.default_rng(0)
-        tfr = rng.normal(size=(5, 20, 4))  # trials, time, freq — wrong
+        tfr = rng.normal(size=(5, 20, 4))  # trials, time, freq: wrong
         spike = rng.normal(size=(5, 20))
         with pytest.raises(ValueError, match="freq, time, trials"):
             jnwb.cross_modal_comparison(tfr, spike)

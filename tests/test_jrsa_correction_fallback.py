@@ -285,7 +285,7 @@ def test_none_is_not_the_benjamini_hochberg_values():
 
 def test_none_does_not_require_statsmodels():
     """Asking for no correction must not require the library that does correction. It used
-    to raise `ImportError` here, demanding statsmodels in order to do nothing."""
+    to raise `ImportError` here, demanding statsmodels to do nothing."""
     with statsmodels_unimportable():
         q = _multiple_correction(P_SEEDED, "none", ALPHA)
     np.testing.assert_array_equal(q, P_SEEDED)

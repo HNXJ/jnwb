@@ -262,7 +262,7 @@ class TestTheHarnessGateListsTheGatesItRuns:
         source = HARNESS_GATE.read_text(encoding="utf-8")
         # This used to hunt for the longest ascending run of `# N.` comments, because numbered
         # comments restarted inside two helpers. The `GATES` table states each number once, so
-        # the heuristic is gone and the numbers are simply read.
+        # the heuristic is gone and the numbers are read.
         # Table order, not sorted: a table that ran 5 before 4 must still fail here.
         runner = [int(n) for n in runner_gate_calls(source)]
         documented = [int(n) for n in DOCSTRING_GATE.findall(doc)]

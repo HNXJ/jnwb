@@ -215,7 +215,7 @@ def test_a_ci_leg_runs_the_suite_at_the_floors_on_the_floor_interpreter() -> Non
     job = workflow["jobs"]["test-floors"]
     from scripts.release_gate import required_ci_jobs
 
-    # What matters is that the release gate requires the leg of the commit it qualifies; a
+    # The release gate requires the leg of the commit it qualifies; a
     # condition that skips it only on a published release keeps it required.
     assert job["name"] in required_ci_jobs(root=ROOT), (
         "the floors leg is not among the jobs the release gate requires")

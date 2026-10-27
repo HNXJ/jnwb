@@ -112,7 +112,7 @@ def test_te_omits_bias_corrected_keys_without_surrogates(pair):
 
 
 def test_te_matches_granger_key_shape_without_surrogates(pair):
-    """Granger simply does not expose the pair without surrogates; TE now agrees."""
+    """Granger does not expose the pair without surrogates; TE now agrees."""
     x, y = pair
     te_diag = transfer_entropy(x, y, n_surrogates=0, seed=1).diagnostics
     gc_diag = granger(x, y, n_surrogates=0, seed=1).diagnostics
@@ -155,7 +155,7 @@ def test_surrogate_debias_is_exactly_raw_minus_null_mean(pair, estimator):
     assert surr["bias_corrected_y_to_x"] == pytest.approx(
         res.y_to_x - surr["null_mean_y_to_x"], rel=0, abs=1e-12
     )
-    # And it is a real correction, not a no-op rename. The null mean may be of
+    # And it is a real correction. The null mean may be of
     # either sign -- _te_one_direction applies its own bias_correction to the
     # surrogates too -- so the claim is that it is nonzero and moves the value,
     # not that it lowers it.

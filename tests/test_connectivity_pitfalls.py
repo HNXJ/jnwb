@@ -1422,7 +1422,7 @@ class TestNonStationarityIsOnlyFlaggedWhenExplosive:
 
 
 #: Every row of the `docs/common_mistakes.md` pitfalls table, mapped to the class that
-#: holds it. Item 11-31 requires each of the nine rows to be held by a test here or to
+#: holds it. Each of the nine rows must be held by a test here or
 #: have its gap named in that test's docstring. The rows marked `gap` are held by a test
 #: that pins the gap itself, so the reader of the failing assertion learns what is missing.
 PITFALL_ROWS = {
@@ -1439,7 +1439,7 @@ PITFALL_ROWS = {
 
 
 class TestEveryPitfallRowIsHeldOrNamesItsGap:
-    """Item 11-31: the table in `docs/common_mistakes.md` states each pitfall once, and
+    """The table in `docs/common_mistakes.md` states each pitfall once, and
     this module holds each of the nine rows or names the gap in the holding test's
     docstring.
 
