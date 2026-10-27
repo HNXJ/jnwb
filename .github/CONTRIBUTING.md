@@ -192,6 +192,7 @@ $$\text{New Public Symbol} \iff \text{Implementation} + \text{Tests} + \text{Doc
 
 - **Internal vs. Public**: Helper functions, intermediate utilities, and implementation details must remain private (prefixed with `_`) and un-exported in `__all__`.
 - **No Inventions**: Never document or export unverified symbols.
+- **Intake**: A downstream agent reads `jnwb.preflight(question, input_path)` as data: `outcome`, `reason`, `missing`, and the input file's `input_sha256` and `input_path`.
 - **Breaking Changes**: Breaking changes to public signatures require an explicit deprecation cycle with informative `DeprecationWarning` or `FutureWarning` notices before removal.
 
 ## Testing rule
@@ -214,8 +215,7 @@ A mutation run — editing the tree to check that a test can fail, then restorin
 `scripts/mutation_harness.py`. Do not hand-roll one.
 
 The harness derives its state directory from the worktree being operated on, refuses to touch a
-path outside that worktree, and admits one session per worktree under an OS-level lock. That is
-not ceremony. A worktree isolates the repository and **not** the session scratchpad, so two
+path outside that worktree, and admits one session per worktree under an OS-level lock. A worktree isolates the repository and **not** the session scratchpad, so two
 lanes writing a file called `mutate.py` into the shared scratchpad collide — measured three
 times across two batches, once between a live mutation harness and another lane's harness
 pointing at a third worktree.
@@ -240,7 +240,7 @@ produced six false kills in 0.2.5 and hid a real gap behind them.
   contract for tables, vocabulary, length, navigation and figures. It is kept off the
   published site.
 - **Dashboard**: `scripts/build_dashboard.py` builds the site from committed records, and
-  `.github/workflows/dashboard.yml` publishes it from `main` to the `gh-pages` branch.
+  `.github/workflows/dashboard.yml` publishes it from `dev` to the `gh-pages` branch once its checks pass.
 - **Warning-Free Builds**: The documentation must compile with zero warnings:
   ```bash
   python scripts/docs_build.py
@@ -361,13 +361,13 @@ artifacts/
 Every contributor adheres to these scientific invariants:
 
 1. **Signal Class Independence**: SUA/SPK, MUA, and LFP represent physically distinct observables. Never pool spikes and LFP.
-2. **Estimand Disambiguation**: Clearly distinguish between prevalence, magnitude, decodable information, and biophysical mechanism.
+2. **Estimand Disambiguation**: Distinguish between prevalence, magnitude, decodable information, and biophysical mechanism.
 3. **Causal & Directional Verbs**: $\text{Association} \ne \text{Directionality} \ne \text{Causality}$. Metrics like Granger causality or phase slope index measure temporal predictive asymmetry, not physical perturbation causality.
 4. **Logarithm Last**: Every decibel output aggregates on the power-ratio scale and takes `10*log10` once, last (fact S2 of `artifacts/fact_stack.md`; `aggregate_to_db` enforces it). Averaging decibels is never an option of a decibel output. A mean-of-decibels quantity, if one is ever needed, is a separately named function.
 5. **Unit of Inference**: Always declare whether statistical degrees of freedom reside at the unit, channel, trial, or session level.
 6. **Valid Nulls**: A valid null is an empirical finding. Never alter test windows or parameters to artificially force statistical significance.
 7. **No Synthetic Science**: Never present synthetic or dummy data as real electrophysiological observations.
-8. **Scientific Vocabulary & Methodological Distinctions**: Prefer direct, compact, quantitative scientific terminology (`result`, `test`, `analysis`, `table`, `figure`, `method`, `limit`, `condition`) over process/governance jargon. Preserve critical distinctions: response magnitude does not imply temporal precision; detecting an effect does not by itself establish precise timing or an admissible latency; distinguish measurement precision, latency, estimator disagreement, and boundary censoring; descriptive lower-level percentages do not substitute for hypothesis tests at the declared higher-level inferential unit; association or directionality metrics do not establish physical causality.
+8. **Scientific Vocabulary & Methodological Distinctions**: Prefer direct, compact, quantitative scientific terminology (`result`, `test`, `analysis`, `table`, `figure`, `method`, `limit`, `condition`) over process jargon. Preserve critical distinctions: response magnitude does not imply temporal precision; detecting an effect does not by itself establish precise timing or an admissible latency; distinguish measurement precision, latency, estimator disagreement, and boundary censoring; descriptive lower-level percentages do not substitute for hypothesis tests at the declared higher-level inferential unit; association or directionality metrics do not establish physical causality.
 
 ## Standard development flow
 
@@ -439,7 +439,7 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    ahead of `main`, with no content on `main` that `dev` lacked and no conflict.
    The `dev` ruleset's deletion rule has no bypass, so no merge can delete `dev`; the
    delete-merged-branch setting still deletes a merged feature branch's head.
-4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build); when a `dev` push run
+4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build); when a `main` push run
    of the same commit passed, the test matrix and the floors leg skip their steps and name that
    run, and the build still runs in full. Then the `publish-testpypi` job uploads to TestPyPI,
    and the `verify-testpypi` job downloads only the `jnwb==X.Y.Z` wheel from TestPyPI, installs
@@ -449,7 +449,9 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
 5. In the same run, for a final version only, `publish-pypi` needs `verify-testpypi`: it
    downloads this run's distribution artifact, requires each file's sha256 to equal the one
    TestPyPI records for it, and uploads those files to production PyPI via trusted publishing
-   in the `pypi` environment, whose approval rule applies. Then `github-release` writes the
+   in the `pypi` environment, whose approval rule applies. Then `verify-pypi` downloads the
+   `jnwb==X.Y.Z` wheel from PyPI, requires its sha256 to equal this run's build artifact, and
+   runs `pip check` and `scripts/smoke_installed.py`; after it, `github-release` writes the
    notes with `scripts/release_body.py` (a fenced `pip install jnwb==X.Y.Z`, the supported
    Python range and the version's `CHANGELOG.md` section), fails if
    `check_release_body_claims` reports a violation, and otherwise runs `gh release create`.
@@ -463,7 +465,7 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
 `workflow_dispatch` with target `testpypi` is also
 available for maintainers; it uploads but does not verify, since no tag names the version.
 
-The build job, `verify-testpypi` and `release_gate.py` STEP 7 run the same
+The build job, `verify-testpypi`, `verify-pypi` and `release_gate.py` STEP 7 run the same
 `scripts/smoke_installed.py`.
 
 ## Reporting a problem

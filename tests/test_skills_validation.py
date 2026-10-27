@@ -152,7 +152,7 @@ def _sentence_units(text: str) -> List[str]:
     a bullet list whose lines end in colons and formulae, none of which is a period before a
     capital, so that rule alone glues the entire block into one span.
 
-    That is not a pedantic distinction. A first draft of the 06-95 assertions used the period
+    That is not a pedantic distinction. A first draft of the assertions used the period
     rule alone, and the sentence it reported as carrying the filter-delay instruction was the
     whole `ESTIMATOR LATENCY PROPERTIES & HAZARD` block -- which contains every word the
     assertions look for, somewhere. The check passed while pinning nothing, which is the exact
@@ -743,6 +743,18 @@ _RETURN_CONTENT_PROBES = {
     "xflip": _probe_xflip,
     "aperiodic_fit": _probe_aperiodic_fit,
     "directed_connectivity": _probe_directed_connectivity,
+    "granger_nonparametric": lambda: jnwb.granger_nonparametric(
+        np.random.default_rng(12).normal(size=600), np.random.default_rng(13).normal(size=600),
+        fs=500.0, bands=(0.0, 250.0), n_freqs=33),
+    "granger_time_reversed": lambda: jnwb.granger_time_reversed(
+        np.random.default_rng(14).normal(size=600), np.random.default_rng(15).normal(size=600),
+        order=2),
+    "partial_coherence": lambda: jnwb.partial_coherence(
+        *np.random.default_rng(16).normal(size=(3, 2000)), fs=1000.0,
+        freq_bands="canonical", n_surrogates=10),
+    "coherence_bias_floor": lambda: jnwb.coherence_bias_floor(
+        np.random.default_rng(17).normal(size=(3, 10, 400)), fs=1000.0,
+        freq_bands="canonical", n_draws=20),
     "relative_power": _probe_relative_power,
     "inspect": _probe_inspect,
     "events": _probe_events,
@@ -761,6 +773,9 @@ _RETURN_CONTENT_PROBES = {
     "fleiss_kappa": lambda: jnwb.fleiss_kappa(np.array([[4, 2], [1, 5], [6, 0]])),
     "spike_count_correlation": lambda: jnwb.spike_count_correlation(
         [np.array([0.01, 0.02, 0.5]), np.array([0.015, 0.6])], (0.0, 1.0), bin_ms=100.0),
+    "noise_correlation": lambda: jnwb.noise_correlation(
+        np.array([[1.0, 2.0, 4.0, 1.0, 3.0, 5.0], [2.0, 1.0, 3.0, 4.0, 2.0, 6.0]]),
+        np.array([0, 0, 0, 1, 1, 1]), min_trials=3),
     "fano_factor": lambda: jnwb.fano_factor(
         [np.array([0.1, 1.1, 1.2])], np.array([0.0, 1.0]), (0.0, 0.5), summary="mean"),
     "network_burst_index": lambda: jnwb.network_burst_index(
@@ -769,6 +784,10 @@ _RETURN_CONTENT_PROBES = {
     "curate_and_label": lambda: jnwb.curate_and_label(
         np.random.default_rng(4).normal(size=(12, 4, 600)), 500.0, pitch_um=25.0,
         compute_xflip=False),
+    "screen_units_against_labels": lambda: jnwb.screen_units_against_labels(
+        pd.DataFrame({"m": np.arange(60) % 2 + np.random.default_rng(4).normal(size=60)}),
+        np.arange(60) % 2, np.repeat(np.array(["a", "b", "c"]), 20),
+        metric_columns=["m"], classifier="linear_svm", min_units=2, rng=0),
 }
 
 
@@ -1150,7 +1169,7 @@ class TestSkillsDoNotCarryDriftingCounts:
 
 
 class TestAmbiguousUnitProbes:
-    """0.2.4-09: a skill that routes on depth must not let a unit be guessed.
+    """A skill that routes on depth must not let a unit be guessed.
 
     Depth in a cortical column is the one quantity where a factor of 1000 still looks
     plausible: 1200 um and 1.2 mm are the same place, and 1.2 um is a different answer
@@ -1220,7 +1239,7 @@ class TestAmbiguousUnitProbes:
 
 
 class TestEvidenceConflictProbes:
-    """0.2.4-09: the fact stack is human-authorized, and nothing may quietly edit it."""
+    """The fact stack is human-authorized, and nothing may quietly edit it."""
 
     def test_no_shipped_code_writes_the_fact_stack(self):
         """`jnwb-fact-action` states that agents may read and challenge facts but must
@@ -1305,7 +1324,7 @@ class TestEvidenceConflictProbes:
 
 
 class TestCausalFilterDelayIsScopedToAThresholdCrossing:
-    """P-58. The spiking skill told an agent to subtract a filter delay from a fitted onset.
+    """The spiking skill told an agent to subtract a filter delay from a fitted onset.
 
     `causal_exp_smooth` delays a threshold crossing by about tau*ln2, and the skill carried
     that correction as an unscoped instruction while routing onsets only to
@@ -1319,7 +1338,7 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
     words "subtract" and "threshold crossing" each occur somewhere in the section. The
     repaired paragraph states both more than once, so deleting the scope from the instruction
     would leave the words behind and the check would stay green. That is how two mutants
-    survived the first repair of P-88. Each assertion below therefore pins one sentence and
+    survived the first repair. Each assertion below therefore pins one sentence and
     requires it to carry the instruction and its scope together, so removing either half kills
     it.
     """
@@ -1449,12 +1468,12 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
         )
 
     def test_a_second_unscoped_instruction_in_the_docstring_is_caught(self):
-        """The mutant 06-93 settled on, applied to the docstring.
+        """The mutant chosen for this check, applied to the docstring.
 
         Every word of the repaired text is left intact and one more unscoped instruction is
         added. A check for the presence of "subtract" and "threshold crossing" would stay green
         -- the repaired text states both more than once -- which is how two mutants survived
-        the first repair of P-88. Pinning one sentence is what kills it.
+        the first repair. Pinning one sentence is what kills it.
         """
         from jnwb.onset_fitting import causal_exp_smooth
 
@@ -1472,7 +1491,7 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
         "Correct every onset for the smoothing lag before comparing conditions.",
     ])
     def test_the_original_unscoped_wordings_are_seen(self, instruction):
-        """P-110's own wording survived the guard: it names neither a filter nor a group delay
+        """The original wording survived the guard: it names neither a filter nor a group delay
         and says "accounting for" rather than subtract, remove or correct."""
         from jnwb.onset_fitting import causal_exp_smooth
 

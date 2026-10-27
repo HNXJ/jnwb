@@ -8,14 +8,14 @@ type and plausible magnitude, so nothing downstream had a reason to look.
   sigma_ms=20``, an interior NaN widens 1 into 17, and the NaN a boundary policy actually
   produces sits at an epoch edge where the kernel reaches one side only and the same call
   widens 1 into 9. Both magnitudes are pinned separately here so neither drifts into the
-  other -- the composed figure is 9, not the 17 first recorded (P-112).
+  other -- the composed figure is 9, not the 17 first recorded.
 * ``acquisition_channel`` returned the volts conversion applied to an int16 series whose file
   stores a contradicting unit, and warned nothing. `inspect` warns where the contradiction is
-  declared; this is where the harm lands (P-120).
+  declared; this is where the harm lands.
 * ``label_layers`` is duck-typed on ``crossover_contact``. Handed a result type without it, it
   raised a bare ``AttributeError`` when ``accepted=True`` and -- in the ordinary
   ``accepted=False`` case -- short-circuited before reading the field at all and returned a
-  full-length array of ``'na'`` with no error and no warning (P-123).
+  full-length array of ``'na'`` with no error and no warning.
 
 Each defect is pinned in both directions. A test that only asserts the new warning passes on
 a function that warns unconditionally, which is a different defect with the same test.
@@ -23,7 +23,6 @@ a function that warns unconditionally, which is a different defect with the same
 from __future__ import annotations
 
 import pathlib
-import sys
 import warnings
 from datetime import datetime, timezone
 
@@ -32,11 +31,6 @@ import numpy as np
 import pytest
 from pynwb import NWBHDF5IO, NWBFile
 from pynwb.ecephys import ElectricalSeries
-
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-# append, never insert(0): the wheel leg must keep resolving the installed copy.
-if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
 
 from jnwb.laminar import label_layers  # noqa: E402
 from jnwb.nwb_inspect import acquisition_channel  # noqa: E402
@@ -47,7 +41,7 @@ SIGMA_MS = 20.0
 
 
 # --------------------------------------------------------------------------------------
-# P-112 -- a boundary NaN is reported, and the magnitude is measured at both positions.
+# A boundary NaN is reported, and the magnitude is measured at both positions.
 # --------------------------------------------------------------------------------------
 
 def _spread(n_bins: int, nan_at: int) -> int:
@@ -104,7 +98,7 @@ def test_the_array_is_still_returned():
 
 
 # --------------------------------------------------------------------------------------
-# P-120 -- the harm lands where the conversion is applied, so the warning is there too.
+# The harm lands where the conversion is applied, so the warning is there too.
 # --------------------------------------------------------------------------------------
 
 def _electrical_series_file(tmp_path: pathlib.Path, stored_unit: str | None) -> pathlib.Path:
@@ -193,7 +187,7 @@ def test_a_schema_consistent_file_warns_nothing(tmp_path):
 
 
 # --------------------------------------------------------------------------------------
-# P-123 -- a result type without the field is refused, in both accepted states.
+# A result type without the field is refused, in both accepted states.
 # --------------------------------------------------------------------------------------
 
 class _WrongResult:

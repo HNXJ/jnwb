@@ -1,6 +1,6 @@
 """A test module may not import, at module scope, a repository path the wheel does not ship.
 
-P-168. ``tests/test_state_reconstruction.py`` imported ``scripts.reconstruct_state`` at module
+``tests/test_state_reconstruction.py`` imported ``scripts.reconstruct_state`` at module
 scope. ``scripts*`` is excluded from the wheel, and the leg at
 ``.github/workflows/workflow.yml`` that qualifies the built artifact runs this suite from
 outside the repository with ``-o pythonpath=`` and ``--import-mode=importlib``, so nothing puts
@@ -15,7 +15,7 @@ Two properties of that defect are why this file derives its answer instead of li
   and all failed in isolation. A rename of one unrelated file would have fired them.
 * Nothing compared the set of paths the tests import against the set of paths the wheel ships.
   A hand-maintained list of exempt modules would have been written at the moment the four were
-  known and would have gone stale the same way -- P-15 and the narrowing defect at once.
+  known and would have gone stale the same way -- the narrowing defect at once.
 
 So the shipped set is read out of ``pyproject.toml``'s own ``include``/``exclude`` patterns
 through setuptools, the imports are read out of the test modules' syntax trees, and the two are
@@ -100,7 +100,7 @@ def _sys_path_extension_lines(tree: ast.Module) -> list[int]:
     Matched in the syntax tree rather than by substring: the same words appear in this
     repository inside docstrings, in generated source written to ``tmp_path``, and in string
     literals that other tests scan for. A substring check would accept all of those and is the
-    kind of proxy P-37 collects.
+    kind of proxy that has failed before.
     """
     lines: list[int] = []
 
@@ -179,7 +179,7 @@ def test_scripts_is_not_shipped_so_this_invariant_is_live():
     as every check above passing for a reason that has gone away.
     """
     assert "scripts" not in _shipped_top_level_packages(), (
-        "scripts/ is now shipped in the wheel; P-168's premise has changed and "
+        "scripts/ is now shipped in the wheel; this test's premise has changed and "
         "tests/test_test_imports_survive_the_wheel_leg.py must be revisited"
     )
 

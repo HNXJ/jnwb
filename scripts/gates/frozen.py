@@ -18,13 +18,14 @@ def _canonical_ast(node: Any) -> Any:
 
     `ast.dump` is not: 3.13 stopped printing fields that are None or empty, so a hash of its
     output would differ between CI legs for an unchanged body. Those fields are dropped here on
-    every version, and positions are never read.
+    every version, and positions are never read. 3.15 added `is_lazy` to `Import` and
+    `ImportFrom`; it is dropped while false, so an eager import hashes as before.
     """
     if isinstance(node, ast.AST):
         return (type(node).__name__,) + tuple(
             (name, _canonical_ast(value))
             for name, value in ast.iter_fields(node)
-            if value is not None and value != []
+            if value is not None and value != [] and not (name == "is_lazy" and not value)
         )
     if isinstance(node, list):
         return tuple(_canonical_ast(item) for item in node)

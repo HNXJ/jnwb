@@ -22,7 +22,7 @@ PACKAGE_PARENT = str(Path(jnwb.__file__).resolve().parents[1])
 _WITHOUT_PLOTLY = textwrap.dedent(
     """
     import sys
-    sys.path.insert(0, {parent!r})
+    sys.path.insert(0, {parent!r})  # needed: child process has no pythonpath
     sys.modules["plotly"] = None
     import jnwb
     from pathlib import Path
@@ -98,7 +98,7 @@ def test_the_api_row_for_vis_is_the_one_an_import_would_render():
     # `append`, never `insert(0, ...)`: prepending the checkout would shadow an installed jnwb.
     repo_root = str(Path(__file__).resolve().parents[1])
     if repo_root not in sys.path:
-        sys.path.append(repo_root)
+        sys.path.append(repo_root)  # needed: the installed-wheel run clears pythonpath
     from scripts import generate_api_md as gen
 
     static = gen._optional_submodule_cell("vis")

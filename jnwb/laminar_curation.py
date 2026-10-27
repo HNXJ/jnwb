@@ -61,6 +61,12 @@ CORRELATION_FS_HZ: float = 100.0
 #: span, so it needs ``fs`` above 300 Hz. A working value.
 POWER_BAND_HZ: Tuple[float, float] = (1.0, 150.0)
 
+#: Agreement threshold, contact spacings, between the vFLIP2 and vFLIP crossovers: the
+#: 95th percentile of the ``|vFLIP2 - vFLIP|`` gap across 400 null (``snr=0``) draws with
+#: both acceptance gates open; 117 draws define a gap. Calibrated, not chosen: see
+#: ``artifacts/benchmarks/calibration/vflip2_separation_0.2.14.md``.
+VFLIP2_VFLIP_AGREEMENT_T_CONTACTS: float = 22.800214862368193
+
 def _robust_z_std_fallback(values: np.ndarray) -> np.ndarray:
     """Median/MAD z-score; the standard deviation stands in for a zero MAD."""
     values = np.asarray(values, dtype=float)
@@ -411,13 +417,18 @@ def fuse_laminar_anchors(
     unstable or inconsistent, D because neither vFLIP nor vFLIP2 gave an anchor and the motif
     crossing alone places it. F carries none.
 
-    When both the vFLIP2 and the vFLIP crossovers are present, the two landmarks are not yet
-    compared against a calibrated agreement threshold, so their agreement
-    reads ``"unresolved"`` and the grade is capped at ``"B"``: an ``"A"`` becomes a ``"B"``,
-    every other grade is unchanged, and a valid primary anchor is never rejected. B is then
-    a laminar claim on the primary anchor, not a consensus. The values ``"agree"`` and
-    ``"disagree"`` are reserved until that calibration and are never emitted now. With the
-    secondary landmark absent the agreement reads ``"unavailable"``.
+    When both the vFLIP2 and the vFLIP crossovers are present, the two landmarks are
+    compared against the calibrated agreement threshold
+    ``VFLIP2_VFLIP_AGREEMENT_T_CONTACTS``. The agreement reads ``"agree"`` when the
+    separation is at or below the threshold, ``"disagree"`` when it is above it, and
+    ``"unresolved"`` when either landmark is absent or the gap is undefined (no
+    ``contact_spacing_um``). A valid primary anchor is never rejected: while both
+    landmarks are present, the grade is capped at ``"B"`` when agreement is
+    ``"unresolved"`` or ``"disagree"`` (an ``"A"`` becomes a ``"B"``, every other grade
+    is unchanged), so only ``"agree"`` carries a high-confidence consensus grade.
+    With the secondary landmark absent the agreement reads ``"unresolved"`` and the
+    grade is unchanged: there is no second landmark to disagree with, so
+    ``curate_and_label``, which passes no vFLIP2 crossover, grades exactly as before.
 
     Args:
         vflip_um: vFLIP crossover position, um, NaN or None if rejected.
@@ -442,8 +453,10 @@ def fuse_laminar_anchors(
     Returns:
         Dict with ``anchor_um``, ``anchor_source`` (``"vflip2"``, ``"vflip"``, ``"motif"`` or
         ``None``), ``grade``, ``stable``, ``window_sd_um``, ``n_windows_ok``, ``consistency``,
-        ``agreement`` (``"unresolved"`` when both crossovers are present, else
-        ``"unavailable"``), ``separation_contacts`` (the crossover separation in contact
+        ``agreement`` (``"agree"`` when the crossover separation is at or below
+        ``VFLIP2_VFLIP_AGREEMENT_T_CONTACTS``, ``"disagree"`` when it is above it,
+        ``"unresolved"`` when a landmark is absent or the gap is undefined),
+        ``separation_contacts`` (the crossover separation in contact
         spacings, NaN without ``contact_spacing_um`` or with a landmark missing)
         and ``distance_um`` (a dict with ``vflip``, ``vflip2``, ``xflip`` and ``csd``, NaN where
         an estimate or the anchor is missing; 0.0 for a vFLIP or vFLIP2 estimate that is the
@@ -482,12 +495,15 @@ def fuse_laminar_anchors(
             for k, v in (("vflip", vflip_um), ("vflip2", vflip2_um), ("xflip", xflip_um),
                          ("csd", csd_um))}
     both = fin(vflip2_um) and fin(vflip_um)
-    agreement = "unresolved" if both else "unavailable"
+    agreement = "unresolved"
     if both and spacing is not None:
         separation = abs(float(vflip2_um) - float(vflip_um)) / spacing
     else:
         separation = float("nan")
-    if agreement == "unresolved" and grade == "A":
+    if both and np.isfinite(separation):
+        agreement = ("agree" if separation <= VFLIP2_VFLIP_AGREEMENT_T_CONTACTS
+                     else "disagree")
+    if both and agreement in ("unresolved", "disagree") and grade == "A":
         grade = "B"
     return {"anchor_um": anchor, "anchor_source": source, "grade": grade, "stable": bool(stable),
             "window_sd_um": sd, "n_windows_ok": n_ok, "consistency": cmin,
@@ -697,6 +713,7 @@ def curate_and_label(
     consistency_b: float = 0.60,
     compute_xflip: bool = True,
     xflip_n_surrogates: int = 50,
+    xflip_n_blocks: Optional[int] = None,
     rng: RNGLike = DEFAULT_SEED,
     max_interpolate_run: int = 3,
     min_contacts: int = 8,
@@ -761,6 +778,8 @@ def curate_and_label(
             :func:`fuse_laminar_anchors`.
         compute_xflip: Compute the xFLIP boundary for the report; False skips it.
         xflip_n_surrogates: Phase surrogates of the xFLIP null.
+        xflip_n_blocks: Block count passed to `xflip`; None (the default) lets xFLIP choose
+            among 2 to 4 by its omnibus p.
         rng: Seed or generator of the xFLIP surrogates.
         max_interpolate_run: Longest run of bad contacts interpolated, as ``max_run`` of
             :func:`interpolate_channel_runs`.
@@ -945,7 +964,7 @@ def curate_and_label(
 
     xf, xr = nan, None
     if compute_xflip and use.sum() >= min_contacts and np.isfinite(anchor):
-        xr = xflip(reduced[use], n_blocks=None, n_surrogates=int(xflip_n_surrogates), rng=gen)
+        xr = xflip(reduced[use], n_blocks=xflip_n_blocks, n_surrogates=int(xflip_n_surrogates), rng=gen)
         params["xflip_surrogate_seed_entropy"] = xr.surrogate_seed_entropy
         bounds = idx[use][np.flatnonzero(np.diff(xr.labels)) + 1]
         if xr.accepted and len(bounds):

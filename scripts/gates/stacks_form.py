@@ -19,7 +19,7 @@ def _code_span_mask(text: str) -> bytearray:
     """A byte per character, 1 where that character sits inside a code span or fenced block.
 
     The stacks quote their own rules, so this cannot be skipped. `artifacts/todo_stack.md`
-    contains the literal ``Writes:`` inside a code span twice, where 06-94 states the rule it
+    contains the literal ``Writes:`` inside a code span twice, where one passage states the rule it
     is asking for. A scanner that treats those as field labels starts in the middle of a span,
     has its backtick parity inverted from that point on, and pairs the gaps *between* code
     spans instead of the spans. The first version of this check did exactly that: two labels
@@ -60,7 +60,7 @@ def _writes_fields(text: str) -> List[Tuple[int, str]]:
     paragraph.
 
     Bounding by a fixed character count instead reports prose as a violation. At 220 characters
-    this named 06-67, whose text *discusses* `tests/`, and 06-73, which names the cache
+    this named two cases, one whose text *discusses* `tests/`, and one that names the cache
     directory it exists to exclude. Both items are correct. A check that fires on prose is
     worse than no check, because it teaches its reader to dismiss the output, and that is how
     the one real violation gets waved through.
@@ -106,13 +106,13 @@ _CONTINUES_AS_PATHS = re.compile(r"[\s]*(?:and\s+)?`[^`\n]*`(?:[\s,]*(?:and\s+)?
 def _suspected_truncated_writes(text: str) -> List[Tuple[int, str]]:
     """`Writes:` fields whose text ends immediately before more path-like tokens.
 
-    06-67 read ``Writes: `jnwb/nwb_io.py`, `artifacts/goal.md`, AUTONOMY: none.`` on one line
+    One field read ``Writes: `jnwb/nwb_io.py`, `artifacts/goal.md`, AUTONOMY: none.`` on one line
     and ``` `docs/errors.md`, `tests/`. ``` on the next. Any parser bounded by a sentence stops
     at that full stop and never sees the last two entries, one of which was a genuine bare
-    `tests/` -- the exact P-108 defect this gate exists to catch, sitting undetected inside the
-    gate's own live zero (P-125).
+    `tests/` -- the exact defect this gate exists to catch, sitting undetected inside the
+    gate's own live zero.
 
-    The boundary is **not** changed, because the replacement P-125 prescribes -- a run of
+    The boundary is **not** changed, because the replacement that was prescribed -- a run of
     backtick tokens separated only by commas and whitespace -- does not fit the data. Measured
     against the live stack, that rule read *fewer* tokens in six fields and more in none, and
     nothing at all in two: the fields legitimately interleave prose, as in
@@ -128,7 +128,7 @@ def _suspected_truncated_writes(text: str) -> List[Tuple[int, str]]:
 
     Measured on the live stack at the time of writing: zero fields flagged, and zero bare
     directories hidden from the sentence rule. This is a tripwire for the shape's return, not
-    a repair of a live instance -- 06-67's field was repaired by hand when P-125 was raised.
+    a repair of a live instance -- a field was repaired by hand when this was raised.
     """
     flagged: List[Tuple[int, str]] = []
     for lineno, _field, end in _writes_field_spans(text):
@@ -144,11 +144,11 @@ def _suspected_truncated_writes(text: str) -> List[Tuple[int, str]]:
 
 
 #: A present-tense assertion that the item is blocked. Deliberately shallow, and deliberately
-#: not taught to parse negation: the repair sentence written to discharge 06-103's stale block
+#: not taught to parse negation: the repair sentence written to discharge a stale block
 #: read "this item is no longer blocked on it", which a phrase list matches as an assertion.
 #: That sentence was reworded to "that block is discharged" instead, because a phrase list that
 #: tries to read polarity is a worse thing to trust than one that is obviously shallow and
-#: prints what it suppressed (P-163).
+#: prints what it suppressed.
 _BLOCK_ASSERTIONS = (
     "blocked on",
     "blocked by",
@@ -168,16 +168,16 @@ _ANY_BLOCK_ASSERTION = re.compile(
     "|".join(re.escape(p) for p in sorted(_BLOCK_ASSERTIONS, key=len, reverse=True))
 )
 
-#: An item id is the cycle's two-digit minor version, a hyphen and a number (`06-40`, `07-01`).
+#: An item id is the cycle's two-digit minor version, a hyphen and a number (`NN-NN`).
 #: The lookbehind keeps the month and day of a date such as 2026-09-19 from reading as an id.
 _ITEM_ID = re.compile(r"(?<![\w-])\d{2}-\d+\b")
 
 
 #: A field label opens a new clause, and so closes the one before it. Used to bound a `Stop:`
-#: clause, which runs to the next label and *not* to the next full stop: 06-89's stop reads
-#: "Stop: ... resolved first. Then this waits on 06-77 ...", so the assertion sits one sentence
-#: after the key. A first draft keyed the suppression on the sentence and missed it -- P-163's
-#: attempt-1 failure with "line" replaced by "sentence", which is P-37 again.
+#: clause, which runs to the next label and *not* to the next full stop: one stop reads
+#: "Stop: ... resolved first. Then this waits on ...", so the assertion sits one sentence
+#: after the key. A first draft keyed the suppression on the sentence and missed it: the first
+#: attempt failed with "line" replaced by "sentence", which is the same defect again.
 _FIELD_LABEL = re.compile(
     r"\b(?:Release|Role|Skill|Blocked by|Reads|Writes|Reproduce|Do|Discriminator|Accept|"
     r"AUTONOMY|Stop):"
@@ -216,8 +216,8 @@ def _unwrapped_sentences(text: str) -> List[str]:
     **A physical line is not a semantic unit in this file.** A line-based version of the check
     below flagged three items and suppressed none, because the stack is hard-wrapped and both
     exclusion keys -- a `Stop:` clause and the blocking item's id -- sat on the *previous*
-    physical line. Unwrapping raised recall as well as precision: it surfaced 06-89, which the
-    line scan had missed entirely (P-163). This is P-125's mechanism in a third guise -- a
+    physical line. Unwrapping raised recall as well as precision: it surfaced a case the
+    line scan had missed entirely. The narrowing defect again, in a third guise -- a
     proxy for a unit of meaning mistaken for the unit.
     """
     flat, spans = _unwrapped_spans(text)
@@ -259,15 +259,15 @@ def _blocked_by_none_contradictions(
 ) -> Tuple[List[Tuple[int, str, str]], List[Tuple[int, str, str, str]]]:
     """Items declaring `Blocked by: none` whose own text asserts they are blocked.
 
-    06-31 recorded `Blocked by: none` and was in fact blocked on data-access authority; 06-32
-    inherited that block through `Blocked by: 06-31`, unrecorded too. 06-86 read
+    06-31 recorded `Blocked by: none` and was in fact blocked on data-access authority; a second
+    case inherited that block through `Blocked by: 06-31`, unrecorded too. A third case read
     `Blocked by: none` while its body said "Blocked on one ruling" and its Accept clause said
-    P-34 closes only once that ruling is recorded -- and the scheduler offered it as
-    dispatchable, twice (P-149). The metadata is *confidently wrong rather than absent*, which
+    the problem closes only once that ruling is recorded -- and the scheduler offered it as
+    dispatchable, twice. The metadata is *confidently wrong rather than absent*, which
     is why every reader trusts it.
 
     Returns `(flagged, suppressed)`. **Both are returned, and the caller prints the
-    suppressions**, because a narrowing that is invisible is how P-125 turned a false positive
+    suppressions**, because a narrowing that is invisible is how a false positive turned
     into a blind spot: one of the two cases silenced there was real. Two suppressions are
     applied, each keyed on the match's own position rather than on the sentence it sits in:
 
@@ -328,7 +328,7 @@ _COUNT_VALUE = {
 }
 #: A clause break. The ids an assertion enumerates sit in its own clause, so ids beyond the
 #: break belong to a different statement -- which is what separates a miscount from "it
-#: assigned 16 items to five lanes ... -- the compression lane pointed at 06-24 and 06-51".
+#: assigned 16 items to five lanes ... -- the compression lane pointed at 06-24 and NN-NN".
 _CLAUSE_BREAK = re.compile(r"\s--\s|;")
 
 
@@ -355,8 +355,8 @@ def _summary_regions(text: str) -> List[Tuple[int, int]]:
 def _miscounted_summaries(text: str) -> List[Tuple[int, str, int, List[str], str]]:
     """Summary sentences whose stated item count disagrees with the ids they enumerate.
 
-    P-133: Batch 0 opened with "Six items wait on a human ruling ... 06-13, 06-18, 06-67,
-    06-84, 06-85 and 06-92". Four waited, not six; three of the six named had closed earlier
+    Batch 0 opened with "Six items wait on a human ruling ... 06-13, 06-18, NN-NN,
+    NN-NN, NN-NN and NN-NN". Four waited, not six; three of the six named had closed earlier
     the same day; and none of the four gated more than one item, so the sentence named a
     binding constraint that no longer bound. Every number in it is recomputable from the
     fields below it, so storing it as prose could only ever drift, and re-deriving it by hand
@@ -367,10 +367,10 @@ def _miscounted_summaries(text: str) -> List[Tuple[int, str, int, List[str], str
     because one sentence carries several counts each governing its own list, and because
     "it assigned 16 items to five lanes, and 14 of those 16 were retired" states counts about
     items it never enumerates. What *is* reliable is the enumerated form, which is the shape
-    P-133's own instance had: a count, then the ids, within one clause.
+    the earlier instance had: a count, then the ids, within one clause.
 
     Measured on the live stack: 1 flagged, and it was real -- "three more are blocked on
-    authority Hamm holds: 06-31 and 06-32 on the corpus grant, 06-86 and 06-99 on a ruling
+    authority Hamm holds: 06-31 and NN-NN on the corpus grant, NN-NN and NN-NN on a ruling
     and that grant respectively" names four. A stricter variant requiring the ids to form a
     contiguous run flagged exactly the same sentence, so it buys no separation and is not
     used.

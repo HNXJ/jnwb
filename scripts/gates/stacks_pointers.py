@@ -34,7 +34,7 @@ def _field_value(body: str, label: str) -> Optional[Tuple[int, str]]:
 
     * **The value wraps.** Fields are hard-wrapped mid-declaration, so the value ends at the next
       field label or the paragraph break, never at the newline.
-    * **A field label appears inside a code span.** 06-80's own heading is "Resolve every
+    * **A field label appears inside a code span.** One heading reads "Resolve every
       ``Skill:`` field against ``skills/``", and a scanner that reads it extracts the value
       ``` ` field against `skills/` ``` and reports a missing skill directory -- a false positive
       manufactured by the item that asked for the gate. `_code_span_mask` is what excludes it.
@@ -71,17 +71,17 @@ def check_stack_pointers_resolve(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 17 (Stack Pointers Resolve): every `Skill:`, `Role:` and `Blocked by:` field names
     something that exists on this tree.
 
-    P-53: two items declared ``Skill: jnwb-nwb-io``. No such skill has ever existed -- the tree
+    Two fields declared ``Skill: jnwb-nwb-io``. No such skill has ever existed -- the tree
     holds `jnwb-nwb-data` -- and the name reached two dispatched packets, where nothing errored
     and a packet worked around it silently. The standing rule is that a file pointing at other
     files goes stale without erroring; this pointer never resolved at all, so it did not go
     stale, it was **born wrong**, and a staleness check would not have caught it either. Only
     resolution against the tree catches it, which is what this does.
 
-    P-57 widened it to the cross-references. Of the three directions that widening names, one is
+    Later widened to the cross-references. Of the three directions that widening names, one is
     implemented here and two no longer exist:
 
-    * ``Blocked by:`` -> a live item is **here**. Nothing resolved it before: P-161's parenthesis
+    * ``Blocked by:`` -> a live item is **here**. Nothing resolved it before: a parenthesis
       "the blocker direction is checked" refers to a sweep somebody ran, not to a check in any
       script.
     * A problem row's ``Answered in`` -> a live item: `scripts/release_gate.py` STEP 0a requires

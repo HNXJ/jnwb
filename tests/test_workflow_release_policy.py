@@ -157,7 +157,7 @@ class TestWorkflowReleasePolicy:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import required_ci_jobs
 
         jobs = _load_workflow()["jobs"]
@@ -173,7 +173,7 @@ class TestWorkflowReleasePolicy:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import required_ci_jobs
 
         workflow = (
@@ -205,15 +205,15 @@ class TestWorkflowReleasePolicy:
         assert "release" not in text.replace("refs/tags/v", ""), text
 
 
-class TestATagPushReusesTheDevRunOfItsCommit:
-    """A `v*` tag push skips the test and floors legs' steps when a dev push run of this workflow
+class TestATagPushReusesTheMainRunOfItsCommit:
+    """A `v*` tag push skips the test and floors legs' steps when a main push run of this workflow
     at the same commit concluded success; the build always runs, so what is published is built
     and checked in the tag's own run.
 
     What would pass while that is broken: a lookup that accepts a failed or unfinished run, a run
-    of another commit or branch, or runs on main, pull requests or dev pushes; a failed lookup
-    read as a match; a leg step that runs regardless or skips unconditionally; or a build that
-    skips too, leaving TestPyPI files no job in the run built.
+    of another commit or branch (a dev push included), or a lookup on pull requests; a failed
+    lookup read as a match; a leg step that runs regardless or skips unconditionally; or a build
+    that skips too, leaving TestPyPI files no job in the run built.
     """
 
     LEGS = ("test", "test-floors")
@@ -239,12 +239,35 @@ class TestATagPushReusesTheDevRunOfItsCommit:
         before = run[:block.start()]
         assert 'run_id=""' in before and "gh api" not in before, before
 
-    def test_the_run_it_accepts_is_a_successful_dev_push_of_this_commit(self):
+    def test_the_run_it_accepts_is_a_successful_main_push_of_this_commit(self):
         run = self._find_step()[1]["run"]
-        assert "actions/runs?event=push&branch=dev&head_sha=$SHA&status=success" in run, run
-        for clause in ('.head_sha == env.SHA', '.head_branch == "dev"',
-                       '.path == ".github/workflows/workflow.yml"', '.conclusion == "success"'):
-            assert clause in run, clause
+        assert "actions/runs?event=push&branch=main&head_sha=$SHA&status=success" in run, run
+        assert "scripts/workflow_checks.py qualifying-run" in run, run
+        assert "branch=dev" not in run, run
+
+    def test_only_a_passed_main_run_of_this_commit_qualifies(self):
+        """The selection the lookup applies, driven with planted listings. A passed run on dev
+        does not qualify, nor a failed main run, nor a run of another commit, nor a listing with
+        no runs in it (a rate-limit body). A passed main run of this commit does."""
+        import sys
+
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+        from scripts.workflow_checks import qualifying_run_id
+
+        sha = "a" * 40
+        path = ".github/workflows/workflow.yml"
+
+        def run(run_id, *, branch="main", head=sha, conclusion="success"):
+            return {"id": run_id, "head_sha": head, "head_branch": branch, "path": path,
+                    "conclusion": conclusion}
+
+        assert qualifying_run_id({"workflow_runs": [run(1, branch="dev")]}, sha) == ""
+        assert qualifying_run_id({"workflow_runs": [run(2)]}, sha) == "2"
+        assert qualifying_run_id({"workflow_runs": [run(3, conclusion="failure")]}, sha) == ""
+        assert qualifying_run_id({"workflow_runs": [run(4, head="b" * 40)]}, sha) == ""
+        assert qualifying_run_id({"workflow_runs": [run(5, branch="dev"), run(6)]}, sha) == "6"
+        assert qualifying_run_id({"message": "API rate limit exceeded"}, sha) == ""
 
     def test_a_failed_lookup_runs_the_tests(self):
         run = self._find_step()[1]["run"]
@@ -549,7 +572,7 @@ class TestTheInstalledSmokeScript:
 
         preamble = "\n".join([
             "import sys",
-            f"sys.path.append({str(REPO_ROOT)!r})",
+            f"sys.path.append({str(REPO_ROOT)!r})",  # needed: child process has no pythonpath
             "sys.modules['plotly'] = None" if block_plotly else "",
             "import jnwb",
         ])
@@ -585,7 +608,7 @@ class TestTheInstalledSmokeScript:
 
 
 class TestInstalledArtifactVerification:
-    """0.2.4-03/-13: the artifact must be exercised as installed, not as a checkout.
+    """The artifact must be exercised as installed, not as a checkout.
 
     The tutorials are the only end-to-end consumers of the public API, and they are the
     surface where a packaging omission (a subpackage excluded from the wheel) or a
@@ -715,7 +738,7 @@ class TestInstalledArtifactVerification:
         A pin is a literal the gate could compare against. A version that merely appears
         inside prose is not: `scripts/release_gate.py` legitimately contains the comment
         "# 7. 0.2.4 additions: wpli, zflip, rdm" inside the smoke script it generates, and
-        the log line "No numbered tutorials found; 0.2.4-03 cannot be verified." naming an
+        the log line "No numbered tutorials found; <id> cannot be verified." naming an
         internal item code. This guard used to scan the whole file as one string, so both
         of those failed it the moment the version became exactly `0.2.4`; they had passed
         only because `0.2.4rc1` is not a substring of either.
@@ -893,7 +916,7 @@ class TestTheTagPushCreatesTheRelease:
 
     def test_the_release_follows_the_pypi_upload_in_the_tag_push_run(self):
         job = self._job()
-        assert job["needs"] == "publish-pypi", job.get("needs")
+        assert job["needs"] == "verify-pypi", job.get("needs")
         condition = " ".join(str(job["if"]).split())
         assert condition == "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')"
         assert not job.get("continue-on-error")
@@ -1073,10 +1096,11 @@ class TestPandas3LegIsNonBlocking:
 
 
 #: The release gate's required jobs at baseline 0d6b9d63, read from that commit's
-#: workflow.yml by `required_ci_jobs(workflow=...)`. Ten names, before the pandas 3 leg existed.
+#: workflow.yml by `required_ci_jobs(workflow=...)`. Ten names, before the pandas 3 leg existed;
+#: the lookup job has read `main` runs since 0.2.14.
 BASELINE_REQUIRED_JOBS = sorted([
     "Build & Validate Distribution",
-    "Find a passed dev run of this commit",
+    "Find a passed main run of this commit",
     "Test (Python 3.12 on ubuntu-latest)",
     "Test (Python 3.12 on windows-latest)",
     "Test (Python 3.13 on ubuntu-latest)",
@@ -1110,7 +1134,7 @@ class TestContinueOnErrorJobsAreNotRequired:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import required_ci_jobs
 
         assert sorted(required_ci_jobs(self.WITH_FLAG)) == ["Gate"]
@@ -1119,7 +1143,7 @@ class TestContinueOnErrorJobsAreNotRequired:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import required_ci_jobs
 
         assert sorted(required_ci_jobs(self.WITHOUT_FLAG)) == ["Gate", "Report"]
@@ -1128,7 +1152,7 @@ class TestContinueOnErrorJobsAreNotRequired:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import required_ci_jobs
 
         names = required_ci_jobs(root=REPO_ROOT)
@@ -1137,7 +1161,7 @@ class TestContinueOnErrorJobsAreNotRequired:
         assert sorted(names) == BASELINE_REQUIRED_JOBS, sorted(set(names) ^ set(BASELINE_REQUIRED_JOBS))
 
 
-#: P-328: the actions a workflow may run. Each is pinned to a full commit SHA, with the tag it was
+#: The actions a workflow may run. Each is pinned to a full commit SHA, with the tag it was
 #: resolved from in a trailing comment. An action not listed here is refused by name.
 ALLOWED_ACTIONS = frozenset({
     "actions/checkout",
@@ -1197,3 +1221,159 @@ class TestActionsArePinnedToFullShas:
             f"no trailing tag comment: actions/checkout@{sha}",
             f"not allow-listed: evil/action@{sha}",
         ]
+
+
+class TestTheHarnessGateReadsABuiltState:
+    """Gate 20 reads artifacts/state.md, and passes over it while the file is absent, as on a
+    fresh checkout. Each job that runs the harness gate builds the state in the same job, before
+    every run of the gate.
+
+    What would pass while this is broken: a job that runs the gate with no build step before it;
+    a build step placed after the gate it should feed; or a check that finds no gate and so
+    examines nothing.
+    """
+
+    @staticmethod
+    def _gate_violations(jobs):
+        """How many harness-gate steps `jobs` run, and each one with no state build before it."""
+        examined, problems = 0, []
+        for jid, job in jobs.items():
+            steps = job.get("steps") or []
+            runs = [str(step.get("run", "")) for step in steps]
+            builds = [i for i, run in enumerate(runs) if "reconstruct_state.py" in run]
+            for gate in (i for i, run in enumerate(runs) if "harness_gate.py" in run):
+                examined += 1
+                if not any(build < gate for build in builds):
+                    problems.append(f"{jid}: {steps[gate].get('name', gate)!r}")
+        return examined, problems
+
+    def test_every_run_of_the_harness_gate_follows_a_state_build_in_its_job(self):
+        examined, problems = self._gate_violations(_load_workflow()["jobs"])
+        assert examined > 0, "no job runs the harness gate; the check examined nothing"
+        assert problems == [], problems
+
+    def test_a_gate_with_no_build_before_it_in_its_job_is_refused(self):
+        """One planted job per case: a build before the gate passes; after it, or absent, fails."""
+        workflow = yaml.safe_load(
+            "jobs:\n"
+            "  built:\n    steps:\n"
+            "      - run: python scripts/reconstruct_state.py\n"
+            "      - run: python scripts/harness_gate.py\n"
+            "  built-late:\n    steps:\n"
+            "      - run: python scripts/harness_gate.py\n"
+            "      - run: python scripts/reconstruct_state.py\n"
+            "  unbuilt:\n    steps:\n"
+            "      - run: python scripts/harness_gate.py\n"
+        )
+        examined, problems = self._gate_violations(workflow["jobs"])
+        assert examined == 3, examined
+        assert sorted(p.split(":")[0] for p in problems) == ["built-late", "unbuilt"], problems
+
+
+class TestEveryDeclaredInterpreterRunsOnBothSystems:
+    """The test matrix runs the suite on every Python version the package declares, on Ubuntu and
+    on Windows. The one leg that may be missing is Windows on 3.15: h5py ships no CPython 3.15
+    Windows wheel yet, and the matrix says so.
+
+    What would pass while this is broken: a declared version missing from the matrix, a leg
+    excluded beyond the one named, or a check that reads the matrix without the declared versions.
+    """
+
+    EXCEPTION = {("windows-latest", "3.15")}
+
+    @staticmethod
+    def _matrix() -> dict:
+        return _load_workflow()["jobs"]["test"]["strategy"]["matrix"]
+
+    @staticmethod
+    def _classifiers() -> list:
+        import tomllib
+
+        return tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+            "project"]["classifiers"]
+
+    def _unexplained(self, matrix: dict) -> set:
+        import sys
+
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+        from scripts.workflow_checks import missing_matrix_legs
+
+        return missing_matrix_legs(matrix, self._classifiers()) - self.EXCEPTION
+
+    def test_the_matrix_runs_every_declared_leg_but_the_named_exception(self):
+        assert self._unexplained(self._matrix()) == set()
+
+    def test_a_removed_leg_is_refused(self):
+        import copy
+
+        matrix = copy.deepcopy(self._matrix())
+        matrix["python-version"] = [v for v in matrix["python-version"] if v != "3.13"]
+        assert self._unexplained(matrix) == {("ubuntu-latest", "3.13"), ("windows-latest", "3.13")}
+
+    def test_a_second_exclude_is_refused(self):
+        import copy
+
+        matrix = copy.deepcopy(self._matrix())
+        matrix["exclude"] = matrix["exclude"] + [{"os": "ubuntu-latest", "python-version": "3.14"}]
+        assert self._unexplained(matrix) == {("ubuntu-latest", "3.14")}
+
+
+class TestTheUploadToPyPIIsVerifiedAfterIt:
+    """The release as PyPI serves it. A verify job after publish-pypi installs the tag's version from
+    PyPI, checks its wheel against the build artifact of this run, then runs pip check and the
+    installed smoke script. github-release waits for that job, so the release is created only
+    after the check passed.
+
+    What would pass while this is broken: a job that reads the index but not the build artifact, a
+    comparison that a failure does not stop, an install from TestPyPI, or a release that does not
+    wait for the check.
+    """
+
+    @staticmethod
+    def _job() -> dict:
+        return _load_workflow()["jobs"]["verify-pypi"]
+
+    def test_the_verify_job_follows_the_pypi_upload_under_the_same_condition(self):
+        jobs = _load_workflow()["jobs"]
+        job = self._job()
+        assert "publish-pypi" in job["needs"], job["needs"]
+        assert " ".join(str(job["if"]).split()) == " ".join(str(jobs["publish-pypi"]["if"]).split())
+        assert not job.get("continue-on-error"), "verify-pypi is continue-on-error"
+        assert jobs["github-release"]["needs"] == "verify-pypi", jobs["github-release"]["needs"]
+
+    def test_the_release_installed_from_pypi_has_the_build_wheel_and_passes_pip_check_and_smoke(self):
+        steps = self._job()["steps"]
+        downloads = [s for s in steps if "download-artifact" in str(s.get("uses", ""))]
+        assert len(downloads) == 1 and downloads[0]["with"] == {
+            "name": "python-package-distributions", "path": "dist/"}, downloads
+        run = "\n".join(str(s.get("run", "")) for s in steps)
+        lines = [line.strip() for line in run.splitlines()]
+        assert "--index-url https://pypi.org/simple/" in run and "test.pypi.org" not in run, run
+        compare = next(i for i, line in enumerate(lines) if "scripts/workflow_checks.py same-wheel" in line)
+        install = next(i for i, line in enumerate(lines)
+                       if line.startswith("/tmp/pypi_env/bin/pip install --no-cache-dir"))
+        check = lines.index("/tmp/pypi_env/bin/pip check")
+        smoke = next(i for i, line in enumerate(lines) if "scripts/smoke_installed.py" in line)
+        assert compare < install < check < smoke, (compare, install, check, smoke)
+        assert '--not-under "$GITHUB_WORKSPACE"' in run and "unset PYTHONPATH" in run, run
+
+    def test_a_fetched_wheel_with_another_sha256_is_refused(self, tmp_path):
+        """The comparison is a function: a planted mismatch fails it, and a byte-identical copy
+        passes."""
+        import hashlib
+        import sys
+
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+        from scripts.workflow_checks import wheel_problem
+
+        built = tmp_path / "jnwb-9.9.9-py3-none-any.whl"
+        fetched = tmp_path / "fetched.whl"
+        built.write_bytes(b"the build artifact")
+        fetched.write_bytes(b"the build artifact")
+        assert wheel_problem(built, fetched) == ""
+        fetched.write_bytes(b"a different wheel")
+        problem = wheel_problem(built, fetched)
+        assert hashlib.sha256(b"the build artifact").hexdigest() in problem, problem
+        assert hashlib.sha256(b"a different wheel").hexdigest() in problem, problem

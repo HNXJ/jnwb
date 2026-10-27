@@ -21,12 +21,15 @@ Core objects:
 
 """
 
-import warnings
+import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Union, ClassVar, Tuple
 
 import pandas as pd
+
+from .paths import sha256_file
 
 
 def _running_jnwb() -> Dict[str, str]:
@@ -377,10 +380,14 @@ class Preflight:
 
     Every field is plain data, so a script can score outcomes from the object or from
     ``to_dict()`` alone. ``missing`` is non-empty exactly when ``outcome`` is ``"request"``.
+    ``input_sha256`` and ``input_path`` name the input file checked with the plan, both or
+    neither: its SHA-256 hex digest and its resolved path.
     """
     outcome: str
     reason: str
     missing: Tuple[str, ...] = ()
+    input_sha256: str = ""
+    input_path: str = ""
 
     OUTCOMES: ClassVar[Tuple[str, ...]] = ("supported", "request", "failure", "decline")
 
@@ -398,12 +405,18 @@ class Preflight:
                 f"got outcome={self.outcome!r}, missing={missing!r}"
             )
         object.__setattr__(self, "missing", missing)
+        if bool(self.input_sha256) != bool(self.input_path):
+            raise ValueError("input_sha256 and input_path are stated together or not at all")
+        if self.input_sha256 and not re.fullmatch(r"[0-9a-f]{64}", self.input_sha256):
+            raise ValueError(f"input_sha256 is a SHA-256 hex digest, got {self.input_sha256!r}")
 
     def to_dict(self) -> Dict:
         return {
             'outcome': self.outcome,
             'reason': self.reason,
             'missing': list(self.missing),
+            'input_sha256': self.input_sha256,
+            'input_path': self.input_path,
         }
 
 
@@ -425,7 +438,7 @@ _PREFLIGHT_OPTIONAL: Tuple[str, ...] = (
 )
 
 
-def preflight(question: Question) -> Preflight:
+def preflight(question: Question, input_path: Union[str, os.PathLike, None] = None) -> Preflight:
     """Check a planned analysis before it runs and return one of the four outcomes.
 
     The checks run in this order, and the first that applies decides the outcome:
@@ -442,6 +455,9 @@ def preflight(question: Question) -> Preflight:
        that the result cannot be identified from these inputs.
     4. ``"supported"`` otherwise.
 
+    Given ``input_path``, every outcome names that file by ``input_sha256`` and its resolved
+    ``input_path``; a path that is not a file is requested as ``"input_path"`` in step 2.
+
     The reason carries the caller's text for a decline or a failure, and ends by naming
     the optional fields left empty (``hypothesis``, ``data``, ``paradigm``, ``axes``,
     ``conditions``, ``required_skills``, ``verification_plan``). An empty optional field
@@ -451,18 +467,21 @@ def preflight(question: Question) -> Preflight:
     ----------
     question : Question
         The planned analysis.
+    input_path : str or os.PathLike, optional
+        The input file the plan reads.
 
     Returns
     -------
     Preflight
-        ``outcome``, ``reason`` and ``missing``, all plain data.
+        ``outcome``, ``reason``, ``missing``, ``input_sha256`` and ``input_path``, all plain data.
 
     Raises
     ------
     TypeError
         If ``question`` is not a ``Question``, ``signals`` is a string, ``signal_units`` is
         not a dict or holds a unit that is neither a string nor ``None``, or ``unsupported_inference`` or
-        ``non_identifiable`` is not a string.
+        ``non_identifiable`` is not a string, or ``input_path`` is neither a string, a path
+        nor ``None``.
     """
     if not isinstance(question, Question):
         raise TypeError(f"preflight takes a Question, got {type(question).__name__}")
@@ -482,6 +501,12 @@ def preflight(question: Question) -> Preflight:
                 f"signal_units[{signal!r}] is a unit string, e.g. 'V'; got {type(unit).__name__}"
             )
 
+    if input_path is not None and not isinstance(input_path, (str, os.PathLike)):
+        raise TypeError(f"input_path is a file path; got {type(input_path).__name__}")
+    identity: Dict[str, str] = {}
+    if input_path is not None and os.path.isfile(input_path):
+        identity = {"input_sha256": sha256_file(input_path), "input_path": os.path.realpath(input_path)}
+
     absent = [name for name in _PREFLIGHT_OPTIONAL if not _stated(getattr(question, name))]
     not_stated = f" Not stated: {', '.join(absent)}." if absent else ""
 
@@ -489,6 +514,7 @@ def preflight(question: Question) -> Preflight:
         return Preflight(
             outcome="decline",
             reason=f"Unsupported inference: {question.unsupported_inference.strip().rstrip('.')}.{not_stated}",
+            **identity,
         )
 
     missing = [name for name in _PREFLIGHT_REQUIRED if not _stated(getattr(question, name))]
@@ -502,22 +528,27 @@ def preflight(question: Question) -> Preflight:
             for signal in dict.fromkeys(named)
             if not _stated(question.signal_units.get(signal))
         ]
+    if input_path is not None and not identity:
+        missing.append("input_path")
     if missing:
         return Preflight(
             outcome="request",
             reason=f"Required inputs are missing: {', '.join(missing)}.{not_stated}",
             missing=tuple(missing),
+            **identity,
         )
 
     if _stated(question.non_identifiable):
         return Preflight(
             outcome="failure",
             reason=f"Not identifiable: {question.non_identifiable.strip().rstrip('.')}.{not_stated}",
+            **identity,
         )
 
     return Preflight(
         outcome="supported",
         reason=f"Every required input is present.{not_stated}",
+        **identity,
     )
 
 
@@ -611,56 +642,13 @@ class Figure:
         }
 
 
-# Deprecated factory functions.
-#
 # create_dataset_from_query and create_epochs are intentionally absent here: both need a real
 # NWB/trial-timing data source (an open session/recording object) that these generic ontology
 # objects do not carry, so a generic implementation would have nothing to read from. Projects
 # provide their own dataset/epoch factories once they have a concrete data source to wire in.
 #
-# The three below forward their arguments to the constructor of the same name and add nothing:
-# `create_result(q, s, p, l) == Result(q, s, p, l)` for every input. They were never in
-# `__all__`. Deprecated in 0.2.5 rather than removed, so callers have a path; call the
-# dataclass directly. `create_aligned_dataset` additionally duplicates `Dataset.with_alignment`,
-# which is the documented route and is not deprecated.
-
-
-def _deprecated_factory(old: str, new: str) -> None:
-    warnings.warn(
-        f"{old} is deprecated and will be removed in 0.2.14; it forwards to "
-        f"{new} and adds nothing. Call {new} directly.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-
-
-def create_aligned_dataset(dataset: Dataset, alignment: Alignment) -> AlignedDataset:
-    """Deprecated. Use ``Dataset.with_alignment(alignment)`` or ``AlignedDataset(...)``."""
-    _deprecated_factory("create_aligned_dataset", "Dataset.with_alignment")
-    return AlignedDataset(dataset=dataset, alignment=alignment)
-
-
-def create_result(question: Question, statistics: Dict[str, Any],
-                  provenance: Provenance, lineage: Lineage) -> Result:
-    """Deprecated. Use ``Result(...)``."""
-    _deprecated_factory("create_result", "Result")
-    return Result(
-        question=question,
-        statistics=statistics,
-        provenance=provenance,
-        lineage=lineage,
-    )
-
-
-def create_figure(result: Result, interpretation: Interpretation,
-                  title: str = "") -> Figure:
-    """Deprecated. Use ``Figure(...)``."""
-    _deprecated_factory("create_figure", "Figure")
-    return Figure(
-        result=result,
-        interpretation=interpretation,
-        title=title,
-    )
+# `create_aligned_dataset`, `create_result` and `create_figure` were deprecated and are removed
+# in 0.2.14: call `Dataset.with_alignment`, `Result` or `Figure` directly.
 
 
 __all__ = [

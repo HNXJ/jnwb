@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import least_squares
 
-from ._spread import is_constant
+from ._spread import is_constant, r_squared
 from ._units import resolve_unit_alias
 from .unit_quality import _positive_finite
 
@@ -293,7 +293,7 @@ def fit_exponential_onset(
     pred = onset_model(t_ms, t0, tau, amp, base)
     ss_res = float(np.sum((rate - pred) ** 2))
     ss_tot = float(np.sum((rate - rate.mean()) ** 2))
-    r2 = float(1.0 - ss_res / ss_tot) if ss_tot > 0 else float("nan")
+    r2 = r_squared(ss_res, ss_tot)
 
     # Boundary constraint status on outer t0_bounds:
     # "lower" | "upper" means the optimizer solution is constrained against outer bounds.

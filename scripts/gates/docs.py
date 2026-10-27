@@ -15,7 +15,7 @@ GENERATED_REFERENCE = "api.md"
 def check_public_symbols_documented(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 5 (API Completeness): every public export is written about by a person.
 
-    05-41: this searched every ``docs/*.md``, and ``docs/api.md`` is generated from
+    This searched every ``docs/*.md``, and ``docs/api.md`` is generated from
     ``jnwb.__all__``. The gate therefore asserted that every export appears in a file
     guaranteed to contain every export. It passed while twelve symbols -- seven error
     classes, the two NWB resolvers, ``EventTable`` and ``DETECTION_TAILS`` -- appeared on
@@ -135,17 +135,28 @@ DATASET_SCAN_EXEMPT = {
     "CHANGELOG.md": "historical release record; not rewritten to satisfy a textual scan",
 }
 
+#: Files under tests/ that carry a forbidden token on purpose, each with the reason. Gate 6 scans
+#: every other file under tests/.
+TESTS_PLANTED_TOKENS = (
+    ("tests/test_harness_adversarial_gates.py",
+     "plants the tokens in temporary fixtures to show the gate refuses them, and names one as a constant"),
+    ("tests/test_nwb_synthetic_fixtures.py",
+     "lists the forbidden tokens its synthetic fixtures must not carry"),
+)
+
 
 def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 6 (Dataset Independence): scan a fixed forbidden-token list.
 
     Scanned, recursively: ``jnwb/**/*.py``, ``skills/**/*.md``, ``docs/**/*.md``,
-    ``examples/**/*.py``, ``examples/**/*.ipynb``, and the root user-facing documents listed in
+    ``examples/**/*.py``, ``examples/**/*.ipynb``, ``tests/**`` (every file, except the reviewed
+    plants in ``TESTS_PLANTED_TOKENS``), and the root user-facing documents listed in
     ``DATASET_SCAN_ROOT_DOCS``. These are the durable surfaces a reader or downstream user sees,
     and all of them are meant to be dataset-independent.
 
     Deliberately NOT scanned, each for a stated reason:
-      * ``tests/`` and ``scripts/`` -- harness code legitimately names the tokens it forbids.
+      * ``scripts/`` -- harness code legitimately names the tokens it forbids.
+      * the files in ``TESTS_PLANTED_TOKENS`` -- test code that names a token on purpose.
       * ``CHANGELOG.md`` -- a historical record; rewriting history to satisfy a scan would be
         worse than the leak it prevents.
       * files listed in ``DATASET_SCAN_EXEMPT`` -- see that constant for the per-file reason.
@@ -234,6 +245,15 @@ def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
         root_doc = root / doc_name
         if root_doc.exists() and root_doc not in target_files:
             target_files.append(root_doc)
+
+    # 7. Every file under tests/, except the reviewed plants that carry a token on purpose.
+    planted = {rel for rel, _reason in TESTS_PLANTED_TOKENS}
+    tests_dir = root / "tests"
+    if tests_dir.exists():
+        for test_file in tests_dir.rglob("*"):
+            if (test_file.is_file() and "__pycache__" not in test_file.parts
+                    and test_file.relative_to(root).as_posix() not in planted):
+                target_files.append(test_file)
 
     target_files = [f for f in target_files
                     if f.relative_to(root).as_posix() not in DATASET_SCAN_EXEMPT]

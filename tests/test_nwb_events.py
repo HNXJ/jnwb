@@ -209,6 +209,26 @@ class TestCanonicalFixture:
         onsets = event_onsets(path, table=TASK_TABLE, codes=[1.0])
         assert onsets.size == 0
 
+    @pytest.mark.parametrize(
+        "bad, type_name",
+        [
+            (b"test-synth-1", "bytes"),
+            ([b"test-synth-1"], "bytes"),
+            (True, "bool"),
+            ([False], "bool"),
+            (np.True_, type(np.True_).__name__),
+        ],
+    )
+    def test_bytes_and_bool_codes_are_refused_by_type(self, canonical_path, bad, type_name):
+        path, _ = canonical_path
+        with pytest.raises(TypeError, match=f"not {type_name}:"):
+            event_onsets(path, table=TASK_TABLE, codes=bad)
+
+    def test_str_and_int_codes_still_pass(self, canonical_path):
+        path, _ = canonical_path
+        assert event_onsets(path, table=TASK_TABLE, codes=1).size == 0
+        assert event_onsets(path, table=TASK_TABLE, codes=[CODE_LABEL_A, 1]).size > 0
+
 
 class TestEdgeConstructs:
     def test_missing_onset_column(self, tmp_path):

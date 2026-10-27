@@ -10,10 +10,14 @@ is no checked-in file, by design.
 
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
+from unittest import mock
 
 import pytest
 
@@ -33,7 +37,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # `tests/test_the_suite_can_qualify_an_installed_copy.py` exists because
 # `sys.path.insert(0, REPO_ROOT)` re-shadows it for the whole session.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.reconstruct_state import (  # noqa: E402
     HEAD_ROW_RE,
@@ -51,9 +55,28 @@ def _without_timestamp(text: str) -> str:
     return _TIMESTAMP_RE.sub("", text)
 
 
+def _offline():
+    """The dev-run row reads the runs API; a test never reaches it, so the row reads unknown."""
+    return mock.patch.object(urllib.request, "urlopen",
+                             side_effect=urllib.error.URLError("tests do not reach the network"))
+
+
 @pytest.fixture(scope="module")
 def generated() -> str:
-    return build()
+    with _offline():
+        return build()
+
+
+def test_package_facts_survive_an_absent_optional_extra(tmp_path, monkeypatch):
+    """A lazy export whose extra is not installed raises ImportError on access, as on the build
+    job, which installs neither `vis` nor `wavemap`; the probe counts it as no unresolved name."""
+    from scripts import reconstruct_state
+
+    (tmp_path / "plotly.py").write_text('raise ImportError("plotly absent")\n', encoding="utf-8")
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path))
+    facts = reconstruct_state.package_facts()
+    assert not facts["version"].startswith("UNRESOLVED"), facts
+    assert facts["unresolved"] == "0", facts
 
 
 @pytest.mark.requires_git_checkout
@@ -74,7 +97,8 @@ def test_the_state_file_is_not_committed():
 
 
 def test_generation_is_deterministic_apart_from_its_timestamp(generated: str):
-    again = build()
+    with _offline():
+        again = build()
     assert _without_timestamp(generated) == _without_timestamp(again)
 
 
@@ -87,7 +111,8 @@ def test_a_harness_that_times_out_is_unresolved_not_failed(monkeypatch: pytest.M
     import scripts.reconstruct_state as reconstruct_state
 
     monkeypatch.setattr(reconstruct_state, "COMMAND_TIMEOUT_S", 0.001)
-    text = reconstruct_state.build()
+    with _offline():
+        text = reconstruct_state.build()
     row = next(line for line in text.splitlines() if line.startswith("| `scripts/harness_gate.py` |"))
     assert "UNRESOLVED (TimeoutExpired)" in row, row
     assert "FAILED" not in row, row
@@ -118,7 +143,7 @@ def test_an_unresolved_row_says_why(generated: str):
     docstring and false on a tree where a value legitimately does not exist. A linked worktree has
     no upstream, so the Upstream row is correctly unresolved -- and the suite failed for it, in
     every agent worktree, for a reason unrelated to the agent's work. Asserting absence was a
-    proxy for "no row lies", which is P-37 once more: the honest output tripped the check.
+    proxy for "no row lies", which is the same failure once more: the honest output tripped the check.
 
     What must hold is that an unresolved row names its cause, so a reader can tell "not measurable
     here" from "the measurement broke".
@@ -259,18 +284,85 @@ def test_it_reports_worktrees_branches_the_dev_run_and_open_defect_classes(gener
     assert "| Open defect classes |" in generated
 
 
-def test_a_failed_dev_run_reads_red(monkeypatch: pytest.MonkeyPatch):
+DEV_RUNS_URL = "https://api.github.com/repos/hnxj/jnwb/actions/runs?branch=dev&per_page=1"
+
+
+class _Reply:
+    """One reply from the runs API: a context manager whose body is read."""
+
+    def __init__(self, body: bytes) -> None:
+        self._body = body
+
+    def __enter__(self) -> "_Reply":
+        return self
+
+    def __exit__(self, *exc: object) -> bool:
+        return False
+
+    def read(self) -> bytes:
+        return self._body
+
+
+def _runs_api_answers(monkeypatch: pytest.MonkeyPatch, body: object) -> dict:
+    """Replace the network with one reply; the returned dict records the request it was asked."""
+    seen: dict = {}
+    payload = body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+
+    def urlopen(request, timeout=None):
+        seen.update(url=request.full_url, timeout=timeout)
+        return _Reply(payload)
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    return seen
+
+
+def _newest_run(conclusion: object, sha: str = "a" * 40) -> dict:
+    return {"workflow_runs": [{"head_sha": sha, "conclusion": conclusion}]}
+
+
+def test_a_failed_dev_run_reads_red_with_its_head_sha(monkeypatch: pytest.MonkeyPatch):
     from scripts import reconstruct_state
 
-    failed = '[{"headSha":"' + "a" * 40 + '","status":"completed","conclusion":"failure",' \
-             '"workflowName":"CI/CD"}]'
-    monkeypatch.setattr(reconstruct_state, "run", lambda *cmd, **kw: failed)
-    assert reconstruct_state.newest_dev_run().startswith("RED: `aaaaaaaaaaaa` CI/CD completed")
-    passed = failed.replace("failure", "success")
-    monkeypatch.setattr(reconstruct_state, "run", lambda *cmd, **kw: passed)
-    assert reconstruct_state.newest_dev_run() == "`aaaaaaaaaaaa` CI/CD completed success"
-    monkeypatch.setattr(reconstruct_state, "run", lambda *cmd, **kw: "UNRESOLVED (exit 4: gh)")
-    assert reconstruct_state.newest_dev_run() == "UNRESOLVED (exit 4: gh)"
+    seen = _runs_api_answers(monkeypatch, _newest_run("failure"))
+    assert reconstruct_state.newest_dev_run() == "RED: `aaaaaaaaaaaa` failure"
+    assert seen == {"url": DEV_RUNS_URL, "timeout": 10}, seen
+
+
+def test_a_passing_dev_run_reads_its_sha_and_conclusion(monkeypatch: pytest.MonkeyPatch):
+    from scripts import reconstruct_state
+
+    _runs_api_answers(monkeypatch, _newest_run("success"))
+    assert reconstruct_state.newest_dev_run() == "`aaaaaaaaaaaa` success"
+
+
+def test_a_timed_out_dev_run_still_reads_red(monkeypatch: pytest.MonkeyPatch):
+    from scripts import reconstruct_state
+
+    _runs_api_answers(monkeypatch, _newest_run("timed_out"))
+    assert reconstruct_state.newest_dev_run() == "RED: `aaaaaaaaaaaa` timed_out"
+
+
+def test_an_unreachable_runs_api_reads_unknown_never_a_pass(monkeypatch: pytest.MonkeyPatch):
+    from scripts import reconstruct_state
+
+    def unreachable(request, timeout=None):
+        raise urllib.error.URLError("offline")
+
+    monkeypatch.setattr(urllib.request, "urlopen", unreachable)
+    assert reconstruct_state.newest_dev_run() == "unknown"
+
+
+@pytest.mark.parametrize("body", [
+    {"message": "API rate limit exceeded"},
+    {"workflow_runs": []},
+    b"<html>not the runs API</html>",
+    _newest_run(None),
+])
+def test_a_body_without_a_concluded_run_reads_unknown(monkeypatch: pytest.MonkeyPatch, body):
+    from scripts import reconstruct_state
+
+    _runs_api_answers(monkeypatch, body)
+    assert reconstruct_state.newest_dev_run() == "unknown"
 
 
 def test_a_prunable_worktree_and_a_merged_branch_are_named(monkeypatch: pytest.MonkeyPatch):
@@ -307,3 +399,17 @@ def test_open_defect_classes_are_the_rows_with_no_landed_check(tmp_path: pathlib
         "| ruled: d | 2 | x | y | z | rule: a line |\n", encoding="utf-8")
     assert reconstruct_state.open_defect_classes(ledger) == "twice-seen (seen 2); once-seen (seen 1)"
     assert reconstruct_state.open_defect_classes(tmp_path / "absent.md").startswith("UNRESOLVED (")
+
+
+def test_growth_rows_count_the_scripts_and_each_process_test(generated: str):
+    assert "## Growth" in generated, "the state file records no line counts"
+    from scripts.reconstruct_state import PROCESS_TESTS
+
+    scripts = sorted((REPO_ROOT / "scripts").glob("*.py"))
+    total = sum(len(p.read_text(encoding="utf-8").splitlines()) for p in scripts)
+    assert f"| `scripts/` | {total} |" in generated, total
+    for rel in PROCESS_TESTS:
+        path = REPO_ROOT / rel
+        if path.is_file():
+            lines = len(path.read_text(encoding="utf-8").splitlines())
+            assert f"| `{rel}` | {lines} |" in generated, rel

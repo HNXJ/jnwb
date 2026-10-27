@@ -1,6 +1,6 @@
 """Estimators whose returned numbers no test constrained.
 
-05-83 mandatory target 3. 05-54's Accept read "no estimator in sections 1-2 survives its
+Mandatory target 3. The accept criterion read "no estimator in sections 1-2 survives its
 own mutation", which was broader than the nine candidates its evidence named. Measuring the
 rest: 22 mutations, each preserving shape, keys and dtype and changing a returned number,
 run against the whole suite. Eighteen survived all 2679 tests.

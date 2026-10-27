@@ -90,7 +90,7 @@ def check_no_project_identifiers_in_code(repo_root: Optional[Path] = None) -> Li
 #: been gating a common word to catch one sentence, which is the 06-02 failure mode. That
 #: sentence now reads "any change that trims, retitles or reformats documentation", and `grep`
 #: across `docs/` finds **zero** remaining occurrences of the word in any form, so the bare term
-#: is gated and its live zero is a true negative rather than a gap (P-98). The use that would
+#: is gated and its live zero is a true negative rather than a gap. The use that would
 #: legitimately reintroduce it is a networking one -- a streaming page describing packets on the
 #: wire -- and that is the case to revisit this entry for, not a reason to leave it ungated now.
 INTERNAL_PROCESS_TERMS: Tuple[str, ...] = (
@@ -150,7 +150,7 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
     practical*, and that qualifier is load-bearing -- the rule it replaced gated the word "agent"
     and was broken by four published pages the day it was written.
 
-    Scope is `docs/**/*.md`, which is the surface 06-02 and 06-68 both name. A generated or
+    Scope is `docs/**/*.md`, which is the surface 06-02 and one other entry name. A generated or
     included page is scanned like any other, and its fix goes to the generator.
 
     `README.md` is scanned as well: it is the PyPI description, the most public page there is.
@@ -392,9 +392,10 @@ def check_changelog_form(repo_root: Optional[Path] = None) -> List[str]:
 
 
 #: An item or problem identifier from the coordination stacks: `P-29`, `p-29`, `P-C7`,
-#: `P-1000`, `06-55`, `items/06-55`, `0.2.4-04`, and a review finding: `REV-07`,
+#: `P-1000`, `06-55`, `items/06-55`, `item 15-11`, `0.2.4-04`, and a review finding: `REV-07`,
 #: `0.2.3-REV-07`, `EXT-REV-003`. The item form requires a leading zero because two-digit
-#: ranges are ordinary library prose (`14-30 Hz`), and every edge excludes a neighbouring
+#: ranges are ordinary library prose (`14-30 Hz`); a later item counts only after the word
+#: `item` (`item 15-11`, `Item 12-21`). Every edge excludes a neighbouring
 #: word character, dot, slash or hyphen, so a full date (`2026-09-23`), a version (`0.2.6`)
 #: and a DOI fragment (`s41593-020-00744-x`) never match -- except through the `items/`
 #: prefix, which names the stack the identifier comes from. A bare `MM-DD` with a calendar
@@ -402,7 +403,8 @@ def check_changelog_form(repo_root: Optional[Path] = None) -> List[str]:
 #: (`06-55`) cannot be one, so it still matches. A decimal after the match ends it as a number
 #: (`p-0.05`).
 PROCESS_IDENTIFIER = re.compile(
-    r"(?<![\w./\-])(?:[Pp]-C?\d{1,4}|(?:items/)?0\d-\d{2,3}|\d+\.\d+\.\d+-\d{2,3}"
+    r"(?<![\w./\-])(?:[Pp]-C?\d{1,4}|(?:items/)?0\d-\d{2,3}|[Ii]tems?[ \t]+\d{2}-\d{2,3}"
+    r"|\d+\.\d+\.\d+-\d{2,3}"
     r"|(?:\d+\.\d+\.\d+-|[A-Z]{2,}-)?REV-\d{2,3})(?![\w\-]|\.\d)"
 )
 
@@ -522,9 +524,49 @@ def _rel(path: Path, root: Path) -> str:
         return path.as_posix()
 
 
+#: Files whose process identifiers are data the code reads, or planted identifiers that a probe
+#: seeds on purpose. Each entry is (repository-relative path, reason). An entry exempts the whole
+#: file, so an identifier cited later in one of them goes unseen; keep the list to data files.
+PROCESS_ID_DATA_FILES: Tuple[Tuple[str, str], ...] = (
+    (
+        "tests/test_harness_adversarial_gates.py",
+        "its probes plant identifiers in temporary trees to show that the gate catches them",
+    ),
+    (
+        "tests/test_release_requires_an_empty_open_stack.py",
+        "its fixtures are open-stack rows, whose identifiers the release check parses",
+    ),
+    (
+        "tests/test_stack_metadata_contradictions.py",
+        "its fixtures are todo-stack items, whose identifiers the stack checks parse and report",
+    ),
+)
+
+#: One identifier in one file that is data, where exempting the whole file would hide later
+#: citations in it. Each entry is (repository-relative path, identifier, reason).
+PROCESS_ID_DATA_LITERALS: Tuple[Tuple[str, str, str], ...] = (
+    ("scripts/mutation_harness.py", "P-171",
+     "the recorded gap's name, which tests/test_mutation_harness_validity.py splits and asserts"),
+    ("tests/test_mutation_harness_validity.py", "P-171", "the recorded gap's name, asserted"),
+    ("tests/test_fact_gate.py", "00-01", "the synthetic item the fixtures' todo headings carry"),
+    ("tests/test_shipped_code_names_no_process_ids.py", "15-19",
+     "a probe line the identifier pattern must match"),
+    ("tests/test_shipped_code_names_no_process_ids.py", "P-335",
+     "a probe line the identifier pattern must match"),
+    ("tests/test_workflow_release_policy.py", "9.9.9-03",
+     "a probe that a version with an item suffix is not read as a pinned version"),
+    ("scripts/vflip2_recovery.py", "item 15-11",
+     "the heading it writes into the committed receipt artifacts/evidence/0.2.13/vflip2_recovery.md"),
+    ("tests/fixtures/dashboard_data.json", "0.2.4-15",
+     "a receipt title copied from the dashboard data the page renders"),
+)
+
+
 def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) -> List[str]:
     """Part of gate 14: no item or problem identifier in `jnwb/**/*.py`, `docs/**/*.md`,
-    `README.md`, or any file a page includes through pymdownx.snippets.
+    `README.md`, `scripts/**/*.py`, the text files under `tests/`, or any file a page includes
+    through pymdownx.snippets. The files `PROCESS_ID_DATA_FILES` names, and this module, which
+    holds the pattern and the examples that document it, are not scanned.
 
     The head rule of `AGENTS.md` keeps internal process terminology out of the library surface,
     comments and docstrings included, and out of the published pages. Identifiers were the form
@@ -535,7 +577,8 @@ def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) ->
     An included file is published as part of the page that includes it, so it is scanned too.
     The tutorial pages are almost entirely `--8<--` includes of `examples/tutorials/*.py`, and a
     scan of `docs/` alone saw none of that text. Includes resolve against the `base_path` that
-    `mkdocs.yml` gives the extension.
+    `mkdocs.yml` gives the extension. A binary file under `tests/` (one with a NUL byte) has no
+    text to cite an identifier in, and is skipped.
     """
     root = repo_root or REPO_ROOT
     modules = sorted(
@@ -552,13 +595,27 @@ def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) ->
     readme = root / "README.md"
     scan_pages = pages + ([readme] if readme.is_file() else [])
     included, violations = _included_sources(root, scan_pages)
-    targets = [(path, "") for path in modules + scan_pages]
+    # The gate's own module holds the pattern and the examples that document it.
+    own = Path(__file__).resolve()
+    scripts = sorted(
+        py for py in (root / "scripts").rglob("*.py")
+        if "__pycache__" not in py.parts and py.resolve() != own
+    )
+    tests = sorted(
+        path for path in (root / "tests").rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts and b"\0" not in path.read_bytes()
+    )
+    exempt = {path for path, _reason in PROCESS_ID_DATA_FILES}
+    data = {(path, literal) for path, literal, _reason in PROCESS_ID_DATA_LITERALS}
+    targets = [(path, "") for path in modules + scan_pages + scripts + tests]
     targets += [(path, f" (published by {_rel(page, root)})") for path, page in included]
     for path, via in targets:
         rel = _rel(path, root)
+        if rel in exempt:
+            continue
         for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             for found in PROCESS_IDENTIFIER.finditer(line):
-                if _is_month_day(found.group(0)):
+                if _is_month_day(found.group(0)) or (rel, found.group(0)) in data:
                     continue
                 violations.append(
                     f"PROCESS_IDENTIFIER: {rel}:{lineno}{via} cites {found.group(0)!r}. State the "

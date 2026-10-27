@@ -1,4 +1,4 @@
-"""Item 15-11: the planted vFLIP2 crossover generator, its oracle, and scripts/vflip2_recovery.py.
+"""The planted vFLIP2 crossover generator, its oracle, and scripts/vflip2_recovery.py.
 
 The contract is artifacts/evidence/0.2.13/vflip2_generator_design.md. The tests check the generator's
 definitions, the window definition, the helper table against its plain-numpy recomputation, the frozen
@@ -21,7 +21,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 from jnwb.testing import synth_vflip2_crossover  # noqa: E402
 
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 from scripts import vflip2_recovery as rec  # noqa: E402
 
 

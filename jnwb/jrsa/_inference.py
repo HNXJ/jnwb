@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from .._parallel import parallel_map
+from .._spread import percentile_interval
 from ..permutation import _count_at_least_as_extreme, _p_from_count
 
 
@@ -248,7 +249,7 @@ def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=1, **kwargs):
 
     boot_vals = parallel_map(_run_single_boot, seeds, n_jobs=n_jobs)
     boot_arr = np.asarray(boot_vals)
-    ci = np.percentile(boot_arr, [2.5, 97.5])
+    ci = percentile_interval(boot_arr, 0.95)
     return ci
 
 
@@ -268,6 +269,8 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
     """Apply multiple-comparison correction; returns q-values.
 
     ``method='none'`` applies no correction: the q-values are the p-values, as float64.
+    A NaN p-value is not a test: it is left out of the family, so it adds nothing to the
+    family size, and its q stays NaN.
     """
     p_flat = np.asarray(p).ravel()
     m_lower = method.lower()
@@ -284,9 +287,14 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
         # Returns before the `statsmodels` import: asking for no correction must not
         # require the library that does correction.
         return np.array(p, dtype=np.float64)
+    finite = np.isfinite(p_flat)
+    q_flat = np.array(p_flat, dtype=np.float64)
+    if not finite.any():
+        return q_flat.reshape(np.asarray(p).shape)
+    p_fin = p_flat[finite]
     try:
         from statsmodels.stats.multitest import multipletests
-        _, q, _, _ = multipletests(p_flat, alpha=alpha, method=sm_method)
+        _, q, _, _ = multipletests(p_fin, alpha=alpha, method=sm_method)
     except ImportError as exc:
         # `statsmodels` is a hard dependency, so this runs only where a declared
         # dependency is missing. It used to route every method but 'bonferroni' to
@@ -303,7 +311,7 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
             # array's integer dtype, and the product then overflows a narrow one. The
             # float multiplier reproduces `multipletests(method='bonferroni')` for every
             # input dtype, and is bit-identical to the int multiplier for float input.
-            q = np.minimum(p_flat * float(len(p_flat)), 1.0)
+            q = np.minimum(p_fin * float(len(p_fin)), 1.0)
         else:
             raise ImportError(
                 f"jrsa correction={method!r} requires 'statsmodels', which is a declared "
@@ -311,4 +319,5 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
                 f"(pip install 'statsmodels>=0.14.5'), or pass correction='bonferroni', "
                 f"which jnwb computes without it."
             ) from exc
-    return q.reshape(np.asarray(p).shape)
+    q_flat[finite] = q
+    return q_flat.reshape(np.asarray(p).shape)

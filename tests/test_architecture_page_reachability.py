@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # `append`, never `insert`: the nav reader is shared from the checkout's tests, but the package
 # under test must stay whichever copy is installed first on the path.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from tests.test_docs_user_navigation import nav_targets  # noqa: E402
 
@@ -221,7 +221,7 @@ def test_the_reader_accepts_a_subgraph():
 
 
 def test_the_dependency_diagram_names_every_runtime_dependency():
-    """P-278: the diagram omitted six of the ten libraries jnwb imports at install."""
+    """The diagram omitted six of the ten libraries jnwb imports at install."""
     project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     declared = {re.split(r"[<>=!~\[; ]", dep, maxsplit=1)[0].lower()
                 for dep in project["project"]["dependencies"]}

@@ -1,6 +1,6 @@
 """Every default a skill states in prose is checked against the live signature.
 
-P-99: routing rows are bound to `inspect.signature`, but a default quoted in a skill's prose sat
+Routing rows are bound to `inspect.signature`, but a default quoted in a skill's prose sat
 outside that check -- `max_trial_fraction` (0.5), which bounds how much `repair_lfp_trials` may
 alter, among them. A prose default goes stale without failing anything.
 
@@ -60,6 +60,8 @@ CLAIMS = [
     ("jnwb", "The default is 1 everywhere", None, "n_jobs", 1),
     ("jnwb-spiking", "`bin_ms` sets the timescale and has no default",
      jnwb.spike_count_correlation, "bin_ms", NO_DEFAULT),
+    ("jnwb-spiking", "`min_trials` has no default", jnwb.noise_correlation, "min_trials",
+     NO_DEFAULT),
     ("jnwb-spiking", "(`summary` has no default)", jnwb.fano_factor, "summary", NO_DEFAULT),
     ("jnwb-spiking", "All three set what a burst is and have no default",
      jnwb.network_burst_index, "bin_ms", NO_DEFAULT),
@@ -82,6 +84,8 @@ def _holds(fn, param: str, expected) -> bool:
 def _n_jobs_is_one_everywhere() -> bool:
     defaults = []
     for name in jnwb.__all__:
+        if name == "ExecutionRecord":  # a record of the count a run used, not an operation
+            continue
         obj = getattr(jnwb, name)
         members = [getattr(obj, m) for m in dir(obj) if not m.startswith("_")] if inspect.isclass(
             obj

@@ -17,6 +17,7 @@ from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_devi
 from ._bins import (bins_within, onset_locked_counts, onset_window, refuse_nonfinite_times,
                     whole_bin_count)
 from ._dictlike import RenamedKeyDict
+from ._units import omitted_window
 from .trajectory import _kept_components
 import pandas as pd
 from scipy import stats
@@ -78,17 +79,19 @@ class TFRAnalyzer:
                 tfr_data.shape[freq_axis], be finite, and strictly increasing.
             freq_axis: Axis index for frequency dimension (default 1).
             band_defs: Optional custom band dictionary mapping band name to (f_min, f_max).
-                Defaults to TFRAnalyzer.BANDS.
+                None uses TFRAnalyzer.BANDS; an empty dictionary is refused.
 
         Returns:
             Extracted band power array with frequency dimension reduced via mean.
 
         Raises:
-            ValueError: If band is unknown, freqs is invalid (not 1D, length mismatch,
-                non-finite, not strictly increasing), or if no sampled frequencies
-                fall within the requested band.
+            ValueError: If band is unknown, band_defs is empty, freqs is invalid (not 1D,
+                length mismatch, non-finite, not strictly increasing), or if no sampled
+                frequencies fall within the requested band.
         """
-        bands_table = band_defs or TFRAnalyzer.BANDS
+        if band_defs is not None and len(band_defs) == 0:
+            raise ValueError("band_defs must not be empty; pass None for the default bands.")
+        bands_table = band_defs if band_defs is not None else TFRAnalyzer.BANDS
         if band not in bands_table:
             raise ValueError(f"Unknown band '{band}'. Valid: {list(bands_table.keys())}")
 
@@ -318,14 +321,15 @@ class UnitAnalyzer:
 
     @staticmethod
     def raster(spike_times: np.ndarray, trial_onsets: np.ndarray,
-               window_ms: Tuple[float, float] = (-1000, 2000)) -> Dict:
+               window_ms: Optional[Tuple[float, float]] = None) -> Dict:
         """
         Prepare spike raster aligned to trial onsets.
 
         Args:
             spike_times: Spike times in seconds
             trial_onsets: Trial start times in seconds
-            window_ms: (pre_ms, post_ms) relative to onset
+            window_ms: (pre_ms, post_ms) relative to onset. Required from 0.2.15; left out,
+                it is (-1000, 2000) with a ``FutureWarning``.
 
         Returns:
             Dict with raster data for plotting
@@ -333,6 +337,8 @@ class UnitAnalyzer:
         Raises:
             ValueError: If a ``trial_onsets`` entry is not finite; the message names its index.
         """
+        window_ms = omitted_window(window_ms, (-1000, 2000), name="window_ms",
+                                   func_name="UnitAnalyzer.raster")
         refuse_nonfinite_times(trial_onsets, "UnitAnalyzer.raster", "trial_onsets")
         win_sec = (window_ms[0] / 1000, window_ms[1] / 1000)
         raster_data = []
@@ -358,13 +364,13 @@ class UnitAnalyzer:
     @staticmethod
     def psth(spike_times: np.ndarray, trial_onsets: np.ndarray,
              bin_size_ms: float = 10,
-             window_ms: Tuple[float, float] = (-1000, 2000)) -> Dict:
+             window_ms: Optional[Tuple[float, float]] = None) -> Dict:
         """
         Peristimulus time histogram with bootstrap CI.
 
         Distinct from :func:`jnwb.viz.raster_psth`, which is not a redundant duplicate but a
         different contract: that function uses ``ddof=1`` SEM vs. this method's bootstrap CI,
-        right-open ms bins (``<``) there vs. seconds/inclusive (``<=``) here, and a plain-tuple
+        right-open ms bins (``<``) there vs. inclusive ms bins (``<=``) here, and a plain-tuple
         return there vs. this method's dict contract. Prefer this method when you want a
         bootstrap CI or the dict contract (e.g. alongside :meth:`UnitAnalyzer.raster`); prefer
         ``jnwb.viz.raster_psth`` for a quick trial-averaged rate curve as a plain tuple. Both
@@ -375,18 +381,22 @@ class UnitAnalyzer:
             trial_onsets: Trial start times in seconds
             bin_size_ms: Bin size in milliseconds
             window_ms: (pre_ms, post_ms) relative to onset. Its span must be a whole number
-                of ``bin_size_ms`` bins.
+                of ``bin_size_ms`` bins. Required from 0.2.15; left out, it is (-1000, 2000)
+                with a ``FutureWarning``.
 
         Returns:
-            Dict with PSTH, CI, and statistics. With no onsets there is no trial to average:
-            ``psth``, ``sem`` and the ``bootstrap_ci`` values are NaN, ``n_trials`` is 0, and
-            NumPy and SciPy warn about the empty mean.
+            Dict with PSTH, CI, and statistics. ``bin_centers_ms`` holds the bin centres in
+            ms, as ``jnwb.viz.raster_psth`` returns them. With no onsets there is no trial to
+            average: ``psth``, ``sem`` and the ``bootstrap_ci`` values are NaN, ``n_trials`` is
+            0, and NumPy and SciPy warn about the empty mean.
 
         Raises:
             ValueError: If the span of ``window_ms`` is not a whole multiple of
                 ``bin_size_ms``; the message names the nearest valid windows. Also if a
                 ``trial_onsets`` entry is not finite; the message names its index.
         """
+        window_ms = omitted_window(window_ms, (-1000, 2000), name="window_ms",
+                                   func_name="UnitAnalyzer.psth")
         refuse_nonfinite_times(trial_onsets, "UnitAnalyzer.psth", "trial_onsets")
         n_bins   = whole_bin_count(window_ms, bin_size_ms, "UnitAnalyzer.psth", "window_ms",
                                    width_param="bin_size_ms")
@@ -404,7 +414,7 @@ class UnitAnalyzer:
         return {
             'psth':          mean_psth,
             'sem':           sem_psth,
-            'bin_centers':   (bin_edges[:-1] + bin_edges[1:]) / 2,
+            'bin_centers_ms': (bin_edges[:-1] + bin_edges[1:]) / 2 * 1000,
             'bin_size_ms':   bin_size_ms,
             'n_trials':      len(trial_onsets),
             'bootstrap_ci':  StatisticalAnalysis.bootstrap_ci(np.mean(trial_psths, axis=1)),
@@ -437,8 +447,18 @@ class UnitAnalyzer:
         Returns:
             Dict with ``acg``, ``lag_times_ms``, ``device_used`` (the device that computed
             the histogram).
+
+        Raises:
+            ValueError: If ``spike_times`` holds a NaN or an infinity; drop them first.
         """
         resolved = resolve_device(device, context='UnitAnalyzer.autocorrelogram', prefer='cupy')
+        spikes = np.asarray(spike_times, dtype=float)
+        n_nonfinite = int(np.count_nonzero(~np.isfinite(spikes)))
+        if n_nonfinite:
+            raise ValueError(
+                f"UnitAnalyzer.autocorrelogram: {n_nonfinite} of {spikes.size} spike time(s) are "
+                "non-finite; drop or impute the non-finite spike times first."
+            )
         if len(spike_times) < 10:
             return {'error': 'Insufficient spikes for ACG', 'n_spikes': len(spike_times)}
 

@@ -6,7 +6,7 @@ waves each found HEAD at ``5ecc12eb`` and fast-forwarded; the reported distance 
 base is** -- at that commit ``artifacts/goal.md`` and ``artifacts/problem_stack.md`` do not
 exist, cited line numbers point at unrelated code, and nothing errors. Every lane so far caught
 it independently, which is luck rather than a property of the system: a packet that trusted its
-baseline would have measured the 0.1.8 tree and reported against it (P-28, P-153).
+baseline would have measured the 0.1.8 tree and reported against it.
 
 Two things are pinned here that prose could not enforce:
 
@@ -22,7 +22,7 @@ Two things are pinned here that prose could not enforce:
 
 The behind-direction fixture is a real two-commit repository rather than a mock, because the
 condition under test is what git reports about ancestry, and a mock would agree with whatever
-the checker already believes (P-144's family: a fixture must build the case it is named after).
+the checker already believes (a fixture must build the case it is named after).
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ import pytest
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # append, never insert(0): the wheel leg must keep resolving the installed copy.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.verify_lane import check, in_linked_worktree  # noqa: E402
 

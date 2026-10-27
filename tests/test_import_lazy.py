@@ -63,7 +63,7 @@ class TestDeferredImports:
 
 
 class TestOptionalExtras:
-    """0.2.4-10: the declared extras must be well formed and must aggregate.
+    """The declared extras must be well formed and must aggregate.
 
     Installing every combination is not attempted: with five extras that is 32 clean
     environments per run, and `gpu` cannot resolve on a CI runner without CUDA. What is
@@ -134,7 +134,7 @@ class TestOptionalExtras:
 
 
 class TestWhatImportingJnwbActuallyCosts:
-    """05-48 reported `import jnwb` at about 2 s with "80% of it two eager submodules",
+    """An earlier report put `import jnwb` at about 2 s with "80% of it two eager submodules",
     and prescribed moving `rsa` into `EXPORT_MODULES`. The cost reproduces; the
     mechanism does not.
 
@@ -248,4 +248,4 @@ class TestWhatImportingJnwbActuallyCosts:
 
         assert len(eager_importers) > 1, (
             f"only {eager_importers} imports scipy eagerly; a single deferral would now "
-            f"remove it, so 05-48's prescription may be worth revisiting")
+            f"remove it, so the earlier prescription may be worth revisiting")

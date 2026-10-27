@@ -2,7 +2,7 @@
 
 Every assertion here reads built HTML. None reads ``mkdocs.yml``: a test that checks the
 configuration passes the moment someone writes the key, whether or not the build renders
-anything. That is the proxy class this repository keeps rediscovering (P-37).
+anything. That is the proxy class this repository keeps rediscovering.
 
 Asserting that the substring ``mermaid`` occurs in the page would be the same mistake one
 level down, because ``<code class="language-mermaid">graph TD</code>`` contains it and
@@ -18,7 +18,7 @@ passed while the page showed a code block. A check that can be switched off by a
 attribute is not a check. Containment in the element that must exist has no such hole.
 
 The build goes to a temporary directory outside the repository. ``scripts/docs_build.py``
-writes ``site/`` inside the tree (P-01), and a test that left build output behind would
+writes ``site/`` inside the tree, and a test that left build output behind would
 dirty the working tree for every later reader.
 """
 

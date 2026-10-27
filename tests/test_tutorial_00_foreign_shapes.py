@@ -232,7 +232,7 @@ def factory_run(request, tmp_path_factory):
 
 
 class TestEveryFixtureShape:
-    """05-42's accept condition: every shape `jnwb/testing/nwb_fixtures.py` can build."""
+    """The accept condition: every shape `jnwb/testing/nwb_fixtures.py` can build."""
 
     def test_the_tutorial_completes(self, factory_run):
         result = factory_run
@@ -240,7 +240,7 @@ class TestEveryFixtureShape:
 
     def test_it_never_prints_a_bare_none(self, factory_run):
         """`None Hz`, `shape None` and `layout None` are the shape of an unguarded key
-        read after 05-39 made every key always present."""
+        read after every key was made always present."""
         out = factory_run.stdout
         for bad in ("None Hz", "shape None", "layout None"):
             assert bad not in out, (bad, out)

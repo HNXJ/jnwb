@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 from .._parallel import parallel_map
 from .._rng import resolve_rng, resolve_seed_alias
-from scipy import stats
 from ._common import DirectedResult
 from ._granger import granger, granger_spectral
 from ._psi import phase_slope_index
@@ -262,7 +261,8 @@ def directed_network(
         finite = off & np.isfinite(p_matrix)
         fdr_family_size = int(finite.sum())
         if finite.any():
-            q_matrix[finite] = stats.false_discovery_control(
+            from ..statistics._analysis import StatisticalAnalysis  # statistics loads lazily
+            q_matrix[finite] = StatisticalAnalysis.fdr_correct(
                 p_matrix[finite], method=fdr_method
             )
         else:

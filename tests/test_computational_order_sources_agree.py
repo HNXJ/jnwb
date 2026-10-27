@@ -251,7 +251,7 @@ def test_the_harness_behind_the_benchmark_measures_what_it_says(tmp_path):
 
     # Appended, never prepended: this suite also qualifies an installed jnwb.
     if str(ROOT) not in sys.path:
-        sys.path.append(str(ROOT))
+        sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
     from scripts import measure_order
 
     sizes = [100, 1_000, 10_000]

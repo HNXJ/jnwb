@@ -1,6 +1,6 @@
 """Staggered electrode shafts are linear shafts, and their pitch is the axial step.
 
-Item 06-47. A shaft whose contacts advance by a constant 25 um along z while alternating
+A shaft whose contacts advance by a constant 25 um along z while alternating
 40 um laterally in x was reported as ``is_linear=False`` with ``nominal_pitch=47.17``.
 47.17 is ``sqrt(25**2 + 40**2)``: the lateral stagger was being measured as advance along
 the shaft, and ``label_layers`` then refused the shaft outright.

@@ -5,7 +5,7 @@ Run: python examples/tutorials/09_open_data.py
 Reads `examples/data/dandi000253_excerpt.nwb`, a committed excerpt of DANDI 000253 (Allen
 Institute OpenScope, Global/Local Oddball project, CC-BY-4.0,
 https://doi.org/10.48324/dandi.000253/0.240503.0152), built from the published assets by
-`scripts/build_open_data_excerpt.py`. Its figure is drawn by `docs/generate_figures.py`, from `analyze()`.
+`scripts/build_open_data_excerpt.py`. Its figure is drawn by `scripts/figures/generate_figures.py`, from `analyze()`.
 """
 
 from __future__ import annotations

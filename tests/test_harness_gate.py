@@ -8,7 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # Appended, not prepended, as in the adversarial probes: the checkout's scripts/ must not shadow an
 # installed copy.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.harness_gate import (  # noqa: E402
     CHANGELOG_ENTRY_LIMIT,

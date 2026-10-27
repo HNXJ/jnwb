@@ -48,6 +48,10 @@ paths = canvas.save_and_seal("figures", "sorted_heatmap", argument)
 # paths: {'argument', 'html', 'svg', 'png'} -> Path
 ```
 
+![Sorted heatmap of 40 synthetic units across 70 time bins, exported by jnwb.vis](assets/vis/sorted_heatmap.png)
+
+Synthetic: the heatmap the snippet above draws, exported by `save_and_seal` as PNG.
+
 Panels are addressed by `(row, col)` from 0. Widths follow the presets `'1col'` (89 mm),
 `'1.5col'` (136 mm) and `'2col'` (183 mm), or `width_mm`. Every field of the sidecar must be
 non-empty, and `SOURCE_ARTIFACTS` must name at least one source, so a figure cannot be sealed

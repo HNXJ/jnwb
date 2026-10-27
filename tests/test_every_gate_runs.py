@@ -24,7 +24,7 @@ import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts import harness_gate  # noqa: E402
 
@@ -116,7 +116,7 @@ def test_a_gate_that_does_not_execute_is_named_not_passing(capsys):
 
     This asserted nothing of the kind. Its second `monkeypatch.setattr` rebuilt the list from
     `harness_gate.GATES`, which was already the truncated three-element list, so the only live
-    assertion was `run_full_preflight() is True` on a passing tree. 06-64 deleted the entire
+    assertion was `run_full_preflight() is True` on a passing tree. Deleting the entire
     NOT RUN block and this test -- and the whole suite -- stayed green.
 
     An interrupt is the one thing that genuinely abandons a gate, so that is what is simulated.
@@ -218,8 +218,8 @@ def test_pass_requires_every_gate_and_not_merely_no_failures(capsys):
     # An empty gate list trivially passes, which is why the count is asserted separately here and
     # in test_the_live_repository_passes_every_gate rather than inferred from the verdict line.
     # Deliberately a literal: deriving it from GATES would compare the value to itself and
-    # assert nothing. Adding a gate means bumping it -- 14 -> 16 when 06-94 and 06-98 landed,
-    # 16 -> 18 when 06-80 (stack pointers) and 06-106 (api.md Type column) landed, 18 -> 19
+    # assert nothing. Adding a gate means bumping it -- 14 -> 16 when two gates landed,
+    # 16 -> 18 when the stack-pointer and api.md Type column gates landed, 18 -> 19
     # for frozen-validated functions, 19 -> 20 for the state file's recorded HEAD, and 20 -> 21
     # for the computational contract, and 21 -> 22 for the typed fact predicates.
     assert len(harness_gate.GATES) == 22

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Documentation form gate: the rules of ``docs/documentation_form.md`` a machine can settle.
 
-Six checks, each run against a repository root (the live tree from the command line, a seeded
+Seven checks, each run against a repository root (the live tree from the command line, a seeded
 fixture tree from the suite):
 
   1. Vocabulary (F5). No superseded surface form from the contract's vocabulary table survives
@@ -15,8 +15,9 @@ fixture tree from the suite):
      group fails. N4 is a review item.
   4. Figure theme independence (G2). Every image a page shows is a light/dark pair
      (``#only-light`` and ``#only-dark``, the dark file named ``<stem>.dark.png``, both on
-     disk), or is listed in ``THEME_NEUTRAL`` with a reason. A figure file referenced without a
-     scheme fragment is shown the same under both schemes. An inline ``<svg>`` passes only
+     disk), or is listed in ``THEME_NEUTRAL`` with a reason, or is unsuffixed on a page of
+     ``LIGHT_ONLY_PAGES`` whose light-only line is on the page. A figure file referenced without a
+     scheme fragment is shown the same under both schemes, unless its page is light-only. An inline ``<svg>`` passes only
      when every color it draws with comes from the theme (``currentColor``, ``var(...)``,
      ``none``, ``transparent``, ``inherit``). Every fixed color a figure generator writes
      outside its per-theme table reads on both page backgrounds. G1 (transparent corners) stays
@@ -26,6 +27,8 @@ fixture tree from the suite):
      `b` returns ..., `c` returns ...") states comparable facts that belong in a table.
   6. Slop lexicon (F8). No term of the contract's slop lexicon appears, as a whole word in any
      case, in the prose of the documentation corpus, the skills included.
+  7. Validation detail (F9). No page under ``docs/`` but ``references.md`` names a path under
+     the evidence or benchmarks folders of ``artifacts/``.
 
 **What check 5 does not see.** It is a detector for one shape, tuned to report nothing on the
 live tree, and F2 stays a review item beyond it:
@@ -76,11 +79,19 @@ THEME_NEUTRAL: Dict[str, str] = {
                             "file the theme header shows under both schemes",
 }
 
+#: Pages whose figure is one unsuffixed PNG that `jnwb.vis` exports with a light-only theme, by
+#: page name under `docs/`, each with the line the page states its theme by. An unsuffixed image
+#: passes only on a page here whose line is on the page; the line's absence is a violation.
+LIGHT_ONLY_PAGES: Dict[str, str] = {
+    "vis.md": ("The theme is light only: every figure has an opaque white background "
+               "and near-black text,"),
+}
+
 #: The sources that write a figure colour, relative to the root: the figure generators and the
 #: style module that holds the palette they draw with.
-GENERATORS: Tuple[Path, ...] = (Path("docs") / "generate_figures.py",
+GENERATORS: Tuple[Path, ...] = (Path("scripts") / "figures" / "generate_figures.py",
                                 Path("examples") / "quickstart_jnwb.py",
-                                Path("docs") / "figure_style.py")
+                                Path("scripts") / "figures" / "figure_style.py")
 
 #: A themed figure on a page, as a Markdown image line or an `<img>` tag: (stem, ".dark", scheme).
 #: A page below `docs/` reaches `assets/` through `../`; the stem keeps it, relative to the page.
@@ -528,6 +539,7 @@ def check_figures(root: Path) -> Result:
     docs = root / "docs"
     violations: List[str] = []
     shown: Dict[Tuple[str, str], set] = {}
+    light_only = 0
     for page in sorted(docs.rglob("*.md")):
         name = page.relative_to(docs).as_posix()
         text = page.read_text(encoding="utf-8")
@@ -552,6 +564,12 @@ def check_figures(root: Path) -> Result:
                 # outside `assets/`, not a PNG), so its partner cannot be confirmed.
                 violations.append(f"{name}: {src} is shown under one scheme in a form whose "
                                   "light/dark partner cannot be confirmed")
+            elif name in LIGHT_ONLY_PAGES:
+                if LIGHT_ONLY_PAGES[name] in text:
+                    light_only += 1
+                else:
+                    violations.append(f"{name}: {path} is unsuffixed, and the page does not state "
+                                      f"its light-only theme: {LIGHT_ONLY_PAGES[name]!r}")
             else:
                 violations.append(f"{name}: {path} is shown the same under both schemes and is "
                                   "not listed as theme-neutral")
@@ -581,8 +599,8 @@ def check_figures(root: Path) -> Result:
                               "on a page background")
     return violations, (
         f"PASS: figure theme independence (G2): {len(shown)} figures shown as light/dark pairs, "
-        f"{len(THEME_NEUTRAL)} listed theme-neutral, fixed colors legible in "
-        f"{len(generators)} generators.")
+        f"{len(THEME_NEUTRAL)} listed theme-neutral, {light_only} light-only, "
+        f"fixed colors legible in {len(generators)} generators.")
 
 
 # ------------------------------------------------------------------------ 5. parallel facts
@@ -699,6 +717,38 @@ def check_slop(root: Path) -> Result:
         f"PASS: slop lexicon (F8): none of {len(terms)} terms in {len(pages)} pages.")
 
 
+# ----------------------------------------------------------------- 7. validation detail
+
+
+#: A path to working evidence or a measured baseline. User docs describe how to use the
+#: library; this detail lives on the dashboard, so a page that names one fails.
+_EVIDENCE_PATH = re.compile(r"artifacts/(?:evidence|benchmarks)/[^\s)\]\"']*")
+
+
+def evidence_path_violations(pages: List[Tuple[str, str]]) -> List[str]:
+    """Every validation path in `pages`, in prose, code, a link target or a fenced example,
+    named with its file and line."""
+    found: List[str] = []
+    for name, text in pages:
+        for number, line in enumerate(text.splitlines(), start=1):
+            for hit in _EVIDENCE_PATH.findall(line):
+                found.append(f"{name}:{number}: {hit} is validation detail; user docs "
+                             "describe use, the dashboard carries the evidence")
+    return sorted(set(found))
+
+
+def check_evidence_paths(root: Path) -> Result:
+    """F9 over every ``docs/**/*.md`` page but the references page, as (violations, pass
+    line). The references page may cite the evidence its rows rest on."""
+    docs = root / "docs"
+    pages = [(p.relative_to(docs).as_posix(), p.read_text(encoding="utf-8"))
+             for p in sorted(docs.rglob("*.md"))
+             if p.relative_to(docs).as_posix() != "references.md"]
+    return evidence_path_violations(pages), (
+        f"PASS: validation detail (F9): no path under artifacts/evidence/ or "
+        f"artifacts/benchmarks/ outside references.md, {len(pages)} pages read.")
+
+
 # ---------------------------------------------------------------------------------- runner
 
 
@@ -709,6 +759,7 @@ CHECKS: Sequence[Tuple[str, Callable[[Path], Result]]] = (
     ("figure theme independence", check_figures),
     ("parallel facts", check_parallel_facts),
     ("slop lexicon", check_slop),
+    ("validation detail", check_evidence_paths),
 )
 
 

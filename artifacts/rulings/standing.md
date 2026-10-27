@@ -1,6 +1,6 @@
 # Standing rulings
 
-The rulings of the dated files in this folder that still bind, one row each, as of `7cb72f4b`.
+The rulings of the dated files in this folder that still bind, one row each, as of `d2473df0`.
 The dated files stay as written and carry each ruling's reasons and the work it created; this
 table carries only the rule, when it was ruled and what holds it now. Later rows of a dated file
 replace earlier ones on the same subject, and only the standing form is here.
@@ -20,7 +20,7 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Corpus access | Read the raw NWB on `D:` read-only; write only to `E:` or the scratchpad; no corpus identifier in `jnwb/`, `docs/`, `skills/` or `tests/` | 2026-09-22 | the ruling; gate 6 for the identifiers (`scripts/harness_gate.py`) |
 | Branches | Only `main`, `dev` and `gh-pages` stay on the remote; merged work is deleted | 2026-09-23 | the ruling |
 | The todo stack's order | The integrator re-sequences lanes, waves and blockers for throughput; no item's meaning, Accept or Stop changes | 2026-09-29 | the ruling |
-| Planned cycles | 0.2.8 to 0.2.12, one theme and one acceptance line each, lanes that share no file, at most three writers at once | 2026-09-29 | `artifacts/todo_stack.md` |
+| Planned cycles | 0.2.14 is the current cycle; lanes share no file. Writers (2026-10-24): Muse writes and reviews, Cursor GLM 5.3 flash-high writes, Haiku 5.5 checks skills, docs and style and writes; this replaces the writer set of 2026-10-06 (one Claude subagent plus one opencode worker, which had replaced "at most three writers"), whose count 2026-10-24 does not restate; a watcher runs only on request | 2026-10-06, 2026-10-24 (`2026-10-06.md`, `2026-10-24.md`) | `artifacts/todo_stack.md`, "How this stack is executed" |
 | Deferred marks | Every item after the current cycle carries `deferred-<next>`; the version heading carries the schedule; each cycle opening relabels its section | 2026-09-29 | `scripts/release_gate.py` |
 | Carry-map rows | A row resolves when it names the commit that finished its work | 2026-09-29 | `artifacts/evidence/0.2.8/plan/carry_map.md` |
 | Rulings layout | This table holds the rulings that still bind; the dated files stay as written | 2026-09-29 | this file |
@@ -49,7 +49,7 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Identity tests | The fact stack owns the list of test modules whose reference establishes the identity-verified state | 2026-09-29 | `artifacts/fact_stack.md` (`identity tests`) |
 | Invariant checks | Figures call a public operation and draw no bare-literal reference line; the dB-averaging lexicon; randomness implies an `rng` parameter and no global seed; the computational-contract gate; a retype scan over docs generators, examples and skills, backed by review (S1, S2, S5, S6, S7) | 2026-09-29 | 09-04 |
 | Study vocabulary | Gate 6 widens to all of `jnwb/`, `docs/`, `skills/` and `tests/` | 2026-09-29 | 12-07 |
-| Scientific choices | A parameter that sets a scientific choice is keyword-only and required, or defaulted with a cited reason | 2026-09-29 | 10-10 |
+| Scientific choices | A parameter that sets a scientific choice is required, or defaulted with a cited reason; "keyword-only" is dropped, since six public functions take a required window positionally | 2026-09-29, amended 2026-10-25 (`2026-10-25.md`) | 10-10; 17-06 (roadmap) |
 | No pipeline | A public callable delegates to at most one public analysis operation, or names every sequenced choice as a parameter | 2026-09-29 | 11-03 |
 | Mutation and execution scope | Closed-world allowlists: eight categories for NWB side effects, seven for caching | 2026-09-29 | 11-03 |
 | Estimand identity | A function's signal class, estimator, estimand, unit and frame are never silently substituted; numeric operations declare them | 2026-09-29 | 10-10 |
@@ -141,6 +141,14 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Push onto a red `dev` | `JNWB_PUSH_OVER_RED=1` is allowed only for the push that fixes the failing run: its commit message names the run, and the local suite and gates pass on that HEAD | 2026-10-10 | none |
 | `vflip` | Keeps its name; the docstring and the laminar page state how it differs from the published vFLIP; a `contact_spacing` that disagrees with `nominal_pitch` raises | 2026-09-26, 2026-09-29 | `jnwb/laminar/`; 10-04 for the page |
 | `xflip` | The partition objective is the per-block sum of within-block similarity squared over its pair count; under `n_blocks=None` the count is the smallest surrogate p with the selection repeated on each surrogate, ties by contrast in surrogate SDs then the smaller count, and count 2 with nothing accepted when there are no surrogates; the null rate is calibrated to a stated bound at or below alpha | 2026-09-26, 2026-09-27, 2026-09-28 | `jnwb/laminar/`, `tests/test_xflip.py`, `tests/test_xflip_calibration.py` |
+| B3 lexicon | Time windows only: `window`, `window_ms`, `window_s`, `time_window`, `time_window_s` and `time_window_ms`, a `None` default included; a taper `window` (a string default) is outside; bands, baselines, bins, segments, null sizes and method names are outside (roadmap). `UnitAnalyzer.psth` and `raster` (`window_ms`), and `build_time_resolved_matrix` and `compute_population_trajectory` (`time_window_ms`), warn with `FutureWarning` when the window is omitted and keep (-1000, 2000) until 0.2.15 | 2026-10-24 (`2026-10-24.md`) | 17-04, 17-05 (roadmap) |
+| I1 split | I1 keeps its predicate on the public operations whose parameters take spikes or LFP, held by the signature-types scan; those operations declare the five fields, and no call edge between them widens the input class. Return-only operations and the no-substitution clause move to I4, which carries the other numeric operations | 2026-10-24 (`2026-10-24.md`) | 17-03 (roadmap); the signature-types scan |
+| S8 scope | S8's check covers figure labels and returned-quantity units, where a magnitude or direction estimand carries no delay or inference vocabulary; a prose vocabulary scan goes to the roadmap | 2026-10-25 (`2026-10-25.md`) | 09-04; 17-07 (roadmap) |
+| I3 scope | I3's check is that a value whose name carries a unit or base suffix reaches a callee parameter with the same suffix, or is converted on the way; coordinate frames, sample rates and unsuffixed index bases go to the roadmap | 2026-10-25 (`2026-10-25.md`) | 17-08 (roadmap) |
+| S9 scope | 0.2.14 repairs the non-finite handling of `phase_locking_index`, `repair_lfp_trials`, `correlate`, `compute_response_metrics` and `autocorrelogram`; S9's holder reads swallowed handlers; a non-finite-input scan is a roadmap row | 2026-10-25 (`2026-10-25.md`) | 17-24 (roadmap) |
+| F1 freeze list | The 22 functions the ruling lists are frozen at the end of 0.2.14, each only after an independent verification and a killing test | 2026-10-21 (`2026-10-21.md`) | 16-18 |
+| Verdict set | Both dashboards use jaxfne's verdict set: reproduced, reproduced (conditional), mixed, in progress, not started, failed, with the paper, library and methods split; jnwb maps `reproduces` to reproduced, `partial` to mixed and `does_not` to failed; the showcase status (published, exploratory, verified) stays a separate field | 2026-10-24 (`2026-10-24.md`) | 17-02 |
+| 0.2.14 scope | Every item in the 0.2.14 checklist ships in 0.2.14; none is deferred; anything raised during the cycle goes to 0.2.15 | 2026-10-21 (`2026-10-21.md`) | `artifacts/goal.md` F3 |
 
 ## Moved from `AGENTS.md` on 2026-10-12: sections 11 and 12, verbatim
 

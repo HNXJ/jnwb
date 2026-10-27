@@ -6,10 +6,18 @@ without a browser: the fixture validates against data.schema.json; every data-sl
 template resolves in the fixture or is a derived slot the renderer computes; every element id
 the renderer queries exists in the template; and every tab or card target names a section.
 """
+import functools
+import importlib
 import json
+import os
 import re
+import sys
+import threading
 from html.parser import HTMLParser
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 DASHBOARD = ROOT / "scripts" / "dashboard"
@@ -225,3 +233,190 @@ def test_the_page_renders_the_origin_line():
     assert "'Origin: '" in source, "each card must label its origin line"
     for key in sorted(origin):
         assert f"origin.{key}" in source, f"the origin line must read origin.{key}"
+
+
+def test_the_validations_panel_renders_every_card():
+    cards = json.loads(FIXTURE.read_text(encoding="utf-8"))["validations"]
+    assert cards, "the fixture must hold validation cards"
+    shown = ("title", "path", "commit", "sha256", "fields", "html", "recorded_commit")
+    carried = {key for card in cards for key in card} - {"id", "section"}
+    assert carried <= set(shown), f"cards carry fields the panel does not show: {carried - set(shown)}"
+    source = RENDERER.read_text(encoding="utf-8")
+    assert "renderValidations(data);" in source, "render() must call renderValidations"
+    assert "document.getElementById('validation-table')" in source, "the panel container"
+    assert "lookup(data, 'validations')" in source, "the panel reads the validations section"
+    assert "Array.isArray(cards) ? cards : null" in source, "the table gets every card as a row"
+    for key in shown:
+        assert f"card.{key}" in source or f"field('{key}')" in source, (
+            f"the panel must read card.{key}")
+
+
+# ---- validation index, pages and verdict chips --------------------------------------------
+
+VERDICT_CLASSES = ("reproduced", "reproduced (conditional)", "mixed", "in progress",
+                   "not started", "failed")
+VERDICT_SLUGS = ("reproduced", "reproduced-conditional", "mixed", "in-progress", "not-started",
+                 "failed")
+
+
+def _section_bounds(events, name):
+    """The indices of the named section's start and its closing tag."""
+    begin = next(i for i, (kind, tag, attrs) in enumerate(events)
+                 if kind == "start" and tag == "section" and attrs.get("id") == name)
+    end = next(i for i in range(begin + 1, len(events)) if events[i][:2] == ("end", "section"))
+    return begin, end
+
+
+def test_the_validation_tab_holds_the_index_and_the_pages():
+    events = _events()
+    begin, end = _section_bounds(events, "validation")
+    inside = {attrs.get("id") for kind, tag, attrs in events[begin:end] if kind == "start"}
+    for name in ("validation-index", "validation-index-search", "validation-index-table",
+                 "validation-pages"):
+        assert name in inside, f"{name} must sit in the validation tab"
+
+
+def _style():
+    match = re.search(r"<style>(.*?)</style>", TEMPLATE.read_text(encoding="utf-8"), re.S)
+    assert match, "the template has no style block"
+    return match.group(1)
+
+
+def test_every_verdict_chip_takes_its_colour_from_the_theme_tokens():
+    style = _style()
+    for slug in VERDICT_SLUGS:
+        rule = re.search(rf"\.chip-{slug}(?![\w-])[^{{]*\{{([^}}]*)\}}", style)
+        assert rule, f"no chip style for {slug}"
+        assert "var(--" in rule.group(1), f"chip-{slug} takes a fixed colour, not a theme token"
+    assert "prefers-color-scheme: dark" in style and 'data-theme="dark"' in style, (
+        "the chips need the dark theme the tokens define")
+
+
+def test_the_renderer_names_every_verdict_class_and_reads_the_deferred_rows():
+    source = RENDERER.read_text(encoding="utf-8")
+    for label in VERDICT_CLASSES:
+        assert f"'{label}'" in source, f"the page does not name the verdict {label!r}"
+    assert "lookup(data, 'deferred')" in source, "the index reads the deferred section"
+
+
+def test_the_renderer_builds_the_index_and_the_pages_and_shows_each_label():
+    source = RENDERER.read_text(encoding="utf-8")
+    assert "renderValidationIndex(data);" in source and "renderValidationPages(data);" in source
+    assert "row.label" in source, "the replication table must show the dashboard label"
+
+
+# ---- every route, in Chromium, in light and dark ----------------------------------------
+
+REQUIRE_BROWSER = "JNWB_REQUIRE_BROWSER"
+#: The pinned Plotly CDN address. Its requests are set aside: a machine without network access
+#: cannot load it, and the page then shows its "Chart unavailable" note without an error of its own.
+PLOTLY_URL = "https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/"
+
+
+class _QuietHandler(SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+
+@pytest.fixture(scope="module")
+def site(tmp_path_factory):
+    """The dashboard built into a temporary directory by the builder the workflow runs."""
+    if str(ROOT) not in sys.path:
+        sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+    out = tmp_path_factory.mktemp("browser") / "site"
+    importlib.import_module("scripts.build_dashboard").write_dashboard(out)
+    return out
+
+
+@pytest.fixture(scope="module")
+def base_url(site):
+    """The built site served over HTTP: the page fetches data.json, which file:// does not allow."""
+    handler = functools.partial(_QuietHandler, directory=str(site))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+@pytest.fixture(scope="module")
+def browser():
+    sync_api = pytest.importorskip("playwright.sync_api")
+    manager = sync_api.sync_playwright().start()
+    try:
+        chromium = manager.chromium.launch()
+    except sync_api.Error as exc:
+        manager.stop()
+        reason = str(exc).strip().splitlines()[0]
+        if os.environ.get(REQUIRE_BROWSER):
+            pytest.fail(f"{REQUIRE_BROWSER} is set and Chromium cannot launch: {reason}")
+        pytest.skip(f"Chromium cannot launch: {reason}")
+    yield chromium
+    chromium.close()
+    manager.stop()
+
+
+def _routes(site):
+    """Every tab, the first validation page and the first deferred row, each with the heading
+    that must be visible on it. The names come from the built data and the template."""
+    data = json.loads((site / "data.json").read_text(encoding="utf-8"))
+    entry = data["showcases"]["entries"][0]["id"]
+    deferred = data["deferred"][0]["id"]
+    tabs = [attrs["aria-controls"] for kind, tag, attrs in _events()
+            if kind == "start" and tag == "button" and attrs.get("role") == "tab"]
+    assert tabs, "the template names no tab"
+    routes = [(tab, f"#{tab} h2") for tab in tabs]
+    routes.append((f"validation/{entry}", f'article.validation-page[data-page="{entry}"] h5'))
+    routes.append((f"validation/{deferred}", f'article.validation-page[data-page="{deferred}"] h3'))
+    return routes
+
+
+def _collect(page, problems):
+    """Records what the page reports: uncaught errors, console errors and failed requests, except
+    the Plotly CDN address (see PLOTLY_URL)."""
+    page.on("pageerror", lambda exc: problems.append(f"page error: {exc}"))
+
+    def on_console(msg):
+        location = msg.location.get("url", "")
+        if msg.type == "error" and not location.startswith(PLOTLY_URL):
+            problems.append(f"console error: {msg.text} ({location})")
+
+    def on_failed(request):
+        if not request.url.startswith(PLOTLY_URL):
+            problems.append(f"request failed: {request.url}")
+
+    page.on("console", on_console)
+    page.on("requestfailed", on_failed)
+
+
+def test_every_route_renders_in_light_and_dark_without_errors(browser, base_url, site):
+    sync_api = pytest.importorskip("playwright.sync_api")
+    routes = _routes(site)
+    checked, problems = [], []
+    for route, heading in routes:
+        backgrounds = {}
+        for scheme in ("light", "dark"):
+            label = f"#{route} ({scheme})"
+            found = []
+            context = browser.new_context(color_scheme=scheme)
+            try:
+                page = context.new_page()
+                _collect(page, found)
+                try:
+                    page.goto(f"{base_url}/index.html#{route}", wait_until="networkidle")
+                    page.locator(heading).first.wait_for(state="visible", timeout=10000)
+                except sync_api.Error as exc:
+                    found.append(f"{heading!r} is not visible: {str(exc).splitlines()[0]}")
+                backgrounds[scheme] = page.evaluate(
+                    "getComputedStyle(document.body).backgroundColor")
+            finally:
+                context.close()
+            problems.extend(f"{label}: {problem}" for problem in found)
+            checked.append(label)
+        if backgrounds["light"] == backgrounds["dark"]:
+            problems.append(f"#{route}: the body background is {backgrounds['light']} in both "
+                            "light and dark")
+    assert len(checked) == 2 * len(routes), checked
+    assert not problems, "\n".join(problems)

@@ -1,6 +1,6 @@
 """The release gate must resolve CI for the exact commit it is qualifying.
 
-Before 06-108 it did not resolve CI at all: ``grep -niE "gh run|workflow|actions|conclusion"
+Before the change it did not resolve CI at all: ``grep -niE "gh run|workflow|actions|conclusion"
 scripts/release_gate.py`` returned one hit at 30c425cf, a ``# 4. Workflows`` heading inside
 the wheel smoke script with nothing to do with GitHub Actions. Measured the same day, the
 pipeline at that commit concluded ``failure``, as it had on all twelve most recent pushes to
@@ -40,7 +40,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # `append`, never `insert(0, ...)`: inserting re-shadows the installed package for the whole
 # session, which tests/test_the_suite_can_qualify_an_installed_copy.py forbids.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.release_gate import (  # noqa: E402
     CI_FAILED,

@@ -63,6 +63,8 @@ from ._coupling import (
     MIN_COHERENCE_NPERSEG,
     welch_segment_count,
     cross_area_coherence,
+    partial_coherence,
+    coherence_bias_floor,
     imaginary_coherency,
     wpli,
 )

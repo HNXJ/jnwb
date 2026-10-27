@@ -15,8 +15,8 @@ disappears rather than lingering.
 `--check` is what `AGENTS.md` section 3 Prepare runs before reading the file, and what
 `tests/test_state_basis_is_checked.py` runs on every suite run. Harness gate 20 makes the same
 comparison through `recorded_head` whenever the file is present; it never regenerates, because
-this script runs the harness, and the prose this script emits must say exactly that much: P-65
-is what happened when it claimed more. Staleness is HEAD having moved since the file was
+this script runs the harness, and the prose this script emits must say exactly that much: an
+earlier version that claimed more was a defect. Staleness is HEAD having moved since the file was
 written, so that is all it compares: a full-text comparison would fail on every uncommitted
 edit, and a check that fails all day is one people stop running. It runs no probes and no gate.
 
@@ -29,12 +29,14 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import http.client
 import json
 import pathlib
 import re
 import subprocess
 import os
 import sys
+import urllib.request
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 STATE_PATH = REPO_ROOT / "artifacts" / "state.md"
@@ -55,8 +57,14 @@ def recorded_head(text: str) -> str | None:
 COMMAND_TIMEOUT_S = 900
 
 
+#: The public runs API for `dev`: one request, and the newest run is the one the state names.
+CI_RUNS_URL = "https://api.github.com/repos/hnxj/jnwb/actions/runs?branch=dev&per_page=1"
+
 #: Seconds the CI query may take: it reaches the network, and a reader waits on it.
-CI_TIMEOUT_S = 30
+CI_TIMEOUT_S = 10
+
+#: Conclusions that read red. A run with no conclusion yet reads unknown, never a pass.
+RED_CONCLUSIONS = frozenset({"failure", "timed_out"})
 
 
 def run(*cmd: str, timeout: float | None = None) -> str:
@@ -77,19 +85,32 @@ def run(*cmd: str, timeout: float | None = None) -> str:
 
 def package_facts() -> dict[str, str]:
     """Import the checkout and read its own metadata, never a copy in site-packages."""
+    # A lazy export whose optional extra is absent raises ImportError on access; it resolves
+    # once the extra is installed, so only an AttributeError counts as unresolved.
     probe = (
-        "import pathlib, sys, jnwb;"
-        "root = pathlib.Path(r'" + str(REPO_ROOT) + "');"
-        "assert root in pathlib.Path(jnwb.__file__).resolve().parents, jnwb.__file__;"
-        "print(jnwb.__version__);"
-        "print(len(jnwb.__all__));"
-        "print(len(set(jnwb.__all__)));"
-        "print(sum(1 for n in jnwb.__all__ if not hasattr(jnwb, n)))"
+        "import pathlib, sys, jnwb\n"
+        "root = pathlib.Path(r'" + str(REPO_ROOT) + "')\n"
+        "assert root in pathlib.Path(jnwb.__file__).resolve().parents, jnwb.__file__\n"
+        "def unresolved(name):\n"
+        "    try:\n"
+        "        getattr(jnwb, name)\n"
+        "    except AttributeError:\n"
+        "        return True\n"
+        "    except ImportError:\n"
+        "        return False\n"
+        "    return False\n"
+        "print(jnwb.__version__)\n"
+        "print(len(jnwb.__all__))\n"
+        "print(len(set(jnwb.__all__)))\n"
+        "print(sum(1 for n in jnwb.__all__ if unresolved(n)))\n"
     )
     out = run(sys.executable, "-c", probe)
-    if out.startswith("UNRESOLVED"):
-        return {k: out for k in ("version", "exports", "unique", "unresolved")}
-    version, exports, unique, unresolved = out.splitlines()[:4]
+    lines = out.splitlines()
+    if out.startswith("UNRESOLVED") or len(lines) < 4:
+        reason = out if out.startswith("UNRESOLVED") else (
+            f"UNRESOLVED (the package probe printed {len(lines)} of 4 lines)")
+        return {k: reason for k in ("version", "exports", "unique", "unresolved")}
+    version, exports, unique, unresolved = lines[:4]
     return {
         "version": version,
         "exports": exports,
@@ -162,21 +183,25 @@ def branch_rows(base: str = "dev") -> list[str]:
 
 
 def newest_dev_run() -> str:
-    """The newest CI run on ``dev``, and ``RED`` when it failed; unresolved without ``gh``."""
-    out = run("gh", "run", "list", "--branch", "dev", "--limit", "1",
-              "--json", "headSha,status,conclusion,workflowName", timeout=CI_TIMEOUT_S)
-    if out.startswith("UNRESOLVED"):
-        return out
+    """The head SHA and conclusion of the newest CI run on ``dev``, from the public runs API.
+
+    ``RED`` when the run failed. An unreachable API, a body with no run in ``workflow_runs``, or a
+    run with no conclusion yet reads ``unknown``: never a pass.
+    """
+    request = urllib.request.Request(CI_RUNS_URL, headers={
+        "Accept": "application/vnd.github+json", "User-Agent": "jnwb-state"})
     try:
-        runs = json.loads(out)
-    except ValueError:
-        return "UNRESOLVED (gh printed no JSON)"
-    if not runs:
-        return "UNRESOLVED (no run listed)"
-    newest = runs[0]
-    text = (f"`{newest['headSha'][:12]}` {newest['workflowName']} {newest['status']} "
-            f"{newest['conclusion'] or ''}").rstrip()
-    return f"RED: {text}" if newest["conclusion"] in {"failure", "timed_out"} else text
+        with urllib.request.urlopen(request, timeout=CI_TIMEOUT_S) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except (OSError, ValueError, http.client.HTTPException):
+        return "unknown"
+    runs = body.get("workflow_runs") if isinstance(body, dict) else None
+    newest = runs[0] if isinstance(runs, list) and runs and isinstance(runs[0], dict) else {}
+    sha, conclusion = newest.get("head_sha"), newest.get("conclusion")
+    if not (isinstance(sha, str) and isinstance(conclusion, str)):
+        return "unknown"
+    text = f"`{sha[:12]}` {conclusion}"
+    return f"RED: {text}" if conclusion in RED_CONCLUSIONS else text
 
 
 #: A ledger status that names a landed check, gate, rule or repair; any other status is open.
@@ -198,6 +223,39 @@ def open_defect_classes(path: pathlib.Path | None = None) -> str:
     return "; ".join(f"{name} (seen {-n})" for n, name in sorted(found)) or "none"
 
 
+#: Process tests, whose line counts are recorded so their growth shows per release.
+PROCESS_TESTS = (
+    "tests/test_findings_ledger.py",
+    "tests/test_single_agent_instruction_file.py",
+    "tests/test_standing_rules_name_no_cycle.py",
+    "tests/test_agents_md_stays_a_router.py",
+    "tests/test_release_recovery_gates.py",
+    "tests/test_jrsa.py",
+    "tests/test_api_md_is_interpreter_independent.py",
+    "tests/test_workflow_release_policy.py",
+    "tests/test_state_reconstruction.py",
+    "tests/test_state_basis_is_checked.py",
+    "tests/test_xflip_calibration_receipt.py",
+    "tests/test_vflip_calibration_receipt.py",
+    "tests/test_test_imports_survive_the_wheel_leg.py",
+    "tests/test_the_suite_can_qualify_an_installed_copy.py",
+    "tests/test_errors_documented.py",
+    "tests/test_readme_smoke.py",
+)
+
+
+def growth_rows() -> str:
+    scripts = sorted((REPO_ROOT / "scripts").glob("*.py"))
+    script_lines = sum(len(p.read_text(encoding="utf-8").splitlines()) for p in scripts)
+    rows = ["| Path | Lines |", "|---|---|", f"| `scripts/` | {script_lines} |"]
+    for rel in PROCESS_TESTS:
+        path = REPO_ROOT / rel
+        lines = (len(path.read_text(encoding="utf-8").splitlines()) if path.is_file()
+                 else "UNRESOLVED (file absent)")
+        rows.append(f"| `{rel}` | {lines} |")
+    return "\n".join(rows)
+
+
 def build() -> str:
     pkg = package_facts()
     gate_output, gate_verdict = harness_verdict()
@@ -208,7 +266,7 @@ def build() -> str:
 
     todo_path = REPO_ROOT / "artifacts" / "todo_stack.md"
     todo_items = (
-        # `\d\d-\d+`: ids passed three digits at 06-100 and the two-digit form matched none of
+        # `\d\d-\d+`: ids passed three digits, and the two-digit form matched none of
         # them, undercounting 57 items as 46. See the same repair in release_gate.py.
         len(re.findall(r"^### \d\d-\d+ ", todo_path.read_text(encoding="utf-8"), re.MULTILINE))
         if todo_path.exists()
@@ -312,6 +370,10 @@ that also has jnwb installed imports the installed copy; the probe fails rather 
 |---|---|
 | Newest CI run on `dev` | {newest_dev_run()} |
 | Open defect classes | {open_defect_classes()} |
+
+## Growth
+
+{growth_rows()}
 
 ## Release readiness
 

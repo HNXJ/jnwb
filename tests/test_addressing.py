@@ -135,7 +135,7 @@ def test_classify_layer_from_depth_with_explicit_channel_id_column_and_reset_ind
 
 
 class TestClassifyLayerUnitSafety:
-    """Regression suite for 0.2.0-04: unit-safety in classify_layer_from_depth.
+    """Regression suite for unit-safety in classify_layer_from_depth.
 
     Acceptance invariant:
         unknown or incompatible depth units -/-> plausible layer label.
@@ -177,11 +177,22 @@ class TestClassifyLayerUnitSafety:
         assert classify_layer_from_depth(2, df, depth_unit="um", threshold=0.75, threshold_unit="mm") == "Deep"
         assert classify_layer_from_depth(2, df, depth_unit="um", threshold=0.85, threshold_unit="mm") == "Superficial"
 
-    def test_unsupported_units_return_unknown(self):
+    def test_unsupported_depth_unit_argument_is_refused(self):
         df = pd.DataFrame({"z": [500.0, 1500.0]}, index=[0, 1])
         for bad_unit in ["inches", "furlongs", "lightyears", "volts", ""]:
-            assert classify_layer_from_depth(0, df, depth_unit=bad_unit) == "Unknown"
-            assert classify_layer_from_depth(1, df, depth_unit=bad_unit) == "Unknown"
+            with pytest.raises(ValueError, match="depth_unit"):
+                classify_layer_from_depth(0, df, depth_unit=bad_unit)
+
+    def test_unsupported_unit_declared_in_the_table_still_gives_unknown(self):
+        df = pd.DataFrame({"z": [500.0, 1500.0], "depth_unit": ["volts", "volts"]}, index=[0, 1])
+        assert classify_layer_from_depth(0, df) == "Unknown"
+        assert classify_layer_from_depth(1, df) == "Unknown"
+
+    def test_negative_threshold_is_refused(self):
+        df = pd.DataFrame({"z": [500.0, 1500.0]}, index=[0, 1])
+        assert classify_layer_from_depth(0, df, depth_unit="um") == "Superficial"
+        with pytest.raises(ValueError, match="threshold"):
+            classify_layer_from_depth(0, df, depth_unit="um", threshold=-1.0)
 
     def test_missing_nan_and_infinite_depth(self):
         df = pd.DataFrame({"z": [np.nan, np.inf, -np.inf, None]}, index=[0, 1, 2, 3])
@@ -951,3 +962,95 @@ def test_a_fractional_channel_id_is_refused_not_truncated_to_a_channel():
         classify_layer_from_depth(2.7, elec)
     with pytest.raises(ValueError, match="2.7"):
         enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [0.0, 2.7]}), elec)
+
+
+def test_undeclared_depth_reads_z_from_pia_unchanged():
+    # Pinned on BASE. With no declared shallow end, z is read as depth from pia for every probe:
+    # probe B's contacts sit 1100 um and up in z, and are Deep because of that, not because of
+    # their own probe's shallow end.
+    elec = pd.DataFrame(
+        {"z": [100.0, 1200.0, 1100.0, 1300.0], "depth_unit": ["um"] * 4,
+         "group_name": ["probeA", "probeA", "probeB", "probeB"]},
+        index=[0, 1, 2, 3],
+    )
+    expected = ["Superficial", "Deep", "Deep", "Deep"]
+    assert [classify_layer_from_depth(ch, elec) for ch in range(4)] == expected
+    enriched = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [0, 1, 2, 3]}), elec)
+    assert enriched["depth_class"].tolist() == expected
+
+
+def test_shallow_end_max_reads_depth_from_the_declared_shallow_contact():
+    # A probe whose z grows toward pia: its shallowest contact is the largest z.
+    elec = pd.DataFrame(
+        {"z": [600.0, 1000.0, 1400.0, 1800.0], "depth_unit": ["um"] * 4}, index=[0, 1, 2, 3]
+    )
+    # Precondition: the undeclared reading inverts the two ends (z read from pia).
+    assert classify_layer_from_depth(0, elec) == "Superficial"
+    assert classify_layer_from_depth(3, elec) == "Deep"
+    kw = {"depth_axis": "z", "shallow_end": "max"}
+    # Depth from the contact at z = 1800: 1200, 800, 400, 0 um.
+    assert [classify_layer_from_depth(ch, elec, **kw) for ch in range(4)] == [
+        "Deep", "Superficial", "Superficial", "Superficial"]
+    enriched = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [0, 1, 2, 3]}), elec, **kw)
+    assert enriched["depth_class"].tolist() == [
+        "Deep", "Superficial", "Superficial", "Superficial"]
+
+
+def test_shallow_end_min_agrees_with_undeclared_when_z_is_depth_from_pia():
+    elec = pd.DataFrame({"z": [0.0, 400.0, 900.0, 1000.0, 1200.0], "depth_unit": ["um"] * 5},
+                        index=range(5))
+    # Precondition: the shallowest contact is at z = 0, so z already is depth from it.
+    assert elec["z"].min() == 0.0
+    undeclared = [classify_layer_from_depth(ch, elec) for ch in range(5)]
+    declared = [classify_layer_from_depth(ch, elec, depth_axis="z", shallow_end="min")
+                for ch in range(5)]
+    assert undeclared == ["Superficial", "Superficial", "Superficial", "Superficial", "Deep"]
+    assert declared == undeclared
+
+
+def test_depth_is_anchored_per_probe():
+    elec = pd.DataFrame(
+        {"z": [500.0, 1700.0, 2000.0, 2800.0], "depth_unit": ["um"] * 4,
+         "group_name": ["probeA", "probeA", "probeB", "probeB"]},
+        index=range(4),
+    )
+    # Precondition: read from pia, both of probe B's contacts are Deep.
+    assert classify_layer_from_depth(2, elec) == "Deep"
+    assert classify_layer_from_depth(3, elec) == "Deep"
+    kw = {"depth_axis": "z", "shallow_end": "min"}
+    # Each probe's own shallowest contact is depth 0: probe A 0 and 1200 um, probe B 0 and 800 um.
+    assert [classify_layer_from_depth(ch, elec, **kw) for ch in range(4)] == [
+        "Superficial", "Deep", "Superficial", "Superficial"]
+
+
+def test_a_contact_with_no_probe_key_warns_and_reads_unknown():
+    elec = pd.DataFrame(
+        {"z": [0.0, 500.0], "depth_unit": ["um"] * 2, "group_name": ["probeA", None]},
+        index=[0, 1],
+    )
+    with pytest.warns(UserWarning, match="has no probe key") as caught:
+        assert classify_layer_from_depth(1, elec, depth_axis="z", shallow_end="min") == "Unknown"
+    assert len(caught) == 1
+    # One warning per public call, however many units sit on the channel.
+    with pytest.warns(UserWarning, match="has no probe key") as caught:
+        enriched = enrich_units_dataframe(
+            pd.DataFrame({"peak_channel_id": [0, 1, 1]}), elec, depth_axis="z", shallow_end="min")
+    assert enriched["depth_class"].tolist() == ["Superficial", "Unknown", "Unknown"]
+    assert len(caught) == 1
+
+
+def test_a_declaration_is_refused_unless_complete_and_valid():
+    elec = pd.DataFrame({"z": [0.0, 500.0], "depth_unit": ["um"] * 2}, index=[0, 1])
+    with pytest.raises(ValueError, match="declared together") as one_alone:
+        classify_layer_from_depth(0, elec, depth_axis="z")
+    assert "depth_axis" in str(one_alone.value) and "shallow_end" in str(one_alone.value)
+    with pytest.raises(ValueError, match="declared together"):
+        classify_layer_from_depth(0, elec, shallow_end="min")
+    with pytest.raises(ValueError, match="depth_axis must be one of"):
+        classify_layer_from_depth(0, elec, depth_axis="w", shallow_end="min")
+    with pytest.raises(ValueError, match="is not a column"):
+        classify_layer_from_depth(0, elec, depth_axis="x", shallow_end="min")
+    with pytest.raises(ValueError, match="shallow_end must be one of"):
+        classify_layer_from_depth(0, elec, depth_axis="z", shallow_end="top")
+    with pytest.raises(ValueError, match="declared together"):
+        enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [0]}), elec, depth_axis="z")

@@ -11,8 +11,7 @@ The policies are exhaustive over the declared high-risk subset:
 
 ``PRESERVES_INPUT``
     float32 in, float32 out; anything else out as float64. NumPy's own linalg promotion
-    rule. :func:`resolve_working_dtype` implements it, so a function claiming this policy
-    and the test checking the claim read one implementation rather than two copies.
+    rule.
 ``ALWAYS_DOUBLE``
     float64 out whatever went in. The function upcasts, and the registry says so instead of
     leaving each caller to discover it.
@@ -36,7 +35,6 @@ holds every entry against the live function.
 
 from __future__ import annotations
 
-import numpy as np
 
 #: float32 in, float32 out; everything else float64.
 PRESERVES_INPUT = "preserves_input"
@@ -75,23 +73,6 @@ class PrecisionNotSupportedError(ValueError):
     """
 
 
-def resolve_working_dtype(dtype) -> np.dtype:
-    """The single ``PRESERVES_INPUT`` rule, implemented once.
-
-    float32 stays float32; everything else becomes float64. This is NumPy's own ``linalg``
-    promotion rule, and it also makes float16 usable, since ``np.linalg.svd`` rejects it
-    outright.
-
-    Args:
-        dtype: anything ``np.dtype`` accepts.
-
-    Returns:
-        The working dtype to compute and return in.
-    """
-    single = np.dtype(np.float32)
-    return single if np.dtype(dtype) == single else np.dtype(np.float64)
-
-
 #: Dotted name -> policy, for a declared high-risk subset of the public functions.
 #:
 #: Every entry was measured rather than assumed. The two entries that look like a
@@ -101,7 +82,6 @@ def resolve_working_dtype(dtype) -> np.dtype:
 #: returns float64. Naming both here makes the disagreement checkable rather than something
 #: a reader might happen to notice.
 PRECISION_POLICY = {
-    "jnwb.gpu_pca.gpu_pca": PRESERVES_INPUT,
     "jnwb.spectral.to_db": PRESERVES_INPUT,
     "jnwb.tfr.complex_tfr": BY_REQUEST,
     "jnwb.tfr_accumulator.TFRAccumulator": DOUBLE_ONLY,

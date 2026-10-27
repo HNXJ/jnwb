@@ -1,7 +1,7 @@
 """A documentation figure drawn from synthetic data says so beside it.
 
 Every figure on the documentation site is generated from seeded synthetic signals
-(`docs/generate_figures.py`, `examples/quickstart_jnwb.py`), and a reader who meets one on an
+(`scripts/figures/generate_figures.py`, `examples/quickstart_jnwb.py`), and a reader who meets one on an
 analysis page cannot tell that from the image. Nine of eleven captions did not say it. The
 caption of a Markdown image is the paragraph that follows it. An `<img>` in an HTML table cell
 is captioned by its cell's `<sub>` text, read after the paragraph that introduces the table;

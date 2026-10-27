@@ -23,7 +23,7 @@ What would make these pass while the rule they name is violated, and what is don
   exactly one enforcement site; :func:`test_every_declared_condition_has_an_enforcement_site`
   checks that against the source rather than against this docstring.
 * A probe planting a mutant the suite can see would prove the suite works, not that the tree
-  statement catches what the suite cannot. The P-174 mutant broke nothing, so
+  statement catches what the suite cannot. The silent mutant broke nothing, so
   :func:`test_the_planted_mutant_really_is_the_silent_shape` runs the fixture's own tests with
   the mutant in place and requires them to still pass before the refusal is probed at all.
 * Asserting that a missing journal is "unknown" and an empty one is "empty" could both pass while
@@ -49,7 +49,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # Appended, not prepended: prepending would put this checkout's packages ahead of an installed
 # copy and silently redirect a wheel-qualification run back to the source tree.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.mutation_harness import (  # noqa: E402
     CONDITIONS,
@@ -66,6 +66,7 @@ from scripts.mutation_harness import (  # noqa: E402
     NotAWorktree,
     OutsideWorktree,
     SelectorProof,
+    SuiteReport,
     TreeNotPristine,
     Verdict,
     apply_mutation,
@@ -561,7 +562,7 @@ def test_a_crash_whose_backup_is_gone_is_refused_rather_than_ignored(tmp_path: P
 
 
 # ---------------------------------------------------------------------------------------------
-# Worktree derivation and containment (P-134)
+# Worktree derivation and containment
 # ---------------------------------------------------------------------------------------------
 
 
@@ -601,7 +602,7 @@ def test_the_harness_never_derives_its_root_from_its_own_file_location() -> None
 
 
 def test_a_path_outside_the_worktree_is_refused_and_left_alone(session, tmp_path: Path) -> None:
-    """P-134: a restore driven by another lane's state writes into another lane's tree."""
+    """A restore driven by another checkout's state writes into another checkout's tree."""
     outsider = tmp_path / "outside.py"
     outsider.write_bytes(b"untouched\n")
     with pytest.raises(OutsideWorktree):
@@ -774,7 +775,7 @@ def test_an_undeclared_condition_cannot_be_raised() -> None:
 
 
 # ---------------------------------------------------------------------------------------------
-# P-174, half one: a journal that cannot answer says so, instead of saying "empty"
+# A journal that cannot answer says so, instead of saying "empty"
 # ---------------------------------------------------------------------------------------------
 
 
@@ -824,7 +825,7 @@ def test_a_missing_and_an_empty_journal_do_not_give_the_same_answer(tmp_path: Pa
     assert absent.entries == present.read_journal().entries == ()
     assert absent.status != present.read_journal().status, (
         "a missing journal and a journal recording nothing outstanding give the same answer "
-        "again. That is P-174: an absence of records read as an absence of mutants."
+        "again. That failure is an absence of records read as an absence of mutants."
     )
     assert absent.is_known is not present.read_journal().is_known
 
@@ -857,7 +858,7 @@ def test_a_journal_state_that_is_not_known_cannot_carry_entries() -> None:
 
 
 # ---------------------------------------------------------------------------------------------
-# P-174, half two: a run states the tree it ran against
+# A run states the tree it ran against
 # ---------------------------------------------------------------------------------------------
 
 #: The exact shape of the mutant that survived three days and four green suite runs: it disables
@@ -898,7 +899,7 @@ def _suite_is_green(repo: Path) -> bool:
 def test_the_planted_mutant_really_is_the_silent_shape(tmp_path: Path) -> None:
     """The discriminator is vacuous unless the mutant is one no test run can see.
 
-    06-113 says so explicitly: the 0.2.5 D13 mutant narrowed a glob, broke something, and the
+    For example, the 0.2.5 D13 mutant narrowed a glob, broke something, and the
     full suite caught it. This one disables an ``if`` and breaks nothing, and the suite did not.
     A probe planting a *noisy* mutant would prove the suite works, not that the tree statement
     catches what the suite cannot.
@@ -909,7 +910,7 @@ def test_the_planted_mutant_really_is_the_silent_shape(tmp_path: Path) -> None:
     try:
         assert (repo / SILENT_MUTANT_PATH).read_bytes() != pristine
         assert _suite_is_green(repo), (
-            "the planted mutant breaks a test, so it is the D13 shape and not the P-174 shape. "
+            "the planted mutant breaks a test, so it is the D13 shape and not the silent shape. "
             "A mutant the suite catches proves nothing about a check the suite cannot catch."
         )
     finally:
@@ -917,7 +918,7 @@ def test_the_planted_mutant_really_is_the_silent_shape(tmp_path: Path) -> None:
 
 
 def test_an_undeclared_modification_refuses_the_run_and_names_the_path(tmp_path: Path) -> None:
-    """P-174, as a gate: the silent mutant is invisible to the suite and to the journal alike."""
+    """The silent mutant is invisible to the suite and to the journal alike."""
     repo = _write_fixture_repo(tmp_path / "surprise")
     pristine = _plant_the_silent_mutant(repo)
     try:
@@ -962,7 +963,7 @@ def test_a_declared_modification_is_allowed_through(tmp_path: Path) -> None:
 
 
 def test_an_untracked_file_does_not_refuse_the_run(tmp_path: Path) -> None:
-    """A gate that must be handed an ignore list is a gate nobody runs -- 06-113's stop clause.
+    """A gate that must be handed an ignore list is a gate nobody runs.
 
     Scratch files are the normal state of a working tree. Only *tracked* modifications refuse;
     a stray untracked file is still caught, on the way out, by the entry/exit status comparison.
@@ -1045,7 +1046,7 @@ def test_a_declared_dotfile_path_is_matched_rather_than_mangled() -> None:
 
 
 # ---------------------------------------------------------------------------------------------
-# P-172: a measured gap can be recorded, and stops being a gap loudly
+# A measured gap can be recorded, and stops being a gap loudly
 # ---------------------------------------------------------------------------------------------
 
 
@@ -1155,8 +1156,8 @@ def _resolve_node_id(node_id: str) -> bool:
 
 
 def test_the_measured_gaps_are_recorded_as_expected_survivors() -> None:
-    """06-27 measured P-170 and P-171 and could only narrate them. P-170 is now killed by
-    `test_the_returned_spectrum_carries_the_same_sign_as_net`; P-171 stays declared."""
+    """Two measured gaps could only be narrated. The first is now killed by
+    `test_the_returned_spectrum_carries_the_same_sign_as_net`; the second stays declared."""
     gaps = known_gaps(REPO_ROOT)
     assert len(gaps) == 1
     recorded = {gap.name.split(" | ")[0] for gap in gaps}
@@ -1235,7 +1236,7 @@ def test_main_reports_a_missing_journal_as_unknown(
 
 
 def test_the_release_step_fails_when_the_gap_run_fails(tmp_path: Path) -> None:
-    """The recorded gaps are run by the release, so a gap that closed stops it (06-113)."""
+    """The recorded gaps are run by the release, so a gap that closed stops it."""
     from scripts.release_gate import check_known_gaps_hold
 
     calls: list[list[str]] = []
@@ -1269,7 +1270,7 @@ def test_importing_the_harness_imports_no_jnwb() -> None:
     """Run by path the harness would import whichever ``jnwb`` is installed, so a path derived
     at import time raised there. Checked in a subprocess, because this process has jnwb loaded."""
     probe = (
-        "import sys; sys.path.insert(0, sys.argv[1]);"
+        "import sys; sys.path.insert(0, sys.argv[1]);"  # needed: child process has no pythonpath
         "import scripts.mutation_harness as h;"
         "assert 'jnwb' not in sys.modules, 'importing the harness imported jnwb';"
         "assert not hasattr(h, 'KNOWN_GAPS')"
@@ -1351,3 +1352,22 @@ def test_a_parametrized_id_with_a_space_is_collected(tmp_path: Path) -> None:
     collected, output = collect_selector(tmp_path, ["tests/test_sp.py"])
     assert "2 tests collected" in output, output
     assert collected == ("tests/test_sp.py::test_p[a b]", "tests/test_sp.py::test_p[c]"), output
+
+
+def test_an_empty_report_is_not_a_clean_run() -> None:
+    """A report that judged no mutant has shown nothing, so it cannot exit 0."""
+    assert SuiteReport().clean() is False
+
+
+def test_an_empty_case_file_exits_non_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Through the command line: an empty case list judged nothing and must not read as clean."""
+    import scripts.mutation_harness as harness
+
+    repo = _write_fixture_repo(tmp_path / "empty_run")
+    monkeypatch.setattr(harness, "default_state_root", lambda: tmp_path / "state")
+    cases = tmp_path / "empty_cases.json"
+    cases.write_text("[]", encoding="utf-8")
+
+    assert harness.main([str(cases), "--worktree", str(repo)]) == 1

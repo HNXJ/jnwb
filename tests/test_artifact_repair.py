@@ -4,6 +4,8 @@ synthetic self-tests, converted to pytest so they run under the standard suite.
 """
 from __future__ import annotations
 
+import inspect
+
 import numpy as np
 import pytest
 
@@ -55,11 +57,25 @@ class TestRepairLfpTrials:
         assert diag["reward_window_ms"] is None
         assert diag["reward_excluded_cells"] == 0
 
-    def test_below_min_trials_returns_input_unchanged(self):
-        base = self._synthetic()[:3]
-        repaired, frac, diag = repair_lfp_trials(base, min_trials=5)
-        assert frac == 0.0
-        assert np.array_equal(repaired, base)
+    def test_nonfinite_segments_raise_value_error_naming_the_count(self):
+        base = self._synthetic()
+        base[3, 2, 50] = np.nan
+        base[4, 0, 7] = np.inf
+        with pytest.raises(ValueError, match=r"contains 2 NaN or Inf"):
+            repair_lfp_trials(base)
+
+    def test_below_min_trials_raises_naming_the_minimum_and_the_count(self):
+        base = self._synthetic()[:4]
+        with pytest.raises(ValueError, match=r"at least 5 trials.*got 4"):
+            repair_lfp_trials(base)
+
+    def test_exactly_five_trials_still_run(self):
+        rng = np.random.default_rng(2)
+        seg = rng.standard_normal((5, 4, 100))
+        seg[2, :, 50] += 40.0  # cross-channel synchronous spike
+        repaired, _, diag = repair_lfp_trials(seg)
+        assert diag["n_flagged_cells"] > 0
+        assert np.abs(repaired[2, :, 50] - seg[2, :, 50]).max() > 1.0
 
     def test_rejects_non_3d_input(self):
         with pytest.raises(ValueError):
@@ -91,12 +107,18 @@ class TestRepairBandArtifacts:
         assert np.allclose(repaired[0], power[0])
         assert np.allclose(repaired[3, :, ~alpha_sel, :], power[3, :, ~alpha_sel, :])
 
-    def test_below_min_trials_returns_input_unchanged(self):
+    def test_below_min_trials_raises_naming_the_minimum_and_the_count(self):
         power, freqs, _ = self._synthetic()
-        power = power[:3]
-        repaired, frac = repair_band_artifacts(power, freqs)
-        assert frac == {}
-        assert np.array_equal(repaired, power)
+        with pytest.raises(ValueError, match=r"at least 5 trials.*got 4"):
+            repair_band_artifacts(power[:4], freqs)
+
+    def test_exactly_five_trials_still_repair_a_planted_spike(self):
+        power, freqs, alpha_sel = self._synthetic()
+        power = power[:5]
+        power[3, :, alpha_sel, 30] += 30.0
+        repaired, frac = repair_band_artifacts(power, freqs, band_ranges=DEFAULT_BANDS)
+        assert frac.get("Alpha(8-14Hz)", 0.0) > 0
+        assert np.abs(repaired[3, :, alpha_sel, 30] - power[3, :, alpha_sel, 30]).max() > 1.0
 
 
 class TestIntervalHelpers:
@@ -215,13 +237,11 @@ class TestRepairBandArtifactsShapeContract:
         with pytest.raises(ValueError, match="power must be"):
             repair_band_artifacts(np.ones((5, 5)), np.linspace(2, 100, 5))
 
-    def test_too_few_trials_returns_input_shape_unchanged(self):
+    def test_too_few_trials_raises_for_3d_input_too(self):
         power, freqs = self._power(n_trials=3)
         avg = power.mean(axis=1)
-        repaired, frac = repair_band_artifacts(avg, freqs)
-        assert repaired.shape == avg.shape
-        assert frac == {}
-        np.testing.assert_allclose(repaired, avg)
+        with pytest.raises(ValueError, match=r"at least 5 trials.*got 3"):
+            repair_band_artifacts(avg, freqs)
 
     def test_sided_both_is_reachable_and_flags_at_least_as_much(self):
         power, freqs = self._power()
@@ -288,3 +308,37 @@ class TestRepairDoesNotSubstituteAwayTheEvokedResponse:
         _, _, diag = repair_lfp_trials(seg, times_ms=times)
         assert diag["max_fraction_trials_flagged_at_a_sample"] > 0.5
         assert diag["max_trial_fraction"] == 0.5
+
+
+def test_the_per_trial_robust_z_is_the_floored_owner_call():
+    assert "_floored_robust_z(segments, med_t)" in inspect.getsource(repair_lfp_trials)
+
+
+def test_the_band_robust_z_is_the_pooled_owner_call():
+    assert "_pooled_robust_z(resid, scale)" in inspect.getsource(detect_band_outliers)
+
+
+def test_repair_lfp_trials_keeps_its_robust_z_on_a_fixed_input():
+    """A constant channel has a zero MAD: the 1e-9 floor keeps its z at 0, not NaN."""
+    segments = np.random.default_rng(21).normal(size=(12, 3, 200))
+    segments[2, 1, 50:60] += 40.0
+    segments[:, 2, :] = 0.0
+    times = np.arange(200) * 1.0
+    _, _, diag = repair_lfp_trials(segments, times_ms=times)
+    assert diag["n_flagged_cells"] == 0
+    np.testing.assert_allclose(diag["synchrony_z_max"], 2.9797563375532956, rtol=1e-12)
+    repaired, frac, diag = repair_lfp_trials(segments, times_ms=times, z_thresh=2.0)
+    assert diag["n_flagged_cells"] == 10
+    np.testing.assert_allclose(frac, 0.004166666666666667, rtol=1e-12)
+    np.testing.assert_allclose(repaired.sum(), 377.38092678317275, rtol=1e-12)
+    np.testing.assert_allclose(np.abs(repaired).max(), 41.63158249260414, rtol=1e-12)
+
+
+def test_detect_band_outliers_keeps_its_pooled_scale_on_a_fixed_input():
+    band = np.random.default_rng(5).normal(size=(10, 60))
+    band[3, 20:24] += 9.0
+    flagged, scale = detect_band_outliers(band)
+    assert int(flagged.sum()) == 4
+    np.testing.assert_allclose(scale, 0.5836889404957837, rtol=1e-12)
+    flat, flat_scale = detect_band_outliers(np.full((6, 9), 2.5))
+    assert not flat.any() and flat_scale == 0.0

@@ -67,6 +67,7 @@ EXPORT_MODULES: dict[str, str] = {
     "presence_ratio": "unit_quality",
     "isi_cv": "unit_quality",
     "refractory_contamination": "unit_quality",
+    "screen_units_against_labels": "unit_quality",
     # decoding
     "majority_baseline": "decoding",
     "fold_majority_baseline": "decoding",
@@ -83,10 +84,30 @@ EXPORT_MODULES: dict[str, str] = {
     "TFRAnalyzer": "analyzers",
     "UnitAnalyzer": "analyzers",
     "PopulationAnalyzer": "analyzers",
+    # nwb mutation output verification
+    "verify_nwb": "nwb_write",
+    # nwb mutation transforms and repairs
+    "transform_nwb": "nwb_write",
+    "repair_nwb": "nwb_write",
+    # the repair vocabulary `repair_nwb` takes: reachable as `jnwb.REPAIRS`, held out of `__all__`
+    "REPAIRS": "nwb_write",
+    # nwb mutation writer and error hierarchy
+    "write_nwb": "nwb_write",
+    "NWBMutationError": "nwb_write",
+    "NWBVerificationError": "nwb_write",
+    "AmbiguousMappingError": "nwb_write",
+    "UnidentifiableRepairError": "nwb_write",
+    "UndeclaredUnitError": "nwb_write",
     # viz (matplotlib)
     "setup_vector_graphics": "viz",
     "apply_tight_auto_axis": "viz",
     "save_figure_suite": "viz",
     "resample_onsets": "viz",
     "raster_psth": "viz",
+    # execution records and result cache
+    "ExecutionRecord": "execution",
+    "cache_key": "execution",
+    "cache_store": "execution",
+    "cache_load": "execution",
+    "cache_clear": "execution",
 }

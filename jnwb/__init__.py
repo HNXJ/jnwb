@@ -11,8 +11,8 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.2.13'
-__release_date__ = '2026-10-20'
+__version__ = '0.2.14'
+__release_date__ = '2026-10-27'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
@@ -222,6 +222,8 @@ from .spectral import (
     DB_AGGREGATIONS,
     harmonic_analysis,
     cross_area_coherence,
+    partial_coherence,
+    coherence_bias_floor,
     spectral_tilt,
     AperiodicFitResult,
     aperiodic_fit,
@@ -251,6 +253,8 @@ from .connectivity import (
     bin_spikes,
     granger,
     granger_spectral,
+    granger_nonparametric,
+    granger_time_reversed,
     phase_slope_index,
     transfer_entropy,
     directed_connectivity,
@@ -266,6 +270,7 @@ from .spiking import (
     gaussian_smooth_rate,
     fleiss_kappa,
     spike_count_correlation,
+    noise_correlation,
     fano_factor,
     network_burst_index,
 )
@@ -337,6 +342,15 @@ __all__ = [
     'WaveformBlockReport',
     'validate_nwb',
     'NWBValidationReport',
+    'verify_nwb',
+    'write_nwb',
+    'transform_nwb',
+    'repair_nwb',
+    'NWBMutationError',
+    'NWBVerificationError',
+    'AmbiguousMappingError',
+    'UnidentifiableRepairError',
+    'UndeclaredUnitError',
     'epoch_continuous',
     'TickClock',
     'derive_tick_clock',
@@ -441,6 +455,7 @@ __all__ = [
     'presence_ratio',
     'isi_cv',
     'refractory_contamination',
+    'screen_units_against_labels',
 
     # Waveform clustering (WaveMAP; UMAP and Louvain need the wavemap extra)
     'WaveMAPResult',
@@ -459,6 +474,8 @@ __all__ = [
     'DB_AGGREGATIONS',
     'harmonic_analysis',
     'cross_area_coherence',
+    'partial_coherence',
+    'coherence_bias_floor',
     'spectral_tilt',
     'AperiodicFitResult',
     'aperiodic_fit',
@@ -489,6 +506,8 @@ __all__ = [
     'bin_spikes',
     'granger',
     'granger_spectral',
+    'granger_nonparametric',
+    'granger_time_reversed',
     'phase_slope_index',
     'transfer_entropy',
     'directed_connectivity',
@@ -510,8 +529,16 @@ __all__ = [
     'gaussian_smooth_rate',
     'fleiss_kappa',
     'spike_count_correlation',
+    'noise_correlation',
     'fano_factor',
     'network_burst_index',
+
+    # Execution records and result cache
+    'ExecutionRecord',
+    'cache_key',
+    'cache_store',
+    'cache_load',
+    'cache_clear',
 
     # Plotting utilities (matplotlib legacy and pure Plotly engine)
     'setup_vector_graphics',

@@ -6,7 +6,7 @@ with `#only-light` and `#only-dark`. The page-side half of G2 (every shown figur
 every fixed colour a generator writes reads on both page backgrounds) is read once, by
 `scripts/docs_form_gate.py`; this module reads the pixels and the drawn figures.
 
-Every figure the documentation generators draw (`docs/generate_figures.py` and
+Every figure the documentation generators draw (`scripts/figures/generate_figures.py` and
 `examples/quickstart_jnwb.py`) is drawn here in both themes and inspected as drawn:
 
 | Check | Holds when |
@@ -20,7 +20,7 @@ Every figure the documentation generators draw (`docs/generate_figures.py` and
 | declared unit | an axis plotting a result that declares `unit` names that unit |
 | displayed size | the smallest text renders at 9 px or more at the width the page displays it |
 | signed zero | no drawn number reads as a negative zero |
-| style source | fonts, font sizes and figure width come from `docs/figure_style.py` |
+| style source | fonts, font sizes and figure width come from `scripts/figures/figure_style.py` |
 | colormaps | every `cmap=` is perceptually uniform or a declared diverging map |
 | computed values | every figure calls a public `jnwb` function; no reference line sits at a bare literal |
 | captions | every `jnwb.<name>` in a title is public and named in the figure's caption |
@@ -34,7 +34,7 @@ Every figure the documentation generators draw (`docs/generate_figures.py` and
 | minus sign | no drawn text puts an ASCII hyphen where a minus belongs |
 | variables | a legend entry for a named variable has that variable's colour, in every figure |
 
-The generators are `docs/generate_figures.py` and `examples/quickstart_jnwb.py`; the open-data
+The generators are `scripts/figures/generate_figures.py` and `examples/quickstart_jnwb.py`; the open-data
 figure (fig21) is drawn by the first from the tutorial's analysis of its excerpt. Each check is
 first shown to reject a figure built to break it.
 """
@@ -52,7 +52,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 from scripts import docs_form_gate as gate  # noqa: E402
 from scripts.docs_form_gate import PAGE  # noqa: E402
 from scripts.docs_form_gate import contrast as _contrast  # noqa: E402
@@ -75,7 +75,7 @@ from matplotlib.transforms import Bbox  # noqa: E402
 import jnwb  # noqa: E402
 
 DOCS = REPO_ROOT / "docs"
-STYLE_MODULE = DOCS / "figure_style.py"
+STYLE_MODULE = REPO_ROOT / "scripts" / "figures" / "figure_style.py"
 #: Every source the gate reads for a figure colour: the generators and the style module.
 GATED = [REPO_ROOT / g for g in gate.GENERATORS]
 assert STYLE_MODULE in GATED, "the gate does not read the style module"
@@ -766,7 +766,7 @@ def _registry():
     for node in tree.body:
         if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "FIGURES" for t in node.targets):
             return sorted(k.value for k in node.value.keys)
-    raise AssertionError("docs/generate_figures.py defines no FIGURES registry")
+    raise AssertionError("scripts/figures/generate_figures.py defines no FIGURES registry")
 
 
 NAMES = [n for key in _registry() for n in (key, key.replace(".png", ".dark.png"))] + [

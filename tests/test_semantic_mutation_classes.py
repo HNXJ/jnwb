@@ -79,7 +79,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # Appended, not prepended: prepending would put this checkout's packages ahead of an installed
 # copy and silently redirect a wheel-qualification run back to the source tree.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.mutation_harness import (  # noqa: E402
     MutationCase,
@@ -508,7 +508,7 @@ def test_the_fourteen_classes_are_the_ones_the_item_declares() -> None:
 def test_every_class_is_either_exercised_or_excused(mutation_class: str) -> None:
     """Exercised over the subset, or excused with a reason. Never absent, never both.
 
-    "Unknown is not a pass" is the subset's own rule. A class that is simply missing from
+    "Unknown is not a pass" is the subset's own rule. A class that is missing from
     :data:`CASES` and from :data:`NOT_APPLICABLE` would disappear from this file without any
     test going red, which is the shape this whole item exists to prevent.
     """

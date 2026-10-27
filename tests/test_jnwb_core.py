@@ -6,15 +6,7 @@ Focus: Core statistical analysis and data structures that work correctly.
 """
 
 import unittest
-from pathlib import Path
 import numpy as np
-
-import sys
-# Appended, not prepended: prepending would also put the checkout's jnwb/ ahead of an
-# installed copy and silently redirect a wheel-qualification run back to the source tree.
-_REPO_ROOT = str(Path(__file__).resolve().parents[1])
-if _REPO_ROOT not in sys.path:
-    sys.path.append(_REPO_ROOT)
 
 from jnwb.statistics import StatisticalAnalysis
 from jnwb.analyzers import TFRAnalyzer, UnitAnalyzer
@@ -206,19 +198,15 @@ class TestDataHandling(unittest.TestCase):
         self.assertIsInstance(result, dict)
 
     def test_inf_handling_in_statistics(self):
-        """Test handling of Inf values in statistical functions."""
+        """An infinite value drops its pair, as NaN does; r is computed on the finite pairs."""
         import warnings
         x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y = np.array([2.0, 4.0, 6.0, 8.0, np.inf])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             result = StatisticalAnalysis.correlate(x, y)
-        self.assertIsInstance(result, dict)
-        self.assertTrue(
-            'error' in result
-            or np.isnan(result['parametric']['statistic'])
-            or np.isnan(result['parametric']['pval'])
-        )
+        self.assertEqual(result['n'], 4)
+        self.assertAlmostEqual(result['parametric']['statistic'], 1.0, places=12)
 
     def test_zero_variance_handling(self):
         """Test that exploratory_compare handles zero-variance data gracefully."""

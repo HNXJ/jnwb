@@ -12,6 +12,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
+    # needed: the installed-wheel run clears pythonpath
     sys.path.append(str(ROOT))  # never insert(0): pyproject sets pythonpath = ["."]
 
 from scripts.harness_gate import _stack_items  # noqa: E402

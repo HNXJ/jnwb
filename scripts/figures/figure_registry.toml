@@ -1,0 +1,386 @@
+# Written by scripts/figures/generate_figures.py --write-registry; do not edit.
+
+["fig01_addressing_laminar.png"]
+status = "synthetic"
+n = 24
+n_unit = "channels"
+height_px = 340
+seeds = []
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig02_raster_psth.png"]
+status = "synthetic"
+n = 30
+n_unit = "trials"
+height_px = 390
+seeds = [42]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig03_onset_fitting.png"]
+status = "synthetic"
+n = 1
+n_unit = "signals"
+height_px = 400
+seeds = [7]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig04_psd_spectral_tilt.png"]
+status = "synthetic"
+n = 1
+n_unit = "signals"
+height_px = 310
+seeds = [12]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig05_complex_tfr_coi.png"]
+status = "synthetic"
+n = 1
+n_unit = "signals"
+height_px = 460
+seeds = [3]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = ["panel 2: contour set"]
+
+["fig06_aggregate_to_db.png"]
+status = "synthetic"
+n = 40
+n_unit = "units"
+height_px = 320
+seeds = [99]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig07_population_decoding.png"]
+status = "synthetic"
+n = 80
+n_unit = "trials"
+height_px = 330
+seeds = [21]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig08_permutation_null.png"]
+status = "synthetic"
+n = 60
+n_unit = "pairs"
+height_px = 330
+seeds = [101]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig09_directed_connectivity.png"]
+status = "synthetic"
+n = 30
+n_unit = "trials"
+height_px = 340
+seeds = [0, 55]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig10_artifact_repair.png"]
+status = "synthetic"
+n = 30
+n_unit = "trials"
+height_px = 320
+seeds = [88]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig11_spectra_canonical_bands.png"]
+status = "synthetic"
+n = 1
+n_unit = "signals"
+height_px = 340
+seeds = [31]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig12_coherence_zero_lag.png"]
+status = "synthetic"
+n = 1
+n_unit = "signal pairs"
+height_px = 360
+seeds = [42, 64]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = ["figure: a figure-level legend or text"]
+
+["fig13_vflip_band_profiles.png"]
+status = "synthetic"
+n = 24
+n_unit = "channels"
+height_px = 360
+seeds = [7]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig14_causal_vs_gaussian_step.png"]
+status = "synthetic"
+n = 1
+n_unit = "signals"
+height_px = 380
+seeds = []
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig15_spike_phase_locking.png"]
+status = "synthetic"
+n = 400
+n_unit = "spikes"
+height_px = 480
+seeds = [15]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig16_cluster_permutation.png"]
+status = "synthetic"
+n = 20
+n_unit = "trials"
+height_px = 360
+seeds = [16, 160]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = ["panel 1: contour set"]
+
+["fig17_spectral_granger.png"]
+status = "synthetic"
+n = 1
+n_unit = "signal pairs"
+height_px = 360
+seeds = [0, 17]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig18_psi_narrowband_trap.png"]
+status = "synthetic"
+n = 1
+n_unit = "signal pairs"
+height_px = 360
+seeds = [0, 42]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig19_rdms_and_jrsa.png"]
+status = "synthetic"
+n = 12
+n_unit = "conditions"
+height_px = 600
+seeds = [19]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig20_bad_channels_and_trials.png"]
+status = "synthetic"
+n = 40
+n_unit = "trials"
+height_px = 640
+seeds = [20]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = ["panel 2: symlog scale"]
+
+["fig21_open_data_psth_db.png"]
+status = "real data"
+n = 125
+n_unit = "units"
+height_px = 360
+seeds = []
+input_sha256 = "049518a12119162181ace32bc26ca66d800e2fa53748a9cfe0e95dc8d0230aac"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig24_statistics_groups_cluster.png"]
+status = "synthetic"
+n = 30
+n_unit = "trials per group"
+height_px = 360
+seeds = [42]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig25_laminar_csd_flips.png"]
+status = "synthetic"
+n = 16
+n_unit = "channels"
+height_px = 620
+seeds = [0, 42]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig26_ensembles_rdm_decoding.png"]
+status = "synthetic"
+n = 30
+n_unit = "units"
+height_px = 360
+seeds = [42]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig27_spiking_psth_onset.png"]
+status = "synthetic"
+n = 80
+n_unit = "trials"
+height_px = 420
+seeds = [11]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig28_lfp_spectral_wpli.png"]
+status = "synthetic"
+n = 1
+n_unit = "signal pairs"
+height_px = 420
+seeds = [23]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig29_laminar_one_call.png"]
+status = "synthetic"
+n = 24
+n_unit = "channels"
+height_px = 1090
+seeds = [0]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig30_unit_quality_waveforms.png"]
+status = "synthetic"
+n = 5
+n_unit = "units"
+height_px = 760
+seeds = [3]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig31_table_alignment.png"]
+status = "synthetic"
+n = 10
+n_unit = "onsets"
+height_px = 560
+seeds = [42]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig32_interval_tables.png"]
+status = "synthetic"
+n = 5
+n_unit = "interval tables"
+height_px = 560
+seeds = [42]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig33_addressing_contacts.png"]
+status = "synthetic"
+n = 10
+n_unit = "contacts"
+height_px = 560
+seeds = [42]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig34_end_to_end_synthetic.png"]
+status = "synthetic"
+n = 40
+n_unit = "trials"
+height_px = 560
+seeds = [8]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig35_ragged_index_defect.png"]
+status = "synthetic"
+n = 9
+n_unit = "rows"
+height_px = 560
+seeds = [0]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig36_wavemap_steps.png"]
+status = "synthetic"
+n = 12
+n_unit = "waveforms"
+height_px = 560
+seeds = [9]
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []
+
+["fig37_verify_written_nwb.png"]
+status = "synthetic"
+n = 4
+n_unit = "checks"
+height_px = 560
+seeds = []
+input_sha256 = "synthetic"
+code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+jnwb_version = "0.2.14"
+unconvertible = []

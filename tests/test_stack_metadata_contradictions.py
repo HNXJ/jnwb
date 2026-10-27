@@ -3,17 +3,17 @@
 Both defects are the same shape twice over -- **a check that passes for the wrong reason** --
 and both were found inside checks written to catch that shape.
 
-`Writes:` is bounded at a sentence. 06-67 split its field across a full stop, so the last two
-entries were never read, and one was a genuine bare `tests/` -- the exact P-108 violation gate
-15 exists to catch, sitting undetected inside the gate's own live zero (P-125). P-125 prescribed
+`Writes:` is bounded at a sentence. An entry split its field across a full stop, so the last two
+entries were never read, and one was a genuine bare `tests/` -- the exact violation gate
+15 exists to catch, sitting undetected inside the gate's own live zero. The earlier prescription was
 replacing the boundary with a run of backtick tokens separated only by commas and whitespace.
 **Measured against the live stack that rule is worse**: it reads fewer tokens in six fields and
 more in none, because the fields legitimately interleave prose. So the boundary is kept and the
 gate instead reports when the boundary may be in the wrong place.
 
 `Blocked by:` is trusted by the scheduler. 06-31 said `none` while blocked on data-access
-authority and was dispatched into a guaranteed stop twice; 06-86 said `none` while its body said
-"Blocked on one ruling" (P-149, P-163). The metadata is confidently wrong rather than absent,
+authority and was dispatched into a guaranteed stop twice; another entry said `none` while its body said
+"Blocked on one ruling". The metadata is confidently wrong rather than absent,
 which is why every reader believes it.
 
 The tests below drive both checks through broken states they construct, so a mutant that
@@ -28,6 +28,7 @@ import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
+    # needed: the installed-wheel run clears pythonpath
     sys.path.append(str(ROOT))  # never insert(0): pyproject sets pythonpath = ["."]
 
 from scripts.harness_gate import (  # noqa: E402
@@ -50,8 +51,8 @@ from scripts.release_gate import DEFERRED_VALUE, _parse_todo_stack  # noqa: E402
 
 TODO_STACK = ROOT / "artifacts" / "todo_stack.md"
 
-# 06-67 exactly as the row records it: the field's last two entries sat past a full stop on the
-# next physical line, and `tests/` among them is a real P-108 violation.
+# The entry as its row records it: the field's last two entries sat past a full stop on the
+# next physical line, and `tests/` among them is a real violation.
 TRUNCATED = """\
 ### 06-67 Something
 
@@ -71,7 +72,7 @@ Writes: `jnwb/nwb_io.py`, `artifacts/goal.md`, `docs/errors.md`, `tests/`.
 Prose the item carries afterwards.
 """
 
-# 06-86 before it was re-marked: the field says none, the body says blocked.
+# An entry before it was re-marked: the field says none, the body says blocked.
 CONTRADICTED = """\
 ### 06-86 Something
 
@@ -85,8 +86,8 @@ of the eight rows are defects.
 class TestATruncatedWriteSetIsReported:
     def test_the_field_that_split_across_a_full_stop_is_flagged(self):
         assert _suspected_truncated_writes(TRUNCATED), (
-            "06-67's field is followed immediately by two more paths and the check said "
-            "nothing, so the gate is blind to the case P-125 recorded"
+            "The field is followed immediately by two more paths and the check said "
+            "nothing, so the gate is blind to the case on record"
         )
 
     def test_the_repaired_one_line_form_is_not_flagged(self):
@@ -141,8 +142,8 @@ class TestAFalseBlockedByNoneIsReported:
     def test_the_contradicted_item_is_flagged(self):
         flagged, _suppressed = _blocked_by_none_contradictions(CONTRADICTED)
         assert len(flagged) == 1, (
-            "06-86 said `Blocked by: none` while its body said it was blocked, and the "
-            "scheduler offered it as dispatchable -- P-149's shape"
+            "An entry said `Blocked by: none` while its body said it was blocked, and the "
+            "scheduler offered it as dispatchable -- the shape on record"
         )
         assert flagged[0][1] == "06-86"
 
@@ -168,7 +169,7 @@ class TestAFalseBlockedByNoneIsReported:
         assert _blocked_by_none_contradictions(declared) == ([], [])
 
     def test_the_discharged_wording_does_not_flag(self):
-        # P-163's coda: the sentence written to discharge 06-103's stale block first read
+        # A follow-up: the sentence written to discharge a stale block first read
         # "this item is no longer blocked on it", which a phrase list scores as an assertion.
         # It was reworded rather than teaching the regex negation, and this pins that choice.
         sample = (
@@ -189,7 +190,7 @@ class TestAFalseBlockedByNoneIsReported:
         flagged, _suppressed = _blocked_by_none_contradictions(sample)
         assert len(flagged) == 1, (
             "the phrase list is shallow on purpose; if it has learned to read negation, the "
-            "'reword rather than teach the regex' convention in P-163 no longer applies"
+            "'reword rather than teach the regex' convention no longer applies"
         )
 
     def test_the_live_stack_is_clean(self):
@@ -212,9 +213,9 @@ class TestTheSuppressionsAreVisibleAndCorrect:
         assert "Stop:" in suppressed[0][3]
 
     def test_a_stop_clause_covers_a_later_sentence_too(self):
-        # 06-89 reads "Stop: ... resolved first. Then this waits on 06-77 ...", so the
+        # A stop clause reads "Stop: ... resolved first. Then this waits on <id> ...", so the
         # assertion sits one sentence after the key. A draft keyed on the sentence missed it --
-        # P-163's attempt-1 failure with "line" replaced by "sentence".
+        # An earlier attempt failed with "line" replaced by "sentence".
         sample = (
             "### 06-89 Something\n\nRole: docs-harness. Blocked by: none.\n"
             "Writes: `docs/index.md`.\n"
@@ -310,7 +311,7 @@ class TestTheSuppressionsAreVisibleAndCorrect:
 
     def test_the_gate_prints_a_suppression(self, tmp_path, capsys):
         # The narrowing must be visible in the gate's OWN output, not only through the helper.
-        # P-125 silenced two "false positives" and one of them was real.
+        # Two "false positives" were silenced, and one of them was real.
         #
         # Driven through a constructed tree rather than the live stack, because the live stack
         # currently suppresses nothing -- asserting against it would pass with the printing
@@ -353,16 +354,16 @@ class TestTheSuppressionsAreVisibleAndCorrect:
 
 
 class TestASummaryCountAgreesWithWhatItNames:
-    """P-133: a canonical summary inside the stack went stale and nothing errored.
+    """A canonical summary inside the stack went stale and nothing errored.
 
-    Batch 0 opened with "Six items wait on a human ruling ... 06-13, 06-18, 06-67, 06-84,
-    06-85 and 06-92". Four waited; three of the six named had closed earlier the same day; and
+    Batch 0 opened with "Six items wait on a human ruling ... <six ids>". Four waited; three of
+    the six named had closed earlier the same day; and
     none of the four gated more than one item, so the sentence named a binding constraint that
     no longer bound. Every number in it is recomputable from the fields below it, so re-deriving
     it by hand is a fix with a shelf life.
     """
 
-    # P-133's own sentence, as the row records it.
+    # The sentence, as the row records it.
     STALE = (
         "## Batch 0. Goal and authority\n\n"
         "Six items wait on a human ruling: 06-13, 06-18, 06-67, 06-84 and 06-85.\n\n"
@@ -399,8 +400,8 @@ class TestASummaryCountAgreesWithWhatItNames:
         assert _miscounted_summaries(vague) == []
 
     def test_ids_beyond_a_clause_break_belong_to_another_statement(self):
-        # "it assigned 16 items to five lanes ... -- the compression lane pointed at 06-24 and
-        # 06-51" is not a miscount. A first draft flagged it, and one like it, as 2 of 2 false
+        # "it assigned 16 items to five lanes ... -- the compression lane pointed at <id> and
+        # <id>" is not a miscount. A first draft flagged it, and one like it, as 2 of 2 false
         # positives.
         other_clause = (
             "## Batch 0\n\nIt assigned 16 items to five lanes -- the compression lane "
@@ -506,7 +507,7 @@ class TestTheHelpersReadTheRealStack:
         assert check_stack_form_consistency() == []
 
 
-# One stack parser (P-232, P-274): gates 15 and 17 and STEP 0a read an item the same way.
+# One stack parser: gates 15 and 17 and STEP 0a read an item the same way.
 
 PROBLEMS = (
     "| ID | Problem | Disposition | Evidence |\n|---|---|---|---|\n"

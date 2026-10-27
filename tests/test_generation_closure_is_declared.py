@@ -1,21 +1,21 @@
 """A write set can be complete, correct and disjoint and still invalidate a file outside it.
 
-06-47 added `stagger_tolerance_um` to `probe_geometry`'s signature. `docs/api.md` records
+A later change added `stagger_tolerance_um` to `probe_geometry`'s signature. `docs/api.md` records
 signatures and is generated from the live objects, so it went stale the moment that parameter
 landed -- and it was in no lane's write set, because no lane edits that page by hand. The
 integrated suite went 25 failed, of which 18 were `test_every_gate_runs.py` cascading from one
 real gate-9 failure. The 25 were one defect wearing 25 masks: a count of failures is not a
 count of causes, and reading it as one sends the repair at the gate-count assertions instead of
-at the generator (P-173).
+at the generator.
 
-P-162 established that write sets must be compared by resolved path rather than by string.
+Write sets must be compared by resolved path rather than by string.
 This is the next layer: they must also be closed under generation. `GENERATED_FROM` is that
 closure, written down.
 
 The obligation sits on the integrator rather than on the write sets, and that was measured, not
 assumed: 7 of 52 live items name a path under `jnwb/` and none names `docs/api.md`, so
 requiring them all to name it would make those 7 mutually exclusive with one another and
-declare a maximum parallelism of one across every item touching the package -- P-108's defect
+declare a maximum parallelism of one across every change touching the package -- that defect
 in a new spelling. The test below pins that measurement, so a future change to the rule has to
 confront the number rather than rediscover it.
 
@@ -34,7 +34,7 @@ import pytest
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # append, never insert(0): the wheel leg must keep resolving the installed copy.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.harness_gate import (  # noqa: E402
     GENERATED_FROM,
@@ -48,7 +48,7 @@ def test_the_closure_declares_something():
     assert GENERATED_FROM
     derived = {entry["derived"] for entry in GENERATED_FROM}
     assert "docs/api.md" in derived, (
-        "docs/api.md is the instance P-173 was raised on and must be declared"
+        "docs/api.md is the instance the defect was reported on and must be declared"
     )
 
 
@@ -158,7 +158,7 @@ def test_the_measurement_that_chose_the_integrator_over_the_write_sets():
 
 
 def test_the_contract_requires_the_canonical_mutation_harness():
-    """P-87 and P-134: the mechanism existed and no document told anyone to use it.
+    """The mechanism existed and no document told anyone to use it.
 
     `scripts/mutation_harness.py` derives its state directory from the worktree, refuses a path
     outside it, and locks one session per worktree -- and for three collisions across two

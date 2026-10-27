@@ -92,11 +92,23 @@ def _series_reference(data: h5py.Dataset, file_path: str) -> Dict[str, Any]:
     # refuses, and never a series the call is known to refuse.
     channel_axis = {"time_by_channel": 1, "channel_by_time": 0}.get(layout)
     n_axis = 1 if layout == "time" else None if channel_axis is None else data.shape[channel_axis]
+    # The schema defines `channel_conversion` on ElectricalSeries alone. A TimeSeries that
+    # carries one is read without it, so no reader would apply it.
+    schema_conversion = channel_conversion is None or ndt == "ElectricalSeries"
+    finite_rate = rate is not None and math.isfinite(rate) and rate > 0
     readable = (
         parts[0] in ("acquisition", "processing") and n_axis is not None
-        and rate is not None and math.isfinite(rate)
+        and finite_rate and schema_conversion
         and (channel_conversion is None or len(channel_conversion) == n_axis)
     )
+    refusal = None
+    if rate is not None and not finite_rate:
+        refusal = (f"The rate is {rate!r} Hz, which is not a finite positive rate, so no reader "
+                   "is named.")
+    elif not schema_conversion:
+        refusal = (f"The file stores channel_conversion on a {ndt or 'untyped'} series, which the "
+                   "NWB schema defines only on ElectricalSeries, so acquisition_channel does not "
+                   "apply it and no reader is named.")
     reader = None
     if readable:
         name = "/".join(parts[1:-1])
@@ -109,6 +121,8 @@ def _series_reference(data: h5py.Dataset, file_path: str) -> Dict[str, Any]:
             f"Read channel k in physical units with {reader}: it applies conversion, "
             "channel_conversion and offset, and warns when starting_time is not 0."
         )
+    if refusal:
+        hint.append(refusal)
     hint.append(
         "A direct slice of this dataset returns stored values, not physical ones: "
         "physical = conversion * channel_conversion[k] * stored + offset, taking conversion "
@@ -191,7 +205,10 @@ def prepare_signal_reference(file_path: str, dataset_path: str) -> Dict[str, Any
         none), ``unit``, ``rate_hz``, ``starting_time`` or ``timestamps_path``, and ``layout``,
         which is ``"unknown"`` unless the file decides which axis holds channels. ``reader``
         names the jnwb call that applies the scaling for one channel; a raw slice of the
-        dataset does not apply it. ``access_hint`` says all of this in one paragraph.
+        dataset does not apply it. ``reader`` is ``None`` where the reference names none: a rate
+        that is not finite and positive, or a ``channel_conversion`` on a type the schema does
+        not give one. ``access_hint`` says all of this in one paragraph, and says why there is
+        no reader.
     """
     path = Path(file_path)
     if not path.exists():

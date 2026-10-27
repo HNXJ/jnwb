@@ -22,7 +22,7 @@ def test_a_known_device_is_accepted(device):
 
 @pytest.mark.parametrize("device", ["gpu", "CUDA", "", None, 0])
 def test_any_other_device_is_refused(device):
-    """Any string was accepted, so a hand-built container could carry a false record (P-257)."""
+    """Any string was accepted, so a hand-built container could carry a false record."""
     with pytest.raises(ValueError, match="ComplexTFR.device must be one of"):
         jnwb.ComplexTFR(**_fields(device=device))
 

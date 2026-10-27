@@ -104,7 +104,7 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
     wrong answer produced inside the generator is written into both sides of that comparison,
     where it cancels.
 
-    P-151 proved it rather than arguing it: with `_object_type_name` returning the literal
+    A probe proved it rather than arguing it: with `_object_type_name` returning the literal
     ``"BLINDSPOT"`` for every export and the page regenerated from it, all 156 rows declared a
     type true of nothing and the harness still reported ``ALL HARNESS GATES PASSED. 16 of 16``.
 
@@ -118,8 +118,8 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
 
     **What this gate cannot see:** annotations, defaults and the description. A row whose
     parameters are right and whose defaults are wrong passes here;
-    `tests/test_docs_call_shapes.py` is what covers documented calls, and P-84 records where it
-    does not.
+    `tests/test_docs_call_shapes.py` is what covers documented calls, and the cases it does not
+    reach are on record.
     """
     root = repo_root or REPO_ROOT
     page = root / "docs" / "api.md"

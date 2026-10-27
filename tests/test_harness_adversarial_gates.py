@@ -16,10 +16,11 @@ PROCESS_SKILL = REPO_ROOT / "artifacts" / "skills" / "jnwb-fact-action" / "SKILL
 # Appended, not prepended: prepending would also put the checkout's jnwb/ ahead of an
 # installed copy and silently redirect a wheel-qualification run back to the source tree.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 import pytest
 
+from scripts import harness_gate
 from scripts.harness_gate import (
     GENERATED_FROM,
     INTERNAL_PROCESS_TERMS,
@@ -31,8 +32,8 @@ from scripts.harness_gate import (
     check_internal_process_vocabulary,
     check_line_ending_consistency,
     check_no_process_identifiers_in_library,
+    check_logarithm_last_in_package,
     check_logarithm_last_rule,
-    check_modality_isolation,
     check_api_md_member_types,
     check_stack_form_consistency,
     check_stack_pointers_resolve,
@@ -111,20 +112,15 @@ def summarize_log_normal_effects(unit_db_modulations):
         violations = check_logarithm_last_rule(legitimate_db_code)
         assert len(violations) == 0, "Legitimate mean-of-dB code was improperly rejected!"
 
-    def test_adversarial_probe_unnamespaced_modality_pooling_rejected(self):
-        """Adversarial Probe 4: Mixing SPK and LFP without explicit namespaces must be rejected."""
-        # Bad feature list: mixes spikes and LFP channels with generic indices
-        bad_features = ["channel_01", "unit_alpha", "power_theta", "channel_02"]
-        ok, violations = check_modality_isolation(bad_features)
-        assert not ok
-        assert len(violations) > 0
-        assert "UNNAMESPACED_MODALITY_POOLING" in violations[0]
-
-        # Good feature list: strictly namespaced
-        good_features = ["spk_unit_01", "spk_unit_02", "lfp_theta_ch01", "lfp_gamma_ch01"]
-        ok, violations = check_modality_isolation(good_features)
-        assert ok
-        assert len(violations) == 0
+    def test_a_raw_power_declaration_in_code_that_does_not_parse_is_a_violation(self):
+        """A declared raw-power estimand in code that does not parse left the rule unchecked."""
+        unparseable = """
+# estimand: raw_power_average
+def compute_site_power(raw_power:
+"""
+        violations = check_logarithm_last_rule(unparseable)
+        assert len(violations) == 1, "a declared raw-power estimand that does not parse passed"
+        assert "UNPARSEABLE" in violations[0]
 
     def test_adversarial_probe_root_allowlist_violation_rejected(self, tmp_path: Path):
         """Adversarial Probe 5: Disallowed files or directories at root must be rejected."""
@@ -226,7 +222,7 @@ def summarize_log_normal_effects(unit_db_modulations):
         assert len(violations) == 1 and "Paper2Agent" in violations[0] and "jnwb/sidecar.py" in violations[0]
 
     def test_gate_6_ignores_study_prose_outside_forbidden_token_list(self, tmp_path: Path):
-        """Gate 6 checks a fixed token list — not all study-specific comments."""
+        """Gate 6 checks a fixed token list, not all study-specific comments."""
         from scripts.harness_gate import check_dataset_leakage
         fake_jnwb = tmp_path / "jnwb"
         fake_jnwb.mkdir()
@@ -673,9 +669,9 @@ class TestHarnessResetContracts:
 
         This asserted that five hardcoded strings appeared in the file, which passed whenever the
         text matched that literal, whatever the order meant -- and it green-lit precisely the
-        five-source list P-14 showed was wrong. Recorded as P-42, the fourth instance of P-37:
+        five-source list that was wrong. This was the fourth instance of the same proxy failure:
         "these strings appear" was the proxy, "the skill delegates the order" is the invariant.
-        Ruled 2026-09-19 (06-61, candidate C).
+        Ruled 2026-09-19 (candidate C).
         """
         skill_text = PROCESS_SKILL.read_text(
             encoding="utf-8"
@@ -683,7 +679,7 @@ class TestHarnessResetContracts:
         section = self._loading_order_section(skill_text)
 
         # The directive is the FIRST paragraph, by position. Selecting it by "contains must"
-        # let 06-64 add a later paragraph carrying `MUST` and a mention of the section while the
+        # let a later paragraph carrying `MUST` and a mention of the section pass while the
         # real directive was gone; `\bMUST\b` also matches `MUST NOT`, so a repudiation of the
         # pointer read as the pointer. Position cannot be gamed by adding prose further down.
         paragraphs = [p for p in re.split(r"\n\s*\n", section.strip()) if p.strip()]
@@ -716,7 +712,7 @@ class TestHarnessResetContracts:
             "that carries Prepare's loading order"
         )
 
-        # Scan the WHOLE skill, not §2: 06-64 moved the order into §4 and left a decoy §2.
+        # Scan the WHOLE skill, not §2: moving the order into §4 and leaving a decoy §2 must not pass.
         # Accept dashes and asterisks as well as numerals -- an ordered list written with bullets
         # is still a second copy of the order.
         enumerated = re.findall(
@@ -724,15 +720,15 @@ class TestHarnessResetContracts:
         )
         assert not enumerated, (
             "the skill carries its own ordered source list again. A second copy of the order is "
-            f"the mechanism that produced P-14: {enumerated}"
+            f"the mechanism that produced the stale five-source list: {enumerated}"
         )
 
     def test_the_canonical_loading_order_reaches_every_slot_in_order(self):
         """Delegation is only worth having if the target order is complete AND ordered.
 
         This asserted five substrings were present -- a membership check, which is the same
-        "these strings appear" proxy the commit retiring P-42 claimed to remove, reinstated one
-        file over. 06-64 scrambled Prepare's order and negated it outright; both passed. An order
+        "these strings appear" proxy the commit retiring it claimed to remove, reinstated one
+        file over. A later edit scrambled Prepare's order and negated it outright; both passed. An order
         is a sequence, so the assertion is on indices.
         """
         agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
@@ -772,10 +768,10 @@ class TestHarnessResetContracts:
         return agents.split("- **Prepare**", 1)[1].split("- **Review**", 1)[0]
 
     def test_prepare_loads_the_ruling_the_goal_is_subject_to(self):
-        """P-66: `artifacts/goal.md` declares itself subject to a file no loading order loaded.
+        """`artifacts/goal.md` declares itself subject to a file no loading order loaded.
 
         `direction.md:3-4` calls itself a ruling of record and `goal.md:4` submits to it, but
-        AGENTS.md named it nowhere -- so after 06-61 made §3 the *sole* loading-order authority,
+        AGENTS.md named it nowhere -- so once §3 became the *sole* loading-order authority,
         an agent following the sole authority never read a ruling of record. Position matters as
         much as presence: a ruling the goal is subject to and that is read after the goal cannot
         change how the goal is read.
@@ -785,7 +781,7 @@ class TestHarnessResetContracts:
         goal = prepare.find("artifacts/goal.md")
         assert direction >= 0, (
             "AGENTS.md §3 Prepare does not load artifacts/direction.md, which artifacts/goal.md "
-            "declares itself subject to. That is P-66: the sole loading-order authority omits a "
+            "declares itself subject to. That is the gap: the sole loading-order authority omits a "
             f"ruling of record.\n{prepare[:600]}"
         )
         assert goal >= 0 and direction < goal, (
@@ -796,7 +792,7 @@ class TestHarnessResetContracts:
         )
 
     def test_prepare_requires_the_baseline_check_before_it_reads_anything(self):
-        """P-28 / 06-91. The provisioner is the unreliable part, so the packet must check.
+        """The provisioner is the unreliable part, so the packet must check.
 
         Asserted structurally rather than by looking for a sentence. The order is the claim: a
         baseline check placed after the loading list is a check a packet performs having already
@@ -816,7 +812,7 @@ class TestHarnessResetContracts:
         )
         assert "--ff-only" in prepare, (
             "Prepare states the problem and not the remedy; `git merge --ff-only` is the one that "
-            "works and it is named in P-28's disposition"
+            "works and it is the remedy recorded for the stale-baseline failure"
         )
         assert re.search(r"Never\s+`git reset --hard`", prepare), (
             "Prepare no longer rules out `git reset --hard`. It is the remedy an agent reaches "
@@ -827,7 +823,7 @@ class TestHarnessResetContracts:
         """The field a packet checks, and it is a field of its own.
 
         `OBSERVED BASELINE` records the behaviour a packet reproduced; it is silent on whether it
-        reproduced it on the right tree, which is how P-28 survived three fan-outs with the
+        reproduced it on the right tree, which is how the stale-baseline failure survived three fan-outs with the
         contract already carrying that field. Both fields, and the procedure in exactly one place.
         """
         skill_text = PROCESS_SKILL.read_text(
@@ -841,11 +837,11 @@ class TestHarnessResetContracts:
             "BASELINE COMMIT replaced OBSERVED BASELINE rather than joining it; they record "
             "different things"
         )
-        # One home. The skill delegating to §3 is the repair for P-14 and P-15 both; a skill that
+        # One home. The skill delegating to §3 is the repair for the stale-copy failure; a skill that
         # re-states the remedy is a second copy that will drift from the first.
         assert "--ff-only" not in skill_text, (
             "the skill carries its own copy of the baseline remedy. AGENTS.md §3 Prepare is where "
-            "that procedure lives; a second copy is the mechanism P-14 was caused by."
+            "that procedure lives; a second copy is the mechanism the stale-copy failure was caused by."
         )
 
     def test_the_packet_contract_requires_an_acceptance_that_can_fail(self):
@@ -895,7 +891,7 @@ class TestHarnessResetContracts:
     def _loading_order_section(skill_text: str) -> str:
         """The skill's loading-order section, found by HEADING TEXT rather than by number.
 
-        Matching `## 2.` let 06-64 move the order to §4 and leave a decoy §2 behind. The section
+        Matching `## 2.` let an order moved to §4 pass while a decoy §2 stayed behind. The section
         is identified by what it is called, and the next `##` at any number ends it.
         """
         # `[^\n]*` for the heading line, not `.*` -- under re.S a dot crosses newlines and the
@@ -924,9 +920,9 @@ class TestHarnessResetContracts:
     def _roles_agents_md_enumerates(agents_md: str) -> "set[str] | None":
         """The role names AGENTS.md's `artifacts/agents/` row lists, or None if it lists none.
 
-        P-64: the role set had three homes -- the directory, the `ROLE:` enum, and AGENTS.md's
+        The role set had three homes -- the directory, the `ROLE:` enum, and AGENTS.md's
         map -- and the check below read the first two. Renaming a role in AGENTS.md reproduced
-        P-C2 with the suite green, which is how P-C2 came to be closed `repaired` on a guard that
+        the drift with the suite green, which is how the drift came to be closed `repaired` on a guard that
         could not catch its return.
 
         The row is found by the path it documents rather than by line number or table position,
@@ -975,7 +971,7 @@ class TestHarnessResetContracts:
             f"ROLE enum and artifacts/agents/ disagree: {enumerated ^ existing_role_files}"
         )
 
-        # The third home. P-64: renaming a role in AGENTS.md left both assertions above green.
+        # The third home. Renaming a role in AGENTS.md left both assertions above green.
         agents_md = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
         listed = self._roles_agents_md_enumerates(agents_md)
         if listed is not None:
@@ -983,7 +979,7 @@ class TestHarnessResetContracts:
                 "AGENTS.md's artifacts/agents/ row and the directory disagree: "
                 f"{listed ^ existing_role_files}. AGENTS.md names {sorted(listed)}; the files on "
                 f"disk are {sorted(existing_role_files)}. Either the row is stale or a role was "
-                "renamed in one home and not the others -- which is P-C2, and is exactly what "
+                "renamed in one home and not the others: this is the drift that "
                 "this assertion exists to stop recurring."
             )
 
@@ -1013,7 +1009,7 @@ class TestHarnessResetContracts:
         }
 
     def test_a_role_renamed_only_in_agents_md_is_detected(self):
-        """THE DISCRIMINATOR for P-64. This is the edit that used to leave the suite green."""
+        """THE DISCRIMINATOR for the third home. This is the edit that used to leave the suite green."""
         renamed = self._ROLE_ROW.replace("`verifier`", "`checker`")
         found = self._roles_agents_md_enumerates(renamed)
         on_disk = {p.stem for p in (REPO_ROOT / "artifacts" / "agents").glob("*.md")}
@@ -1024,7 +1020,7 @@ class TestHarnessResetContracts:
         assert "checker" in found and "verifier" not in found
 
     def test_a_role_dropped_only_in_agents_md_is_detected(self):
-        """P-C2's original shape: five names in AGENTS.md where six files exist."""
+        """The original shape of the drift: five names in AGENTS.md where six files exist."""
         dropped = self._ROLE_ROW.replace(", `jnwb-developer`", "")
         found = self._roles_agents_md_enumerates(dropped)
         assert found == {"authority", "critic", "actor", "verifier", "docs-harness"}
@@ -1038,7 +1034,7 @@ class TestHarnessResetContracts:
         """The reader must not go quiet when the thing it reads disappears.
 
         A sweep that finds nothing reports nothing, which is indistinguishable from a clean tree
-        -- P-37's shape, and the reason this reader asserts before it parses.
+        -- the shape of a sweep that goes quiet, and the reason this reader asserts before it parses.
         """
         with pytest.raises(AssertionError, match="no longer mentions artifacts/agents/"):
             self._roles_agents_md_enumerates("| `skills/` | Task skills |")
@@ -1135,11 +1131,11 @@ class TestGate14InternalProcessVocabulary:
         assert violations and "sweep is broken" in violations[0], violations
 
     def test_a_page_naming_a_delegation_packet_fails(self, tmp_path: Path):
-        """06-68's stated discriminator, in its stated words.
+        """The stated discriminator, in its stated words.
 
         The sentence is unchanged; what it is caught BY changed. "delegation packet" was
         removed from the term list when the bare "packet" was gated, because the bare term
-        already matched it and a subsumed entry can never fire on its own (P-98). So the
+        already matched it and a subsumed entry can never fire on its own. So the
         assertion is on the gate refusing the sentence, not on which entry did it -- pinning
         the entry would make this test fail for a correct narrowing of the list.
         """
@@ -1195,7 +1191,7 @@ class TestGate14InternalProcessVocabulary:
         it does not add. This module already carries the scar -- three multi-word terms were
         silently dead while the gate reported PASS -- so the condition is asserted rather than
         watched for. "delegation packet" became subsumed the moment "packet" was gated, and was
-        removed rather than left to look like a second rule (P-98).
+        removed rather than left to look like a second rule.
         """
         subsumed = [
             (term, other)
@@ -1261,7 +1257,7 @@ class TestGate14InternalProcessVocabulary:
     def test_an_empty_docs_tree_is_a_failure_and_not_a_pass(self, tmp_path: Path):
         """A sweep over nothing reports nothing, which reads exactly like a clean tree.
 
-        This is P-37's shape and the reason gate 8 fails on a missing file rather than skipping
+        This is the shape of a sweep over nothing, and the reason gate 8 fails on a missing file rather than skipping
         it. Without this the gate passes on any tree where `docs/` moved or the glob broke.
         """
         (tmp_path / "docs").mkdir()
@@ -1309,6 +1305,8 @@ class TestGate14ProcessIdentifiersInLibrary:
             "Recorded under P-1000.",
             "Fixed under p-29.",
             "See items/09-23 for why.",
+            "Recorded under item 15-11.",
+            "Item 12-21: the planted wave.",
         ],
     )
     def test_a_seeded_identifier_fails(self, tmp_path: Path, line: str):
@@ -1323,6 +1321,7 @@ class TestGate14ProcessIdentifiersInLibrary:
             "Measured on 09-23 each year.",
             "Requires jnwb 0.2.6 or later.",
             "The beta band is 14-30 Hz and gamma 50-80 Hz.",
+            "Deep contacts (12-15) are labelled deep.",
             "doi:10.1038/s41593-020-00744-x",
             "The P-value is two-sided.",
             "Significant at p-0.05 after correction.",
@@ -1330,6 +1329,47 @@ class TestGate14ProcessIdentifiersInLibrary:
     )
     def test_dates_versions_and_ranges_pass(self, tmp_path: Path, line: str):
         assert check_no_process_identifiers_in_library(self._library(tmp_path, line)) == []
+
+    def test_a_seeded_identifier_in_a_test_file_fails(self, tmp_path: Path):
+        root = self._library(tmp_path, "Plain summary.")
+        assert check_no_process_identifiers_in_library(root) == [], "the control tree must be clean"
+        (root / "tests").mkdir()
+        (root / "tests" / "test_planted.py").write_text('LABEL = "P-12"\n', encoding="utf-8")
+        violations = check_no_process_identifiers_in_library(root)
+        assert len(violations) == 1 and "tests/test_planted.py:1" in violations[0], violations
+
+    def test_a_seeded_identifier_in_a_script_fails(self, tmp_path: Path):
+        root = self._library(tmp_path, "Plain summary.")
+        (root / "scripts").mkdir()
+        (root / "scripts" / "planted.py").write_text('LABEL = "P-12"\n', encoding="utf-8")
+        violations = check_no_process_identifiers_in_library(root)
+        assert len(violations) == 1 and "scripts/planted.py:1" in violations[0], violations
+
+    def test_every_exempt_file_exists(self):
+        """An exemption that names a moved file exempts nothing, and nothing reports it."""
+        from scripts.gates.vocabulary import PROCESS_ID_DATA_FILES
+
+        for path, reason in PROCESS_ID_DATA_FILES:
+            assert (REPO_ROOT / path).is_file(), path
+            assert reason.strip(), path
+
+    def test_every_exempt_literal_is_still_in_its_file(self):
+        from scripts.gates.vocabulary import PROCESS_ID_DATA_LITERALS
+
+        for path, literal, reason in PROCESS_ID_DATA_LITERALS:
+            assert literal in (REPO_ROOT / path).read_text(encoding="utf-8"), (path, literal)
+            assert reason.strip(), path
+
+    def test_a_literal_exemption_covers_that_literal_in_that_file_only(self, tmp_path: Path):
+        root = self._library(tmp_path, "Plain summary.")
+        (root / "tests").mkdir()
+        (root / "tests" / "test_fact_gate.py").write_text(
+            'ITEM = "00-01"\nLABEL = "P-12"\n', encoding="utf-8")
+        (root / "tests" / "test_other.py").write_text('ITEM = "00-01"\n', encoding="utf-8")
+        violations = check_no_process_identifiers_in_library(root)
+        assert len(violations) == 2, violations
+        assert "tests/test_fact_gate.py:2" in violations[0] and "'P-12'" in violations[0]
+        assert "tests/test_other.py:1" in violations[1]
 
     def test_the_pristine_library_passes(self):
         assert check_no_process_identifiers_in_library(REPO_ROOT) == []
@@ -1358,7 +1398,7 @@ class TestGate14ProcessIdentifiersInLibrary:
         run = dict((n, r) for n, r, _ in harness_gate.GATES)[14]
         failures = run()
         assert [header for header, _ in failures] == [
-            "FAIL: Item or problem identifiers found in jnwb/ or docs/:"
+            "FAIL: Item or problem identifiers found in jnwb/, docs/, scripts/ or tests/:"
         ], failures
 
     @pytest.mark.parametrize("line", ["Fixed under 06-55.", "The anchors were missing (P-12)."])
@@ -1495,6 +1535,28 @@ class TestGate6RecursiveCoverage:
             assert (REPO_ROOT / rel).exists(), f"probe target missing: {rel}"
         assert "README.md" in DATASET_SCAN_ROOT_DOCS
 
+    @pytest.mark.parametrize("rel", [
+        "tests/planted_surface.py",
+        "tests/deeply/nested/planted_surface.py",
+        "tests/fixtures/planted_surface.json",
+    ])
+    def test_forbidden_token_is_detected_in_a_file_under_tests(self, tmp_path, rel):
+        violations = self._plant(tmp_path, rel)
+        assert any(rel in v for v in violations), (
+            f"gate 6 did not detect {self.TOKEN} planted at {rel}; violations={violations}")
+
+    def test_each_reviewed_test_plant_is_a_real_file_with_a_reason_and_is_skipped(self, tmp_path):
+        """A file exempt because it carries tokens on purpose is named, exists, states its reason,
+        and is the only file the scan skips: its token is not reported there."""
+        from scripts.gates.docs import TESTS_PLANTED_TOKENS
+
+        assert TESTS_PLANTED_TOKENS, "no reviewed test plant is named"
+        for index, (rel, reason) in enumerate(TESTS_PLANTED_TOKENS):
+            assert (REPO_ROOT / rel).is_file(), f"reviewed test plant is missing: {rel}"
+            assert reason.strip(), f"reviewed test plant {rel} states no reason"
+            violations = self._plant(tmp_path / str(index), rel)
+            assert not any(rel in v for v in violations), violations
+
 
 class TestDeclaredEnvironmentPreflight:
     """Release qualification must verify the environment it claims to qualify.
@@ -1602,7 +1664,7 @@ def _stack_tree(tmp_path: Path, todo: str, problem: str) -> Path:
 
 
 class TestGate15DeclaredWriteSetsAreComparable:
-    """P-108: 37 of 60 items named a bare directory, 31 of them the same one.
+    """37 of 60 items named a bare directory, 31 of them the same one.
 
     Two agents may run at once exactly when their `Writes` sets are provably disjoint, so an
     item declaring a directory is mutually exclusive with everything that touches the tree.
@@ -1631,7 +1693,7 @@ class TestGate15DeclaredWriteSetsAreComparable:
         """The false positive a fixed-width field boundary produced, kept as a live case.
 
         Bounding the field at 220 characters reported two items whose fields were clean and
-        whose *prose* named a directory -- 06-67 discussing `tests/`, and 06-73 naming the
+        whose *prose* named a directory -- one case discussing `tests/`, and another naming the
         cache directory it exists to exclude. Both items were correct. A check that fires on
         prose is worse than no check: it teaches its reader to dismiss the output, which is
         how the one real violation gets waved through.
@@ -1704,9 +1766,9 @@ class TestGate15ProblemRowsKeepTheirTableShape:
     """Each problem table is held to its own header.
 
     When `Open` and `Closed` were both four columns but not the same four, a row moving between
-    the tables acquired the wrong shape. One session repaired this in P-38, P-39 and P-40, then
+    the tables acquired the wrong shape. One session repaired this in three rows, then
     wrote a `Found by` cell into a `Closed` row anyway, and separately shipped unescaped pipes
-    in P-29, P-81 and P-114. Five instances, one mistake.
+    in three more. Five instances, one mistake.
     """
 
     def test_a_row_missing_a_cell_is_rejected(self, tmp_path: Path):
@@ -1728,7 +1790,7 @@ class TestGate15ProblemRowsKeepTheirTableShape:
         assert "5 cell delimiters against the 4" in found[0], found
 
     def test_an_escaped_pipe_inside_a_code_span_is_content(self, tmp_path: Path):
-        r"""The control for the case above: `a\|b` is one cell, and P-114 relies on it."""
+        r"""The control for the case above: `a\|b` is one cell, and the escaped-pipe rule relies on it."""
         clean = CLEAN_OPEN_STACK.replace(
             "| P-1 | A defect |", r"| P-1 | A defect matching `a\|b` |"
         )
@@ -1872,7 +1934,7 @@ def _tracked_tree(tmp_path: Path, files: "dict[str, bytes]") -> Path:
 
 
 class TestGate16LineEndingConsistency:
-    """P-124: eight tracked files carried both conventions, and nothing declared one.
+    """Eight tracked files carried both conventions, and nothing declared one.
 
     A byte-mode edit anchored with the wrong ending matches nothing and reads exactly like
     "the text is not there"; `git apply` refuses a patch whose context lines disagree. Five
@@ -1891,8 +1953,8 @@ class TestGate16LineEndingConsistency:
     def test_a_uniform_crlf_file_is_accepted(self, tmp_path: Path):
         """The gate holds each file against itself. It does not rule on which convention wins.
 
-        Whether `skills/` should stay CRLF while every other directory is LF is a
-        cross-directory decision P-124 records the measurement for and does not take.
+        Every tracked text file is LF since 0.2.14, so this case is a fixture for the
+        rule and not a live state.
         """
         root = _tracked_tree(tmp_path, {"a.md": b"one\r\ntwo\r\nthree\r\n"})
         assert check_line_ending_consistency(root) == []
@@ -1938,7 +2000,7 @@ class TestGate16LineEndingConsistency:
 
 
 class TestTheLineEndingPolicyIsDeclared:
-    """A convention nothing reads is what produced P-124 in the first place."""
+    """A convention nothing reads is what produced the mixed endings in the first place."""
 
     def test_gitattributes_is_tracked_and_allowlisted(self):
         from scripts.harness_gate import ALLOWED_ROOT_FILES
@@ -1951,8 +2013,7 @@ class TestTheLineEndingPolicyIsDeclared:
     def test_it_disables_conversion_rather_than_choosing_a_convention(self):
         """`-text` makes a clone reproduce the committed bytes on every platform.
 
-        Declaring `eol=lf` instead would silently take the cross-directory decision P-124
-        leaves open, by rewriting every CRLF blob on the next checkout.
+        Declaring `eol=lf` instead would add a conversion the committed bytes do not need.
         """
         text = (REPO_ROOT / ".gitattributes").read_text(encoding="utf-8")
         directives = [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.startswith("#")]
@@ -1960,7 +2021,7 @@ class TestTheLineEndingPolicyIsDeclared:
 
 
 class TestStackPointersResolve:
-    """Gate 17. P-53: two items declared `Skill: jnwb-nwb-io`, which has never existed.
+    """Gate 17. Two items declared `Skill: jnwb-nwb-io`, which has never existed.
 
     The name reached two dispatched packets and nothing errored. It was not a stale pointer --
     it never resolved at all -- so only resolution against the tree catches it.
@@ -1993,20 +2054,20 @@ class TestStackPointersResolve:
             f"Writes: `jnwb/x.py`.\n\n"
         )
 
-    # --- the live tree, and the discriminators 06-80 names ------------------------------------
+    # --- the live tree, and the discriminators the rule names -----------------------------------
 
     def test_the_live_stack_resolves(self):
         assert check_stack_pointers_resolve() == []
 
     def test_reintroducing_the_born_wrong_skill_fails(self, tmp_path: Path):
-        """06-80's first discriminator, and P-53's actual instance."""
+        """The first discriminator, and the actual instance it was built from."""
         root = self._tree(tmp_path, self._item("06-01", skill="jnwb-nwb-io"))
         found = check_stack_pointers_resolve(root)
         assert len(found) == 1, found
         assert "jnwb-nwb-io" in found[0] and "does not exist" in found[0], found
 
     def test_renaming_a_real_skill_directory_fails(self, tmp_path: Path):
-        """06-80's third discriminator: the item is untouched and the tree moves under it."""
+        """The third discriminator: the item is untouched and the tree moves under it."""
         root = self._tree(tmp_path, self._item("06-01", skill="jnwb-spiking"))
         assert check_stack_pointers_resolve(root) == []
         (root / "skills" / "jnwb-spiking").rename(root / "skills" / "jnwb-spikes")
@@ -2018,13 +2079,13 @@ class TestStackPointersResolve:
                         "per skill, nine packets"]
     )
     def test_every_declared_placeholder_still_passes(self, tmp_path: Path, placeholder: str):
-        """06-80's second discriminator. `per skill, nine packets` is the live form in 06-25:
+        """The second discriminator. `per skill, nine packets` is the live form in 06-25:
         a placeholder may take a prose qualifier after a comma."""
         root = self._tree(tmp_path, self._item("06-01", skill=placeholder))
         assert check_stack_pointers_resolve(root) == []
 
     def test_a_typo_in_a_placeholder_is_not_a_placeholder(self, tmp_path: Path):
-        """The set is closed, not a `per `-prefix rule. 06-80's Stop clause turns on exactly
+        """The set is closed, not a `per `-prefix rule. The Stop clause turns on exactly
         this: if a typo could not be distinguished from a placeholder the notation would be the
         defect. It can be."""
         root = self._tree(tmp_path, self._item("06-01", skill="per skil"))
@@ -2046,7 +2107,7 @@ class TestStackPointersResolve:
     # --- the Blocked by direction, and the boundary of its narrowing ---------------------------
 
     def test_a_block_on_a_retired_item_fails(self, tmp_path: Path):
-        """P-57's shape: 06-62 sat `Blocked by: 06-61` after 06-61 was deleted as complete, so a
+        """The shape: a `Blocked by:` field named an id after that id was deleted as complete, so a
         dispatchable item read as blocked on a decision already made."""
         root = self._tree(tmp_path, self._item("06-01", blocked="06-99"))
         found = check_stack_pointers_resolve(root)
@@ -2096,7 +2157,7 @@ class TestStackPointersResolve:
     # --- the sweep must be unable to pass by looking at nothing --------------------------------
 
     def test_a_field_label_inside_a_code_span_is_not_a_declaration(self, tmp_path: Path):
-        """06-80's own heading is "Resolve every `Skill:` field against `skills/`". A scanner
+        """A real heading is "Resolve every `Skill:` field against `skills/`". A scanner
         that reads it extracts "` field against `skills/`" as the skill name and fails the item
         that asked for the gate -- a false positive manufactured by the item itself."""
         heading = (
@@ -2155,7 +2216,7 @@ class TestStackPointersResolve:
 
 
 class TestApiMdMemberTypes:
-    """Gate 18. P-151: gate 9 is a fixed point and this is the way out of it."""
+    """Gate 18. Gate 9 is a fixed point and this is the way out of it."""
 
     def test_the_live_page_agrees_with_the_runtime(self):
         assert check_api_md_member_types() == []
@@ -2183,7 +2244,7 @@ class TestApiMdMemberTypes:
         )
 
     def test_the_blindspot_mutant_fails(self, tmp_path: Path):
-        """P-151's named discriminator. Measured on the real mutant before this test was
+        """The named discriminator. Measured on the real mutant before this test was
         written: with `_object_type_name` returning "BLINDSPOT" and `docs/api.md` regenerated
         from it, gate 9 printed "PASS: docs/api.md matches jnwb.__all__ and the runtime API
         generator" and gate 18 failed on all 156 rows.
@@ -2238,7 +2299,7 @@ class TestApiMdMemberTypes:
         assert found and "is missing" in found[0], found
 
     def test_the_oracle_does_not_import_the_generator(self):
-        """The one thing 06-106's Stop clause forbids: building the oracle from
+        """The one thing the Stop clause forbids: building the oracle from
         `scripts/generate_api_md.py` rebuilds the fixed point inside the gate meant to break
         it. Asserted against the source, because a comment saying so is not a constraint."""
         import ast as _ast
@@ -2397,3 +2458,57 @@ class TestGate20StateFileHead:
         assert generator.main() == 0
         assert seen == [False], "build() ran while the file it replaces was still on disk"
         assert state.read_text(encoding="utf-8") == "built\n"
+
+
+LOG_BEFORE_MEAN = '''
+import numpy as np
+
+def site_power(raw_power):
+    """estimand: raw_power_average"""
+    return np.mean(to_db(raw_power))
+'''
+
+
+def _jnwb_with(tmp_path: Path, body: str) -> Path:
+    """A checkout whose jnwb/ holds one module, estimand.py, with ``body``."""
+    module = tmp_path / "jnwb" / "estimand.py"
+    module.parent.mkdir(parents=True)
+    module.write_text(body, encoding="utf-8")
+    return tmp_path
+
+
+def test_a_declared_log_before_mean_in_jnwb_is_violated_by_the_package_scan(tmp_path: Path):
+    found = check_logarithm_last_in_package(_jnwb_with(tmp_path, LOG_BEFORE_MEAN))
+    assert len(found) == 1 and found[0].startswith("jnwb/estimand.py: ")
+    assert "LOG_BEFORE_AVERAGE" in found[0]
+
+
+def test_a_declared_estimand_that_does_not_parse_in_jnwb_is_violated(tmp_path: Path):
+    body = "# estimand: raw_power_average\ndef f(:\n"
+    found = check_logarithm_last_in_package(_jnwb_with(tmp_path, body))
+    assert len(found) == 1 and "UNPARSEABLE" in found[0]
+
+
+def test_a_jnwb_with_no_module_is_not_a_pass(tmp_path: Path):
+    (tmp_path / "jnwb").mkdir()
+    found = check_logarithm_last_in_package(tmp_path)
+    assert len(found) == 1 and "NO_SOURCE" in found[0]
+
+
+@pytest.mark.parametrize("body, failure", [
+    (LOG_BEFORE_MEAN, "LOG_BEFORE_AVERAGE"),
+    ("# estimand: raw_power_average\ndef f(:\n", "UNPARSEABLE"),
+], ids=["log before mean", "does not parse"])
+def test_gate_21_runs_the_estimand_rule_on_the_jnwb_modules(tmp_path: Path, monkeypatch, body,
+                                                            failure):
+    monkeypatch.setattr(harness_gate, "REPO_ROOT", _jnwb_with(tmp_path, body))
+    monkeypatch.setattr(harness_gate, "check_computational_contract", lambda: [])
+    gate = {number: run for number, run, _ in harness_gate.GATES}[21]
+    [(header, violations)] = gate()
+    assert "raw-power estimand" in header
+    assert failure in violations[0]
+
+
+def test_gate_21_pass_line_names_the_estimand_rule():
+    pass_line = {number: line for number, _, line in harness_gate.GATES}[21]
+    assert "raw-power estimand" in pass_line()

@@ -21,7 +21,7 @@ A probe is named by its `group_name` column, else `group`, else `probe`, else `d
 
 ### Geometric Depth Class (`classify_layer_from_depth`)
 
-Thresholds probe electrode depth ($z$-coordinate) into a geometric depth class, with explicit unit safety. The class is a cut on depth, not a cortical layer; the electrophysiological laminar identity is `jnwb.label_layers`.
+Thresholds probe electrode depth ($z$-coordinate) into a geometric depth class, with explicit unit safety. The class is a cut on depth, not a cortical layer; the electrophysiological laminar identity is `jnwb.label_layers`. With `depth_axis` and `shallow_end` declared together, a unit's depth is its distance along that column from the shallow-end contact of its own probe, so a probe whose z grows toward pia is read from its own shallow end. Without a declaration z is read as depth from pia, which the NWB schema does not guarantee.
 
 ```python
 # 'Superficial' for <= 1000 um, 'Deep' for > 1000 um, with explicit depth units
@@ -285,6 +285,6 @@ json.dumps(result.to_dict(), default=lambda o: o.tolist())
 rebinding an attribute, not mutation of the object it points at; `ds.sessions.append(...)`
 succeeds. Treat the contained lists, dicts and frames as read-only.
 
-**Deprecated.** `create_aligned_dataset`, `create_result` and `create_figure` forward to the
-constructor of the same name and add nothing. They were never exported in `__all__`; they
-now warn, and will be removed in 0.2.14. Call the dataclass, or `Dataset.with_alignment`, directly.
+**Removed.** `create_aligned_dataset`, `create_result` and `create_figure` forwarded to the
+constructor of the same name and added nothing. They were never exported in `__all__`; they
+warned as deprecated, and 0.2.14 removed all three. Call the dataclass, or `Dataset.with_alignment`, directly.

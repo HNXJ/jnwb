@@ -35,7 +35,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # `append`, never `insert(0, ...)`: inserting re-shadows the installed package for the whole
 # session, which tests/test_the_suite_can_qualify_an_installed_copy.py forbids.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.release_gate import (  # noqa: E402
     BODY_CHECKED,
@@ -156,7 +156,7 @@ class TestMetadataIsDerived:
 #: v0.2.5 actually declared. Both are frozen literals, written independently of each other.
 #: Building the body out of the metadata it is then compared against -- which is what this
 #: test did first -- agrees by construction and proves only that the regexes round-trip. That
-#: is the shape P-150 records on the release path, where the tutorials `release_gate.py`
+#: is the shape a recorded defect describes on the release path, where the tutorials `release_gate.py`
 #: executes against the installed wheel read only NWB files they wrote themselves.
 _SHIPPED_V025_TRAILER = (
     "0.2.5 is a correctness and harness release.\n\n---\n\n"

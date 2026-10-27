@@ -82,14 +82,14 @@ def _external_nwb(path: Path) -> Path:
 
 
 def test_the_external_branch_of_tutorial_00_is_exercised(tmp_path: Path):
-    """P-150: the one tutorial that can read a foreign file was only ever run without one.
+    """The one tutorial that can read a foreign file was only ever run without one.
 
     `00_your_own_file.py` is the only script accepting `sys.argv[1]`, and the parametrized run
     above invokes every tutorial with no arguments, so the external branch never executed and
     the script wrote its own stand-in instead. Passing that suite was therefore evidence about
     the stand-in path only.
 
-    One correction to P-150's premise, measured rather than assumed: the stand-in is written
+    One correction to the premise, measured rather than assumed: the stand-in is written
     with plain `pynwb`, not with jnwb's fixtures, so even the no-argument run is not jnwb
     reading back its own bytes. Of the ten other tutorials, five author through `write_synth_nwb`,
     three touch no NWB at all, two read the open excerpt, and this one authors through the

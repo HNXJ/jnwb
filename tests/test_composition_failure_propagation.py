@@ -8,7 +8,7 @@ Two chains from the declared high-risk composition subset:
   by construction. Five of the six consumers refuse it; ``gaussian_smooth_rate``
   accepts it and spreads the NaN across the smoothing kernel without telling anyone.
 * **H1's refusal leg** -- ``label_layers`` given a ``VFlipResult`` computed without
-  ``probe_geometry`` reads a PSD-row index as a shaft rank (P-49). The mislabelling
+  ``probe_geometry`` reads a PSD-row index as a shaft rank. The mislabelling
   that follows is measured elsewhere; what is asserted here is only that the boundary
   must refuse.
 
@@ -185,7 +185,7 @@ def test_gaussian_smooth_rate_spreads_a_boundary_nan_and_now_says_so() -> None:
     one available side.
 
     This test previously asserted that the contamination was *silent*, recording the
-    measurement rather than the repair. P-112 is repaired, so that clause is inverted
+    measurement rather than the repair. The defect is repaired, so that clause is inverted
     rather than deleted: the number of contaminated bins and the fact that the caller
     hears about them are both pinned, and the warning must carry the measured count so a
     warning that merely fires is not mistaken for one that reports.
@@ -373,7 +373,7 @@ def test_the_two_index_spaces_actually_diverge_on_this_probe() -> None:
     ), "the fixture must place the two index spaces apart"
 
     # The result now records which space its crossover is expressed in, and that field is
-    # what lets the boundary tell the two apart. Before P-49 was repaired nothing on the
+    # what lets the boundary tell the two apart. Before the repair nothing on the
     # result carried it, `label_layers` read every crossover as a shaft rank, and this test
     # recorded the geometry-omitted result being accepted here with no warning and no
     # error. That acceptance is now a refusal, and asserting it belongs to

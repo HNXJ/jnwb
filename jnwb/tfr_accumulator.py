@@ -394,7 +394,16 @@ class TFRAccumulator:
             self.sum_ratio += ratio
 
     def merge(self, other: "TFRAccumulator") -> "TFRAccumulator":
-        """Exact pooling. merge(A, B) == summarize(A union B)."""
+        """Exact pooling. merge(A, B) == summarize(A union B).
+
+        Raises:
+            ValueError: if the two accumulators have different shapes, or one carries per-trial
+                ratios and the other holds trials added without a baseline.
+        """
+        if self.shape != other.shape:
+            raise ValueError(
+                f"refusing to merge: accumulator shapes differ, {self.shape} vs {other.shape}"
+            )
         n = self.n + other.n
         mine = np.where(self.n > 0, self._mean, 0.0)
         delta = np.where(other.n > 0, other._mean, 0.0) - mine

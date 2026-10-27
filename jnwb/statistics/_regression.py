@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
-from .._rng import RNGLike, recorded_rng, resolve_rng, Default, resolve_seed_alias
+from .._rng import RNGLike, recorded_rng, resolve_rng, Default, resolve_seed_alias, surrogate_rng
 from .._spread import is_constant as _is_constant
 from ..permutation import _count_at_least_as_extreme, permute_labels
 from ._tests import _require_shuffle_inputs
@@ -39,9 +39,12 @@ def shuffle_r2_ci(
             (``random_state`` is the old spelling and still works).
 
     Returns:
-        dict with r2_observed, r2_null_ci_lo, r2_null_ci_hi, r2_null_mean, p_val, n_shuffle.
-        A single-class label or a constant score has no R^2: every field but ``n_shuffle`` is
-        then NaN.
+        dict with r2_observed, r2_null_ci_lo, r2_null_ci_hi, r2_null_mean, p_val, n_shuffle,
+        scheme (``'within_group'`` when ``groups`` is given, else ``'global'``), and
+        ``surrogate_seed_entropy`` (the entropy the shuffles ran on).
+        A single-class label or a constant score has no R^2: every statistic field but
+        ``n_shuffle`` is then NaN; ``scheme`` and ``surrogate_seed_entropy`` still name
+        the null that ran.
     """
     random_state = resolve_seed_alias(rng, random_state, alias_name='random_state', func_name='shuffle_r2_ci')
     def _r2(y, s):
@@ -58,7 +61,7 @@ def shuffle_r2_ci(
         "shuffle_r2_ci",
     )
     r2_obs = _r2(y_true, y_score)
-    rng = resolve_rng(random_state, func_name="shuffle_r2_ci")
+    rng, seed_entropy = surrogate_rng(random_state, "shuffle_r2_ci")
     null = np.empty(n_shuffle)
     scheme = "global" if groups is None else "within_group"
     for i in range(n_shuffle):
@@ -74,6 +77,8 @@ def shuffle_r2_ci(
         "r2_null_mean": float(np.mean(null)),
         "p_val": p_val,
         "n_shuffle": n_shuffle,
+        "scheme": scheme,
+        "surrogate_seed_entropy": seed_entropy,
     }
 
 
@@ -191,7 +196,7 @@ def cross_modal_comparison(
         dict with correlation (StatisticalAnalysis.correlate output at the best lag), n_samples,
         lag_ms (0.0 unless a sweep ran), lfp_leads_spikes (True when the best lag is negative,
         i.e. the TFR/LFP signal is shifted earlier than spikes), surrogate_seed_entropy,
-        interpretation -- or
+        surrogate_scheme (``'circular_shift'`` when the null ran), interpretation -- or
         {'error': ...} when inputs are missing or too short.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='cross_modal_comparison')
@@ -352,6 +357,7 @@ def cross_modal_comparison(
         'uncorrected_pvalue': float(best_corr['parametric']['pval']),
         'lag_corrected_pvalue': lag_corrected_p,
         'surrogate_seed_entropy': seed_entropy,
+        'surrogate_scheme': 'circular_shift' if int(n_permutations) > 0 else None,
         'significant_lag_corrected': bool(lag_corrected_p < 0.05),
         'lag_search_resolution_floor': float(resolution_floor),
         'warnings': (

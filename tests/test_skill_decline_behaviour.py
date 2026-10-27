@@ -18,7 +18,10 @@ states that value; when the code changes, the row and this test change with it.
 
 from __future__ import annotations
 
+import ast
+import inspect
 import re
+import textwrap
 from pathlib import Path
 
 import numpy as np
@@ -791,6 +794,30 @@ def test_every_skill_outcome_is_tested_or_excused():
                 f"{skill}/{outcome} must be tested or excused, and not both"
             )
     assert all(len(reason) > 20 for reason in NOT_REQUIRED.values())
+    silent = sorted(key for key, fn in CASES.items() if not _checks_something(fn))
+    assert not silent, f"cases that assert nothing: {silent}"
+
+
+def _checks_something(fn) -> bool:
+    """True when a case body asserts: an ``assert`` statement, ``pytest.raises``, or an
+    ``assert*`` helper such as ``np.testing.assert_array_equal``."""
+    for node in ast.walk(ast.parse(textwrap.dedent(inspect.getsource(fn)))):
+        if isinstance(node, ast.Assert):
+            return True
+        if isinstance(node, ast.Call):
+            name = ast.unparse(node.func)
+            if "raises" in name or name.rsplit(".", 1)[-1].startswith("assert"):
+                return True
+    return False
+
+
+def test_the_holder_fails_a_case_that_asserts_nothing(monkeypatch):
+    def planted():
+        np.arange(3)
+
+    monkeypatch.setitem(CASES, ("jnwb-spiking", "supported"), planted)
+    with pytest.raises(AssertionError, match="assert nothing"):
+        test_every_skill_outcome_is_tested_or_excused()
 
 
 @pytest.mark.parametrize("key", sorted(CASES), ids=lambda k: f"{k[0]}-{k[1]}")
@@ -854,8 +881,9 @@ def _compare_with_an_empty_group():
 
 def _r2_with_one_class():
     res = jnwb.shuffle_r2_ci(np.zeros(20), np.random.default_rng(0).normal(size=20), n_shuffle=50)
-    values = {k: v for k, v in res.items() if k != "n_shuffle"}
-    return values, {"n_shuffle": res["n_shuffle"]}
+    labels = ("n_shuffle", "scheme", "surrogate_seed_entropy")
+    values = {k: v for k, v in res.items() if k not in labels}
+    return values, {k: res[k] for k in labels}
 
 
 @pytest.mark.filterwarnings("ignore")
@@ -874,7 +902,7 @@ def _r2_with_one_class():
          {"n1": 0, "significant_parametric": False, "significant_nonparametric": False,
           "confirmed_parametric": False, "confirmed_nonparametric": False}),
         ("jnwb-statistics", "A single-class label or a constant score has no $R^2$",
-         _r2_with_one_class, {"n_shuffle": 50}),
+         _r2_with_one_class, {"n_shuffle": 50, "scheme": "global", "surrogate_seed_entropy": 42}),
     ],
     ids=["psi-net", "pli-no-spikes", "compare-empty-group", "r2-one-class"],
 )

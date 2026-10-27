@@ -235,7 +235,7 @@ class TestGranger:
                 _granger(x, y, max_lag=1)
 
     def test_granger_null_non_negative_ml_variance(self):
-        """Granger causality using ML residual variance RSS/N is non-negative under plain OLS (0.2.3-REV-07)."""
+        """Granger causality using ML residual variance RSS/N is non-negative under plain OLS."""
         rng = np.random.default_rng(42)
         # 10 independent noise trials under true null
         x = rng.standard_normal((10, 500))
@@ -325,6 +325,44 @@ class TestGranger:
         assert with_z.x_to_y < 0.01
         assert with_z.params["n_conditioning"] == 1
 
+    def test_the_effective_order_cap_is_recorded_and_warned(self):
+        """A 200-sample record caps `order='auto'` at 12 however large `max_lag` is: the
+        stacked lag design needs eight rows per lag coefficient. The cap used to be silent,
+        so a coupling at lag 15 was missed with `ok_for_interpretation` True."""
+        rng = np.random.default_rng(4)
+        x = rng.standard_normal(200)
+        y = np.zeros(200)
+        y[15:] = 0.6 * x[:-15] + 0.4 * rng.standard_normal(185)
+        result = granger(x, y, order="auto", max_lag=20)
+        assert result.params["order_cap"] == 12
+        assert result.params["max_lag"] == 20
+        assert "order_selection_capped_at_12" in result.diagnostics["warnings"], (
+            "the truncated search is named, not passed silently"
+        )
+        assert result.diagnostics["ok_for_interpretation"] is False
+
+    def test_no_cap_warning_while_max_lag_is_reachable(self):
+        """The warning names a search truncated below `max_lag`, not a ceiling the selected
+        order reached while `max_lag` was still in reach."""
+        rng = np.random.default_rng(4)
+        x = rng.standard_normal(1000)
+        y = np.zeros(1000)
+        y[1:] = 0.6 * x[:-1] + 0.4 * rng.standard_normal(999)
+        result = granger(x, y, order="auto", max_lag=10)
+        assert result.params["order_cap"] == 10
+        assert not any("capped" in w for w in result.diagnostics["warnings"])
+
+    @pytest.mark.parametrize("max_lag", [0, -3])
+    def test_max_lag_below_one_raises(self, max_lag):
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError, match="max_lag"):
+            granger(
+                rng.standard_normal(100),
+                rng.standard_normal(100),
+                order="auto",
+                max_lag=max_lag,
+            )
+
 
 class TestRowCodes:
     """The row codes behind transfer entropy's joint states number distinct rows in
@@ -398,8 +436,18 @@ class TestPhaseSlopeIndex:
             phase_slope_index(x, np.roll(x, 3), fs=1000.0, bands=(14, 30), nperseg=256,
                               noverlap=noverlap)
 
+    def test_an_nperseg_longer_than_the_trial_is_refused(self):
+        """A longer segment used to be shortened to the trial without a word; compute_psd
+        refuses it. The trial's own length is still allowed."""
+        x = np.random.default_rng(6).standard_normal(500)
+        y = np.roll(x, 3)
+        with pytest.raises(ValueError, match="nperseg must be at most the 500 samples"):
+            phase_slope_index(x, y, fs=1000.0, bands=(14, 30), nperseg=501, jackknife=False)
+        res = phase_slope_index(x, y, fs=1000.0, bands=(14, 30), nperseg=500, jackknife=False)
+        assert res.params["nperseg"] == 500
+
     def test_multiband_psi_omnibus_pvalue(self):
-        """Multi-band PSI computes omnibus top-level p-value rather than extracting first band (0.2.3-REV-08)."""
+        """Multi-band PSI computes omnibus top-level p-value rather than extracting first band."""
         from scipy import signal, stats
         rng = np.random.default_rng(42)
         n = 4000
@@ -441,7 +489,7 @@ class TestTransferEntropy:
         assert result.x_to_y > 0
 
     def test_the_symbolic_estimator_is_refused_and_points_to_quantile(self):
-        """06-202: two noisy copies of one white source tested significant both ways under
+        """Two noisy copies of one white source tested significant both ways under
         it. The generic unknown-estimator error also names 'quantile', so the match
         requires the reason as well."""
         x = np.random.default_rng(0).normal(size=(2, 200))
@@ -578,7 +626,7 @@ class TestDirectedConnectivityAndNetwork:
         assert set(result["labels"]) == {"A", "B", "C"}
 
     def test_directed_network_draws_a_generator_once_per_pair_up_front(self):
-        """06-203: a Generator copied into each worker would replay one stream, so the
+        """A Generator copied into each worker would replay one stream, so the
         surrogates would depend on n_jobs. Each pair gets an int seed drawn before any
         worker starts, in pair order, and records it."""
         rng = np.random.default_rng(8)
@@ -686,7 +734,7 @@ class TestFewTrialSurrogates:
         assert granger(x, y, order=1).params["surrogate_scheme"] is None
 
     def test_seven_trials_keep_the_null_they_had(self):
-        """Pinned before the threshold moved from 3 to 7. The means differ across BLAS builds
+        """Pinned when derangements became uniform (0.2.14). The means differ across BLAS builds
         in the last bits, so they are compared to 1e-12; another null differs far more."""
         g = np.random.default_rng(11)
         x = g.normal(size=(7, 200))
@@ -694,10 +742,10 @@ class TestFewTrialSurrogates:
         res = granger(x, y, order=1, n_surrogates=19, rng=0)
         sur = res.diagnostics["surrogates"]
         # p_net is two-sided: twice the smaller tail's 1 / 20. The 0.2.6 value was 0.05.
-        assert (res.p_x_to_y, res.p_y_to_x, res.p_net) == (0.05, 0.7, 0.1)
+        assert (res.p_x_to_y, res.p_y_to_x, res.p_net) == (0.05, 0.55, 0.1)
         np.testing.assert_allclose(
             [sur["null_mean_x_to_y"], sur["null_mean_y_to_x"]],
-            [0.00035468224425054724, 0.0006370039765307248], rtol=1e-12, atol=0,
+            [0.0005044678744673741, 0.0006522710045268378], rtol=1e-12, atol=0,
         )
 
     @pytest.mark.parametrize("n_trials", [1, 2, 3, 4, 5, 6])
@@ -731,7 +779,7 @@ class TestFewTrialSurrogates:
 
 
 class TestCrossAreaCoherenceContract:
-    """0.2.4-09: out-of-contract input must fail loudly, not plausibly.
+    """Out-of-contract input must fail loudly, not plausibly.
 
     Both cases below previously produced a result a caller could not distinguish from a
     real measurement, or an error naming neither the argument nor the contract.
@@ -1206,7 +1254,7 @@ class TestGrangerNotTestedIsNotPassed:
 
 
 class TestDirectedEstimatorEdges:
-    """Item 10-06: the PSI segment default, its pinned spectrum, the partial-band `net`, the
+    """The PSI segment default, its pinned spectrum, the partial-band `net`, the
     silent all-NaN q_matrix and the mutual-information error names."""
 
     @pytest.mark.parametrize("shape, nperseg, n_segments", [
@@ -1221,7 +1269,7 @@ class TestDirectedEstimatorEdges:
         assert (res.params["nperseg"], res.params["n_segments"]) == (nperseg, n_segments)
 
     def test_psi_freqs_and_the_first_term_are_pinned(self):
-        """P-196: `psi_freqs` and `psi_per_freq` were returned and never checked. The first
+        """`psi_freqs` and `psi_per_freq` were returned and never checked. The first
         term is recomputed here from eq. 3 of Nolte et al. (2008) on the same segments."""
         rng = np.random.default_rng(3)
         x = rng.normal(size=640)
@@ -1244,7 +1292,7 @@ class TestDirectedEstimatorEdges:
         assert res.spectrum["psi_per_freq"][0] != 0.0
 
     def test_net_sums_only_the_bands_with_a_slope(self):
-        """P-264: a band with fewer than two bins is left out of `net`, as the docstring
+        """A band with fewer than two bins is left out of `net`, as the docstring
         says, not counted as zero or as NaN."""
         rng = np.random.default_rng(0)
         x = rng.normal(size=2000)
@@ -1272,7 +1320,7 @@ class TestDirectedEstimatorEdges:
                                     binary_occupancy_mutual_information,
                                     spike_count_mutual_information])
     def test_each_mutual_information_function_names_itself(self, fn):
-        """P-256: the two wrappers raised under the name spike_mutual_information."""
+        """The two wrappers raised under the name spike_mutual_information."""
         name = fn.__name__
         with pytest.raises(ValueError, match=rf"^{name} requires non-empty"):
             fn(np.array([]), np.array([0.1]), (0.0, 1.0))
@@ -1281,7 +1329,7 @@ class TestDirectedEstimatorEdges:
 
 
 class TestPsiJackknifeUnit:
-    """P-227, ruled 2026-10-06: the jackknife leaves out one trial from three trials on, and
+    """The jackknife leaves out one trial from three trials on, and
     one segment with a warning below that. Leaving out one of a trial's overlapping segments
     rejected in 0.059 to 0.068 under zero-lag mixing on 3 to 30 trials; one trial, 0.040 to
     0.059 (artifacts/evidence/0.2.10/10-06/records.md)."""
@@ -1319,7 +1367,7 @@ class TestPsiJackknifeUnit:
         assert res.p_net == pytest.approx(2 * stats.t.sf(abs(z), df=n_seg - 1), rel=1e-12)
 
     def test_the_round_off_bound_is_k_n_eps_scale(self):
-        """P-331: k = 4, n the segments, scale the bin pairs times sqrt(units - 1), as the
+        """The round-off bound: k = 4, n the segments, scale the bin pairs times sqrt(units - 1), as the
         docstring of `_psi_round_off` derives."""
         from jnwb.connectivity._psi import _psi_round_off
 
@@ -1332,7 +1380,7 @@ class TestPsiJackknifeUnit:
 
 
 class TestRoundOffBounds:
-    """P-331 (ruled 2026-10-06): width and constant checks use a round-off bound
+    """Width and constant checks use a round-off bound
     k * n * eps * scale, with k stated and derived where the bound is defined."""
 
     def test_a_linearly_detrended_line_is_exactly_zero_and_noise_survives(self):
@@ -1449,7 +1497,7 @@ class TestRoundOffBounds:
 
 
 class TestEstimatorEdgesRound2:
-    """Round-2 reach of 10-06: each assertion is on the quantity a one-line mutant moves."""
+    """Each assertion is on the quantity a one-line mutant moves."""
 
     def test_conditioning_uses_every_other_node_not_the_first(self):
         """Four nodes, pair (A, D): the others are X then B. A -> B -> D has no direct
@@ -1534,3 +1582,312 @@ class TestSurrogatePNaNDraws:
 
         assert np.isnan(_surrogate_p(np.array([0.1, 0.2]), np.nan, "greater"))
         assert np.isnan(_surrogate_p(np.full(4, np.nan), np.nan, "greater"))
+
+
+def _var2_x_to_y(seed, n=4000):
+    """x drives y at lags 1 and 2; y does not drive x. A stable VAR(2) (companion spectral
+    radius 0.55) with unit innovations, so the parametric fit at order 2 is the true model."""
+    rng = np.random.default_rng(seed)
+    e = rng.normal(size=(n, 2))
+    x = np.zeros(n)
+    y = np.zeros(n)
+    for t in range(2, n):
+        x[t] = 0.5 * x[t - 1] - 0.3 * x[t - 2] + e[t, 0]
+        y[t] = 0.4 * y[t - 1] - 0.2 * y[t - 2] + 0.5 * x[t - 1] + 0.3 * x[t - 2] + e[t, 1]
+    return x, y
+
+
+#: Median relative difference over frequencies between the Wilson-factorized and the parametric
+#: x-to-y spectrum at the true order (N = 4000, nperseg = 64, the same 33-point grid). Measured
+#: 0.1406, 0.1367 and 0.2008 at seeds 0, 1, 2; pinned at 1.5 x the worst.
+NONPARAMETRIC_TOLERANCE = 0.30125
+
+
+class TestDefaultPathIsUnchanged:
+    """The default path of each estimator gives the value it gave before the nonparametric
+    route and the time-reversal control were added."""
+
+    def test_granger_default_x_to_y_is_pinned(self):
+        x, y = _var2_x_to_y(0)
+        result = granger(x, y, order=2)
+        np.testing.assert_allclose(result.x_to_y, 0.4295609166523047, rtol=1e-12)
+
+    def test_granger_spectral_default_x_to_y_is_pinned(self):
+        x, y = _var2_x_to_y(0)
+        result = granger_spectral(x, y, fs=500.0, order=2)
+        np.testing.assert_allclose(result.x_to_y, 0.4289358751148893, rtol=1e-12)
+
+
+class TestNonparametricRefusals:
+    """Inputs the nonparametric route cannot use are refused, not accepted and dropped."""
+
+    def test_a_var_order_is_not_an_argument_of_the_route(self):
+        x, y = _var2_x_to_y(0)
+        with pytest.raises(TypeError):
+            jnwb.granger_nonparametric(x, y, fs=500.0, bands=(0.0, 250.0), order=2)
+
+    def test_bands_are_required_and_none_is_refused(self):
+        x, y = _var2_x_to_y(0)
+        with pytest.raises(TypeError):
+            jnwb.granger_nonparametric(x, y, fs=500.0)
+        with pytest.raises(ValueError, match="needs bands"):
+            jnwb.granger_nonparametric(x, y, fs=500.0, bands=None)
+
+    @pytest.mark.parametrize("fs", [0.0, -1.0, float("nan"), float("inf")])
+    def test_a_non_positive_or_non_finite_fs_is_refused(self, fs):
+        x, y = _var2_x_to_y(0)
+        with pytest.raises(ValueError, match="positive fs"):
+            jnwb.granger_nonparametric(x, y, fs=fs, bands=(0.0, 250.0))
+
+    @pytest.mark.parametrize("n_freqs", [1, 2.5, True])
+    def test_n_freqs_below_two_or_not_an_integer_is_refused(self, n_freqs):
+        x, y = _var2_x_to_y(0)
+        with pytest.raises(ValueError, match="n_freqs"):
+            jnwb.granger_nonparametric(x, y, fs=500.0, bands=(0.0, 250.0), n_freqs=n_freqs)
+
+    def test_a_record_too_short_for_one_segment_names_n_freqs_and_the_length(self):
+        x, y = _var2_x_to_y(0, n=200)
+        with pytest.raises(ValueError, match=r"n_freqs=256 .* 200 samples"):
+            jnwb.granger_nonparametric(x, y, fs=500.0, bands=(0.0, 250.0))
+
+    def test_non_convergence_is_raised_and_names_the_count_and_the_residual(self, monkeypatch):
+        import jnwb.connectivity._granger as granger_module
+
+        monkeypatch.setattr(granger_module, "_WILSON_MAX_ITER", 1)
+        x, y = _var2_x_to_y(0)
+        with pytest.raises(RuntimeError, match=r"in 1 iteration.*residual"):
+            jnwb.granger_nonparametric(x, y, fs=500.0, bands=(0.0, 250.0), n_freqs=251)
+
+    @pytest.mark.parametrize("order", ["auto", 0, 2.5, True])
+    def test_time_reversed_refuses_auto_and_anything_but_a_fixed_integer(self, order):
+        x, y = _var2_x_to_y(0)
+        with pytest.raises(ValueError, match="order"):
+            jnwb.granger_time_reversed(x, y, order=order)
+
+
+class TestNonparametricSpectrum:
+    def test_the_frequency_grid_is_the_granger_spectral_grid(self):
+        x, y = _var2_x_to_y(0)
+        result = jnwb.granger_nonparametric(x, y, fs=500.0, n_freqs=33, bands=(0.0, 250.0))
+        np.testing.assert_allclose(result.spectrum["freqs"], np.linspace(0.0, 250.0, 33))
+        assert result.params["nperseg"] == 64 and result.params["noverlap"] == 32
+
+    def test_the_x_to_y_spectrum_stays_within_its_pinned_gap_of_the_parametric_at_the_true_order(self):
+        worst = 0.0
+        for seed in (0, 1, 2):
+            x, y = _var2_x_to_y(seed)
+            parametric = granger_spectral(x, y, fs=500.0, order=2, n_freqs=33)
+            nonparametric = jnwb.granger_nonparametric(x, y, fs=500.0, n_freqs=33, bands=(0.0, 250.0))
+            np.testing.assert_allclose(
+                nonparametric.spectrum["freqs"], parametric.spectrum["freqs"]
+            )
+            ref = parametric.spectrum["gc_x_to_y"]
+            assert parametric.x_to_y > 0.2, "fixture must carry the x-to-y coupling"
+            assert np.all(ref > 0.0), "the relative difference needs a non-zero reference"
+            rel = np.abs(nonparametric.spectrum["gc_x_to_y"] - ref) / np.abs(ref)
+            worst = max(worst, float(np.median(rel)))
+        assert worst <= NONPARAMETRIC_TOLERANCE, (
+            f"median relative difference {worst:.4f} exceeds the pinned {NONPARAMETRIC_TOLERANCE}"
+        )
+
+    def test_wilson_recovers_a_known_var2_factor_exactly(self):
+        """The factorization with no estimation error. The spectral matrix of the VAR(2) that
+        `_var2_x_to_y` simulates, sampled on a 64-point grid, is factorized by Wilson's iteration;
+        the innovation covariance and the transfer matrices come back to rtol 1e-6."""
+        from jnwb.connectivity._granger import _wilson_factor
+
+        a1 = np.array([[0.5, 0.0], [0.5, 0.4]])
+        a2 = np.array([[-0.3, 0.0], [0.3, -0.2]])
+        n = 64
+        eye = np.eye(2)
+        h_true = np.empty((n, 2, 2), dtype=complex)
+        for k in range(n):
+            w = 2.0 * np.pi * k / n
+            h_true[k] = np.linalg.inv(eye - a1 * np.exp(-1j * w) - a2 * np.exp(-2j * w))
+        assert np.max(np.abs(h_true - eye)) > 0.1, "the transfer must be non-trivial"
+        s_true = h_true @ np.conj(np.swapaxes(h_true, -1, -2))
+        psi, _, residual = _wilson_factor(s_true, 500, 1e-10)
+        assert residual < 1e-10
+        psi0 = np.fft.ifft(psi, axis=0)[0]
+        sigma = (psi0 @ np.conj(psi0.T)).real
+        h = psi[: n // 2 + 1] @ np.linalg.inv(psi0)
+        np.testing.assert_allclose(sigma, eye, rtol=1e-6, atol=1e-12)
+        np.testing.assert_allclose(
+            h, h_true[: n // 2 + 1], rtol=1e-6, atol=1e-6 * np.max(np.abs(h_true))
+        )
+
+    def test_a_constant_input_gives_nan_and_says_so(self):
+        x, y = _var2_x_to_y(0)
+        result = jnwb.granger_nonparametric(np.ones_like(x), y, fs=500.0, n_freqs=33, bands=(0.0, 250.0))
+        assert np.isnan(result.x_to_y) and np.isnan(result.y_to_x)
+        assert np.all(np.isnan(result.spectrum["gc_x_to_y"]))
+        assert "constant_input" in result.diagnostics["warnings"]
+        assert result.p_x_to_y is None, "no surrogate test runs on a constant input"
+
+    def test_y_to_x_stays_below_its_surrogate_95th_percentile(self):
+        x, y = _var2_x_to_y(0)
+        n = len(y)
+        shifts = np.random.default_rng(0).integers(n // 10, n - n // 10, size=99)
+        bands = (0.0, 250.0)
+        observed = jnwb.granger_nonparametric(x, y, fs=500.0, n_freqs=251, bands=bands)
+        null_yx = np.array([
+            jnwb.granger_nonparametric(x, np.roll(y, s), fs=500.0, n_freqs=251, bands=bands).y_to_x
+            for s in shifts
+        ])
+        null_xy = np.array([
+            jnwb.granger_nonparametric(np.roll(x, s), y, fs=500.0, n_freqs=251, bands=bands).x_to_y
+            for s in shifts
+        ])
+        assert np.ptp(null_yx) > 0.0, "the surrogate null must not be degenerate"
+        assert observed.x_to_y > np.percentile(null_xy, 95), (
+            "the coupled direction must sit above its own surrogate null"
+        )
+        assert observed.y_to_x < np.percentile(null_yx, 95), (
+            "y to x must stay below its surrogate 95th percentile"
+        )
+
+    def test_the_reported_entropy_reproduces_the_surrogate_p_values(self):
+        x, y = _var2_x_to_y(0, n=1000)
+        first = jnwb.granger_nonparametric(
+            x, y, fs=500.0, n_freqs=33, bands=(0.0, 250.0), n_surrogates=19, rng=None,
+        )
+        again = jnwb.granger_nonparametric(
+            x, y, fs=500.0, n_freqs=33, bands=(0.0, 250.0), n_surrogates=19,
+            rng=first.params["surrogate_seed_entropy"],
+        )
+        assert first.params["surrogate_scheme"] in ("trial_permutation", "circular_shift")
+        assert first.p_x_to_y == again.p_x_to_y and first.p_y_to_x == again.p_y_to_x
+
+    def test_a_known_var2_flow_reads_strong_forward_and_near_zero_back(self):
+        """Planted values. The fixture feeds y from x at lags 1 and 2 with unit innovations,
+        so the Wilson-factorized spectral Geweke integrates to ~0.46 forward and ~0.04 back:
+        x_to_y above 0.2, y_to_x below 0.05 and a positive net at seeds 0 and 1."""
+        seen = set()
+        for seed in (0, 1):
+            x, y = _var2_x_to_y(seed)
+            result = jnwb.granger_nonparametric(x, y, fs=500.0, bands=(0.0, 250.0))
+            assert result.x_to_y > 0.2, f"seed {seed}: forward flow {result.x_to_y:.4f} lost"
+            assert result.y_to_x < 0.05, f"seed {seed}: reverse flow {result.y_to_x:.4f} too high"
+            assert result.net > 0.0, f"seed {seed}: the net must stay positive"
+            seen.add(round(result.x_to_y, 6))
+        assert len(seen) == 2, "two seeds must change the estimate"
+
+
+class TestTimeReversedControl:
+    """The control's bookkeeping, on a fixture with a known unidirectional flow."""
+
+    def test_the_forward_flows_are_the_granger_flows_and_the_flip_is_the_sign_of_the_product(self):
+        x, y = _var2_x_to_y(0)
+        result = jnwb.granger_time_reversed(x, y, order=2)
+        forward = granger(x, y, order=2)
+        assert result.x_to_y == forward.x_to_y and result.y_to_x == forward.y_to_x
+        assert result.net == forward.net
+        assert result.diagnostics["net_forward"] == forward.net
+        assert result.diagnostics["sign_flip"] == bool(
+            result.diagnostics["net_forward"] * result.diagnostics["net_reversed"] < 0
+        )
+
+    def test_the_warning_and_the_verdict_follow_the_sign_flip(self):
+        x, y = _var2_x_to_y(0)
+        result = jnwb.granger_time_reversed(x, y, order=2)
+        flipped = result.diagnostics["sign_flip"]
+        warnings = result.diagnostics["warnings"]
+        assert ("no_sign_flip_on_time_reversal" in warnings) == (not flipped)
+        assert result.diagnostics["ok_for_interpretation"] == (len(warnings) == 0)
+        assert result.ok == (len(warnings) == 0)
+
+    def test_surrogate_p_values_are_reported_and_p_net_is_the_forward_one(self):
+        x, y = _var2_x_to_y(0, n=1000)
+        result = jnwb.granger_time_reversed(x, y, order=2, n_surrogates=19, rng=3)
+        assert result.p_net == result.diagnostics["p_net_forward"]
+        for key in ("p_net_forward", "p_net_reversed"):
+            assert 0.0 < result.diagnostics[key] <= 1.0
+        assert result.p_x_to_y is None and result.per_band == {}
+
+    def test_the_reported_entropy_reproduces_the_surrogate_p_values(self):
+        x, y = _var2_x_to_y(0, n=1000)
+        first = jnwb.granger_time_reversed(x, y, order=2, n_surrogates=19, rng=None)
+        again = jnwb.granger_time_reversed(
+            x, y, order=2, n_surrogates=19, rng=first.params["surrogate_seed_entropy"],
+        )
+        assert first.diagnostics["p_net_forward"] == again.diagnostics["p_net_forward"]
+        assert first.diagnostics["p_net_reversed"] == again.diagnostics["p_net_reversed"]
+
+    def test_a_unidirectional_flow_flips_its_sign_under_time_reversal(self):
+        """Planted values. Reversal swaps lead and lag, so the fixture's +0.43 forward net
+        returns as -0.42 reversed: net_forward above 0.3, net_reversed below -0.3 and
+        sign_flip set, at seeds 0 and 1."""
+        for seed in (0, 1):
+            x, y = _var2_x_to_y(seed)
+            result = jnwb.granger_time_reversed(x, y, order=2)
+            assert result.diagnostics["net_forward"] > 0.3, (
+                f"seed {seed}: forward net {result.diagnostics['net_forward']:.4f} lost"
+            )
+            assert result.diagnostics["net_reversed"] < -0.3, (
+                f"seed {seed}: reversed net {result.diagnostics['net_reversed']:.4f} kept its sign"
+            )
+            assert result.diagnostics["sign_flip"], f"seed {seed}: the flip was not reported"
+
+
+def test_a_zero_spectral_denominator_is_undefined_not_zero_influence():
+    """A transfer matrix whose partialled diagonal is zero leaves Geweke's ratio undefined at
+    that frequency; it reads NaN, never the 0 of no influence."""
+    from jnwb.connectivity._granger import _geweke_gc
+
+    sigma = np.eye(2)
+    degenerate = np.zeros((1, 2, 2), dtype=complex)
+    degenerate[0, 1, 1] = 1.0
+    assert abs(degenerate[0, 0, 0] + sigma[0, 1] / sigma[0, 0] * degenerate[0, 0, 1]) == 0, (
+        "fixture must zero the Y->X denominator"
+    )
+    y_to_x, x_to_y = _geweke_gc(degenerate, sigma)
+    assert np.isnan(y_to_x[0])
+    assert np.isfinite(x_to_y[0])
+
+
+def test_the_trial_permutation_draws_the_nine_derangements_of_four_uniformly(monkeypatch):
+    """Each of the 9 derangements of four trials should be drawn with equal frequency. The
+    trial-permutation branch runs from 7 trials up, so its threshold is lowered to 4 here to
+    reach it at four trials; the trial index of each output row identifies the permutation."""
+    from collections import Counter
+
+    from jnwb.connectivity import _common
+
+    monkeypatch.setattr(_common, "_MIN_TRIALS_FOR_TRIAL_PERMUTATION", 4)
+    assert _common._surrogate_scheme(4) == "trial_permutation", "precondition: the branch runs"
+    a = np.arange(4.0)[:, None] * np.ones((4, 5))
+    rng = np.random.default_rng(0)
+    draws = [tuple(int(v) for v in _common._surrogate_source(a, rng)[:, 0]) for _ in range(10000)]
+    assert all(all(p[i] != i for i in range(4)) for p in draws), "a draw keeps a trial's partner"
+    counts = Counter(draws)
+    assert len(counts) == 9, f"expected all 9 derangements of 4 trials, saw {sorted(counts)}"
+    keys = sorted(counts)
+    _, p_value = stats.chisquare([counts[k] for k in keys], np.full(9, 10000 / 9))
+    assert p_value > 0.01, f"chi-square p = {p_value} over {dict(counts)}"
+
+
+def test_directed_network_corrects_its_family_through_the_fdr_owner(monkeypatch):
+    from jnwb.statistics._analysis import StatisticalAnalysis
+
+    calls = []
+    original = StatisticalAnalysis.fdr_correct
+
+    def spy(p_values, method="bh"):
+        calls.append(np.asarray(p_values).size)
+        return original(p_values, method=method)
+
+    monkeypatch.setattr(StatisticalAnalysis, "fdr_correct", staticmethod(spy))
+    signals = np.random.default_rng(4).normal(size=(3, 800))
+    directed_network(signals, method="granger", order=2, fdr=True)
+    assert calls == [6], f"the six off-diagonal p-values go through the owner, got {calls}"
+
+
+def test_directed_network_keeps_its_q_values_on_a_fixed_input():
+    signals = np.random.default_rng(4).normal(size=(3, 800))
+    q = directed_network(signals, method="granger", order=2, fdr=True)["q_matrix"]
+    off = ~np.eye(3, dtype=bool)
+    np.testing.assert_allclose(
+        q[off],
+        [0.9662791037032177, 0.5622007263736049, 0.35949900918963834,
+         0.9662791037032177, 0.5622007263736049, 0.9662791037032177],
+        rtol=1e-12)

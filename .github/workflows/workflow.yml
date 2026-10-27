@@ -36,21 +36,26 @@ concurrency:
 
 jobs:
   qualified:
-    # A release tag is pushed onto a commit dev has already tested. On a `v*` tag push, when a
-    # dev push run of this workflow at the same commit concluded success, `run_id` names that
+    # A release tag is pushed onto a commit main has already tested. On a `v*` tag push, when a
+    # main push run of this workflow at the same commit concluded success, `run_id` names that
     # run and the test and floors legs skip their steps, saying which run tested the commit.
     # The build still runs, so the files TestPyPI and then PyPI receive are built and checked in
     # this run. Every other event, no such run, and a failed query leave `run_id` empty, and
     # every leg runs in full.
-    name: Find a passed dev run of this commit
+    name: Find a passed main run of this commit
     runs-on: ubuntu-latest
     permissions:
-      actions: read  # To read this commit's dev push runs
+      actions: read  # To read this commit's main push runs
       contents: read
     outputs:
       run_id: ${{ steps.find.outputs.run_id }}
     steps:
-      - name: Look up a successful dev push run at this commit
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          # The token only reads runs; nothing after checkout needs it in .git/config.
+          persist-credentials: false
+
+      - name: Look up a successful main push run at this commit
         id: find
         shell: bash
         env:
@@ -63,18 +68,18 @@ jobs:
           run_id=""
           case "$EVENT_REF" in
             push:refs/tags/v*)
-              if ! run_id=$(gh api "repos/$REPO/actions/runs?event=push&branch=dev&head_sha=$SHA&status=success&per_page=100" \
-                  --jq '[.workflow_runs[] | select(.head_sha == env.SHA and .head_branch == "dev" and .path == ".github/workflows/workflow.yml" and .conclusion == "success")][0].id // empty'); then
+              if ! run_id=$(gh api "repos/$REPO/actions/runs?event=push&branch=main&head_sha=$SHA&status=success&per_page=100" \
+                  | python3 scripts/workflow_checks.py qualifying-run --sha "$SHA"); then
                 echo "::warning::the Actions API could not be read; this run tests the commit"
                 run_id=""
               fi ;;
           esac
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
-          echo "Passed dev push run of $SHA: ${run_id:-none, so this run tests the commit}"
+          echo "Passed main push run of $SHA: ${run_id:-none, so this run tests the commit}"
 
   test:
     name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
-    # On a tag push that `qualified` matched to a passed dev run, every step after the first is
+    # On a tag push that `qualified` matched to a passed main run, every step after the first is
     # skipped; the job stays, because build needs it and a skipped job would skip the build and
     # every publish job after it.
     needs: qualified
@@ -101,7 +106,7 @@ jobs:
             figures: compared
 
     steps:
-      - name: Report the dev push run that tested this commit
+      - name: Report the main push run that tested this commit
         if: env.QUALIFIED_BY != ''
         shell: bash
         run: echo "Tested in run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$QUALIFIED_BY"
@@ -196,7 +201,7 @@ jobs:
       QUALIFIED_BY: ${{ needs.qualified.outputs.run_id }}
 
     steps:
-      - name: Report the dev push run that tested this commit
+      - name: Report the main push run that tested this commit
         if: env.QUALIFIED_BY != ''
         shell: bash
         run: echo "Tested in run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$QUALIFIED_BY"
@@ -343,6 +348,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install ".[test,docs]" build twine
+
+      - name: Build artifacts/state.md for the pre-flight gate
+        # Gate 20 reads artifacts/state.md and passes over it while the file is absent, as on a
+        # fresh checkout, so this job builds the state before it runs the gate.
+        run: python scripts/reconstruct_state.py
 
       - name: Run pre-flight harness gate
         run: |
@@ -645,13 +655,76 @@ jobs:
           packages-dir: dist/
           verbose: true
 
+  verify-pypi:
+    # The release as PyPI serves it: the tag's version installed from PyPI into a fresh environment,
+    # its wheel checked against this run's build artifact before anything is installed, then the
+    # smoke script the TestPyPI verification runs. Like publish-pypi, it runs only for a final
+    # release, and it names verify-testpypi in `needs:` because its `if:` reads that job's output.
+    name: Verify the PyPI upload
+    needs: [verify-testpypi, publish-pypi]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && needs.verify-testpypi.outputs.final == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+
+      - name: Download the distribution artifacts of this run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Install the tag's version from PyPI and smoke-test it
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          python -m venv /tmp/pypi_env
+          /tmp/pypi_env/bin/pip install --upgrade pip
+          # The index can lag the upload by minutes; ten attempts, thirty seconds apart.
+          for attempt in $(seq 1 10); do
+            if /tmp/pypi_env/bin/pip download --no-cache-dir --no-deps --only-binary :all: \
+                --index-url https://pypi.org/simple/ "jnwb==$version" -d /tmp/candidate; then
+              break
+            fi
+            if [ "$attempt" -eq 10 ]; then
+              echo "::error::jnwb==$version could not be downloaded from PyPI"
+              exit 1
+            fi
+            sleep 30
+          done
+          wheels=(/tmp/candidate/jnwb-*.whl)
+          if [ "${#wheels[@]}" -ne 1 ] || [ ! -f "${wheels[0]}" ]; then
+            echo "::error::expected one jnwb wheel from PyPI, found: ${wheels[*]}"
+            exit 1
+          fi
+          # The wheel PyPI serves must be the one this run built and uploaded, byte for byte.
+          python scripts/workflow_checks.py same-wheel dist/*.whl "${wheels[0]}"
+          /tmp/pypi_env/bin/pip install --no-cache-dir "${wheels[0]}"
+          /tmp/pypi_env/bin/pip check
+          cd /tmp
+          # PYTHONPATH is cleared, as in the tutorial step of the build job, so the checkout cannot
+          # satisfy the import.
+          unset PYTHONPATH
+          /tmp/pypi_env/bin/python "$GITHUB_WORKSPACE/scripts/smoke_installed.py" \
+            --expected-version "$version" --not-under "$GITHUB_WORKSPACE"
+
   github-release:
     name: Create the GitHub Release
-    # After the PyPI upload, in the same run. The notes are written by scripts/release_body.py:
-    # the pinned install command, the supported Python range and the version's CHANGELOG.md
-    # section, checked by the release gate's body check before the Release is created. A
-    # violation fails the job before `gh release create` runs. The only job that can write.
-    needs: publish-pypi
+    # After the PyPI upload and its check, in the same run. The notes are written by
+    # scripts/release_body.py: the pinned install command, the supported Python range and the
+    # version's CHANGELOG.md section, checked by the release gate's body check before the Release
+    # is created. A violation fails the job before `gh release create` runs. The only job that
+    # can write.
+    needs: verify-pypi
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:

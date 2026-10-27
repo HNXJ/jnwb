@@ -1,6 +1,6 @@
 """The derived cache is excluded by path, so no suffix can carry it into the index.
 
-Recorded as P-10. ``artifacts/developer/.cache/`` held 6.7 GB across 88 files, excluded only by
+``artifacts/developer/.cache/`` held 6.7 GB across 88 files, excluded only by
 the blanket extension rules: ``*.pkl`` matched 66 of those files and ``*.json`` the other 22. The
 directory itself matched nothing. A cache file written with any other suffix -- a ``.tmp``, a
 partial write, a lock -- was untracked and visible in ``git status``, one careless ``git add -A``
@@ -10,14 +10,14 @@ The repair must not be "add the missing extension". That is the same defect with
 and the next suffix escapes it again. So these tests pin the shape of the rule and not only its
 effect: the cache is unreachable whatever the suffix, and the rule reaching it is a path rule. A
 mutant that swaps the path rule for ``*.tmp`` satisfies "the probe is ignored" and is rejected
-here, because satisfying that alone is what P-10 already was.
+here, because satisfying that alone is what the defect already was.
 
 The extension rules stay, and are tested to stay: they cover ``*.pkl`` and ``*.json`` everywhere
 else in the repository, which a rule anchored at the cache path cannot.
 
 Nothing here writes inside the repository. The end-to-end ``git status`` check builds a throwaway
 repository from this one's ``.gitignore`` bytes, because creating the cache directory in the real
-worktree would make ``artifacts/developer/.cache/`` a write target of item 06-73, which declares
+worktree would make ``artifacts/developer/.cache/`` a write target of a separate change, which declares
 only ``.gitignore`` and this file.
 """
 
@@ -30,7 +30,7 @@ import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-# The directory P-10 names. A git pathspec, so forward slashes on every platform.
+# The cache directory. A git pathspec, so forward slashes on every platform.
 CACHE_DIR = "artifacts/developer/.cache"
 
 # Suffixes that no extension rule in .gitignore covers; each was confirmed to escape before the
@@ -78,7 +78,7 @@ def _requires_checkout() -> None:
     if not (REPO_ROOT / ".git").exists():
         pytest.skip("not a git checkout: .gitignore semantics cannot be evaluated")
     if not (REPO_ROOT / ".gitignore").is_file():
-        pytest.fail("the repository has no .gitignore, so P-10 cannot be pinned")
+        pytest.fail("the repository has no .gitignore, so the cache rule cannot be pinned")
 
 
 class TestCacheIsExcludedByPath:
@@ -87,7 +87,7 @@ class TestCacheIsExcludedByPath:
         is_ignored, pattern = _check_ignore(CACHE_DIR + "/")
         assert is_ignored, (
             f"{CACHE_DIR}/ is not ignored, so the derived cache is reachable by "
-            "`git add -A`. That is P-10 exactly."
+            "`git add -A`. That is the defect exactly."
         )
         assert not pattern.startswith("*."), (
             f"{CACHE_DIR}/ is ignored by {pattern!r}, an extension rule."
@@ -95,7 +95,7 @@ class TestCacheIsExcludedByPath:
 
     @pytest.mark.parametrize("name", ESCAPING_NAMES)
     def test_any_suffix_under_the_cache_is_ignored(self, name: str) -> None:
-        """The property P-10 lacked: the suffix does not decide."""
+        """The property the extension rules lacked: the suffix does not decide."""
         path = f"{CACHE_DIR}/{name}"
         is_ignored, _ = _check_ignore(path)
         assert is_ignored, (
@@ -112,8 +112,8 @@ class TestCacheIsExcludedByPath:
         path = f"{CACHE_DIR}/{name}"
         _, pattern = _check_ignore(path)
         assert not pattern.startswith("*."), (
-            f"{path} is excluded by {pattern!r}, an extension rule. P-10 *is* the practice of "
-            "excluding this cache by extension; a longer list of extensions is not a repair."
+            f"{path} is excluded by {pattern!r}, an extension rule. Excluding the cache by extension is the defect; "
+            "a longer list of extensions is not a repair."
         )
         assert ".cache" in pattern or "artifacts/developer" in pattern, (
             f"{path} is excluded by {pattern!r}, which does not name the cache path. "
@@ -170,7 +170,7 @@ class TestTheFixIsNotOverbroad:
 
 
 class TestGitStatusCannotSeeTheCache:
-    """06-73 states its discriminator in terms of `git status`, so one test says it that way.
+    """The discriminator is stated in terms of `git status`, so one test says it that way.
 
     Built in a throwaway repository rather than this one: the real worktree must not gain an
     `artifacts/developer/.cache/` directory as a side effect of running the suite.

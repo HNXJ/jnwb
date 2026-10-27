@@ -1,3 +1,4 @@
+import hashlib
 import importlib
 import re
 import pathlib
@@ -33,6 +34,19 @@ def test_compress_fp32_dst_exists_raises_file_exists(tmp_path):
 
     with pytest.raises(FileExistsError):
         jnwb.compress_fp32(src, dst, overwrite=False, select=[])
+
+
+@pytest.mark.parametrize("spelling", ["same", "dotdot"])
+def test_compress_fp32_dst_resolving_to_src_raises_and_leaves_src_unchanged(tmp_path, spelling):
+    src = _lfp_only_file(tmp_path / "same.nwb", (64, 4))
+    dst = src if spelling == "same" else tmp_path / ".." / tmp_path.name / "same.nwb"
+    assert dst.resolve() == src.resolve(), "fixture must name the source through dst"
+    before = hashlib.sha256(src.read_bytes()).hexdigest()
+
+    with pytest.raises(ValueError, match="dst resolves to src"):
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[LFP])
+
+    assert hashlib.sha256(src.read_bytes()).hexdigest() == before
 
 
 def test_compress_fp32_unrecognized_processing_raises_key_error(tmp_path):
@@ -456,7 +470,7 @@ class TestVerifyRoundtripChecksTheCollapsedTimestamps:
 
 
 # --------------------------------------------------------------------------------------------
-# 06-79 / P-47: the chunk shape must follow the dataset's rank.
+# The chunk shape must follow the dataset's rank.
 # --------------------------------------------------------------------------------------------
 
 
@@ -474,7 +488,7 @@ def _lfp_only_file(path, shape, dtype=np.float64, seed=0):
 
 
 class TestChunkShapeFollowsTheDatasetRank:
-    """P-47. All three call sites built `(min(cap, shape[0]), n)` unconditionally, so anything
+    """All three call sites built `(min(cap, shape[0]), n)` unconditionally, so anything
     that was not rank 2 raised `ValueError: 'chunks' must have same rank as dataset shape`.
 
     The proxy to avoid: "a 1-D file compresses without raising" passes if the repair hands
@@ -503,7 +517,7 @@ class TestChunkShapeFollowsTheDatasetRank:
 
     @pytest.mark.parametrize("shape", [(1, 1), (500, 4), (16384, 8), (16385, 8), (40000, 3)])
     def test_the_2d_chunk_shape_is_exactly_what_it_was_before(self, shape):
-        """The Stop condition on 06-79 is that corpus 2-D chunking must not change at all.
+        """The stop condition is that corpus 2-D chunking must not change at all.
 
         This is the pre-change expression, verbatim: `n` was `shape[1]` whenever `ndim == 2`,
         so the derived tuple must equal it for every 2-D shape, not merely for one fixture.
@@ -527,7 +541,7 @@ class TestChunkShapeFollowsTheDatasetRank:
         with pytest.raises(ValueError, match="rank-0"):
             _chunk_shape((), self.CAP)
 
-    # P-47 names THREE call sites -- LFP, spike_train and convolved_spike_train. A mutation run
+    # The defect has THREE call sites -- LFP, spike_train and convolved_spike_train. A mutation run
     # showed the tests above cover only the LFP one: reverting either of the other two to the
     # rank-2 tuple was not caught, because no fixture gave those datasets a rank but 2.
     ALL_THREE = [
@@ -569,7 +583,7 @@ class TestChunkShapeFollowsTheDatasetRank:
 
 
 # --------------------------------------------------------------------------------------------
-# 06-78 / P-48: the preserved series needs a dtype test before anything can claim it survives.
+# The preserved series needs a dtype test before anything can claim it survives.
 # --------------------------------------------------------------------------------------------
 
 
@@ -591,7 +605,7 @@ def _file_with_convolved(path, conv_dtype, n=200, n_units=4, seed=3):
 
 
 class TestConvolvedSpikeTrainIsPreservedExactly:
-    """P-48. `convolved_spike_train` appeared twice in this file, both times in fixture
+    """`convolved_spike_train` appeared twice in this file, both times in fixture
     construction, with nothing asserted about it. Three candidate policies downcast it while
     passing all 15 tests, so "the contract survives" was a claim about an unenforced rule.
 
@@ -649,7 +663,7 @@ class TestConvolvedSpikeTrainIsPreservedExactly:
 
 
 # --------------------------------------------------------------------------------------------
-# 06-66 / P-30: the provenance stamp must name something that exists.
+# The provenance stamp must name something that exists.
 # --------------------------------------------------------------------------------------------
 
 _DOTTED = re.compile(r"^[A-Za-z_][\w.]*$")
@@ -661,7 +675,7 @@ def _resolves_in_this_tree(value: str) -> bool:
 
     Two admissible forms: a repository-relative file path, resolved against the tree, and a
     dotted attribute path, resolved by importing the longest importable prefix and walking the
-    rest. Anything else does not resolve. This is the check whose ABSENCE let P-30 survive a
+    rest. Anything else does not resolve. This is the check whose ABSENCE let unresolvable stamps survive a
     release -- nothing ever resolved the stamp.
     """
     value = value.strip()
@@ -707,7 +721,7 @@ class TestTheResolverDiscriminates:
 
 
 class TestWrittenProvenanceResolves:
-    """P-30. 22 of 22 real sessions stamp a script that is not in the repository, and newly
+    """22 of 22 real sessions stamp a script that is not in the repository, and newly
     written files still minted it.
 
     The proxy to avoid, twice over. (1) `assert stamp == "jnwb.compress_fp32"` pins a spelling,

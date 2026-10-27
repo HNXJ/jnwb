@@ -66,7 +66,8 @@ to pass instead, are listed on [Errors](errors.md).
 `jnwb.Question`, in the order drawn above, and returns a `Preflight` whose `outcome`, `reason`
 and `missing` a script can score. The caller declares an unsupported inference
 (`unsupported_inference`) or a non-identifiable result (`non_identifiable`); the required inputs
-are `signals`, `signal_units`, `contrast` and `inference_unit`.
+are `signals`, `signal_units`, `contrast` and `inference_unit`. Given `input_path`, the outcome
+names that file by `input_sha256` and `input_path`.
 
 ## From NWB file to result
 
@@ -177,6 +178,7 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 | `nwb_inspect` | NWB file discovery: acquisitions, units, electrodes and interval tables | `inspect`, `unit_spike_times`, `acquisition_channel`, `resolve_acquisition` |
 | `nwb_integrity` | Read-only ragged-index and waveform-block checks of an NWB table and one guarded index repair | `check_ragged_indices`, `repair_ragged_index`, `RaggedIndexReport`, `RaggedIndexRepair`, `RaggedIndexRepairRefused`, `check_waveform_blocks`, `WaveformBlockReport` |
 | `nwb_validate` | Layered NWB validation: read, pynwb schema (cached and installed core), integrity, NWB Inspector, DANDI | `validate_nwb`, `NWBValidationReport` |
+| `nwb_write` | Re-reading and checking one written NWB file, with or without its source | `verify_nwb` |
 | `nwb_events` | Event codes and onsets from a named interval table | `events`, `event_onsets`, `resolve_interval_table`, `EventTable` |
 | `nwb_io` | NWB reads with scoped builder repairs; a missing required field is refused unless named in `allow_missing` | `read_nwb`, `nwb_read_io`, `MissingRequiredNWBFieldError`, `SqueezedAttributeWarning`, `ContainerTypeContradictionWarning` |
 | `continuous` | Epoching a continuous signal around event onsets | `epoch_continuous` |
@@ -208,3 +210,4 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 | `visual_qc` | Multi-panel unit waveform and session QC figures | `visual_qc` |
 | `viz` | Publication vector graphics standards & multi-panel saving | `setup_vector_graphics`, `apply_tight_auto_axis`, `save_figure_suite`, `resample_onsets`, `raster_psth` |
 | `vis` | Plotly figures; needs the optional `vis` extra ([Plotly Figures](vis.md)) | `vis` |
+| `execution` | Caller-held records of what ran where, and a filesystem result cache ([Execution](execution.md)) | `ExecutionRecord`, `cache_key`, `cache_store`, `cache_load`, `cache_clear` |

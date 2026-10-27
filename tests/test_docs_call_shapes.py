@@ -8,14 +8,14 @@ they are not runnable, and an execute-everything test skips exactly the pages wh
 drift is. These parse the blocks instead, which needs no fixtures and covers fragments.
 
 **Why this module's coverage is asserted rather than described.** The first version of it
-was green while ten documented-call defects were found by hand (P-84), for three recorded
+was green while ten documented-call defects were found by hand, for three recorded
 reasons and a fourth found while repairing them -- all coverage rather than logic. The three:
 the positional check compared
 `len(node.args) > len(slots)` and so never saw a call with *too few* arguments; the collector
 required the receiver to be the bare name `jnwb`, so every `jnwb.visual_qc.f(...)` was
 skipped outright; and `docs/10_operation_specifications.md` contains no ```python fence at
 all, so the page documenting the most operations was not in the corpus. The fourth is at
-`_collect_jnwb_imports`, and it was found only because reintroducing P-78 as a discriminator
+`_collect_jnwb_imports`, and it was found only because reintroducing the partial under-reach as a discriminator
 did not fail: fixing the three recorded causes was not sufficient to catch it.
 A docstring claiming otherwise is what let all of this stand. `COVERED_PAGES`, `CALL_FORMS`,
 `SPEC_ROW_COUNT` and
@@ -89,16 +89,17 @@ COVERED_PAGES = frozenset({
     "docs/recipes.md",
     "docs/repairing_nwb.md",
     "docs/vis.md",
+    "docs/writing_nwb.md",
 })
 
-#: Receiver shapes the collector resolves. The third and fourth were added by 06-100; before
+#: Receiver shapes the collector resolves. The third and fourth were added by a later change; before
 #: it, a call reached through a submodule or through an aliased import was silently dropped.
 FORM_TOP = "jnwb.<name>(...)"
 FORM_DOTTED = "jnwb.<module>.<name>(...) and deeper"
 FORM_IMPORTED = "<name>(...) where the block imports <name> from jnwb"
 FORM_IMPORTED_ATTR = "<alias>.<name>(...) where the block imports <alias> from jnwb"
 #: How many of each the documentation holds, as a ratchet rather than a bare presence flag.
-#: Presence alone is too weak: P-78 was a *partial* under-reach -- three `stats.<name>(...)`
+#: Presence alone is too weak: the earlier defect was a *partial* under-reach -- three `stats.<name>(...)`
 #: calls were collected and two on the same page were not, so a check asking only whether
 #: the form occurs at all would have stayed green over the defect that was there.
 CALL_FORMS = {
@@ -140,7 +141,7 @@ def _collect_jnwb_imports(tree, into):
 
     Accumulated per *page*, not per block. A documentation page imports once near the top
     and then uses the name in every later fence, so rebuilding this map per block made every
-    such call invisible -- which is how `stats.exploratory_compare(..., rng=...)` (P-78)
+    such call invisible -- which is how `stats.exploratory_compare(..., rng=...)`
     stayed green: the import is in the fence at `docs/07:23-49` and the call is in the one
     at `:59-70`.
     """
@@ -242,7 +243,7 @@ def _walk_page(rel, trees):
                 continue
             obj, form = found
             # `jnwb.f` is one attribute past the root; anything longer went through a
-            # submodule or a class, which is the branch P-84 cause (b) did not have.
+            # submodule or a class, which is the branch the first version did not have.
             if form is FORM_TOP and len(parts) > 2:
                 form = FORM_DOTTED
             elif form is FORM_IMPORTED and len(parts) > 1:
@@ -283,7 +284,7 @@ OBSERVED_FORMS = Counter(form for _, _, _, _, form in CALLS)
 def test_the_sweep_reaches_exactly_the_pages_it_claims_to_reach():
     """The corpus claim, checked in both directions rather than described in prose.
 
-    Under-reach is the P-84 failure: a page silently leaves the corpus and every check stays
+    Under-reach is a failure mode: a page silently leaves the corpus and every check stays
     green. Over-reach matters too -- a page that starts being checked without being declared
     means the declaration is no longer the thing anyone reads it as.
     """
@@ -363,7 +364,7 @@ def test_every_documented_call_binds_against_the_live_signature():
 
     `len(node.args) > len(slots)` cannot see a call that supplies too *few* arguments, which
     is how `build_time_resolved_matrix(spike_matrices)` stayed green against a signature
-    requiring `(session, area, epochs_df)` (P-71). `Signature.bind` is the same rule the
+    requiring `(session, area, epochs_df)`. `Signature.bind` is the same rule the
     interpreter applies at the call site, so missing required arguments, surplus
     positionals and unknown keywords all fail here rather than only two of the three.
     """
@@ -482,7 +483,7 @@ SPEC_RESOLVED = [(op, mod, inp, _resolve_spec_row(op, mod, inp))
 
 
 def test_the_specification_table_is_in_the_corpus_and_every_row_resolves():
-    """P-84 cause (c): this page held two of the ten defects and was never read at all.
+    """This page held two of the ten defects and was never read at all.
 
     A row that stops resolving is the same failure one row at a time -- it silently stops
     being checked -- so an unresolved row fails here rather than being skipped.

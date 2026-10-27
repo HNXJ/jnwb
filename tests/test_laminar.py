@@ -758,7 +758,7 @@ class TestLabelLayers:
 
 
 class TestVFlipRecoveryAndRejectionBroad:
-    """Recovery and rejection test suite for vFLIP (0.2.2-05).
+    """Recovery and rejection test suite for vFLIP.
 
     Directly verifies:
       1. Known crossover recovery across varied probe depths.
@@ -1145,7 +1145,7 @@ class TestVFlipRecoveryAndRejectionBroad:
         assert res_strong.support_score >= DEFAULT_MIN_SUPPORT_SCORE
 
     def test_end_to_end_nwb_geometry_composition(self, tmp_path):
-        """Test full composition: generic NWB -> probe_geometry -> vflip_from_lfp -> label_layers (0.2.2-07)."""
+        """Test full composition: generic NWB -> probe_geometry -> vflip_from_lfp -> label_layers."""
         import pynwb
         from datetime import datetime
         from dateutil.tz import tzutc
@@ -1275,7 +1275,7 @@ class TestVFlipRecoveryAndRejectionBroad:
         assert "Omega" not in source
 
     def test_vflip_support_score_density_invariance(self):
-        """The support score must be invariant to electrode contact density (0.2.3-REV-03)."""
+        """The support score must be invariant to electrode contact density."""
         freqs = np.linspace(2.0, 150.0, 100)
 
         # 1. Physical equivalence: same 1200 um column sampled at 16 vs 64 contacts
@@ -1500,7 +1500,7 @@ class TestVFlipEdges:
         return freqs, psd
 
     def test_a_support_below_every_floor_is_reported_as_measured(self):
-        """P-351, P-353: the score was log(max(1e-12, metric)), so every metric below 1e-12
+        """The score was log(max(1e-12, metric)), so every metric below 1e-12
         read as -27.63 and a caller threshold of -30 accepted it."""
         freqs, psd = self._faint_motif(1e-20)
         res = vflip(psd, freqs, min_support_score=-30.0)

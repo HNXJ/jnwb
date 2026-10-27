@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from jnwb._rng import DEFAULT_SEED, RNGLike, resolve_rng
 from jnwb.unit_quality import _peak_channel
 
 log = logging.getLogger(__name__)
@@ -237,6 +238,7 @@ def plot_unit_quality_distribution(
     snr_threshold: float = 1.0,
     quality_threshold: float = 1.0,
     duration_unit: Optional[str] = "μs",
+    rng: RNGLike = DEFAULT_SEED,
 ) -> plt.Figure:
     """
     Plot quality metric distributions (multi-panel).
@@ -258,6 +260,9 @@ def plot_unit_quality_distribution(
         duration_unit: The unit of ``waveform_duration``, written on its axis; the values
             are drawn as given and never rescaled. Pass the unit of your data; the default
             ``"μs"`` is only a label. ``None`` or ``""`` leaves the unit off.
+        rng: Seeds the horizontal jitter of the quality-by-area points, which is display only.
+            The default seed draws the positions the figure always drew; an int or a Generator
+            draws others.
 
     Returns:
         matplotlib figure
@@ -307,8 +312,8 @@ def plot_unit_quality_distribution(
             area_units = units_df[units_df['area'] == area]
             q_vals_area = pd.to_numeric(area_units['quality'], errors='coerce').dropna()
             if len(q_vals_area) > 0:
-                rng = np.random.default_rng(42)
-                jitter = rng.uniform(-0.15, 0.15, size=len(q_vals_area))
+                jitter_rng = resolve_rng(rng, func_name='plot_unit_quality_distribution')
+                jitter = jitter_rng.uniform(-0.15, 0.15, size=len(q_vals_area))
                 ax.scatter(np.full(len(q_vals_area), x_idx) + jitter, q_vals_area, alpha=0.5, s=20)
 
         ax.set_xticks(range(len(unique_areas)))

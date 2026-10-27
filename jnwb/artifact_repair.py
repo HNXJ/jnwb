@@ -34,8 +34,8 @@ METHOD (cross-trial-median substitution on trial segments)
          repair_band_artifacts, not a temporal interpolation. For every flagged (trial, time),
          ALL channels at that time index are replaced by this cross-trial median. Substitution,
          not exclusion: the trial is kept.
-    Operates on the (n_trials, n_channels, n_times) contract directly. n_trials < 5 disables
-    repair (cross-trial median undefined at low replicate count).
+    Operates on the (n_trials, n_channels, n_times) contract directly. n_trials < 5 is
+    refused (cross-trial median undefined at low replicate count).
 
 UNIT TEST: see `if __name__ == "__main__"` below -- synthetic array with an injected cross-channel
 spike, checked before trusting on real data.
@@ -130,6 +130,19 @@ def interpolate_intervals(seg, intervals):
     return out
 
 
+def _floored_robust_z(values, centre):
+    """Robust z over the last axis: (values - centre) / (1.4826 * MAD), with the MAD floored at
+    1e-9 so a constant channel gives z = 0, not NaN."""
+    mad = np.median(np.abs(values - centre), axis=2, keepdims=True) * 1.4826
+    mad = np.where(mad < 1e-9, 1e-9, mad)
+    return (values - centre) / mad
+
+
+def _pooled_robust_z(resid, scale):
+    """Residual / (1.4826 * pooled MAD scale). The caller refuses a zero scale."""
+    return resid / (1.4826 * scale)
+
+
 def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
                       exclude_window_ms=None, reward_window_ms=None, min_trials=5,
                       max_trial_fraction=0.5):
@@ -153,8 +166,9 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
     reward_window_ms : (float, float) or None, optional
         Deprecated alias for exclude_window_ms.
     min_trials : int
-        Below this many trials, the cross-trial median is not meaningful; input is
-        returned unchanged (matches repair_band_artifacts's n_trials < 5 guard).
+        Below this many trials the cross-trial median is not meaningful, so a
+        ValueError naming the minimum and the count given is raised (this was
+        once a silent pass-through of the untouched input).
     max_trial_fraction : float or None
         A time sample flagged on more than this fraction of trials is treated as
         time-locked signal, not artifact, and is never substituted. Default 0.5; pass
@@ -188,6 +202,12 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
         max_trial_fraction, n_time_locked_samples_protected,
         max_fraction_trials_flagged_at_a_sample, warnings.
 
+    Raises
+    ------
+    ValueError
+        If ``segments`` is not 3-D, contains NaN or Inf, or holds fewer than
+        ``min_trials`` trials.
+
     References:
         Leys, C., et al. (2013). Detecting outliers: do not use standard
         deviation around the mean, use absolute deviation around the median.
@@ -211,6 +231,11 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
     segments = np.asarray(segments, dtype=np.float64)
     if segments.ndim != 3:
         raise ValueError(f"segments must be (n_trials, n_channels, n_times), got shape {segments.shape}")
+    if not np.all(np.isfinite(segments)):
+        # A NaN hid its own trial's artifact behind a nan synchrony score and wrote NaN
+        # into the repaired values of other trials, both silently.
+        n_bad = int((~np.isfinite(segments)).sum())
+        raise ValueError(f"segments contains {n_bad} NaN or Inf values; repair or drop those cells first")
     n_trials, n_channels, n_times = segments.shape
 
     diagnostics = {
@@ -224,14 +249,14 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
         "warnings": [],
     }
     if n_trials < min_trials:
-        diagnostics["skipped_reason"] = f"n_trials < min_trials ({n_trials} < {min_trials})"
-        return segments.copy(), 0.0, diagnostics
+        raise ValueError(
+            f"repair_lfp_trials needs at least {min_trials} trials for a cross-trial "
+            f"median; got {n_trials}"
+        )
 
     # ---- per-trial, per-channel robust z over time -------------------------------------------
     med_t = np.median(segments, axis=2, keepdims=True)                       # (trials, ch, 1)
-    mad_t = np.median(np.abs(segments - med_t), axis=2, keepdims=True) * 1.4826
-    mad_t = np.where(mad_t < 1e-9, 1e-9, mad_t)
-    z = (segments - med_t) / mad_t                                          # (trials, ch, times)
+    z = _floored_robust_z(segments, med_t)                                  # (trials, ch, times)
 
     # ---- cross-channel synchrony statistic per (trial, time) ---------------------------------
     synchrony = np.median(np.abs(z), axis=1)                                # (trials, times)
@@ -342,7 +367,7 @@ def detect_band_outliers(band_trace, z_thresh=TFR_Z_THRESH, sided="upper"):
     # 1e-12 cutoff this replaces flagged nothing in power expressed at small amplitude.
     if scale <= np.finfo(float).eps * np.max(np.abs(band_trace)):
         return np.zeros(band_trace.shape, dtype=bool), 0.0
-    z = resid / (1.4826 * scale)
+    z = _pooled_robust_z(resid, scale)
     flagged = np.abs(z) > z_thresh if sided == "both" else z > z_thresh
     return flagged, float(scale)
 
@@ -373,6 +398,9 @@ def repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=TFR_Z_THRESH,
     form exists so a caller holding channel-averaged power can call this instead of retyping it.
     Returns (repaired, frac_flagged_by_band).
 
+    Raises:
+        ValueError: If ``power`` is not 3-D or 4-D, or holds fewer than 5 trials.
+
     References:
         Leys, C., et al. (2013). Detecting outliers: do not use standard
         deviation around the mean, use absolute deviation around the median.
@@ -396,8 +424,10 @@ def repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=TFR_Z_THRESH,
         power = power[:, None, :, :]
     n_trials = power.shape[0]
     if n_trials < 5:
-        # too few trials for a cross-trial median to mean anything
-        return (power[:, 0] if channel_axis_added else power), {}
+        raise ValueError(
+            f"repair_band_artifacts needs at least 5 trials for a cross-trial "
+            f"median; got {n_trials}"
+        )
 
     repaired = power.copy()
     frac_flagged = {}

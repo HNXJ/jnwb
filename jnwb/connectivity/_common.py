@@ -170,16 +170,15 @@ def _surrogate_source(a: np.ndarray, rng: np.random.Generator) -> np.ndarray:
 
     Trial permutation when there are at least ``_MIN_TRIALS_FOR_TRIAL_PERMUTATION`` (7)
     trials (pairs the source with the wrong trial), otherwise a circular shift of each
-    trial by at least 10% of the record and at most 90% of it.
+    trial by at least 10% of the record and at most 90% of it. The derangement is drawn
+    uniformly by rejection: a permutation that leaves a trial in place is redrawn.
     """
     n_trials, n_times = a.shape
     if _surrogate_scheme(n_trials) == "trial_permutation":
+        # rejection sampling: uniform over derangements, so no trial keeps its partner
         perm = rng.permutation(n_trials)
-        # guarantee a real derangement so no trial keeps its own partner
-        for i in range(n_trials):
-            if perm[i] == i:
-                j = (i + 1) % n_trials
-                perm[i], perm[j] = perm[j], perm[i]
+        while np.any(perm == np.arange(n_trials)):
+            perm = rng.permutation(n_trials)
         return a[perm]
     lo = max(1, n_times // 10)
     out = np.empty_like(a)

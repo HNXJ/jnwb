@@ -55,6 +55,237 @@
       "killed_by": [
         "tests/test_nwb_read_tolerance_and_visibility.py::test_a_mode_other_than_read_is_refused_before_the_file_opens"
       ]
+    },
+    {
+      "file": "jnwb/spectral/_psd.py",
+      "qualname": "compute_psd",
+      "sha256": "9d29ddc24f04a0ef426b881fdca930f4b824797d566faecae597c913c243cec1",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_estimator_values_are_pinned.py::TestComputePsdReturnsADensity::test_it_integrates_to_the_variance_of_the_signal",
+        "tests/test_estimator_values_are_pinned.py::TestComputePsdReturnsADensity::test_a_sinusoid_puts_its_variance_at_its_own_frequency"
+      ]
+    },
+    {
+      "file": "jnwb/spectral/_decibels.py",
+      "qualname": "band_power",
+      "sha256": "13a1fb748762d8ab1a7a528ae0d29f16aa84a2d6413501ae1487d994436d368a",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_spectral.py::TestBandPowerEstimandIsDocumented::test_band_power_is_the_mean_psd_over_the_band[band0]",
+        "tests/test_spectral.py::TestBandPowerEstimandIsDocumented::test_band_power_is_the_mean_psd_over_the_band[band1]",
+        "tests/test_spectral.py::TestBandPowerEstimandIsDocumented::test_band_power_is_the_mean_psd_over_the_band[band2]",
+        "tests/test_spectral.py::TestBandPowerEstimandIsDocumented::test_the_value_is_independent_of_the_bandwidth"
+      ]
+    },
+    {
+      "file": "jnwb/spectral/_decibels.py",
+      "qualname": "aggregate_to_db",
+      "sha256": "dc54fd949e34f6e23da2cfe50859b669950b28042ae03c1f51256368c09fa72a",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_composition_aggregation_order.py::TestH5BandPowerToAggregateToDb::test_the_composed_value_is_the_documented_log_last_value",
+        "tests/test_composition_aggregation_order.py::TestH5BandPowerToAggregateToDb::test_log_last_is_separated_from_averaging_decibels",
+        "tests/test_composition_aggregation_order.py::TestH5BandPowerToAggregateToDb::test_the_two_estimands_are_separated_on_this_chain"
+      ]
+    },
+    {
+      "file": "jnwb/spectral/_decibels.py",
+      "qualname": "_ratio_to_db",
+      "sha256": "3fd2faf22fe4edbd1a0508eb9bfc637e868bdd3c45f9bd355bd0db16be72642c",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_spectral.py::TestToDb::test_ten_x_ratio_is_ten_db"
+      ],
+      "serves": [
+        "to_db"
+      ]
+    },
+    {
+      "file": "jnwb/spectral/_decibels.py",
+      "qualname": "relative_power",
+      "sha256": "b8ea7d168537ba73d38638f2b494ea5b7713f2a04cfd31d9c0e1921eb30787f6",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_spectral.py::TestRelativePower::test_numerical_distinction_under_unequal_baselines",
+        "tests/test_spectral.py::TestRelativePower::test_coincidence_under_equal_baselines",
+        "tests/test_spectral.py::TestRelativePower::test_preservation_of_linear_scale",
+        "tests/test_spectral.py::TestRelativePower::test_device_fallback_warning_on_cuda_unavailability"
+      ]
+    },
+    {
+      "file": "jnwb/spectral/_psd.py",
+      "qualname": "harmonic_analysis",
+      "sha256": "ad7f62695385c227ead2aba0bce203554f79904095f0e8cca36f7351edc303bb",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_frozen_core_mutants.py::TestHarmonicRatioCountsEveryHigherOrder::test_the_second_harmonic_enters_the_ratio"
+      ]
+    },
+    {
+      "file": "jnwb/spectral/_coupling.py",
+      "qualname": "_wpli_from_cross_spectra",
+      "sha256": "f8ad0e483b4e78272edd768e319cca39dfbe07987b399686444e0ce7f174e7a6",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_spectral.py::TestCrossSpectralRatioFamilyIdentifiability::test_plain_wpli_null_bias_falls_as_segment_count_rises",
+        "tests/test_spectral.py::TestPairedTraceContract::test_wpli_magnitude_is_unsigned_and_argument_symmetric"
+      ],
+      "serves": [
+        "wpli"
+      ]
+    },
+    {
+      "file": "jnwb/spectral/_coupling.py",
+      "qualname": "imaginary_coherency",
+      "sha256": "6157838f366321ab9d74916bc13d20a525bc5eae8c68be0f454b62547b51878a",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_estimator_discrimination.py::TestImaginaryCoherencyAgainstAnIndependentOracle::test_matches_an_independent_oracle_on_a_phase_shifted_pair",
+        "tests/test_estimator_discrimination.py::TestImaginaryCoherencyAgainstAnIndependentOracle::test_a_phase_shifted_pair_produces_a_non_zero_estimate_of_the_right_sign",
+        "tests/test_estimator_discrimination.py::TestImaginaryCoherencyAgainstAnIndependentOracle::test_the_sign_agrees_with_phase_slope_index[True]",
+        "tests/test_estimator_discrimination.py::TestImaginaryCoherencyAgainstAnIndependentOracle::test_the_sign_agrees_with_phase_slope_index[False]"
+      ]
+    },
+    {
+      "file": "jnwb/spectral/_coupling.py",
+      "qualname": "cross_area_coherence",
+      "sha256": "cdb7366c6a86814a07dd9baa879a3abe7ab2669bb8d0cdc05e95e3c4f102d1b9",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_spectral.py::TestCrossAreaCoherence::test_identical_signals_have_high_coherence"
+      ]
+    },
+    {
+      "file": "jnwb/connectivity/_granger.py",
+      "qualname": "granger",
+      "sha256": "7722b6138096fa7da6e64f06512d25ca33c30f925820aa0a5b06a8eaafb3c8d5",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_composition_randomness.py::TestDirectedNetworkSurrogatesFollowTheCallerSeed::test_two_different_seeds_give_different_p_values[granger]"
+      ]
+    },
+    {
+      "file": "jnwb/connectivity/_granger.py",
+      "qualname": "granger_causality",
+      "sha256": "6f627b8916b37fdee21b07b477835bfe0bf55b0a75e240eda9859aa0afc9984d",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_estimator_values_are_pinned.py::TestDeprecatedGrangerCausalityIsReportedInNats::test_each_statistic_is_the_log_of_the_variances_it_reports"
+      ]
+    },
+    {
+      "file": "jnwb/spectral/_reference.py",
+      "qualname": "bipolar_reference",
+      "sha256": "e2bf4ad226f8e6f4708c16578338590b624f3794292979ecc03bb3f9e348b08e",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_estimator_discrimination.py::TestBipolarReferenceHasAPinnedSign::test_subtracts_the_shallower_channel_from_the_deeper"
+      ]
+    },
+    {
+      "file": "jnwb/spectral/_reference.py",
+      "qualname": "laplacian_reference",
+      "sha256": "379ec714ca72b1d0debdd8ece1740a6b37f89230ca6930aaaf1d6ffb0110f9b6",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_estimator_values_are_pinned.py::TestLaplacianReferenceSubtractsTheNeighbourMeanOnce::test_a_quadratic_profile_gives_exactly_minus_one",
+        "tests/test_estimator_values_are_pinned.py::TestLaplacianReferenceSubtractsTheNeighbourMeanOnce::test_a_linear_ramp_is_flattened_to_zero_in_the_interior"
+      ]
+    },
+    {
+      "file": "jnwb/spectral/_reference.py",
+      "qualname": "current_source_density_1d",
+      "sha256": "dbda7b03bade5916bf87a4a285d6aece1e166aaca010f5d90afbe8b80219cc61",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_spectral.py::TestVoltageCurvatureAndCSD::test_known_quadratic_potential_curvature"
+      ]
+    },
+    {
+      "file": "jnwb/spectral/_reference.py",
+      "qualname": "voltage_curvature_1d",
+      "sha256": "b4a3ff7a52361c3b7373b308e762cd1ad9a6c32dcdef5634914ef49b56d57c06",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_spectral.py::TestVoltageCurvatureAndCSD::test_known_quadratic_potential_curvature"
+      ]
+    },
+    {
+      "file": "jnwb/statistics/_cluster.py",
+      "qualname": "cluster_permutation_test",
+      "sha256": "876b33bcead5074400a1012e17b26e4341d2a5a65abe03c06df89babc9720eca",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_frozen_core_mutants.py::TestClusterPValueIsTheFloorWhenNoPermutationReachesIt::test_an_unreached_cluster_has_the_exact_floor"
+      ]
+    },
+    {
+      "file": "jnwb/statistics/_tests.py",
+      "qualname": "clopper_pearson",
+      "sha256": "14a662c909adc7630b7813ecf760d6a8ca8ba7884ce551411819754a09740654",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_statistics.py::TestClopperPearson::test_known_values"
+      ],
+      "serves": [
+        "StatisticalAnalysis.clopper_pearson",
+        "StatisticalAnalysis.clopper_pearson_ci"
+      ]
+    },
+    {
+      "file": "jnwb/statistics/_tests.py",
+      "qualname": "mann_whitney_p_floor",
+      "sha256": "aac5d9dd9de3a0cfe252e049c09d95a94a437523140744a294e33ca467bd8bc3",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_statistics.py::TestMannWhitneyPFloor::test_known_floors"
+      ],
+      "serves": [
+        "StatisticalAnalysis.mann_whitney_p_floor"
+      ]
+    },
+    {
+      "file": "jnwb/statistics/_regression.py",
+      "qualname": "shuffle_r2_ci",
+      "sha256": "04f9bb739cbf44590b2065da91dd812568250885174bc9b86be77e1cb89d3fd3",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_statistics.py::TestShuffleR2Ci::test_perfect_correlation_gives_r2_near_one",
+        "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.3]",
+        "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.1]",
+        "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[2.7]",
+        "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.001]",
+        "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.5]"
+      ]
+    },
+    {
+      "file": "jnwb/laminar/_labels.py",
+      "qualname": "label_layers",
+      "sha256": "0f3157f1c52f07f12bfe07898a1c4df70ff2b75a42e009203293ca201f2656e1",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_composition_identifier_survival.py::test_geometry_at_both_ends_recovers_the_depth_ordered_labels",
+        "tests/test_frozen_core_mutants.py::TestLayerLabelsFollowTheShaftRank::test_each_contact_gets_the_label_of_its_depth"
+      ]
+    },
+    {
+      "file": "jnwb/connectivity/_trials.py",
+      "qualname": "bin_spikes",
+      "sha256": "cca0141bfe28c63cfc5bd01f38ee6db869097463bb5729ac84db179ba31277ea",
+      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "killed_by": [
+        "tests/test_connectivity.py::TestBinSpikes::test_returns_trials_by_bins_shape",
+        "tests/test_connectivity.py::TestBinSpikes::test_temporal_coordinates_and_bin_centers",
+        "tests/test_connectivity.py::TestBinSpikes::test_right_open_boundary_contract",
+        "tests/test_connectivity.py::TestBinSpikes::test_output_rate_scaling",
+        "tests/test_connectivity.py::TestBinSpikes::test_input_validation",
+        "tests/test_connectivity.py::TestBinSpikes::test_a_nan_trial_start_is_refused_not_an_all_zero_trial",
+        "tests/test_connectivity.py::TestBinSpikes::test_a_steady_train_reads_its_rate_in_every_bin_of_a_whole_bin_window",
+        "tests/test_connectivity.py::TestBinSpikes::test_a_window_that_is_not_whole_bins_is_refused[0.305]",
+        "tests/test_connectivity.py::TestBinSpikes::test_a_window_that_is_not_whole_bins_is_refused[0.304]",
+        "tests/test_connectivity.py::TestBinSpikes::test_mutual_information_bins_a_boundary_spike_as_bin_spikes_does"
+      ]
     }
   ]
 }

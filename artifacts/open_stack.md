@@ -1,10 +1,14 @@
-# Open stack (jnwb, 2026-10-20)
+# Open stack (jnwb, 2026-10-25)
 
 Empty. A row leaves by being repaired, shown false, or moved into the todo stack (`AGENTS.md` §11); `git log -- artifacts/open_stack.md` holds the rows of earlier dates.
 
-Cleared 2026-10-20, before the 0.2.13 checkpoint:
+Cleared 2026-10-25, the 40 rows of the audit of ac8736ff (`git show e00e8664:artifacts/open_stack.md`):
 
-- Moved, each already a row of `artifacts/roadmap.md`: 11-32 (ruled 2026-10-20, the holder cells point at 16-04 to 16-10); 11-02, 07-05, 09-07, 12-06 and the fact closure group 10-10, 11-06, 09-04, 11-07, 12-11, 11-03, 11-09, 12-08, 12-07 (`deferred-0.2.14`); 12-21 and 14-08 (`deferred-0.2.14`, waiting on outside code); 15-11's second half (`deferred-0.2.15`, ruled 2026-10-19).
-- Shown not to be defects: the strict xfails (word-pattern misses are the heuristic's documented limit, the mobile-width ledger a figure-size choice; `tests/test_skill_decline_behaviour.py`, `tests/test_figure_form.py`); the Metal path and the GPU tests, which skip without the hardware and change no number (fact S6).
-- Housekeeping, not problems of the release: local branches and worktrees, the `E:/repos/jnwb` rename, and the V3v correction on ses-260724, which belongs to the omission project. The changelog fragments are assembled at checkpoint step 3.
-- Audit 2026-10-18 (section F) and the external snapshot audit of 2026-10-19 (section G) closed with no row left; their dispositions are in the commits of 2026-10-18 and 2026-10-19.
+- Moved to the todo stack as 17-09 to 17-56, section "Audit of 2026-10-25", one defect per item (O-1 to O-5, O-7 to O-16, O-19 to O-26, O-32 to O-36, O-38 to O-41).
+- Folded into existing items, whose text now carries them: O-27 (12-05, 09-07, 12-06, 07-05, 11-07, 12-11, 16-18, 15-22 rewritten), O-28 (the Accept clauses of 11-07, 11-09, 11-03, 12-07), O-29 (15-20 and 12-05), O-37 (17-01).
+- Repaired with its item: O-30 (16-10, the I3 scan, landed 2026-10-25).
+- Repaired: O-6 (both handoff notes moved outside the repository, hashes checked, ruled 2026-10-25); O-31 (S9's row names its holder's scope, ruled 2026-10-25; non-finite inputs are roadmap row 17-24).
+- Moved to the roadmap: O-17 (roadmap 17-07).
+- Shown false: the `waveform_index_dtype` refusal (the repair casts to uint8, so refusing values above 255 is correct); FM-16 (path misses inside dated rulings are records).
+
+Opened and closed 2026-10-23: P-CI-1, CI red on `dev` at 18457f3a. Every test leg failed on `fig37_verify_written_nwb` (panel B counted pynwb's embedded schema datasets, whose number changes by release). Repaired in 2543f72f; the run on 93ab6a82 is green on every leg.

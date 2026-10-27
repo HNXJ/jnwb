@@ -24,18 +24,13 @@ class TestIntegration021:
     def test_all_five_primitives_exported_at_top_level(self):
         """Verify export and availability of all new 0.2.1 symbols."""
         expected_symbols = [
-            # 0.2.1-01
             "aperiodic_fit",
             "AperiodicFitResult",
-            # 0.2.1-02
             "relative_power",
-            # 0.2.1-03
             "exact_sign_flip",
             "mann_whitney_p_floor",
             "clopper_pearson",
-            # 0.2.1-04
             "stream_npz_array",
-            # 0.2.1-05
             "probe_geometry",
             "ProbeGeometry",
         ]

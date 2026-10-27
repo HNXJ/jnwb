@@ -249,6 +249,37 @@ class TestEpochContinuous:
         with pytest.raises(ValueError, match="Unknown boundary_policy"):
             epoch_continuous(data, [], win_s=(-0.1, 0.1), fs=1000.0, boundary_policy="invalid")  # type: ignore[arg-type]
 
+    def test_start_s_puts_sample_zero_at_the_series_start(self):
+        """A series whose sample 0 is at 2 s: an onset at 3 s is one second in, sample 100."""
+        data = np.arange(1000.0)
+        epochs, _ = epoch_continuous(data, onsets=[3.0], win_s=(0.0, 0.1), fs=100.0, start_s=2.0)
+        np.testing.assert_array_equal(epochs[0], data[100:110])
+
+    def test_the_default_start_keeps_the_current_mapping(self):
+        data = np.arange(1000.0)
+        for kwargs in ({}, {"start_s": 0.0}):
+            epochs, _ = epoch_continuous(data, onsets=[3.0], win_s=(0.0, 0.1), fs=100.0, **kwargs)
+            np.testing.assert_array_equal(epochs[0], data[300:310])
+        epochs, _ = epoch_continuous(
+            data, onsets=[300.5], win_s=(0.0, 0.1), fs=100.0, onset_unit="samples"
+        )
+        np.testing.assert_array_equal(epochs[0], data[300:310])
+
+    def test_a_non_finite_start_is_refused(self):
+        data = np.zeros(100)
+        for start in (np.nan, np.inf, -np.inf):
+            with pytest.raises(ValueError, match="start_s must be finite"):
+                epoch_continuous(data, [0.5], win_s=(0.0, 0.1), fs=100.0, start_s=start)
+        with pytest.raises(ValueError, match="start_s must be finite"):
+            epoch_continuous(data, [], win_s=(0.0, 0.1), fs=100.0, start_s=np.nan)
+
+    def test_a_start_with_onsets_in_samples_is_refused(self):
+        """Onsets in samples index data directly; a start time would move them."""
+        data = np.arange(1000.0)
+        with pytest.raises(ValueError, match="already index data"):
+            epoch_continuous(data, [300], win_s=(0.0, 0.1), fs=100.0, onset_unit="samples",
+                             start_s=2.0)
+
 
 class TestTickClock:
     def test_public_export(self):

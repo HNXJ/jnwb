@@ -33,7 +33,7 @@ A task that needs several skills takes its row here, which names the whole set i
 
 Before routing, check the plan:
 
-- `jnwb.preflight(question)`: Takes a `jnwb.Question` and returns a `Preflight` whose `outcome` is `"decline"` when `unsupported_inference` is stated, else `"request"` when `signals`, `signal_units`, `contrast` or `inference_unit` is empty (`missing` names each), else `"failure"` when `non_identifiable` is stated, else `"supported"`. `reason` says why and names the optional fields left empty.
+- `jnwb.preflight(question, input_path=None)`: Takes a `jnwb.Question` and returns a `Preflight` whose `outcome` is `"decline"` when `unsupported_inference` is stated, else `"request"` when `signals`, `signal_units`, `contrast` or `inference_unit` is empty (`missing` names each), else `"failure"` when `non_identifiable` is stated, else `"supported"`. `reason` says why and names the optional fields left empty. Given `input_path`, `input_sha256` and `input_path` name that file; a path that is not a file is requested as `"input_path"`.
 
 ## 3. Execution
 Operations whose signature takes `device` accept `device='cuda'` and `device='metal'`. A request no GPU can serve warns and runs on the CPU.
@@ -46,7 +46,13 @@ Operations whose signature takes `device` accept `device='cuda'` and `device='me
 
 `'metal'` runs only in `complex_tfr` with `dtype=np.complex64`, through JAX; it is implemented and has not been run on Metal hardware.
 
-`n_jobs` is accepted by the operations whose signature lists it. The default is 1 everywhere, and results are identical for any `n_jobs`. Opt in only when serial work exceeds about five seconds; the first parallel call in a process costs several seconds of start-up.
+`n_jobs` is accepted by the operations whose signature lists it. The default is 1 everywhere (`ExecutionRecord` only records a count, so it takes one), and results are identical for any `n_jobs`. Opt in only when serial work exceeds about five seconds; the first parallel call in a process costs several seconds of start-up.
+
+- `jnwb.ExecutionRecord(device, n_jobs)`: names what ran where: the device string the backend resolved and the worker count the parallel loop ran with, held beside a result by the caller. The record selects nothing.
+- `jnwb.cache_key(name, inputs, params)`: builds the hex key for one operation from its name, its inputs and its parameters, mixed with the jnwb version, so a key from one version never reads a value another version wrote.
+- `jnwb.cache_store(cache_dir, key, value)`: saves one array, scalar, dict, list or tuple value under `key` in `cache_dir` as an `.npz` archive, writing through a temporary sibling file that is flushed, synced and renamed, so a reader never sees a half-written entry. A value that would not load back equal is refused: a NumPy scalar (store a 0-d array) or a non-str dict key raises `TypeError`; an int beyond int64, bytes holding a NUL or a str ending in NUL raises `ValueError`.
+- `jnwb.cache_load(cache_dir, key)`: reads the value stored under `key` in `cache_dir`, or None when no entry is there or the entry is stale: an archive whose stored key or stored version differs never reads as a hit.
+- `jnwb.cache_clear(cache_dir)`: removes the entries `cache_store` wrote directly under `cache_dir` and counts the removals.
 
 ## 4. Invariants & Safeguards
 1. **Signal classes**: spikes (SUA/MUA) and continuous LFP are distinct physical observables. Never pool across them.

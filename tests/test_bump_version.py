@@ -19,7 +19,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 # `append`, never `insert(0, ...)`: see tests/test_import_profile_receipt.py.
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts import bump_version, version_surfaces as vs  # noqa: E402
 

@@ -110,8 +110,48 @@ class TestNJobsDoesNotChangeResults:
 
         assert run(4) == run(1)
 
+    def test_partial_coherence_is_invariant_to_n_jobs(self, monkeypatch):
+        """The only new export with an n_jobs argument: its surrogate loop runs through
+        parallel_map. Eight surrogates give the pool eight items. The recording asserts that
+        the serial run built no pool and the two-worker run built one at n_jobs=2."""
+        import joblib
+
+        from jnwb.spectral import partial_coherence
+
+        built = []
+        original = joblib.Parallel
+
+        class _Recording(original):
+            def __init__(self, *args, **kwargs):
+                built.append(kwargs.get("n_jobs"))
+                super().__init__(*args, **kwargs)
+
+        monkeypatch.setattr(joblib, "Parallel", _Recording)
+
+        gen = np.random.default_rng(7)
+        base = gen.normal(size=4096)
+        x = base + 0.5 * gen.normal(size=4096)
+        y = base + 0.5 * gen.normal(size=4096)
+        z = gen.normal(size=4096)
+
+        def run(n_jobs):
+            return partial_coherence(
+                x, y, z, fs=1000.0, freq_bands="canonical", n_surrogates=8, rng=7, n_jobs=n_jobs,
+            )
+
+        serial = run(1)
+        assert built == [], f"a serial run built a pool: {built}"
+        workers = run(2)
+        assert built == [2], f"the parallel path did not run: pools built {built}"
+        assert serial.keys() == workers.keys()
+        for key, value in serial.items():
+            if isinstance(value, np.ndarray):
+                np.testing.assert_array_equal(workers[key], value, err_msg=key)
+            else:
+                assert workers[key] == value, key
+
     def test_directed_network_is_invariant_to_n_jobs(self):
-        """P-113: this asserted the invariance of a constant.
+        """This asserted the invariance of a constant.
 
         It left ``n_surrogates`` at its default of 0, so ``p_matrix`` was analytic F-test
         output with no randomness drawn at all -- measured, ``rng=7`` and ``rng=99`` returned
@@ -148,7 +188,7 @@ class TestNJobsDoesNotChangeResults:
         _, p_other = run(1, seed=99)
         assert not np.array_equal(p1, p_other, equal_nan=True), (
             "p_matrix did not move when the seed changed, so no randomness is being drawn "
-            "and the n_jobs assertions above cannot fail -- the exact defect P-113 recorded"
+            "and the n_jobs assertions above cannot fail -- the exact defect on record"
         )
 
     def test_directed_network_is_invariant_to_worker_and_blas_thread_count(self):
@@ -272,7 +312,7 @@ class TestTheDefaultIsSerialEverywhere:
 
     def test_the_scan_actually_reaches_jrsa(self):
         """Without this, the test above passes if the scan silently finds nothing
-        interesting -- `jrsa` is the function 05-46 was about."""
+        interesting -- `jrsa` is the function the scan must reach."""
         assert "jrsa" in self._public_n_jobs_defaults()
 
     def test_a_default_call_does_not_start_a_process_pool(self, monkeypatch):

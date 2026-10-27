@@ -35,6 +35,9 @@ SMALL = 8.0
 TEXT_RANGE_PT = (8.0, 11.0)
 #: Figure width in inches, and the resolution the PNG is written at.
 WIDTH = 7.2
+#: Width in inches of a figure stacked in one column. At 8 pt, the smallest text, a figure this
+#: wide shown at the phone's 343 px content column renders at 9 px or more; at WIDTH it renders at 5.3 px.
+NARROW_WIDTH = 4.2
 DPI = 180
 
 #: Series colours in the order a categorical comparison takes them.

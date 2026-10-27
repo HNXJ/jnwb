@@ -10,6 +10,7 @@ import numpy as np
 from scipy import stats
 
 from .._dictlike import DictAccessMixin
+from .._spread import r_squared
 
 #: Layer IVA, IVB and IVC of macaque area 17 in mm (O'Kusky and Colonnier 1982), summed by
 #: vFLIP2.m into the shortest channel window it searches. Summed as vFLIP2.m sums them, each
@@ -142,7 +143,7 @@ def _band_regress(band: np.ndarray) -> Tuple[float, float, float]:
     rss = float(np.sum((yhat - y.mean()) ** 2))
     tss = float(np.sum((y - y.mean()) ** 2))
     with np.errstate(divide="ignore", invalid="ignore"):
-        r2 = 1.0 - sse / tss if tss else (np.nan if sse == 0 else -np.inf)
+        r2 = r_squared(sse, tss) if tss else (np.nan if sse == 0 else -np.inf)
         nu = max(0, n - rank)
         s2 = sse / nu if nu else np.nan
         f = (rss / (rank - 1)) / s2 if rank > 1 else np.nan

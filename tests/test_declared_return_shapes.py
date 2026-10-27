@@ -1,4 +1,4 @@
-"""05-85 shape dimension: a declared return shape, checked by calling the function.
+"""Shape dimension: a declared return shape, checked by calling the function.
 
 A wrong return shape in a docstring is invisible from inside the library. The array is
 whatever shape the code makes it, every test of that array passes, and only a reader building
@@ -118,6 +118,13 @@ class TestSpikingPopulationMeasures:
         out = jnwb.spike_count_correlation(units, (0.0, 1.0), bin_ms=100.0)
         assert out["r"].shape == (3, 3)
 
+    def test_noise_correlation_declares_and_returns_units_by_units(self):
+        assert ("n_units", "n_units") in declared_shapes(jnwb.noise_correlation)
+        counts = np.random.default_rng(0).poisson(5.0, size=(3, 8))
+        out = jnwb.noise_correlation(counts, np.repeat([0, 1], 4), min_trials=4)
+        assert out["r"].shape == (3, 3)
+        assert out["geometric_mean_count"].shape == (3, 3)
+
     def test_fano_factor_declares_and_returns_units_by_trials(self):
         assert ("n_units", "n_trials") in declared_shapes(jnwb.fano_factor)
         units = [np.array([0.1, 1.1, 1.2]), np.array([2.2])]
@@ -168,7 +175,7 @@ class TestTheListOfDeclaringFunctionsIsComplete:
     def test_every_function_declaring_a_return_shape_is_accounted_for(self):
         """A new declaration must be covered or named, not silently join the gap."""
         covered = {"bin_spikes", "detect_band_outliers", "laplacian_reference",
-                   "spike_count_correlation", "fano_factor", "normalize_waveforms",
+                   "spike_count_correlation", "noise_correlation", "fano_factor", "normalize_waveforms",
                    "wavemap_resolution_sweep", *NEEDS_A_SESSION}
         declaring = declaring_functions()
         assert declaring <= covered, (
@@ -196,7 +203,7 @@ def test_the_sweep_passes_without_the_vis_extra():
     root = str(Path(__file__).resolve().parents[1])
     script = (
         "import sys\n"
-        f"sys.path.append({root!r})\n"
+        f"sys.path.append({root!r})\n"  # needed: child process has no pythonpath
         "sys.modules['plotly'] = None\n"
         "from tests.test_declared_return_shapes import declaring_functions\n"
         "assert isinstance(declaring_functions(), set)\n"

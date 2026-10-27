@@ -13,7 +13,7 @@ import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 
 import jnwb  # noqa: E402
 from scripts import calibrate_xflip as receipt  # noqa: E402

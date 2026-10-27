@@ -117,6 +117,65 @@ def _spiking(n_bins: int, which: str) -> Callable[[], object]:
                                             min_duration_ms=3.0)
 
 
+def _noise(n_units: int, n_trials: int) -> Callable[[], object]:
+    import jnwb
+
+    counts = np.random.default_rng(0).poisson(4.0, size=(n_units, n_trials)).astype(float)
+    condition = np.arange(n_trials) % 2
+    return lambda: jnwb.noise_correlation(counts, condition, min_trials=2)
+
+
+def _screen(n_units: int, n_sessions: int) -> Callable[[], object]:
+    import pandas as pd
+
+    import jnwb
+
+    per = n_units // n_sessions
+    total = per * n_sessions
+    rng = np.random.default_rng(0)
+    labels = np.arange(total) % 2
+    session = np.repeat(np.arange(n_sessions), per)
+    metrics = pd.DataFrame({"m1": labels + rng.normal(size=total), "m2": rng.normal(size=total)})
+
+    def run():
+        return jnwb.screen_units_against_labels(
+            metrics, labels, session, metric_columns=["m1", "m2"], classifier="linear_svm",
+            min_units=2, rng=0,
+        )
+
+    assert all(r["status"] == "success" for r in run()["per_session"]), \
+        "fixture must score every session"
+    return run
+def _gnp(n_times: int, n_trials: int, n_freqs: int) -> Callable[[], object]:
+    import jnwb
+
+    x, y = np.random.default_rng(0).normal(size=(2, n_trials, n_times))
+    return lambda: jnwb.granger_nonparametric(x, y, fs=500.0, bands=(0.0, 250.0), n_freqs=n_freqs)
+
+
+def _gtr(n_times: int, n_trials: int) -> Callable[[], object]:
+    import jnwb
+
+    x, y = np.random.default_rng(0).normal(size=(2, n_trials, n_times))
+    return lambda: jnwb.granger_time_reversed(x, y, order=2)
+
+
+def _pcoh(n: int) -> Callable[[], object]:
+    import jnwb
+
+    x, y, z = np.random.default_rng(0).normal(size=(3, n))
+    return lambda: jnwb.partial_coherence(x, y, z, fs=1000.0, freq_bands="canonical",
+                                          n_surrogates=1)
+
+
+def _floor(n_sites: int, n_epochs: int, n_times: int, n_draws: int) -> Callable[[], object]:
+    import jnwb
+
+    signals = np.random.default_rng(0).normal(size=(n_sites, n_epochs, n_times))
+    return lambda: jnwb.coherence_bias_floor(signals, fs=1000.0, freq_bands="canonical",
+                                             n_draws=n_draws)
+
+
 def _curation(which: str, n: int) -> Callable[[], object]:
     import jnwb
 
@@ -236,6 +295,27 @@ def _cutoff(n: int, _tmp: Path) -> Callable[[], object]:
     return lambda: uq.amplitude_cutoff(amplitudes)
 
 
+def _cache_key(n: int, _tmp: Path) -> Callable[[], object]:
+    import jnwb
+
+    arr = np.random.default_rng(0).normal(size=n // 8)
+    params = {"normalize": True}
+    assert len(jnwb.cache_key("cache_key_benchmark", arr, params)) == 64, \
+        "fixture must hash to 64 hex chars"
+    return lambda: jnwb.cache_key("cache_key_benchmark", arr, params)
+
+
+def _cache_store(n: int, tmp: Path) -> Callable[[], object]:
+    import jnwb
+
+    arr = np.ascontiguousarray(np.random.default_rng(0).normal(size=n // 8))
+    directory = tmp / f"cache_store_{n}"
+    key = "cachestorebenchmark"
+    jnwb.cache_store(directory, key, arr)
+    assert jnwb.cache_load(directory, key) is not None, "fixture must round-trip"
+    return lambda: jnwb.cache_store(directory, key, arr)
+
+
 SPECS: Dict[str, Spec] = {
     "phase_slope_index[n_samples]": Spec(
         "n_samples", (60_000, 200_000, 700_000, 2_000_000, 4_000_000),
@@ -272,6 +352,28 @@ SPECS: Dict[str, Spec] = {
         "n_bins", (10_000, 100_000, 1_000_000, 4_000_000),
         "8 units, 2000 uniform spikes each, bin_ms=1, threshold_hz=5000, min_duration_ms=3",
         lambda n, _tmp: _spiking(n, "burst"),
+    ),
+    "noise_correlation[n_trials]": Spec(
+        "n_trials", (1_000, 10_000, 100_000, 1_000_000),
+        "8 units, Poisson(4) counts, 2 alternating conditions, min_trials=2",
+        lambda n, _tmp: _noise(8, n),
+    ),
+    "noise_correlation[n_units]": Spec(
+        "n_units", (16, 64, 256, 1024),
+        "1000 trials, Poisson(4) counts, 2 alternating conditions, min_trials=2",
+        lambda n, _tmp: _noise(n, 1000),
+    ),
+    "screen_units_against_labels[n_units]": Spec(
+        "n_units", (30, 120, 480, 1920),
+        "3 equal sessions, 2 metric columns, labels alternating within a session, "
+        "linear_svm, min_units=2, rng=0",
+        lambda n, _tmp: _screen(n, 3),
+    ),
+    "screen_units_against_labels[n_sessions]": Spec(
+        "n_sessions", (3, 6, 12, 30),
+        "40 units per session, 2 metric columns, labels alternating within a session, "
+        "linear_svm, min_units=2, rng=0",
+        lambda n, _tmp: _screen(40 * n, n),
     ),
     "fano_factor[n_trials]": Spec(
         "n_trials", (1_000, 10_000, 100_000, 1_000_000),
@@ -353,6 +455,75 @@ SPECS: Dict[str, Spec] = {
         "standard normal amplitudes, default_rng(0), num_histogram_bins=500, "
         "histogram_smoothing_value=3 (defaults); admissible O(N)",
         _cutoff,
+    ),
+    # Connectivity and coupling estimators (gate 21). One spec per named size; the other inputs
+    # are pinned and stated in `held`.
+    "granger_nonparametric[n_times]": Spec(
+        "n_times", (10_000, 100_000, 1_000_000, 4_000_000),
+        "4 trials of 2 channels, default_rng(0) normal, fs=500, bands=(0, 250), n_freqs=256, "
+        "n_surrogates=0, detrend zscore",
+        lambda n, _tmp: _gnp(n, 4, 256),
+    ),
+    "granger_nonparametric[n_trials]": Spec(
+        "n_trials", (4, 40, 400, 4000),
+        "n_times=2000, fs=500, bands=(0, 250), n_freqs=256, n_surrogates=0, detrend zscore",
+        lambda n, _tmp: _gnp(2000, n, 256),
+    ),
+    "granger_nonparametric[n_freqs]": Spec(
+        "n_freqs", (128, 512, 2048, 8192, 16384),
+        "4 trials of 1,000,000 samples, fs=500, bands=(0, 250), n_surrogates=0, detrend zscore",
+        lambda n, _tmp: _gnp(1_000_000, 4, n),
+    ),
+    "granger_time_reversed[n_times]": Spec(
+        "n_times", (10_000, 100_000, 1_000_000, 4_000_000),
+        "4 trials of 2 channels, default_rng(0) normal, order=2, n_surrogates=0, detrend zscore",
+        lambda n, _tmp: _gtr(n, 4),
+    ),
+    "granger_time_reversed[n_trials]": Spec(
+        "n_trials", (4, 40, 400, 4000),
+        "n_times=2000, order=2, n_surrogates=0, detrend zscore",
+        lambda n, _tmp: _gtr(2000, n),
+    ),
+    "partial_coherence[n_times]": Spec(
+        "n_times", (10_000, 100_000, 1_000_000, 4_000_000),
+        "1-D X, Y, Z (default_rng(0) normal), fs=1000, freq_bands='canonical', nperseg default "
+        "min(max(n//8, 8), 4096), n_surrogates=1 (0 is refused)",
+        lambda n, _tmp: _pcoh(n),
+    ),
+    "coherence_bias_floor[n_times]": Spec(
+        "n_times", (10_000, 100_000, 1_000_000, 4_000_000),
+        "3 sites, 4 epochs, n_draws=4, fs=1000, freq_bands='canonical', nperseg default",
+        lambda n, _tmp: _floor(3, 4, n, 4),
+    ),
+    "coherence_bias_floor[n_epochs]": Spec(
+        "n_epochs", (4, 40, 400, 4000),
+        "3 sites, n_times=1000, n_draws=4, fs=1000, freq_bands='canonical', nperseg default",
+        lambda n, _tmp: _floor(3, n, 1000, 4),
+    ),
+    "coherence_bias_floor[n_sites]": Spec(
+        "n_sites", (4, 16, 64, 256),
+        "4 epochs, n_times=1000, n_draws=2 (pinned small: the pair count grows as n_sites^2), "
+        "fs=1000, freq_bands='canonical'",
+        lambda n, _tmp: _floor(n, 4, 1000, 2),
+    ),
+    "coherence_bias_floor[n_draws]": Spec(
+        "n_draws", (2, 20, 200, 2000),
+        "3 sites, 4 epochs, n_times=1000, fs=1000, freq_bands='canonical', nperseg default",
+        lambda n, _tmp: _floor(3, 4, 1000, n),
+    ),
+    # Both entries hash or write one pass over the value's bytes: admissible O(n).
+    "cache_key[n_bytes]": Spec(
+        "n_bytes", (100_000, 1_000_000, 4_000_000, 16_000_000),
+        "float64 1-D array of n/8 elements, default_rng(0) normal, params {'normalize': True}; "
+        "admissible O(n)",
+        _cache_key,
+    ),
+    # Sizes start at 4 MB: below that the fixed fsync cost hides the per-byte write.
+    "cache_store[n_bytes]": Spec(
+        "n_bytes", (4_000_000, 16_000_000, 32_000_000, 64_000_000),
+        "float64 1-D array of n/8 elements, default_rng(0) normal, one key in a fresh tmp dir; "
+        "admissible O(n)",
+        _cache_store,
     ),
 }
 

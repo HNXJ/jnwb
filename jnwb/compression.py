@@ -984,7 +984,8 @@ def compress_fp32(
             its names at once is refused as well, since a cast would end the link); or a scalar dataset. A hard or soft link to
             either of the first two is refused
             like its target. Also raised when a regular ``timestamps`` array sits beside a
-            ``starting_time`` that has no ``rate`` attribute. Every one of these refusals
+            ``starting_time`` that has no ``rate`` attribute, and when ``dst`` resolves to
+            ``src``, which is never modified. Every one of these refusals
             comes before anything is written.
         TypeError: ``select`` is omitted, ``None`` or a single string, or names a group or a
             dataset whose dtype is not floating, an integer or boolean one included.
@@ -996,6 +997,9 @@ def compress_fp32(
     if not src.exists():
         raise FileNotFoundError(f"source NWB not found: {src}")
     dst = Path(dst) if dst is not None else src.with_suffix(".fp32.nwb")
+    if dst.resolve() == src.resolve():
+        raise ValueError(f"compress_fp32: dst resolves to src ({src}); the source is never "
+                         f"modified, so name a different dst")
     if dst.exists() and not overwrite:
         raise FileExistsError(f"destination exists (pass overwrite=True): {dst}")
     cast_paths = _selection_of(src, select)

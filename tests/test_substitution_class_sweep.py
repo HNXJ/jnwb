@@ -135,7 +135,7 @@ def scan_option_set_fallbacks(source: str, module: str) -> List[Finding]:
     An option set is a dict literal with string keys, written inline or bound at module level.
     Looking a selector up in one with a string fallback is the substitution written as a
     mapping: an unrecognised request silently becomes a recognised one. This is the exact form
-    P-31 and P-50 named -- ``_CORRECTION_METHOD_MAP.get(m_lower, "fdr_bh")``.
+    recorded as a defect -- ``_CORRECTION_METHOD_MAP.get(m_lower, "fdr_bh")``.
 
     Every such site is reported. Whether the substituted value reaches a result or only a
     message is a judgement, and judgements live in the baseline with their reasons, not in this
@@ -388,11 +388,10 @@ What this instrument cannot see, stated rather than discovered later:
    would catch it, and a declared vocabulary tests the declaration.
 5. Anything outside ``jnwb/**``: scripts, notebooks and skills are not scanned.
 6. A substitution written as a branch rather than a chain or a mapping. The one instance
-   found by hand and not by any scanner is ``laminar._compute_correlation_matrix``: a
-   ``cond > 1e12`` test routes a near-singular covariance to ``np.linalg.pinv`` and the
-   result is returned as a partial correlation with nothing saying so. Reproduced -- a
-   duplicated channel yields exactly -1.0. The ``except LinAlgError`` half of the same site
-   *is* seen, and carries the finding in ``ACCEPTED_HANDLER_RECOVERY``.
+   found by hand and not by any scanner was ``laminar._compute_correlation_matrix``: a
+   ``cond > 1e12`` test routed a near-singular covariance to ``np.linalg.pinv`` with nothing
+   saying so. It now warns, as the ``except LinAlgError`` half of the same site does; the
+   scanner still does not see branches.
 7. A default supplied to an attribute store rather than to an option set. The instance found
    by hand is ``compression.py``'s ``src[ts_path].attrs.get("unit", "seconds")``, which
    writes ``unit="seconds"`` onto a ``starting_time`` dataset whose source said nothing. It
@@ -659,6 +658,11 @@ ACCEPTED_CHAIN_ELSE = {
      ("mean_of_ratios", "ratio_of_means"), 1):
         "model is checked against RELATIVE_POWER_MODELS and raises; the else is the "
         "'log_ratio' branch.",
+    ("nwb_write.py", "repair_nwb", "CHAIN_NO_ELSE", "name",
+     ("squeeze_scalar_attributes", "units_colnames", "vector_index_types",
+      "waveform_index_dtype"), 1):
+        "repairs= is checked against REPAIRS and raises on any other name before the loop; "
+        "the chain names each of the four repairs, so no name reaches a missing else.",
 }
 
 ACCEPTED_HANDLER_RECOVERY = {
@@ -672,9 +676,6 @@ ACCEPTED_HANDLER_RECOVERY = {
         "cupy -> torch -> CPU SVD. The path is recorded: the torch branch returns "
         "device_used='cuda' with its own SVD, and a CPU result is labelled 'cpu' after "
         "warn_device_fallback, so the label follows the value.",
-    ("gpu_pca.py", "gpu_pca", "Exception", ("S_np", "V_np", "proj_np"), False, 1):
-        "GPU SVD -> NumPy SVD, announced by warn_device_fallback, which is jnwb's declared "
-        "mechanism for saying that a CPU and GPU path may disagree numerically.",
     ("trajectory.py", "compute_population_trajectory", "Exception",
      ("S_np", "V_np", "proj_np"), False, 1):
         "Same GPU -> NumPy SVD fallback, same announcement.",
@@ -701,13 +702,10 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("jrsa/_backends.py", "_ensure_np", "(RuntimeError, TypeError, ValueError)", ("a",), False, 1):
         "tensor.numpy() -> np.asarray(tensor) inside _ensure_np. A conversion of the same "
         "data, not a second way of computing it.",
-    ("laminar/_xflip.py", "_compute_correlation_matrix", "np.linalg.LinAlgError", ("theta",), False, 1):
-        "OPEN, carried deliberately: a singular covariance is pseudo-inverted and the result "
-        "is returned as a partial correlation with no indication. Reproduced -- a rank-2 "
-        "channel pair yields exactly -1.0, a plausible and wrong number. Nearly unreachable "
-        "because the cond > 1e12 branch above the try already routes to pinv; that branch is "
-        "the same substitution written without an exception, and neither is this item's "
-        "named scope. Proposed as a new problem row.",
+    ("laminar/_xflip.py", "_compute_correlation_matrix", "np.linalg.LinAlgError", ("why",), False, 1):
+        "A singular covariance is pseudo-inverted and the result is returned as a partial "
+        "correlation, with a UserWarning naming the window and the reason. The handler and the "
+        "cond > 1e12 branch set one reason and share that warning, so neither route is silent.",
     ("laminar/_xflip.py", "_window_rows", "TypeError", ("rows",), False, 1):
         "A non-iterable window becomes rows = (), which fails the two-int check on the next "
         "line and raises TypeError naming the window. The substitute never reaches a "
@@ -742,10 +740,10 @@ ACCEPTED_HANDLER_RECOVERY = {
         "scheduling.",
     ("addressing.py", "_channel_key", "(ValueError, TypeError, OverflowError)", (), True, 1):
         "Returns None where _resolve_electrode_row would find nothing, the same conversion. "
-        "Absence.",
+        "Absence, and reported: the id is recorded, and the public call warns naming it.",
     ("addressing.py", "_resolve_depth_unit", "Exception", (), True, 1):
         "Returns None when an explicit depth_unit will not convert to a string. Absence: no "
-        "unit is assumed.",
+        "unit is assumed, and the public call warns naming the value.",
     ("compression.py", "verify_roundtrip._try_pynwb_read", "Exception", (), True, 1):
         "Returns (False, '<ExcType>: msg') from a verification helper -- a reported failure "
         "carrying its own cause.",
@@ -788,23 +786,26 @@ ACCEPTED_HANDLER_RECOVERY = {
         "Session-id parse falls back to (raw, raw) -- the unparsed input returned as itself, "
         "not a fabricated identifier.",
     ("nwb_inspect.py", "_h5_channel_count", "TypeError", (), True, 1):
-        "Returns None when the HDF5 electrode region has no length. Absence.",
+        "Returns None when the HDF5 electrode region has no length, and warns that the channel "
+        "axis is guessed from the shape. Absence, reported.",
     ("nwb_inspect.py", "_registered_types", "Exception", (), True, 1):
-        "Returns None when the file's namespaces cannot be loaded, and the caller then "
-        "claims nothing about any type. Absence: no warning is invented.",
+        "Returns (None, reason) when the file's namespaces cannot be loaded; _unknown_type then "
+        "warns that the undefined-type check did not run, and why. Absence, reported: no type "
+        "is claimed.",
     ("nwb_inspect.py", "_unknown_type", "OSError", (), True, 1):
-        "Returns None when the file cannot be stat'ed: no type is called unknown. Absence.",
+        "Returns None when the file cannot be stat'ed: no type is called unknown, and a warning "
+        "says the check did not run and why. Absence, reported.",
     ("nwb_inspect.py", "_why_unread", "OSError", (), True, 1):
-        "Returns \"\" when the source file cannot be opened: the refusal keeps its plain "
-        "not-found text and adds no reason. Absence.",
+        "Returns a refusal reason naming the OSError's class and text when the source file "
+        "cannot be opened, so the refusal says why the file could not be read.",
     ("nwb_inspect.py", "_pynwb_channel_count", "TypeError", (), True, 1):
-        "The pynwb twin of _h5_channel_count: None when series.electrodes has no length. "
-        "Absence.",
+        "The pynwb twin of _h5_channel_count: None when series.electrodes has no length, and a "
+        "warning says the channel axis is guessed from the shape. Absence, reported.",
     ("spectral/_psd.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 1):
         "The one handler around both modes' fits and the robust refit (it was one handler "
-        "per mode). Returns AperiodicFitResult(accepted=False) with every estimate None and "
-        "the requested mode -- the declared refusal shape, which is what a non-identifiable "
-        "fit, or a robust refit left with fewer than 4 bins, is supposed to emit.",
+        "per mode). Returns AperiodicFitResult(accepted=False) with every estimate None, the "
+        "requested mode, and reason set to the exception's class and text -- the declared "
+        "refusal shape, with its cause recorded.",
     ("nwb_validate.py", "_version", "metadata.PackageNotFoundError", (), True, 1):
         "A distribution that is not installed reports None in the versions table; absence, "
         "not a plausible substitute.",
@@ -826,6 +827,31 @@ ACCEPTED_HANDLER_RECOVERY = {
         "Tries dandi.validate.validate, then dandi.validate._core.validate: the same function "
         "under the module path an older release exposes it at. Neither found is reported by "
         "the caller as 'skipped'.",
+    ("nwb_write.py", "_attr_scalar_equal", "Exception", (), True, 1):
+        "An unreadable reference target compares as different, with a UserWarning naming the "
+        "exception; _attrs_equal files it as attribute '<key>' differs, so the failure is the "
+        "finding, on the conservative side.",
+    ("nwb_write.py", "_attr_scalar_equal", "Exception", (), True, 2):
+        "An attribute element that will not compare with == falls back to comparing reprs of "
+        "the same two inputs, with a UserWarning naming the exception. The answer stays a "
+        "comparison of the pair, never a constant.",
+    ("nwb_write.py", "_is_null", "Exception", (), True, 1):
+        "An unreadable reference is treated as non-null, with a UserWarning, so the caller "
+        "still probes it with handle[ref] and records a dangling reference on failure; it is "
+        "never silently skipped as null.",
+    ("nwb_write.py", "_read_check", "Exception", (), True, 1):
+        "The failure is the finding: the check returns ok=False carrying the exception type "
+        "and text, filed under the pynwb-read check name.",
+    ("nwb_write.py", "_schema_check", "Exception", (), True, 1):
+        "Same: a validation that raises is reported as an ok=False schema check with the "
+        "exception text.",
+    ("nwb_write.py", "_plan_vector_index_types.visit", "Exception", ("resolved",), False, 1):
+        "A target reference that will not dereference is a dangling one: resolved stays None "
+        "and the index is repointed to its derived target. A resolving reference to a "
+        "different dataset refuses with UnidentifiableRepairError, so no value is invented.",
+    ("nwb_write.py", "_version", "metadata.PackageNotFoundError", (), True, 1):
+        "A distribution that is not installed records None, with a UserWarning, and the "
+        "caller files it as 'unknown' in the provenance environment. Absence, reported.",
 }
 
 
@@ -1201,7 +1227,7 @@ class TestTheRepairsFoundByThisSweep:
         assert vals["max"] != vals["min"], vals
 
     def test_an_unrecognised_align_raises_rather_than_resampling_silently(self):
-        """Latent hit, the same structural status P-31 had.
+        """Latent hit, the same structural status as the recorded defect.
 
         ``_resample_axis``'s ``if/elif`` chain over ``align`` ended without an ``else``, so an
         unrecognised value returned both arrays untouched while ``_align_dimensions`` appended

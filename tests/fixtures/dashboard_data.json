@@ -112,6 +112,180 @@
       "docs_page": "https://example.invalid/docs/fig_a.html"
     }
   ],
+  "validations": [
+    {
+      "id": "xflip_calibration_0.2.5",
+      "section": "calibration",
+      "title": "xFLIP Empirical Calibration & Operating Characteristics Receipt",
+      "path": "artifacts/benchmarks/calibration/xflip_calibration_0.2.5.md",
+      "commit": "86a736a7fb90b901173b0fc0f9face2950f7ca4c",
+      "sha256": "d7e124a65b0fcec3129ac2a12ce7bd1ae71417e21c830937c7ec46cce917afdc",
+      "fields": {},
+      "html": null
+    },
+    {
+      "id": "vflip_calibration_0.2.4",
+      "section": "calibration",
+      "title": "vFLIP support-score calibration",
+      "path": "artifacts/benchmarks/calibration/vflip_calibration_0.2.4.md",
+      "commit": "d50680f44afbde08f4e13ac031d8552cc7b586fa",
+      "sha256": "5694197a24fa2d5a867c9af45e21ca13f2dcb6e432b60e07ace0adb8bc76d4aa",
+      "fields": {},
+      "html": null
+    },
+    {
+      "id": "curation_calibration_0.2.13",
+      "section": "calibration",
+      "title": "Curation calibration: defaults of `curate_and_label`",
+      "path": "artifacts/benchmarks/calibration/curation_calibration_0.2.13.md",
+      "commit": "ceccdcb9905f10b0f7a91b5a6ad345d7ab1d39b6",
+      "sha256": "050e5ccbc7e770ca2671eccc374387550af2f02759145bdca08ef28ad14d4986",
+      "fields": {
+        "summary": "Trials: 2784; planted 1392, null 1392; refused 0."
+      },
+      "html": null
+    },
+    {
+      "id": "cuda_parity_0.2.4",
+      "section": "calibration",
+      "title": "CUDA execution and CPU parity receipt (0.2.4-15)",
+      "path": "artifacts/benchmarks/calibration/cuda_parity_0.2.4.md",
+      "commit": "d50680f44afbde08f4e13ac031d8552cc7b586fa",
+      "sha256": "975776dfdd8d6963589ed9b6de50a4df9a75bf416002a857f625db88469cbe54",
+      "fields": {},
+      "html": null
+    },
+    {
+      "id": "baseline_performance",
+      "section": "performance",
+      "title": "Baseline timings",
+      "path": "artifacts/benchmarks/performance/baseline_performance.json",
+      "commit": "d50680f44afbde08f4e13ac031d8552cc7b586fa",
+      "sha256": "e2f44f6da0adac3c2bf20b9c768b388ad1b995ade20ff6cb2a2ae57931c41ef4",
+      "fields": {
+        "rows": 21
+      },
+      "html": null
+    },
+    {
+      "id": "peak_memory",
+      "section": "performance",
+      "title": "Peak memory",
+      "path": "artifacts/benchmarks/performance/peak_memory.json",
+      "commit": "0ffa0c7d0262902baa43bdcab83fcca382aadb5c",
+      "sha256": "f59d0ffe5bd2b61c15fc774da5124b863f1b95bf45866c5e9ca666f248916694",
+      "fields": {
+        "operations": 7
+      },
+      "html": null,
+      "recorded_commit": "4490eaad9657012156718e5069a9bd7ad0972263"
+    },
+    {
+      "id": "import_breakdown",
+      "section": "performance",
+      "title": "Import cost",
+      "path": "artifacts/benchmarks/performance/import_breakdown.json",
+      "commit": "4490eaad9657012156718e5069a9bd7ad0972263",
+      "sha256": "bf8e36d353c76f85aa01386b49d306529972c98e8a14cf5c93a72112fbee4011",
+      "fields": {
+        "version": "0.2.13",
+        "python": "3.14.3",
+        "warm_median_ms": 3180,
+        "runs": 10
+      },
+      "html": null
+    },
+    {
+      "id": "frozen_validated",
+      "section": "frozen",
+      "title": "Independently verified functions",
+      "path": "artifacts/process/frozen_validated.json",
+      "commit": "f0019cce1d249eec08157d8c7d6dc75b11476725",
+      "sha256": "766f2c97eb1d2f98115583691388eca1b965e422c157be86464e9922a5562ee8",
+      "fields": {
+        "functions": 6
+      },
+      "html": null
+    },
+    {
+      "id": "studies-1",
+      "section": "studies",
+      "title": "Fleiss, J. L. (1971). Measuring nominal scale agreement among many raters. *Psychological Bulletin* 76(5), 378-382. [doi:10.1037/h0031619](https://doi.org/10.1037/h0031619)",
+      "path": "docs/references.md",
+      "commit": "be9e65387a7b132c5499bea2ea05e0cb5448c5ae",
+      "sha256": "a81b5716da87ca05833b4aeb871aaa25ddd7970d82f377223f81ec81b3b96cd8",
+      "fields": {
+        "result": "**Partially replicated.** Overall kappa, .430 for 30 patients rated by six raters into five categories. The table is transcribed in the test from the R packages irr and lagree, not read from the paper; only the overall kappa is checked, to three decimals",
+        "tests": [
+          "test_spiking.py::TestFleissKappa::test_reproduces_the_worked_example_of_fleiss_1971"
+        ]
+      },
+      "html": null
+    },
+    {
+      "id": "studies-2",
+      "section": "studies",
+      "title": "Hill, D. N., Mehta, S. B., & Kleinfeld, D. (2011). Quality metrics to accompany spike sorting of extracellular signals. *Journal of Neuroscience* 31(24), 8699-8705. [doi:10.1523/JNEUROSCI.0971-11.2011](https://doi.org/10.1523/JNEUROSCI.0971-11.2011)",
+      "path": "docs/references.md",
+      "commit": "be9e65387a7b132c5499bea2ea05e0cb5448c5ae",
+      "sha256": "a81b5716da87ca05833b4aeb871aaa25ddd7970d82f377223f81ec81b3b96cd8",
+      "fields": {
+        "result": "**Replicated.** The worked example: $N/T$ = 10 Hz, $\\tau_R$ = 3 ms, $\\tau_C$ = 1 ms and $T$ = 1000 s with 20 violations give $f$ = 0.05, and the estimate equals the smaller root of the closed form at relative 1e-12. The paper gives no recording; the test builds the spike train that yields the violations",
+        "tests": [
+          "test_unit_quality.py::test_refractory_contamination_reproduces_the_worked_example_of_the_source"
+        ]
+      },
+      "html": null
+    },
+    {
+      "id": "studies-3",
+      "section": "studies",
+      "title": "Major, A. J., et al. (2025). A. J. Major et al. reply. *Nature Neuroscience* 29(2), 284-286. [doi:10.1038/s41593-025-02168-x](https://doi.org/10.1038/s41593-025-02168-x). Code: Mendoza-Halliday, D., et al. (2023). vFLIP2.m, version 8 (2025-11-04). Dryad dataset. [doi:10.5061/dryad.9w0vt4bnp](https://doi.org/10.5061/dryad.9w0vt4bnp)",
+      "path": "docs/references.md",
+      "commit": "be9e65387a7b132c5499bea2ea05e0cb5448c5ae",
+      "sha256": "a81b5716da87ca05833b4aeb871aaa25ddd7970d82f377223f81ec81b3b96cd8",
+      "fields": {
+        "result": "**Replicated.** The outputs of the published code vFLIP2.m (omega, goodness, bands and channels) for the three synthetic cases and the power example that have a window, and the empty result for the five cases without one, at relative 1e-9; the PSD and result from raw, trial-cut and cell LFP at the same tolerance. The check is the code's output, not a figure in the paper",
+        "tests": [
+          "test_vflip2.py::test_every_window_matches_matlab",
+          "test_vflip2.py::test_below_the_cut_the_best_window_is_returned_and_refused",
+          "test_vflip2.py::test_no_window_returns_an_empty_result",
+          "test_vflip2_from_lfp.py::test_psd_and_result_match_vflip2_m",
+          "test_vflip2_from_lfp.py::test_dryad_test_data_match_vflip2_m"
+        ]
+      },
+      "html": null
+    },
+    {
+      "id": "studies-4",
+      "section": "studies",
+      "title": "Siegle, J. H., et al. (2021). Survey of spiking in the mouse visual system reveals functional hierarchy. *Nature* 592(7852), 86-92. [doi:10.1038/s41586-020-03171-x](https://doi.org/10.1038/s41586-020-03171-x). Jia, X., et al. (2019). High-density extracellular probes reveal dendritic backpropagation and facilitate neuron classification. *Journal of Neurophysiology* 121(5), 1831-1847. [doi:10.1152/jn.00680.2018](https://doi.org/10.1152/jn.00680.2018)",
+      "path": "docs/references.md",
+      "commit": "be9e65387a7b132c5499bea2ea05e0cb5448c5ae",
+      "sha256": "a81b5716da87ca05833b4aeb871aaa25ddd7970d82f377223f81ec81b3b96cd8",
+      "fields": {
+        "result": "**Partially replicated.** The waveform half-width, repolarization slope and spread (Jia et al.), and the amplitude cutoff, on fixed cases, as AllenInstitute `ecephys_spike_sorting` at commit 919992748a53 computes them. The check is that code's output, not a figure in either paper; the duration, SNR and presence ratio of Siegle et al. are not checked",
+        "tests": [
+          "test_unit_quality.py::test_the_waveform_measures_reproduce_the_source_on_a_fixed_unit",
+          "test_unit_quality.py::test_the_amplitude_cutoff_reproduces_the_source_on_fixed_amplitudes"
+        ]
+      },
+      "html": null
+    },
+    {
+      "id": "blocker_fixpoint_receipt",
+      "section": "closure",
+      "title": "Blocker fixpoint receipt, 0.2.13",
+      "path": "artifacts/process/blocker_fixpoint_receipt.md",
+      "commit": "436022cee7a96341e9318da267269a618a32d01f",
+      "sha256": "d92787862a4835c6ddf98abc6a17496c26d6b4fa1897de204e4982505bcf2cb1",
+      "fields": {
+        "new_blockers": 0
+      },
+      "html": null,
+      "recorded_commit": "701dad711d2e0a3648551fc7c4f531715379deff"
+    }
+  ],
   "showcases": {
     "entries": [
       {

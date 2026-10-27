@@ -62,7 +62,7 @@ SEEDED = (
 
 
 class TestNoRandomizedFunctionHidesItsSeed:
-    """05-35 acceptance, read straight off the signature."""
+    """Read straight off the signature: no randomized function hides its seed."""
 
     @pytest.mark.parametrize("name,fn,expected", SEEDED, ids=[s[0] for s in SEEDED])
     def test_the_default_seed_is_in_the_signature(self, name, fn, expected):
@@ -165,7 +165,11 @@ class TestOneSpellingAcceptsASeedOrAGenerator:
 
     def test_an_int_and_an_equivalent_generator_agree(self, ab):
         a, _ = ab
-        assert SA.bootstrap_ci(a, rng=7) == SA.bootstrap_ci(a, rng=np.random.default_rng(7))
+        seeded, passed = SA.bootstrap_ci(a, rng=7), SA.bootstrap_ci(a, rng=np.random.default_rng(7))
+        # The numbers agree; only the seed can be reported, a Generator's position cannot.
+        assert (seeded.pop("surrogate_seed_entropy"), passed.pop("surrogate_seed_entropy")) == \
+               (7, None)
+        assert seeded == passed
 
     def test_a_generator_is_used_in_place_not_restarted(self, ab):
         """Passing one Generator to two calls must advance a single stream, or a caller
@@ -206,7 +210,7 @@ class TestOneSpellingAcceptsASeedOrAGenerator:
 
 
 class TestNestedCvPartitionIsControllable:
-    """05-34's discriminator: two different seeds give two different fold assignments."""
+    """Two different seeds give two different fold assignments."""
 
     def test_two_seeds_give_different_folds(self, decodable):
         X, y = decodable
@@ -255,7 +259,7 @@ class TestNestedCvPartitionIsControllable:
         assert np.isnan(res["accuracy"])
 
 
-# 06-203: the directed estimators resolved `rng` through a private helper that mapped
+# The directed estimators resolved `rng` through a private helper that mapped
 # `None` to seed 0 (recorded as `seed=None`), refused a Generator and truncated 2.7 to 2.
 _DG = np.random.default_rng(5)
 _DX = _DG.normal(size=(2, 400))

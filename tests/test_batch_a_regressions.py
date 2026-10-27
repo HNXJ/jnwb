@@ -78,7 +78,7 @@ class TestStatisticsRNG:
         assert res1["bootstrap_std"] == res3["bootstrap_std"]
 
     def test_invalid_rng_type_raises_type_error(self):
-        """05-35 retargeted an int from "rejected" to "a seed".
+        """An int for `rng` moved from "rejected" to "a seed".
 
         This used to assert that `bootstrap_ci(data, rng=42)` raises, while the same
         function ran `np.random.default_rng(42)` whenever `rng` was omitted. The strict
@@ -98,9 +98,13 @@ class TestStatisticsRNG:
 
     def test_an_int_is_a_seed_and_agrees_with_the_generator_it_names(self):
         data = np.array([1.0, 2.0, 3.0])
-        assert StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=500, rng=42) == \
-               StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=500,
-                                                rng=np.random.default_rng(42))
+        seeded = StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=500, rng=42)
+        passed = StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=500,
+                                                  rng=np.random.default_rng(42))
+        # The numbers agree; only the seed can be reported, a Generator's position cannot.
+        assert (seeded.pop("surrogate_seed_entropy"), passed.pop("surrogate_seed_entropy")) == \
+               (42, None)
+        assert seeded == passed
 
 
 class TestArtifactDetectionPublicAPI:

@@ -5,8 +5,8 @@ from __future__ import annotations
 import warnings
 from typing import Dict, Optional, Sequence, Tuple, Union
 import numpy as np
-from .._rng import DEFAULT_SEED, RNGLike, resolve_rng
-from .._spread import is_constant as _is_constant
+from .._rng import DEFAULT_SEED, RNGLike, surrogate_rng
+from .._spread import is_constant as _is_constant, percentile_interval
 from scipy import stats
 from ..permutation import _count_at_least_as_extreme, _p_from_count
 from ._tests import clopper_pearson, mann_whitney_p_floor, exact_sign_flip, _tie_tolerance, _zero_spread_t
@@ -156,7 +156,7 @@ class StatisticalAnalysis:
         ci: float = 0.95,
         rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
-        rng = resolve_rng(rng, func_name="_bootstrap_mean_diff_ci")
+        rng, seed_entropy = surrogate_rng(rng, "_bootstrap_mean_diff_ci")
         if paired and len(a) == len(b) and len(a) > 1:
             diffs = a - b
             stats_boot = np.empty(n_bootstrap)
@@ -170,6 +170,7 @@ class StatisticalAnalysis:
                     "observed_mean_diff": float("nan"),
                     "bootstrap_ci": (float("nan"), float("nan")),
                     "n_bootstrap": int(n_bootstrap),
+                    "surrogate_seed_entropy": seed_entropy,
                 }
             stats_boot = np.empty(n_bootstrap)
             for i in range(n_bootstrap):
@@ -178,13 +179,13 @@ class StatisticalAnalysis:
                 stats_boot[i] = np.mean(sa) - np.mean(sb)
             observed = float(np.mean(a) - np.mean(b))
 
-        alpha = (1.0 - ci) / 2.0
-        lo, hi = np.percentile(stats_boot, [alpha * 100, (1 - alpha) * 100])
+        lo, hi = percentile_interval(stats_boot, ci)
         return {
             "observed_mean_diff": observed,
             "bootstrap_ci": (float(lo), float(hi)),
             "n_bootstrap": int(n_bootstrap),
             "ci": float(ci),
+            "surrogate_seed_entropy": seed_entropy,
         }
 
     @staticmethod
@@ -217,6 +218,13 @@ class StatisticalAnalysis:
         ``[1, 2, 3, 4]``) give a finite, huge ``statistic`` (about 9e14) and a ``pval``
         near 0.
 
+        Non-finite values are dropped before the test, with a RuntimeWarning that counts them
+        per group; with ``paired=True`` a pair holding one is dropped whole and counted as a pair.
+
+        The result carries ``surrogate_seed_entropy``: the entropy the resamples ran on
+        (the seed for an int ``rng``, the fresh OS entropy drawn for ``rng=None``, None
+        for a ``Generator``).
+
         Args:
             test: Which test to perform -- ``"both"`` (default), ``"parametric"`` or
                 ``"nonparametric"``. Naming one runs only that test: the other is not
@@ -225,6 +233,11 @@ class StatisticalAnalysis:
                 leaving the default runs two and spends two.
         """
         run_param, run_nonparam = _resolve_test_choice(test, "compare_groups")
+
+        # Resolved here so the result names the entropy it ran on; the generator is
+        # what `_bootstrap_mean_diff_ci` draws from. An int draws the stream
+        # `resolve_rng` always drew; a Generator is used in place (entropy None).
+        rng, seed_entropy = surrogate_rng(rng, "compare_groups")
 
         group1 = np.asarray(group1).flatten()
         group2 = np.asarray(group2).flatten()
@@ -246,6 +259,23 @@ class StatisticalAnalysis:
         else:
             valid1 = group1[np.isfinite(group1)]
             valid2 = group2[np.isfinite(group2)]
+        n_dropped1 = len(group1) - len(valid1)
+        n_dropped2 = len(group2) - len(valid2)
+        if paired and n_dropped1:
+            warnings.warn(
+                f"compare_groups: dropped {n_dropped1} pair(s) holding a non-finite value. "
+                "The test is on the remaining pairs.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        elif n_dropped1 or n_dropped2:
+            warnings.warn(
+                f"compare_groups: dropped {n_dropped1 + n_dropped2} non-finite sample(s) "
+                f"({n_dropped1} from group1, {n_dropped2} from group2). The test is on the "
+                "remaining samples.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
         result: Dict = {
             "n1": len(valid1),
@@ -262,6 +292,7 @@ class StatisticalAnalysis:
             "iqr2": stats.iqr(valid2) if len(valid2) > 0 else np.nan,
             "mad1": stats.median_abs_deviation(valid1) if len(valid1) > 0 else np.nan,
             "mad2": stats.median_abs_deviation(valid2) if len(valid2) > 0 else np.nan,
+            "surrogate_seed_entropy": seed_entropy,
         }
 
         if paired:
@@ -444,7 +475,8 @@ class StatisticalAnalysis:
 
         A constant input has no correlation: that block reports ``statistic``, ``pval``,
         ``effect_size`` and ``df`` as float NaN, and its ``significant_*`` flag is False. A
-        defined correlation keeps its integer ``df``.
+        defined correlation keeps its integer ``df``. A pair with a NaN or infinite value in
+        either variable is dropped, and ``n`` counts the pairs kept.
 
         Args:
             method: Which correlation to compute -- ``"both"`` (default), ``"pearson"``
@@ -463,7 +495,7 @@ class StatisticalAnalysis:
         x = np.asarray(x).flatten()
         y = np.asarray(y).flatten()
 
-        valid = ~(np.isnan(x) | np.isnan(y))
+        valid = np.isfinite(x) & np.isfinite(y)
         x_valid = x[valid]
         y_valid = y[valid]
 
@@ -516,11 +548,23 @@ class StatisticalAnalysis:
 
         ``rng`` defaults to the seed this function used to hide in its body; pass ``None``
         for fresh entropy, or a ``Generator`` to keep one stream across calls.
+        ``surrogate_seed_entropy`` is the entropy the resamples ran on: the seed for an
+        int ``rng``, the fresh OS entropy drawn for ``rng=None``, None for a ``Generator``.
+
+        Non-finite values are dropped with a RuntimeWarning that counts them.
         """
-        rng = resolve_rng(rng, func_name="bootstrap_ci")
+        rng, seed_entropy = surrogate_rng(rng, "bootstrap_ci")
 
         data = np.asarray(data).flatten()
+        n_in = len(data)
         data = data[np.isfinite(data)]
+        if len(data) < n_in:
+            warnings.warn(
+                f"bootstrap_ci: dropped {n_in - len(data)} non-finite sample(s). The interval "
+                "is on the remaining samples.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
         mean = np.mean(data)
         sem = stats.sem(data)
@@ -540,17 +584,14 @@ class StatisticalAnalysis:
             else:
                 blocks.append(np.array([statistic_func(r) for r in resamples]))
         bootstrap_stats = np.concatenate(blocks) if blocks else np.array([])
-        alpha = (1 - ci) / 2
-        bootstrap_ci = (
-            np.percentile(bootstrap_stats, alpha * 100),
-            np.percentile(bootstrap_stats, (1 - alpha) * 100),
-        )
+        bootstrap_ci = tuple(percentile_interval(bootstrap_stats, ci))
 
         return {
             "statistic": float(statistic_func(data)),
             "parametric_ci": tuple(float(x) for x in parametric_ci),
             "bootstrap_ci": tuple(float(x) for x in bootstrap_ci),
             "bootstrap_std": float(np.std(bootstrap_stats)),
+            "surrogate_seed_entropy": seed_entropy,
         }
 
     @staticmethod
@@ -587,8 +628,12 @@ class StatisticalAnalysis:
 
         ``rng`` defaults to the seed this function used to hide in its body; pass ``None``
         for fresh entropy, or a ``Generator`` to keep one stream across calls.
+
+        ``scheme`` in the result is always ``'global'``: the flat shuffle is the scheme it draws.
+        ``surrogate_seed_entropy`` is the entropy the permutations ran on: the seed for an
+        int ``rng``, the fresh OS entropy drawn for ``rng=None``, None for a ``Generator``.
         """
-        rng = resolve_rng(rng, func_name="permutation_test")
+        rng, seed_entropy = surrogate_rng(rng, "permutation_test")
 
         x = np.asarray(x, dtype=float).flatten()
         y = np.asarray(y, dtype=float).flatten()
@@ -621,6 +666,8 @@ class StatisticalAnalysis:
                 "significant": False,
                 "n_x": len(x),
                 "n_y": len(y),
+                "scheme": "global",
+                "surrogate_seed_entropy": seed_entropy,
             }
 
         n_x = len(x)
@@ -645,6 +692,8 @@ class StatisticalAnalysis:
             "significant": p_value < 0.05,
             "n_x": len(x),
             "n_y": len(y),
+            "scheme": "global",
+            "surrogate_seed_entropy": seed_entropy,
         }
 
     # ─────────────────────────────────────────────────────────────────────────

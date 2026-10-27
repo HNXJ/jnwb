@@ -275,7 +275,7 @@ class TestJrsaIsUnitFree:
 
     @pytest.mark.parametrize("metric", ["pearson", "spearman", "cosine"])
     def test_backend_cupy_changes_no_number(self, metric):
-        """P-281: this was `test_cuda_matches_cpu`, skipped without CuPy, and compared the CPU
+        """The former `test_cuda_matches_cpu` was skipped without CuPy, and compared the CPU
         with the CPU: `backend='cupy'` converts to NumPy and warns. It now says so, and runs
         everywhere."""
         tied = np.repeat(self.RNG.normal(size=10), 4)[:, None] * np.ones((1, 3))

@@ -27,7 +27,7 @@ from jnwb.laminar import xflip
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 from tests.test_vflip_calibration_receipt import _with_prose_edited  # noqa: E402
 
 RAW = ROOT / "artifacts" / "benchmarks" / "calibration" / "xflip_calibration_0.2.5_raw.json"
@@ -163,7 +163,7 @@ def test_an_edit_inside_a_multi_line_string_literal_changes_the_receipt(monkeypa
 
 
 def test_a_docstring_or_comment_edit_leaves_the_receipt_current(monkeypatch):
-    """P-285: the receipt hashed comments, so a comment edit read as a changed estimator."""
+    """The receipt hashed comments, so a comment edit read as a changed estimator."""
     generator = _generator()
     before = generator.estimator_sha256()
     real = inspect.getsource

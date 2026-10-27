@@ -33,7 +33,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts import docs_form_gate as gate  # noqa: E402
 
@@ -84,7 +84,7 @@ def test_the_corpus_reaches_the_authored_pages():
 
 
 def test_the_corpus_reaches_the_three_surfaces_it_used_to_exclude():
-    """P-95: a widening that silently globs nothing looks exactly like a clean tree.
+    """A widening that silently globs nothing looks exactly like a clean tree.
 
     Each of the three additions is asserted to be present and non-trivial, because an empty
     glob returns an empty list and every scan above then passes over it without a word.
@@ -224,7 +224,7 @@ def test_every_preferred_term_occurs_in_the_prose():
 
 @pytest.mark.parametrize("row", VOCABULARY, ids=lambda r: r.concept)
 def test_a_reintroduced_superseded_term_is_named_with_its_page(row):
-    """06-49's discriminator, per row: reintroduce a superseded term on one page and
+    """The discriminator, per row: reintroduce a superseded term on one page and
     require the check to name the page and the term.
 
     Seeded in memory rather than on disk -- a test that writes into `docs/` and restores
@@ -324,3 +324,168 @@ def length_claim_mismatches(docs: Path) -> list[str]:
 def test_the_length_section_states_what_the_pages_measure():
     """Counts in prose go stale silently; these are recomputed on every run."""
     assert length_claim_mismatches(DOCS) == []
+
+
+# ------------------------------------------- figures embedded in the page, not linked
+
+#: A markdown link: a `[` not preceded by `!`, so an image (`![alt](file)`) is not one.
+_MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]\n]*\]\(([^)\s]+)\)")
+_FIGURE_FILE = re.compile(r"\.(?:png|svg|html)$", re.IGNORECASE)
+
+
+def linked_figures(pages: list[Path], root: Path) -> list[str]:
+    """`page -> target` for each markdown link in `pages` whose target names a PNG, SVG or HTML
+    file. The fragment and the query are stripped before the suffix is read; fenced code is not
+    rendered, so it is not read."""
+    found = []
+    for page in pages:
+        for _, line in gate.unfenced_lines(page.read_text(encoding="utf-8")):
+            for target in _MARKDOWN_LINK.findall(line):
+                if _FIGURE_FILE.search(re.split(r"[#?]", target, maxsplit=1)[0]):
+                    found.append(f"{page.relative_to(root).as_posix()} -> {target}")
+    return found
+
+
+def html_in_assets(assets: Path) -> list[str]:
+    """The HTML files under `assets`, by path relative to it. An interactive output is published
+    on the dashboard, not kept among a page's assets."""
+    return [p.relative_to(assets).as_posix() for p in sorted(assets.rglob("*.html"))]
+
+
+def test_figures_are_embedded_not_linked():
+    """Bypass: a page links to a figure file, and the reader leaves the page to open it. The page
+    count guards an empty scan."""
+    pages = sorted(DOCS.rglob("*.md"))
+    assert len(pages) >= 20, f"only {len(pages)} pages under docs/; the scan read nothing"
+    linked = linked_figures(pages, DOCS)
+    html = html_in_assets(DOCS / "assets")
+    assert not linked, f"links to figure files, to embed as images instead: {linked}"
+    assert not html, f"HTML files under docs/assets/, to publish on the dashboard: {html}"
+
+
+def test_the_link_check_reports_a_linked_png_and_html_and_not_an_embedded_figure(tmp_path):
+    """Bypass: an image is read as a link, the fragment defeats the suffix test, or a fenced
+    example is reported. One planted page holds each case."""
+    page = tmp_path / "planted.md"
+    page.write_text(
+        "![embedded](assets/fig.png#only-light)\n"
+        "[linked png](assets/fig.png)\n"
+        "[linked html](assets/wavemap.html#top)\n"
+        "```\n[quoted](assets/fig.png)\n```\n",
+        encoding="utf-8")
+    assert linked_figures([page], tmp_path) == [
+        "planted.md -> assets/fig.png", "planted.md -> assets/wavemap.html#top"]
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets" / "wavemap.html").write_text("<html></html>", encoding="utf-8")
+    assert html_in_assets(tmp_path / "assets") == ["wavemap.html"]
+
+
+# ---------------------------------- an inline figure on every demonstration page
+
+#: Pages that hold reference or contract text rather than a computation, by name.
+FIGURE_EXEMPT = frozenset({
+    "api.md", "glossary.md", "references.md", "errors.md", "install.md", "recipes.md",
+    "agents.md", "documentation_form.md", "10_operation_specifications.md", "architecture.md",
+    "01_architecture_and_philosophy.md", "execution.md",
+})
+#: A light figure as written in a page: a markdown image or an `<img>` tag, `#only-light` after it.
+_LIGHT_FIGURE = re.compile(r"([^\s\"'()]+\.png)#only-light")
+#: Pages that show one PNG with no dark twin. The gate owns the map and its quoted lines.
+LIGHT_ONLY_PAGES = gate.LIGHT_ONLY_PAGES
+
+
+def dark_twin(light: str) -> str:
+    """The dark PNG that replaces a light one: `name.png` -> `name.dark.png`."""
+    return light[: -len(".png")] + ".dark.png"
+
+
+def demonstration_pages(docs: Path) -> list[Path]:
+    return sorted([*docs.glob("*.md"), *(docs / "tutorials").glob("*.md")])
+
+
+def figure_gaps(docs: Path) -> tuple[list[str], list[str]]:
+    """(pages outside `FIGURE_EXEMPT` that embed no light PNG with its dark twin, and the light
+    PNGs whose dark twin is not on disk beside the page)."""
+    bare, orphans = [], []
+    for page in demonstration_pages(docs):
+        text = page.read_text(encoding="utf-8")
+        name = page.relative_to(docs).as_posix()
+        lights = _LIGHT_FIGURE.findall(text)
+        orphans += [f"{name} -> {dark_twin(light)}" for light in lights
+                    if not (page.parent / dark_twin(light)).is_file()]
+        paired = [light for light in lights if f"{dark_twin(light)}#only-dark" in text]
+        if page.name not in FIGURE_EXEMPT and page.name not in LIGHT_ONLY_PAGES and not paired:
+            bare.append(name)
+    return bare, orphans
+
+
+def test_every_demonstration_page_embeds_a_figure_pair():
+    """Bypass: a computation page with no figure passes, or a light PNG whose dark twin is not
+    on disk passes. The page count guards an empty scan."""
+    pages = demonstration_pages(DOCS)
+    assert len(pages) >= 30, f"only {len(pages)} pages read; the scan has nothing to check"
+    bare, orphans = figure_gaps(DOCS)
+    assert not bare, f"pages with no light and dark figure pair: {bare}"
+    assert not orphans, f"light figures with no dark twin on disk: {orphans}"
+
+
+def test_a_light_only_page_states_its_theme():
+    """Bypass: the exemption outlives the line that justifies it, so a page with one dark-less
+    figure passes unexplained. The quoted line is the page's own statement of its light theme."""
+    for name, line in LIGHT_ONLY_PAGES.items():
+        text = (DOCS / name).read_text(encoding="utf-8")
+        assert line in text, f"{name} is exempt from the figure pair but does not state: {line!r}"
+
+
+def test_the_figure_pair_check_names_the_bare_page_and_the_missing_twin(tmp_path):
+    (tmp_path / "assets").mkdir()
+    for name in ("fig.png", "fig.dark.png", "lone.png"):
+        (tmp_path / "assets" / name).write_bytes(b"")
+    (tmp_path / "paired.md").write_text(
+        "![a](assets/fig.png#only-light)\n![a](assets/fig.dark.png#only-dark)\n", encoding="utf-8")
+    (tmp_path / "bare.md").write_text("Prose, no figure.\n", encoding="utf-8")
+    (tmp_path / "api.md").write_text("Reference, exempt.\n", encoding="utf-8")
+    (tmp_path / "orphan.md").write_text(
+        "![a](assets/lone.png#only-light)\n![a](assets/lone.dark.png#only-dark)\n", encoding="utf-8")
+    assert figure_gaps(tmp_path) == (["bare.md"], ["orphan.md -> assets/lone.dark.png"])
+
+
+# ------------------------------------------------------- F9: validation detail
+
+
+def _write_docs_page(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+@pytest.mark.parametrize("prefix", ["artifacts/evidence/", "artifacts/benchmarks/"])
+def test_a_bare_validation_path_outside_references_fails(tmp_path, prefix):
+    """Bypass: the matcher never fires, and F9 passes over any tree. One bare path on a
+    planted page must fail named with its file and line."""
+    _write_docs_page(tmp_path / "docs" / "planted.md",
+                     f"# Planted\n\nThe receipt sits at {prefix}x.json.\n")
+    violations, _ = gate.check_evidence_paths(tmp_path)
+    assert any(v.startswith("planted.md:3:") and prefix in v for v in violations), violations
+
+
+@pytest.mark.parametrize("prefix", ["artifacts/evidence/", "artifacts/benchmarks/"])
+def test_the_same_path_in_references_passes(tmp_path, prefix):
+    """The exemption: `references.md` may cite the evidence its rows rest on."""
+    _write_docs_page(tmp_path / "docs" / "references.md",
+                     f"# References\n\nThe receipt sits at {prefix}x.json.\n")
+    _write_docs_page(tmp_path / "docs" / "planted.md", "# Planted\n\nProse, no paths.\n")
+    assert gate.check_evidence_paths(tmp_path)[0] == []
+
+
+def test_a_validation_path_in_a_code_span_fails_too(tmp_path):
+    """A receipt path in backticks is still a path a reader follows."""
+    _write_docs_page(tmp_path / "docs" / "planted.md",
+                     "# Planted\n\nSee `artifacts/evidence/x.json`.\n")
+    assert gate.check_evidence_paths(tmp_path)[0], "a backticked path must fail"
+
+
+def test_the_live_tree_carries_no_validation_paths():
+    """The live-tree leg: no page outside `references.md` names a validation path."""
+    assert len(list((REPO_ROOT / "docs").rglob("*.md"))) >= 25, "the scan read almost nothing"
+    violations, _ = gate.check_evidence_paths(REPO_ROOT)
+    assert violations == [], violations

@@ -33,7 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # `append`, never `insert`: the nav reader is shared from the checkout's tests, but the package
 # under test must stay whichever copy is installed first on the path.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from tests._sources import read_sources, unread_by  # noqa: E402
 from tests.test_docs_user_navigation import (  # noqa: E402
@@ -85,7 +85,7 @@ def _mentions(text, name):
 
 
 class TestEveryErrorClassIsExplained:
-    """The discriminator for 05-41."""
+    """The discriminator for the check that every error class is explained."""
 
     @pytest.mark.parametrize("name", _exported_errors())
     def test_the_error_appears_on_a_hand_written_page(self, name):
@@ -101,7 +101,7 @@ class TestEveryErrorClassIsExplained:
     def test_there_are_fifteen_of_them(self):
         """A count that fails when an error class is added without a paragraph. If this
         fails, add the class to docs/errors.md and change the number here."""
-        assert len(_exported_errors()) == 15, _exported_errors()
+        assert len(_exported_errors()) == 20, _exported_errors()
 
     def test_both_base_classes_are_named_so_a_caller_can_catch_a_family(self):
         page = (DOCS / "errors.md").read_text(encoding="utf-8")
@@ -154,7 +154,7 @@ class TestTheErrorsPageIsReachable:
 
 
 class TestEveryExportIsWrittenAboutSomewhere:
-    """05-41's accept condition: the Gate 5 check, exercised here so a `pytest` run sees
+    """The accept condition: the Gate 5 check, exercised here so a `pytest` run sees
     it too, not only a gate invocation."""
 
     def test_no_export_lives_only_in_the_generated_reference(self):
@@ -168,7 +168,7 @@ class TestEveryExportIsWrittenAboutSomewhere:
     def test_the_gate_agrees(self):
         import sys
 
-        sys.path.insert(0, str(DOCS.parent / "scripts"))
+        sys.path.insert(0, str(DOCS.parent / "scripts"))  # scripts/ itself: bare-name imports
         from harness_gate import check_public_symbols_documented
 
         assert check_public_symbols_documented(DOCS.parent) == []
@@ -246,7 +246,7 @@ class TestTheGateWouldNoticeAMissingPage:
     def test_docs_containing_only_the_generated_reference_are_rejected(self, tmp_path):
         import sys
 
-        sys.path.insert(0, str(DOCS.parent / "scripts"))
+        sys.path.insert(0, str(DOCS.parent / "scripts"))  # scripts/ itself: bare-name imports
         from harness_gate import check_public_symbols_documented
 
         root = self._root_with_only_the_generated_reference(tmp_path)
@@ -258,7 +258,7 @@ class TestTheGateWouldNoticeAMissingPage:
         """The complement: the gate is not simply always-failing now."""
         import sys
 
-        sys.path.insert(0, str(DOCS.parent / "scripts"))
+        sys.path.insert(0, str(DOCS.parent / "scripts"))  # scripts/ itself: bare-name imports
         from harness_gate import check_public_symbols_documented
 
         root = self._root_with_only_the_generated_reference(tmp_path)
@@ -273,7 +273,7 @@ class TestTheGateWouldNoticeAMissingPage:
         green. The match is whole-word for exactly this reason."""
         import sys
 
-        sys.path.insert(0, str(DOCS.parent / "scripts"))
+        sys.path.insert(0, str(DOCS.parent / "scripts"))  # scripts/ itself: bare-name imports
         from harness_gate import check_public_symbols_documented
 
         shadowed = ["Dataset", "rdm"]
@@ -291,7 +291,7 @@ class TestTheGateWouldNoticeAMissingPage:
     def test_one_missing_symbol_is_reported_by_name(self, tmp_path):
         import sys
 
-        sys.path.insert(0, str(DOCS.parent / "scripts"))
+        sys.path.insert(0, str(DOCS.parent / "scripts"))  # scripts/ itself: bare-name imports
         from harness_gate import check_public_symbols_documented
 
         root = self._root_with_only_the_generated_reference(tmp_path)

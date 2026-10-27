@@ -49,10 +49,8 @@ local/
 *.log
 *.sha256
 
-# figures: ignore rendered outputs; keep figure wrapper scripts
+# figures: ignore rendered outputs
 figures/*
-!figures/*.py
-!figures/**/*.py
 
 # generated web/gallery/dashboard assets
 dashboard/public/
@@ -82,16 +80,25 @@ gallery_src/
 !artifacts/benchmarks/*/*.json
 !examples/data/*.provenance.json
 !artifacts/process/frozen_validated.json
+!artifacts/process/public_surface.json
 !artifacts/evidence/0.2.13/vflip2_oracle.json
 !artifacts/evidence/0.2.13/vflip2_recovery.json
 !artifacts/evidence/0.2.13/compress_scaling.json
 !artifacts/evidence/0.2.13/vflip2_nuisance.json
 !artifacts/evidence/0.2.13/xflip_nuisance.json
+!artifacts/evidence/0.2.6/verify_nwb_order.json
+!artifacts/evidence/0.2.6/write_nwb_order.json
+!artifacts/evidence/0.2.6/transform_nwb_order.json
+!artifacts/evidence/0.2.6/repair_nwb_order.json
 # The dashboard's template and data contract; its built data.json stays out.
 !scripts/dashboard/index.html
 !scripts/dashboard/data.schema.json
 !tests/fixtures/dashboard_data.json
 !tests/fixtures/showcase_record.json
+# The jaxfne planar-wave excerpt and its provenance, which tests/test_jaxfne_ground_truth.py loads.
+!tests/data/
+!tests/data/jaxfne_*.npz
+!tests/data/jaxfne_*.provenance.json
 # vFLIP2.m's outputs on stored inputs, which tests/test_vflip2.py compares against.
 !tests/fixtures/vflip2_matlab_reference.json
 # vFLIP2.m's PSD and outputs on stored LFP, which tests/test_vflip2_from_lfp.py compares against.
@@ -172,3 +179,6 @@ artifacts/fact_graph.json
 # P-10. Excluded by path, so the suffix no longer decides. The extension rules above stay: they
 # cover *.pkl and *.json everywhere else in the repository, which a rule anchored here cannot.
 artifacts/developer/.cache/
+
+# Scratch output of local work; nothing here is tracked.
+artifacts/_temp/

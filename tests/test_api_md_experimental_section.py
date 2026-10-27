@@ -9,7 +9,7 @@ import jnwb
 REPO_ROOT = Path(__file__).resolve().parents[1]
 # `scripts/` is not in the wheel; `append`, so the installed package is not shadowed.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.generate_api_md import EXPERIMENTAL_SUBMODULES, generate_api_markdown  # noqa: E402
 

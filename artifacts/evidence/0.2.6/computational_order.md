@@ -16,11 +16,11 @@ more than one input dimension and the orders differ between them.
 
 | Category | Exports | Evidence |
 |---|---|---|
-| `jnwb.__all__` | 160 | runtime probe with a provenance assertion |
-| Cost grows with input size -- measured | 106 | 189 sweeps, 189 completed |
-| Cost does not grow with input size -- excluded | 50 | section 7, one reason each |
-| Cost grows, input not buildable from this repository | 4 | section 8 |
-| **Total** | **160** | partition checked exact against a live `jnwb.__all__` |
+| `jnwb.__all__` | 226 | runtime probe with a provenance assertion |
+| Cost grows with input size -- measured | 146 | 239 sweeps, 239 completed |
+| Cost does not grow with input size -- excluded | 70 | section 7, one reason each |
+| Cost grows, input not buildable from this repository | 10 | section 8 |
+| **Total** | **226** | partition checked exact against a live `jnwb.__all__` |
 
 The three categories are disjoint and their union is `jnwb.__all__`; no export is in two,
 and none is in none. `classification: observed`.
@@ -184,9 +184,14 @@ contradicts a written claim it appears in section 6.
 | `granger[n_samples]` | n_samples | 10000, 40000, 120000, 300000, 600000 | 11.8, 51.7, 168.6, 469.1, 985.3 | +1.08 | 1.000 | 84x | O(n) | T(N*d^2*p) | derived | agree |
 | `granger_causality[model_order]` | model_order | 2, 6, 18, 40, 70 | 11.9, 27.3, 81.4, 281.1, 591.6 | +1.11 | 0.981 | 50x | O(n) | T(N*p + p^2) | derived | ORDER |
 | `granger_causality[n_samples]` | n_samples | 10000, 40000, 120000, 300000, 600000 | 11.0, 48.8, 164.6, 470.2, 1010 | +1.11 | 1.000 | 92x | O(n) | T(N*d^2*p) | derived | agree |
+| `granger_nonparametric[n_times]` | n_times | 10000, 100000, 1000000, 4000000 | 56.68, 475, 4372, 1.636e+04 | +0.95 | 1.000 | 289x | O(n) | T(R*N*log F + I*F*log F), linear in N | derived | agree |
+| `granger_nonparametric[n_trials]` | n_trials | 4, 40, 400, 4000 | 20.64, 122.7, 1111, 1.115e+04 | +0.92 | 0.997 | 540x | O(n) | T(R*N*log F + I*F*log F), linear in R | derived | agree |
+| `granger_nonparametric[n_freqs]` | n_freqs | 128, 512, 2048, 8192, 16384 | 8819, 3334, 2670, 2906, 2512 | -0.22 | 0.696 | 4x | CONSTANT | T(R*N*log F + I*F*log F), F log F from the factorization | derived | NOT REACHED (top-two slope -0.21) |
 | `granger_spectral[model_order]` | model_order | 4, 12, 40, 80, 160 | 8.33, 31.1, 133.5, 291.6, 680.4 | +1.19 | 1.000 | 82x | O(n) | T(N*p + p^2 + F log F) | derived | ORDER |
 | `granger_spectral[n_freqs]` | n_freqs | 128, 512, 2048, 8192, 16384 | 10.8, 40.8, 128.8, 527.8, 1023 | +0.93 | 0.999 | 95x | O(n) | T(d^2*F log F + d^3*F) | derived | ORDER |
 | `granger_spectral[n_samples]` | n_samples | 8000, 30000, 120000, 400000, 1000000 | 5.95, 14.3, 52.9, 203.2, 556.6 | +0.95 | 0.991 | 94x | O(n) | T(N*d^2*p) | derived | agree |
+| `granger_time_reversed[n_times]` | n_times | 10000, 100000, 1000000, 4000000 | 38.82, 418.5, 4984, 1.982e+04 | +1.05 | 1.000 | 511x | O(n) | T(2*N*d^2*p), two granger fits | derived | agree |
+| `granger_time_reversed[n_trials]` | n_trials | 4, 40, 400, 4000 | 10.53, 69.53, 794.4, 7990 | +0.97 | 0.997 | 759x | O(n) | T(2*R*N*d^2*p), two granger fits | derived | agree |
 | `network_topology[n_nodes]` | n_nodes | 800, 1600, 3000, 5000, 8000 | 8.45, 33.2, 115.7, 320.2, 814.8 | +1.98 | 1.000 | 96x | O(n^2) | T(n^2) | derived | agree |
 | `phase_slope_index[n_samples]` | n_samples | 60000, 200000, 700000, 2000000, 4000000 | 8.69, 39.9, 123.6, 334.0, 692.1 | +1.02 | 0.996 | 80x | O(n) | T(N log L) | derived | agree |
 | `phase_slope_index[n_samples_jackknife]` | n_samples | 60000, 200000, 700000, 2000000, 4000000 | 13.06, 59.15, 197.2, 555.3, 1151 | +1.05 | 0.997 | 88x | O(n) | T(S*L) | derived | agree |
@@ -198,6 +203,8 @@ contradicts a written claim it appears in section 6.
 | `transfer_entropy[target_history_k]` | target_history_k | 1, 8, 50, 200, 500 | 98.6, 166.9, 389.8, 651.1, 1213 | +0.40 | 0.979 | 12x | sub-linear | T(N*(k+l)) | derived | agree |
 
 `phase_slope_index[n_samples_jackknife]` was re-measured at `19a8496d` after the change in section 6.2, on a ladder 80x wider because the reduced path no longer reaches the timing band over 5000 to 50000. At `f23d96ce` it read +2.14 over that narrower ladder, T(S^2*L).
+
+`granger_nonparametric` and `granger_time_reversed` (four rows above) have admitted orders derived from the function bodies, not read off the sweeps. Symbols: R trials, N samples per trial, F frequency bins, I Wilson iterations (data-dependent, at most 500), d channels (2), p the fixed order. Welch segments per trial are about N/(F-1), each an FFT of 2(F-1) points, so the spectral estimate costs T(R*N*log F). The Wilson factorization costs I*F*log F and does not depend on N or R. The admitted order is therefore linear in N and in R, and F log F in F. The `n_freqs` sweep does not reach the factorization term: its cost falls from 8.8 s at 128 bins to 2.5 s at 16384 bins (top-two slope -0.21). That fall is consistent with a per-segment cost, since the segment count N/F falls as F grows; this run did not isolate that term. The row is recorded as not reached, not as agreeing. `granger_time_reversed` runs `granger` twice at one order, so its admitted order is that of `granger` times two.
 
 ### `jnwb.continuous`
 
@@ -222,6 +229,13 @@ contradicts a written claim it appears in section 6.
 | `nested_cv_linear_svm[n_features]` | n_features | 50, 250, 1250, 5000 | 229.7, 287.9, 564.2, 2104 | +0.47 | 0.878 | 9x | sub-linear (POOR FIT) | T(n*d) | derived | CONSTANT |
 | `nested_cv_linear_svm[n_folds]` | n_folds | 2, 5, 12, 30 | 127.9, 330.3, 769.1, 1988 | +1.01 | 1.000 | 16x | O(n) | T(k); exact sublinear-in-k SVM CV unknown | unknown | agree |
 | `nested_cv_linear_svm[n_trials]` | n_trials | 40, 200, 800, 3000 | 200.1, 212.2, 407.0, 2277 | +0.54 | 0.783 | 11x | sub-linear (POOR FIT) | T(n*d) | derived | ORDER |
+
+### `jnwb.execution`
+
+| spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `cache_key[n_bytes]` | n_bytes | 100000, 1000000, 4000000, 16000000 | 1.03, 12.2, 48.4, 192.5 | +1.03 | 1.000 | 188x | O(n) | T(n) | derived | agree |
+| `cache_store[n_bytes]` | n_bytes | 4000000, 16000000, 32000000, 64000000 | 10.82, 27.51, 49.7, 95.81 | +0.78 | 0.993 | 9x | sub-linear | T(n) | derived | agree |
 
 ### `jnwb.filtering`
 
@@ -319,6 +333,46 @@ contradicts a written claim it appears in section 6.
 | `resolve_acquisition` | n_samples_in_file | 9140, 228500, 3656000, 58496000 | 79.4, 93.0, 91.9, 91.7 | +0.01 | 0.557 | 1x | O(1) (NOT SEPARATED, POOR FIT) | O(1) in n_samples; T(a log a) in the number of series a | observed | agree |
 | `unit_spike_times` | n_spikes_per_unit | 50, 500, 5000, 20000 | 98.8, 93.4, 93.7, 99.8 | +0.00 | 0.000 | 1x | O(1) (NOT SEPARATED, POOR FIT) | T(k) | derived | agree |
 
+### `jnwb.nwb_write`
+
+Added 2026-10-22 with `verify_nwb`, after the counts of section 1. Measured with
+the `Spec`, `sweep`, `pin_threads` and `markdown` of `scripts/measure_order.py`, 5 repeats, Python
+3.14.3, NumPy 2.4.6, x86_64 Windows, jnwb imported from the checkout. Held fixed: 10 channels
+float32, `n_events_per_table=10`, `acquisition_style='electrical_series'`, `n_check=200000` (the
+default); the file size was set by `fs_hz` from 4000 to 1024000. `n` samples in the file.
+`verify_nwb` reads the samples back (`_read_check`), walks the schema (`_schema_check`), checks
+resolution (`_resolution_check`) and hashes the whole file (`_sha256`), so the linear term above
+the flat base of about 0.35 s is expected.
+
+Added 2026-10-22 with `write_nwb`, counted in section 1. Measured with the same harness, repeats
+and ladder. Held fixed: 10 channels float32, `n_events_per_table=10`,
+`acquisition_style='electrical_series'`, `verify=False`; the file size was set by `fs_hz` from 4000
+to 1024000. `n` samples in the file. `write_nwb` exports the object to a temporary file
+(`_export_tmp`), checks the schema (`_schema_issues`), moves it to `dst` and hashes it
+(`_sha256`), so the linear term above the flat base of about 0.5 s is expected. The default
+post-write `verify_nwb` check is off here; its row covers that path. The receipt is
+`artifacts/evidence/0.2.6/write_nwb_order.json`.
+
+Added 2026-10-23 with `transform_nwb` and `repair_nwb`, counted in section 1. Measured with
+the same harness, repeats and ladder. Held fixed: 10 channels, `n_events_per_table=10`,
+`acquisition_style='electrical_series'`, `verify=False`; the file size was set by `fs_hz` from
+4000 to 1024000. `n` samples in the file. `transform_nwb` was timed on a float64-upcast copy
+of the synth file with `cast={'acquisition/probe_0_lfp/data': 'float32'}`: a full structural
+copy plus one dataset rewrite, so the linear term above the flat base of about 0.5 s is
+expected. `repair_nwb` was timed on the synth file with a length-1 array `description`
+attribute planted on `acquisition/probe_0_lfp` and `repairs=['squeeze_scalar_attributes']`:
+the same full copy with one attribute rewrite. The default post-write `verify_nwb` check is
+off in both rows; its row covers that path. The receipts are
+`artifacts/evidence/0.2.6/transform_nwb_order.json` and
+`artifacts/evidence/0.2.6/repair_nwb_order.json`.
+
+| spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `verify_nwb[n_samples_in_file]` | n_samples_in_file | 91400, 365600, 1462400, 5849600, 23398400 | 333.4, 389.5, 615.2, 1508, 4852 | +0.48 | 0.912 | 15x | sub-linear | T(n) | derived | agree |
+| `write_nwb[n_samples_in_file]` | n_samples_in_file | 91400, 365600, 1462400, 5849600, 23398400 | 534.5, 529.3, 755.1, 1391, 4125 | +0.36 | 0.855 | 8x | sub-linear (POOR FIT) | T(n) | derived | agree |
+| `transform_nwb[n_samples_in_file]` | n_samples_in_file | 91400, 365600, 1462400, 5849600, 23398400 | 472.9, 750.3, 1796, 6154, 2.381e+04 | +0.72 | 0.967 | 50x | sub-linear | T(n) | derived | agree |
+| `repair_nwb[n_samples_in_file]` | n_samples_in_file | 91400, 365600, 1462400, 5849600, 23398400 | 401, 493.8, 848, 2207, 7716 | +0.53 | 0.925 | 19x | sub-linear | T(n) | derived | agree |
+
 ### `jnwb.onset_fitting`
 
 | spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
@@ -357,6 +411,10 @@ contradicts a written claim it appears in section 6.
 | `band_power` | n_samples | 300000, 1000000, 3000000, 10000000 | 18.4, 67.3, 212.0, 750.0 | +1.06 | 1.000 | 41x | O(n) | T(n) | derived | agree |
 | `bipolar_reference[n_channels]` | n_channels | 128, 512, 1024, 2048 | 12.6, 52.1, 97.8, 199.4 | +0.99 | 1.000 | 16x | O(n) | T(C*n) | derived | CONSTANT |
 | `bipolar_reference[n_samples]` | n_samples | 150000, 500000, 1500000, 2500000 | 25.0, 83.1, 251.0, 445.3 | +1.02 | 1.000 | 18x | O(n) | T(C*n) | derived | agree |
+| `coherence_bias_floor[n_times]` | n_times | 10000, 100000, 1000000, 4000000 | 114.9, 1024, 1.208e+04, 5.303e+04 | +1.03 | 0.999 | 461x | O(n) | T(P*D*E*N*log L), linear in N | derived | agree |
+| `coherence_bias_floor[n_epochs]` | n_epochs | 4, 40, 400, 4000 | 44.8, 116.6, 894.1, 1.212e+04 | +0.82 | 0.962 | 270x | O(n) | T(P*D*E*N*log L), linear in E | derived | agree |
+| `coherence_bias_floor[n_sites]` | n_sites | 4, 16, 64, 256 | 61, 1204, 1.923e+04, 2.94e+05 | +2.04 | 1.000 | 4819x | O(n^2) | T(S^2*D*E*N*log L), P = S(S-1)/2 pairs | derived | agree |
+| `coherence_bias_floor[n_draws]` | n_draws | 2, 20, 200, 2000 | 27.71, 265.3, 2670, 2.662e+04 | +1.00 | 1.000 | 961x | O(n) | T(P*D*E*N*log L), linear in D | derived | agree |
 | `compute_multitaper_psd[k_tapers]` | k_tapers | 6, 20, 40, 80 | 8.84, 27.3, 57.2, 127.5 | +1.03 | 0.997 | 14x | O(n) | unknown | unknown | agree |
 | `compute_multitaper_psd[n_samples]` | n_samples | 16384, 49152, 131072, 262144 | 26.3, 75.3, 206.2, 409.9 | +0.99 | 1.000 | 16x | O(n) | O(K*n log n) best known; lower bound unknown | unknown | agree |
 | `compute_multitaper_psd[n_signals]` | n_signals | 128, 384, 1024, 2048 | 51.7, 140.3, 366.2, 729.5 | +0.96 | 1.000 | 14x | O(n) | T(M) | derived | agree |
@@ -371,12 +429,15 @@ contradicts a written claim it appears in section 6.
 | `imaginary_coherency` | n_samples | 100000, 300000, 1000000, 3000000 | 40.6, 130.3, 435.3, 1294 | +1.02 | 1.000 | 32x | O(n) | T(n) | derived | CONSTANT |
 | `laplacian_reference[n_channels]` | n_channels | 128, 512, 1024, 2048 | 22.2, 85.0, 170.2, 345.3 | +0.99 | 1.000 | 16x | O(n) | T(C*n) | derived | CONSTANT |
 | `laplacian_reference[n_samples]` | n_samples | 150000, 500000, 1500000, 2500000 | 76.8, 259.0, 773.1, 1292 | +1.00 | 1.000 | 17x | O(n) | T(C*n) | derived | agree |
+| `partial_coherence[n_times]` | n_times | 10000, 100000, 1000000, 4000000 | 80.17, 376.6, 4049, 1.768e+04 | +0.91 | 0.989 | 221x | O(n) | T(N*log L), L capped at 4096; one surrogate | derived | agree |
 | `relative_power` | n_units | 400000, 1000000, 3000000, 8000000 | 32.2, 78.6, 239.2, 662.7 | +1.01 | 1.000 | 21x | O(n) | T(U*T) | derived | CONSTANT |
 | `spectral_tilt` | n_samples | 300000, 1000000, 3000000, 10000000 | 20.7, 70.3, 214.7, 754.6 | +1.02 | 1.000 | 36x | O(n) | T(n) | derived | agree |
 | `to_db` | n_elements | 2000000, 6000000, 20000000, 40000000 | 20.9, 61.9, 210.7, 419.1 | +1.00 | 1.000 | 20x | O(n) | T(n) | derived | agree |
 | `voltage_curvature_1d[n_channels]` | n_channels | 128, 512, 1024, 2048 | 34.9, 132.7, 268.9, 546.7 | +0.99 | 1.000 | 16x | O(n) | T(C*n) | derived | agree |
 | `voltage_curvature_1d[n_samples]` | n_samples | 150000, 500000, 1500000, 2500000 | 66.0, 193.8, 590.5, 998.8 | +0.97 | 0.999 | 15x | O(n) | T(C*n) | derived | agree |
 | `wpli` | n_samples | 300000, 1000000, 3000000, 10000000 | 32.8, 97.7, 279.2, 950.4 | +0.96 | 0.999 | 29x | O(n) | T(n) | derived | agree |
+
+`partial_coherence` and `coherence_bias_floor` (rows above; admitted orders derived from the function bodies). Symbols: N samples per trace, L the Welch segment length, min(max(N/8, 8), 4096) by default, so it stops growing at N = 32768; E epochs; S sites; P = S(S-1)/2 site pairs; D draws. The floor costs one paired Welch pass per pair and draw, T(P*D*E*N*log L). The partial value costs one three-channel pass plus the unconditioned coherence, T(N*log L), with the surrogate count pinned at its minimum of 1. The `n_epochs` ladder is overhead-dominated at its low end (local slope +0.42 from 4 to 40 epochs, +1.13 from 400 to 4000); the fitted +0.82 is within the 0.25 rule of the linear admitted order. The `n_sites` exponent of +2.04 matches the pair loop.
 
 ### `jnwb.spiking`
 
@@ -389,10 +450,23 @@ contradicts a written claim it appears in section 6.
 | `pairwise_phase_consistency[n_samples]` | n_samples | 200000, 1000000, 5000000, 20000000 | 7.17, 31.0, 172.4, 646.9 | +0.99 | 0.999 | 90x | O(n) | T(n) | derived | agree |
 | `fleiss_kappa[n_items]` | n_items | 10000, 100000, 1000000, 4000000 | 0.5625, 8.878, 102.9, 401 | +1.10 | 0.998 | 713x | O(n) | T(N*C) | derived | agree |
 | `spike_count_correlation[n_bins]` | n_bins | 10000, 100000, 1000000, 4000000 | 3.27, 31.2, 426, 1654 | +1.05 | 0.999 | 506x | O(n) | T(U*(S + B) + U^2*B) | derived | agree |
+| `noise_correlation[n_trials]` | n_trials | 1000, 10000, 100000, 1000000 | 0.9307, 2.82, 42.39, 428.9 | +0.92 | 0.975 | 461x | O(n) | T(U*N + U^2*N) | derived | agree |
+| `noise_correlation[n_units]` | n_units | 16, 64, 256, 1024 | 1.118, 1.881, 13.15, 105.5 | +1.12 | 0.946 | 94x | O(n) | T(U^2*N) | derived | NOT REACHED (top-decade slope +1.50) |
 | `network_burst_index[n_bins]` | n_bins | 10000, 100000, 1000000, 4000000 | 0.8922, 5.1, 63.4, 248.6 | +0.95 | 0.994 | 279x | O(n) | T(U*S + B) | derived | agree |
 | `fano_factor[n_trials]` | n_trials | 1000, 10000, 100000, 1000000 | 1.094, 11.77, 133.4, 1635 | +1.06 | 1.000 | 1494x | O(n) | T(U*(S log S + T log S)), S = 5T here | derived | agree |
 | `phase_locking_index[n_lfp_samples]` | n_lfp_samples | 100000, 1000000, 5000000, 20000000 | 5.99, 48.7, 188.4, 660.5 | +0.88 | 1.000 | 110x | O(n) | T(1) in m with a uniform grid; T(log m) per spike by binary search | derived | ORDER |
 | `phase_locking_index[n_spikes]` | n_spikes | 50000, 200000, 1000000, 5000000 | 11.7, 28.1, 89.0, 492.1 | +0.80 | 0.985 | 42x | O(n) | T(S) | derived | ORDER |
+
+`noise_correlation` (two rows above; trials from `min_trials=2`, two conditions, `ddof=1`). Per
+condition the z-scoring is O(U*N) and the label masks are O(N*K), K the number of conditions
+(K = 2 in both sweeps). The pair correlations are one Gram product of the (U, N) residual matrix,
+O(U^2*N). The geometric-mean matrix is O(U^2) on top. The labels are sorted by `np.unique`, an
+O(N log N) term that the U^2*N product dominates once U^2 exceeds log N. So the admissible order
+is T(U*N + U^2*N): degree 1 in N and degree 2 in U. The N sweep agrees (+0.92 against 1). The U
+sweep does not reach the U^2 regime on this ladder: its local slope over the top decade is +1.50,
+and the fitted +1.12 is pulled down by the lower sizes, whose local slope over 16 to 64 is +0.38;
+that flatness is consistent with a fixed per-call cost, which this run did not isolate. The row
+is recorded as not reached, not as agreeing.
 
 ### `jnwb.statistics`
 
@@ -473,6 +547,27 @@ and `refractory_contamination` were measured again the same day after their rule
 | `presence_ratio[n_blocks]` | n_blocks | 100, 1000, 10000, 50000 | 0.2466, 0.3073, 0.99, 3.31 | +0.42 | 0.900 | 13x | sub-linear | T(S log S + B log S) | derived | agree |
 | `isi_cv[n_spikes]` | n_spikes | 10000, 100000, 1000000, 4000000 | 0.1475, 2.039, 25.87, 113.6 | +1.11 | 1.000 | 770x | O(n) | T(S log S) | derived | agree |
 | `refractory_contamination[n_spikes]` | n_spikes | 10000, 100000, 1000000, 4000000 | 0.1363, 1.391, 21.58, 90.44 | +1.10 | 0.999 | 664x | O(n) | T(S log S) | derived | agree |
+
+### `jnwb.unit_quality`: curation-label screen
+
+Added 2026-10-22 with `screen_units_against_labels`, after the counts of section 1. Measured with
+the `Spec`, `sweep`, `pin_threads` and `markdown` of `scripts/measure_order.py`, 5 repeats, Python
+3.14.3, NumPy 2.4.6, x86_64 Windows, jnwb imported from the checkout. Held fixed: 2 metric columns,
+labels alternating within each session, `classifier="linear_svm"`, `min_units=2`, `rng=0`; 3
+sessions in the `[n_units]` rows and 40 units per session in the `[n_sessions]` rows.
+
+| spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `screen_units_against_labels[n_units]` | n_units | 30, 120, 480, 1920 | 151.1, 190.1, 355, 1411 | +0.53 | 0.888 | 9x | sub-linear (POOR FIT) | T(n^2) | derived | agree |
+| `screen_units_against_labels[n_sessions]` | n_sessions | 3, 6, 12, 30 | 191.6, 579, 1549, 11750 | +1.77 | 0.989 | 61x | O(n^2) | T(S^3) | derived | agree |
+
+The admitted orders come from the `nested_cv_linear_svm` bound of INV-13, O(K . N_C . R^2 . D) per
+fit, summed over the S held-out fits, each on R = (S - 1) . u training units when each session holds
+u units. At fixed S = 3 the sum is T(n^2) in n = S . u; at fixed u = 40 it is T(S^3). Both measured
+exponents sit below their bounds, so neither row shows a bound violated. The `[n_units]` fit is
+POOR FIT (r2 0.888), and its reason is not measured here. INV-13 names LinearSVC; the screen calls
+`SVC(kernel='linear')`, which section 4.1 places at T(n^2) to T(n^3), so the R^2 term is the
+admitted order and no constant is claimed.
 
 ### `jnwb.wavemap`
 
@@ -756,8 +851,8 @@ algorithm column still describes the replaced code for both rows.
 
 | Category | Count |
 |---|---|
-| result container | 25 |
-| exception class | 13 |
+| result container | 26 |
+| exception class | 18 |
 | constant | 5 |
 | stateful class | 4 |
 | module | 4 |
@@ -766,7 +861,8 @@ algorithm column still describes the replaced code for both rows.
 | scalar input, domain-capped | 1 |
 | fixed-shape input | 1 |
 | plan description | 1 |
-| **Total** | **55** |
+| caller-owned store | 2 |
+| **Total** | **63** |
 
 | Export | Category | Reason |
 |---|---|---|
@@ -776,6 +872,7 @@ algorithm column still describes the replaced code for both rows.
 | `AmbiguousAcquisitionError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `AmbiguousIntervalTableError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `AmbiguousLayoutError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
+| `AmbiguousMappingError` | exception class | Subclass with no `__init__`; inherits `NWBMutationError` field binding: O(1). |
 | `AperiodicFitResult` | result container | dataclass, no __post_init__, 7 scalar fields. Triaged directly: is_dataclass True, hasattr __post_init__ False. |
 | `CANONICAL_BANDS` | constant | A dict of band edges (jnwb/spectral.py:192). |
 | `ChannelIndexError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
@@ -787,6 +884,7 @@ algorithm column still describes the replaced code for both rows.
 | `DirectedResult` | result container | plain dataclass (jnwb/connectivity.py:627-719); __init__ binds references. Its methods are O(number of bands), not O(input). |
 | `EpochCollection` | result container | frozen dataclass, no __post_init__. Its __len__/__eq__ grow; construction does not. |
 | `EventTable` | result container | frozen dataclass; generated __init__ binds 8 already-built fields by reference, no __post_init__. |
+| `ExecutionRecord` | result container | frozen dataclass; __post_init__ validates the device string and the worker count, then binds 2 fields. |
 | `Figure` | result container | mutable dataclass, no __post_init__; binds references. |
 | `Interpretation` | result container | frozen dataclass, no __post_init__; default_factory builds empty containers. |
 | `IntervalTableNotFoundError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
@@ -797,11 +895,13 @@ algorithm column still describes the replaced code for both rows.
 | `MissingRequiredNWBFieldError` | exception class | __init__ formats one f-string from one field name: O(1). |
 | `NWBEventError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `NWBInspectError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
+| `NWBMutationError` | exception class | `__init__` binds the message and the issues tuple by reference: O(1). |
 | `RaggedIndexRepair` | result container | frozen dataclass, no __post_init__; binds references only. |
 | `RaggedIndexReport` | result container | frozen dataclass, no __post_init__; binds references only. |
 | `WaveformBlockReport` | result container | frozen dataclass, no __post_init__; binds references only. |
 | `RaggedIndexRepairRefused` | exception class | ValueError subclass; construction is O(1) in every input dimension. |
 | `NWBValidationReport` | result container | frozen dataclass, no __post_init__; binds references only. |
+| `NWBVerificationError` | exception class | Subclass with no `__init__`; inherits `NWBMutationError` field binding: O(1). |
 | `PopulationAnalyzer` | stateful class | PopulationAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
 | `Preflight` | result container | frozen dataclass; __post_init__ validates the outcome, the reason and each name in `missing`, which a caller's plan bounds, not any data size. |
 | `ProbeGeometry` | result container | frozen dataclass, no __post_init__ (verified programmatically); binds references only. |
@@ -816,12 +916,16 @@ algorithm column still describes the replaced code for both rows.
 | `StatisticalAnalysis` | stateful class | Namespace class: no own __init__ ('__init__' in vars(...) is False), signature (), 0.07 us to construct. |
 | `TFRAnalyzer` | stateful class | TFRAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
 | `TickClock` | result container | frozen dataclass, no __post_init__, 4 scalar fields. |
+| `UndeclaredUnitError` | exception class | Subclass with no `__init__`; inherits `NWBMutationError` field binding: O(1). |
+| `UnidentifiableRepairError` | exception class | Subclass with no `__init__`; inherits `NWBMutationError` field binding: O(1). |
 | `UnitAnalyzer` | stateful class | UnitAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
 | `UnitNotFoundError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `VFlip2Result` | result container | frozen dataclass + DictAccessMixin (read-only accessors); no __post_init__. |
 | `VFlipResult` | result container | frozen dataclass + DictAccessMixin (read-only accessors); no __post_init__. |
 | `XFlipResult` | result container | frozen dataclass, no __post_init__ (jnwb/laminar.py:866); only method is to_dict. |
 | `ZFlipResult` | result container | frozen dataclass, no __post_init__ (jnwb/laminar.py:1532); only method is to_dict. |
+| `cache_clear` | caller-owned store | Takes the caller's directory; removes every entry in it and counts the removals. No input dimension exists to scale. |
+| `cache_load` | caller-owned store | Takes the caller's directory and key; the cost is the stored entry's size, chosen at store time, and no call input scales it. |
 | `classify_response_significance` | fixed-shape input | Input is the fixed 7-key metrics dict from compute_response_metrics; the body is dict lookups plus one scalar norm.cdf. No input dimension exists to scale. |
 | `clopper_pearson` | scalar input | Arguments are counts, not arrays. Work is two scipy.stats.beta.ppf evaluations, measured flat at 136-140 us/call for n = 10 to 1e18 -- 18 orders of magnitude with no trend. |
 | `io` | module | Module-valued export: a namespace, not a callable. Nothing to scale. |

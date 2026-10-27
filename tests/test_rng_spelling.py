@@ -1,4 +1,4 @@
-"""05-34, second half: one spelling for the random-number argument.
+"""One spelling for the random-number argument.
 
 The package spelled one concept four ways. Reproduced across `jnwb.__all__`: 19 callables
 carried an RNG-ish parameter, under `rng` (8), `seed` (7), `random_state` (3) and
@@ -8,8 +8,8 @@ Two corrections to the audit. It counted "10 spellings across 19 functions", whi
 two different parameters: the *source* of randomness (`rng`/`seed`/`random_state`) and the
 *number of resamples* (`n_surrogates` 7, `n_permutations` 3, `n_shuffles` 3, plus the
 singletons `permutations`, `n_shuffle`, `n_bootstrap` and `bootstrap` -- 11 distinct names,
-not 10). Only the first group is unified here; renaming resample counts is not what 05-34
-asks for and they are genuinely different parameters.
+not 10). Only the first group is unified here; renaming resample counts is not asked for, and
+they are genuinely different parameters.
 
 `rng` is canonical because the unified argument accepts a `Generator` as well as an int,
 and `seed` would misname a Generator. This overrides a comment in `jrsa` asserting that
@@ -18,7 +18,7 @@ it `rng`, before the argument's type widened.
 
 Every rename keeps the old spelling as a keyword-only alias, keeps the canonical parameter
 at its original position so positional callers are unaffected, and keeps its original
-default visible in the signature, which 05-35 requires.
+default visible in the signature, as the RNG convention requires.
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ class TestOneSpellingAcrossThePublicApi:
 
     @pytest.mark.parametrize("name,old,default", RENAMED, ids=[r[0] for r in RENAMED])
     def test_the_original_default_is_still_visible(self, name, old, default):
-        """05-35's requirement survives the rename: `Default` reports the value it
+        """The visible-default requirement survives the rename: `Default` reports the value it
         stands for, so `help()` and `inspect.signature` still show `rng=0`."""
         shown = inspect.signature(getattr(jnwb, name)).parameters["rng"].default
         assert shown == default, f"{name}: rng default shows {shown!r}, was {default!r}"

@@ -134,7 +134,7 @@ def test_the_root_allowlist_holds_no_exemption_for_a_deleted_artifact() -> None:
     import sys
 
     if str(ROOT) not in sys.path:
-        sys.path.append(str(ROOT))
+        sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
     from scripts.harness_gate import ALLOWED_ROOT_FILES
 
     assert "jnwb-unified-rev.md" not in ALLOWED_ROOT_FILES, (

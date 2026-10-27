@@ -10,8 +10,6 @@ docs_dir: docs
 # documentation_form.md is the contributor contract the pages are held to. It stays under
 # docs/ because the form tests read it there, and it is kept off the published site.
 exclude_docs: |
-  conf.py
-  README.md
   documentation_form.md
 
 theme:
@@ -26,9 +24,9 @@ theme:
     - search.highlight
     - content.code.copy
   palette:
-    # Two schemes with a toggle, added 2026-09-19. There was one, `slate`, so item 06-52's
-    # acceptance -- "renders legibly in both the light and the dark theme" -- named a comparison
-    # this site could not make, and a figure that hardcoded a light background was unfalsifiable.
+    # Two schemes with a toggle, added 2026-09-19. With one, `slate`, a check that a
+    # figure "renders legibly in both the light and the dark theme" could not be made, and a
+    # figure that hardcoded a light background was unfalsifiable.
     # `media` makes the first entry the default for a visitor whose OS prefers dark.
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
@@ -50,6 +48,7 @@ extra_css:
 
 extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+  - _figure_theme.js
 
 markdown_extensions:
   - admonition
@@ -94,6 +93,7 @@ nav:
 
   - Analyze:
       - Reading NWB: reading_nwb.md
+      - Writing NWB: writing_nwb.md
       - Addressing & Metadata: 02_paths_addressing_metadata.md
       - Spikes & Onset Dynamics: 06_spikes_psth_and_onset_dynamics.md
       - Spectra & Decibels: 04_spectral_analysis_and_tfr.md
@@ -106,6 +106,7 @@ nav:
       - Unit Quality Example: unit_quality_example.md
       - Representational Similarity: 03_representational_similarity_jrsa.md
       - Plotly Figures: vis.md
+      - Run Records & Cache: execution.md
 
   - Tutorials:
       - NWB Basics: tutorials/01_nwb_basics.md
@@ -147,3 +148,4 @@ not_in_nav: |
 # release, and nothing notices when it stops being.
 hooks:
   - scripts/mkdocs_version_hook.py
+  - scripts/figures/mkdocs_figure_hook.py

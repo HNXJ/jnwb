@@ -31,7 +31,7 @@ def blocked_import(name):
     the process's first `import torch` and adds ~730 `torch*` entries; the restore removed
     all of them while torch's C extensions stayed loaded, and the next `import torch`
     re-executed `torch/__init__.py` against an already-initialised `torch._C` and crashed
-    the interpreter with an access violation. That was P-12.
+    the interpreter with an access violation. Restoring only that key prevents the crash.
     """
     missing = object()
     previous = sys.modules.get(name, missing)
@@ -105,6 +105,15 @@ class TestTFRAnalyzerBandExtraction(unittest.TestCase):
 
         self.assertEqual(result.shape, (1, 2))
         np.testing.assert_allclose(result, 11.0)
+
+    def test_empty_band_defs_is_refused_and_none_keeps_the_defaults(self):
+        """An empty mapping used to fall through `or` to the default bands."""
+        with self.assertRaisesRegex(ValueError, "band_defs must not be empty"):
+            TFRAnalyzer.extract_band(self.tfr_data, 'alpha', freqs=self.freqs, freq_axis=1,
+                                     band_defs={})
+        result = TFRAnalyzer.extract_band(self.tfr_data, 'alpha', freqs=self.freqs, freq_axis=1,
+                                          band_defs=None)
+        self.assertEqual(result.shape, (2, 3, 2))
 
 
 class TestTFRAnalyzerTrialAverage(unittest.TestCase):
@@ -483,6 +492,23 @@ class TestPsthCountsSpikesOnBothEdges(unittest.TestCase):
         np.testing.assert_array_equal(np.rint(res['psth'] * 0.25), [0, 0, 1])
 
 
+class TestPsthBinCentresMatchRasterPsth(unittest.TestCase):
+    """``UnitAnalyzer.psth`` and ``jnwb.viz.raster_psth`` take their windows and bins in ms,
+    so their bin centres agree in ms, under a key that names the unit."""
+
+    def test_psth_and_raster_psth_return_the_same_bin_centres_in_ms(self):
+        from jnwb.viz import raster_psth
+
+        rng = np.random.default_rng(3)
+        onsets = 2.0 + 0.7 * np.arange(40)
+        spikes = np.sort(np.concatenate([o + rng.uniform(-0.1, 0.2, 30) for o in onsets]))
+        res = UnitAnalyzer.psth(spikes, onsets, bin_size_ms=10, window_ms=(-100, 200))
+        centres_ms, _, _ = raster_psth(spikes, onsets, (-100, 200), bin_ms=10.0)
+        assert res['psth'].sum() > 0, "fixture must put spikes in the window"
+        assert 'bin_centers' not in res, "the centres are in ms, so the key names ms"
+        np.testing.assert_allclose(res['bin_centers_ms'], centres_ms, rtol=1e-12)
+
+
 class TestRasterSelectsBySpikeMinusOnset(unittest.TestCase):
     """``UnitAnalyzer.raster`` keeps a spike when spike - onset lies in [pre, post]."""
 
@@ -513,6 +539,21 @@ class TestNanTrialOnsetIsRefused(unittest.TestCase):
             UnitAnalyzer.psth(spikes, np.array([0.0, np.nan]), bin_size_ms=50, window_ms=(-100, 100))
         res = UnitAnalyzer.psth(spikes, np.array([0.0, 1.0]), bin_size_ms=50, window_ms=(-100, 100))
         self.assertEqual(res['n_trials'], 2)
+
+
+class TestAutocorrelogramRefusesNonFiniteSpikes(unittest.TestCase):
+    """A NaN spike time was dropped, so 12 finite spikes and one NaN returned a histogram."""
+
+    def test_a_nan_spike_time_is_refused_naming_the_count(self):
+        spikes = np.concatenate([np.linspace(0.1, 1.2, 12), [np.nan]])
+        self.assertEqual(spikes.size, 13, "the case needs 12 finite spikes and one NaN")
+        with self.assertRaisesRegex(ValueError, r"UnitAnalyzer\.autocorrelogram: 1 of 13 spike time"):
+            UnitAnalyzer.autocorrelogram(spikes, max_lag_ms=50, bin_size_ms=1)
+
+    def test_the_finite_train_still_returns_a_histogram(self):
+        result = UnitAnalyzer.autocorrelogram(np.linspace(0.1, 1.2, 12), max_lag_ms=50, bin_size_ms=1)
+        self.assertEqual(set(result), {'acg', 'lag_times_ms', 'device_used'})
+        self.assertEqual(len(result['acg']), 50)
 
 
 class TestUnitAnalyzerQualityMetrics(unittest.TestCase):

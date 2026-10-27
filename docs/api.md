@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 206 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 226 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -23,8 +23,8 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 | Symbol | Type | Signature / Description |
 |---|---|---|
 | jnwb.ProbeGeometry | class | *Extracted contact geometry and spatial properties for an electrode array.* |
-| jnwb.classify_layer_from_depth | function | `(peak_channel_id: float, electrodes_df: pandas.DataFrame, *, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None) -> str`<br>*Classify a unit's geometric depth class from electrode z depth.* |
-| jnwb.enrich_units_dataframe | function | `(units_df: pandas.DataFrame, electrodes_df: pandas.DataFrame | None, *, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None, stable_threshold: float = 1.0, stable_labels: typing.Collection = ('good', 'sua', 'single', 'stable', 'clean')) -> pandas.DataFrame`<br>*Enrich units DataFrame with standardized area, depth class, and quality flags.* |
+| jnwb.classify_layer_from_depth | function | `(peak_channel_id: float, electrodes_df: pandas.DataFrame, *, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None, depth_axis: str | None = None, shallow_end: str | None = None) -> str`<br>*Classify a unit's geometric depth class from electrode z depth.* |
+| jnwb.enrich_units_dataframe | function | `(units_df: pandas.DataFrame, electrodes_df: pandas.DataFrame | None, *, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None, depth_axis: str | None = None, shallow_end: str | None = None, stable_threshold: float = 1.0, stable_labels: Collection[str] = ('good', 'sua', 'single', 'stable', 'clean')) -> pandas.DataFrame`<br>*Enrich units DataFrame with standardized area, depth class, and quality flags.* |
 | jnwb.map_peak_channel_to_area | function | `(peak_channel_id: float, electrodes_df: pandas.DataFrame) -> str | None`<br>*Map peak channel ID to brain area location.* |
 | jnwb.probe_geometry | function | `(electrodes_table: typing.Any, *, probe_name: str | None = None, units: str = 'um', nominal_pitch: float | None = None, pitch_tolerance: float = 0.1, strict_linear: bool = False, stagger_tolerance_um: float = 100.0) -> jnwb.addressing.ProbeGeometry`<br>*Extract contact geometry, linear ordering, and spacing from electrode coordinates.* |
 
@@ -72,7 +72,9 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.directed_network | function | `(signals, method: 'str' = 'granger', labels: 'Optional[Sequence[str]]' = None, fdr: 'bool' = True, fdr_method: 'str' = 'bh', n_jobs: 'int' = 1, *, conditional: 'bool' = False, **kwargs) -> 'Dict[str, Any]'`<br>*All-pairs directed connectivity over N nodes.* |
 | jnwb.granger | function | `(X, Y, order: 'Union[int, str]' = 'auto', max_lag: 'int' = 20, criterion: 'str' = 'bic', Z = None, ridge: 'float' = 0.0, detrend: 'Optional[str]' = 'zscore', n_surrogates: 'int' = 0, rng: 'RNGLike' = 0, time_axis: 'int' = -1, *, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Bivariate or conditional Granger causality between two arbitrary signals.* |
 | jnwb.granger_causality | function | `(signal1: 'np.ndarray', signal2: 'np.ndarray', order: 'Union[int, str]' = 5, device: 'str' = 'cpu', ridge: 'float' = 0.0, criterion: 'str' = 'aic') -> 'Dict[str, Union[float, dict, list]]'`<br>*Compute bivariate Granger Causality (GC) values between two continuous signals.* |
+| jnwb.granger_nonparametric | function | `(X, Y, *, fs: 'float', bands, n_freqs: 'int' = 256, n_surrogates: 'int' = 0, rng: 'RNGLike' = 0, detrend: 'Optional[str]' = 'zscore', time_axis: 'int' = -1, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Frequency-resolved Granger causality by spectral factorization, with no fitted model.* |
 | jnwb.granger_spectral | function | `(X, Y, fs: 'float', order: 'Union[int, str]' = 'auto', max_lag: 'int' = 20, criterion: 'str' = 'bic', n_freqs: 'int' = 256, bands: 'Union[str, Dict[str, Tuple[float, float]], Tuple[float, float], None]' = None, ridge: 'float' = 0.0, detrend: 'Optional[str]' = 'zscore', n_surrogates: 'int' = 0, rng: 'RNGLike' = 0, time_axis: 'int' = -1, *, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Frequency-resolved Granger causality (Geweke, 1982) — directionality per band.* |
+| jnwb.granger_time_reversed | function | `(X, Y, *, order: 'int', n_surrogates: 'int' = 0, rng: 'RNGLike' = 0, detrend: 'Optional[str]' = 'zscore', time_axis: 'int' = -1, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Time-reversed Granger control: a directed claim needs the net flow to change sign under reversal.* |
 | jnwb.network_topology | function | `(adjacency_matrix: 'np.ndarray', threshold: 'float' = 0.3) -> 'Dict[str, Union[float, int, List[int]]]'`<br>*Compute network graph metrics from a correlation or Granger causality matrix.* |
 | jnwb.phase_slope_index | function | `(X, Y, fs: 'float', bands: 'Union[str, Dict[str, Tuple[float, float]], Tuple[float, float], None]' = None, nperseg: 'Optional[int]' = None, noverlap: 'Optional[int]' = None, window: 'str' = 'hann', detrend: 'Optional[str]' = 'demean', jackknife: 'bool' = True, n_surrogates: 'int' = 0, rng: 'RNGLike' = 0, time_axis: 'int' = -1, *, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Phase Slope Index (Nolte et al., 2008) — which signal leads in phase.* |
 | jnwb.spike_count_mutual_information | function | `(spike_times1: 'np.ndarray', spike_times2: 'np.ndarray', time_window_s: 'Optional[Tuple[float, float]]' = None, bin_size_ms: 'float' = 10.0, *, time_window: 'Optional[Tuple[float, float]]' = None) -> 'float'`<br>*Deprecated alias for discrete MI on per-bin spike counts. `time_window_s` is in seconds.* |
@@ -85,7 +87,7 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.TickClock | class | *Map from timestamp ticks to seconds on a spike clock, built by `derive_tick_clock`.* |
 | jnwb.derive_tick_clock | function | `(tick_segments: 'Sequence[np.ndarray]', spike_times) -> 'TickClock'`<br>*Derive the map from acquisition ticks to spike-clock seconds from one recording.* |
-| jnwb.epoch_continuous | function | `(data: 'np.ndarray', onsets: 'np.ndarray | Sequence[float]', *, win_s: 'tuple[float, float]', fs: 'float', onset_unit: 'OnsetUnit' = 'seconds', boundary_policy: 'BoundaryPolicy' = 'nan', return_indices: 'bool' = False) -> 'tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]'`<br>*Extract fixed-duration epochs from a continuous signal aligned to event onsets.* |
+| jnwb.epoch_continuous | function | `(data: 'np.ndarray', onsets: 'np.ndarray | Sequence[float]', *, win_s: 'tuple[float, float]', fs: 'float', start_s: 'float' = 0.0, onset_unit: 'OnsetUnit' = 'seconds', boundary_policy: 'BoundaryPolicy' = 'nan', return_indices: 'bool' = False) -> 'tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]'`<br>*Extract fixed-duration epochs from a continuous signal aligned to event onsets.* |
 
 ## Module: jnwb.decoding
 
@@ -97,6 +99,16 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.fold_majority_baseline | function | `(y_train: 'np.ndarray', y_test: 'np.ndarray') -> 'float'`<br>*Accuracy of predicting the training-fold majority class on the held-out fold.* |
 | jnwb.majority_baseline | function | `(labels: 'np.ndarray') -> 'float'`<br>*Accuracy of always predicting the most frequent class in ``labels``.* |
 | jnwb.nested_cv_linear_svm | function | `(X: 'np.ndarray', labels: 'np.ndarray', n_splits: 'int', rng: 'RNGLike' = 42, *, groups: 'Union[np.ndarray, None]' = None) -> 'Dict[str, Union[float, np.ndarray, dict, str]]'`<br>*Outer stratified CV; inner GridSearchCV for C. No synthetic metrics.* |
+
+## Module: jnwb.execution
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.ExecutionRecord | class | *What ran where, recorded by the caller.* |
+| jnwb.cache_clear | function | `(cache_dir: 'str | Path') -> 'int'`<br>*Remove the entries ``cache_store`` wrote directly under ``cache_dir``; return the count.* |
+| jnwb.cache_key | function | `(name: 'str', inputs: 'Any', params: 'dict') -> 'str'`<br>*A hex key from the operation name, the inputs, the parameters and the version.* |
+| jnwb.cache_load | function | `(cache_dir: 'str | Path', key: 'str') -> 'Any'`<br>*The value stored under ``key`` in ``cache_dir``, or None on a miss.* |
+| jnwb.cache_store | function | `(cache_dir: 'str | Path', key: 'str', value: 'Any') -> 'Path'`<br>*Save ``value`` under ``key`` in ``cache_dir`` and return the file path.* |
 
 ## Module: jnwb.filtering
 
@@ -139,7 +151,7 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 | Symbol | Type | Signature / Description |
 |---|---|---|
 | jnwb.LaminarCurationResult | class | *Result of :func:`curate_and_label`.* |
-| jnwb.curate_and_label | function | `(lfp: 'np.ndarray', fs: 'float', *, pitch_um: 'float', erp: 'Optional[np.ndarray]' = None, erp_times_ms: 'Optional[np.ndarray]' = None, n_windows: 'int' = 4, band_low_hz: 'Tuple[float, float]' = (10.0, 19.0), band_high_hz: 'Tuple[float, float]' = (75.0, 150.0), granular_thickness_um: 'float' = 400.0, max_superficial_um: 'float' = 1200.0, max_deep_um: 'float' = 1600.0, silent_threshold: 'float' = 0.12, smooth_um: 'float' = 50.0, min_lobe_um: 'float' = 150.0, min_lobe_amplitude: 'float' = 0.2, bad_zone_contacts: 'int' = 6, bad_zone_fraction: 'float' = 0.6, edge_fraction: 'float' = 0.1, edge_jump_z: 'float' = 6.0, stable_sd_um: 'float' = 75.0, min_ok_windows: 'int' = 3, consistency_a: 'float' = 0.75, consistency_b: 'float' = 0.6, compute_xflip: 'bool' = True, xflip_n_surrogates: 'int' = 50, rng: 'RNGLike' = 42, max_interpolate_run: 'int' = 3, min_contacts: 'int' = 8, min_edge_contacts: 'int' = 11, nperseg: 'int' = 512, **bad_channel_kwargs: 'Any') -> 'LaminarCurationResult'`<br>*Curate a laminar LFP recording and label every contact by cortical compartment.* |
+| jnwb.curate_and_label | function | `(lfp: 'np.ndarray', fs: 'float', *, pitch_um: 'float', erp: 'Optional[np.ndarray]' = None, erp_times_ms: 'Optional[np.ndarray]' = None, n_windows: 'int' = 4, band_low_hz: 'Tuple[float, float]' = (10.0, 19.0), band_high_hz: 'Tuple[float, float]' = (75.0, 150.0), granular_thickness_um: 'float' = 400.0, max_superficial_um: 'float' = 1200.0, max_deep_um: 'float' = 1600.0, silent_threshold: 'float' = 0.12, smooth_um: 'float' = 50.0, min_lobe_um: 'float' = 150.0, min_lobe_amplitude: 'float' = 0.2, bad_zone_contacts: 'int' = 6, bad_zone_fraction: 'float' = 0.6, edge_fraction: 'float' = 0.1, edge_jump_z: 'float' = 6.0, stable_sd_um: 'float' = 75.0, min_ok_windows: 'int' = 3, consistency_a: 'float' = 0.75, consistency_b: 'float' = 0.6, compute_xflip: 'bool' = True, xflip_n_surrogates: 'int' = 50, xflip_n_blocks: 'Optional[int]' = None, rng: 'RNGLike' = 42, max_interpolate_run: 'int' = 3, min_contacts: 'int' = 8, min_edge_contacts: 'int' = 11, nperseg: 'int' = 512, **bad_channel_kwargs: 'Any') -> 'LaminarCurationResult'`<br>*Curate a laminar LFP recording and label every contact by cortical compartment.* |
 | jnwb.detect_bad_channels | function | `(data: 'np.ndarray', fs: 'float', *, neighbor_contacts: 'int' = 2, min_neighbor_corr_z: 'float' = -4.0, max_power_z: 'float' = 5.0, power_band_hz: 'Tuple[float, float]' = (1.0, 150.0), correlation_fs_hz: 'float' = 100.0, max_iterations: 'int' = 4, nperseg: 'int' = 512) -> 'Dict[str, Any]'`<br>*Flag contacts that decorrelate from their neighbors or have outlying power.* |
 | jnwb.evoked_csd_sink | function | `(erp: 'np.ndarray', times_ms: 'np.ndarray', *, pitch_um: 'float', usable_mask: 'Optional[np.ndarray]' = None, smooth_um: 'float' = 50.0, sink_window_ms: 'Tuple[float, float]' = (40.0, 150.0), min_sink_z: 'float' = 3.0, onset_z: 'float' = 3.0, onset_min_duration_ms: 'float' = 5.0, onset_earliest_ms: 'float' = 25.0, min_contacts: 'int' = 8) -> 'Dict[str, Any]'`<br>*Locate the evoked current-source-density sink along the shaft.* |
 | jnwb.fuse_laminar_anchors | function | `(*, vflip_um: 'Optional[float]' = None, vflip2_um: 'Optional[float]' = None, motif_um: 'Optional[float]' = None, xflip_um: 'Optional[float]' = None, csd_um: 'Optional[float]' = None, window_um: 'Optional[np.ndarray]' = None, consistency_deep: 'float' = nan, consistency_superficial: 'float' = nan, stable_sd_um: 'float' = 75.0, min_ok_windows: 'int' = 3, consistency_a: 'float' = 0.75, consistency_b: 'float' = 0.6, contact_spacing_um: 'Optional[float]' = None) -> 'Dict[str, Any]'`<br>*Choose the laminar anchor and grade it; report how the other estimates sit against it.* |
@@ -150,13 +162,13 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.assign_quality_tier | function | `(quality: pandas.Series, trial_presence_fraction: pandas.Series, snr: pandas.Series, presence_threshold: float = 0.98, snr_threshold: float = 0.5, *, stable_threshold: float = 1.0, stable_labels: typing.Collection = ('good', 'sua', 'single', 'stable', 'clean')) -> pandas.Series`<br>*Tier units 'mua' / 'stable' / 'unstable' / 'unknown' from quality, presence and SNR.* |
+| jnwb.assign_quality_tier | function | `(quality: pandas.Series, trial_presence_fraction: pandas.Series, snr: pandas.Series, presence_threshold: float = 0.98, snr_threshold: float = 0.5, *, stable_threshold: float = 1.0, stable_labels: Collection[str] = ('good', 'sua', 'single', 'stable', 'clean')) -> pandas.Series`<br>*Tier units 'mua' / 'stable' / 'unstable' / 'unknown' from quality, presence and SNR.* |
 | jnwb.audit_electrodes | function | `(elec_df: pandas.DataFrame, units_df: pandas.DataFrame | None = None) -> Dict`<br>*Audit electrode configuration and unit-to-electrode mapping coverage.* |
-| jnwb.audit_units | function | `(units_df: pandas.DataFrame, *, quality_threshold: float = 1.0, snr_threshold: float = 1.0, stable_labels: typing.Collection = ('good',)) -> Dict`<br>*Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate summary statistics.* |
+| jnwb.audit_units | function | `(units_df: pandas.DataFrame, *, quality_threshold: float = 1.0, snr_threshold: float = 1.0, stable_labels: Collection[str] = ('good',)) -> Dict`<br>*Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate summary statistics.* |
 | jnwb.classify_unit_quality | function | `(units_df: pandas.DataFrame, thresholds: Dict[str, float] | None = None) -> pandas.DataFrame`<br>*Classify units by quality based on metrics.* |
 | jnwb.electrode_inventory | function | `(nwb_paths: str | pathlib.Path | List[str | pathlib.Path], on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.DataFrame`<br>*Build inventory of electrodes, mapping to units and areas.* |
 | jnwb.filter_by_criteria | function | `(df: pandas.DataFrame, criteria: Dict, *, unknown: Literal['ignore', 'raise'] = 'ignore') -> pandas.DataFrame`<br>*Apply a criteria dict to a DataFrame (units, electrodes, or any other table).* |
-| jnwb.get_all_units_metadata | function | `(nwb_paths: str | pathlib.Path | pynwb.file.NWBFile | List[str | pathlib.Path | pynwb.file.NWBFile], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip', *, stable_threshold: float = 1.0, stable_labels: typing.Collection = ('good', 'sua', 'single', 'stable', 'clean'), allow_missing: typing.Sequence | str | None = None) -> pandas.DataFrame`<br>*Extract all units and metadata from one or more NWB files.* |
+| jnwb.get_all_units_metadata | function | `(nwb_paths: str | pathlib.Path | pynwb.file.NWBFile | List[str | pathlib.Path | pynwb.file.NWBFile], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip', *, stable_threshold: float = 1.0, stable_labels: Collection[str] = ('good', 'sua', 'single', 'stable', 'clean'), allow_missing: Sequence[str] | str | None = None) -> pandas.DataFrame`<br>*Extract all units and metadata from one or more NWB files.* |
 | jnwb.get_snr_analysis | function | `(units_df: pandas.DataFrame, snr_threshold: float = 1.0, detail: bool = False) -> Dict`<br>*Analyze SNR distribution and quality.* |
 | jnwb.unit_census_report | function | `(units_df: pandas.DataFrame, group_by: List[str] | None = None) -> pandas.DataFrame`<br>*Generate a census/summary report of units grouped by session, area and depth class.* |
 
@@ -218,6 +230,20 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.NWBValidationReport | class | *All layers of one file, plus the versions that produced them.* |
 | jnwb.validate_nwb | function | `(path: 'str | Path', *, layers: 'Sequence[str] | None' = None, dandi_ignore: 'Sequence[str]' = ('DANDI.NO_DANDISET_FOUND',), max_messages: 'int' = 50) -> 'NWBValidationReport'`<br>*Validate one NWB file and report every layer. Read-only; nothing is written.* |
 
+## Module: jnwb.nwb_write
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.AmbiguousMappingError | class | *Two plausible mappings for one conversion; the operation refuses to pick one.* |
+| jnwb.NWBMutationError | class | *Base error for refused NWB mutation operations; carries the report ``issues``.* |
+| jnwb.NWBVerificationError | class | *A written file failed its post-write ``verify_nwb`` check; ``dst`` is left in place.* |
+| jnwb.UndeclaredUnitError | class | *A stored unit string is absent or outside the unit table; a unit is never guessed.* |
+| jnwb.UnidentifiableRepairError | class | *A named repair's identifiability precondition does not hold; nothing is written.* |
+| jnwb.repair_nwb | function | `(src: 'str | Path', *, dst: 'str | Path', repairs, overwrite: 'bool' = False, verify: 'bool' = True) -> 'MutationReport'`<br>*Make the read path's in-memory repairs persistent and report the repair.* |
+| jnwb.transform_nwb | function | `(src: 'str | Path', *, dst: 'str | Path', keep = None, drop = None, cast = None, compression = None, overwrite: 'bool' = False, verify: 'bool' = True) -> 'MutationReport'`<br>*Copy a file with declared changes and report the copy.* |
+| jnwb.verify_nwb | function | `(dst: 'str | Path', *, against: 'str | Path | None' = None, report: 'MutationReport | None' = None, n_check: 'int' = 200000) -> 'MutationReport'`<br>*Re-read one written NWB file and check it, with or without its source.* |
+| jnwb.write_nwb | function | `(nwbfile: 'NWBFile', *, dst: 'str | Path', overwrite: 'bool' = False, verify: 'bool' = True) -> 'MutationReport'`<br>*Write a caller-built ``NWBFile`` to ``dst`` and report the write.* |
+
 ## Module: jnwb.onset_fitting
 
 | Symbol | Type | Signature / Description |
@@ -243,7 +269,7 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.Query | class | *Data selection rules: what subset of data?* |
 | jnwb.Question | class | *Scientific hypothesis: what are we asking?* |
 | jnwb.Result | class | *Analysis output: statistics, provenance, lineage.* |
-| jnwb.preflight | function | `(question: jnwb.ontology.Question) -> jnwb.ontology.Preflight`<br>*Check a planned analysis before it runs and return one of the four outcomes.* |
+| jnwb.preflight | function | `(question: jnwb.ontology.Question, input_path: str | os.PathLike | None = None) -> jnwb.ontology.Preflight`<br>*Check a planned analysis before it runs and return one of the four outcomes.* |
 
 ## Module: jnwb.permutation
 
@@ -268,6 +294,7 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.aperiodic_fit | function | `(freqs: numpy.ndarray, psd: numpy.ndarray, freq_range: Tuple[float, float], mode: str = 'fixed', *, robust: bool = False) -> jnwb.spectral.AperiodicFitResult | List[typing.Any]`<br>*Fit aperiodic 1/f spectral parameters directly to an existing power spectrum.* |
 | jnwb.band_power | function | `(lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), normalize: bool = True, baseline: numpy.ndarray | None = None, device: str = 'cpu') -> float`<br>*Mean power spectral density over a frequency band.* |
 | jnwb.bipolar_reference | function | `(channel_data: numpy.ndarray, channel_order: numpy.ndarray | None = None) -> numpy.ndarray`<br>*Bipolar (adjacent-channel difference) re-reference along a probe's depth order.* |
+| jnwb.coherence_bias_floor | function | `(signals, *, fs: float, freq_bands, pairing: str = 'random_pairs', n_draws: int = 200, rng: int | numpy.random._generator.Generator | None = 0, nperseg: int | None = None, noverlap: int | None = None) -> Dict`<br>*The coherence that randomly paired epochs produce: the bias floor of a finite epoch count.* |
 | jnwb.compute_multitaper_psd | function | `(data: numpy.ndarray, fs: float, nw: float = 3.0, k_tapers: int | None = None, axis: int = -1) -> Tuple[numpy.ndarray, numpy.ndarray]`<br>*Compute power spectral density via the Discrete Prolate Spheroidal Sequences (DPSS) multitaper method.* |
 | jnwb.compute_psd | function | `(lfp_data: numpy.ndarray, fs: float, axis: int = 0, *, nperseg: int | None = None)`<br>*Welch power spectral density of a plain LFP array.* |
 | jnwb.cross_area_coherence | function | `(lfp_area1: numpy.ndarray, lfp_area2: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_bands: Dict[str, Tuple[float, float]] | str | None = None, device: str = 'cpu', rng: int | numpy.random._generator.Generator | None = 42, n_surrogates: int = 50, n_jobs: int = 1, nperseg: int | None = None, noverlap: int | None = None) -> Dict`<br>*Compute frequency-resolved coherence between two LFP signals.* |
@@ -275,6 +302,7 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.harmonic_analysis | function | `(lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), harmonic_orders: int = 3, device: str = 'cpu') -> Dict`<br>*Decompose LFP trace into fundamental and harmonic components.* |
 | jnwb.imaginary_coherency | function | `(x: numpy.ndarray, y: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), nperseg: int | None = None, noverlap: int | None = None, device: str = 'cpu') -> Dict[str, float]`<br>*Imaginary part of coherency (Nolte et al. 2004) between two continuous signals.* |
 | jnwb.laplacian_reference | function | `(channel_data: numpy.ndarray, channel_order: numpy.ndarray | None = None) -> numpy.ndarray`<br>*1D nearest-neighbor Laplacian re-reference along a probe's depth order.* |
+| jnwb.partial_coherence | function | `(X, Y, Z, *, fs: float, freq_bands, nperseg: int | None = None, noverlap: int | None = None, n_surrogates: int = 50, rng: int | numpy.random._generator.Generator | None = 42, n_jobs: int = 1) -> Dict`<br>*Partial coherence of X and Y given one conditioning signal Z (Dahlhaus, 2000).* |
 | jnwb.relative_power | function | `(power: numpy.ndarray, baseline: numpy.ndarray, *, model: str = 'mean_of_ratios', axis: int | Tuple[int, ...] | None = None, device: str = 'cpu') -> numpy.ndarray`<br>*Compute relative power of a signal against baseline under an explicit mathematical estimand.* |
 | jnwb.spectral_tilt | function | `(lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 100.0), device: str = 'cpu') -> Dict`<br>*Fit 1/f spectral tilt via linear regression of log10 power versus log10 frequency.* |
 | jnwb.to_db | function | `(ratio)`<br>*``10*log10(ratio)`` with divide and invalid warnings silenced — average power, divide by baseline, then take the logarithm exactly once.* |
@@ -291,6 +319,7 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.fleiss_kappa | function | `(counts: numpy.ndarray) -> float`<br>*Fleiss' kappa: chance-corrected agreement of many raters on nominal categories (Fleiss 1971).* |
 | jnwb.gaussian_smooth_rate | function | `(rate: numpy.ndarray, bin_ms: float, sigma_ms: float = 20.0, axis: int = -1) -> numpy.ndarray`<br>*Apply symmetrical, acausal Gaussian smoothing to a binned firing rate trace.* |
 | jnwb.network_burst_index | function | `(spike_times, window_s: Tuple[float, float], *, bin_ms: float, threshold_hz: float, min_duration_ms: float) -> Dict[str, typing.Any]`<br>*Fraction of spikes inside network bursts found from the population rate (Wagenaar et al. 2006).* |
+| jnwb.noise_correlation | function | `(counts, condition_id, *, min_trials: int) -> Dict[str, typing.Any]`<br>*Trial-based noise correlation: Pearson r of within-condition residual counts (Cohen and Kohn 2011).* |
 | jnwb.pairwise_phase_consistency | function | `(phases: numpy.ndarray, axis: int = -1) -> float | numpy.ndarray`<br>*Compute the Pairwise Phase Consistency (PPC) across angular samples (Vinck et al., 2010).* |
 | jnwb.phase_locking_index | function | `(unit_spike_times: numpy.ndarray, lfp_phase: numpy.ndarray, lfp_timestamps: numpy.ndarray, n_bins: int = 18) -> Dict[str, float | numpy.ndarray]`<br>*Compute circular phase distribution and Rayleigh non-uniformity test of spikes relative to LFP phase.* |
 | jnwb.spike_count_correlation | function | `(spike_times, window_s: Tuple[float, float], *, bin_ms: float) -> Dict[str, typing.Any]`<br>*Mean pairwise Pearson correlation of binned spike counts (Cohen and Kohn 2011).* |
@@ -336,8 +365,8 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.build_time_resolved_matrix | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, quality: str | None = None) -> Tuple[numpy.ndarray, List[int], numpy.ndarray]`<br>*Build a trial-by-trial time-resolved population spike count matrix.* |
-| jnwb.compute_population_trajectory | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, n_components: int = 3, quality: str | None = None, device: str = 'cpu') -> Dict[str, numpy.ndarray | List[int] | float | str]`<br>*Compute population trajectory using standardized correlation PCA (SVD). Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.* |
+| jnwb.build_time_resolved_matrix | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] | None = None, bin_size_ms: float = 20.0, quality: str | None = None) -> Tuple[numpy.ndarray, List[int], numpy.ndarray]`<br>*Build a trial-by-trial time-resolved population spike count matrix.* |
+| jnwb.compute_population_trajectory | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] | None = None, bin_size_ms: float = 20.0, n_components: int = 3, quality: str | None = None, device: str = 'cpu') -> Dict[str, numpy.ndarray | List[int] | float | str]`<br>*Compute population trajectory using standardized correlation PCA (SVD). Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.* |
 
 ## Module: jnwb.unit_quality
 
@@ -348,6 +377,7 @@ All 206 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.presence_ratio | function | `(spike_times, blocks) -> 'float'`<br>*Fraction of caller-given blocks that hold at least one spike (Siegle et al. 2021).* |
 | jnwb.refractory_contamination | function | `(spike_times, *, duration_s: 'float', refractory_ms: 'float', censored_ms: 'float') -> 'Dict[str, Any]'`<br>*Fraction of a unit's spikes that come from a contaminating source (Hill et al. 2011).* |
 | jnwb.repolarization_slope | function | `(waveform, fs: 'float', *, upsampling_factor: 'float' = 2.4390243902439024, window_samples: 'int' = 20) -> 'float'`<br>*Slope of the return towards baseline after the largest deflection (Jia et al. 2019).* |
+| jnwb.screen_units_against_labels | function | `(metrics, labels, session_id, *, metric_columns, classifier, min_units, rng) -> 'dict'`<br>*Held-out agreement, per session, between a linear-SVM screen and caller labels.* |
 | jnwb.spatial_derivative_sharpness | function | `(waveform, channel_positions, *, threshold: 'float') -> 'Dict[str, Any]'`<br>*How sharply amplitude falls from the peak channel to its nearest channels.* |
 | jnwb.waveform_features | function | `(waveform, fs: 'float') -> 'Dict[str, Any]'`<br>*Peak channel, amplitude, trough-to-peak duration, peak-trough ratio and polarity.* |
 | jnwb.waveform_flatness | function | `(waveform, *, threshold: 'float') -> 'Dict[str, Any]'`<br>*Whether a mean waveform is flat: its peak-channel amplitude is below `threshold`.* |

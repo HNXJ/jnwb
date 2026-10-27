@@ -30,6 +30,7 @@ def epoch_continuous(
     *,
     win_s: tuple[float, float],
     fs: float,
+    start_s: float = 0.0,
     onset_unit: OnsetUnit = "seconds",
     boundary_policy: BoundaryPolicy = "nan",
     return_indices: bool = False,
@@ -49,10 +50,11 @@ def epoch_continuous(
     A product within a relative tolerance of 1e-9 of an integer counts as that integer. At
     10 Hz the window ``(-0.25, 0.25)`` s gives :math:`n_{\mathrm{pre}} = -2` and
     :math:`n_{\mathrm{post}} = 3`, five samples. The onset sample index is computed from
-    continuous timestamps using IEEE 754 round-half-to-even (banker's rounding):
+    continuous timestamps, with :math:`t_{\mathrm{start}}` the time of sample 0 (``start_s``),
+    using IEEE 754 round-half-to-even (banker's rounding):
 
     .. math::
-        n_{\mathrm{center}} = \operatorname{round}(t_{\mathrm{onset}} \cdot f_s)
+        n_{\mathrm{center}} = \operatorname{round}((t_{\mathrm{onset}} - t_{\mathrm{start}}) \cdot f_s)
 
     The extraction window for each event spans the half-open sample interval:
 
@@ -77,6 +79,11 @@ def epoch_continuous(
         windows (e.g. ``(-0.5, -0.1)``) and asymmetric windows are fully supported.
     fs:
         Continuous signal sampling rate in Hz (must be positive).
+    start_s:
+        Time in seconds of sample 0 of ``data`` on the onset clock, the series' ``starting_time``
+        in NWB. ``0.0`` (default) keeps sample 0 at t = 0. It applies to onsets in seconds;
+        onsets in samples already index ``data``, and a non-zero ``start_s`` with them raises
+        ``ValueError``, as does a non-finite value.
     onset_unit:
         Unit of ``onsets``. ``"seconds"`` (default) converts onsets to samples using
         ``fs``; ``"samples"`` treats onsets as integer sample indices.
@@ -110,12 +117,20 @@ def epoch_continuous(
     retained_indices:
         1D array of int64 indices of retained events in ``onsets``, shape ``(n_events,)``.
         Only returned if ``return_indices=True``.
+
+    Raises
+    ------
+    ValueError
+        If ``start_s`` is not finite, or is non-zero with ``onset_unit="samples"``.
     """
     arr = np.asarray(data)
     if arr.ndim not in (1, 2):
         raise ValueError(f"Continuous data must be 1D or 2D, got shape {arr.shape}")
     if fs <= 0.0:
         raise ValueError(f"Sampling rate fs must be positive, got {fs}")
+    start_s = float(start_s)
+    if not np.isfinite(start_s):
+        raise ValueError(f"start_s must be finite, got {start_s}")
     if len(win_s) != 2:
         raise ValueError(f"win_s must be a 2-tuple (t_pre_s, t_post_s), got {win_s}")
     t_pre, t_post = float(win_s[0]), float(win_s[1])
@@ -134,6 +149,11 @@ def epoch_continuous(
     # Checked before the empty-onsets return: a bad unit or policy is refused with no onsets too.
     if onset_unit not in ("seconds", "samples"):
         raise ValueError(f"Unknown onset_unit: '{onset_unit}'. Expected 'seconds' or 'samples'")
+    if onset_unit == "samples" and start_s != 0.0:
+        raise ValueError(
+            f"start_s={start_s} applies to onsets in seconds; onsets in samples already index "
+            "data, so pass start_s=0.0 or onsets in seconds"
+        )
     if boundary_policy not in ("nan", "error", "drop"):
         raise ValueError(f"Unknown boundary_policy: '{boundary_policy}'. Expected 'nan', 'error', or 'drop'")
 
@@ -167,7 +187,7 @@ def epoch_continuous(
         )
 
     if onset_unit == "seconds":
-        center_indices = np.round(onsets_f * fs).astype(np.int64)
+        center_indices = np.round((onsets_f - start_s) * fs).astype(np.int64)
     else:
         center_indices = np.round(onsets_f).astype(np.int64)
 

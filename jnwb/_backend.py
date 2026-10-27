@@ -2,7 +2,7 @@
 
 Private module.
 
-Nineteen call sites across nine modules route through here. Each used to carry its own
+Eighteen call sites across eight modules route through here. Each used to carry its own
 probe and fallback policy, which caused two problems:
 
 * **The sites asked different questions.** Some treated a bare ``import cupy`` as proof
@@ -305,7 +305,7 @@ def warn_no_gpu_path(context: str, reason: str, *, stacklevel: int = 3) -> None:
     The third denial reason, and the one that used to be silent. :func:`resolve_device`
     covers "no device was found" and :func:`warn_device_fallback` covers "the device
     failed part-way through"; neither fires when the device is fine and the function
-    simply has no GPU branch for these arguments. A caller on a CPU-only machine was
+    has no GPU branch for these arguments. A caller on a CPU-only machine was
     warned and a caller on an A4000 was not, so the better the hardware the quieter the
     denial.
 

@@ -22,14 +22,14 @@ were false, and this file is the test half of the repair:
   unconditionally, so the docstring now states the condition and the escape hatch.
 
 The three `create_*` factories forward to the constructor of the same name and add
-nothing, so they fail "distinct useful operation". They were never in `__all__`. They are
-deprecated here rather than deleted, so callers have a path.
+nothing, so they fail "distinct useful operation". They were never in `__all__`. They were
+deprecated and are removed in 0.2.14.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -37,6 +37,7 @@ import pytest
 
 import jnwb
 from jnwb import ontology as O
+from jnwb.paths import sha256_file
 
 
 #: The exported classes; `preflight`, the one exported function, has its own tests below.
@@ -297,63 +298,19 @@ class TestFrozenDoesNotFreezeWhatTheFieldsPointAt:
         assert parts["Figure"].title == "Fig 2"
 
 
-class TestDeprecatedFactoriesWarnAndStillWork:
-    """They forward to the constructor and add nothing -- they fail "distinct useful
-    operation". Deprecated, not deleted: a public API change carries a deprecation path."""
+class TestDeprecatedFactoriesAreRemoved:
+    """They forwarded to the constructor and added nothing, so they failed "distinct useful
+    operation". Deprecated, then removed in 0.2.14: call the dataclass, or
+    `Dataset.with_alignment`, directly."""
 
     @pytest.mark.parametrize("name", DEPRECATED_FACTORIES)
-    def test_the_factory_is_not_and_never_was_part_of_the_declared_surface(self, name):
+    def test_the_factory_is_gone(self, name):
+        assert not hasattr(O, name), f"ontology.{name} was removed in 0.2.14"
         assert name not in O.__all__
         assert name not in jnwb.__all__
 
-    def test_create_aligned_dataset_warns_and_equals_the_method(self, parts):
-        with pytest.warns(DeprecationWarning, match="create_aligned_dataset is deprecated"):
-            made = O.create_aligned_dataset(parts["Dataset"], parts["Alignment"])
-        assert made == parts["Dataset"].with_alignment(parts["Alignment"])
-
-    def test_create_result_warns_and_equals_the_constructor(self, parts):
-        args = (parts["Question"], {"p": 0.01}, parts["Provenance"], parts["Lineage"])
-        with pytest.warns(DeprecationWarning, match="create_result is deprecated"):
-            made = O.create_result(*args)
-        assert made == O.Result(*args)
-
-    def test_create_figure_warns_and_equals_the_constructor(self, parts):
-        with pytest.warns(DeprecationWarning, match="create_figure is deprecated"):
-            made = O.create_figure(parts["Result"], parts["Interpretation"], "t")
-        assert made == O.Figure(parts["Result"], parts["Interpretation"], "t")
-
     @pytest.mark.parametrize("name", DEPRECATED_FACTORIES)
-    def test_the_warning_names_the_replacement(self, name, parts):
-        calls = {
-            "create_aligned_dataset": (parts["Dataset"], parts["Alignment"]),
-            "create_result": (parts["Question"], {}, parts["Provenance"], parts["Lineage"]),
-            "create_figure": (parts["Result"], parts["Interpretation"]),
-        }
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            getattr(O, name)(*calls[name])
-        mine = [w for w in caught if issubclass(w.category, DeprecationWarning)]
-        assert len(mine) == 1
-        text = str(mine[0].message)
-        assert "Call " in text and "directly" in text, text
-
-    @pytest.mark.parametrize("name", DEPRECATED_FACTORIES)
-    def test_the_warning_names_the_removal_release(self, name, parts):
-        calls = {
-            "create_aligned_dataset": (parts["Dataset"], parts["Alignment"]),
-            "create_result": (parts["Question"], {}, parts["Provenance"], parts["Lineage"]),
-            "create_figure": (parts["Result"], parts["Interpretation"]),
-        }
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            getattr(O, name)(*calls[name])
-        mine = [w for w in caught if issubclass(w.category, DeprecationWarning)]
-        assert len(mine) == 1
-        text = str(mine[0].message)
-        assert "will be removed in 0.2.14;" in text, text
-
-    @pytest.mark.parametrize("name", DEPRECATED_FACTORIES)
-    def test_the_deprecation_is_announced_in_the_changelog(self, name):
+    def test_the_removal_is_announced_in_the_changelog(self, name):
         from pathlib import Path
 
         # From this file, not from `jnwb.__file__`: the package's parent is the
@@ -380,7 +337,7 @@ class TestTheModuleImportsOnlyWhatItUses:
         assert not hasattr(O, name), f"ontology.{name} is imported but unused"
 
     def test_what_it_does_use_is_still_there(self):
-        assert hasattr(O, "pd") and hasattr(O, "warnings") and hasattr(O, "datetime")
+        assert hasattr(O, "pd") and hasattr(O, "datetime")
 
 
 class TestPreflightCarriesItsOutcomeAsData:
@@ -402,7 +359,8 @@ class TestPreflightCarriesItsOutcomeAsData:
         pf = O.Preflight(outcome=outcome, reason=reason, missing=list(missing))
         assert (pf.outcome, pf.reason, pf.missing) == (outcome, reason, missing)
         d = json.loads(json.dumps(pf.to_dict()))
-        assert d == {"outcome": outcome, "reason": reason, "missing": list(missing)}
+        assert d == {"outcome": outcome, "reason": reason, "missing": list(missing),
+                     "input_sha256": "", "input_path": ""}
 
     @pytest.mark.parametrize(
         "kwargs, match",
@@ -548,6 +506,50 @@ class TestPreflightIsThePublicCheck:
         assert O.Question(**json.loads(json.dumps(q.to_dict()))) == q
         pf = jnwb.preflight(q)
         assert O.Preflight(**json.loads(json.dumps(pf.to_dict()))) == pf
+
+    @pytest.mark.parametrize("outcome, changes", [
+        ("supported", {}), ("request", {"contrast": ""}),
+        ("failure", {"non_identifiable": "r"}), ("decline", {"unsupported_inference": "r"}),
+    ])
+    def test_each_outcome_names_its_input_by_sha256_and_path(self, tmp_path, outcome, changes):
+        data = tmp_path / "session.nwb"
+        data.write_bytes(b"\x89HDF\r\n\x1a\n" + bytes(range(256)))
+        pf = jnwb.preflight(_plan(**changes), input_path=data)
+        assert pf.outcome == outcome
+        assert pf.input_sha256 == hashlib.sha256(data.read_bytes()).hexdigest()
+        assert pf.input_path == str(data.resolve())
+
+    def test_the_input_round_trips_by_path_and_hash(self, tmp_path):
+        data = tmp_path / "session.nwb"
+        data.write_bytes(b"spikes")
+        pf = jnwb.preflight(_plan(), input_path=str(data))
+        restored = O.Preflight(**json.loads(json.dumps(pf.to_dict())))
+        assert restored == pf
+        assert sha256_file(restored.input_path) == restored.input_sha256
+
+    def test_no_input_leaves_both_fields_empty(self):
+        pf = jnwb.preflight(_plan())
+        assert (pf.input_sha256, pf.input_path) == ("", "")
+
+    def test_an_input_that_does_not_exist_is_requested(self, tmp_path):
+        pf = jnwb.preflight(_plan(contrast=""), input_path=tmp_path / "absent.nwb")
+        assert (pf.outcome, pf.missing) == ("request", ("contrast", "input_path"))
+        assert (pf.input_sha256, pf.input_path) == ("", "")
+
+    def test_the_input_fields_are_read_only_and_checked(self, tmp_path):
+        import dataclasses
+
+        data = tmp_path / "session.nwb"
+        data.write_bytes(b"lfp")
+        pf = jnwb.preflight(_plan(), input_path=data)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            pf.input_sha256 = "0" * 64
+        with pytest.raises(ValueError, match="input_sha256"):
+            O.Preflight("supported", "r", input_sha256="abc", input_path=str(data))
+        with pytest.raises(ValueError, match="together"):
+            O.Preflight("supported", "r", input_path=str(data))
+        with pytest.raises(TypeError, match="input_path"):
+            jnwb.preflight(_plan(), input_path=3)
 
     def test_anything_but_a_question_is_refused(self):
         with pytest.raises(TypeError, match="takes a Question"):

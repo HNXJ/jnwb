@@ -179,7 +179,7 @@ class TestReleaseGateCoverage:
         import yaml
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import REQUIRED_EXTRAS
 
         wf = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "workflow.yml")
@@ -248,7 +248,7 @@ class TestReleaseGateOrder:
     @pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
     def test_a_stale_state_file_is_refused(self, tmp_path):
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import check_state_is_current
 
         head = self._repository(tmp_path)
@@ -320,7 +320,7 @@ class TestCiRunSelection:
 
 
 class TestTheInstalledSmokeScriptRunsInTheSuite:
-    """P-352: the installed-package smoke script ran only at STEP 7, so an exact key set that went
+    """The installed-package smoke script ran only at STEP 7, so an exact key set that went
     stale in it passed a whole cycle of green suites. The suite runs the same script against the
     checkout. It must get through its checks before the installed-location check and refuse the
     checkout there, so a stale line fails the suite rather than the release."""
@@ -370,3 +370,29 @@ class TestTheInstalledSmokeScriptRunsInTheSuite:
         assert "NameError" in result.stderr, result.stderr
         assert "PASS: workflow checks completed" not in result.stdout, result.stdout
         assert "FAIL: jnwb was imported from" not in result.stderr, result.stderr
+
+
+class TestTheBannerNamesEachSkip:
+    """A release run with a skipped check must not print the VERIFIED banner unqualified."""
+
+    def test_a_run_with_no_skip_keeps_the_verified_banner(self):
+        from scripts.release_gate import verified_banner
+
+        assert verified_banner([]) == "=== RELEASE GATE VERIFIED: DISTRIBUTABLE PACKAGE READY ==="
+
+    def test_a_run_with_skips_counts_them_and_names_each(self):
+        from scripts.release_gate import verified_banner
+
+        banner = verified_banner(["release body (STEP 0d)", "CI conclusion (STEP 0e)"])
+        assert "2 CHECK(S) SKIPPED" in banner, banner
+        assert "release body (STEP 0d)" in banner and "CI conclusion (STEP 0e)" in banner, banner
+        assert "VERIFIED: DISTRIBUTABLE" not in banner, banner
+
+    def test_an_unreachable_index_skip_is_recorded_once(self, monkeypatch):
+        import scripts.release_gate as release_gate
+
+        monkeypatch.setattr(release_gate, "SKIPPED_CHECKS", [])
+        monkeypatch.setenv(release_gate.SKIP_INDEX_ENV, "1")
+        assert release_gate.check_version_is_not_already_published("0.2.14", None) == []
+        assert release_gate.check_version_is_not_already_published("0.2.14", None) == []
+        assert len(release_gate.SKIPPED_CHECKS) == 1, release_gate.SKIPPED_CHECKS

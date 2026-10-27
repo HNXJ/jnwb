@@ -27,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # `append`, never `insert(0, ...)`: see tests/test_import_profile_receipt.py.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 # (file, the exact sentence, with the live version substituted in); the list is owned by the
 # module `scripts/bump_version.py` also reads, so a bump moves what this test checks.
@@ -103,9 +103,7 @@ EXTERNAL_MENTIONS = {
 # Mentions of a version not yet released: a plan or a removal date. Each is excused only while
 # the live version is below it; once the version reaches it the note is either done, and
 # rewritten as history, or late, and the release is not what the note promised.
-FORWARD_MENTIONS: dict[tuple[str, str], str] = {
-    ("docs/02_paths_addressing_metadata.md", "will be removed in 0.2.14"): "0.2.14",
-}
+FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
 
 # The same two lists for string literals in `jnwb/`: docstrings, and the messages a warning or
 # an error prints. A mention at or below the live version is history there (a break note, a
@@ -113,8 +111,10 @@ FORWARD_MENTIONS: dict[tuple[str, str], str] = {
 # expires when the version reaches it, or the record of a change the next release carries,
 # which needs no declaration once that release is live.
 SOURCE_FORWARD_MENTIONS: dict[tuple[str, str], str] = {
-    ("jnwb/gpu_pca.py", "removed in 0.2.14"): "0.2.14",
-    ("jnwb/ontology.py", "will be removed in 0.2.14"): "0.2.14",
+    ("jnwb/_units.py", "becomes required in 0.2.15"): "0.2.15",
+    ("jnwb/_units.py", "will be required in 0.2.15"): "0.2.15",
+    ("jnwb/analyzers.py", "Required from 0.2.15"): "0.2.15",
+    ("jnwb/trajectory.py", "Required from 0.2.15"): "0.2.15",
 }
 SOURCE_UNRELEASED_RECORDS: dict[tuple[str, str], str] = {
 }

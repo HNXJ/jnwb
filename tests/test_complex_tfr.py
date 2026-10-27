@@ -405,7 +405,7 @@ class TestMorletAdmissibilityAndDtype:
         )
         # Compare strictly inside the kernel support. Samples nearer the edge than the
         # kernel half-width convolve against `mode="same"` zero-padding, so the kernel's
-        # zero sum no longer cancels a constant -- that residual is item 05-85, not this
+        # zero sum no longer cancels a constant -- that residual is tracked separately, not by this
         # one, and `coi_mask` does not currently cover it.
         sigma_t = n_cycles / (2.0 * np.pi * f0)
         half = int(np.ceil(4.0 * sigma_t * fs))

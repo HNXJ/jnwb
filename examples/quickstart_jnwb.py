@@ -16,8 +16,8 @@ WHY SIMULATED, AND HOW IT IS MARKED
 
 STYLE
     Palette, fonts, size tiers, line widths and the figure width come from
-    `docs/figure_style.py`, the module every documentation figure uses, so the script runs from
-    a checkout.
+    `scripts/figures/figure_style.py`, the module every documentation figure uses, so the script
+    runs from a checkout.
 
 OUTPUT
     examples/figures/jnwb_quickstart.{svg,png} and jnwb_quickstart.dark.png. Two runs write the
@@ -41,8 +41,8 @@ if not os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") and (
     _CHECKOUT / "jnwb" / "__init__.py"
 ).exists():
     sys.path.insert(0, str(_CHECKOUT))
-if str(_CHECKOUT / "docs") not in sys.path:
-    sys.path.append(str(_CHECKOUT / "docs"))
+if str(_CHECKOUT / "scripts" / "figures") not in sys.path:
+    sys.path.append(str(_CHECKOUT / "scripts" / "figures"))
 
 import matplotlib
 matplotlib.use("Agg")
@@ -59,7 +59,7 @@ SVG_SALT = "jnwb-quickstart"
 
 #: Ink per theme. The figure is drawn on a transparent background twice: the light theme writes
 #: jnwb_quickstart.{svg,png} and the dark theme jnwb_quickstart.dark.png. Series colours are not
-#: here: they come from `docs/figure_style.py`, one palette for both themes.
+#: here: they come from `scripts/figures/figure_style.py`, one palette for both themes.
 THEMES = {
     "light": {"FG": "#2d2d2d", "FG2": "#555555", "FG3": "#2d2d2d", "FAINT": "#8a8a8a",
               "stem": "jnwb_quickstart", "formats": ("svg", "png")},

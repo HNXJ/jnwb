@@ -121,12 +121,28 @@ def _read_interval_dataframe(nwb: NWBFile, table: str) -> pd.DataFrame:
     return name, nwb.intervals[name].to_dataframe()
 
 
+def _refuse_code_type(code: Any) -> None:
+    """Refuse a requested code that is bytes or a bool.
+
+    Bytes would be iterated as integers, and a bool compares equal to 0 and 1, so neither can
+    name a code. Cell values are read by :func:`_normalize_cell_code`, not checked here.
+    """
+    if isinstance(code, (bytes, bool, np.bool_)):
+        raise TypeError(
+            f"event codes must be str, int or float, not {type(code).__name__}: {code!r}"
+        )
+
+
 def _as_code_sequence(codes: CodeSequence | None) -> tuple[CodeValue, ...] | None:
     if codes is None:
         return None
-    if isinstance(codes, (str, int, float, np.integer, np.floating)):
-        return (codes,)  # type: ignore[return-value]
-    return tuple(codes)
+    if isinstance(codes, (str, bytes, bool, np.bool_, int, float, np.integer, np.floating)):
+        members = (codes,)
+    else:
+        members = tuple(codes)
+    for code in members:
+        _refuse_code_type(code)
+    return members  # type: ignore[return-value]
 
 
 def _is_string_like(value: Any) -> bool:
@@ -331,7 +347,8 @@ def event_onsets(
         duplicate rows. When omitted (``codes=None``), all rows are returned; the
         default ``codes`` column may then be absent, without a warning, but a
         ``code_column`` you name must exist or ``ColumnNotFoundError`` is raised. When provided but
-        nothing matches, returns an empty array (valid empty selection).
+        nothing matches, returns an empty array (valid empty selection). A bytes or bool code
+        raises ``TypeError`` naming its type; str, int and float codes match as before.
     code_column, onset_column:
         See :func:`events`.
 

@@ -76,12 +76,18 @@ class ContainerTypeContradictionWarning(UserWarning):
 class MissingRequiredNWBFieldError(Exception):
     """A required NWB field is absent from the on-disk builder tree."""
 
-    def __init__(self, field_name: str) -> None:
+    def __init__(self, field_name: str, refused_waiver: str | None = None) -> None:
         self.field_name = field_name
-        super().__init__(
-            f"NWB file is missing required field '{field_name}'; "
-            "jnwb does not synthesize required metadata"
-        )
+        if refused_waiver is None:
+            message = (
+                f"NWB file is missing required field '{field_name}'; "
+                "jnwb does not synthesize required metadata"
+            )
+        else:
+            message = (
+                f"NWB file stores '{field_name}' as a group, not a dataset; {refused_waiver}"
+            )
+        super().__init__(message)
 
 
 #: Attributes the NWB schema specifies as sequences. A length-1 value of one of these is
@@ -135,6 +141,15 @@ def _repair_builder(builder: Any, orig_construct: Any) -> Tuple[str, ...]:
     ):
         if "session_description" not in _ALLOW_MISSING.get():
             raise MissingRequiredNWBFieldError("session_description")
+        if "session_description" in getattr(builder, "groups", {}):
+            # A group under the name is not absent, and the empty string below would overwrite it.
+            # Refused before the builder is touched, so no partial object can come of it.
+            raise MissingRequiredNWBFieldError(
+                "session_description",
+                refused_waiver="session_description cannot be waived here: the waiver stands an "
+                "empty string in for an absent field, and that would overwrite the group the file "
+                "holds under this name. Repair the file.",
+            )
         # Waiving jnwb's refusal is not enough to open the file: pynwb takes
         # `session_description` as a required positional argument of `NWBFile.__init__`, so
         # without it HDMF raises ConstructError from a TypeError and the read fails anyway. The

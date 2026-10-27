@@ -116,7 +116,7 @@ def test_the_quickstart_prints_its_provenance_before_anything_else() -> None:
 
 
 # ============================================================================
-# P-44: a version string is a literal, so it cannot identify a copy
+# A version string is a literal, so it cannot identify a copy
 # ============================================================================
 #
 # The tests above assert *which* package was imported, by path. They are the scanners, and
@@ -187,12 +187,12 @@ def divergent_copies(tmp_path_factory) -> dict[str, dict]:
     """Three copies of the package under test: `a` and `c` identical, `b` changed by one line.
 
     `b` differs from `a` by an appended comment in `nwb_io.py` and by nothing else. That is
-    the smallest difference a copy can have, and it changes no behaviour -- P-44's real pair
+    the smallest difference a copy can have, and it changes no behaviour -- the real pair
     differed in `read_nwb`'s signature, so an identifier that separates a comment separates a
     signature too.
 
     `__version__` is never touched. All three report the same version, which is the condition
-    P-44 describes: the string is identical and the code is not.
+    of the defect: the string is identical and the code is not.
     """
     root = tmp_path_factory.mktemp("copies")
     source = package_dir_under_test()
@@ -261,7 +261,7 @@ def _sources_relative_to(root: Path) -> dict[str, bytes]:
 
 
 def test_the_live_pair_p44_describes_is_separated_by_the_identifier(tmp_path, monkeypatch) -> None:
-    """P-44 as it stands on this machine, not as a synthetic reconstruction.
+    """The defect as it stands on this machine, not as a synthetic reconstruction.
 
     The other copy predates this attribute, so its id is computed here by pointing the same
     function at its directory. That substitution is the mechanism itself: the function takes
@@ -302,7 +302,7 @@ def test_the_live_pair_p44_describes_is_separated_by_the_identifier(tmp_path, mo
             p44_shaped.append(other)
     if not p44_shaped:
         pytest.skip(
-            f"no second copy is P-44 shaped here (same version {jnwb.__version__}, different "
+            f"no second copy has the defect's shape here (same version {jnwb.__version__}, different "
             f"sources); the identifier was still checked against ground truth for: {others}"
         )
 

@@ -21,7 +21,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts import harness_gate  # noqa: E402
 from scripts.gates import boundary as boundary_gate  # noqa: E402
@@ -155,7 +155,7 @@ class TestJnwbFrozenBoundary:
         """With Plotly unimportable, `jnwb.vis` names its extra instead of resolving."""
         script = (
             "import sys\n"
-            f"sys.path.append({str(REPO_ROOT)!r})\n"
+            f"sys.path.append({str(REPO_ROOT)!r})\n"  # needed: child process has no pythonpath
             "sys.modules['plotly'] = None\n"
             "from tests.test_jnwb_frozen_boundary import unresolved_exports\n"
             "assert unresolved_exports() == [], unresolved_exports()\n"

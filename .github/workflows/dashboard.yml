@@ -1,11 +1,11 @@
 name: dashboard
 
 # Builds the jnwb dashboard from committed records and publishes it to the gh-pages branch,
-# which serves https://hnxj.github.io/jnwb/. Only main triggers it; the publish never forces.
+# which serves https://hnxj.github.io/jnwb/. Only dev triggers it; the publish never forces.
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
   workflow_dispatch:
 
 permissions:
@@ -18,7 +18,7 @@ concurrency:
 jobs:
   publish:
     # A manual run on another branch would publish that branch's build.
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -31,9 +31,9 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Install jnwb and PyYAML
+      - name: Install jnwb, PyYAML and Plotly
         run: |
-          python -m pip install -e . "pyyaml>=6.0.1"
+          python -m pip install -e . "pyyaml>=6.0.1" "plotly>=6.1.1"
 
       - name: Build dashboard
         run: |
@@ -48,9 +48,24 @@ jobs:
           python -m pip install "jsonschema>=4.18"
           python -m jsonschema --instance "$RUNNER_TEMP/site/data.json" scripts/dashboard/data.schema.json
 
+      # The route test loads every route in Chromium, light and dark. Here a missing browser fails
+      # the step; it does not skip.
+      - name: Run the route test in Chromium, light and dark
+        env:
+          JNWB_REQUIRE_BROWSER: "1"
+        run: |
+          python -m pip install "playwright==1.62.0" pytest "pytest-xdist>=3.0"
+          python -m playwright install --with-deps chromium
+          python -m pytest tests/test_dashboard_page.py::test_every_route_renders_in_light_and_dark_without_errors -q -p no:cacheprovider
+
       - name: Add .nojekyll
         run: |
           touch "$RUNNER_TEMP/site/.nojekyll"
+
+      # The interactive figures are published with the site, under its figures/ directory.
+      - name: Build interactive figures
+        run: |
+          python scripts/figures/generate_figures.py --interactive "$RUNNER_TEMP/site/figures"
 
       # Plain git: the repository allows only its own, GitHub's and pypa's publish action.
       - name: Publish to gh-pages

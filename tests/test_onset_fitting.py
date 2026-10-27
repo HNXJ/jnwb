@@ -18,13 +18,13 @@ class TestCausalExpSmooth:
 
     def test_constant_input_converges_to_constant(self):
         # Edge-value-padded causal convolution preserves constant baseline across all bins,
-        # eliminating startup ramp-up depression (0.2.3-REV-09).
+        # eliminating startup ramp-up depression.
         rate = np.full(50, 7.0)
         smoothed = causal_exp_smooth(rate, bin_ms=5.0, tau_ms=30.0)
         assert np.allclose(smoothed, 7.0, atol=1e-12)
 
     def test_constant_baseline_preserved_at_startup(self):
-        """Edge padding ensures constant baseline rate is preserved without startup ramp-up (0.2.3-REV-09)."""
+        """Edge padding ensures constant baseline rate is preserved without startup ramp-up."""
         rate = np.full(100, 25.0)
         smoothed = causal_exp_smooth(rate, bin_ms=5.0, tau_ms=30.0)
         assert np.allclose(smoothed, 25.0, atol=1e-12)
@@ -230,7 +230,7 @@ class TestANoiseOnlyPSTH:
 
 
 class TestCausalGaussianSmooth:
-    """A past-only Gaussian kernel that reports its exact mean lag (item 12-19)."""
+    """A past-only Gaussian kernel that reports its exact mean lag."""
 
     def test_an_impulse_gives_exactly_zero_before_its_bin(self):
         from jnwb.onset_fitting import causal_gaussian_smooth

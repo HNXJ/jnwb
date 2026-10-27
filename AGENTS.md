@@ -15,7 +15,8 @@ Rules and routes; the reasons are in `artifacts/rulings/history.md`. This is the
 | `artifacts/agents.md`, `artifacts/agents/` | Agent entry page; role definitions, independent of domain skills, parameterized by delegation packets: `authority`, `critic`, `actor`, `verifier`, `docs-harness`, `jnwb-developer` |
 | `artifacts/rulings/` | Hamm's rulings by date; `history.md` holds the reasons for these rules, `standing.md` the rulings still in force |
 | `artifacts/process/cooperation.md`, `artifacts/process/defect_classes.md` | How concurrent agents share the repository; a defect class seen twice gets a check |
-| `artifacts/evidence/`, `artifacts/archive/`, `artifacts/benchmarks/` | Per-version working evidence; closed cycles stay only while a file reads or cites them; performance baseline in `artifacts/benchmarks/performance/` (`python scripts/benchmark_import.py --write`); calibration receipts in `artifacts/benchmarks/calibration/` |
+| `artifacts/evidence/`, `artifacts/archive/`, `artifacts/benchmarks/` | Per-version working evidence; closed cycles stay only while a file reads or cites them; performance baseline in `artifacts/benchmarks/performance/` (`python scripts/benchmark_import.py --write`); calibration receipts in `artifacts/benchmarks/calibration/`; the scripts under `artifacts/evidence/` reproduce their cycle's receipts |
+| `artifacts/changelog.d/`, `artifacts/showcases/` | Changelog fragments, assembled into `CHANGELOG.md` at release (`scripts/assemble_changelog.py`); worked examples on public data |
 | `docs/`, `examples/` | User docs: `api.md` lists every public symbol, `common_mistakes.md` the guarded failure modes, `references.md` the cited sources; `quickstart_jnwb.py` and the notebooks `tests/test_notebooks.py` executes |
 | `.github/CONTRIBUTING.md`, `.github/workflows/workflow.yml` | How to change code, docs, skills and releases; CI, whose publication order is a fact |
 
@@ -103,9 +104,7 @@ A release opens only when documentation is low-verbosity and consistently formed
 
 ## 12. Autonomy
 
-Autonomy sets who drives §3 and when Hamm intervenes. `autonomy != authority`: at `max`, an agent that needs an authority it lacks stops, as at `none`. Full text, grades and the `max` loop: `artifacts/rulings/standing.md`.
-
-**Stops even at `max`**: more than one defensible scientific meaning; a consequential public API choice; a change of package scope or boundary; a change of acceptance criteria; an unauthorised irreversible external action; evidence against a higher authority; two valid alternatives with a material trade-off, neither dominant; missing evidence or capability.
+Autonomy sets who drives §3 and when Hamm intervenes. `autonomy != authority`: at `max`, an agent that needs an authority it lacks stops, as at `none`. Full text, grades, the stops that hold even at `max`, and the `max` loop: `artifacts/rulings/standing.md`.
 
 `AUTONOMY: none | mid | max` inherits project default, batch, packet; **the narrowest scope wins**. The default is `max`, inherited by an item with no `AUTONOMY:` line; human rulings and the release item carry `none`.
 

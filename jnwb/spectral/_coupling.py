@@ -6,7 +6,7 @@ import numpy as np
 from scipy import signal
 from .._backend import CUDA, resolve_device, warn_device_fallback
 from .._parallel import parallel_map
-from .._rng import DEFAULT_SEED, RNGLike, recorded_rng
+from .._rng import DEFAULT_SEED, Default, RNGLike, recorded_rng
 from ..permutation import _count_at_least_as_extreme
 from .._spread import is_constant as _is_constant
 from ._common import _require_band_bins, CANONICAL_BANDS, _resolve_fs
@@ -144,6 +144,100 @@ def welch_segment_count(n_samples: int, nperseg: int, noverlap: int) -> int:
     return 1 + (int(n_samples) - int(nperseg)) // (int(nperseg) - int(noverlap))
 
 
+#: A cross-spectral matrix whose smallest eigenvalue, after scaling to unit diagonal, is at
+#: or below this fraction of its largest is singular. Exact collinearity gives about 1e-16;
+#: a conditioning signal with tiny but real power in a band gives a correlation near 1 only
+#: where the signals are linearly dependent, so it does not reach this cutoff.
+PARTIAL_SINGULAR_RTOL = 1e-12
+
+
+def _csd_spectra_cpu(x, y, fs, nperseg, noverlap):
+    """Welch PSDs of ``x`` and ``y`` and their cross-spectrum, on the grid of ``signal.coherence``.
+
+    Accepts a 1-D trace or an ``(n_trials, n_times)`` array; the average runs over the last
+    axis, so each row is one trial's Welch estimate.
+    """
+    freqs, pxx = signal.welch(x, fs=fs, nperseg=nperseg, noverlap=noverlap, axis=-1)
+    _, pyy = signal.welch(y, fs=fs, nperseg=nperseg, noverlap=noverlap, axis=-1)
+    _, sxy = signal.csd(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap, axis=-1)
+    return freqs, pxx, pyy, sxy
+
+
+def _partial_coherence_spectrum(channels, spectra) -> Tuple[np.ndarray, np.ndarray]:
+    """Partial coherence of ``channels[0]`` and ``channels[1]`` given the rest (Dahlhaus, 2000).
+
+    Builds the Welch cross-spectral matrix S(f) of every channel on the same segments, then
+    returns ``|G_01|^2 / (G_00 G_11)`` with ``G = S^-1`` at each frequency. S is scaled to a
+    unit diagonal before the inverse, which leaves the partial coherence unchanged and makes
+    the singularity test independent of the channels' units. Raises ``ValueError`` at the
+    first frequency where the scaled matrix is singular.
+    """
+    n = len(channels)
+    freqs = None
+    matrix = None
+    for i in range(n):
+        for j in range(i, n):
+            f, pxx, _, sxy = spectra(channels[i], channels[j])
+            if matrix is None:
+                freqs = f
+                matrix = np.zeros((len(f), n, n), dtype=complex)
+            if i == j:
+                matrix[:, i, i] = pxx
+            else:
+                matrix[:, i, j] = sxy
+                matrix[:, j, i] = np.conj(sxy)
+
+    diag = np.real(np.diagonal(matrix, axis1=1, axis2=2))
+    usable = np.all(diag > 0, axis=1)
+    scale = np.sqrt(np.where(diag > 0, diag, 1.0))
+    unit = matrix / (scale[:, :, None] * scale[:, None, :])
+    eig = np.linalg.eigvalsh(unit)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = eig[:, 0] / eig[:, -1]
+    singular = ~usable | ~(ratio > PARTIAL_SINGULAR_RTOL)
+    if np.any(singular):
+        k = int(np.argmax(singular))
+        raise ValueError(
+            f"partial coherence is undefined at {freqs[k]:.6g} Hz: the cross-spectral matrix of "
+            f"the {n} channels is singular there (smallest/largest eigenvalue of the unit-diagonal "
+            f"matrix {ratio[k]:.3g}, cutoff {PARTIAL_SINGULAR_RTOL:g}). A conditioning signal that "
+            "is a linear combination of the others, or fewer Welch segments than channels, "
+            "makes it singular. Supply a longer recording, a smaller nperseg, or drop the "
+            "dependent signal."
+        )
+    inverse = np.linalg.inv(unit)
+    spectrum = np.abs(inverse[:, 0, 1]) ** 2 / (
+        np.real(inverse[:, 0, 0]) * np.real(inverse[:, 1, 1])
+    )
+    return freqs, spectrum
+
+
+def _random_derangement(n: int, rng: np.random.Generator) -> np.ndarray:
+    """A uniform random derangement of ``range(n)``: no index maps to itself.
+
+    Rejection sampling: a uniform permutation is redrawn until none of its entries is a fixed
+    point. A uniform permutation conditioned on having no fixed point is a uniform derangement.
+    The expected number of draws is about e for large n.
+    """
+    identity = np.arange(n)
+    while True:
+        perm = rng.permutation(n)
+        if not np.any(perm == identity):
+            return perm
+
+
+def _pooled_coherence(pxx, pyy, sxy) -> np.ndarray:
+    """Coherence of trials pooled: ``|mean S_xy|^2 / (mean P_xx * mean P_yy)`` over trials.
+
+    Each row is one trial's Welch estimate on the same segment grid, so this is the ratio over
+    every segment of every trial, with the trials weighted equally.
+    """
+    mean_xy = np.mean(sxy, axis=0)
+    denominator = np.mean(pxx, axis=0) * np.mean(pyy, axis=0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.abs(mean_xy) ** 2 / denominator
+
+
 def cross_area_coherence(
     lfp_area1: np.ndarray,
     lfp_area2: np.ndarray,
@@ -253,6 +347,8 @@ def cross_area_coherence(
           entropy actually drawn for `rng=None`, and the child seed drawn from a
           `Generator`. Passing it back as `rng` reproduces the surrogates.
 
+        ``surrogate_scheme`` is ``'circular_shift'``.
+
         When either trace is constant (every sample equal, all-zero included),
         `coherence_spectrum`, every `band_coherence` and `band_significance` entry and
         `peak_coherence_value` are NaN, and `peak_coherence_freq` is NaN: coherence with a
@@ -311,6 +407,7 @@ def cross_area_coherence(
         'n_surrogates_used': int(n_surrogates),
         'p_value_floor': 1.0 / (int(n_surrogates) + 1),
         'surrogate_seed_entropy': None,
+        'surrogate_scheme': 'circular_shift',
     }
 
     lfp_area1 = np.asarray(lfp_area1)
@@ -498,6 +595,330 @@ def cross_area_coherence(
     return result
 
 
+def partial_coherence(
+    X,
+    Y,
+    Z,
+    *,
+    fs: float,
+    freq_bands,
+    nperseg: Optional[int] = None,
+    noverlap: Optional[int] = None,
+    n_surrogates: int = 50,
+    rng: RNGLike = DEFAULT_SEED,
+    n_jobs: int = 1,
+) -> Dict:
+    """
+    Partial coherence of X and Y given one conditioning signal Z (Dahlhaus, 2000).
+
+    The estimand is ``|G_xy|^2 / (G_xx G_yy)`` per frequency, with ``G = S^-1`` and ``S`` the 3 x 3
+    Welch cross-spectral matrix of X, Y and Z on the same segments. It is the magnitude-squared
+    coherence of X and Y with the linear contribution of Z removed, dimensionless in [0, 1]. The
+    spectrum is ``coherence_spectrum``, and ``band_coherence`` is its band mean. ``unconditioned_band_coherence``
+    is the ordinary coherence of X and Y on the same segments, so a caller sees what conditioning removed.
+
+    The null shifts Y alone, circularly, by one offset per surrogate, with X and Z held fixed. That
+    destroys the X-Y alignment and keeps Z. ``band_significance`` is ``(count + 1) / (n_surrogates + 1)``,
+    with ``count`` the shifts whose band mean reaches the observed one. The bands share the shifts, so their
+    p-values are dependent. Each conditioning signal costs one degree of freedom, so the partial value has a
+    larger null bias than the ordinary coherence over the same segments: test it against
+    ``band_significance``, not against ``unconditioned_band_coherence``.
+
+    Args:
+        X, Y: 1-D time series of equal length
+        Z: 1-D conditioning signal of the same length
+        fs: sampling rate in Hz
+        freq_bands: required. A ``{name: (fmin, fmax)}`` dict, or ``'canonical'``, as in
+            :func:`cross_area_coherence`.
+        nperseg, noverlap: Welch segment length and overlap, with the defaults of
+            :func:`cross_area_coherence`
+        n_surrogates: circular-shift surrogates per band (default 50); the smallest attainable p is
+            ``1 / (n_surrogates + 1)``
+        rng: randomness of the shifts, as in :func:`cross_area_coherence`
+        n_jobs: CPU workers for the surrogate spectra; results do not depend on it
+
+    Raises:
+        ValueError: X, Y or Z not 1-D; unequal lengths; empty or non-finite input; ``freq_bands`` None;
+            ``n_surrogates < 1``; ``nperseg`` or ``noverlap`` out of range; fewer than two Welch segments;
+            or a cross-spectral matrix singular at some frequency, the message naming that frequency.
+            A constant X, Y or Z gives NaN values, as a constant trace does for :func:`cross_area_coherence`.
+
+    Random draws: the shifts come from the generator built from ``rng``, drawn once and reused for every
+    band. ``surrogate_seed_entropy`` reproduces them.
+
+    Returns:
+        Dict with ``coherence_spectrum``, ``frequencies``, ``band_coherence``, ``band_significance``,
+        ``peak_coherence_freq``, ``peak_coherence_value``, ``nperseg``, ``noverlap``, ``n_segments_used``,
+        ``device_used`` (``'cpu'``), ``n_surrogates_used``, ``p_value_floor``, ``surrogate_seed_entropy``,
+        ``surrogate_scheme`` (``'circular_shift'``),
+        ``conditioned_on`` (``{'n_signals': 1}``) and ``unconditioned_band_coherence``. The spectral and
+        band keys hold the partial values.
+
+    References:
+        Dahlhaus, R. (2000). Graphical interaction models for multivariate time series. Metrika 51,
+        157-172. doi:10.1007/s001840000055 -- the partial coherence from the inverse of the cross-spectral
+        matrix.
+    """
+    fs = _resolve_fs(fs, None, "partial_coherence")
+    if freq_bands is None:
+        raise ValueError(
+            "partial_coherence needs freq_bands: a {name: (fmin, fmax)} dict, or "
+            "'canonical' for CANONICAL_BANDS"
+        )
+    if isinstance(freq_bands, str):
+        if freq_bands != "canonical":
+            raise ValueError(f"freq_bands string must be 'canonical'; got {freq_bands!r}")
+        freq_bands = dict(CANONICAL_BANDS)
+    if n_surrogates < 1:
+        raise ValueError(f"n_surrogates must be >= 1, got {n_surrogates}")
+
+    x, y, z = np.asarray(X), np.asarray(Y), np.asarray(Z)
+    for name, trace in (("X", x), ("Y", y), ("Z", z)):
+        if trace.ndim != 1:
+            raise ValueError(
+                f"partial_coherence {name} must be a 1-D time series, got shape {trace.shape}. "
+                "The three traces are one recording each; a 2-D array is refused, not flattened."
+            )
+    _require_finite_nonempty_pair(x, y, "partial_coherence")
+    _require_finite_nonempty_pair(x, z, "partial_coherence")
+    _require_equal_lengths(x, y, "partial_coherence")
+    _require_equal_lengths(x, z, "partial_coherence")
+
+    n_samples = int(len(x))
+    if nperseg is None:
+        nperseg = min(max(n_samples // 8, MIN_COHERENCE_NPERSEG), 4096)
+    nperseg = int(nperseg)
+    if nperseg < 2:
+        raise ValueError(f"nperseg must be >= 2, got {nperseg}")
+    if noverlap is None:
+        noverlap = nperseg // 2
+    noverlap = int(noverlap)
+    if not (0 <= noverlap < nperseg):
+        raise ValueError(
+            f"noverlap must satisfy 0 <= noverlap < nperseg, got noverlap={noverlap} "
+            f"with nperseg={nperseg}"
+        )
+    n_segments = _require_identifiable_segmentation(
+        n_samples, nperseg, noverlap, "partial_coherence", "the cross-spectral matrix"
+    )
+    rng, seed_entropy = recorded_rng(rng, "partial_coherence")
+
+    frequencies = np.fft.rfftfreq(nperseg, 1.0 / fs)
+    if _is_constant(x) or _is_constant(y) or _is_constant(z):
+        undefined = {
+            name: float('nan') for name, (fmin, fmax) in freq_bands.items()
+            if np.any((frequencies >= fmin) & (frequencies <= fmax))
+        }
+        return {
+            'coherence_spectrum': np.full(len(frequencies), np.nan),
+            'frequencies': frequencies,
+            'band_coherence': dict(undefined),
+            'band_significance': dict(undefined),
+            'peak_coherence_freq': float('nan'),
+            'peak_coherence_value': float('nan'),
+            'nperseg': nperseg,
+            'noverlap': noverlap,
+            'n_segments_used': n_segments,
+            'device_used': 'cpu',
+            'n_surrogates_used': int(n_surrogates),
+            'p_value_floor': 1.0 / (int(n_surrogates) + 1),
+            'surrogate_seed_entropy': seed_entropy,
+            'surrogate_scheme': 'circular_shift',
+            'conditioned_on': {'n_signals': 1},
+            'unconditioned_band_coherence': dict(undefined),
+        }
+
+    def _spectra(a: np.ndarray, b: np.ndarray):
+        return _csd_spectra_cpu(a, b, fs, nperseg, noverlap)
+
+    frequencies, spectrum = _partial_coherence_spectrum([x, y, z], _spectra)
+    _, unconditioned_spectrum = signal.coherence(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap)
+    masks = {
+        name: (frequencies >= fmin) & (frequencies <= fmax)
+        for name, (fmin, fmax) in freq_bands.items()
+    }
+    masks = {name: mask for name, mask in masks.items() if np.any(mask)}
+    observed = {name: float(np.mean(spectrum[mask])) for name, mask in masks.items()}
+    unconditioned = {name: float(np.mean(unconditioned_spectrum[mask])) for name, mask in masks.items()}
+
+    low_val, high_val = 1, len(y) - 1
+    shifts = (
+        rng.integers(low_val, high_val, size=int(n_surrogates))
+        if low_val < high_val
+        else np.zeros(int(n_surrogates), dtype=int)
+    )
+    null_spectra = parallel_map(
+        lambda shift: _partial_coherence_spectrum([x, np.roll(y, int(shift)), z], _spectra)[1],
+        list(shifts),
+        n_jobs=n_jobs,
+    )
+    significance = {}
+    for name, mask in masks.items():
+        null_band = np.array([float(np.mean(s[mask])) for s in null_spectra])
+        k = _count_at_least_as_extreme(null_band, observed[name], "greater")
+        significance[name] = float((k + 1) / (int(n_surrogates) + 1))
+
+    peak_idx = int(np.argmax(spectrum))
+    return {
+        'coherence_spectrum': spectrum,
+        'frequencies': frequencies,
+        'band_coherence': observed,
+        'band_significance': significance,
+        'peak_coherence_freq': float(frequencies[peak_idx]),
+        'peak_coherence_value': float(spectrum[peak_idx]),
+        'nperseg': nperseg,
+        'noverlap': noverlap,
+        'n_segments_used': n_segments,
+        'device_used': 'cpu',
+        'n_surrogates_used': int(n_surrogates),
+        'p_value_floor': 1.0 / (int(n_surrogates) + 1),
+        'surrogate_seed_entropy': seed_entropy,
+        'surrogate_scheme': 'circular_shift',
+        'conditioned_on': {'n_signals': 1},
+        'unconditioned_band_coherence': unconditioned,
+    }
+
+
+def coherence_bias_floor(
+    signals,
+    *,
+    fs: float,
+    freq_bands,
+    pairing: str = "random_pairs",
+    n_draws: int = 200,
+    rng: RNGLike = Default(0),
+    nperseg: Optional[int] = None,
+    noverlap: Optional[int] = None,
+) -> Dict:
+    """
+    The coherence that randomly paired epochs produce: the bias floor of a finite epoch count.
+
+    ``signals`` is ``(n_sites, n_epochs, n_times)``. For each unordered pair of sites (a, b) and each
+    draw, a uniform derangement pi of the epochs pairs epoch i of site a with epoch pi(i) of site b, so no
+    epoch meets its own partner. The coherence of a pair is the pooled estimate of
+    :func:`cross_area_coherence`, over every paired epoch and segment, averaged over each band.
+    ``pair_means`` holds each pair's mean over the draws. ``floor_per_band`` holds, per band, the maximum of
+    those means over the site pairs.
+
+    The estimand is the coherence an uncoupled pair reaches by bias alone at this epoch count, a
+    dimensionless magnitude in [0, 1]. The floor estimates that bias. An aligned coherence above it is not a
+    significance test: with few site pairs the maximum sits near the null mean, so a threshold needs the
+    maximum over many site pairs. The floor is for coherence; no Granger floor is built here.
+
+    Args:
+        signals: finite samples, shaped ``(n_sites, n_epochs, n_times)``
+        fs: sampling rate in Hz
+        freq_bands: required. A ``{name: (fmin, fmax)}`` dict, or ``'canonical'``.
+        pairing: ``'random_pairs'``, the only scheme built; any other value is refused
+        n_draws: derangements per site pair (default 200)
+        rng: randomness of the derangements; ``Default(0)`` draws the stream of seed 0
+        nperseg, noverlap: Welch segmentation, with the defaults of :func:`cross_area_coherence`
+
+    Raises:
+        ValueError: ``signals`` not 3-D; fewer than 2 sites; fewer than 2 epochs; non-finite samples;
+            ``freq_bands`` None; ``pairing`` other than ``'random_pairs'``; ``n_draws < 1``; ``nperseg`` or
+            ``noverlap`` out of range; or fewer than 2 segments over all epochs. A band with no grid point is
+            omitted from ``floor_per_band``.
+
+    Random draws: derangements come from one generator built from ``rng``, in site-pair order, then draw
+    order. ``surrogate_seed_entropy`` reproduces the floor. ``exchangeability_scheme`` names the scheme.
+
+    Returns:
+        Dict with ``floor_per_band``, ``pair_means`` (keys ``"(a, b)"``), ``n_draws``, ``pairing``,
+        ``max_over_pairs`` (True), ``surrogate_seed_entropy``, ``fs``, ``freq_bands``, ``n_segments_used``
+        (epochs times segments) and ``exchangeability_scheme`` (``"random_epoch_pairing_max_over_site_pairs"``).
+
+    References:
+        Maris, E., Schoffelen, J.-M., & Fries, P. (2007). Nonparametric statistical testing of coherence
+        differences. J. Neurosci. Methods 163, 161-175. doi:10.1016/j.jneumeth.2007.02.011 -- the coherence
+        of trials paired across epochs as a null for the bias of the observed coherence.
+    """
+    fs = _resolve_fs(fs, None, "coherence_bias_floor")
+    if isinstance(rng, Default):
+        rng = rng.value
+    if freq_bands is None:
+        raise ValueError(
+            "coherence_bias_floor needs freq_bands: a {name: (fmin, fmax)} dict, or "
+            "'canonical' for CANONICAL_BANDS"
+        )
+    if isinstance(freq_bands, str):
+        if freq_bands != "canonical":
+            raise ValueError(f"freq_bands string must be 'canonical'; got {freq_bands!r}")
+        freq_bands = dict(CANONICAL_BANDS)
+    if pairing != "random_pairs":
+        raise ValueError(f"pairing must be 'random_pairs', the only scheme built; got {pairing!r}")
+    if int(n_draws) < 1:
+        raise ValueError(f"n_draws must be >= 1, got {n_draws}")
+
+    arr = np.asarray(signals, dtype=float)
+    if arr.ndim != 3:
+        raise ValueError(
+            "coherence_bias_floor needs signals shaped (n_sites, n_epochs, n_times); "
+            f"got shape {arr.shape}"
+        )
+    n_sites, n_epochs, n_times = arr.shape
+    if n_sites < 2:
+        raise ValueError(f"coherence_bias_floor needs at least 2 sites; got {n_sites}")
+    if n_epochs < 2:
+        raise ValueError(f"coherence_bias_floor needs at least 2 epochs to pair; got {n_epochs}")
+    if not np.all(np.isfinite(arr)):
+        raise ValueError("coherence_bias_floor: signals must be finite; repair NaN or Inf samples first.")
+
+    if nperseg is None:
+        nperseg = min(max(n_times // 8, MIN_COHERENCE_NPERSEG), 4096)
+    nperseg = int(nperseg)
+    if nperseg < 2:
+        raise ValueError(f"nperseg must be >= 2, got {nperseg}")
+    if noverlap is None:
+        noverlap = nperseg // 2
+    noverlap = int(noverlap)
+    if not (0 <= noverlap < nperseg):
+        raise ValueError(
+            f"noverlap must satisfy 0 <= noverlap < nperseg, got noverlap={noverlap} "
+            f"with nperseg={nperseg}"
+        )
+    n_segments = welch_segment_count(n_times, nperseg, noverlap)
+    if n_epochs * n_segments < MIN_IDENTIFIABLE_SEGMENTS:
+        raise ValueError(
+            f"coherence is not identifiable from {n_epochs * n_segments} Welch segment(s): "
+            f"{n_epochs} epochs of {n_times} samples with nperseg={nperseg}, noverlap={noverlap}. "
+            "Supply a smaller nperseg or a longer record."
+        )
+    rng, seed_entropy = recorded_rng(rng, "coherence_bias_floor")
+
+    draws = int(n_draws)
+    frequencies = np.fft.rfftfreq(nperseg, 1.0 / fs)
+    masks = {
+        name: (frequencies >= fmin) & (frequencies <= fmax)
+        for name, (fmin, fmax) in freq_bands.items()
+    }
+    masks = {name: mask for name, mask in masks.items() if np.any(mask)}
+    pairs = [(a, b) for a in range(n_sites) for b in range(a + 1, n_sites)]
+    pair_means = {}
+    for a, b in pairs:
+        coherence = np.empty((draws, nperseg // 2 + 1))
+        for d in range(draws):
+            perm = _random_derangement(n_epochs, rng)
+            _, pxx, pyy, sxy = _csd_spectra_cpu(arr[a], arr[b][perm], fs, nperseg, noverlap)
+            coherence[d] = _pooled_coherence(pxx, pyy, sxy)
+        pair_means[(a, b)] = {name: float(np.mean(coherence[:, mask])) for name, mask in masks.items()}
+    floor_per_band = {
+        name: float(np.max([pair_means[pair][name] for pair in pairs])) for name in masks
+    }
+    return {
+        'floor_per_band': floor_per_band,
+        'pair_means': {str(pair): pair_means[pair] for pair in pairs},
+        'n_draws': draws,
+        'pairing': pairing,
+        'max_over_pairs': True,
+        'surrogate_seed_entropy': seed_entropy,
+        'fs': float(fs),
+        'freq_bands': {name: tuple(bounds) for name, bounds in freq_bands.items()},
+        'n_segments_used': n_epochs * n_segments,
+        'exchangeability_scheme': 'random_epoch_pairing_max_over_site_pairs',
+    }
+
+
 def imaginary_coherency(
     x: np.ndarray,
     y: np.ndarray,
@@ -513,10 +934,10 @@ def imaginary_coherency(
 
     Volume conduction and shared-reference artifacts mix into both channels at
     zero lag, which drives the REAL part of coherency without any true circuit
-    interaction. The imaginary part is insensitive to zero-lag mixing by
+    interaction. The imaginary part reduces sensitivity to zero-lag mixing by
     construction (a purely zero-lag-mixed pair has Im(Cxy) = 0 at every
-    frequency), so it is the preferred estimator when zero-lag volume conduction must be
-    suppressed.
+    frequency; an estimate from finite data is 0 only in expectation), so it is the preferred estimator when the contribution of
+    zero-lag volume conduction must be reduced.
     Callers are responsible for re-referencing (see ``bipolar_reference`` /
     ``laplacian_reference``) before calling this; imaginary coherency controls
     for zero-lag mixing but does not substitute for reducing it upstream.

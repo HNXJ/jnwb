@@ -217,3 +217,5 @@ All probes in `…/scratchpad/compress_policy/`; raw JSON under `work/`.
 exhaustive and are labelled as such: the tracking-series loss in §3 (~2.7% of each array) and the
 real-corpus reads, which are metadata plus bounded slices because the files are 50–60 GiB each
 and the corpus is read-only.
+
+Corpus manifest (added 2026-10-25): `artifacts/data/corpus_manifest.json` is untracked; it was written 2026-08-28 by `omission/scripts/discover_corpus.py` (in this repository until 90831c4b, now in the omission project), sha256 `f5dcfa0476647927dc44caed8766ca3e0063564ddb0cf56fe7f449a2eaf77ba3`.

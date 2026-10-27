@@ -211,7 +211,7 @@ def phase_slope_index(
             to [16, n_times] and shortened until the trials hold at least 20 segments
             at the default overlap, but not below 16 samples: one trial of 2000 samples
             gets 190 (20 segments), 10 trials of 400 keep 100 (70 segments). Frequency
-            resolution is ``fs / nperseg``.
+            resolution is ``fs / nperseg``. A value above the samples per trial is refused.
         noverlap: segment overlap in [0, nperseg) (default nperseg // 2)
         window: ``'hann'`` | ``'hamming'`` | ``'boxcar'``
         detrend: per-trial preprocessing, default ``'demean'``
@@ -261,6 +261,11 @@ def phase_slope_index(
 
     if nperseg is None:
         nperseg = _default_nperseg(n_trials, n_times)
+    elif nperseg > n_times:
+        raise ValueError(
+            f"phase_slope_index: nperseg must be at most the {n_times} samples of a trial; "
+            f"got {nperseg}."
+        )
     nperseg = int(min(nperseg, n_times))
     if nperseg < 8:
         raise ValueError(f"nperseg={nperseg} too small for a usable spectrum")

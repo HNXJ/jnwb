@@ -322,7 +322,7 @@ class TestFuseLaminarAnchors:
         out = jnwb.fuse_laminar_anchors(vflip_um=610.0, vflip2_um=600.0, window_um=self.WIN,
                                         consistency_deep=0.9, consistency_superficial=0.8)
         assert out["anchor_source"] == "vflip2" and out["anchor_um"] == 600.0
-        # 15-18: both landmarks present reads 'unresolved' and caps the grade at 'B'.
+        # Both landmarks present reads 'unresolved' and caps the grade at 'B'.
         assert out["agreement"] == "unresolved" and out["grade"] == "B"
         assert out["distance_um"]["vflip"] == 10.0 and out["distance_um"]["vflip2"] == 0.0
 
@@ -622,6 +622,20 @@ class TestParametersReachTheirConsumers:
         jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False)
         assert seen == [128, 512]
 
+    def test_curate_and_label_passes_xflip_n_blocks_to_xflip(self, monkeypatch):
+        import jnwb.laminar_curation as lc
+        seen = []
+
+        def spy(*args, **kwargs):
+            seen.append(kwargs.get("n_blocks"))
+            return jnwb.xflip(*args, **kwargs)
+
+        monkeypatch.setattr(lc, "xflip", spy)
+        x = blocked()
+        jnwb.curate_and_label(x, FS, pitch_um=PITCH, xflip_n_blocks=2)
+        jnwb.curate_and_label(x, FS, pitch_um=PITCH)
+        assert seen == [2, None]
+
     def test_the_csd_contact_count_boundary_is_exact(self):
         x = blocked()
         erp, t = _sink_erp(n=x.shape[0], at=5)
@@ -726,7 +740,7 @@ class TestGradeBoundaries:
 
 
 class TestMapPeakChannelToLayer:
-    """A unit's layer is the curated label of its peak channel (item 12-18)."""
+    """A unit's layer is the curated label of its peak channel."""
 
     @staticmethod
     def _curation(labels, base):

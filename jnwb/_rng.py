@@ -58,6 +58,12 @@ DEFAULT_SEED = 42
 
 RNGLike = Union[int, np.random.Generator, None]
 
+#: The functions below that resolve an rng argument, each with how many of its leading
+#: positional arguments are rng values (``resolve_seed_alias`` takes two). A parameter that
+#: reaches one of them is stochastic.
+RESOLVERS = {"resolve_rng": 1, "surrogate_rng": 1, "recorded_rng": 1,
+             "sklearn_random_state": 1, "resolve_seed_alias": 2}
+
 
 class Default:
     """A parameter default that is still recognizable as "the caller said nothing".

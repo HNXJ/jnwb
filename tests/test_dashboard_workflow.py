@@ -1,4 +1,4 @@
-"""The dashboard workflow publishes what the build wrote, from main, without a forced orphan.
+"""The dashboard workflow publishes what the build wrote, from dev, without a forced orphan.
 
 Static checks read .github/workflows/dashboard.yml as YAML. The check script runs on temporary
 site directories. Each refusal must exit 1 and name what it refused, so a missing script (exit 2)
@@ -46,16 +46,16 @@ def _publish_index(steps):
     return _step_index(steps, PUBLISH)
 
 
-def test_triggers_are_push_to_main_and_manual_dispatch_only():
+def test_triggers_are_push_to_dev_and_manual_dispatch_only():
     on = _triggers(_workflow())
     assert set(on) == {"push", "workflow_dispatch"}
     assert set(on["push"]) == {"branches"}
-    assert on["push"]["branches"] == ["main"]
+    assert on["push"]["branches"] == ["dev"]
 
 
-def test_a_manual_run_publishes_only_from_main():
+def test_a_manual_run_publishes_only_from_dev():
     """workflow_dispatch can run on any branch; the job guard keeps other branches off gh-pages."""
-    assert _job(_workflow()).get("if") == "github.ref == 'refs/heads/main'"
+    assert _job(_workflow()).get("if") == "github.ref == 'refs/heads/dev'"
 
 
 def test_contents_write_is_granted_on_the_job_only():
@@ -164,3 +164,23 @@ def test_the_built_data_is_validated_with_jsonschema_between_check_and_publish()
     assert "jsonschema" in run and "pip install" in run, "the step must install jsonschema"
     assert "$RUNNER_TEMP/site/data.json" in run, "the step must validate the built data.json"
     assert _step_index(steps, "scripts/check_dashboard_build.py") < hits[0] < _publish_index(steps)
+
+
+BROWSER_TEST = ("tests/test_dashboard_page.py::"
+                "test_every_route_renders_in_light_and_dark_without_errors")
+
+
+def test_a_browser_step_pins_playwright_runs_the_route_test_and_must_not_skip_before_publish():
+    """CI installs Chromium and runs the route test; a missing browser fails the step instead of
+    skipping it."""
+    steps = _job(_workflow())["steps"]
+    hits = [i for i, s in enumerate(steps) if BROWSER_TEST in str(s.get("run", ""))]
+    assert len(hits) == 1, f"expected one step running the route test, found {hits}"
+    step = steps[hits[0]]
+    assert 'playwright==1.62.0' in step["run"], "Playwright must be pinned to 1.62.0"
+    assert "python -m playwright install --with-deps chromium" in step["run"]
+    # pyproject's addopts passes --dist, which pytest rejects (exit 4) without pytest-xdist.
+    assert "pytest-xdist" in step["run"], "the step must install pytest-xdist for --dist"
+    assert (step.get("env") or {}).get("JNWB_REQUIRE_BROWSER") == "1", (
+        "the step must refuse to skip when Chromium cannot launch")
+    assert hits[0] < _publish_index(steps), "the browser step must run before publish"

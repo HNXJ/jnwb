@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 import jnwb
@@ -216,7 +217,7 @@ def test_the_sweeps_pass_without_the_vis_extra():
     root = str(REPO_ROOT)
     script = (
         "import sys\n"
-        f"sys.path.append({root!r})\n"
+        f"sys.path.append({root!r})\n"  # needed: child process has no pythonpath
         "sys.modules['plotly'] = None\n"
         "from tests.test_docs_operation_statements import (\n"
         "    _public_rng_parameters, _seed_only_public_surfaces)\n"
@@ -292,6 +293,7 @@ def _rng_probes():
     xs, labs = g.normal(size=(40, 5)), np.arange(40) % 2
     x6, z4 = g.normal(size=(6, 200)), g.normal(size=(4, 2000))
     w30 = jnwb.normalize_waveforms(g.normal(size=(30, 48)))
+    screen_frame = pd.DataFrame({"m": np.arange(60) % 2 + g.normal(size=60)})
     sa = jnwb.StatisticalAnalysis
     return {
         "StatisticalAnalysis.bootstrap_ci": lambda r: sa.bootstrap_ci(a, n_bootstrap=20, rng=r),
@@ -314,11 +316,22 @@ def _rng_probes():
         "granger": lambda r: jnwb.granger(t1, t2, order=2, n_surrogates=5, rng=r),
         "granger_spectral": lambda r: jnwb.granger_spectral(t1, t2, fs=100.0, order=2,
                                                             n_surrogates=5, rng=r),
+        "granger_nonparametric": lambda r: jnwb.granger_nonparametric(
+            t1, t2, fs=100.0, bands={"b": (10.0, 30.0)}, n_freqs=33, n_surrogates=5, rng=r),
+        "granger_time_reversed": lambda r: jnwb.granger_time_reversed(
+            t1, t2, order=2, n_surrogates=5, rng=r),
+        "partial_coherence": lambda r: jnwb.partial_coherence(
+            s1, s2, s1[::-1] + s2, fs=1000.0, freq_bands="canonical", n_surrogates=5, rng=r),
+        "coherence_bias_floor": lambda r: jnwb.coherence_bias_floor(
+            g.normal(size=(2, 4, 500)), fs=1000.0, freq_bands="canonical", n_draws=5, rng=r),
         "jrsa": lambda r: jnwb.jrsa(j1, j2, metric="pearson", permutations=20, rng=r),
         "nested_cv_linear_svm": lambda r: jnwb.nested_cv_linear_svm(xs, labs, 3, rng=r),
         "phase_slope_index": lambda r: jnwb.phase_slope_index(
             t1, t2, fs=100.0, bands=(10.0, 30.0), n_surrogates=5, rng=r),
         "resample_onsets": lambda r: jnwb.resample_onsets(np.arange(10.0), target_n=20, rng=r),
+        "screen_units_against_labels": lambda r: jnwb.screen_units_against_labels(
+            screen_frame, np.arange(60) % 2, np.repeat(np.array(["a", "b", "c"]), 20),
+            metric_columns=["m"], classifier="linear_svm", min_units=2, rng=r),
         "curate_and_label": lambda r: jnwb.curate_and_label(
             g.normal(size=(8, 4, 600)), 500.0, pitch_um=25.0, compute_xflip=False, rng=r),
         "shuffle_r2_ci": lambda r: jnwb.shuffle_r2_ci(a, a + b, n_shuffle=10, rng=r),

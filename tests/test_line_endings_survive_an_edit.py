@@ -1,6 +1,6 @@
 """Gate 16's second rule: a file whose line endings were converted wholesale.
 
-P-159. Gate 16 fails a file that **mixes** CRLF and bare LF. It cannot see a file whose
+Gate 16 fails a file that **mixes** CRLF and bare LF. It cannot see a file whose
 convention was **converted**, and the conversion is the failure that actually happens: the
 dispatcher inserted a 13-line notice into `artifacts/evidence/0.2.6/compress_fp32_policy.md` with
 `pathlib.Path.write_text`, which opens with ``newline=None`` and translates ``\\n`` to
@@ -10,7 +10,7 @@ it. Gate 16 passed, because the result is perfectly uniform.
 
 `.gitattributes` marks the tree ``-text``, so the committed bytes are the convention. The
 mixed-file rule is a proxy for that, and the gap between the two is exactly where the
-conversion lives -- P-37's shape, and the seventh measured instance this cycle of a check that
+conversion lives. This is the seventh measured instance this cycle of a check that
 passes for the wrong reason.
 
 Every test here builds a **real repository** and converts a file in it. The live tree is clean,
@@ -28,6 +28,7 @@ import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
+    # needed: the installed-wheel run clears pythonpath
     sys.path.append(str(REPO_ROOT))  # never insert(0): pyproject sets pythonpath = ["."]
 
 from scripts.harness_gate import (  # noqa: E402

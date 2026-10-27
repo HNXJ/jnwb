@@ -1,8 +1,8 @@
-"""06-102 / P-73: the documented RNG convention, held against the live signatures.
+"""The documented RNG convention, held against the live signatures.
 
 Two convention texts prescribed `rng: Optional[Union[np.random.Generator, int]] = None`.
 Measured against the package: 19 of 23 `rng` parameters on the public API deliberately do
-not present `None`, because putting the seed in the signature **was** the 05-35 repair --
+not present `None`, because putting the seed in the signature **was** the repair --
 five functions declared `rng=None` and then ran `np.random.default_rng(42)` with no way for
 a caller to learn the seed, so two calls a caller believed were independent shared one null.
 `jnwb/_rng.py` records it. The prose was stale; the signatures are correct.
@@ -15,16 +15,16 @@ from `inspect.signature`. A check that read its expected value out of the same i
 it validates would agree with itself under every corruption, which is the defect class this
 cycle keeps producing.
 
-**The one deviation, and its repair (06-107 / P-164).** `cross_area_coherence` used to
-declare `rng=None` and resolve it to `np.random.SeedSequence(42)`. It was never an 05-35
-survivor -- 05-35's defect was a *silent* fixed seed, and this function always disclosed the
+**The one deviation, and its repair.** `cross_area_coherence` used to
+declare `rng=None` and resolve it to `np.random.SeedSequence(42)`. It was never a
+survivor -- the defect was a *silent* fixed seed, and this function always disclosed the
 entropy through `surrogate_seed_entropy` in its return value -- but a caller still could not
 read the stream off the signature, which is where this repository's convention puts it. The
 signature now says `rng: RNGLike = DEFAULT_SEED`. A bare call is unchanged, because
 `default_rng(42)` and `default_rng(SeedSequence(42))` are the same stream; an explicit
 `rng=None` now means fresh OS entropy, as it does everywhere else in the package.
 
-**Why this module exists when `test_rng_control.py` already guards 05-35.** That module
+**Why this module exists when `test_rng_control.py` already guards the silent fixed seed.** That module
 could not see the deviation, for three independent reasons, each closed by a different
 assertion here -- and each still open for the next one:
 
@@ -85,7 +85,7 @@ PROSE_FILES = (CONTRIBUTING, SPEC_PAGE)
 
 # --- the documented convention, stated here and nowhere derived from introspection ------
 
-#: The form both texts used to prescribe. Re-adopting it reintroduces 05-35.
+#: The form both texts used to prescribe. Re-adopting it reintroduces the silent fixed seed.
 OLD_FORM = re.compile(
     r"rng:\s*Optional\[\s*Union\[\s*(?:np\.random\.)?Generator\s*,\s*int\s*\]\s*\]\s*=\s*None"
 )
@@ -94,7 +94,7 @@ OLD_FORM = re.compile(
 PRESENTS_NONE = frozenset({"cross_modal_comparison", "jrsa", "xflip"})
 
 #: Of those, the ones where `None` resolves to fresh OS entropy, which is the contract.
-#: These are now the same set: after 06-107 no public default presents `None` for any
+#: These are now the same set: after the repair no public default presents `None` for any
 #: other reason, and the two names are kept apart because they mean different things and
 #: a future divergence should be visible rather than an edit to one frozenset.
 FRESH_ENTROPY = frozenset({"cross_modal_comparison", "jrsa", "xflip"})
@@ -106,7 +106,7 @@ DISCLOSURE_KEY = "surrogate_seed_entropy"
 #: The seed `cross_area_coherence` has always used, now visible in its signature.
 COHERENCE_DEFAULT_SEED = 42
 
-EXPECTED_TOTAL = 28
+EXPECTED_TOTAL = 33
 
 
 def _public_callables():
@@ -195,7 +195,7 @@ def test_no_convention_text_prescribes_the_retired_form(path):
     ]
     assert not hits, (
         f"{path.name} still prescribes `rng: Optional[Union[Generator, int]] = None`, the form "
-        f"05-35 repaired away: {hits}"
+        f"that the silent-seed repair removed: {hits}"
     )
 
 
@@ -354,11 +354,14 @@ def test_cross_area_coherence_draws_the_stream_its_signature_advertises():
         "is not reaching the generator at all"
     )
 
-    one = jnwb.cross_area_coherence(a, b, rng=None, **COHERENCE_KW)
-    two = jnwb.cross_area_coherence(a, b, rng=None, **COHERENCE_KW)
+    # With 10 surrogates a band's p-value takes one of 11 values, and two fresh draws gave the
+    # same five values in 2 of 3000 trials; with 200 surrogates no pair agreed in 300 trials.
+    fresh = dict(COHERENCE_KW, n_surrogates=200)
+    one = jnwb.cross_area_coherence(a, b, rng=None, **fresh)
+    two = jnwb.cross_area_coherence(a, b, rng=None, **fresh)
     assert one["band_significance"] != two["band_significance"], (
         "two rng=None calls agreed exactly, so None still resolves to a fixed seed -- the "
-        "05-35 defect, now in the place the 06-107 repair was supposed to clear"
+        "the silent-seed defect, now in the place the repair was supposed to clear"
     )
     assert one[DISCLOSURE_KEY] != two[DISCLOSURE_KEY], (
         f"rng=None reported the same {DISCLOSURE_KEY} twice; fresh entropy that is not "
@@ -368,7 +371,7 @@ def test_cross_area_coherence_draws_the_stream_its_signature_advertises():
 
 
 def test_cross_area_coherence_shows_its_seed_in_the_signature():
-    """06-107 repaired P-164; this was a strict xfail until it did.
+    """This was a strict xfail until the repair landed.
 
     Named separately from the equality in `test_exactly_these_three_present_none` on
     purpose: re-admitting `cross_area_coherence` to `PRESENTS_NONE` would silence that one
@@ -376,7 +379,7 @@ def test_cross_area_coherence_shows_its_seed_in_the_signature():
     """
     default = inspect.signature(jnwb.cross_area_coherence).parameters["rng"].default
     assert not _presents_none(default), (
-        "cross_area_coherence presents rng=None again; P-164 has regressed and the "
+        "cross_area_coherence presents rng=None again; the repair has regressed and the "
         "signature no longer reports the stream a bare call draws"
     )
     value = default.value if isinstance(default, Default) else default

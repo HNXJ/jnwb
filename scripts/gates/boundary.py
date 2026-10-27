@@ -266,7 +266,8 @@ def check_no_hardcoded_test_paths(repo_root: Optional[Path] = None) -> List[str]
     root = repo_root or REPO_ROOT
     scan_dirs = [d for d in (root / "tests", root / "scripts") if d.exists()]
     if not scan_dirs:
-        return []
+        return [f"NO_SCAN_TREE: {root.as_posix()} holds neither tests/ nor scripts/, so no test "
+                "or script path was examined"]
     violations = []
     # Any drive letter, not C: and D:. This machine keeps its analysis data on E:, so the
     # allowlist shape of the original pattern exempted exactly the paths in use here: a
@@ -307,8 +308,9 @@ def check_no_hardcoded_test_paths(repo_root: Optional[Path] = None) -> List[str]
 # documented in docs/install.md -- nothing else may join them.
 OWNED_ROOT_PACKAGES = {"jnwb"}
 # jnwb's own directories, all excluded from the wheel. `docs/` and `examples/` joined the list
-# when this gate started seeing namespace packages: `docs/generate_figures.py` and
-# `examples/quickstart_jnwb.py` make both importable without an __init__.py, which is the same
+# when this gate started seeing namespace packages: `examples/quickstart_jnwb.py` and, before it
+# moved to `scripts/figures/`, `docs/generate_figures.py` make both importable without an
+# __init__.py, which is the same
 # exposure and the same residual hazard documented in docs/install.md. Nothing else may join.
 INTERNAL_ROOT_PACKAGES = {"scripts", "tests", "docs", "examples"}
 
@@ -426,8 +428,9 @@ def check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> List[str]:
             return []
         try:
             tree = ast.parse(code_or_tree)
-        except Exception:
-            return []
+        except Exception as exc:
+            return [f"UNPARSEABLE: code that declares a raw_power estimand does not parse ({exc}), "
+                    "so its rule was not checked"]
     else:
         tree = code_or_tree
         doc = ast.get_docstring(tree) or ""
@@ -475,23 +478,23 @@ def check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> List[str]:
     return violations
 
 
-def check_modality_isolation(feature_names: List[str]) -> Tuple[bool, List[str]]:
-    """Modality-isolation check (not a numbered preflight gate; argument-driven).
+def check_logarithm_last_in_package(repo_root: Optional[Path] = None) -> List[str]:
+    """No declared raw-power estimand takes its log before its mean, in any module of ``jnwb/``.
 
-    Enforce signal class separation.
-    
-    Disallows un-namespaced pooling of SPK and LFP without explicit modality tags.
+    Applies ``check_logarithm_last_rule`` to each module and names the module of each finding. A
+    package with no module is a failure: no estimand was examined.
     """
-    has_spk = any("spk" in f.lower() or "unit" in f.lower() or "sua" in f.lower() for f in feature_names)
-    has_lfp = any("lfp" in f.lower() or "band" in f.lower() or "power" in f.lower() for f in feature_names)
-    
-    if has_spk and has_lfp:
-        # Check if all features have clear namespace prefix (e.g. 'spk_' and 'lfp_')
-        unprefixed = [f for f in feature_names if not (f.startswith("spk_") or f.startswith("lfp_") or f.startswith("mua_") or f.startswith("bhv_"))]
-        if len(unprefixed) > 0:
-            return False, [f"UNNAMESPACED_MODALITY_POOLING: Found {len(unprefixed)} mixed features without namespace prefix (e.g. {unprefixed[:3]})"]
-            
-    return True, []
+    root = repo_root or REPO_ROOT
+    modules = sorted((root / "jnwb").rglob("*.py")) if (root / "jnwb").is_dir() else []
+    if not modules:
+        return [f"NO_SOURCE: {(root / 'jnwb').as_posix()} holds no Python module, so no estimand "
+                "was examined"]
+    violations = []
+    for module in modules:
+        text = module.read_text(encoding="utf-8")
+        for reason in check_logarithm_last_rule(text):
+            violations.append(f"{module.relative_to(root).as_posix()}: {reason}")
+    return violations
 
 
 def _convention(data: bytes) -> Optional[str]:
@@ -511,7 +514,7 @@ def _wholesale_conversions(root: Path) -> List[str]:
     """Files whose line-ending convention differs from the bytes committed at HEAD.
 
     **Gate 16 fails a file that MIXES the two conventions; it cannot see a file whose
-    convention was CONVERTED wholesale, which is the failure that actually happens** (P-159).
+    convention was CONVERTED wholesale, which is the failure that actually happens**.
     The dispatcher inserted a 13-line notice into `artifacts/evidence/0.2.6/compress_fp32_policy.md` with
     `pathlib.Path.write_text`, which opens with `newline=None` and translates `\\n` to
     `os.linesep` on Windows. The file was pure LF, 206 lines, 0 CRLF; afterwards it was 0 LF
@@ -520,9 +523,9 @@ def _wholesale_conversions(root: Path) -> List[str]:
 
     `.gitattributes` states the invariant correctly -- the tree is `-text`, so the committed
     bytes are the convention. The mixed-file rule is a *proxy* for it, and the two are not the
-    same: the gap is exactly where the conversion lives. That is P-37's shape, and P-159
-    records it as the seventh measured instance this cycle of a check that passes for the
-    wrong reason.
+    same: the gap is exactly where the conversion lives. That is the shape of an earlier defect,
+    and this is the seventh measured instance this cycle of a check that passes for the wrong
+    reason.
 
     So this compares against the committed bytes rather than against the file itself. It is a
     working-tree check by nature, which is also when the accident is recoverable: once the
@@ -580,14 +583,14 @@ def _wholesale_conversions(root: Path) -> List[str]:
 def check_line_ending_consistency(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 16 (Line Ending Consistency): no tracked text file mixes CRLF and bare LF.
 
-    P-124. Nothing declared a convention and eight tracked files carried both at once. This is
+    Nothing declared a convention and eight tracked files carried both at once. This is
     not cosmetic: a byte-mode edit anchored with the wrong ending matches nothing and reads
     exactly like "the text is not there", and `git apply` refuses a patch whose context lines
     disagree -- five `git apply --check` runs failed in one release before the cause was found.
 
     The gate deliberately holds each file only against *itself*. Whether `skills/` should stay
-    CRLF while every other directory is LF is a cross-directory policy question that P-124
-    records the measurement for and does not answer; a mixed file is a defect under either
+    CRLF while every other directory is LF is a cross-directory policy question that the measurement
+    records and does not answer; a mixed file is a defect under either
     answer. `.gitattributes` marks the tree `-text` so a clone reproduces the committed bytes
     on every platform rather than leaving it to each contributor's `core.autocrlf`.
     """

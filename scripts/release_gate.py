@@ -100,6 +100,23 @@ PYPI_JSON_URL = "https://pypi.org/pypi/{name}/json"
 #: offline release is a decision, not a default.
 SKIP_INDEX_ENV = "JNWB_SKIP_INDEX_CHECK"
 
+#: Checks this run skipped, each named once, for the closing banner. A skip is never a pass.
+SKIPPED_CHECKS: list[str] = []
+INDEX_SKIPPED = "package index unreachable: version collision and dependency floors unverified"
+
+
+def _record_skip(name: str) -> None:
+    if name not in SKIPPED_CHECKS:
+        SKIPPED_CHECKS.append(name)
+
+
+def verified_banner(skipped) -> str:
+    """The closing line. Names every skipped check, so a run with a skip is not VERIFIED."""
+    if not skipped:
+        return "=== RELEASE GATE VERIFIED: DISTRIBUTABLE PACKAGE READY ==="
+    return (f"=== RELEASE GATE NOT FULLY VERIFIED: {len(skipped)} CHECK(S) SKIPPED, NOT A PASS: "
+            + "; ".join(skipped) + " ===")
+
 
 def published_versions(name: str = "jnwb", timeout: float = 30.0) -> Optional[Set[str]]:
     """Versions the index already serves, or ``None`` when it could not be reached.
@@ -144,6 +161,7 @@ def check_version_is_not_already_published(
     """
     if published is None:
         if os.environ.get(SKIP_INDEX_ENV) == "1":
+            _record_skip(INDEX_SKIPPED)
             return []
         return [
             f"the package index could not be reached, so it is unknown whether {version} "
@@ -321,6 +339,7 @@ def check_floor_is_installable(
     where = f"{name}>={floor}" + (f" [{extra}]" if extra else "")
     if payload is None:
         if os.environ.get(SKIP_INDEX_ENV) == "1":
+            _record_skip(INDEX_SKIPPED)
             return []
         return [f"{where}: the index could not be reached, so the floor is unverified"]
 
@@ -393,7 +412,7 @@ def release_metadata(root: Optional[pathlib.Path] = None) -> ReleaseMetadata:
 
     Every field is read, never written down here. A second copy of the supported-Python
     window in this file would be the defect the body check exists to catch, one surface
-    further in: P-126 records four places in this repository asserting a stale gate count
+    further in: a record lists four places in this repository asserting a stale gate count
     right now, each of them a replica that drifted because nothing derived it.
 
     The floor comes from ``requires-python`` and the ceiling from the highest versioned
@@ -747,7 +766,7 @@ def select_run_for_commit(sha: str, stdout: str) -> Tuple[Optional[dict], Option
     The SHA comparison is the whole point. ``gh run list --commit`` is asked for the right
     run, and the answer is checked anyway: a gate that trusts the query and reports on the
     branch's latest run would pass while a *different* commit was being tagged, which is this
-    repository's dominant defect shape (P-37) rather than a hypothetical one.
+    repository's dominant defect shape rather than a hypothetical one.
     """
     try:
         payload = json.loads(stdout)
@@ -788,7 +807,7 @@ class JobVerdict(NamedTuple):
     ``failures`` are statements about the commit; ``unresolved`` are statements about the
     measurement. Deciding between them by sniffing for a substring in the rendered message
     would make the verdict depend on the wording of its own error string -- a proxy for the
-    thing, and the class of defect P-37 enumerates.
+    thing, and the class of defect a recorded finding enumerates.
     """
 
     legs: List[Tuple[str, str, str]]
@@ -1107,19 +1126,6 @@ def _open_rows_in(text: str) -> List[str]:
     return [line[:120] for _, line in table_data_rows(text)]
 
 
-def remaining_todo_items(root: pathlib.Path = REPO_ROOT) -> List[str]:
-    """Item headings left in the todo stack. Finished items are deleted, so any heading is work."""
-    path = root / "artifacts" / "todo_stack.md"
-    if not path.exists():
-        return [f"{path} is missing; condition 3 cannot be evaluated"]
-    # `\d\d-\d+`, not `\d\d-\d\d`: item ids passed three digits at 06-100, and the two-digit
-    # form matched none of them. Measured at 1be7c144: 46 of 57 items counted, 11 invisible --
-    # including 06-101, an unresolved human ruling. Under the pre-amendment condition that made
-    # STEP 0a able to pass with eleven items outstanding.
-    items, _ = _parse_todo_stack(path.read_text(encoding="utf-8"))
-    return [f"{ident} {title}".strip() for ident, title, _ in items]
-
-
 # A release value written into a line without the `Release:` label: `required-0.2.7` as a
 # bullet's own marker, or the prose form `Required for 0.2.7`.
 _REQUIRED_MARKER = re.compile(
@@ -1165,14 +1171,6 @@ def required_work_outside_held_items(text: str) -> List[str]:
             if any(_version_tuple(m.group(1)) <= cycle for m in _REQUIRED_MARKER.finditer(line)):
                 found.append(f"{where}: {line.strip()[:60]!r}")
     return found
-
-
-def unparseable_todo_headings(root: pathlib.Path = REPO_ROOT) -> List[str]:
-    """Todo-stack sections that look like items but whose id STEP 0a cannot read."""
-    path = root / "artifacts" / "todo_stack.md"
-    if not path.exists():
-        return []
-    return _parse_todo_stack(path.read_text(encoding="utf-8"))[1]
 
 
 RELEASE_CYCLE = jnwb_source_version()
@@ -1243,14 +1241,6 @@ def roadmap_rows(text: str, stack_ids: Iterable[str] = ()) -> Tuple[List[Tuple[s
                            else f"{ident} is also in {TODO_PATH}")
         seen.add(ident)
     return rows, refused
-
-
-def todo_release_fields(root: pathlib.Path = REPO_ROOT) -> List[Tuple[str, str, str]]:
-    """``(id, title, release)`` for every item in the todo stack, at any heading depth."""
-    path = root / "artifacts" / "todo_stack.md"
-    if not path.exists():
-        return []
-    return _parse_todo_stack(path.read_text(encoding="utf-8"))[0]
 
 
 def blocker_fixpoint_receipt(root: pathlib.Path = REPO_ROOT) -> Tuple[Optional[str], Optional[int]]:
@@ -1797,13 +1787,23 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
     return violations
 
 
+def check_release_facts() -> List[str]:
+    """STEP 0a's fact condition: no typed fact is VIOLATED in release mode. An UNHELD fact whose
+    item is due in this cycle (``RELEASE_CYCLE``) fails here; the everyday gate does not run it."""
+    from scripts import fact_gate  # the fact gate imports this module, so the import is local
+
+    _, results = fact_gate.run(release=True)
+    return [f"fact {fact_id} is VIOLATED on the release check: {'; '.join(reasons)}"
+            for fact_id, status, reasons in results if status == fact_gate.VIOLATED]
+
+
 def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
                              head: Optional[str] = None) -> List[str]:
     """Why the commit being released drops a commit of ``main``; empty when it does not.
 
     ``main`` moves by merging ``dev`` into it. At a two-parent commit that is ``origin/main``
     (else ``main``) or whose first parent is, the first parent (the old ``main``) must be an
-    ancestor of the second (``dev``). At any other commit, including a lane merged into ``dev``,
+    ancestor of the second (``dev``). At any other commit, including a branch merged into ``dev``,
     ``origin/main`` (else ``main``) must be an ancestor of it; with neither, the answer is
     unknown and refused. Nothing here fetches.
     """
@@ -1824,7 +1824,7 @@ def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
                 "the commit being released is unknown"]
     main_sha = git("rev-parse", f"{ref}^{{commit}}").stdout.strip()
     # A merge commit is a release merge only when it is main or merges onto main; any other
-    # two-parent commit (a lane merged into dev) is read as a plain commit.
+    # two-parent commit (a branch merged into dev) is read as a plain commit.
     if len(parents) == 2 and main_sha in (full, parents[0]):
         container, contained = parents[1], parents[0]
         what = f"the first parent {contained[:12]} (the old main) of the merge {target[:12]}"
@@ -1906,7 +1906,7 @@ def main() -> None:
     except (subprocess.CalledProcessError, OSError):
         head = None
     stack_violations = (check_state_is_current() + check_release_readiness(head=head)
-                        + main_ancestry_violations(head=head))
+                        + main_ancestry_violations(head=head) + check_release_facts())
     if stack_violations:
         for violation in stack_violations:
             log.error(violation)
@@ -1918,7 +1918,8 @@ def main() -> None:
             "from HEAD only in the receipt and %s, with no item it held open relabelled since "
             "or deleted without the receipt recording it as finished; and a commit that contains "
             "main (a merge's first parent contained in its second; otherwise origin/main, "
-            "fetched, an ancestor). Work deferred to %s, and "
+            "fetched, an ancestor); and no typed fact is VIOLATED in release mode. Work deferred "
+            "to %s, and "
             "%s items, stay in the todo stack.",
             TODO_PATH, NEXT_CYCLE, RELEASE_STEP_VALUE)
         sys.exit(1)
@@ -1986,6 +1987,7 @@ def main() -> None:
         log.warning(
             "      Its version, Python support and install command remain unverified. This "
             "is not a pass.")
+        _record_skip("release body (STEP 0d)")
     else:
         log.info(
             "PASS: the release body for %s agrees with package metadata (%s).",
@@ -2016,6 +2018,7 @@ def main() -> None:
                 "SKIPPED: %s=1 is set, so a commit whose CI is %s is being allowed through. "
                 "This is not a pass -- it is a decision to tag without CI evidence.",
                 SKIP_CI_ENV, ci.status)
+            _record_skip(f"CI conclusion (STEP 0e, {SKIP_CI_ENV}=1)")
         else:
             log.error(
                 "A tag must name a commit whose pipeline ran and passed, leg by leg. An "
@@ -2105,8 +2108,8 @@ def main() -> None:
         log.info("PASS: pip check verified zero broken requirements.")
 
         log.info("=== STEP 7: Executing installed-package smoke tests outside repository ===")
-        # The one installed smoke, scripts/smoke_installed.py, with the arguments CI passes (Hamm
-        # 2026-10-13). PYTHONPATH is stripped, as for the tutorials below: the checkout must not
+        # The one installed smoke, scripts/smoke_installed.py, with the arguments CI passes
+        # (2026-10-13). PYTHONPATH is stripped, as for the tutorials below: the checkout must not
         # satisfy `import jnwb`.
         smoke_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
         res = subprocess.run(
@@ -2121,7 +2124,7 @@ def main() -> None:
         log.info("=== STEP 8: Executing tutorials against the installed wheel ===")
         tutorials = sorted((REPO_ROOT / "examples" / "tutorials").glob("[0-9][0-9]_*.py"))
         if not tutorials:
-            log.error("No numbered tutorials found; 0.2.4-03 cannot be verified.")
+            log.error("No numbered tutorials found; the tutorial step cannot be verified.")
             sys.exit(1)
         # As CI does: the extras the tutorials draw are installed only now, after STEP 7 has
         # checked the wheel without them (tutorial 10 needs `vis` and `wavemap`).
@@ -2167,7 +2170,8 @@ def main() -> None:
     run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "measure_peak_memory.py")])
 
     log.info("=============================================================")
-    log.info("=== RELEASE GATE VERIFIED: DISTRIBUTABLE PACKAGE READY ===")
+    banner = verified_banner(SKIPPED_CHECKS)
+    (log.warning if SKIPPED_CHECKS else log.info)("%s", banner)
     log.info("=============================================================")
 
 

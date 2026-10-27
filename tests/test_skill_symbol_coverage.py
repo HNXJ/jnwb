@@ -26,7 +26,7 @@ import jnwb
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 from scripts import docs_form_gate as gate  # noqa: E402
 
 SKILLS = ROOT / "skills"
@@ -50,9 +50,20 @@ ERRORS = [
     "MissingRequiredNWBFieldError",
     "NWBEventError",
     "NWBInspectError",
+    "NWBMutationError",
+    "NWBVerificationError",
     "RaggedIndexRepairRefused",
     "SqueezedAttributeWarning",
+    "UnidentifiableRepairError",
     "UnitNotFoundError",
+]
+
+# Errors no routed operation raises yet, reserved for future mutation operations:
+# `transform_nwb` and `repair_nwb` are in jnwb, and `repair_nwb` raises
+# `UnidentifiableRepairError`, now in ERRORS above. docs/errors.md names each one.
+RESERVED = [
+    "AmbiguousMappingError",
+    "UndeclaredUnitError",
 ]
 
 # The `jnwb.ontology` vocabulary: a data model for describing an analysis, not operations to
@@ -145,6 +156,7 @@ INTERNAL = ["assert_mergeable"]
 
 EXCLUDED = {
     **{n: "error" for n in ERRORS},
+    **{n: "reserved" for n in RESERVED},
     **{n: "ontology" for n in ONTOLOGY},
     **{n: "returned" for n in RETURNED_BY},
     **{n: "analyzer" for n in ANALYZERS},

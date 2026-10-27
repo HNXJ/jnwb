@@ -126,7 +126,7 @@ QC_ROUTES = (
     "jnwb.align_waveforms", "jnwb.normalize_waveforms", "jnwb.wavemap",
     "jnwb.wavemap_resolution_sweep", "jnwb.WaveMAPResult",
     "jnwb.waveform_halfwidth", "jnwb.repolarization_slope", "jnwb.waveform_spread",
-    "jnwb.amplitude_cutoff",
+    "jnwb.amplitude_cutoff", "jnwb.screen_units_against_labels",
 )
 
 

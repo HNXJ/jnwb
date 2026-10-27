@@ -82,3 +82,19 @@ def zero_detrend_residue(residue: Any, original: Any, axis: int, *, xp: Any = np
                                                        keepdims=True)
         within = xp.max(xp.abs(residue), axis=axis, keepdims=True) <= bound
     return xp.where(within, residue * 0, residue)
+
+
+def r_squared(ss_res: Any, ss_tot: Any, *, floor: float = 0.0) -> float:
+    """The coefficient of determination, ``1 - ss_res / ss_tot``, as a float.
+
+    NaN where ``ss_tot`` does not exceed ``floor``: the data hold no variance to explain.
+    """
+    return float(1.0 - ss_res / ss_tot) if ss_tot > floor else float("nan")
+
+
+def percentile_interval(samples: Any, level: float) -> np.ndarray:
+    """Two-sided percentile interval of `samples` at `level`: the ``50 (1 - level)`` and
+    ``50 (1 + level)`` percentiles. The levels are rounded to 10 decimals, so 0.95 gives exactly
+    the 2.5th and 97.5th percentiles."""
+    q = np.round([50 * (1 - level), 50 * (1 + level)], 10)
+    return np.percentile(samples, q)

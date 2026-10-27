@@ -165,7 +165,7 @@ class TestANonFiniteOnset:
 
     def test_the_three_entry_points_agree(self, tmp_path):
         """`events` and `event_onsets` already raised this; `epoch_continuous` returned
-        an array. The accept condition for 05-40 is that all three agree."""
+        an array. The accept condition is that all three agree."""
         from datetime import datetime, timezone
 
         import h5py

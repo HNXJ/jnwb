@@ -98,13 +98,18 @@ class TestNestedCvRng:
 
     def test_rng_none_is_not_reproduced_by_the_global_seed(self):
         """A fixed seed standing in for None would pass the test above; resetting the
-        global seed before each call must not make the partitions repeat."""
+        global seed before each call must not make the partitions repeat. The global seed
+        is the probe here, so it is set on purpose and restored after."""
         X, y, _ = _rng_probe_data()
         seen = set()
-        for _ in range(5):
-            np.random.seed(0)
-            r = nested_cv_linear_svm(X, y, n_splits=3, rng=None)
-            seen.add((tuple(r["fold_accuracies"]), r["f1"], r["auc"]))
+        saved = np.random.get_state()
+        try:
+            for _ in range(5):
+                np.random.seed(0)
+                r = nested_cv_linear_svm(X, y, n_splits=3, rng=None)
+                seen.add((tuple(r["fold_accuracies"]), r["f1"], r["auc"]))
+        finally:
+            np.random.set_state(saved)
         assert len(seen) > 1
 
     @pytest.mark.parametrize("grouped, folds, f1, auc, c", [
@@ -246,7 +251,7 @@ class TestBuildRepresentationLadder:
 
 
 class TestCrossValidationIsolation:
-    """0.2.4-05: the decoder must not see its own test folds.
+    """The decoder must not see its own test folds.
 
     Nested CV was exercised but never asserted leak-free. The discriminating regime is
     many features and few trials: if any step that sees the labels or the full feature

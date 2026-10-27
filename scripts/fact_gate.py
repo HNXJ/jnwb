@@ -13,7 +13,9 @@ file. Each fact's ``Held by`` cell names its holders:
 
 A fact is VIOLATED when a computed predicate is false, a holder does not resolve, a ``todo:``
 names no live item, or it names no holder at all; UNHELD when it names a live ``todo:`` item;
-HELD otherwise. VIOLATED fails the gate. A ``gate:`` or ``test:`` holder is resolved, not run:
+HELD otherwise. VIOLATED fails the gate. In release mode (``run(release=True)``) an UNHELD fact
+whose item carries the declared release (``RELEASE_CYCLE`` of ``scripts/release_gate.py``) as
+``deferred-`` or ``required-`` is VIOLATED too. A ``gate:`` or ``test:`` holder is resolved, not run:
 the harness and the suite run those, so a fact held by a failing gate reads HELD here while the
 harness around it fails.
 
@@ -35,14 +37,70 @@ Computed predicates:
   partition   no routed operation belongs to two shipped domain skills (every skill but the
               router, ``jnwb``), and each owns at least ``k`` of them. A router row naming an
               operation does not share it with the domain skill that owns it.
-   routed_citations  every routing target that is a public function (export kind
-               function/class) is cited by a reference: it has a ``cites`` edge. Utility
-               exports are listed like the rest; no name is excluded.
+   routed_citations  no routed export goes uncited unless it is on the recorded
+               exclusion list (``artifacts/evidence/0.2.14/routed_citation_exclusions.txt``):
+               the unit is distinct routed export names, not routing targets, and only
+               function/class exports are checked. It does not check that methods cite.
 
-  global_seeds     no tracked file seeds the global random state (the graph's ``global_seeds``)
-  rng_parameters   every function in ``jnwb/`` or ``scripts/`` that draws from a random module
-                   takes an ``rng`` parameter (the graph's ``rng_parameters``)
+  global_seeds     no jnwb file seeds the global random state (the graph's ``global_seeds``)
+  rng_parameters   every function in ``jnwb/`` that draws from a random module takes an ``rng``
+                   parameter, or seeds every draw from a ``random_state`` or a SeedSequence
+                   child (the graph's ``rng_parameters``)
   db_averages      no average in ``jnwb/`` takes a dB value (the graph's ``db_averages``)
+  immunity_vocabulary  no sentence of a tracked text file outside ``PROSE_EXEMPT`` (the trees
+                   ``tests/`` and ``artifacts/``, and the two rule files) (a page, a script's
+                   comment or docstring, a notebook cell, any file under
+                   ``skills/`` or ``.github/``) holds the ``immunity vocabulary`` constant or the
+                   graph's immunity patterns beside a term of ``IMMUNITY_CONTEXT``, unless a
+                   negation (``not``, ``no``, ``never``, ``nor``, ``without``) precedes the value
+                   in its clause (the graph's ``immunity_vocabulary``); the gate prints the file
+                   count it examined
+  skill_contracts  no sentence of a skill names a manifest or receipt, or a plural, beside a
+                   contract, schema, must-write, must-produce, required-fields or "must contain,
+                   include, list or record ... fields" term, unless it names inspect, Result, Provenance or Lineage and says the
+                   contract is carried by or extends it (the graph's ``skill_contracts``)
+  silent_handlers  no except handler in ``jnwb/`` swallows its exception: its body raises,
+                   warns, or logs a warning, error or exception, calls a function of its module
+                   or of a relative import whose own body does, or reads the bound exception
+                   name; a handler for ImportError or ModuleNotFoundError alone is exempt (the
+                   graph's ``silent_handlers``)
+  permutation_schemes  no public callable draws a null (a permutation, shuffle, circular shift,
+                   surrogate, derangement or sign flip) without a scheme key in its result (the
+                   graph's ``permutation_schemes``); an examined count of zero is a failure
+  rng_reports  no public callable consumes randomness (a call to one of the ``RESOLVERS``
+                   of ``jnwb/_rng.py``) without an rng key in its result
+                   (the graph's ``rng_reports``); an examined count of zero is a failure
+  unit_conversions  no public callable scales a parameter by a unit factor without naming
+                   the unit (the graph's ``unit_conversions``); an examined count of zero
+                   is a failure
+  wrapper_defaults  no public callable passes a literal over another public callable's
+                   default without naming it (the graph's ``wrapper_defaults``); an examined
+                   count of zero is a failure
+  choice_defaults  no public callable has a defaulted parameter whose name is in the
+                   ``B3 choice names`` constant, unless a row of the ``## B3 exceptions``
+                   table of the fact stack names the callable and parameter, or the parameter
+                   is a ``window`` whose default is a string (a taper, outside the lexicon)
+                   (the graph's ``choice_defaults``); an examined count of zero is a failure
+  signature_types  every public callable taking a signal parameter declares the input class
+                   its parameters show, and no declared caller reaches a declared callable of
+                   a wider class (the graph's ``signature_types``); an examined count of zero
+                   is a failure
+  claim_class_labels  no figure label, and no ``unit=`` literal of a call whose callee's name
+                   ends in ``Result`` in ``jnwb/``, names a magnitude or direction estimand of
+                   the claim table in ``docs/architecture.md`` while holding a term of a higher
+                   claim class -- a delay unit or delay word, or an inference word read after
+                   the method name "Granger causality" is removed (the graph's
+                   ``claim_class_labels``); an examined count of zero is a failure
+  boundary_units  no call in ``jnwb/`` passes a bare name whose suffix (a unit or base suffix)
+                   differs from the callee parameter's suffix, by keyword or position (the
+                   graph's ``boundary_units``); an examined count of zero is a failure
+  owned_rules      no registered signature expression (``OWNED_RULES`` of the fact graph
+                   builder) sits outside its owner in the docs generators, the examples, the
+                   skills' python fences and ``jnwb/``, unless a reviewed exemption matches (the
+                   graph's ``owned_rules``); an examined count of zero is a failure
+  figure_owner_calls  the same sites in the docs figure generators and the plotting modules: a
+                   figure function evaluates one instead of calling its owner (the graph's
+                   ``figure_owner_calls``); an examined count of zero is a failure
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -62,7 +120,7 @@ elif str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts import build_fact_graph  # noqa: E402
-from scripts.release_gate import ROADMAP_PATH as _ROADMAP, roadmap_rows  # noqa: E402
+from scripts.release_gate import RELEASE_CYCLE, ROADMAP_PATH as _ROADMAP, roadmap_rows  # noqa: E402
 from scripts.stack_parse import parse_todo_stack  # noqa: E402
 
 TODO_PATH = REPO_ROOT / "artifacts" / "todo_stack.md"
@@ -79,6 +137,13 @@ def live_items(todo_text: str, roadmap_text: str = "") -> List[str]:
     of the roadmap's readable rows."""
     return ([i for i, _, _ in parse_todo_stack(todo_text)[0]]
             + [i for i, _ in roadmap_rows(roadmap_text)[0]])
+
+
+def due_items(todo_text: str, roadmap_text: str, cycle: str) -> List[str]:
+    """Live item ids whose release holds ``cycle`` open: deferred to it or required in it."""
+    due = {f"deferred-{cycle}", f"required-{cycle}"}
+    return ([i for i, _, value in parse_todo_stack(todo_text)[0] if value in due]
+            + [i for i, value in roadmap_rows(roadmap_text)[0] if value in due])
 
 
 # ------------------------------------------------------------------------ computed predicates
@@ -128,10 +193,15 @@ def _states(graph: Graph, constants: Constants) -> Dict[str, Dict[str, Optional[
 
 
 def lifecycle(graph: Graph, constants: Constants) -> List[str]:
-    """Each name holding a lifecycle state while an earlier applicable state fails."""
+    """Each name holding a lifecycle state while an earlier applicable state fails, and the
+    failure of a graph that names no export or routed name."""
     order = constants["lifecycle"]
+    states = _states(graph, constants)
+    if not states:
+        return ["the graph names no export or routed name, "
+                "so no lifecycle state could be checked"]
     found = []
-    for name, state in _states(graph, constants).items():
+    for name, state in states.items():
         for i, later in enumerate(order):
             missing = [s for s in order[:i] if state[s] is False]
             if state[later] and missing:
@@ -141,9 +211,13 @@ def lifecycle(graph: Graph, constants: Constants) -> List[str]:
 
 
 def routes(graph: Graph, constants: Constants) -> List[str]:
-    """Each routing target that does not start at an export or does not resolve."""
+    """Each routing target that does not start at an export or does not resolve, and the
+    failure of a graph that names no routing target."""
+    targets = graph["entities"]["route_target"]
+    if not targets:
+        return ["the graph has no routing targets, so no route could be checked"]
     found = []
-    for target, record in sorted(graph["entities"]["route_target"].items()):
+    for target, record in sorted(targets.items()):
         if record["export"] is None:
             found.append(f"{target} does not start at an export of jnwb.__all__")
         elif not record["resolves"]:
@@ -191,18 +265,19 @@ def partition(graph: Graph, constants: Constants) -> List[str]:
 
 
 def global_seeds(graph: Graph, constants: Constants) -> List[str]:
-    """Each call, in any tracked file, that seeds the global random state."""
-    if not graph["entities"].get("python"):
-        return ["the graph reads no python file"]
+    """Each call, in a jnwb file, that seeds the global random state."""
+    python = graph["entities"].get("python", [])
+    if not any(path.startswith(build_fact_graph.JNWB_PACKAGE) for path in python):
+        return ["the graph reads no jnwb python file"]
     return [f"{path}: {reason}" for path, reason in graph["relations"]["global_seeds"]]
 
 
 def rng_parameters(graph: Graph, constants: Constants) -> List[str]:
-    """Each function in ``jnwb/`` or ``scripts/`` that draws from a random module and takes no
-    parameter named ``rng``."""
+    """Each function in ``jnwb/`` that draws from a random module and takes no parameter named
+    ``rng``, unless every draw in it is seeded by a ``random_state`` or a SeedSequence child."""
     python = graph["entities"].get("python", [])
     if not any(path.startswith(build_fact_graph.SCANNED_FOR_RNG) for path in python):
-        return ["the graph reads no jnwb or scripts python file"]
+        return ["the graph reads no jnwb python file"]
     return [f"{path}: {reason}" for path, reason in graph["relations"]["rng_parameters"]]
 
 
@@ -214,30 +289,131 @@ def db_averages(graph: Graph, constants: Constants) -> List[str]:
     return [f"{path}: {reason}" for path, reason in graph["relations"]["db_averages"]]
 
 
+def immunity_vocabulary(graph: Graph, constants: Constants) -> List[str]:
+    """Each sentence of a tracked text file in scope that holds the immunity vocabulary beside a
+    context term."""
+    if not graph["entities"].get("prose"):
+        return ["the graph reads no prose file"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["immunity_vocabulary"]]
+
+
+def scope_line(graph: Graph) -> str:
+    """The number of text files the immunity rule examined, and the trees it exempts."""
+    return (f"immunity_vocabulary examined {len(graph['entities'].get('prose', []))} text files; "
+            f"exempt: {', '.join(build_fact_graph.PROSE_EXEMPT)}")
+
+
+def skill_contracts(graph: Graph, constants: Constants) -> List[str]:
+    """Each skill sentence that names a manifest or receipt, or a plural, beside a contract term,
+    unless a carrier is named and the sentence says the contract is carried by or extends it."""
+    if not graph["entities"].get("skill_file"):
+        return ["the graph reads no skill file"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["skill_contracts"]]
+
+
+def silent_handlers(graph: Graph, constants: Constants) -> List[str]:
+    """Each except handler in ``jnwb/`` that swallows its exception."""
+    python = graph["entities"].get("python", [])
+    if not any(path.startswith(build_fact_graph.JNWB_PACKAGE) for path in python):
+        return ["the graph reads no jnwb python file"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["silent_handlers"]]
+
+
+def permutation_schemes(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable that draws a null without a scheme key in its result, and the
+    failure of a scan that examined no callable."""
+    if not graph["entities"].get("scheme_examined"):
+        return ["the graph examined no public callable, so no scheme could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["permutation_schemes"]]
+
+
+def rng_reports(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable that consumes randomness without an rng key in its result, and
+    the failure of a scan that examined no callable."""
+    if not graph["entities"].get("rng_examined"):
+        return ["the graph examined no public callable, so no rng report could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["rng_reports"]]
+
+
+def unit_conversions(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable that scales a parameter by a unit factor without naming the unit,
+    and the failure of a scan that examined no callable."""
+    if not graph["entities"].get("unit_examined"):
+        return ["the graph examined no public callable, so no unit conversion could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["unit_conversions"]]
+
+
+def wrapper_defaults(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable that passes a literal over another public callable's default
+    without naming it, and the failure of a scan that examined no callable."""
+    if not graph["entities"].get("wrapper_examined"):
+        return ["the graph examined no public callable, so no wrapper default could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["wrapper_defaults"]]
+
+
+def choice_defaults(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable with a defaulted scientific-choice parameter and no exceptions
+    row, and the failure of a scan that examined no callable."""
+    if not graph["entities"].get("choice_examined"):
+        return ["the graph examined no public callable, so no choice default could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["choice_defaults"]]
+
+
+def signature_types(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable taking a signal parameter whose declared signal contract fails,
+    and the failure of a scan that examined no callable."""
+    if not graph["entities"].get("signature_examined"):
+        return ["the graph examined no public callable, so no signature type could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["signature_types"]]
+
+
+def claim_class_labels(graph: Graph, constants: Constants) -> List[str]:
+    """Each figure label or ``*Result`` unit literal that names a magnitude or direction
+    estimand while holding a term of a higher claim class, and the failure of a scan that
+    examined no label and no unit literal."""
+    if not sum(graph["entities"].get("claim_examined", {}).values()):
+        return ["the graph examined no label or unit literal, so no claim class could be checked"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["claim_class_labels"]]
+
+
+def boundary_units(graph: Graph, constants: Constants) -> List[str]:
+    """Each call in ``jnwb/`` that passes a bare name whose suffix differs from the callee
+    parameter's suffix, and the failure of a scan that examined no boundary edge."""
+    if not graph["entities"].get("boundary_examined", {}).get("edges"):
+        return ["the graph examined no named-unit boundary edge, so no boundary could be checked"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["boundary_units"]]
+
+
 def routed_citations(graph: Graph, constants: Constants) -> List[str]:
-    """Each routing target that is a public function (export kind function/class) and has no
-    ``cites`` edge, with the skills that route it. Utility exports are listed like the rest;
-    no name is excluded."""
-    exports = graph["entities"].get("export", {})
+    """Each distinct routed export with no ``cites`` edge that the ruled exclusion list does
+    not name. The check is that no routed export goes uncited unless it is on the recorded
+    list; it does not check that methods cite."""
     targets = graph["entities"].get("route_target", {})
     if not targets:
         return ["the graph has no routing targets, so no citation could be checked"]
-    cited = {name for name, _ in graph["relations"].get("cites", [])}
-    # A class is cited through any of its methods (`StatisticalAnalysis.fdr_correct`).
-    cited |= {name.split(".")[0] for name in cited if "." in name}
+    excluded = build_fact_graph.routed_citation_exclusions()
+    uncited = build_fact_graph.uncited_routed_heads(graph)
     skills: Dict[str, List[str]] = {}
     for skill, target in graph["relations"].get("routes", []):
-        skills.setdefault(target, []).append(skill)
-    found = []
-    for target in sorted(targets):
-        head = targets[target].get("export")
-        if head is None or exports.get(head, {}).get("kind") not in ("function", "class"):
-            continue
-        if target in cited:
-            continue
-        found.append(f"{target}: routed by {', '.join(sorted(skills.get(target, [])))} "
-                     "and cites no reference")
-    return found
+        skills.setdefault(target.split(".")[0], []).append(skill)
+    return [f"{head}: routed by {', '.join(sorted(set(skills.get(head, []))))} "
+            "and cites no reference"
+            for head in uncited if head not in excluded]
+
+
+def owned_rules(graph: Graph, constants: Constants) -> List[str]:
+    """No registered signature expression sits outside its owner (the graph's ``owned_rules``)."""
+    if not graph["entities"].get("owned_rule_examined"):
+        return ["the scan examined no python unit in its scope"]
+    return [f"{rel}: {reason}" for rel, reason in graph["relations"]["owned_rules"]]
+
+
+def figure_owner_calls(graph: Graph, constants: Constants) -> List[str]:
+    """No figure function evaluates a registered signature expression instead of calling its
+    owner (the graph's ``figure_owner_calls``)."""
+    if not graph["entities"].get("figure_examined"):
+        return ["the scan examined no figure function"]
+    return [f"{rel}: {reason}" for rel, reason in graph["relations"]["figure_owner_calls"]]
 
 
 COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
@@ -248,6 +424,19 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "global_seeds": global_seeds,
     "rng_parameters": rng_parameters,
     "db_averages": db_averages,
+    "immunity_vocabulary": immunity_vocabulary,
+    "skill_contracts": skill_contracts,
+    "silent_handlers": silent_handlers,
+    "permutation_schemes": permutation_schemes,
+    "rng_reports": rng_reports,
+    "unit_conversions": unit_conversions,
+    "wrapper_defaults": wrapper_defaults,
+    "choice_defaults": choice_defaults,
+    "signature_types": signature_types,
+    "claim_class_labels": claim_class_labels,
+    "boundary_units": boundary_units,
+    "owned_rules": owned_rules,
+    "figure_owner_calls": figure_owner_calls,
 }
 
 
@@ -269,8 +458,9 @@ def _resolves(holder: str, graph: Graph) -> bool:
 
 
 def evaluate(facts: Sequence[Dict[str, Any]], constants: Constants, graph: Graph,
-             items: Sequence[str]) -> List[Tuple[str, str, List[str]]]:
-    """Each fact as (id, status, reasons). Each computed predicate runs once."""
+             items: Sequence[str], *, due: Sequence[str] = ()) -> List[Tuple[str, str, List[str]]]:
+    """Each fact as (id, status, reasons). Each computed predicate runs once. A fact that a live
+    item in ``due`` holds is VIOLATED, not UNHELD: that item is due in this release."""
     cache: Dict[str, List[str]] = {}
     results = []
     for fact in facts:
@@ -295,6 +485,8 @@ def evaluate(facts: Sequence[Dict[str, Any]], constants: Constants, graph: Graph
                 reasons.extend(f"computed:{target}: {v}" for v in cache[target])
             elif not _resolves(holder, graph):
                 reasons.append(f"{holder} does not resolve")
+        reasons.extend(f"held by todo {i}, which is due in this release"
+                       for i in pending if i in due)
         if reasons:
             results.append((fact["id"], VIOLATED, reasons))
         elif pending:
@@ -306,17 +498,23 @@ def evaluate(facts: Sequence[Dict[str, Any]], constants: Constants, graph: Graph
 
 def run(package: Any = None, root: Path = REPO_ROOT, facts_path: Optional[Path] = None,
         todo_path: Path = TODO_PATH, graph: Optional[Graph] = None,
-        roadmap_path: Path = ROADMAP_PATH):
+        roadmap_path: Path = ROADMAP_PATH, *, release: bool = False):
     """Build the fact graph (unless given) and evaluate every fact of the fact source. A missing
-    roadmap holds no item, so a ``todo:`` holder naming one is VIOLATED."""
+    roadmap holds no item, so a ``todo:`` holder naming one is VIOLATED. A source that holds no
+    fact row is VIOLATED too: zero facts examined is no pass. With ``release`` set, a fact held
+    only by an item due in the declared release (``RELEASE_CYCLE``) is VIOLATED; the harness
+    gate runs without it."""
     source = facts_path or build_fact_graph.FACT_STACK
     facts = build_fact_graph.load_facts(source)
     constants = build_fact_graph.read_constants(source.read_text(encoding="utf-8"))
     if graph is None:
         graph = build_fact_graph.build(package, root, source)
     roadmap = roadmap_path.read_text(encoding="utf-8") if roadmap_path.is_file() else ""
-    results = evaluate(facts, constants, graph,
-                       live_items(todo_path.read_text(encoding="utf-8"), roadmap))
+    todo = todo_path.read_text(encoding="utf-8")
+    due = due_items(todo, roadmap, RELEASE_CYCLE) if release else ()
+    results = evaluate(facts, constants, graph, live_items(todo, roadmap), due=due)
+    if not results:
+        results = [(source.name, VIOLATED, ["the fact source holds no fact row"])]
     return source, results
 
 
@@ -329,13 +527,16 @@ def main() -> int:
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if reconfigure is not None:
         reconfigure(errors="backslashreplace")
-    source, results = run(build_fact_graph._checkout_jnwb())
+    package = build_fact_graph._checkout_jnwb()
+    graph = build_fact_graph.build(package, REPO_ROOT, build_fact_graph.FACT_STACK)
+    source, results = run(package, graph=graph)
     print(f"=== Fact gate (facts from {source.relative_to(REPO_ROOT).as_posix()}) ===")
     for fact_id, status, reasons in results:
         print(f"{status}: {fact_id}" + (f" ({'; '.join(reasons)})" if status == UNHELD else ""))
         if status == VIOLATED:
             for reason in reasons:
                 print(f"  - {reason}")
+    print(scope_line(graph))
     counts = summary(results)
     print(", ".join(f"{status} {n}" for status, n in counts.items()))
     return 1 if counts[VIOLATED] else 0

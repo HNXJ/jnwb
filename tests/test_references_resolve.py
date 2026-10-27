@@ -39,7 +39,7 @@ import pytest
 import jnwb
 
 if str(Path(__file__).resolve().parents[1]) not in sys.path:
-    sys.path.append(str(Path(__file__).resolve().parents[1]))
+    sys.path.append(str(Path(__file__).resolve().parents[1]))  # needed: wheel run clears pythonpath
 
 from scripts.build_fact_graph import (  # noqa: E402
     CORE_HEADER,

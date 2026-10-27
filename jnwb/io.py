@@ -85,18 +85,26 @@ def _stream_slice(
     np.broadcast_to(np.empty((), dtype=np.uint8), shape)[slice_tuple]
     items = slice_tuple if isinstance(slice_tuple, tuple) else (slice_tuple,)
 
+    # On a 0-d array no axis pairs with an index, so every item is checked here, and NumPy's
+    # ``...`` (the scalar itself) is the one allowed. On an array with axes only the items that pair
+    # with an axis are checked; an item past the last axis keeps NumPy's IndexError, as before.
+    for s in (items if not shape else items[:len(shape)]):
+        if isinstance(s, slice) or (isinstance(s, (int, np.integer)) and not isinstance(s, bool)):
+            continue
+        if s is Ellipsis and not shape:
+            continue
+        raise TypeError(
+            "slice_tuple holds integers and slices only; got "
+            f"{type(s).__name__}, which NumPy reads as a different kind of index"
+        )
+
     slices = []
     for s, dim in zip(items, shape):
         if isinstance(s, slice):
             slices.append(s)
-        elif isinstance(s, (int, np.integer)) and not isinstance(s, bool):
+        else:
             i = int(s) + dim if int(s) < 0 else int(s)
             slices.append(slice(i, i + 1, 1))
-        else:
-            raise TypeError(
-                "slice_tuple holds integers and slices only; got "
-                f"{type(s).__name__}, which NumPy reads as a different kind of index"
-            )
 
     while len(slices) < len(shape):
         slices.append(slice(None))
@@ -242,9 +250,13 @@ def stream_npz_array(
         FileNotFoundError: If file_path does not exist on disk.
         KeyError: If key is not present in the NPZ archive.
         IndexError: Where NumPy raises it: too many indices, an integer out of bounds for its
-                    axis, or a scalar index that is not an integer.
+                    axis, or a scalar index that is not an integer. A ``None`` item at a position
+                    past the last axis, as in ``(0, None)`` on a 1-D array, also raises it, with
+                    "too many indices", where NumPy returns the array with that new axis.
         TypeError: For an index NumPy accepts that is not an integer or a slice (``...``,
-                   ``None``, a boolean, an array or a list).
+                   ``None``, a boolean, an array or a list). On a 0-d array ``...`` returns the
+                   0-d array as NumPy does; every other such index is refused, as on an array with
+                   axes.
         ValueError: If archive is corrupt, compression method is unsupported,
                     array format/header is invalid, or layout is unsupported (e.g. object dtype);
                     and for a slice step of zero, as in NumPy.
