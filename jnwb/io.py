@@ -255,7 +255,7 @@ def stream_npz_array(
                     "too many indices", where NumPy returns the array with that new axis.
         TypeError: For an index NumPy accepts that is not an integer or a slice (``...``,
                    ``None``, a boolean, an array or a list). On a 0-d array ``...`` returns the
-                   scalar as NumPy does; every other such index is refused, as on an array with
+                   0-d array as NumPy does; every other such index is refused, as on an array with
                    axes.
         ValueError: If archive is corrupt, compression method is unsupported,
                     array format/header is invalid, or layout is unsupported (e.g. object dtype);

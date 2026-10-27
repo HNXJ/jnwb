@@ -22,9 +22,8 @@ Releases 0.2.9, 0.2.8, 0.2.7, 0.2.6.1, 0.2.6, 0.2.5, 0.2.4, 0.1.8 and 0.1.7 to 0
 - `noise_correlation(counts, condition_id, *, min_trials)`: trial-based noise correlation (`jnwb/spiking.py`).
 - `NWBMutationError`: the base error for a refused NWB mutation; it carries the report `issues` (`nwb_write.py`).
 - `NWBVerificationError`: a written file failed its post-write `verify_nwb`; the file stays (`nwb_write.py`).
-- `AmbiguousMappingError`: two plausible mappings for one conversion; neither is picked (`nwb_write.py`).
 - `UnidentifiableRepairError`: a repair's identifiability precondition fails; nothing is written (`nwb_write.py`).
-- `UndeclaredUnitError`: a stored unit is absent or outside the unit table; none is guessed (`nwb_write.py`).
+- `AmbiguousMappingError`, `UndeclaredUnitError`: reserved; no function raises them yet (`nwb_write.py`).
 - `granger_nonparametric`: Welch and Wilson factorization, no VAR order (`jnwb/connectivity/_granger.py`).
 - `granger_time_reversed`: the net direction's sign flip under time reversal (`jnwb/connectivity/_granger.py`).
 - `partial_coherence`: coherence given one conditioning signal, circular-shift p (`jnwb/spectral/_coupling.py`).
@@ -85,7 +84,7 @@ Releases 0.2.9, 0.2.8, 0.2.7, 0.2.6.1, 0.2.6, 0.2.5, 0.2.4, 0.1.8 and 0.1.7 to 0
 - The unit warning from `acquisition_channel` names `channel_conversion` and the channel (`nwb_inspect.py`).
 - The unit and `starting_time` warnings point at the caller's line, not at jnwb's own code (`nwb_inspect.py`).
 - `stream_npz_array` raises `TypeError` for `None` on a 0-d array, where it returned the scalar (`jnwb/io.py`).
-- `...` on a 0-d array still returns the scalar, as NumPy does (`jnwb/io.py`).
+- `...` on a 0-d array still returns the 0-d array, as NumPy does (`jnwb/io.py`).
 - The MCP signal reference names no reader for a rate that is not finite and positive (`nwb_tools.py`).
 - It also names no reader for a `channel_conversion` on a type other than `ElectricalSeries` (`nwb_tools.py`).
 - `access_hint` says why in both cases (`nwb_tools.py`).

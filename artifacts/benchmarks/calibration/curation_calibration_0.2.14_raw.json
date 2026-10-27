@@ -1,6 +1,6 @@
 {
  "release": "0.2.14",
- "declared_version": "0.2.13",
+ "declared_version": "0.2.14",
  "estimator": "curate_and_label",
  "estimator_sha256": "12d994b977b2d14c113d509e62744c4ac52667d83c4bb30ebb2f5aa0548b1cea",
  "estimator_functions": [
@@ -67530,7 +67530,7 @@
   }
  ],
  "environment": {
-  "jnwb": "0.2.13",
+  "jnwb": "0.2.14",
   "numpy": "2.4.6",
   "scipy": "1.18.0",
   "python": "3.14.3",

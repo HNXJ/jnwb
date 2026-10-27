@@ -99,22 +99,7 @@ Before step 8, merge `main` into `dev`, so the release merge's first parent is i
 
 # 0.2.15
 
-The section opened 2026-10-27 at the 0.2.14 checkpoint, from the roadmap rows deferred to it.
-
-### 15-11 `vflip2` recovers a planted vFLIP2 crossover on Andre Bastos's simulation code (validation)
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: Andre Bastos's simulation code.
-Writes: `scripts/vflip2_recovery.py`, `tests/test_vflip2_recovery.py`, `artifacts/evidence/0.2.13/vflip2_recovery.md`, `artifacts/evidence/0.2.13/vflip2_recovery.json`.
-- 15-11: The generator half landed in 1dbcedbf (`artifacts/evidence/0.2.13/vflip2_recovery.md`: recovery 29 of 100, matched null 24 of 100); the same table has not run on his code. Check: `artifacts/evidence/0.2.13/vflip2_recovery.md` gains a section for his code with the six measures, intervals and `target_met`, under the contract in `artifacts/evidence/0.2.13/vflip2_generator_design.md`. Waits: His simulation code; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-19).
-Accept: the CI tests the design names pass and the evidence file names entropy, counts, intervals and `target_met` for his code. Ruled 2026-10-14 (15-03 split) and 2026-10-15 (15-11 design).
-
-### 16-12 Dashboard real-data cards for `isi_cv` (9,056 units), WaveMAP and the omission results (validation)
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: independent recomputations with committed receipts.
-Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, `tests/test_build_dashboard.py`.
-- 16-12: The dashboard ships with the four committed GLO entries; the others need a receipt computed without calling jnwb: the omission and WaveMAP receipts record jnwb calls (`jnwb_version`, `jnwb_wavemap_commit`), and the `isi_cv` receipt file (branch `claude/site-overview-326890`, commit 9b52c5e7) no longer exists. Check: each number on the page traces to a committed receipt. Waits: Independent recomputations with committed receipts; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-23).
+The section opened 2026-10-27 at the 0.2.14 checkpoint, from the roadmap rows deferred to it. The three validation rows (15-11, 16-12, 12-21) stay on the roadmap, where the dashboard lists deferred validation.
 
 ### 11-03 Design facts held
 
@@ -123,13 +108,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
 - 11-03: D1-D3, D5-D10 report UNHELD: no scan reads delegation or side-effect categories (D1-D3), `AmbiguousMappingError` and `UndeclaredUnitError` are exported and never raised (D5, D7, D9), and no test holds condition meaning, trial semantics or cache decisions (D6, D8, D10). Check: each of D1-D3 and D5-D10 gets its own scan or refusal with a planted case. Waits: Ruled 2026-10-26: each needs its own scan or refusal with a planted case; D4 and D11 are held.
 Accept: the Design table reports no UNHELD fact.
-
-### 12-21 jnwb recovers a planted delay and a planted direction from a jaxfne field (validation)
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: a broadband jaxfne field with a stated delay or coupling.
-Writes: `tests/test_jaxfne_ground_truth.py`, `tests/data/*`.
-- 12-21: The spectrum half landed (`tests/test_jaxfne_ground_truth.py`: `compute_psd` recovers the planted 10.0 Hz of jaxfne's protocol_c planar field, commit 21c99f96); a single-frequency field has no phase-slope delay and no direction, so delay (`phase_slope_index`) and direction (`granger`) wait for a broadband jaxfne field. Check: a test in `tests/test_jaxfne_ground_truth.py` recovers the planted delay and direction from a broadband jaxfne field; it fails before the repair and passes after. Waits: A broadband jaxfne field with a stated delay or coupling; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-23: the spectrum test closes the item for 0.2.14).
 
 ### 16-20 A distance-aware coherence graph
 

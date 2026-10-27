@@ -231,7 +231,7 @@ class TestIndexingFollowsNumPy:
             stream_npz_array(path, "a")
 
     def test_a_zero_dimensional_array_reads_ellipsis_as_numpy_does_and_refuses_none(self, tmp_path: Path):
-        """On a 0-d array `...` and `(...,)` return the scalar as NumPy does. `None` is refused
+        """On a 0-d array `...` and `(...,)` return the 0-d array as NumPy does. `None` is refused
         with TypeError, as on an array with axes."""
         path = tmp_path / "scalar_ellipsis.npz"
         np.savez(path, a=np.array(5.0))

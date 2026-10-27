@@ -145,6 +145,11 @@ def _format_annotation(annotation: Any) -> str:
     if isinstance(annotation, type):
         return _canonical_type_name(annotation.__module__, annotation.__qualname__)
 
+    # Any other parameterized `typing` alias (`Collection[str]`, `Sequence[str]`) keeps its
+    # arguments; the module and qualname below would drop them.
+    if origin is not None and args and getattr(annotation, "_name", None):
+        return f"{annotation._name}[" + ", ".join(_format_annotation(a) for a in args) + "]"
+
     module = getattr(annotation, "__module__", "")
     qualname = getattr(annotation, "__qualname__", None) or getattr(annotation, "_name", "")
     if module and qualname:

@@ -194,7 +194,7 @@ def test_the_committed_fragments_assemble():
 
 def test_a_released_version_is_refused():
     with pytest.raises(FragmentError, match="already has a section"):
-        assemble(CHANGELOG_TEXT, "0.2.7", "2026-09-29", [("added", "- x\n", Path("x"))])
+        assemble(CHANGELOG_TEXT, "0.2.13", "2026-10-20", [("added", "- x\n", Path("x"))])
 
 
 def test_hand_written_unreleased_lines_are_refused():
