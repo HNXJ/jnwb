@@ -28,7 +28,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 # Appended, not prepended: prepending would put the checkout's jnwb/ ahead of an installed copy.
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.assemble_changelog import (  # noqa: E402
     CATEGORIES,

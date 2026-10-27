@@ -17,7 +17,7 @@ SCRIPT = REPO_ROOT / "scripts" / "release_body.py"
 # See tests/test_release_body_gate.py: `append`, and imports inside the tests' module scope
 # only after it, because `scripts/` is not in the wheel.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.release_body import build_body, changelog_section  # noqa: E402
 from scripts.release_gate import check_release_body_claims, release_metadata  # noqa: E402

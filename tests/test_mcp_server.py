@@ -38,7 +38,7 @@ RUNTIME_PROBE = '''
 import json
 import sys
 
-sys.path.insert(0, sys.argv[2])
+sys.path.insert(0, sys.argv[2])  # needed: child process has no pythonpath
 from jnwb import acquisition_channel, read_nwb
 from jnwb.mcp_server import prepare_signal_reference
 

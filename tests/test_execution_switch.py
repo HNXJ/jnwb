@@ -264,7 +264,7 @@ class TestEveryBackendArgumentIsCovered:
         root = str(Path(__file__).resolve().parents[1])
         script = (
             "import sys\n"
-            f"sys.path.append({root!r})\n"
+            f"sys.path.append({root!r})\n"  # needed: child process has no pythonpath
             "sys.modules['plotly'] = None\n"
             "from tests.test_execution_switch import _public_callables\n"
             "names = [name for name, _ in _public_callables()]\n"

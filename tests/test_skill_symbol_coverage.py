@@ -26,7 +26,7 @@ import jnwb
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 from scripts import docs_form_gate as gate  # noqa: E402
 
 SKILLS = ROOT / "skills"

@@ -23,7 +23,6 @@ a function that warns unconditionally, which is a different defect with the same
 from __future__ import annotations
 
 import pathlib
-import sys
 import warnings
 from datetime import datetime, timezone
 
@@ -32,11 +31,6 @@ import numpy as np
 import pytest
 from pynwb import NWBHDF5IO, NWBFile
 from pynwb.ecephys import ElectricalSeries
-
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-# append, never insert(0): the wheel leg must keep resolving the installed copy.
-if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
 
 from jnwb.laminar import label_layers  # noqa: E402
 from jnwb.nwb_inspect import acquisition_channel  # noqa: E402

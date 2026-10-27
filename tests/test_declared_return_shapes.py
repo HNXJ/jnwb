@@ -203,7 +203,7 @@ def test_the_sweep_passes_without_the_vis_extra():
     root = str(Path(__file__).resolve().parents[1])
     script = (
         "import sys\n"
-        f"sys.path.append({root!r})\n"
+        f"sys.path.append({root!r})\n"  # needed: child process has no pythonpath
         "sys.modules['plotly'] = None\n"
         "from tests.test_declared_return_shapes import declaring_functions\n"
         "assert isinstance(declaring_functions(), set)\n"

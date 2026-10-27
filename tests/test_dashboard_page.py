@@ -322,7 +322,7 @@ class _QuietHandler(SimpleHTTPRequestHandler):
 def site(tmp_path_factory):
     """The dashboard built into a temporary directory by the builder the workflow runs."""
     if str(ROOT) not in sys.path:
-        sys.path.append(str(ROOT))
+        sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
     out = tmp_path_factory.mktemp("browser") / "site"
     importlib.import_module("scripts.build_dashboard").write_dashboard(out)
     return out

@@ -35,7 +35,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # `append`, never `insert(0, ...)`: inserting re-shadows the installed package for the whole
 # session, which tests/test_the_suite_can_qualify_an_installed_copy.py forbids.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.release_gate import (  # noqa: E402
     BODY_CHECKED,

@@ -42,7 +42,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # an earlier module's own append and the suite would look green.
 # `tests/test_test_imports_survive_the_wheel_leg.py` is what refuses that.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.harness_gate import API_MD_ROW, api_member_kind  # noqa: E402
 
@@ -287,7 +287,7 @@ def test_the_sweeps_pass_without_the_vis_extra():
     root = str(REPO_ROOT)
     script = (
         "import sys\n"
-        f"sys.path.append({root!r})\n"
+        f"sys.path.append({root!r})\n"  # needed: child process has no pythonpath
         "sys.modules['plotly'] = None\n"
         "from tests.test_api_md_member_types import _export_kinds, constant_rows\n"
         "import inspect\n"

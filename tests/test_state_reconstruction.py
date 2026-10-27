@@ -37,7 +37,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # `tests/test_the_suite_can_qualify_an_installed_copy.py` exists because
 # `sys.path.insert(0, REPO_ROOT)` re-shadows it for the whole session.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.reconstruct_state import (  # noqa: E402
     HEAD_ROW_RE,

@@ -439,7 +439,7 @@ def test_every_script_a_test_imports_accepts_the_installed_copy(tmp_path: Path) 
         import jnwb
         site = pathlib.Path({str(site)!r}).resolve()
         assert site in pathlib.Path(jnwb.__file__).resolve().parents, jnwb.__file__
-        sys.path.append({str(ROOT)!r})
+        sys.path.append({str(ROOT)!r})  # needed: child process has no pythonpath
         failed = []
         for name in {names!r}:
             try:

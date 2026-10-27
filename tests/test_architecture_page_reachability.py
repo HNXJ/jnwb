@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # `append`, never `insert`: the nav reader is shared from the checkout's tests, but the package
 # under test must stay whichever copy is installed first on the path.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from tests.test_docs_user_navigation import nav_targets  # noqa: E402
 

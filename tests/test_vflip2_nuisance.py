@@ -19,7 +19,7 @@ import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 from jnwb import clopper_pearson  # noqa: E402
 from jnwb.testing import synth_vflip2_crossover  # noqa: E402
 from scripts import vflip2_nuisance as nui  # noqa: E402

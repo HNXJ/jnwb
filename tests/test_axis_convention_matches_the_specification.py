@@ -30,7 +30,7 @@ from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 from tests._sources import source_files, unread  # noqa: E402
 
 SPEC = REPO_ROOT / "docs" / "10_operation_specifications.md"
@@ -295,7 +295,7 @@ def test_the_sweep_passes_without_the_vis_extra():
     """With Plotly unimportable, `jnwb.vis` is skipped instead of resolved."""
     script = (
         "import sys\n"
-        f"sys.path.append({str(REPO_ROOT)!r})\n"
+        f"sys.path.append({str(REPO_ROOT)!r})\n"  # needed: child process has no pythonpath
         "sys.modules['plotly'] = None\n"
         "from tests.test_axis_convention_matches_the_specification import public_docs\n"
         "docs = public_docs()\n"

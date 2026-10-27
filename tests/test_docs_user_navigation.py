@@ -24,7 +24,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts import docs_form_gate as gate  # noqa: E402
 from scripts.docs_form_gate import nav_targets  # noqa: E402,F401  (re-exported for other tests)

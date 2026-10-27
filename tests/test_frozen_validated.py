@@ -10,7 +10,7 @@ import pytest
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # `scripts/` ships in no wheel, so appending is enough to import the gate.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.harness_gate import check_frozen_validated, frozen_body_hash  # noqa: E402
 

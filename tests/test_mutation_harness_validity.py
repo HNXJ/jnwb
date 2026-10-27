@@ -49,7 +49,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # Appended, not prepended: prepending would put this checkout's packages ahead of an installed
 # copy and silently redirect a wheel-qualification run back to the source tree.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.mutation_harness import (  # noqa: E402
     CONDITIONS,
@@ -1270,7 +1270,7 @@ def test_importing_the_harness_imports_no_jnwb() -> None:
     """Run by path the harness would import whichever ``jnwb`` is installed, so a path derived
     at import time raised there. Checked in a subprocess, because this process has jnwb loaded."""
     probe = (
-        "import sys; sys.path.insert(0, sys.argv[1]);"
+        "import sys; sys.path.insert(0, sys.argv[1]);"  # needed: child process has no pythonpath
         "import scripts.mutation_harness as h;"
         "assert 'jnwb' not in sys.modules, 'importing the harness imported jnwb';"
         "assert not hasattr(h, 'KNOWN_GAPS')"

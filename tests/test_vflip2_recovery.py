@@ -21,7 +21,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 from jnwb.testing import synth_vflip2_crossover  # noqa: E402
 
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 from scripts import vflip2_recovery as rec  # noqa: E402
 
 

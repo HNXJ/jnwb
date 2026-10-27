@@ -88,7 +88,7 @@ def test_the_evidence_table_matches_the_script_on_the_power_example():
 
     root = Path(__file__).resolve().parents[1]
     if str(root) not in sys.path:
-        sys.path.append(str(root))
+        sys.path.append(str(root))  # needed: the installed-wheel run clears pythonpath
     from scripts import vflip2_sensitivity as sens
 
     psd, freqs, spacing, _ = sens.load_power_example()

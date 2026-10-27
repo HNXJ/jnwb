@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 if str(Path(__file__).resolve().parents[1]) not in sys.path:
-    sys.path.append(str(Path(__file__).resolve().parents[1]))
+    sys.path.append(str(Path(__file__).resolve().parents[1]))  # needed: wheel run clears pythonpath
 
 from scripts.build_fact_graph import reference_table_rows  # noqa: E402
 

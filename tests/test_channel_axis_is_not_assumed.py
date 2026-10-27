@@ -19,17 +19,8 @@ physical rather than tuned: a 384-contact probe -- the densest in wide use -- mu
 """
 from __future__ import annotations
 
-import pathlib
-import sys
-
 import numpy as np
 import pytest
-
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-# append, never insert(0): `pyproject.toml` already sets pytest's pythonpath, and shadowing it
-# would make this module test the checkout while the wheel leg believes it tested the wheel.
-if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
 
 from jnwb._layout import MAX_LAMINAR_CHANNELS, MAX_PROBE_SPAN_UM  # noqa: E402
 from jnwb.artifact_detection import (  # noqa: E402

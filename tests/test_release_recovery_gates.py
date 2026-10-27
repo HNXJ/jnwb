@@ -179,7 +179,7 @@ class TestReleaseGateCoverage:
         import yaml
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import REQUIRED_EXTRAS
 
         wf = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "workflow.yml")
@@ -248,7 +248,7 @@ class TestReleaseGateOrder:
     @pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
     def test_a_stale_state_file_is_refused(self, tmp_path):
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import check_state_is_current
 
         head = self._repository(tmp_path)

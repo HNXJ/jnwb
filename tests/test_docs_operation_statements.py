@@ -217,7 +217,7 @@ def test_the_sweeps_pass_without_the_vis_extra():
     root = str(REPO_ROOT)
     script = (
         "import sys\n"
-        f"sys.path.append({root!r})\n"
+        f"sys.path.append({root!r})\n"  # needed: child process has no pythonpath
         "sys.modules['plotly'] = None\n"
         "from tests.test_docs_operation_statements import (\n"
         "    _public_rng_parameters, _seed_only_public_surfaces)\n"

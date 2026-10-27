@@ -157,7 +157,7 @@ class TestWorkflowReleasePolicy:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import required_ci_jobs
 
         jobs = _load_workflow()["jobs"]
@@ -173,7 +173,7 @@ class TestWorkflowReleasePolicy:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import required_ci_jobs
 
         workflow = (
@@ -252,7 +252,7 @@ class TestATagPushReusesTheMainRunOfItsCommit:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.workflow_checks import qualifying_run_id
 
         sha = "a" * 40
@@ -572,7 +572,7 @@ class TestTheInstalledSmokeScript:
 
         preamble = "\n".join([
             "import sys",
-            f"sys.path.append({str(REPO_ROOT)!r})",
+            f"sys.path.append({str(REPO_ROOT)!r})",  # needed: child process has no pythonpath
             "sys.modules['plotly'] = None" if block_plotly else "",
             "import jnwb",
         ])
@@ -1134,7 +1134,7 @@ class TestContinueOnErrorJobsAreNotRequired:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import required_ci_jobs
 
         assert sorted(required_ci_jobs(self.WITH_FLAG)) == ["Gate"]
@@ -1143,7 +1143,7 @@ class TestContinueOnErrorJobsAreNotRequired:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import required_ci_jobs
 
         assert sorted(required_ci_jobs(self.WITHOUT_FLAG)) == ["Gate", "Report"]
@@ -1152,7 +1152,7 @@ class TestContinueOnErrorJobsAreNotRequired:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import required_ci_jobs
 
         names = required_ci_jobs(root=REPO_ROOT)
@@ -1296,7 +1296,7 @@ class TestEveryDeclaredInterpreterRunsOnBothSystems:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.workflow_checks import missing_matrix_legs
 
         return missing_matrix_legs(matrix, self._classifiers()) - self.EXCEPTION
@@ -1365,7 +1365,7 @@ class TestTheUploadToPyPIIsVerifiedAfterIt:
         import sys
 
         if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))
+            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.workflow_checks import wheel_problem
 
         built = tmp_path / "jnwb-9.9.9-py3-none-any.whl"

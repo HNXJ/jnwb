@@ -28,6 +28,7 @@ import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
+    # needed: the installed-wheel run clears pythonpath
     sys.path.append(str(REPO_ROOT))  # never insert(0): pyproject sets pythonpath = ["."]
 
 from scripts.harness_gate import (  # noqa: E402

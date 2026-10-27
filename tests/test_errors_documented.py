@@ -33,7 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # `append`, never `insert`: the nav reader is shared from the checkout's tests, but the package
 # under test must stay whichever copy is installed first on the path.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from tests._sources import read_sources, unread_by  # noqa: E402
 from tests.test_docs_user_navigation import (  # noqa: E402
@@ -168,7 +168,7 @@ class TestEveryExportIsWrittenAboutSomewhere:
     def test_the_gate_agrees(self):
         import sys
 
-        sys.path.insert(0, str(DOCS.parent / "scripts"))
+        sys.path.insert(0, str(DOCS.parent / "scripts"))  # scripts/ itself: bare-name imports
         from harness_gate import check_public_symbols_documented
 
         assert check_public_symbols_documented(DOCS.parent) == []
@@ -246,7 +246,7 @@ class TestTheGateWouldNoticeAMissingPage:
     def test_docs_containing_only_the_generated_reference_are_rejected(self, tmp_path):
         import sys
 
-        sys.path.insert(0, str(DOCS.parent / "scripts"))
+        sys.path.insert(0, str(DOCS.parent / "scripts"))  # scripts/ itself: bare-name imports
         from harness_gate import check_public_symbols_documented
 
         root = self._root_with_only_the_generated_reference(tmp_path)
@@ -258,7 +258,7 @@ class TestTheGateWouldNoticeAMissingPage:
         """The complement: the gate is not simply always-failing now."""
         import sys
 
-        sys.path.insert(0, str(DOCS.parent / "scripts"))
+        sys.path.insert(0, str(DOCS.parent / "scripts"))  # scripts/ itself: bare-name imports
         from harness_gate import check_public_symbols_documented
 
         root = self._root_with_only_the_generated_reference(tmp_path)
@@ -273,7 +273,7 @@ class TestTheGateWouldNoticeAMissingPage:
         green. The match is whole-word for exactly this reason."""
         import sys
 
-        sys.path.insert(0, str(DOCS.parent / "scripts"))
+        sys.path.insert(0, str(DOCS.parent / "scripts"))  # scripts/ itself: bare-name imports
         from harness_gate import check_public_symbols_documented
 
         shadowed = ["Dataset", "rdm"]
@@ -291,7 +291,7 @@ class TestTheGateWouldNoticeAMissingPage:
     def test_one_missing_symbol_is_reported_by_name(self, tmp_path):
         import sys
 
-        sys.path.insert(0, str(DOCS.parent / "scripts"))
+        sys.path.insert(0, str(DOCS.parent / "scripts"))  # scripts/ itself: bare-name imports
         from harness_gate import check_public_symbols_documented
 
         root = self._root_with_only_the_generated_reference(tmp_path)

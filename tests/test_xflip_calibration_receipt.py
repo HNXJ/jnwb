@@ -27,7 +27,7 @@ from jnwb.laminar import xflip
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 from tests.test_vflip_calibration_receipt import _with_prose_edited  # noqa: E402
 
 RAW = ROOT / "artifacts" / "benchmarks" / "calibration" / "xflip_calibration_0.2.5_raw.json"

@@ -12,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # `scripts` exists only in a checkout; appended, never inserted, so the package under test
 # stays whichever installation the session selected.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.obligation_diff import clauses, compare, main  # noqa: E402
 

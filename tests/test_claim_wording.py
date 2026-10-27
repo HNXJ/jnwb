@@ -24,7 +24,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 # Appended, not prepended: an installed copy must not be shadowed by the source tree.
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.mutation_harness import source_path  # noqa: E402
 from tests._sources import read_sources, unread_by  # noqa: E402

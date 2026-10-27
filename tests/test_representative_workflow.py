@@ -176,7 +176,7 @@ class TestNoOmissionDependency:
             "            raise ImportError('omission/ blocked for this test')\n"
             "        return None\n"
             "sys.meta_path.insert(0, _BlockOmission())\n"
-            f"sys.path.insert(0, {str(REPO_ROOT)!r})\n"
+            f"sys.path.insert(0, {str(REPO_ROOT)!r})\n"  # needed: child process has no pythonpath
             "import numpy as np\n"
             "import pandas as pd\n"
             "import jnwb\n"

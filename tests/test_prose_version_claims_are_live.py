@@ -27,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # `append`, never `insert(0, ...)`: see tests/test_import_profile_receipt.py.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 # (file, the exact sentence, with the live version substituted in); the list is owned by the
 # module `scripts/bump_version.py` also reads, so a bump moves what this test checks.

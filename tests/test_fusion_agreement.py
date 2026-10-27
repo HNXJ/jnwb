@@ -29,7 +29,7 @@ WIN = np.array([600.0, 610.0, 590.0, 605.0])
 A_KW = dict(window_um=WIN, consistency_deep=0.9, consistency_superficial=0.8)
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.calibrate_vflip2_separation import gap_for_seed, run, threshold  # noqa: E402
 

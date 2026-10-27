@@ -36,7 +36,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # this module's whole subject is which copy an interpreter resolves, so the shadow would have
 # been measuring the checkout while claiming to measure the wheel.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.generate_api_md import (  # noqa: E402
     _canonical_type_name,

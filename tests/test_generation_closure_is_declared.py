@@ -34,7 +34,7 @@ import pytest
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # append, never insert(0): the wheel leg must keep resolving the installed copy.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.harness_gate import (  # noqa: E402
     GENERATED_FROM,

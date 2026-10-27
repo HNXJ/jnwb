@@ -14,7 +14,7 @@ import jnwb
 
 # Appended, not prepended: an installed copy must not be shadowed by the source tree.
 if str(Path(__file__).resolve().parents[1]) not in sys.path:
-    sys.path.append(str(Path(__file__).resolve().parents[1]))
+    sys.path.append(str(Path(__file__).resolve().parents[1]))  # needed: wheel run clears pythonpath
 
 from tests._api_surface import MODULE_DISPOSITION, NON_PUBLIC_MODULES  # noqa: E402
 from jnwb._lazy_exports import EXPORT_MODULES, SUBMODULES  # noqa: E402

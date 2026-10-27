@@ -11,7 +11,7 @@ import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.release_gate import _finished_row_history  # noqa: E402
 from tests.test_release_requires_an_empty_open_stack import (  # noqa: E402

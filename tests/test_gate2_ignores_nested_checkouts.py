@@ -25,7 +25,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 # no test module put the checkout ahead of the package under test, so the suite can be run against
 # an installed copy. `scripts/` ships in no wheel, so appending is enough to import the gate.
 if str(REPO_ROOT) not in sys.path:
-    sys.path.append(str(REPO_ROOT))
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 import scripts.harness_gate as harness_gate  # noqa: E402
 from scripts.harness_gate import (  # noqa: E402

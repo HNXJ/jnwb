@@ -41,7 +41,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 # session, which tests/test_the_suite_can_qualify_an_installed_copy.py forbids -- and this module
 # imports `jnwb` above deliberately, so the installed copy must stay the one under test.
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.benchmark_import import (  # noqa: E402
     BREAKDOWN_PATH,
