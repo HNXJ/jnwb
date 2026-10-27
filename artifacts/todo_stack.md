@@ -49,7 +49,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 2 | N numerics and I/O (audit 2026-10-25) | none left: every item landed 2026-10-25 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
 | 2 | P process and docs (audit 2026-10-25) | 17-34, 17-36 and 17-58 landed 2026-10-26 | Haiku writes, Muse reviews | nothing |
 | 3 | H harness | 07-05, 12-06, 12-07, 17-26, 17-27, 17-30, 17-31, 17-32, 17-41, 17-54, 17-55, 12-05 and 17-56 landed 2026-10-26, 11-03 went to the roadmap | Haiku | wave 2 merged |
-| 3 | Freeze | 16-18, last, after every item that edits a listed body (17-19 among them) | integrator | waves 2 and 3 merged |
+| 3 | Freeze | 16-18 landed 2026-10-26: 27 definitions, each mutant re-run by a second reviewer | integrator | waves 2 and 3 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
 
 ## Checklist 0.2.14
@@ -65,7 +65,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 12-07, 11-07, 12-11 and 16-10 landed, 11-03 to roadmap (ruled 2026-10-26); 11-09 to roadmap (ruled 2026-10-25) |
 | 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 15-22 and 16-03 landed |
 | 7 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 07-05, 12-06, 15-20, 12-05 and 09-07 landed 2026-10-26 |
-| 8 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18; 16-19 landed |
+| 8 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 27 definitions (28 counted `fdr_correct` twice); the surface-manifest test passes | 16-18 and 16-19 landed |
 | 9 | Docs pages carry still and interactive figures, after jaxfne's form (ruled 2026-10-24) | the form and the page set follow Hamm's preference rulings; a test builds each figure from committed inputs; the strict docs build passes | 17-01 landed 2026-10-26 |
 | 10 | A validation dashboard after jaxfne's, keeping the proof of work, the HTML outputs and the GLO cards (ruled 2026-10-23 and 2026-10-24) | `tests/test_build_dashboard.py` builds it from committed files with every receipt digest matching; the published page shows each section the preference rulings name, in light and dark | 17-02 landed 2026-10-26 |
 | 11 | Reference claims checked against full text where an abstract decides nothing | each claim cell of `docs/references.md` has a ledger line, confirmed, reworded, or cut; the 14 core texts keep their cells (ruled 2026-10-23, ledger ruled 2026-10-25) | ledger: 93 cells, 60 cut, 6 reworded, 13 confirmed, 14 kept, 0 unrecorded; 17-58 landed 2026-10-26 |
@@ -96,10 +96,3 @@ Before step 8, merge `main` into `dev`, so the release merge's first parent is i
 | 9 | Tag `v0.2.14` at that SHA; push the tag | the TestPyPI and verify jobs pass; PyPI waits on Hamm's approval |
 | 10 | Install 0.2.14 from PyPI in a fresh venv; import; run the quickstart | the installed version reads 0.2.14 |
 | 11 | Move the 0.2.15 roadmap rows here with their full text; 0.2.15 becomes this file's top section | release_gate STEP 0a reads no `deferred-0.2.14` |
-
-### 16-18 The core freeze (goal F1)
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutants.py`.
-- 16-18: Six functions are frozen; goal F1 (ruled 2026-10-21) freezes 22 more: `compute_psd`, `band_power`, `aggregate_to_db`, `to_db`, `relative_power`, `harmonic_analysis`, `wpli`, `imaginary_coherency`, `cross_area_coherence`, `granger`, `granger_causality`, `bipolar_reference`, `laplacian_reference`, `current_source_density_1d`, `voltage_curvature_1d`, `cluster_permutation_test`, `clopper_pearson`, `mann_whitney_p_floor`, `shuffle_r2_ci`, `fdr_correct`, `label_layers`, `bin_spikes`. Each enters `artifacts/process/frozen_validated.json` with its body hash, the commit it was verified at and the tests that kill a planted change to it; a reviewer that did not write the test runs the mutant. Frozen last in the cycle, after 14-06 adds its estimators beside `granger` and after every item that edits a listed body (12-11's `_psd.py` edit among them). `fdr_correct`, `clopper_pearson` and `mann_whitney_p_floor` are also `StatisticalAnalysis` methods: the item freezes the definition the other delegates to, and names it. Check: Gate 19 lists 28 functions, and for each a planted body change fails its named tests.
