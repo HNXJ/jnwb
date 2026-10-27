@@ -143,7 +143,7 @@ def test_every_disposition_is_one_of_the_five():
 
 
 def test_identifier_sets_match():
-    """The acceptance condition of todo stack item 06-03.
+    """The ledger and the review carry the same identifiers.
 
     Deleting one ledger row fails this; so does adding a row for an identifier the review does
     not carry.

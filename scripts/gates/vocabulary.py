@@ -392,9 +392,10 @@ def check_changelog_form(repo_root: Optional[Path] = None) -> List[str]:
 
 
 #: An item or problem identifier from the coordination stacks: `P-29`, `p-29`, `P-C7`,
-#: `P-1000`, `06-55`, `items/06-55`, `0.2.4-04`, and a review finding: `REV-07`,
+#: `P-1000`, `06-55`, `items/06-55`, `item 15-11`, `0.2.4-04`, and a review finding: `REV-07`,
 #: `0.2.3-REV-07`, `EXT-REV-003`. The item form requires a leading zero because two-digit
-#: ranges are ordinary library prose (`14-30 Hz`), and every edge excludes a neighbouring
+#: ranges are ordinary library prose (`14-30 Hz`); a later item counts only after the word
+#: `item` (`item 15-11`, `Item 12-21`). Every edge excludes a neighbouring
 #: word character, dot, slash or hyphen, so a full date (`2026-09-23`), a version (`0.2.6`)
 #: and a DOI fragment (`s41593-020-00744-x`) never match -- except through the `items/`
 #: prefix, which names the stack the identifier comes from. A bare `MM-DD` with a calendar
@@ -402,7 +403,8 @@ def check_changelog_form(repo_root: Optional[Path] = None) -> List[str]:
 #: (`06-55`) cannot be one, so it still matches. A decimal after the match ends it as a number
 #: (`p-0.05`).
 PROCESS_IDENTIFIER = re.compile(
-    r"(?<![\w./\-])(?:[Pp]-C?\d{1,4}|(?:items/)?0\d-\d{2,3}|\d+\.\d+\.\d+-\d{2,3}"
+    r"(?<![\w./\-])(?:[Pp]-C?\d{1,4}|(?:items/)?0\d-\d{2,3}|[Ii]tems?[ \t]+\d{2}-\d{2,3}"
+    r"|\d+\.\d+\.\d+-\d{2,3}"
     r"|(?:\d+\.\d+\.\d+-|[A-Z]{2,}-)?REV-\d{2,3})(?![\w\-]|\.\d)"
 )
 
@@ -553,6 +555,8 @@ PROCESS_ID_DATA_LITERALS: Tuple[Tuple[str, str, str], ...] = (
      "a probe line the identifier pattern must match"),
     ("tests/test_workflow_release_policy.py", "9.9.9-03",
      "a probe that a version with an item suffix is not read as a pinned version"),
+    ("scripts/vflip2_recovery.py", "item 15-11",
+     "the heading it writes into the committed receipt artifacts/evidence/0.2.13/vflip2_recovery.md"),
     ("tests/fixtures/dashboard_data.json", "0.2.4-15",
      "a receipt title copied from the dashboard data the page renders"),
 )

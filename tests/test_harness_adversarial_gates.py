@@ -1305,6 +1305,8 @@ class TestGate14ProcessIdentifiersInLibrary:
             "Recorded under P-1000.",
             "Fixed under p-29.",
             "See items/09-23 for why.",
+            "Recorded under item 15-11.",
+            "Item 12-21: the planted wave.",
         ],
     )
     def test_a_seeded_identifier_fails(self, tmp_path: Path, line: str):
@@ -1319,6 +1321,7 @@ class TestGate14ProcessIdentifiersInLibrary:
             "Measured on 09-23 each year.",
             "Requires jnwb 0.2.6 or later.",
             "The beta band is 14-30 Hz and gamma 50-80 Hz.",
+            "Deep contacts (12-15) are labelled deep.",
             "doi:10.1038/s41593-020-00744-x",
             "The P-value is two-sided.",
             "Significant at p-0.05 after correction.",
