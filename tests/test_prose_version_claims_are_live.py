@@ -103,9 +103,7 @@ EXTERNAL_MENTIONS = {
 # Mentions of a version not yet released: a plan or a removal date. Each is excused only while
 # the live version is below it; once the version reaches it the note is either done, and
 # rewritten as history, or late, and the release is not what the note promised.
-FORWARD_MENTIONS: dict[tuple[str, str], str] = {
-    ("docs/02_paths_addressing_metadata.md", "removed in 0.2.14"): "0.2.14",
-}
+FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
 
 # The same two lists for string literals in `jnwb/`: docstrings, and the messages a warning or
 # an error prints. A mention at or below the live version is history there (a break note, a
