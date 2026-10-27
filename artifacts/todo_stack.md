@@ -186,3 +186,10 @@ Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, `tests/test_build_dashboard.py`.
 - 17-60: Each showcase replication carries one verdict and no numeric paper value, where jaxfne splits the verdict into paper, library and methods. Check: `tests/test_build_dashboard.py` asserts each replication card carries a paper, a library and a methods verdict. Waits: one verdict per replication was ruled for 0.2.14 (2026-10-26); the split needs each replication's receipts read again. Roadmap row 17-57 until 2026-10-27, renumbered because 17-57 names a finished item.
+
+### 17-61 Peak channels resolve through units.electrodes and hardware_channel
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/addressing.py`, `tests/test_addressing.py`.
+- 17-61: `_resolve_electrode_row` (`jnwb/addressing.py:214`) looks `peak_channel_id` up in the first of `channel_id`, `id`, `electrode_id`; nothing reads `units.electrodes` or `electrodes.hardware_channel`. pypeline NWBs now order the electrodes table by probe position and store `peak_channel_id` as a hardware channel (pypeline `docs/JNWB_ALIGNMENT.md`), so a lookup through `id` returns the wrong row when position and hardware order differ. Check: on a file where they differ, area and layer resolve from `units.electrodes` when present, else through `hardware_channel`, asserted in `tests/test_addressing.py`. Waits: deferred from 0.2.14 (ruled 2026-10-27). Fixture from pypeline, unjudged, join only: `D:/_BL_DATA_PIPELINE/_SCRATCH/ja01_fixture/ja01_two_area_units_electrodes.nwb` (35 units on two probes; per pypeline's `peak_vs_position.json`, none has `peak_channel_id` equal to its row).
