@@ -96,3 +96,115 @@ Before step 8, merge `main` into `dev`, so the release merge's first parent is i
 | 9 | Tag `v0.2.14` at that SHA; push the tag | the TestPyPI and verify jobs pass; PyPI waits on Hamm's approval |
 | 10 | Install 0.2.14 from PyPI in a fresh venv; import; run the quickstart | the installed version reads 0.2.14 |
 | 11 | Move the 0.2.15 roadmap rows here with their full text; 0.2.15 becomes this file's top section | release_gate STEP 0a reads no `deferred-0.2.14` |
+
+# 0.2.15
+
+The section opened 2026-10-27 at the 0.2.14 checkpoint, from the roadmap rows deferred to it.
+
+### 15-11 `vflip2` recovers a planted vFLIP2 crossover on Andre Bastos's simulation code (validation)
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: Andre Bastos's simulation code.
+Writes: `scripts/vflip2_recovery.py`, `tests/test_vflip2_recovery.py`, `artifacts/evidence/0.2.13/vflip2_recovery.md`, `artifacts/evidence/0.2.13/vflip2_recovery.json`.
+- 15-11: The generator half landed in 1dbcedbf (`artifacts/evidence/0.2.13/vflip2_recovery.md`: recovery 29 of 100, matched null 24 of 100); the same table has not run on his code. Check: `artifacts/evidence/0.2.13/vflip2_recovery.md` gains a section for his code with the six measures, intervals and `target_met`, under the contract in `artifacts/evidence/0.2.13/vflip2_generator_design.md`. Waits: His simulation code; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-19).
+Accept: the CI tests the design names pass and the evidence file names entropy, counts, intervals and `target_met` for his code. Ruled 2026-10-14 (15-03 split) and 2026-10-15 (15-11 design).
+
+### 16-12 Dashboard real-data cards for `isi_cv` (9,056 units), WaveMAP and the omission results (validation)
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: independent recomputations with committed receipts.
+Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, `tests/test_build_dashboard.py`.
+- 16-12: The dashboard ships with the four committed GLO entries; the others need a receipt computed without calling jnwb: the omission and WaveMAP receipts record jnwb calls (`jnwb_version`, `jnwb_wavemap_commit`), and the `isi_cv` receipt file (branch `claude/site-overview-326890`, commit 9b52c5e7) no longer exists. Check: each number on the page traces to a committed receipt. Waits: Independent recomputations with committed receipts; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-23).
+
+### 11-03 Design facts held
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
+- 11-03: D1-D3, D5-D10 report UNHELD: no scan reads delegation or side-effect categories (D1-D3), `AmbiguousMappingError` and `UndeclaredUnitError` are exported and never raised (D5, D7, D9), and no test holds condition meaning, trial semantics or cache decisions (D6, D8, D10). Check: each of D1-D3 and D5-D10 gets its own scan or refusal with a planted case. Waits: Ruled 2026-10-26: each needs its own scan or refusal with a planted case; D4 and D11 are held.
+Accept: the Design table reports no UNHELD fact.
+
+### 12-21 jnwb recovers a planted delay and a planted direction from a jaxfne field (validation)
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: a broadband jaxfne field with a stated delay or coupling.
+Writes: `tests/test_jaxfne_ground_truth.py`, `tests/data/*`.
+- 12-21: The spectrum half landed (`tests/test_jaxfne_ground_truth.py`: `compute_psd` recovers the planted 10.0 Hz of jaxfne's protocol_c planar field, commit 21c99f96); a single-frequency field has no phase-slope delay and no direction, so delay (`phase_slope_index`) and direction (`granger`) wait for a broadband jaxfne field. Check: a test in `tests/test_jaxfne_ground_truth.py` recovers the planted delay and direction from a broadband jaxfne field; it fails before the repair and passes after. Waits: A broadband jaxfne field with a stated delay or coupling; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-23: the spectrum test closes the item for 0.2.14).
+
+### 16-20 A distance-aware coherence graph
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
+Writes: `jnwb/spectral/_coupling.py`, `jnwb/connectivity/_network.py`, `tests/test_connectivity_pitfalls.py`, `docs/references.md`.
+- 16-20: `cross_area_coherence` and `network_topology` take a coherence matrix as it is, so a graph of nearby contacts or electrodes is dense from field spread alone; Nejat and Hajipour Sardouie 2021 normalize edge weights by distance and compare groups edge by edge (`docs/references.md`, Pitfalls). Check: on a planted field with spread between nearby contacts, the distance-normalized edges differ from the raw coherence edges, asserted in `tests/test_connectivity_pitfalls.py`. Waits: raised during 0.2.14, after its scope was set (goal F3, ruled 2026-10-21).
+
+### 17-03 Declared types on the remaining numeric operations
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/_declarations.py`, `jnwb/connectivity/_granger.py`, `jnwb/connectivity/_network.py`, `jnwb/spectral/_coupling.py`.
+- 17-03: Fact I4 is UNHELD: only the operations whose parameter names show spikes or LFP declare signal types (`jnwb/_declarations.py`); generic-input operations such as `granger_causality`, `directed_network` and `imaginary_coherency` take either class and declare nothing. Check: each generic-input operation declares a per-call class in `jnwb/_declarations.py`, and fact I4 reports HELD. Waits: A per-call class for generic inputs; nothing shipped changes. Split from I1 (ruled 2026-10-24).
+
+### 17-04 The deprecated time windows become required
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/_units.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `artifacts/fact_stack.md`.
+- 17-04: `UnitAnalyzer.psth`/`raster` `window_ms` and `build_time_resolved_matrix`/`compute_population_trajectory` `time_window_ms` warn when omitted and still use (-1000, 2000) ms (`jnwb/_units.py` `omitted_window`); four B3 exceptions rows cite the deprecation. Check: omitting any of the four windows raises instead of warning, and the four rows are gone from the `## B3 exceptions` table of `artifacts/fact_stack.md`. Waits: The 0.2.15 cycle: drop the default and the warning, delete the four rows. Ruled 2026-10-24.
+
+### 17-05 B3's lexicon covers the other choice names
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: a ruling per name group on which defaults a source cites (Hamm).
+Writes: `artifacts/fact_stack.md`, `scripts/build_fact_graph.py`.
+- 17-05: The lexicon holds time windows only (ruled 2026-10-24); defaulted role windows (`response_window`, `response_window_s`, `sink_window_ms`, `exclude_window_ms`, `reward_window_ms`), baselines, bands, bins, segments, null sizes and method names go unchecked. Check: each name group is in the `B3 choice names` constant of `artifacts/fact_stack.md` or excepted in its `## B3 exceptions` table with a source-cited reason. Waits: A ruling per name group on which defaults a source cites; nothing shipped changes.
+
+### 17-06 Required windows become keyword-only
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/spiking.py`, `jnwb/statistics/_firing.py`, `tests/test_api_consistency.py`.
+- 17-06: Six public functions take a required window positionally (`fano_factor`, `network_burst_index`, `spike_count_correlation`, `fire_indicator`, `fires_in_window`, `rate_in_window`); B3 dropped "keyword-only" (ruled 2026-10-25). Check: `tests/test_api_consistency.py` asserts the deprecation path for each of the six positional callers. Waits: A deprecation path for positional callers.
+
+### 17-07 S8 over prose
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: Hamm's rulings on the per-class vocabulary and the skill line.
+Writes: `skills/jnwb-connectivity/SKILL.md`, `jnwb/connectivity/_transfer_entropy.py`, `jnwb/analyzers.py`, `scripts/build_fact_graph.py`.
+- 17-07: S8's check reads figure labels and returned units only (ruled 2026-10-25); a sentence-level vocabulary scan of docs, skills and docstrings hit 49 sentences, about 47 legitimate (zflip's delays, "volume conduction", transfer entropy's `delay=`, negations). Two read as overclaims: `skills/jnwb-connectivity/SKILL.md` calls PSI "the frequency-dependent driver/receiver lag", and the `jnwb/connectivity/_transfer_entropy.py` module docstring calls TE "directed information flow"; `UnitAnalyzer.correlate_areas` (`jnwb/analyzers.py:306`) calls a correlation of band power "inter-area synchrony" (audit 2026-10-25). Check: a ruled per-class vocabulary and a reviewed exceptions table decide each sentence the scan hits, and the two overclaims are reworded or cut. Waits: A ruled per-class vocabulary and a reviewed exceptions table; the skill line needs an amendment ruling.
+
+### 17-08 I3 beyond named units
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/build_fact_graph.py`, `artifacts/fact_stack.md`.
+- 17-08: I3's check reads unit- and base-suffixed names across call edges (ruled 2026-10-25); a coordinate frame, a sample rate (`fs` carries no suffix) or an index base a name does not spell can still change at a boundary unseen. Check: the I3 rule in `scripts/build_fact_graph.py` reports a planted boundary call that changes a frame, a rate or an index base the name does not spell. Waits: A representation of frames, rates and bases a scan can read.
+
+### 17-24 Non-finite inputs fail loudly
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/build_fact_graph.py`, `jnwb/**/*.py`.
+- 17-24: S9's holder reads swallowed handlers only (ruled 2026-10-25); NaN or inf passed to a public numeric function can still return a number without a refusal or warning, as seven functions did in the 2026-10-25 audit (items 17-10, 17-13, 17-21, 17-23, 17-50, 17-51). Check: the S9 holder in `scripts/build_fact_graph.py` feeds NaN and inf to each public numeric function and asserts a refusal or a warning. Waits: A computed holder that feeds NaN and inf to each public numeric function and requires a refusal or a warning. Ruled 2026-10-25.
+
+### 11-09 Planned skills
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
+- 11-09: The fact gate can report a planned skill for which K1 or K5 does not hold; K5 (a skill only for a coherent capability surface no existing skill handles more simply) has no mechanical predicate, and the planned set is prose only. Check: the fact gate reports a planned skill only when K1 and K5 hold for it. Waits: No planned skill ships in 0.2.14 and nothing public claims one; K5 is held by review until a predicate exists. Ruled 2026-10-25.
+Accept: K5 reports HELD; no UNHELD fact names a 0.2.15 item.
+
+### 17-59 Frozen bodies kill every planted change
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutants.py`.
+- 17-59: Planted changes that survive the tests the core freeze names (measured 2026-10-26): `shuffle_r2_ci` with its CI upper percentile 97.5 -> 95 or its p-value +1; `cluster_permutation_test` with its t standard error x2 or the max-mass statistic; the GPU branch of `cross_area_coherence` on a CPU-only machine. Check: each planted change in that list fails a test in `tests/test_frozen_core_mutants.py`. Waits: Each frozen body has a test that kills a planted change, so the freeze holds; the survivors are behaviours no test pins, and no released number is shown wrong.
+
+### 17-60 Paper, library and methods verdicts on the dashboard
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, `tests/test_build_dashboard.py`.
+- 17-60: Each showcase replication carries one verdict and no numeric paper value, where jaxfne splits the verdict into paper, library and methods. Check: `tests/test_build_dashboard.py` asserts each replication card carries a paper, a library and a methods verdict. Waits: one verdict per replication was ruled for 0.2.14 (2026-10-26); the split needs each replication's receipts read again. Roadmap row 17-57 until 2026-10-27, renumbered because 17-57 names a finished item.
