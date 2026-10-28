@@ -25,10 +25,8 @@ design or a scan across `jnwb/`.
 
 | Wave | Lane | Items, in order | Speed | Needs first |
 |---|---|---|---|---|
-| 1 | K thin artifacts | 18-01 | S | nothing (artifacts only) |
 | 1 | A paths | 17-69, 17-67 | S, S | signatures ruled |
-| 1 | B release gate | 17-62 | S | nothing |
-| 1 | C windows | 17-04, 17-06, 17-65 | S, S, M | 17-65's signature ruled |
+| 1 | C windows | 17-04, 17-06, 17-65 | M, M, M | rulings: the `psth` parameter order once `window_ms` is required; how 17-06 warns on a positional window without a default the B3 check refuses; whether the skill and docs lines that call without a window change in the same item; 17-65's signature |
 | 2 | D streams | 17-63, 17-64 | M, M | signatures ruled |
 | 2 | E events | 17-66 | M | signature ruled |
 | 2 | F units | 17-61, 17-68 | M, M | 17-68's signature ruled |
@@ -37,13 +35,6 @@ design or a scan across `jnwb/`.
 | 3 | I fact graph | 17-08, 11-03, 11-09 | L, L, L | nothing |
 | 4 | J non-finite | 17-24 | L | waves 1 to 3 merged (writes across `jnwb/`) |
 | - | Held | 17-05, 17-07 | - | Hamm's rulings |
-
-### 18-01 Closed cycles leave artifacts/
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `artifacts/archive/**`, `artifacts/evidence/0.2.6/**` to `artifacts/evidence/0.2.12/**`, `artifacts/roadmap.md`, `.gitignore`.
-- 18-01: `artifacts/` tracks 184 files; 124 have no reader in `scripts/`, `tests/`, `jnwb/` or `.github/`, among them 19 files under `artifacts/archive/` (about 450 KB, mostly old todo stacks) and 48 closed-cycle evidence files of 0.2.6 to 0.2.12 (inventory 2026-10-27). AGENTS.md section 0 keeps a closed cycle only while a file reads or cites it. Check: each deleted file has no code reader and no citation outside the deleted set; a live citation is rewritten to `git show <sha>:<path>`; `python scripts/harness_gate.py` passes 22 of 22 and the tests that read `artifacts/` pass. Waits: nothing; rulings, receipts and evidence that code reads stay.
 
 ### 17-69 resolve_nwb_path refuses a missing file
 
@@ -58,13 +49,6 @@ Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/paths.py`, `tests/test_paths.py`.
 - 17-67: `jnwb.paths.sha256_file` hashes a whole file, which is slow on large NWBs and changes when an unread group changes; a receipt cannot cheaply say its inputs are unchanged (omission JNWB-026). Check: a function hashes the named HDF5 groups of an NWB; changing a dataset in a named group changes the hash and changing one outside does not. Waits: requested 2026-10-27.
-
-### 17-62 The release gate installs the wheel with PYTHONPATH stripped
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/release_gate.py`, `tests/test_release_gate_receipt_history.py`.
-- 17-62: STEP 6 and STEP 8 run `pip install` in the isolated venv with the caller's environment (`scripts/release_gate.py:2100`, `:2101`, `:2131`); STEP 7 strips `PYTHONPATH`. With `PYTHONPATH` on the checkout, pip takes the checkout's `jnwb.egg-info` as jnwb installed and skips the wheel, `pip check` passes, and STEP 7 fails on `import jnwb` (2026-10-27, run at 39d6474f). Check: every subprocess the gate runs in the isolated venv gets the environment with `PYTHONPATH` removed, and STEP 6 refuses when `jnwb` is absent from the venv's site-packages after the install, asserted with `PYTHONPATH` set on the checkout. Waits: the 0.2.14 gate passed when run as `python -m scripts.release_gate` with `PYTHONPATH` unset.
 
 ### 17-04 The deprecated time windows become required
 
