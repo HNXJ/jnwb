@@ -240,7 +240,7 @@ Writes: `jnwb/paths.py`, `tests/test_paths.py`.
 
 Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: 17-61.
-Writes: `jnwb/metadata.py`, `tests/test_metadata.py`, `docs/api.md`.
+Writes: `jnwb/metadata.py`, `tests/test_metadata.py`.
 - 17-68: Every consumer rebuilds the per-unit join of identity, probe, peak channel, area, layer and waveform features (omission JNWB-027). Check: `units_table(nwb)` returns one row per unit in unit order with a column dictionary (definition, source, units), and on the 17-61 fixture area comes through `units.electrodes`. Waits: requested 2026-10-27; area resolution waits on 17-61.
 
 ### 17-69 resolve_nwb_path refuses a missing file
