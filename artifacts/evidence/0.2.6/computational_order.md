@@ -16,11 +16,11 @@ more than one input dimension and the orders differ between them.
 
 | Category | Exports | Evidence |
 |---|---|---|
-| `jnwb.__all__` | 230 | runtime probe with a provenance assertion |
-| Cost grows with input size -- measured | 149 | 242 sweeps, 242 completed |
+| `jnwb.__all__` | 231 | runtime probe with a provenance assertion |
+| Cost grows with input size -- measured | 150 | 243 sweeps, 243 completed |
 | Cost does not grow with input size -- excluded | 71 | section 7, one reason each |
 | Cost grows, input not buildable from this repository | 10 | section 8 |
-| **Total** | **230** | partition checked exact against a live `jnwb.__all__` |
+| **Total** | **231** | partition checked exact against a live `jnwb.__all__` |
 
 The three categories are disjoint and their union is `jnwb.__all__`; no export is in two,
 and none is in none. `classification: observed`.
@@ -317,6 +317,7 @@ contradicts a written claim it appears in section 6.
 | `get_snr_analysis[n_units]` | n_units | 10000, 30000, 100000, 300000, 1000000 | 1.46, 2.61, 5.59, 16.1, 64.1 | +0.82 | 0.974 | 44x | O(n) | T(m) | derived | agree |
 | `unit_census_report[n_groups]` | n_groups | 50, 500, 5000, 20000, 50000 | 15.4, 15.2, 14.9, 17.1, 19.0 | +0.03 | 0.515 | 1x | O(1) (NOT SEPARATED, POOR FIT) | T(g) | derived | agree |
 | `unit_census_report[n_units]` | n_units | 1000, 3000, 10000, 30000, 100000 | 9.86, 8.43, 11.2, 17.1, 40.7 | +0.31 | 0.792 | 4x | sub-linear (POOR FIT) | T(m + g) | derived | agree |
+| `units_table[n_units]` | n_units | 1000, 4000, 16000, 64000 | 62.68, 78.34, 149.6, 224.1 | +0.32 | 0.970 | 4x | sub-linear | T(u), electrodes fixed at 64 | derived | CONSTANT |
 
 ### `jnwb.nwb_events`
 

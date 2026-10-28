@@ -281,6 +281,83 @@ def get_all_units_metadata(
     return result
 
 
+def units_table(nwb: NWBFile) -> Tuple[pd.DataFrame, Dict[str, Dict[str, str]]]:
+    """
+    One row per unit of an open NWB file: identity, probe, peak channel, area, depth class and
+    the waveform features the units table carries.
+
+    The join is :func:`jnwb.addressing.enrich_units_dataframe`'s. A unit's electrode is the one
+    its ``electrodes`` region names, else the one its peak channel names, and the area and depth
+    class are read from that electrode.
+
+    Args:
+        nwb: an open :class:`pynwb.NWBFile` with a units table. The electrodes table is optional:
+            without one, ``area`` and ``group_name`` are None and ``depth_class`` is 'Unknown'.
+
+    Returns:
+        ``(units, columns)``. ``units`` has one row per unit, in the units table's order. Its
+        columns are ``unit_id``, ``group_name`` (the probe), ``peak_channel_id``, ``area``,
+        ``depth_class`` and each ``waveform_*`` column of the units table. ``columns`` maps each
+        column of ``units`` to ``{"definition", "source", "units"}``; its keys are the columns of
+        ``units``. ``units`` is ``""`` for a dimensionless or categorical column.
+
+    Raises:
+        ValueError: the file has no units table. A missing table is not an empty cohort.
+
+    Example:
+        >>> units, columns = units_table(nwb)
+        >>> units.groupby("area").size()
+    """
+    from jnwb.addressing import enrich_units_dataframe
+
+    if nwb.units is None:
+        raise ValueError("units_table: the file has no units table")
+    raw = nwb.units.to_dataframe().copy()
+    elec_df = nwb.electrodes.to_dataframe().copy() if nwb.electrodes is not None else None
+    joined = enrich_units_dataframe(raw, elec_df)
+    if "peak_channel_id" not in joined.columns:
+        joined["peak_channel_id"] = None
+    described = {column.name: column.description for column in nwb.units.columns}
+
+    columns: Dict[str, Dict[str, str]] = {
+        "unit_id": {
+            "definition": "unit identifier",
+            "source": "units table, via enrich_units_dataframe (cluster_id renamed; index when no column)",
+            "units": "",
+        },
+        "group_name": {
+            "definition": "name of the probe that holds the unit's electrode; None when unresolved",
+            "source": "electrodes table group column, via enrich_units_dataframe",
+            "units": "",
+        },
+        "peak_channel_id": {
+            "definition": "peak channel of the unit; None when the units table has no such column",
+            "source": "units table column peak_channel_id",
+            "units": "",
+        },
+        "area": {
+            "definition": "brain area of the unit's electrode; None when unresolved",
+            "source": "electrodes location, via enrich_units_dataframe (units.electrodes region, else peak channel)",
+            "units": "",
+        },
+        "depth_class": {
+            "definition": "geometric depth class 'Deep', 'Superficial' or 'Unknown' from electrode z; "
+                          "a threshold on depth, not a cortical layer",
+            "source": "electrodes z and declared depth unit, via enrich_units_dataframe; "
+                      "'Unknown' unless a depth unit is declared",
+            "units": "",
+        },
+    }
+    for name in nwb.units.colnames:
+        if name.startswith("waveform_"):
+            columns[name] = {
+                "definition": described[name],
+                "source": f"units table column '{name}' (no unit is declared for it)",
+                "units": "",
+            }
+    return joined[list(columns)].copy(), columns
+
+
 def filter_by_criteria(
     df: pd.DataFrame,
     criteria: Dict,

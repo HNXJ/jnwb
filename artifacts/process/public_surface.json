@@ -210,6 +210,7 @@
     "trial_correlation_matrix",
     "unit_census_report",
     "unit_spike_times",
+    "units_table",
     "validate_nwb",
     "verify_nwb",
     "vflip",

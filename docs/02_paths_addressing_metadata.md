@@ -178,6 +178,20 @@ census = jnwb.unit_census_report(classified_units, group_by=["area"])
 print(census)
 ```
 
+### Per-Unit Join of One File (`units_table`)
+
+```python
+# One row per unit, in the units table's order: unit_id, group_name (probe), peak_channel_id,
+# area, depth_class and each waveform_* column the units table carries.
+units, columns = jnwb.units_table(nwb)
+
+# columns maps each column to {"definition", "source", "units"}; its keys are units.columns.
+print(columns["area"]["source"])
+```
+
+A unit's area comes from the electrode its `electrodes` region names, else from its peak channel.
+Without an electrodes table, `area` is None on every row. A file with no units table raises `ValueError`.
+
 ### SNR Analysis, Quality Tiers & Inventory
 
 ```python

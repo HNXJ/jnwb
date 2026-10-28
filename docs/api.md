@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 230 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 231 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -174,6 +174,7 @@ All 230 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.get_all_units_metadata | function | `(nwb_paths: str | pathlib.Path | pynwb.file.NWBFile | List[str | pathlib.Path | pynwb.file.NWBFile], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip', *, stable_threshold: float = 1.0, stable_labels: Collection[str] = ('good', 'sua', 'single', 'stable', 'clean'), allow_missing: Sequence[str] | str | None = None) -> pandas.DataFrame`<br>*Extract all units and metadata from one or more NWB files.* |
 | jnwb.get_snr_analysis | function | `(units_df: pandas.DataFrame, snr_threshold: float = 1.0, detail: bool = False) -> Dict`<br>*Analyze SNR distribution and quality.* |
 | jnwb.unit_census_report | function | `(units_df: pandas.DataFrame, group_by: List[str] | None = None) -> pandas.DataFrame`<br>*Generate a census/summary report of units grouped by session, area and depth class.* |
+| jnwb.units_table | function | `(nwb: pynwb.file.NWBFile) -> Tuple[pandas.DataFrame, Dict[str, Dict[str, str]]]`<br>*One row per unit of an open NWB file: identity, probe, peak channel, area, depth class and the waveform features the units table carries.* |
 
 ## Module: jnwb.nwb_events
 

@@ -340,6 +340,37 @@ def _edges_near(n_events: int, _tmp: Path) -> Callable[[], object]:
     return call
 
 
+def _units_table(n_units: int, _tmp: Path) -> Callable[[], object]:
+    """64 contacts on two single-area probes of 32, hardware_channel equal to position; each
+    unit's peak channel drawn uniformly from those 64, no electrodes region."""
+    import jnwb
+    import pynwb
+    from datetime import datetime, timezone
+
+    nwb = pynwb.NWBFile(session_description="units table", identifier="UNITS_TABLE",
+                        session_start_time=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    nwb.add_electrode_column("hardware_channel", "hardware channel of the contact")
+    nwb.add_electrode_column("group_name", "probe name")
+    device = nwb.create_device(name="device")
+    groups = [nwb.create_electrode_group(name=f"probe_{k}", description=f"probe {k}",
+                                         location=f"V{k + 1}", device=device) for k in range(2)]
+    for pos in range(64):
+        group = groups[pos // 32]
+        nwb.add_electrode(location=group.location, group=group, group_name=group.name,
+                          x=0.0, y=0.0, z=float(pos % 32) * 10.0, hardware_channel=pos)
+    peaks = np.random.default_rng(0).integers(0, 64, n_units)
+    nwb.add_unit_column("peak_channel_id", "peak channel")
+    nwb.add_unit_column("waveform_duration", "trough-to-peak duration")
+    for peak in peaks:
+        nwb.add_unit(spike_times=[0.1], peak_channel_id=float(peak), waveform_duration=0.3)
+
+    def call() -> object:
+        return jnwb.units_table(nwb)[0]
+
+    assert call()["area"].notna().all(), "fixture must resolve every unit's area"
+    return call
+
+
 def _cutoff(n: int, _tmp: Path) -> Callable[[], object]:
     from jnwb import unit_quality as uq
 
@@ -478,6 +509,12 @@ SPECS: Dict[str, Spec] = {
         "10 s square wave at 1000 Hz, flip every 10 ms, in-memory NWBFile; threshold=0.5, "
         "window_s=(0.05, 0.05) s; admissible T(E*W)",
         _edges_near,
+    ),
+    "units_table[n_units]": Spec(
+        "n_units", (1_000, 4_000, 16_000, 64_000),
+        "64 contacts on two single-area probes of 32, hardware_channel = position; peak channel "
+        "uniform over the 64, no electrodes region; in-memory NWBFile; admissible T(u)",
+        _units_table,
     ),
     "effective_sample_size[n_samples]": Spec(
         "n_samples", (10_000, 100_000, 1_000_000, 4_000_000),

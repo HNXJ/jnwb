@@ -454,6 +454,7 @@ __all__ = [
     'audit_units',
     'audit_electrodes',
     'assign_quality_tier',
+    'units_table',
 
     # Unit quality measures
     'waveform_features',

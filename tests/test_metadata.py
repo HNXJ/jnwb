@@ -1288,3 +1288,101 @@ class TestOldNewSummaryTable:
             "the fixture must hold two units with a missing class"
         summary = old_new_summary_table(compared)
         assert summary["n_units"].sum() == len(compared)
+
+
+class TestUnitsTable:
+    """``units_table``: the per-unit join, one row per unit, with a column dictionary."""
+
+    WAVEFORM_DESCRIPTION = "trough-to-peak duration, as the file states it"
+
+    @classmethod
+    def _file_with_regions(cls):
+        """Four contacts on two single-area probes, and three units whose peak channel names the
+        contact of the other area, so only the unit's own region gives the right area."""
+        from datetime import datetime, timezone
+
+        import pynwb
+
+        nwb = pynwb.NWBFile(session_description="units", identifier="units-1",
+                            session_start_time=datetime.now(timezone.utc))
+        nwb.add_electrode_column("hardware_channel", "hardware channel of the contact")
+        nwb.add_electrode_column("group_name", "probe name")
+        device = nwb.create_device(name="device")
+        groups = {area: nwb.create_electrode_group(name=f"probe_{area}", description=area,
+                                                   location=area, device=device)
+                  for area in ("V1", "V2")}
+        for area, hardware in zip(["V1", "V1", "V2", "V2"], [10, 11, 12, 13]):
+            group = groups[area]
+            nwb.add_electrode(location=area, group=group, group_name=group.name,
+                              x=0.0, y=0.0, z=float(hardware), hardware_channel=hardware)
+        nwb.add_unit_column("peak_channel_id", "peak channel")
+        nwb.add_unit_column("waveform_duration", cls.WAVEFORM_DESCRIPTION)
+        for region, peak, width in (([2], 10, 0.3), ([0], 12, 0.4), ([3], 11, 0.5)):
+            nwb.add_unit(spike_times=[0.1], electrodes=region, peak_channel_id=peak,
+                         waveform_duration=width)
+        return nwb
+
+    def test_one_row_per_unit_in_unit_order_with_area_from_the_units_electrodes(self):
+        from jnwb.addressing import map_peak_channel_to_area
+        from jnwb.metadata import units_table
+
+        nwb = self._file_with_regions()
+        expected_area = ["V2", "V1", "V2"]
+        peaks = [10, 12, 11]
+        # Fixture check: the peak channel alone names the other area for every unit.
+        electrodes_df = nwb.electrodes.to_dataframe()
+        peak_areas = [map_peak_channel_to_area(peak, electrodes_df) for peak in peaks]
+        assert all(got != want for got, want in zip(peak_areas, expected_area))
+
+        units, columns = units_table(nwb)
+        assert list(units["unit_id"]) == [0, 1, 2]
+        assert list(units["area"]) == expected_area
+        assert list(units["group_name"]) == ["probe_V2", "probe_V1", "probe_V2"]
+        assert list(units["peak_channel_id"]) == peaks
+        assert list(units["depth_class"]) == ["Unknown"] * 3
+        assert list(units["waveform_duration"]) == [0.3, 0.4, 0.5]
+
+        assert set(columns) == set(units.columns)
+        for entry in columns.values():
+            assert set(entry) == {"definition", "source", "units"}
+            assert all(isinstance(entry[key], str) for key in entry)
+        assert columns["waveform_duration"]["definition"] == self.WAVEFORM_DESCRIPTION
+        assert columns["area"]["units"] == ""
+
+    def test_a_file_with_no_electrodes_table_has_an_all_missing_area_and_is_not_an_error(self):
+        from datetime import datetime, timezone
+
+        import pynwb
+
+        from jnwb.metadata import units_table
+
+        nwb = pynwb.NWBFile(session_description="units", identifier="units-2",
+                            session_start_time=datetime.now(timezone.utc))
+        nwb.add_unit_column("peak_channel_id", "peak channel")
+        nwb.add_unit(spike_times=[0.1], peak_channel_id=4.0)
+        nwb.add_unit(spike_times=[0.2], peak_channel_id=5.0)
+        assert nwb.electrodes is None, "the fixture must have no electrodes table"
+
+        units, columns = units_table(nwb)
+        assert len(units) == 2
+        assert "area" in units.columns
+        assert units["area"].isna().all()
+        assert set(columns) == set(units.columns)
+
+    def test_a_file_with_no_units_table_is_refused_not_read_as_an_empty_cohort(self):
+        from datetime import datetime, timezone
+
+        import pynwb
+
+        from jnwb.metadata import units_table
+
+        nwb = pynwb.NWBFile(session_description="units", identifier="units-3",
+                            session_start_time=datetime.now(timezone.utc))
+        assert nwb.units is None, "the fixture must have no units table"
+        with pytest.raises(ValueError, match="no units table"):
+            units_table(nwb)
+
+    def test_exported_from_the_top_level_package(self):
+        from jnwb.metadata import units_table
+
+        assert jnwb.units_table is units_table
