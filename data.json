@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "a7612a87ec4dcd12ee5c8655846b0006be180fa1",
-    "date": "2026-10-28T13:56:23Z"
+    "commit": "7c7011ece5b883c3ca1197f0dd4da14b131aa458",
+    "date": "2026-10-28T15:43:55Z"
   },
   "sources": {
     "generated": [
@@ -1611,7 +1611,7 @@
     ]
   },
   "api": {
-    "total": 226,
+    "total": 230,
     "groups": [
       {
         "module": "jnwb",
@@ -1643,6 +1643,7 @@
           "ContainerTypeContradictionWarning",
           "events",
           "event_onsets",
+          "edges_near_events",
           "EventTable",
           "resolve_interval_table",
           "NWBEventError",
@@ -1662,6 +1663,9 @@
           "epoch_continuous",
           "TickClock",
           "derive_tick_clock",
+          "EffectiveRate",
+          "effective_rate",
+          "gaze_departure_onsets",
           "map_peak_channel_to_area",
           "classify_layer_from_depth",
           "enrich_units_dataframe",
@@ -2916,6 +2920,18 @@
       "module": "jnwb.continuous"
     },
     {
+      "export": "effective_rate[n_samples]",
+      "order": "O(n)",
+      "evidence": "n_samples: exponent +1.01, admissible T(n)",
+      "module": "jnwb.continuous"
+    },
+    {
+      "export": "gaze_departure_onsets[n_samples]",
+      "order": "O(n)",
+      "evidence": "n_samples: exponent +0.94, admissible T(n)",
+      "module": "jnwb.continuous"
+    },
+    {
       "export": "assign_outer_folds[n_strata]",
       "order": "O(n)",
       "evidence": "n_strata: exponent +0.86, admissible T(1) in S with n fixed",
@@ -3274,6 +3290,12 @@
       "order": "sub-linear (POOR FIT)",
       "evidence": "n_units: exponent +0.31, admissible T(m + g)",
       "module": "jnwb.metadata"
+    },
+    {
+      "export": "edges_near_events[n_events]",
+      "order": "O(n)",
+      "evidence": "n_events: exponent +0.79, admissible T(E*W)",
+      "module": "jnwb.nwb_events"
     },
     {
       "export": "event_onsets",
