@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "7c7011ece5b883c3ca1197f0dd4da14b131aa458",
-    "date": "2026-10-28T15:43:55Z"
+    "commit": "4ab4bec858fe492510b6b9b60f205e59e7c4f1a3",
+    "date": "2026-10-28T16:37:43Z"
   },
   "sources": {
     "generated": [
@@ -1611,7 +1611,7 @@
     ]
   },
   "api": {
-    "total": 230,
+    "total": 231,
     "groups": [
       {
         "module": "jnwb",
@@ -1860,7 +1860,8 @@
           "filter_by_criteria",
           "audit_units",
           "audit_electrodes",
-          "assign_quality_tier"
+          "assign_quality_tier",
+          "units_table"
         ]
       },
       {
@@ -3289,6 +3290,12 @@
       "export": "unit_census_report[n_units]",
       "order": "sub-linear (POOR FIT)",
       "evidence": "n_units: exponent +0.31, admissible T(m + g)",
+      "module": "jnwb.metadata"
+    },
+    {
+      "export": "units_table[n_units]",
+      "order": "sub-linear",
+      "evidence": "n_units: exponent +0.32, admissible T(u), electrodes fixed at 64",
       "module": "jnwb.metadata"
     },
     {
