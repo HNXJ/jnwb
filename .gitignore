@@ -26,8 +26,6 @@ omission/
 data/
 outputs/
 output/
-# The 10-06 evidence outputs are tracked receipts, not generated output.
-!artifacts/evidence/0.2.10/10-06/output/
 reports/
 checkpoints/
 scratch/
@@ -86,10 +84,6 @@ gallery_src/
 !artifacts/evidence/0.2.13/compress_scaling.json
 !artifacts/evidence/0.2.13/vflip2_nuisance.json
 !artifacts/evidence/0.2.13/xflip_nuisance.json
-!artifacts/evidence/0.2.6/verify_nwb_order.json
-!artifacts/evidence/0.2.6/write_nwb_order.json
-!artifacts/evidence/0.2.6/transform_nwb_order.json
-!artifacts/evidence/0.2.6/repair_nwb_order.json
 # The dashboard's template and data contract; its built data.json stays out.
 !scripts/dashboard/index.html
 !scripts/dashboard/data.schema.json

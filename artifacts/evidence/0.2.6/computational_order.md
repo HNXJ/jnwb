@@ -351,7 +351,7 @@ to 1024000. `n` samples in the file. `write_nwb` exports the object to a tempora
 (`_export_tmp`), checks the schema (`_schema_issues`), moves it to `dst` and hashes it
 (`_sha256`), so the linear term above the flat base of about 0.5 s is expected. The default
 post-write `verify_nwb` check is off here; its row covers that path. The receipt is
-`artifacts/evidence/0.2.6/write_nwb_order.json`.
+`git show b6388414:artifacts/evidence/0.2.6/write_nwb_order.json`.
 
 Added 2026-10-23 with `transform_nwb` and `repair_nwb`, counted in section 1. Measured with
 the same harness, repeats and ladder. Held fixed: 10 channels, `n_events_per_table=10`,
@@ -363,8 +363,8 @@ expected. `repair_nwb` was timed on the synth file with a length-1 array `descri
 attribute planted on `acquisition/probe_0_lfp` and `repairs=['squeeze_scalar_attributes']`:
 the same full copy with one attribute rewrite. The default post-write `verify_nwb` check is
 off in both rows; its row covers that path. The receipts are
-`artifacts/evidence/0.2.6/transform_nwb_order.json` and
-`artifacts/evidence/0.2.6/repair_nwb_order.json`.
+`git show b6388414:artifacts/evidence/0.2.6/transform_nwb_order.json` and
+`git show b6388414:artifacts/evidence/0.2.6/repair_nwb_order.json`.
 
 | spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
 |---|---|---|---|---|---|---|---|---|---|---|

@@ -26,7 +26,7 @@ commit stands for the work it merged.
 |---|---|---|---|---|
 | 07-26 | (item) | dissolved | container dissolved; each bullet mapped below | its bullets, below |
 | 07-26 | P-01 | carried | 09-03 (0.2.9) | live: 09-03 |
-| 07-26 | P-08 | dropped | record counts in two review findings; P-63's count is restated with its method in `artifacts/evidence/0.2.7/package_inventory.md` | stated drop |
+| 07-26 | P-08 | dropped | record counts in two review findings; P-63's count is restated with its method in `git show b6388414:artifacts/evidence/0.2.7/package_inventory.md` | stated drop |
 | 07-26 | P-20 | carried | 09-02 (0.2.9) | live: 09-02 |
 | 07-26 | P-36 | carried | 08-01 (0.2.8) | live: 08-07, moved in `3e479dcd` |
 | 07-26 | P-76 | carried | 08-04 (0.2.8) | finished in `531c28f5` |

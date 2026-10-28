@@ -2,7 +2,7 @@
 
 Opened 2026-10-05, after 0.2.9 was published. Items are deleted when done, never ticked; git,
 `CHANGELOG.md` and the receipts hold history. The previous cycle's record is
-`artifacts/archive/0.2.9/todo_stack_0.2.9.md`, with its closure receipt beside it; its 0.2.9
+`git show b6388414:artifacts/archive/0.2.9/todo_stack_0.2.9.md`, with its closure receipt beside it; its 0.2.9
 section held only the two release-step items at the release, and every later section moves here
 unchanged.
 
@@ -227,7 +227,7 @@ Stop: the parser changes gate 15's or 17's verdict on any fixture.
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: 12-09.
 Writes: `scripts/harness_gate.py`, `scripts/gates/**`, `tests/test_harness_adversarial_gates.py`, `tests/test_every_gate_runs.py`, `tests/test_gate*.py`, `tests/test_gates_reject_the_trees_they_passed.py`.
-Plan: `artifacts/evidence/0.2.8/plan/restructure_plan.md` (a), scripts row.
+Plan: `git show b6388414:artifacts/evidence/0.2.8/plan/restructure_plan.md` (a), scripts row.
 - P-218: gate 2 excuses a counterfeit at a stale worktree registration. Check: gate 2 requires the admin `gitdir` to point back, and a planted stale registration fails. Waits: needs a counterfeit.
 - P-219: gate 2's PASS message is narrower than its check. Check: the message names every condition checked. Waits: no verdict changes.
 - P-235: the stated-gate-count test misses `skills/`, `docs/`, number words and ranges. Check: a planted wrong count in each of the four is reported. Waits: the live count is correct.
@@ -281,7 +281,7 @@ Stop: a hardening would refuse the current workflow.
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: 12-01.
 Writes: `artifacts/evidence/0.2.12/process_tests/**`, `tests/test_findings_ledger.py`, `tests/test_single_agent_instruction_file.py`, `tests/test_standing_rules_name_no_cycle.py`, `tests/test_agents_md_stays_a_router.py`, `scripts/measure_agents_md_duplication.py`, `tests/test_release_recovery_gates.py`, `tests/test_jrsa.py`, `tests/test_api_md_is_interpreter_independent.py`, `tests/test_workflow_release_policy.py`, `tests/test_state_reconstruction.py`, `tests/test_state_basis_is_checked.py`, `tests/test_xflip_calibration_receipt.py`, `tests/test_vflip_calibration_receipt.py`, `tests/test_test_imports_survive_the_wheel_leg.py`, `tests/test_the_suite_can_qualify_an_installed_copy.py`, `tests/test_errors_documented.py`, `tests/test_readme_smoke.py`, `scripts/reconstruct_state.py`.
-Ruled 2026-09-29 (D12): the list is accepted, run after the gates split. The files are the ruled list, resolved against `artifacts/evidence/0.2.7/process_test_audit.md`.
+Ruled 2026-09-29 (D12): the list is accepted, run after the gates split. The files are the ruled list, resolved against `git show b6388414:artifacts/evidence/0.2.7/process_test_audit.md`.
 - Process tests to prune or merge: 4 files to prune, 4 to merge, and four weaker checks a stronger test covers (the ruled list in this item's Writes). Check: each pruned case is shown held by a stronger test first, named in the audit. Waits: keeping tests cannot make evidence falsely pass.
 - P-290: the ruled test taxonomy ("Testing rule", `CONTRIBUTING.md:191`) is enforced by nothing. Check: each kept process test is named under one probe class in the prune record; a taxonomy change goes to 12-06, which owns `CONTRIBUTING.md`. Waits: contributor rule only; nothing ships.
 - Apparatus bound: `artifacts/goal.md` section 10 has no check. Check: `scripts/reconstruct_state.py` records the line counts of `scripts/` and the process tests, so growth is visible per release; a refusal is a new item's to add if Hamm asks. Waits: goal states it is unchecked; growth only.
@@ -475,7 +475,7 @@ Every item here carries `deferred-0.2.11`, as in 0.2.11.
 | Lane | Items, in order | Owns |
 |---|---|---|
 | A figures and tutorials | 14-01, 14-02, 14-03, 14-04, 14-05 | `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/03_representational_similarity_jrsa.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/common_mistakes.md`, `docs/tutorials/*.md`, `examples/tutorials/09_open_data.py`, `tests/test_synthetic_figures_are_labelled.py` |
-| B estimators and screens | 11-04, 14-06, 13-04, 14-08 | `artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`, `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/connectivity/**`, `jnwb/unit_quality.py`, their tests, `docs/references.md`, `docs/09_decoding_and_visual_qc.md`, `examples/notebooks/unit_quality.ipynb`; `docs/08_directed_connectivity_and_information.md` and `docs/common_mistakes.md` once 14-03 has landed |
+| B estimators and screens | 11-04, 14-06, 13-04, 14-08 | `git show b6388414:artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`, `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/connectivity/**`, `jnwb/unit_quality.py`, their tests, `docs/references.md`, `docs/09_decoding_and_visual_qc.md`, `examples/notebooks/unit_quality.ipynb`; `docs/08_directed_connectivity_and_information.md` and `docs/common_mistakes.md` once 14-03 has landed |
 | T trial correlation | 14-07 | `jnwb/spiking.py`, `tests/test_spiking.py`, `skills/jnwb-spiking/SKILL.md` |
 
 Question round at the opening: the 11-04 shapes once its proposal exists, 13-04 against the
@@ -548,7 +548,7 @@ Stop: a figure would need data the repository does not carry.
 Release: deferred-0.2.11.
 AUTONOMY: none for the shape; the proposal is `max`.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 10-11.
-Writes: `artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`.
+Writes: `git show b6388414:artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`.
 Ruled 2026-09-29: all four in scope, each shape ruled before code.
 - Nonparametric Granger by spectral factorization (Wilson), for comparison with the published values. Check: the proposal names the reference, the signature and a synthetic identity against the parametric path at the true order. Waits: public API; Hamm rules the shape.
 - A time-reversed Granger control for SNR asymmetry. Check: the proposal states the decision rule and its reference. Waits: public API; Hamm rules the shape.
@@ -564,7 +564,7 @@ AUTONOMY: none until Hamm rules each shape from 11-04's proposal.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 11-04, 14-03.
 Writes: `jnwb/connectivity/**`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_connectivity.py`, `tests/test_connectivity_pitfalls.py`, `docs/08_directed_connectivity_and_information.md`, `docs/references.md`, `artifacts/changelog.d/pitfall-estimators.added.md`.
 11-04's acceptance makes the implementation its own item, with API, docs and tests before any skill row.
-- The four estimators 11-04 proposes (`artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`) have no implementation. Check: each ruled estimator ships with its signature, a `docs/references.md` row and a synthetic test, and the 10-11 test that names its gap asserts the repair. Waits: public API; nothing lands before the ruling.
+- The four estimators 11-04 proposes (`git show b6388414:artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`) have no implementation. Check: each ruled estimator ships with its signature, a `docs/references.md` row and a synthetic test, and the 10-11 test that names its gap asserts the repair. Waits: public API; nothing lands before the ruling.
 Accept: the suite and harness pass; the packet reports the `docs/api.md` rows and the changelog text.
 Stop: an estimator whose shape Hamm has not ruled.
 
