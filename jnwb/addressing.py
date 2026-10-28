@@ -361,7 +361,7 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
 _MISSING = object()
 
 
-def _electrode_row_resolver(electrodes_df: pd.DataFrame):
+def _electrode_row_resolver(electrodes_df: pd.DataFrame, unread: Optional[list] = None):
     """Return ``val -> (row_index, row)`` agreeing with :func:`_resolve_electrode_row`.
 
     ``val`` is the integer channel ID that function derives. When the identifier column it
@@ -371,7 +371,7 @@ def _electrode_row_resolver(electrodes_df: pd.DataFrame):
     narrower float column is excluded because ``==`` rounds ``val`` to that float's mantissa
     (16777217 equals a float32 16777216), which a table keyed on exact values would miss. Any
     other identifier column, a table with a ``hardware_channel`` column, or none, falls back to
-    :func:`_resolve_electrode_row` per call.
+    :func:`_resolve_electrode_row` per call, with the caller's ``unread`` list.
     """
     id_col = _identifier_column(electrodes_df)
     fast = id_col is not None and (
@@ -381,7 +381,7 @@ def _electrode_row_resolver(electrodes_df: pd.DataFrame):
              or electrodes_df[id_col].dtype == np.float64)
     )
     if not fast or 'hardware_channel' in electrodes_df.columns:
-        return lambda val: _resolve_electrode_row(val, electrodes_df)
+        return lambda val: _resolve_electrode_row(val, electrodes_df, unread)
 
     col = electrodes_df[id_col]
     first: dict = {}
@@ -910,7 +910,7 @@ def enrich_units_dataframe(
         # three comparisons over the whole electrode table. A unit with an ``electrodes`` region
         # gets its row from the region, so its answer is cached with the region too.
         col_group = _probe_key_column(electrodes_df)
-        resolve = _electrode_row_resolver(electrodes_df)
+        resolve = _electrode_row_resolver(electrodes_df, unread)
         has_region = 'electrodes' in df.columns
         regions = df['electrodes'].tolist() if has_region else [None] * len(df)
         probe_cache: dict = {}

@@ -315,7 +315,8 @@ def units_table(nwb: NWBFile) -> Tuple[pd.DataFrame, Dict[str, Dict[str, str]]]:
     raw = nwb.units.to_dataframe().copy()
     elec_df = nwb.electrodes.to_dataframe().copy() if nwb.electrodes is not None else None
     joined = enrich_units_dataframe(raw, elec_df)
-    if "peak_channel_id" not in joined.columns:
+    had_peak = "peak_channel_id" in joined.columns
+    if not had_peak:
         joined["peak_channel_id"] = None
     described = {column.name: column.description for column in nwb.units.columns}
 
@@ -331,8 +332,18 @@ def units_table(nwb: NWBFile) -> Tuple[pd.DataFrame, Dict[str, Dict[str, str]]]:
             "units": "",
         },
         "peak_channel_id": {
-            "definition": "peak channel of the unit; None when the units table has no such column",
-            "source": "units table column peak_channel_id",
+            "definition": (
+                "peak channel of the unit"
+                if had_peak else
+                "peak channel of the unit; added because the units table "
+                "has no peak_channel_id column, so None on every row"
+            ),
+            "source": (
+                "units table column peak_channel_id"
+                if had_peak else
+                "added by units_table because the units table "
+                "has no peak_channel_id column"
+            ),
             "units": "",
         },
         "area": {

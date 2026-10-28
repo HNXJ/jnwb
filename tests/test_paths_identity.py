@@ -70,3 +70,14 @@ class TestRequire:
         with pytest.raises(FileNotFoundError) as exc:
             paths.require(missing, "thing")
         assert str(exc.value) == f"thing not found: {missing}."
+
+
+class TestSha256GroupsEmpty:
+    def test_empty_groups_is_refused_naming_the_argument(self, tmp_path):
+        import h5py
+
+        path = tmp_path / "g.nwb"
+        with h5py.File(path, "w") as handle:
+            handle.create_dataset("units/x", data=[1, 2, 3])
+        with pytest.raises(ValueError, match="groups"):
+            paths.sha256_groups(path, [])

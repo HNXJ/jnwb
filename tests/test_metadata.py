@@ -1386,3 +1386,25 @@ class TestUnitsTable:
         from jnwb.metadata import units_table
 
         assert jnwb.units_table is units_table
+
+
+def test_a_units_table_without_a_peak_channel_column_says_the_column_was_added():
+    """The added all-None column must not claim the units table as its source."""
+    from datetime import datetime, timezone
+
+    import pynwb
+
+    from jnwb.metadata import units_table
+
+    nwb = pynwb.NWBFile(session_description="u", identifier="u-added",
+                        session_start_time=datetime.now(timezone.utc))
+    nwb.add_unit(spike_times=[0.1])
+    nwb.add_unit(spike_times=[0.2])
+    assert "peak_channel_id" not in nwb.units.colnames, "the file must have no such column"
+
+    units, columns = units_table(nwb)
+    assert units["peak_channel_id"].isna().all()
+    assert set(columns) == set(units.columns)
+    assert "added" in columns["peak_channel_id"]["source"]
+    assert "no peak_channel_id column" in columns["peak_channel_id"]["source"]
+    assert "added" in columns["peak_channel_id"]["definition"]

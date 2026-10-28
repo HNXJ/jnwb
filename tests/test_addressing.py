@@ -1188,3 +1188,38 @@ def test_a_file_with_neither_column_keeps_the_identifier_lookup(tmp_path):
     assert _areas(out) == PLANTED_AREA
     peaks = list(units_df["peak_channel_id"])
     assert [map_peak_channel_to_area(peak, electrodes_df) for peak in peaks] == PLANTED_AREA
+
+
+def test_enrich_without_a_region_warns_on_a_probe_collision_like_the_per_channel_function():
+    """A peak channel that is the hardware channel of electrodes on more than one probe names
+    no row; enrich surfaces that reason the same way it surfaces its other unread reasons,
+    one UserWarning naming the caller, as map_peak_channel_to_area does for the same input."""
+    elec = pd.DataFrame({
+        "hardware_channel": [7, 7, 8, 8],
+        "group_name": ["p1", "p2", "p1", "p2"],
+        "location": ["V1", "V2", "V1", "V2"],
+        "z": [100.0, 100.0, 200.0, 200.0],
+        "depth_unit": ["um"] * 4,
+    })
+    assert (elec["hardware_channel"] == 7).sum() == 2
+    with pytest.warns(UserWarning,
+                       match=r"could not be read.*hardware channel of electrodes on 2 probes"):
+        out = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [7.0]}), elec)
+    assert out["area"].isna().all()
+    with pytest.warns(UserWarning, match="hardware channel of electrodes on 2 probes"):
+        assert map_peak_channel_to_area(7.0, elec) is None
+
+
+def test_enrich_without_a_region_stays_quiet_when_the_channel_is_absent():
+    """A peak channel the table does not hold names nothing and warns about nothing."""
+    import warnings
+
+    elec = pd.DataFrame({
+        "hardware_channel": [7, 7, 8, 8],
+        "group_name": ["p1", "p2", "p1", "p2"],
+        "location": ["V1", "V2", "V1", "V2"],
+    })
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        out = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [99.0]}), elec)
+    assert out["area"].isna().all()

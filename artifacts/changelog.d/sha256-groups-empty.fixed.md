@@ -1,0 +1,1 @@
+- `sha256_groups` refuses empty `groups` with `ValueError` (`jnwb/paths.py`).

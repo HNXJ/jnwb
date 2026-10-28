@@ -277,9 +277,14 @@ def sha256_groups(path: str | os.PathLike, groups: Iterable[str]) -> str:
 
     Raises:
         KeyError: If the file holds no group of a given name; the message names it.
+        ValueError: If ``groups`` is empty; there is nothing to hash.
     """
     import h5py
     import numpy as np
+
+    groups = list(groups)
+    if not groups:
+        raise ValueError("sha256_groups: groups is empty; name at least one group to hash")
 
     found: dict[str, h5py.Dataset] = {}
     with h5py.File(path, "r") as f:
