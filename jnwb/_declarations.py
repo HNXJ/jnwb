@@ -305,4 +305,28 @@ DECLARATIONS: Dict[str, Declaration] = {
         unit="unitless r and p",
         base="samples, 0-based",
     ),
+    # Bivariate Granger causality; the statistic is a log variance ratio (nats); no rate parameter.
+    "jnwb.connectivity._granger.granger_causality": Declaration(
+        input_class=frozenset({"spikes", "lfp"}),
+        estimator="bivariate VAR log variance ratio (Granger 1969)",
+        estimand="Granger statistic in each direction",
+        unit="nats",
+        base="samples, 0-based",
+    ),
+    # All-pairs directed estimators; the unit follows the chosen method, q-values are unitless.
+    "jnwb.connectivity._network.directed_network": Declaration(
+        input_class=frozenset({"spikes", "lfp"}),
+        estimator="all-pairs directed estimators with Benjamini-Hochberg FDR",
+        estimand="directed influence matrix with p- and q-values per ordered pair",
+        unit="method-dependent; q-values unitless",
+        base="method-dependent: samples at fs Hz (psi), samples, 0-based (granger)",
+    ),
+    # Imaginary part of coherency (Nolte et al. 2004); a ratio of spectra, so unitless; fs in Hz.
+    "jnwb.spectral._coupling.imaginary_coherency": Declaration(
+        input_class=frozenset({"spikes", "lfp"}),
+        estimator="Welch cross-spectrum, imaginary part of coherency (Nolte et al. 2004)",
+        estimand="signed and absolute band means of Im(coherency), and mean coherence",
+        unit="unitless",
+        base="samples at fs Hz",
+    ),
 }

@@ -85,6 +85,9 @@ Computed predicates:
                    its parameters show, and no declared caller reaches a declared callable of
                    a wider class (the graph's ``signature_types``); an examined count of zero
                    is a failure
+  signal_class    each operation fact I4 names has a keyword-only ``signal_class`` in its live
+                   signature and a declaration (the graph's ``signal_class``); an examined count
+                   of zero is a failure
   claim_class_labels  no figure label, and no ``unit=`` literal of a call whose callee's name
                    ends in ``Result`` in ``jnwb/``, names a magnitude or direction estimand of
                    the claim table in ``docs/architecture.md`` while holding a term of a higher
@@ -367,6 +370,14 @@ def signature_types(graph: Graph, constants: Constants) -> List[str]:
     return [f"{name}: {reason}" for name, reason in graph["relations"]["signature_types"]]
 
 
+def signal_class(graph: Graph, constants: Constants) -> List[str]:
+    """Each named generic-input operation that lacks a keyword-only ``signal_class`` or a
+    declaration, and the failure of a scan that examined no operation."""
+    if not graph["entities"].get("signal_class_examined"):
+        return ["the graph examined no named operation, so no signal class could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["signal_class"]]
+
+
 def claim_class_labels(graph: Graph, constants: Constants) -> List[str]:
     """Each figure label or ``*Result`` unit literal that names a magnitude or direction
     estimand while holding a term of a higher claim class, and the failure of a scan that
@@ -433,6 +444,7 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "wrapper_defaults": wrapper_defaults,
     "choice_defaults": choice_defaults,
     "signature_types": signature_types,
+    "signal_class": signal_class,
     "claim_class_labels": claim_class_labels,
     "boundary_units": boundary_units,
     "owned_rules": owned_rules,

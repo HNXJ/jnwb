@@ -132,6 +132,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import importlib
 import inspect
 import io
 import json
@@ -1415,7 +1416,9 @@ def signature_types_scan(package: Any) -> Tuple[int, List[List[str]]]:
                           f"signal parameters show {sorted(classes)}"])
     domain_keys = {f"{module}.{qualname}" for module, qualname in domain}
     for key in sorted(declarations):
-        if key not in domain_keys:
+        # The fact I4 operations take generic inputs, so they lie outside this domain by name;
+        # ``signal_class_scan`` checks their declarations.
+        if key not in domain_keys and key not in I4_OPERATIONS:
             found.append([key, "DECLARATIONS lists it, but it takes no signal "
                                "parameter: stale"])
     for (module, qualname), (fn, owner, _) in sorted(domain.items()):
@@ -1723,6 +1726,40 @@ def rng_scan(package: Any) -> Tuple[int, List[List[str]]]:
         if (module, qualname) not in flagged:
             found.append([f"{module}.{qualname}",
                           "S11_EXCUSED lists it, but it consumes no unnamed randomness: stale"])
+    return examined, sorted(found)
+
+
+# ------------------------------------------------------------------------ signal class (fact I4)
+
+#: The operations fact I4 names. Each takes inputs of either signal class, so it carries a
+#: keyword-only ``signal_class`` and a declaration in ``jnwb/_declarations.py``. Keys are
+#: ``module.qualname``, as in ``DECLARATIONS``.
+I4_OPERATIONS: Tuple[str, ...] = (
+    "jnwb.connectivity._granger.granger_causality",
+    "jnwb.connectivity._network.directed_network",
+    "jnwb.spectral._coupling.imaginary_coherency",
+)
+
+
+def signal_class_scan() -> Tuple[int, List[List[str]]]:
+    """How many named operations the signal-class rule examined, and each that fails it, as
+    sorted [module.qualname, reason] pairs. An operation fails when its live signature has no
+    keyword-only ``signal_class``, when ``DECLARATIONS`` holds no entry for it, or when it cannot
+    be read. The callable is looked up at call time, so a stand-in is the one checked."""
+    examined, found = 0, []
+    for key in I4_OPERATIONS:
+        examined += 1
+        module_name, _, qualname = key.rpartition(".")
+        try:
+            fn = getattr(importlib.import_module(module_name), qualname)
+            parameter = inspect.signature(fn).parameters.get("signal_class")
+        except (ImportError, AttributeError, TypeError, ValueError) as exc:
+            found.append([key, f"not readable: {exc}"])
+            continue
+        if parameter is None or parameter.kind is not inspect.Parameter.KEYWORD_ONLY:
+            found.append([key, "signature has no keyword-only signal_class"])
+        if key not in _declarations.DECLARATIONS:
+            found.append([key, "declares no input class in jnwb/_declarations.py"])
     return examined, sorted(found)
 
 
@@ -2755,6 +2792,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
     units_examined, unit_conversions = unit_scan(package)
     wrappers_examined, wrapper_defaults = wrapper_scan(package)
     signatures_examined, signature_types = signature_types_scan(package)
+    signal_examined, signal_class_findings = signal_class_scan()
     choices_examined, choice_defaults = choice_default_scan(
         package, constants["B3 choice names"], exceptions)
     claim_examined, claim_labels = claim_class_scan(root, python)
@@ -2784,6 +2822,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "unit_examined": units_examined,
             "wrapper_examined": wrappers_examined,
             "signature_examined": signatures_examined,
+            "signal_class_examined": signal_examined,
             "choice_examined": choices_examined,
             "claim_examined": claim_examined,
             "boundary_examined": boundary_examined,
@@ -2803,6 +2842,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "unit_conversions": unit_conversions,
             "wrapper_defaults": wrapper_defaults,
             "signature_types": signature_types,
+            "signal_class": signal_class_findings,
             "choice_defaults": choice_defaults,
             "claim_class_labels": claim_labels,
             "boundary_units": boundary_edges,

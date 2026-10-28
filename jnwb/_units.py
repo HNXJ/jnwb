@@ -102,3 +102,53 @@ def _window_from_positional(func_name: str, name: str, window: Any, positional: 
     if window is _REQUIRED:
         raise TypeError(f"{func_name} requires {name}.")
     return window
+
+
+#: The signal classes a ``signal_class`` argument may name. Spikes and LFP are never pooled.
+SIGNAL_CLASSES = ("spikes", "lfp")
+
+
+class _Omitted:
+    """Default of a ``signal_class`` the caller has not passed. Its repr is fixed, so the API page is stable."""
+
+    def __repr__(self) -> str:
+        return "_OMITTED"
+
+
+_OMITTED = _Omitted()
+
+
+def _check_signal_class(func_name: str, signal_class: Any, n_inputs: int) -> None:
+    """Refuse a ``signal_class`` that names an unknown class or a mix; warn when it is omitted.
+
+    One class names every input. A pair ``(class_1, class_2)`` names each of two inputs. A pair
+    of different classes is refused. Omitted, the call still runs and warns ``FutureWarning``:
+    the argument becomes required.
+
+    Raises:
+        ValueError: On a value outside ``SIGNAL_CLASSES``, a pair given to a one-input operation,
+            or a pair that mixes spikes and LFP.
+    """
+    allowed = " or ".join(repr(c) for c in SIGNAL_CLASSES)
+    if signal_class is _OMITTED:
+        warnings.warn(
+            f"{func_name}: pass signal_class= by keyword ({allowed}); it will become required",
+            FutureWarning, stacklevel=3,
+        )
+        return
+    if isinstance(signal_class, str):
+        pair = (signal_class,) * n_inputs
+    elif isinstance(signal_class, tuple) and n_inputs == 2 and len(signal_class) == 2:
+        pair = signal_class
+    else:
+        shape = "one class" if n_inputs == 1 else "one class or a pair (class_1, class_2)"
+        raise ValueError(
+            f"{func_name}: signal_class takes {shape}, each {allowed}; got {signal_class!r}."
+        )
+    if any(c not in SIGNAL_CLASSES for c in pair):
+        raise ValueError(f"{func_name}: signal_class must be {allowed}; got {signal_class!r}.")
+    if len(set(pair)) > 1:
+        raise ValueError(
+            f"{func_name}: spikes and LFP are never pooled; signal_class={signal_class!r} "
+            "names both. Call once for each class."
+        )

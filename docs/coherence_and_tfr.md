@@ -54,6 +54,7 @@ imag_coh = jnwb.imaginary_coherency(
     lfp_area2,
     fs=1000.0,
     freq_range=(15.0, 30.0),
+    signal_class="lfp",
 )
 
 # Weighted Phase Lag Index (Vinck et al. 2011)
