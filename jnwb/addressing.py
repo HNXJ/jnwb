@@ -215,12 +215,14 @@ def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame,
                            unread: Optional[list] = None):
     """Resolve an electrode row from electrodes_df by channel ID.
 
-    The ID is looked up in the first identifier column present, in the order 'channel_id',
-    'id', 'electrode_id', so a reset or non-default DataFrame index is never read as a channel
-    ID. Only that column is searched: the columns can number channels differently, so an ID
-    missing from it resolves to nothing rather than to a row of another numbering. The
-    DataFrame index is used only when no identifier column exists. An ID that is not a number
-    is recorded in ``unread``.
+    A table with a ``hardware_channel`` column is matched on that column (see
+    :func:`_resolve_hardware_row`): pypeline stores the peak channel as a hardware channel and
+    orders the electrodes by probe position. Otherwise the ID is looked up in the first
+    identifier column present, in the order 'channel_id', 'id', 'electrode_id', so a reset or
+    non-default DataFrame index is never read as a channel ID. Only that column is searched: the
+    columns can number channels differently, so an ID missing from it resolves to nothing rather
+    than to a row of another numbering. The DataFrame index is used only when no identifier
+    column exists. An ID that is not a number is recorded in ``unread``.
 
     Returns:
         (row_index, row_series) or (None, None) if not found.
@@ -232,6 +234,36 @@ def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame,
     if val is None:
         return None, None
 
+    if 'hardware_channel' in electrodes_df.columns:
+        return _resolve_hardware_row(val, electrodes_df, unread)
+    return _row_by_identifier(val, electrodes_df)
+
+
+def _resolve_hardware_row(val: int, electrodes_df: pd.DataFrame, unread: Optional[list] = None):
+    """The row whose ``hardware_channel`` is ``val``, or (None, None).
+
+    A channel of -1 is no channel, so a probe wired at -1 matches nothing. A peak channel names
+    no probe, so the whole table is searched. Matches on more than one probe leave the probe, and
+    so the row, unknown: nothing is named and the reason is recorded in ``unread``.
+    """
+    channels = electrodes_df["hardware_channel"]
+    matches = electrodes_df.index[(channels == val) & (channels != -1)]
+    if len(matches) == 0:
+        return None, None
+    group_col = _probe_key_column(electrodes_df)
+    if group_col is not None:
+        probes = {_probe_label(v) for v in electrodes_df.loc[matches, group_col]}
+        if len(probes) > 1:
+            _note_unread(unread, f"peak_channel_id {val} is the hardware channel of electrodes on "
+                                 f"{len(probes)} probes, so no row is named")
+            return None, None
+    idx = matches[0]
+    return idx, electrodes_df.loc[idx]
+
+
+def _row_by_identifier(val, electrodes_df: pd.DataFrame):
+    """The row whose identifier column holds ``val``, or, without one, the row labelled ``val``;
+    (None, None) when there is none."""
     id_col = _identifier_column(electrodes_df)
     if id_col is not None:
         matches = electrodes_df.index[electrodes_df[id_col] == val]
@@ -243,6 +275,41 @@ def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame,
     if val in electrodes_df.index:
         return val, electrodes_df.loc[val]
 
+    return None, None
+
+
+def _region_ids(region) -> tuple:
+    """The electrode ids a unit's ``electrodes`` region names, as a tuple.
+
+    ``to_dataframe`` gives each unit a DataFrame of its electrode rows, indexed by electrode id;
+    a list or a bare id is read as ids too. A missing or empty region names none.
+    """
+    if region is None or (np.ndim(region) == 0 and pd.isna(region)):
+        return ()
+    if isinstance(region, pd.DataFrame):
+        return tuple(region.index)
+    if np.ndim(region) == 0:
+        return (region,)
+    return tuple(region)
+
+
+def _region_electrode_row(region_ids: tuple, val: int, electrodes_df: pd.DataFrame):
+    """The row a unit's region names for its channel ``val``, or (None, None).
+
+    One electrode is the unit's row, whatever the channel. Several are matched on the channel:
+    the electrode whose hardware channel (or, without that column, id) is ``val``. No match names
+    nothing, and the id is no fallback when the table has a hardware channel column.
+    """
+    if len(region_ids) == 1:
+        return _row_by_identifier(region_ids[0], electrodes_df)
+    hardware = 'hardware_channel' in electrodes_df.columns
+    for electrode_id in region_ids:
+        idx, row = _row_by_identifier(electrode_id, electrodes_df)
+        if row is None:
+            continue
+        channel = row['hardware_channel'] if hardware else electrode_id
+        if channel == val and channel != -1:
+            return idx, row
     return None, None
 
 
@@ -303,7 +370,8 @@ def _electrode_row_resolver(electrodes_df: pd.DataFrame):
     table; a float64 column is keyed with ``float(val)``, the conversion ``==`` applies. A
     narrower float column is excluded because ``==`` rounds ``val`` to that float's mantissa
     (16777217 equals a float32 16777216), which a table keyed on exact values would miss. Any
-    other identifier column, or none, falls back to :func:`_resolve_electrode_row` per call.
+    other identifier column, a table with a ``hardware_channel`` column, or none, falls back to
+    :func:`_resolve_electrode_row` per call.
     """
     id_col = _identifier_column(electrodes_df)
     fast = id_col is not None and (
@@ -312,7 +380,7 @@ def _electrode_row_resolver(electrodes_df: pd.DataFrame):
         and (electrodes_df[id_col].dtype.kind in 'iub'
              or electrodes_df[id_col].dtype == np.float64)
     )
-    if not fast:
+    if not fast or 'hardware_channel' in electrodes_df.columns:
         return lambda val: _resolve_electrode_row(val, electrodes_df)
 
     col = electrodes_df[id_col]
@@ -769,6 +837,11 @@ def enrich_units_dataframe(
     ``peak_channel_id`` beside a non-empty ``electrodes_df`` emits a ``UserWarning`` when it
     fills any of them.
 
+    With an ``electrodes`` column (the units' region, as ``units.to_dataframe()`` gives it), a
+    unit's row is the electrode its region names; a region of several electrodes is matched on
+    ``peak_channel_id``. Without a region, the peak channel is looked up as
+    :func:`map_peak_channel_to_area` does.
+
     ``is_stable`` is derived from a ``quality`` column -- ``quality >= stable_threshold`` when
     it is numeric, membership in ``stable_labels`` (compared lower-cased and stripped)
     otherwise -- and is not added when ``units_df``
@@ -813,6 +886,8 @@ def enrich_units_dataframe(
         reads.append('cluster_id')  # renamed to unit_id
     if electrodes_df is not None and len(electrodes_df) > 0:
         reads.append('peak_channel_id')  # the anatomical lookup
+    if 'electrodes' in units_df.columns:
+        reads.append('electrodes')  # the unit's region, read per unit by the lookup
     _refuse_repeated_columns(units_df, reads, "enrich_units_dataframe")
     df = units_df.copy()
 
@@ -832,31 +907,43 @@ def enrich_units_dataframe(
     if electrodes_df is not None and len(electrodes_df) > 0 and 'peak_channel_id' in df.columns:
         # Units share channels, so each channel is resolved and classified once and every
         # unit on it reads the cached answer: the per-unit step is a dict lookup instead of
-        # three comparisons over the whole electrode table.
+        # three comparisons over the whole electrode table. A unit with an ``electrodes`` region
+        # gets its row from the region, so its answer is cached with the region too.
         col_group = _probe_key_column(electrodes_df)
         resolve = _electrode_row_resolver(electrodes_df)
+        has_region = 'electrodes' in df.columns
+        regions = df['electrodes'].tolist() if has_region else [None] * len(df)
         probe_cache: dict = {}
         per_channel: dict = {}
 
-        def _enrich(x):
+        def _enrich(x, region):
             key = _channel_key(x, unread)
+            region_ids = _region_ids(region) if has_region else None
+            cache_key = key if not has_region else (key, region_ids)
             try:
-                return per_channel[key]
+                return per_channel[cache_key]
             except KeyError:
                 pass
-            idx, row = (None, None) if key is None else resolve(key)
-            per_channel[key] = (
+            if key is None:
+                idx, row = None, None
+            elif has_region:
+                idx, row = _region_electrode_row(region_ids, key, electrodes_df)
+            else:
+                idx, row = resolve(key)
+            per_channel[cache_key] = (
                 _area_from_row(x, idx, row, electrodes_df, probe_cache),
                 _depth_class_from_row(x, row, electrodes_df, depth_unit, threshold,
                                       threshold_unit, unread, depth_axis, shallow_end),
                 _probe_label(row.get(col_group)) if row is not None and col_group is not None else None,
             )
-            return per_channel[key]
+            return per_channel[cache_key]
 
-        df['area'] = df['peak_channel_id'].apply(lambda x: _enrich(x)[0])
-        df['depth_class'] = df['peak_channel_id'].apply(lambda x: _enrich(x)[1])
+        per_unit = pd.Series(list(zip(df['peak_channel_id'], regions)), index=df.index,
+                             dtype=object)
+        df['area'] = per_unit.apply(lambda pair: _enrich(*pair)[0])
+        df['depth_class'] = per_unit.apply(lambda pair: _enrich(*pair)[1])
         if col_group is not None:
-            df['group_name'] = df['peak_channel_id'].apply(lambda x: _enrich(x)[2])
+            df['group_name'] = per_unit.apply(lambda pair: _enrich(*pair)[2])
         else:
             df['group_name'] = None
     else:

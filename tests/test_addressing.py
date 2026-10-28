@@ -1054,3 +1054,137 @@ def test_a_declaration_is_refused_unless_complete_and_valid():
         classify_layer_from_depth(0, elec, depth_axis="z", shallow_end="top")
     with pytest.raises(ValueError, match="declared together"):
         enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [0]}), elec, depth_axis="z")
+
+
+# Two 8-contact probes: positions 0 to 7 sit in V1, 8 to 15 in V2, electrodes in position order.
+# Unit ``pos`` sits on the contact at position ``pos``, so its planted area is PLANTED_AREA[pos].
+N_CONTACTS = 16
+PLANTED_AREA = ["V1"] * 8 + ["V2"] * 8
+# A permutation of the positions with no fixed point: a lookup by position or id reads another row.
+SHIFTED_HARDWARE = [(pos + 8) % N_CONTACTS for pos in range(N_CONTACTS)]
+
+
+def _write_probe_pair(path, *, hardware, units):
+    """Write an NWB file holding the two probes above. ``hardware`` gives one hardware channel per
+    position, or None for no hardware_channel column. ``units`` holds (region, peak_channel_id)
+    per unit: the region is the list of electrode ids the unit names, or None for no region."""
+    from datetime import datetime
+
+    from dateutil.tz import tzlocal
+    from pynwb import NWBFile, NWBHDF5IO
+
+    nwb = NWBFile(session_description="addressing fixture", identifier="addressing",
+                  session_start_time=datetime.now(tzlocal()))
+    if hardware is not None:
+        nwb.add_electrode_column("hardware_channel", "hardware channel of the contact")
+    nwb.add_electrode_column("group_name", "probe name")
+    device = nwb.create_device(name="device")
+    groups = {area: nwb.create_electrode_group(name=f"probe_{area}", description=area,
+                                               location=area, device=device)
+              for area in ("V1", "V2")}
+    for pos in range(N_CONTACTS):
+        group = groups[PLANTED_AREA[pos]]
+        extra = {} if hardware is None else {"hardware_channel": hardware[pos]}
+        nwb.add_electrode(location=group.location, group=group, group_name=group.name,
+                          x=0.0, y=0.0, z=float(pos % 8) * 10.0, **extra)
+    nwb.add_unit_column("peak_channel_id", "peak channel")
+    for region, peak in units:
+        extra = {} if region is None else {"electrodes": region}
+        nwb.add_unit(spike_times=[0.1], peak_channel_id=peak, **extra)
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+
+
+def _read_units_and_electrodes(path):
+    from pynwb import NWBHDF5IO
+
+    with NWBHDF5IO(str(path), "r") as io:
+        nwb = io.read()
+        return nwb.units.to_dataframe(), nwb.electrodes.to_dataframe()
+
+
+def _areas(out):
+    """The area column with each missing area as None: pandas 3 stores a missing string as NaN."""
+    return [area if isinstance(area, str) else None for area in out["area"]]
+
+
+def test_enrich_reads_the_area_of_the_electrode_a_unit_region_names(tmp_path):
+    units = [([pos], SHIFTED_HARDWARE[pos]) for pos in range(N_CONTACTS)]
+    path = tmp_path / "region.nwb"
+    _write_probe_pair(path, hardware=SHIFTED_HARDWARE, units=units)
+    units_df, electrodes_df = _read_units_and_electrodes(path)
+    # Fixture check: no unit's peak channel is the row it sits on.
+    assert all(peak != region[0] for region, peak in units)
+    out = enrich_units_dataframe(units_df, electrodes_df)
+    assert _areas(out) == PLANTED_AREA
+
+
+def test_hardware_channel_gives_the_area_when_the_units_have_no_region(tmp_path):
+    units = [(None, SHIFTED_HARDWARE[pos]) for pos in range(N_CONTACTS)]
+    path = tmp_path / "hardware.nwb"
+    _write_probe_pair(path, hardware=SHIFTED_HARDWARE, units=units)
+    units_df, electrodes_df = _read_units_and_electrodes(path)
+    assert "electrodes" not in units_df.columns
+    out = enrich_units_dataframe(units_df, electrodes_df)
+    assert _areas(out) == PLANTED_AREA
+    peaks = list(units_df["peak_channel_id"])
+    assert [map_peak_channel_to_area(peak, electrodes_df) for peak in peaks] == PLANTED_AREA
+
+
+def test_a_region_of_several_electrodes_takes_the_one_whose_hardware_channel_is_the_peak(tmp_path):
+    units = [([2, 10], 10), ([2, 10], 2), ([2, 10], 5), ([2, 3], 2)]
+    path = tmp_path / "several.nwb"
+    _write_probe_pair(path, hardware=SHIFTED_HARDWARE, units=units)
+    units_df, electrodes_df = _read_units_and_electrodes(path)
+    # Fixture check: electrode 2 (V1) carries channel 10 and electrode 10 (V2) carries channel 2;
+    # neither electrode of region [2, 3] carries channel 2.
+    assert electrodes_df.loc[[2, 10], "hardware_channel"].tolist() == [10, 2]
+    out = enrich_units_dataframe(units_df, electrodes_df)
+    # Peak 2 is the id of electrode 2 but no hardware channel of region [2, 3]: no area, not the id.
+    assert _areas(out) == ["V1", "V2", None, None]
+
+
+def test_without_hardware_channel_a_region_of_several_electrodes_matches_the_id(tmp_path):
+    units = [([2, 10], 10), ([2, 10], 2), ([2, 10], 5)]
+    path = tmp_path / "several_ids.nwb"
+    _write_probe_pair(path, hardware=None, units=units)
+    units_df, electrodes_df = _read_units_and_electrodes(path)
+    assert "hardware_channel" not in electrodes_df.columns
+    out = enrich_units_dataframe(units_df, electrodes_df)
+    assert _areas(out) == ["V2", "V1", None]
+
+
+def test_an_empty_region_gives_no_area_and_never_falls_back_to_the_id(tmp_path):
+    # Peak 3 is the id of electrode 3 (V1) and the hardware channel of electrode 11 (V2).
+    units = [([], 3), ([2], 10)]
+    path = tmp_path / "empty.nwb"
+    _write_probe_pair(path, hardware=SHIFTED_HARDWARE, units=units)
+    units_df, electrodes_df = _read_units_and_electrodes(path)
+    out = enrich_units_dataframe(units_df, electrodes_df)
+    # The second unit's region names electrode 2 alone, so its row is that electrode whatever
+    # its peak channel is.
+    assert _areas(out) == [None, "V1"]
+
+
+def test_a_probe_whose_hardware_channel_is_minus_one_resolves_to_no_area(tmp_path):
+    hardware = list(range(8)) + [-1] * 8  # probe V1 wired at channels 0 to 7, probe V2 not wired
+    units = [(None, 2), (None, 10)]
+    path = tmp_path / "minus_one.nwb"
+    _write_probe_pair(path, hardware=hardware, units=units)
+    units_df, electrodes_df = _read_units_and_electrodes(path)
+    out = enrich_units_dataframe(units_df, electrodes_df)
+    # Peak 10 is the id of electrode 10 (V2); the unwired probe must not fall back to it.
+    assert _areas(out) == ["V1", None]
+
+
+def test_a_file_with_neither_column_keeps_the_identifier_lookup(tmp_path):
+    units = [(None, pos) for pos in range(N_CONTACTS)]
+    path = tmp_path / "neither.nwb"
+    _write_probe_pair(path, hardware=None, units=units)
+    units_df, electrodes_df = _read_units_and_electrodes(path)
+    assert "electrodes" not in units_df.columns
+    assert "hardware_channel" not in electrodes_df.columns
+    out = enrich_units_dataframe(units_df, electrodes_df)
+    assert _areas(out) == PLANTED_AREA
+    peaks = list(units_df["peak_channel_id"])
+    assert [map_peak_channel_to_area(peak, electrodes_df) for peak in peaks] == PLANTED_AREA
