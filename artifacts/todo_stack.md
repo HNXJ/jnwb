@@ -26,11 +26,11 @@ design or a scan across `jnwb/`.
 | Wave | Lane | Items, in order | Speed | Needs first |
 |---|---|---|---|---|
 | 2 | F units | 17-68 | M | ruled 2026-10-28 |
-| 3 | G tests and dashboard | 17-59, 17-60 | M, L | nothing |
-| 3 | H declarations | 17-03, 16-20 | M, L | 16-20 reviewed by `reviewer` at high |
+| 3 | G dashboard | 17-60 | L | nothing |
+| 3 | H coherence graph | 16-20 | L | reviewed by `reviewer` at high |
 | 3 | I fact graph | 17-08, 11-03, 11-09 | L, L, L | nothing |
 | 4 | J non-finite | 17-24 | L | waves 1 to 3 merged (writes across `jnwb/`) |
-| - | Held | 17-05, 17-07 | - | Hamm's rulings |
+| - | Held | 17-03, 17-05, 17-07 | - | Hamm's rulings |
 
 ### 17-68 One unit table with a column dictionary
 
@@ -38,13 +38,6 @@ Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `jnwb/metadata.py`, `tests/test_metadata.py`.
 - 17-68: Every consumer rebuilds the per-unit join of identity, probe, peak channel, area, layer and waveform features (omission JNWB-027). Check: `units_table(nwb)` returns one row per unit in unit order with a column dictionary (definition, source, units), and on the 17-61 fixture area comes through `units.electrodes`. Waits: requested 2026-10-27.
-
-### 17-59 Frozen bodies kill every planted change
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutants.py`.
-- 17-59: Planted changes that survive the tests the core freeze names (measured 2026-10-26): `shuffle_r2_ci` with its CI upper percentile 97.5 -> 95 or its p-value +1; `cluster_permutation_test` with its t standard error x2 or the max-mass statistic; the GPU branch of `cross_area_coherence` on a CPU-only machine. Check: each planted change in that list fails a test in `tests/test_frozen_core_mutants.py`. Waits: Each frozen body has a test that kills a planted change, so the freeze holds; the survivors are behaviours no test pins, and no released number is shown wrong.
 
 ### 17-60 Paper, library and methods verdicts on the dashboard
 
@@ -56,8 +49,8 @@ Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, 
 ### 17-03 Declared types on the remaining numeric operations
 
 Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/_declarations.py`, `jnwb/connectivity/_granger.py`, `jnwb/connectivity/_network.py`, `jnwb/spectral/_coupling.py`.
+Role: jnwb-developer. Skill: none. Blocked by: Hamm's ruling on the per-call class mechanism (a `signal_class` keyword on each generic-input operation, or a default per operation); fact I4's holder becomes a computed scan in `scripts/build_fact_graph.py`.
+Writes: `jnwb/_declarations.py`, `scripts/build_fact_graph.py`, `jnwb/connectivity/_granger.py`, `jnwb/connectivity/_network.py`, `jnwb/spectral/_coupling.py`.
 - 17-03: Fact I4 is UNHELD: only the operations whose parameter names show spikes or LFP declare signal types (`jnwb/_declarations.py`); generic-input operations such as `granger_causality`, `directed_network` and `imaginary_coherency` take either class and declare nothing. Check: each generic-input operation declares a per-call class in `jnwb/_declarations.py`, and fact I4 reports HELD. Waits: A per-call class for generic inputs; nothing shipped changes. Split from I1 (ruled 2026-10-24).
 
 ### 16-20 A distance-aware coherence graph
