@@ -45,13 +45,6 @@ Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
 Writes: `jnwb/spectral/_coupling.py`, `jnwb/connectivity/_network.py`, `tests/test_connectivity_pitfalls.py`, `docs/references.md`.
 - 16-20: `cross_area_coherence` and `network_topology` take a coherence matrix as it is, so a graph of nearby contacts or electrodes is dense from field spread alone; Nejat and Hajipour Sardouie 2021 normalize edge weights by distance and compare groups edge by edge (`docs/references.md`, Pitfalls). Check: on a planted field with spread between nearby contacts, the distance-normalized edges differ from the raw coherence edges, asserted in `tests/test_connectivity_pitfalls.py`. Waits: raised during 0.2.14, after its scope was set (goal F3, ruled 2026-10-21).
 
-### 17-08 I3 beyond named units
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/build_fact_graph.py`, `artifacts/fact_stack.md`.
-- 17-08: I3's check reads unit- and base-suffixed names across call edges (ruled 2026-10-25); a coordinate frame, a sample rate (`fs` carries no suffix) or an index base a name does not spell can still change at a boundary unseen. Check: the I3 rule in `scripts/build_fact_graph.py` reports a planted boundary call that changes a frame, a rate or an index base the name does not spell. Waits: A representation of frames, rates and bases a scan can read.
-
 ### 11-03 Design facts held
 
 Release: deferred-0.2.15.
