@@ -25,11 +25,11 @@ design or a scan across `jnwb/`.
 
 | Wave | Lane | Items, in order | Speed | Needs first |
 |---|---|---|---|---|
-| 1 | A paths | 17-69, 17-67 | S, S | signatures ruled |
-| 1 | C windows | 17-04, 17-06, 17-65 | M, M, M | rulings: the `psth` parameter order once `window_ms` is required; how 17-06 warns on a positional window without a default the B3 check refuses; whether the skill and docs lines that call without a window change in the same item; 17-65's signature |
-| 2 | D streams | 17-63, 17-64 | M, M | signatures ruled |
-| 2 | E events | 17-66 | M | signature ruled |
-| 2 | F units | 17-61, 17-68 | M, M | 17-68's signature ruled |
+| 1 | A paths | 17-69, 17-67 | S, S | ruled 2026-10-28 |
+| 1 | C windows | 17-04, 17-06, 17-65 | M, M, M | ruled 2026-10-28 |
+| 2 | D streams | 17-63, 17-64 | M, M | ruled 2026-10-28 |
+| 2 | E events | 17-66 | M | ruled 2026-10-28 |
+| 2 | F units | 17-61, 17-68 | M, M | ruled 2026-10-28 |
 | 3 | G tests and dashboard | 17-59, 17-60 | M, L | nothing |
 | 3 | H declarations | 17-03, 16-20 | M, L | 16-20 reviewed by `reviewer` at high |
 | 3 | I fact graph | 17-08, 11-03, 11-09 | L, L, L | nothing |
@@ -54,14 +54,14 @@ Writes: `jnwb/paths.py`, `tests/test_paths.py`.
 
 Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/_units.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `artifacts/fact_stack.md`.
+Writes: `jnwb/_units.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `artifacts/fact_stack.md`, `skills/jnwb-population/SKILL.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/common_mistakes.md`, the tests that pin the old warning.
 - 17-04: `UnitAnalyzer.psth`/`raster` `window_ms` and `build_time_resolved_matrix`/`compute_population_trajectory` `time_window_ms` warn when omitted and still use (-1000, 2000) ms (`jnwb/_units.py` `omitted_window`); four B3 exceptions rows cite the deprecation. Check: omitting any of the four windows raises instead of warning, and the four rows are gone from the `## B3 exceptions` table of `artifacts/fact_stack.md`. Waits: The 0.2.15 cycle: drop the default and the warning, delete the four rows. Ruled 2026-10-24.
 
 ### 17-06 Required windows become keyword-only
 
 Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/spiking.py`, `jnwb/statistics/_firing.py`, `tests/test_api_consistency.py`.
+Writes: `jnwb/spiking.py`, `jnwb/statistics/_firing.py`, `tests/test_api_consistency.py`, `artifacts/fact_stack.md`, `skills/jnwb-spiking/SKILL.md`.
 - 17-06: Six public functions take a required window positionally (`fano_factor`, `network_burst_index`, `spike_count_correlation`, `fire_indicator`, `fires_in_window`, `rate_in_window`); B3 dropped "keyword-only" (ruled 2026-10-25). Check: `tests/test_api_consistency.py` asserts the deprecation path for each of the six positional callers. Waits: A deprecation path for positional callers.
 
 ### 17-65 Bin times say which edge they name
