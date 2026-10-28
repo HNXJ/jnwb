@@ -16,7 +16,7 @@ from __future__ import annotations
 import warnings
 from typing import Any
 
-__all__ = ["omitted_window", "resolve_unit_alias"]
+__all__ = ["resolve_unit_alias"]
 
 
 _MISSING = object()
@@ -70,17 +70,35 @@ def resolve_unit_alias(
     )
 
 
-def omitted_window(value: Any, old_default: Any, *, name: str, func_name: str) -> Any:
-    """``value``, or ``old_default`` with a FutureWarning when the caller left it out.
+class _Required:
+    """Default of a window the caller must pass. Its repr is fixed, so the API page is stable."""
 
-    A time window that defaulted to a span no source cites becomes required in 0.2.15;
-    until then the omitted window keeps its old value and the warning says to pass it.
+    def __repr__(self) -> str:
+        return "_REQUIRED"
+
+
+_REQUIRED = _Required()
+
+
+def _window_from_positional(func_name: str, name: str, window: Any, positional: tuple) -> Any:
+    """The window a call names: the keyword, or one positional value under a FutureWarning.
+
+    ``positional`` is what ``*_positional`` collected after the leading arguments. Two values,
+    or a value next to the keyword, raise TypeError; so does an omitted window.
     """
-    if value is not None:
-        return value
-    warnings.warn(
-        f"{func_name}: {name} will be required in 0.2.15; pass it explicitly. "
-        f"The old default {old_default!r} is used for now.",
-        FutureWarning, stacklevel=3,
-    )
-    return old_default
+    if len(positional) > 1:
+        raise TypeError(
+            f"{func_name} takes one window; got {len(positional)} positional values after "
+            "its leading arguments."
+        )
+    if positional:
+        if window is not _REQUIRED:
+            raise TypeError(f"{func_name} got {name} both positionally and by keyword.")
+        warnings.warn(
+            f"{func_name}: pass {name}= by keyword; positional use will stop working",
+            FutureWarning, stacklevel=3,
+        )
+        window = positional[0]
+    if window is _REQUIRED:
+        raise TypeError(f"{func_name} requires {name}.")
+    return window

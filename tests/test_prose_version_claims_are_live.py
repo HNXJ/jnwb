@@ -110,12 +110,7 @@ FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
 # since-note) and is not listed. Above it, a note is either a plan or removal date, which
 # expires when the version reaches it, or the record of a change the next release carries,
 # which needs no declaration once that release is live.
-SOURCE_FORWARD_MENTIONS: dict[tuple[str, str], str] = {
-    ("jnwb/_units.py", "becomes required in 0.2.15"): "0.2.15",
-    ("jnwb/_units.py", "will be required in 0.2.15"): "0.2.15",
-    ("jnwb/analyzers.py", "Required from 0.2.15"): "0.2.15",
-    ("jnwb/trajectory.py", "Required from 0.2.15"): "0.2.15",
-}
+SOURCE_FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
 SOURCE_UNRELEASED_RECORDS: dict[tuple[str, str], str] = {
 }
 

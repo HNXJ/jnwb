@@ -145,7 +145,9 @@ evidence and a critic's sign-off.
 | `jnwb.jrsa.jrsa` | `window` | `None` | no window: the whole aligned axis; `window` counts samples, not time, and the input sets the span | `jnwb/jrsa/_stages.py`, `_make_windows` returns the inputs unchanged for `None` |
 | `jnwb.laminar._xflip.xflip` | `window` | `None` | no window: every probe row; `window` names rows, not time | `xflip` reads rows only when `window is not None` |
 | `jnwb.laminar._zflip.zflip` | `window` | `None` | no window: every probe row; `window` names rows, not time | `zflip` reads rows only when `window` is given |
-| `jnwb.analyzers.UnitAnalyzer.psth` | `window_ms` | `None` | deprecated: left out, (-1000, 2000) with a `FutureWarning`; required in 0.2.15 | Hamm 2026-10-24; `tests/test_window_default_deprecation.py`; roadmap row 17-04 |
-| `jnwb.analyzers.UnitAnalyzer.raster` | `window_ms` | `None` | as above | as above |
-| `jnwb.trajectory.build_time_resolved_matrix` | `time_window_ms` | `None` | as above | as above |
-| `jnwb.trajectory.compute_population_trajectory` | `time_window_ms` | `None` | as above | as above |
+| `jnwb.spiking.fano_factor` | `window_s` | `_REQUIRED` | a sentinel, not a value: omitted, the call raises `TypeError`; one positional window is accepted under a `FutureWarning` naming the keyword, until the keyword is the only form | ruling 2026-10-28 (`artifacts/rulings/2026-10-28.md`, 17-06); `tests/test_api_consistency.py::TestAWindowPassedPositionally` |
+| `jnwb.spiking.network_burst_index` | `window_s` | `_REQUIRED` | as above | as above |
+| `jnwb.spiking.spike_count_correlation` | `window_s` | `_REQUIRED` | as above | as above |
+| `jnwb.statistics._firing.fires_in_window` | `window_ms` | `_REQUIRED` | as above | as above |
+| `jnwb.statistics._firing.fire_indicator` | `window_ms` | `_REQUIRED` | as above | as above |
+| `jnwb.statistics._firing.rate_in_window` | `window_ms` | `_REQUIRED` | as above | as above |

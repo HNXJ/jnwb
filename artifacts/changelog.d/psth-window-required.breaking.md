@@ -1,0 +1,1 @@
+- `jnwb/analyzers.py`, `jnwb/trajectory.py`: `psth`, `raster` and the trajectory builders require their window.

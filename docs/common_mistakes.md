@@ -328,7 +328,8 @@ from observations.
 
 ```python
 # An area with no units. The trajectory is not at the origin; there is no trajectory.
-res = jnwb.compute_population_trajectory(session, area="NONEXISTENT", epochs_df=epochs)
+res = jnwb.compute_population_trajectory(session, area="NONEXISTENT", epochs_df=epochs,
+                                         time_window_ms=(-1000, 2000))
 assert np.all(np.isnan(res["trajectory"]))
 assert np.all(np.isnan(res["explained_variance_ratio"]))
 

@@ -40,8 +40,9 @@ def test_trajectory_gives_a_constant_unit_no_weight(device, monkeypatch):
         X[:, 3, :] = rate
         monkeypatch.setattr(traj, "build_time_resolved_matrix",
                             lambda *a, _X=X, **k: (_X, list(range(6)), np.arange(20.0)))
-        results[rate] = traj.compute_population_trajectory(None, "A", None, n_components=3,
-                                                           device=device)
+        results[rate] = traj.compute_population_trajectory(None, "A", None,
+                                                           time_window_ms=(-1000, 2000),
+                                                           n_components=3, device=device)
     np.testing.assert_array_equal(results[1 / 0.03]["trajectory"], results[0.0]["trajectory"])
     np.testing.assert_array_equal(results[1 / 0.03]["explained_variance_ratio"],
                                   results[0.0]["explained_variance_ratio"])

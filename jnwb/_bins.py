@@ -109,6 +109,36 @@ def onset_locked_counts(spike_times, onsets, start_s, stop_s, edges, scale: floa
     return counts
 
 
+def onset_locked_counts_right(spike_times, onsets, start_s, stop_s, edges,
+                              scale: float) -> np.ndarray:
+    """Spike counts of each onset's window in ``edges``, each bin labelled at its right edge.
+
+    The ``label="right"`` counterpart of :func:`onset_locked_counts`. A spike is selected when its
+    time minus the onset lies in ``(start_s, stop_s]``, and bin ``i`` holds the relative times in
+    ``(edges[i], edges[i + 1]]``, so a spike exactly at an onset falls in the bin that ends at 0.
+    Scaling and clipping follow :func:`onset_locked_counts`; the low clip stays above
+    ``edges[0]``, so a selected spike that rounds onto that edge is kept. Returns a float array
+    ``(n_onsets, len(edges) - 1)``.
+    """
+    st = np.sort(np.asarray(spike_times, dtype=float), axis=None)
+    onsets = np.asarray(onsets, dtype=float).ravel()
+    lo = _first_not_below(st, onsets, float(start_s), inclusive=True)
+    hi = np.maximum(_first_not_below(st, onsets, float(stop_s), inclusive=True), lo)
+    counts = np.zeros((onsets.size, len(edges) - 1))
+    low = np.nextafter(edges[0], np.inf)
+    for i, t0 in enumerate(onsets):
+        rel = np.clip((st[lo[i]:hi[i]] - t0) * scale, low, edges[-1])
+        counts[i] = np.bincount(np.searchsorted(edges, rel, side="left") - 1,
+                                minlength=len(edges) - 1)
+    return counts
+
+
+def check_bin_label(label, func_name: str) -> None:
+    """Refuse a bin label other than ``"center"`` or ``"right"``, naming the function."""
+    if label not in ("center", "right"):
+        raise ValueError(f"{func_name}: label={label!r} must be 'center' or 'right'.")
+
+
 def whole_bin_count(window, bin_width, func_name: str, param: str = "win_ms",
                     unit: str = "ms", width_param: str = "bin_width") -> int:
     """Number of ``bin_width`` bins spanning ``window``, refusing a span that is not whole bins.

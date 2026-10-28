@@ -186,7 +186,7 @@ import jnwb
 
 # Assemble the time-resolved population tensor: (n_trials, n_units, n_bins)
 X, unit_ids, bin_centers = jnwb.build_time_resolved_matrix(
-    session, area="V1", epochs_df=trials_df,
+    session, area="V1", epochs_df=trials_df, time_window_ms=(-1000, 2000),
 )
 
 # Low-dimensional population trajectory, from the same three inputs.
@@ -194,7 +194,7 @@ X, unit_ids, bin_centers = jnwb.build_time_resolved_matrix(
 # and explained_variance_per_component (each (n_components,), as in scikit-learn's PCA),
 # unit_ids, bin_centers.
 trajectory_res = jnwb.compute_population_trajectory(
-    session, area="V1", epochs_df=trials_df, n_components=3,
+    session, area="V1", epochs_df=trials_df, time_window_ms=(-1000, 2000), n_components=3,
 )
 ```
 

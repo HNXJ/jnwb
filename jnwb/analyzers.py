@@ -11,13 +11,12 @@ Changes vs. previous version:
 """
 
 import logging
-from typing import Optional, Dict, Tuple
+from typing import Literal, Optional, Dict, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
-from ._bins import (bins_within, onset_locked_counts, onset_window, refuse_nonfinite_times,
-                    whole_bin_count)
+from ._bins import (bins_within, check_bin_label, onset_locked_counts, onset_locked_counts_right,
+                    onset_window, refuse_nonfinite_times, whole_bin_count)
 from ._dictlike import RenamedKeyDict
-from ._units import omitted_window
 from .trajectory import _kept_components
 import pandas as pd
 from scipy import stats
@@ -321,15 +320,14 @@ class UnitAnalyzer:
 
     @staticmethod
     def raster(spike_times: np.ndarray, trial_onsets: np.ndarray,
-               window_ms: Optional[Tuple[float, float]] = None) -> Dict:
+               window_ms: Tuple[float, float]) -> Dict:
         """
         Prepare spike raster aligned to trial onsets.
 
         Args:
             spike_times: Spike times in seconds
             trial_onsets: Trial start times in seconds
-            window_ms: (pre_ms, post_ms) relative to onset. Required from 0.2.15; left out,
-                it is (-1000, 2000) with a ``FutureWarning``.
+            window_ms: (pre_ms, post_ms) relative to onset.
 
         Returns:
             Dict with raster data for plotting
@@ -337,8 +335,6 @@ class UnitAnalyzer:
         Raises:
             ValueError: If a ``trial_onsets`` entry is not finite; the message names its index.
         """
-        window_ms = omitted_window(window_ms, (-1000, 2000), name="window_ms",
-                                   func_name="UnitAnalyzer.raster")
         refuse_nonfinite_times(trial_onsets, "UnitAnalyzer.raster", "trial_onsets")
         win_sec = (window_ms[0] / 1000, window_ms[1] / 1000)
         raster_data = []
@@ -363,8 +359,9 @@ class UnitAnalyzer:
 
     @staticmethod
     def psth(spike_times: np.ndarray, trial_onsets: np.ndarray,
-             bin_size_ms: float = 10,
-             window_ms: Optional[Tuple[float, float]] = None) -> Dict:
+             bin_size_ms: float = 10, *,
+             window_ms: Tuple[float, float],
+             label: Literal["center", "right"] = "center") -> Dict:
         """
         Peristimulus time histogram with bootstrap CI.
 
@@ -380,13 +377,17 @@ class UnitAnalyzer:
             spike_times: Spike times in seconds
             trial_onsets: Trial start times in seconds
             bin_size_ms: Bin size in milliseconds
-            window_ms: (pre_ms, post_ms) relative to onset. Its span must be a whole number
-                of ``bin_size_ms`` bins. Required from 0.2.15; left out, it is (-1000, 2000)
-                with a ``FutureWarning``.
+            window_ms: (pre_ms, post_ms) relative to onset, keyword-only. Its span must be a
+                whole number of ``bin_size_ms`` bins.
+            label: ``"center"`` labels each bin at its midpoint. ``"right"`` counts a spike in
+                (t - bin, t] and labels that bin at t, so a spike on the onset lands in the bin
+                labelled 0.
 
         Returns:
-            Dict with PSTH, CI, and statistics. ``bin_centers_ms`` holds the bin centres in
-            ms, as ``jnwb.viz.raster_psth`` returns them. With no onsets there is no trial to
+            Dict with PSTH, CI, statistics, and ``label``, the convention used.
+            ``bin_centers_ms`` holds the bin centres in ms, as ``jnwb.viz.raster_psth`` returns
+            them under ``"center"``, and each bin's right edge under ``"right"``. With no onsets
+            there is no trial to
             average: ``psth``, ``sem`` and the ``bootstrap_ci`` values are NaN, ``n_trials`` is
             0, and NumPy and SciPy warn about the empty mean.
 
@@ -395,8 +396,7 @@ class UnitAnalyzer:
                 ``bin_size_ms``; the message names the nearest valid windows. Also if a
                 ``trial_onsets`` entry is not finite; the message names its index.
         """
-        window_ms = omitted_window(window_ms, (-1000, 2000), name="window_ms",
-                                   func_name="UnitAnalyzer.psth")
+        check_bin_label(label, "UnitAnalyzer.psth")
         refuse_nonfinite_times(trial_onsets, "UnitAnalyzer.psth", "trial_onsets")
         n_bins   = whole_bin_count(window_ms, bin_size_ms, "UnitAnalyzer.psth", "window_ms",
                                    width_param="bin_size_ms")
@@ -405,16 +405,24 @@ class UnitAnalyzer:
         bin_edges = np.linspace(win_sec[0], win_sec[1], n_bins + 1)
 
         # spike - onset in [pre, post], both edges inclusive, and every selected spike is
-        # counted (`onset_locked_counts`).
-        trial_psths = onset_locked_counts(spike_times, trial_onsets, win_sec[0], win_sec[1],
-                                          bin_edges, 1.0, right_closed=True) / bin_sec
+        # counted (`onset_locked_counts`). "right" selects (pre, post] for bins (t - w, t].
+        if label == "right":
+            trial_counts = onset_locked_counts_right(spike_times, trial_onsets, win_sec[0],
+                                                     win_sec[1], bin_edges, 1.0)
+            bin_centers_ms = bin_edges[1:] * 1000
+        else:
+            trial_counts = onset_locked_counts(spike_times, trial_onsets, win_sec[0], win_sec[1],
+                                               bin_edges, 1.0, right_closed=True)
+            bin_centers_ms = (bin_edges[:-1] + bin_edges[1:]) / 2 * 1000
+        trial_psths = trial_counts / bin_sec
         mean_psth = np.mean(trial_psths, axis=0)
         sem_psth  = stats.sem(trial_psths, axis=0)
 
         return {
             'psth':          mean_psth,
             'sem':           sem_psth,
-            'bin_centers_ms': (bin_edges[:-1] + bin_edges[1:]) / 2 * 1000,
+            'bin_centers_ms': bin_centers_ms,
+            'label':         label,
             'bin_size_ms':   bin_size_ms,
             'n_trials':      len(trial_onsets),
             'bootstrap_ci':  StatisticalAnalysis.bootstrap_ci(np.mean(trial_psths, axis=1)),

@@ -256,7 +256,8 @@ class TestTrajectoryPinsItsSigns:
         expected = projections.reshape(n_trials, n_bins, 3).transpose(0, 2, 1)
 
         result = compute_population_trajectory(
-            session, "V1", epochs, n_components=3, device="cpu")
+            session, "V1", epochs, time_window_ms=(-1000, 2000),
+            n_components=3, device="cpu")
 
         assert np.allclose(result["trajectory"], expected, atol=1e-10)
 
@@ -272,7 +273,8 @@ class TestTrajectoryPinsItsSigns:
         expected = projections.reshape(n_trials, n_bins, 3).transpose(0, 2, 1)
 
         result = compute_population_trajectory(
-            session, "V1", epochs, n_components=3, device="cpu")
+            session, "V1", epochs, time_window_ms=(-1000, 2000),
+            n_components=3, device="cpu")
 
         assert np.allclose(result["trajectory"], expected, atol=1e-10)
 
@@ -284,7 +286,8 @@ class TestTrajectoryPinsItsSigns:
         s = np.linalg.svd(scaled, compute_uv=False)
 
         result = compute_population_trajectory(
-            session, "V1", epochs, n_components=3, device="cpu")
+            session, "V1", epochs, time_window_ms=(-1000, 2000),
+            n_components=3, device="cpu")
 
         np.testing.assert_allclose(result["explained_variance_ratio"],
                                    s[:3] ** 2 / np.sum(s ** 2), rtol=1e-12)
@@ -310,7 +313,7 @@ class TestTheTwoDevicesReturnTheSameNumbers:
         monkeypatch.setattr(traj, "build_time_resolved_matrix",
                             lambda *a, **k: (X, [0, 1, 2], np.arange(5.0)))
         cpu, cuda = self._both(lambda d: traj.compute_population_trajectory(
-            None, "A", None, n_components=2, device=d))
+            None, "A", None, time_window_ms=(-1000, 2000), n_components=2, device=d))
 
         assert cpu["trajectory"].dtype == cuda["trajectory"].dtype == dtype
 
@@ -318,7 +321,7 @@ class TestTheTwoDevicesReturnTheSameNumbers:
         session = TestTrajectoryPinsItsSigns._Session()
         epochs = TestTrajectoryPinsItsSigns._epochs()
         cpu, cuda = self._both(lambda d: compute_population_trajectory(
-            session, "V1", epochs, n_components=3, device=d))
+            session, "V1", epochs, time_window_ms=(-1000, 2000), n_components=3, device=d))
 
         assert np.max(np.abs(cpu["trajectory"] - cuda["trajectory"])) < 1e-9
 
@@ -328,7 +331,7 @@ class TestTheTwoDevicesReturnTheSameNumbers:
             session = TestTrajectoryPinsItsSigns._Session(n_units=2, seed=seed)
             epochs = TestTrajectoryPinsItsSigns._epochs()
             cpu, cuda = self._both(lambda d: compute_population_trajectory(
-                session, "V1", epochs, n_components=2, device=d))
+                session, "V1", epochs, time_window_ms=(-1000, 2000), n_components=2, device=d))
             assert cuda["device_used"] == "cuda"
             if not np.allclose(cpu["trajectory"], cuda["trajectory"], atol=1e-9):
                 disagree.append(seed)

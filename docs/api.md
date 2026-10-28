@@ -319,14 +319,14 @@ All 230 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.classify_response_significance | function | `(metrics: Dict[str, float], zscore_threshold: float = 1.96, min_spike_count: int = 5, *, alpha: float = 0.05) -> Dict[str, bool | float]`<br>*Classify a unit's response against its baseline from `compute_response_metrics` output.* |
 | jnwb.compute_response_metrics | function | `(spike_times: numpy.ndarray, epoch_onsets: numpy.ndarray, baseline_window_s: Tuple[float, float] | None = None, response_window_s: Tuple[float, float] | None = None, z_score: bool = True, *, baseline_window: Tuple[float, float] | None = None, response_window: Tuple[float, float] | None = None) -> Dict[str, typing.Any]`<br>*Compute firing rate and spike count metrics for stimulus responses.* |
-| jnwb.fano_factor | function | `(spike_times, onsets_s, window_s: Tuple[float, float], *, summary: str) -> Dict[str, typing.Any]`<br>*Fano factor per unit across trials, summarised over units (Churchland et al. 2010).* |
+| jnwb.fano_factor | function | `(spike_times, onsets_s, *_positional, window_s: Tuple[float, float] = _REQUIRED, summary: str) -> Dict[str, typing.Any]`<br>*Fano factor per unit across trials, summarised over units (Churchland et al. 2010).* |
 | jnwb.fleiss_kappa | function | `(counts: numpy.ndarray) -> float`<br>*Fleiss' kappa: chance-corrected agreement of many raters on nominal categories (Fleiss 1971).* |
 | jnwb.gaussian_smooth_rate | function | `(rate: numpy.ndarray, bin_ms: float, sigma_ms: float = 20.0, axis: int = -1) -> numpy.ndarray`<br>*Apply symmetrical, acausal Gaussian smoothing to a binned firing rate trace.* |
-| jnwb.network_burst_index | function | `(spike_times, window_s: Tuple[float, float], *, bin_ms: float, threshold_hz: float, min_duration_ms: float) -> Dict[str, typing.Any]`<br>*Fraction of spikes inside network bursts found from the population rate (Wagenaar et al. 2006).* |
+| jnwb.network_burst_index | function | `(spike_times, *_positional, window_s: Tuple[float, float] = _REQUIRED, bin_ms: float, threshold_hz: float, min_duration_ms: float) -> Dict[str, typing.Any]`<br>*Fraction of spikes inside network bursts found from the population rate (Wagenaar et al. 2006).* |
 | jnwb.noise_correlation | function | `(counts, condition_id, *, min_trials: int) -> Dict[str, typing.Any]`<br>*Trial-based noise correlation: Pearson r of within-condition residual counts (Cohen and Kohn 2011).* |
 | jnwb.pairwise_phase_consistency | function | `(phases: numpy.ndarray, axis: int = -1) -> float | numpy.ndarray`<br>*Compute the Pairwise Phase Consistency (PPC) across angular samples (Vinck et al., 2010).* |
 | jnwb.phase_locking_index | function | `(unit_spike_times: numpy.ndarray, lfp_phase: numpy.ndarray, lfp_timestamps: numpy.ndarray, n_bins: int = 18) -> Dict[str, float | numpy.ndarray]`<br>*Compute circular phase distribution and Rayleigh non-uniformity test of spikes relative to LFP phase.* |
-| jnwb.spike_count_correlation | function | `(spike_times, window_s: Tuple[float, float], *, bin_ms: float) -> Dict[str, typing.Any]`<br>*Mean pairwise Pearson correlation of binned spike counts (Cohen and Kohn 2011).* |
+| jnwb.spike_count_correlation | function | `(spike_times, *_positional, window_s: Tuple[float, float] = _REQUIRED, bin_ms: float) -> Dict[str, typing.Any]`<br>*Mean pairwise Pearson correlation of binned spike counts (Cohen and Kohn 2011).* |
 
 ## Module: jnwb.statistics
 
@@ -341,11 +341,11 @@ All 230 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.effective_sample_size | function | `(x: 'np.ndarray') -> 'float'`<br>*Effective number of independent samples in autocorrelated data.* |
 | jnwb.exact_sign_flip | function | `(diffs: 'Union[Sequence[float], np.ndarray]', alternative: 'str' = 'two-sided', n_mc: 'int' = 10000, rng: 'RNGLike' = 42) -> 'Tuple[float, float, float]'`<br>*Exact paired sign-flip permutation test for paired sample differences.* |
 | jnwb.fdr_correct | function | `(p_values: 'Union[Sequence[float], np.ndarray]', method: 'str' = 'bh') -> 'np.ndarray'`<br>*Benjamini-Hochberg (or compatible) FDR across a hypothesis family.* |
-| jnwb.fire_indicator | function | `(spike_times: 'np.ndarray', onsets_s: 'np.ndarray', window_ms) -> 'np.ndarray'`<br>*Vectorized boolean fire indicator, one entry per onset, constant window.* |
-| jnwb.fires_in_window | function | `(spike_times: 'np.ndarray', onset_s: 'float', window_ms) -> 'bool'`<br>*True iff >=1 spike falls in [onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000).* |
+| jnwb.fire_indicator | function | `(spike_times: 'np.ndarray', onsets_s: 'np.ndarray', *_positional, window_ms = _REQUIRED) -> 'np.ndarray'`<br>*Vectorized boolean fire indicator, one entry per onset, constant window.* |
+| jnwb.fires_in_window | function | `(spike_times: 'np.ndarray', onset_s: 'float', *_positional, window_ms = _REQUIRED) -> 'bool'`<br>*True iff >=1 spike falls in [onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000).* |
 | jnwb.mann_whitney_p_floor | function | `(n1: 'int', n2: 'int', alternative: 'str' = 'two-sided') -> 'float'`<br>*Attainable minimal non-zero p-value floor for a Mann-Whitney U test without ties.* |
 | jnwb.paired_fire_prob_test | function | `(fires_target: 'np.ndarray', fires_null: 'np.ndarray', n_shuffles: 'int', n_bootstrap: 'int', rng: 'RNGLike') -> 'Dict'`<br>*Paired binary test: P(fire | target window) vs P(fire | paired baseline window).* |
-| jnwb.rate_in_window | function | `(spike_times: 'np.ndarray', onset_s: 'float', window_ms: 'Tuple[float, float]') -> 'float'`<br>*Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.* |
+| jnwb.rate_in_window | function | `(spike_times: 'np.ndarray', onset_s: 'float', *_positional, window_ms: 'Tuple[float, float]' = _REQUIRED) -> 'float'`<br>*Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.* |
 | jnwb.shuffle_pvalue_paired | function | `(a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'RNGLike', alternative: 'str' = 'two-sided') -> 'Tuple[float, float]'`<br>*Shuffle-controlled p-value for ``mean(a - b)`` via paired sign-flips.* |
 | jnwb.shuffle_pvalue_unpaired | function | `(a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'RNGLike', alternative: 'str' = 'two-sided') -> 'Tuple[float, float]'`<br>*Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.* |
 | jnwb.shuffle_r2_ci | function | `(y_true: 'np.ndarray', y_score: 'np.ndarray', groups: 'Optional[np.ndarray]' = None, n_shuffle: 'int' = 200, rng: 'RNGLike' = 42, *, random_state: 'Any' = 42) -> 'Dict[str, float]'`<br>*R^2 (squared Pearson correlation) between a continuous score and a 0/1 label, with a shuffle-null 95% CI.* |
@@ -369,8 +369,8 @@ All 230 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.build_time_resolved_matrix | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] | None = None, bin_size_ms: float = 20.0, quality: str | None = None) -> Tuple[numpy.ndarray, List[int], numpy.ndarray]`<br>*Build a trial-by-trial time-resolved population spike count matrix.* |
-| jnwb.compute_population_trajectory | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] | None = None, bin_size_ms: float = 20.0, n_components: int = 3, quality: str | None = None, device: str = 'cpu') -> Dict[str, numpy.ndarray | List[int] | float | str]`<br>*Compute population trajectory using standardized correlation PCA (SVD). Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.* |
+| jnwb.build_time_resolved_matrix | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float], bin_size_ms: float = 20.0, quality: str | None = None, *, label: Literal['center', 'right'] = 'center') -> Tuple[numpy.ndarray, List[int], numpy.ndarray]`<br>*Build a trial-by-trial time-resolved population spike count matrix.* |
+| jnwb.compute_population_trajectory | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float], bin_size_ms: float = 20.0, n_components: int = 3, quality: str | None = None, device: str = 'cpu', *, label: Literal['center', 'right'] = 'center') -> Dict[str, numpy.ndarray | List[int] | float | str]`<br>*Compute population trajectory using standardized correlation PCA (SVD). Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.* |
 
 ## Module: jnwb.unit_quality
 

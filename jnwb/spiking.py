@@ -13,7 +13,7 @@ import numpy as np
 
 from ._bins import onset_window, refuse_nonfinite_times, whole_bin_count
 from ._spread import is_constant
-from ._units import resolve_unit_alias
+from ._units import _REQUIRED, _window_from_positional, resolve_unit_alias
 from scipy import stats
 
 log = logging.getLogger(__name__)
@@ -754,8 +754,8 @@ def fleiss_kappa(counts: np.ndarray) -> float:
 
 def spike_count_correlation(
     spike_times,
-    window_s: Tuple[float, float],
-    *,
+    *_positional,
+    window_s: Tuple[float, float] = _REQUIRED,
     bin_ms: float,
 ) -> Dict[str, Any]:
     """Mean pairwise Pearson correlation of binned spike counts (Cohen and Kohn 2011).
@@ -791,6 +791,7 @@ def spike_count_correlation(
         Cohen, M. R., and Kohn, A. (2011). Measuring and interpreting neuronal correlations.
         Nature Neuroscience 14(7), 811-819. doi:10.1038/nn.2842
     """
+    window_s = _window_from_positional("spike_count_correlation", "window_s", window_s, _positional)
     trains = _unit_trains(spike_times, "spike_count_correlation")
     counts = _unit_counts(trains, window_s, bin_ms)
     n_window_bins = whole_bin_count(window_s, float(bin_ms) / 1000.0, "spike_count_correlation",
@@ -969,8 +970,8 @@ def _count_fano(counts) -> np.ndarray:
 def fano_factor(
     spike_times,
     onsets_s,
-    window_s: Tuple[float, float],
-    *,
+    *_positional,
+    window_s: Tuple[float, float] = _REQUIRED,
     summary: str,
 ) -> Dict[str, Any]:
     """Fano factor per unit across trials, summarised over units (Churchland et al. 2010).
@@ -1004,6 +1005,7 @@ def fano_factor(
         widespread cortical phenomenon. Nature Neuroscience 13(3), 369-378.
         doi:10.1038/nn.2501
     """
+    window_s = _window_from_positional("fano_factor", "window_s", window_s, _positional)
     if summary not in ("mean", "median"):
         raise ValueError(f"fano_factor: summary must be 'mean' or 'median', got {summary!r}.")
     trains = _unit_trains(spike_times, "fano_factor")
@@ -1038,8 +1040,8 @@ def fano_factor(
 
 def network_burst_index(
     spike_times,
-    window_s: Tuple[float, float],
-    *,
+    *_positional,
+    window_s: Tuple[float, float] = _REQUIRED,
     bin_ms: float,
     threshold_hz: float,
     min_duration_ms: float,
@@ -1076,6 +1078,7 @@ def network_burst_index(
         bursting patterns during the development of cortical cultures. BMC Neuroscience 7, 11.
         doi:10.1186/1471-2202-7-11
     """
+    window_s = _window_from_positional("network_burst_index", "window_s", window_s, _positional)
     if not np.isfinite(threshold_hz) or threshold_hz <= 0:
         raise ValueError(f"network_burst_index: threshold_hz must be positive and finite, got {threshold_hz}.")
     if not np.isfinite(min_duration_ms) or min_duration_ms < 0:

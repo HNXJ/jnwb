@@ -6,6 +6,7 @@ from typing import Dict, Tuple
 import numpy as np
 from .._rng import RNGLike, surrogate_rng
 from .._spread import percentile_interval
+from .._units import _REQUIRED, _window_from_positional
 from ..permutation import _count_at_least_as_extreme
 from ._tests import _tie_tolerance
 
@@ -28,7 +29,8 @@ def _spike_window_bounds(spike_times, onset_s, window_ms, func_name):
     return spike_times, onset_s + window_ms[0] / 1000.0, onset_s + window_ms[1] / 1000.0
 
 
-def fires_in_window(spike_times: np.ndarray, onset_s: float, window_ms) -> bool:
+def fires_in_window(spike_times: np.ndarray, onset_s: float, *_positional,
+                    window_ms=_REQUIRED) -> bool:
     """True iff >=1 spike falls in [onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000).
 
     Pure spike-array/searchsorted arithmetic on an arbitrary onset and window.
@@ -38,15 +40,18 @@ def fires_in_window(spike_times: np.ndarray, onset_s: float, window_ms) -> bool:
         ValueError: If the window has non-positive width (this returned False), a bound or
             spike time is not finite, or ``spike_times`` is not sorted.
     """
+    window_ms = _window_from_positional("fires_in_window", "window_ms", window_ms, _positional)
     spike_times, t0, t1 = _spike_window_bounds(spike_times, onset_s, window_ms, "fires_in_window")
     n = int(np.searchsorted(spike_times, t1, side="left") - np.searchsorted(spike_times, t0, side="left"))
     return n > 0
 
 
-def fire_indicator(spike_times: np.ndarray, onsets_s: np.ndarray, window_ms) -> np.ndarray:
+def fire_indicator(spike_times: np.ndarray, onsets_s: np.ndarray, *_positional,
+                   window_ms=_REQUIRED) -> np.ndarray:
     """Vectorized boolean fire indicator, one entry per onset, constant window."""
+    window_ms = _window_from_positional("fire_indicator", "window_ms", window_ms, _positional)
     return np.asarray(
-        [fires_in_window(spike_times, float(o), window_ms) for o in onsets_s], dtype=bool
+        [fires_in_window(spike_times, float(o), window_ms=window_ms) for o in onsets_s], dtype=bool
     )
 
 
@@ -165,7 +170,8 @@ def paired_fire_prob_test(
     }
 
 
-def rate_in_window(spike_times: np.ndarray, onset_s: float, window_ms: Tuple[float, float]) -> float:
+def rate_in_window(spike_times: np.ndarray, onset_s: float, *_positional,
+                   window_ms: Tuple[float, float] = _REQUIRED) -> float:
     """Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.
 
     Rate-valued sibling of ``fires_in_window`` (spike count divided by window width).
@@ -176,6 +182,7 @@ def rate_in_window(spike_times: np.ndarray, onset_s: float, window_ms: Tuple[flo
             time is not finite, or ``spike_times`` is not sorted. The first two returned 0.0 Hz,
             indistinguishable from a silent unit; unsorted spike times were miscounted.
     """
+    window_ms = _window_from_positional("rate_in_window", "window_ms", window_ms, _positional)
     spike_times, t0, t1 = _spike_window_bounds(spike_times, onset_s, window_ms, "rate_in_window")
     n = int(np.searchsorted(spike_times, t1, side="left") - np.searchsorted(spike_times, t0, side="left"))
     return n / ((window_ms[1] - window_ms[0]) / 1000.0)

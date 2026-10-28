@@ -13,10 +13,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import numpy as np
+import pandas as pd
 import pytest
 
 import jnwb
 from jnwb.addressing import probe_geometry
+from jnwb.analyzers import UnitAnalyzer
 from jnwb.nwb_events import resolve_interval_table
 from jnwb.nwb_inspect import resolve_acquisition
 from jnwb.spectral import (
@@ -248,3 +250,167 @@ class TestSpectralSurfaceValidatesIdentically:
             band_power(x, sampling_rate=-1.0, normalize=False)
         with pytest.raises(ValueError, match="Conflicting values"):
             band_power(x, fs=1000.0, sampling_rate=500.0, normalize=False)
+
+
+class _OneUnitSession:
+    """One unit in V1 with the given spike times in seconds."""
+
+    def __init__(self, spikes):
+        self._spikes = np.asarray(spikes, dtype=float)
+        self.units_df = pd.DataFrame({"unit_id": [0], "area": ["V1"], "quality": ["good"]})
+
+    def get_units(self, quality=None, area=None):
+        return self.units_df
+
+    def get_spike_times(self, unit_id):
+        return self._spikes
+
+
+def _by_label(centres, values):
+    """Map each bin label, rounded to 9 places, to its value."""
+    return dict(zip(np.round(np.asarray(centres, dtype=float), 9), values))
+
+
+class TestBinLabelNamesItsEdge:
+    """`label="right"` bins (t - w, t] and labels each bin at t; `"center"` is the default.
+
+    A step read off the trace leads an instantaneous event by half a bin under the centre
+    label (omission JNWB-024). Each result names the label it used.
+    """
+
+    # Two onsets, each with a spike exactly on it: relative time 0 in both trials.
+    ONSETS = np.array([1.0, 2.0])
+    EVENTS = np.array([1.0, 2.0])
+    WINDOW = (-100, 100)
+
+    def test_psth_centre_is_the_default_and_is_named(self):
+        res = UnitAnalyzer.psth(self.EVENTS, self.ONSETS, bin_size_ms=50, window_ms=self.WINDOW)
+        assert res["label"] == "center"
+        np.testing.assert_allclose(res["bin_centers_ms"], [-75, -25, 25, 75])
+
+    def test_psth_right_labels_each_bin_at_its_right_edge(self):
+        res = UnitAnalyzer.psth(self.EVENTS, self.ONSETS, bin_size_ms=50,
+                                window_ms=self.WINDOW, label="right")
+        assert res["label"] == "right"
+        np.testing.assert_allclose(res["bin_centers_ms"], [-50, 0, 50, 100], atol=1e-9)
+
+    def test_a_spike_on_the_step_first_shows_in_the_bin_labelled_zero_under_right(self):
+        res = UnitAnalyzer.psth(self.EVENTS, self.ONSETS, bin_size_ms=50,
+                                window_ms=self.WINDOW, label="right")
+        by_label = _by_label(res["bin_centers_ms"], res["psth"])
+        assert by_label[0.0] == pytest.approx(20.0), "1 spike per trial in (-50, 0] ms, 0.05 s bins"
+        assert by_label[50.0] == 0.0
+
+    def test_under_centre_the_same_spikes_sit_in_the_bin_labelled_plus_25(self):
+        res = UnitAnalyzer.psth(self.EVENTS, self.ONSETS, bin_size_ms=50, window_ms=self.WINDOW)
+        by_label = _by_label(res["bin_centers_ms"], res["psth"])
+        assert by_label[25.0] == pytest.approx(20.0)
+        assert 0.0 not in by_label
+
+    def test_the_right_window_excludes_its_start_and_keeps_its_end(self):
+        spikes = np.array([0.75, 1.25])  # relative -0.25 s (window start) and +0.25 s (end)
+        onsets = np.array([1.0, 1.0])
+        right = UnitAnalyzer.psth(spikes, onsets, bin_size_ms=250,
+                                  window_ms=(-250, 250), label="right")
+        np.testing.assert_allclose(right["bin_centers_ms"], [0, 250])
+        np.testing.assert_allclose(right["psth"], [0.0, 4.0])
+        centre = UnitAnalyzer.psth(spikes, onsets, bin_size_ms=250, window_ms=(-250, 250))
+        np.testing.assert_allclose(centre["psth"], [4.0, 4.0])
+
+    def test_an_unknown_label_is_refused(self):
+        with pytest.raises(ValueError, match="label"):
+            UnitAnalyzer.psth(self.EVENTS, self.ONSETS, bin_size_ms=50,
+                              window_ms=self.WINDOW, label="left")
+
+    def test_build_bins_the_step_under_right_and_under_centre(self):
+        session = _OneUnitSession(self.EVENTS)
+        epochs = pd.DataFrame({"start_time": self.ONSETS})
+        counts, _, centres = jnwb.build_time_resolved_matrix(
+            session, "V1", epochs, self.WINDOW, bin_size_ms=50, label="right")
+        np.testing.assert_allclose(centres, [-50, 0, 50, 100], atol=1e-9)
+        np.testing.assert_array_equal(counts[:, 0, :], [[0, 1, 0, 0], [0, 1, 0, 0]])
+        counts, _, centres = jnwb.build_time_resolved_matrix(
+            session, "V1", epochs, self.WINDOW, bin_size_ms=50)
+        np.testing.assert_allclose(centres, [-75, -25, 25, 75])
+        np.testing.assert_array_equal(counts[:, 0, :], [[0, 0, 1, 0], [0, 0, 1, 0]])
+
+    def test_compute_population_trajectory_names_its_label(self):
+        session = _OneUnitSession(self.EVENTS)
+        epochs = pd.DataFrame({"start_time": self.ONSETS})
+        res = jnwb.compute_population_trajectory(session, "V1", epochs, self.WINDOW,
+                                                 bin_size_ms=50, n_components=1, label="right")
+        assert res["label"] == "right"
+        np.testing.assert_allclose(res["bin_centers"], [-50, 0, 50, 100], atol=1e-9)
+        default = jnwb.compute_population_trajectory(session, "V1", epochs, self.WINDOW,
+                                                     bin_size_ms=50, n_components=1)
+        assert default["label"] == "center"
+
+
+_SPIKE_TRAINS = [
+    np.array([0.05, 0.1, 0.3, 0.31, 0.6, 0.9, 1.2, 1.25, 1.8, 2.2]),
+    np.array([0.02, 0.4, 0.41, 0.42, 1.0, 1.5, 1.51, 2.4]),
+]
+_ONSETS_S = np.array([0.0, 0.5, 1.0, 1.5, 2.0])
+_ONE_UNIT_SPIKES = np.array([1.02, 1.05, 1.3])
+
+
+def _fano(*window, **kw):
+    return jnwb.fano_factor(_SPIKE_TRAINS, _ONSETS_S, *window, summary="mean", **kw)
+
+
+def _burst(*window, **kw):
+    return jnwb.network_burst_index(_SPIKE_TRAINS, *window, bin_ms=50.0, threshold_hz=20.0,
+                                    min_duration_ms=50.0, **kw)
+
+
+def _scc(*window, **kw):
+    return jnwb.spike_count_correlation(_SPIKE_TRAINS, *window, bin_ms=100.0, **kw)
+
+
+def _fires(*window, **kw):
+    return jnwb.fires_in_window(_ONE_UNIT_SPIKES, 1.0, *window, **kw)
+
+
+def _fire_indicator(*window, **kw):
+    return jnwb.fire_indicator(_ONE_UNIT_SPIKES, _ONSETS_S, *window, **kw)
+
+
+def _rate(*window, **kw):
+    return jnwb.rate_in_window(_ONE_UNIT_SPIKES, 1.0, *window, **kw)
+
+
+# (function, its call, its window keyword, a window that gives events in the fixture)
+_WINDOWED = [
+    pytest.param("fano_factor", _fano, "window_s", (0.0, 0.5), id="fano_factor"),
+    pytest.param("network_burst_index", _burst, "window_s", (0.0, 2.5), id="network_burst_index"),
+    pytest.param("spike_count_correlation", _scc, "window_s", (0.0, 2.5),
+                 id="spike_count_correlation"),
+    pytest.param("fires_in_window", _fires, "window_ms", (0.0, 100.0), id="fires_in_window"),
+    pytest.param("fire_indicator", _fire_indicator, "window_ms", (0.0, 100.0),
+                 id="fire_indicator"),
+    pytest.param("rate_in_window", _rate, "window_ms", (0.0, 100.0), id="rate_in_window"),
+]
+
+
+class TestAWindowPassedPositionally:
+    """The window of the six windowed functions is keyword-capable (ruling 2026-10-28).
+
+    A positional window still works and warns FutureWarning naming the keyword; an omitted
+    window and two positional windows raise TypeError.
+    """
+
+    @pytest.mark.parametrize("name,call,kw,window", _WINDOWED)
+    def test_a_positional_window_warns_and_gives_the_keyword_result(self, name, call, kw, window):
+        with pytest.warns(FutureWarning, match=rf"{name}: pass {kw}= by keyword"):
+            positional = call(window)
+        np.testing.assert_equal(positional, call(**{kw: window}))
+
+    @pytest.mark.parametrize("name,call,kw,window", _WINDOWED)
+    def test_an_omitted_window_raises_naming_it(self, name, call, kw, window):
+        with pytest.raises(TypeError, match=kw):
+            call()
+
+    @pytest.mark.parametrize("name,call,kw,window", _WINDOWED)
+    def test_two_positional_windows_raise(self, name, call, kw, window):
+        with pytest.raises(TypeError):
+            call(window, window)

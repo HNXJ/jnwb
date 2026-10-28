@@ -298,7 +298,8 @@ def test_a_constant_population_has_a_nan_trajectory(dtype, monkeypatch):
         X = np.full((4, 3, 5), c, dtype=dtype)
         monkeypatch.setattr(traj, "build_time_resolved_matrix",
                             lambda *a, _X=X, **k: (_X, [0, 1, 2], np.arange(5.0)))
-        res = traj.compute_population_trajectory(None, "A", None, n_components=2)
+        res = traj.compute_population_trajectory(None, "A", None, time_window_ms=(-1000, 2000),
+                                                 n_components=2)
         assert res['trajectory'].shape == (4, 2, 5)
         assert res['trajectory'].dtype == dtype
         assert np.all(np.isnan(res['trajectory']))
@@ -316,7 +317,8 @@ def test_a_population_with_variance_keeps_its_trajectory(dtype, monkeypatch):
     X = np.random.default_rng(0).poisson(5.0, size=(4, 3, 5)).astype(dtype)
     monkeypatch.setattr(traj, "build_time_resolved_matrix",
                         lambda *a, **k: (X, [0, 1, 2], np.arange(5.0)))
-    res = traj.compute_population_trajectory(None, "A", None, n_components=2)
+    res = traj.compute_population_trajectory(None, "A", None, time_window_ms=(-1000, 2000),
+                                             n_components=2)
     Z = zscore(X.transpose(0, 2, 1).reshape(20, 3), axis=0)
     _, S, Vt = np.linalg.svd(Z, full_matrices=False)
     assert np.sum(S ** 2) > 0, "fixture must have variance"
