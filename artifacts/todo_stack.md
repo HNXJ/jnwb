@@ -18,11 +18,11 @@ question per message; the checkpoint is the 0.2.13 table with 0.2.14 in place of
 | `AUTONOMY: max` unless an item says otherwise (`AGENTS.md` §12) | actor and critic sequence the work |
 | One item per packet, in the contract of `artifacts/skills/jnwb-fact-action` §5; role `jnwb-developer` unless named | a batched packet redefines the hard item |
 | A lane is one clone and one writer; up to three lanes run at once, when they share no file (Hamm 2026-10-10, 2026-10-11, 2026-10-19); a lane's items run in the order listed | lanes never share a file, so they merge without conflict |
-| Writers (ruled 2026-10-24): Cursor CLI GLM 5.3 flash at high effort for most packets; Muse (opencode) writes and criticises; Haiku 5.5 writes and runs the skill, doc and `match-checker` checks; a writer never verifies its own packet | the actor is never the verifier |
+| Writers (ruled 2026-10-24): Cursor CLI GLM 5.3 flash at high effort for most packets; Muse (opencode) writes and criticises; Haiku 5.5 writes and runs the skill, doc and `checker` checks; a writer never verifies its own packet | the actor is never the verifier |
 | A packet reproduces each bullet on its own tree first; a bullet that does not reproduce is deleted | non-reproduction is a result |
 | The integrator owns the stacks, `CHANGELOG.md`, `docs/api.md` and every commit and push | packets report the disposition and the changelog text |
 | A public signature, an estimand or a skill line goes to Hamm before code, one question per message | public API and skills are Hamm's |
-| Match skills (Hamm 2026-10-21): a packet loads `match-code-style` for code and tests, `match-writing-style` for docs, docstrings, stack text and commit messages, and `match-visual-style` for figures and the dashboard, rendered at final size in light and dark; before each commit `match-checker` (check mode) runs on the changed files and the integrator re-checks every number in its diff | numbers and claims stay fixed while the wording is cut |
+| Match skills (Hamm 2026-10-21): a packet loads `match-code-style` for code and tests, `match-writing-style` for docs, docstrings, stack text and commit messages, and `match-visual-style` for figures and the dashboard, rendered at final size in light and dark; before each commit `checker` (check mode) runs on the changed files and the integrator re-checks every number in its diff | numbers and claims stay fixed while the wording is cut |
 | Wave barrier: `python scripts/harness_gate.py` (count PASS lines), the full suite, commit, push, CI green on `dev` at that SHA | a local pass is not a CI pass |
 
 Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then `Do`, `Accept`, `Stop` as
@@ -69,7 +69,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | 9 | Docs pages carry still and interactive figures, after jaxfne's form (ruled 2026-10-24) | the form and the page set follow Hamm's preference rulings; a test builds each figure from committed inputs; the strict docs build passes | 17-01 landed 2026-10-26 |
 | 10 | A validation dashboard after jaxfne's, keeping the proof of work, the HTML outputs and the GLO cards (ruled 2026-10-23 and 2026-10-24) | `tests/test_build_dashboard.py` builds it from committed files with every receipt digest matching; the published page shows each section the preference rulings name, in light and dark | 17-02 landed 2026-10-26 |
 | 11 | Reference claims checked against full text where an abstract decides nothing | each claim cell of `docs/references.md` has a ledger line, confirmed, reworded, or cut; the 14 core texts keep their cells (ruled 2026-10-23, ledger ruled 2026-10-25) | ledger: 93 cells, 60 cut, 6 reworded, 13 confirmed, 14 kept, 0 unrecorded; 17-58 landed 2026-10-26 |
-| 12 | Release form (`AGENTS.md` §11): low-verbosity docs, low-complexity code, an empty open stack, no required item | `match-checker` runs once at the checkpoint on every file changed since v0.2.13, its report committed (ruled 2026-10-25); the closure pass (checkpoint step 5) finds 0 new blockers | checkpoint steps 1 to 5 |
+| 12 | Release form (`AGENTS.md` §11): low-verbosity docs, low-complexity code, an empty open stack, no required item | `checker` runs once at the checkpoint on every file changed since v0.2.13, its report committed (ruled 2026-10-25); the closure pass (checkpoint step 5) finds 0 new blockers | checkpoint steps 1 to 5 |
 | 13 | The audit of 2026-10-25 closed | every item 17-09 to 17-56 has left this file | 17-09 to 17-56 |
 | 14 | `dev` is green and release-ready | the suite stamp equals HEAD; CI green on `dev` at that SHA; `python scripts/release_gate.py` exits 0 | checkpoint steps 6 and 7 |
 | 15 | `main` carries 0.2.14 and the tag | CI green on `main` at the merge SHA; `v0.2.14` points at it; the TestPyPI and verify jobs pass | checkpoint steps 8 and 9 |
@@ -193,3 +193,59 @@ Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/addressing.py`, `tests/test_addressing.py`.
 - 17-61: `_resolve_electrode_row` (`jnwb/addressing.py:214`) looks `peak_channel_id` up in the first of `channel_id`, `id`, `electrode_id`; nothing reads `units.electrodes` or `electrodes.hardware_channel`. pypeline NWBs now order the electrodes table by probe position and store `peak_channel_id` as a hardware channel (pypeline `docs/JNWB_ALIGNMENT.md`), so a lookup through `id` returns the wrong row when position and hardware order differ. Check: on a file where they differ, area and layer resolve from `units.electrodes` when present, else through `hardware_channel`, asserted in `tests/test_addressing.py`; an empty `units.electrodes` entry and a probe whose `hardware_channel` is -1 resolve to nothing and never fall back to `id`; a file without both columns keeps the current lookup. Waits: deferred from 0.2.14 (ruled 2026-10-27). Fixture from pypeline, unjudged, join only: `D:/_BL_DATA_PIPELINE/_SCRATCH/ja01_fixture/ja01_two_area_units_electrodes.nwb` (35 units on two probes; per pypeline's `peak_vs_position.json`, none has `peak_channel_id` equal to its row).
+
+### 17-62 The release gate installs the wheel with PYTHONPATH stripped
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/release_gate.py`, `tests/test_release_gate_receipt_history.py`.
+- 17-62: STEP 6 and STEP 8 run `pip install` in the isolated venv with the caller's environment (`scripts/release_gate.py:2100`, `:2101`, `:2131`); STEP 7 strips `PYTHONPATH`. With `PYTHONPATH` on the checkout, pip takes the checkout's `jnwb.egg-info` as jnwb installed and skips the wheel, `pip check` passes, and STEP 7 fails on `import jnwb` (2026-10-27, run at 39d6474f). Check: every subprocess the gate runs in the isolated venv gets the environment with `PYTHONPATH` removed, and STEP 6 refuses when `jnwb` is absent from the venv's site-packages after the install, asserted with `PYTHONPATH` set on the checkout. Waits: the 0.2.14 gate passed when run as `python -m scripts.release_gate` with `PYTHONPATH` unset.
+
+### 17-63 The effective rate of a sampled stream
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/continuous.py`, `tests/test_continuous.py`.
+- 17-63: Nothing reports the rate a stream was sampled at before it was stored; a 500 Hz source upsampled to a 1 kHz series reads as 1 kHz (omission JNWB-022: on one session 2.7% of consecutive eye samples repeat exactly and a third of the power lies above 250 Hz). Check: a helper returns the exact-repeat fraction, the run-length distribution and the power fraction above rate/4 of a series; a planted sample-and-hold signal at half the stored rate is flagged and a native one is not. Waits: requested 2026-10-27.
+
+### 17-64 Gaze departure onset per trial
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/continuous.py`, `tests/test_continuous.py`.
+- 17-64: The logged break time is the trial's stop code, which follows the eye leaving the window by tens of milliseconds; no function returns the departure itself (omission JNWB-023, algorithm in its `scripts/gz_gaze_break.py`). Check: a function returns per-trial departure onsets from a gaze series, with baseline, envelope percentile, hold duration and walk-back fraction as parameters; on a planted departure the onset lands within one sample of the planted time. Waits: requested 2026-10-27.
+
+### 17-65 Bin times say which edge they name
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: 17-04 (same signatures).
+Writes: `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/_bins.py`, `tests/test_api_consistency.py`.
+- 17-65: `UnitAnalyzer.psth` (`bin_centers_ms`, `jnwb/analyzers.py:417`) and `build_time_resolved_matrix` (`jnwb/trajectory.py:63`) label a bin at its centre only, so an onset read off the trace leads an instantaneous event by half a bin (omission JNWB-024). Check: each binning helper takes `label='center'|'right'` (right: bin (t-w, t] labelled t) and returns the convention it used; a step at t=0 first shows in the bin labelled 0 under `'right'`. Waits: requested 2026-10-27.
+
+### 17-66 Edge times of a tracked series near each event
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/nwb_events.py`, `tests/test_nwb_events.py`.
+- 17-66: jnwb reads no photodiode or reward line, so screen and reward timing are assumed from event codes (omission JNWB-025; JNWB-021 asks the same of a reward line whose interval pairing is ambiguous). Check: a function takes a series or interval table by path, returns per event the nearest rising and falling edge and its lag to the event, and names neither a series nor a threshold by default; on a planted flip train the lags match. Waits: requested 2026-10-27.
+
+### 17-67 A content fingerprint of the groups a reader used
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/paths.py`, `tests/test_paths.py`.
+- 17-67: `jnwb.paths.sha256_file` hashes a whole file, which is slow on large NWBs and changes when an unread group changes; a receipt cannot cheaply say its inputs are unchanged (omission JNWB-026). Check: a function hashes the named HDF5 groups of an NWB; changing a dataset in a named group changes the hash and changing one outside does not. Waits: requested 2026-10-27.
+
+### 17-68 One unit table with a column dictionary
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: 17-61.
+Writes: `jnwb/metadata.py`, `tests/test_metadata.py`.
+- 17-68: Every consumer rebuilds the per-unit join of identity, probe, peak channel, area, layer and waveform features (omission JNWB-027). Check: `units_table(nwb)` returns one row per unit in unit order with a column dictionary (definition, source, units), and on the 17-61 fixture area comes through `units.electrodes`. Waits: requested 2026-10-27; area resolution waits on 17-61.
+
+### 17-69 resolve_nwb_path refuses a missing file
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/paths.py`, `tests/test_paths.py`.
+- 17-69: `resolve_nwb_path` (`jnwb/paths.py:231`) probes `{prefix}_rec.nwb`, then returns `{prefix}.nwb` without checking it exists, so a renamed corpus resolves every prefix to a missing file with no error (omission JNWB-020). Check: the suffixes probed are a parameter (default unchanged), a prefix with no file raises `FileNotFoundError` naming each probe, and a suffix that only starts with a probed one is never matched. Waits: requested 2026-10-27; the corpus suffix stays in the project.
