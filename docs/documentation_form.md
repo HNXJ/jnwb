@@ -147,7 +147,7 @@ Eleven pages sit over their ceiling, and each owes the one sentence the rule ask
 | `04_spectral_analysis_and_tfr` | 1397 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number; the spectra and band-profile figures and their captions add 161 words |
 | `06_spikes_psth_and_onset_dynamics` | 1709 | PSTH and response tests, phase locking, onset fitting, trajectories, unit quality measures and WaveMAP share a page, and the page sat at 1199 words before the unit quality table; the phase-locking and causal-step figures and their captions add 170 words |
 | `07_statistical_inference_and_nulls` | 1314 | the cluster-permutation figure and its caption add 114 words; the section's limit on what a significant cluster licenses applies to the cluster the figure outlines |
-| `08_directed_connectivity_and_information` | 1472 | the spectral Granger and phase-slope figures and their captions add 150 words, each showing one directional estimate on a synthetic pair |
+| `08_directed_connectivity_and_information` | 1473 | the spectral Granger and phase-slope figures and their captions add 150 words, each showing one directional estimate on a synthetic pair |
 | `architecture` | 1956 | two pages merged: the module map is a 673-word reference table, and the prose states the boundary, the invariants and the claim table once each |
 | `install` | 938 | the pandas 3 override is the one install step hdmf's cap makes necessary, and the page sat at 889 words before it |
 | `index` | 419 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |

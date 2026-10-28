@@ -789,7 +789,8 @@ def _fig12_panel(ax, letter: str, lagged: bool, title: str):
     # One frequency bin per window: imaginary_coherency returns a mean over its band, so a
     # window of one bin gives the value at that bin.
     icoh = [jnwb.imaginary_coherency(x, y, fs=fs, freq_range=(f - 0.5, f + 0.5),
-                                     nperseg=FIG12_NPERSEG)["icoh_abs_mean"] for f in freqs[shown]]
+                                     nperseg=FIG12_NPERSEG, signal_class="lfp")["icoh_abs_mean"]
+            for f in freqs[shown]]
 
     ax.plot(coh_f[shown_coh], coh[shown_coh], color=style.SERIES[0], lw=style.LW)
     ax.plot(freqs[shown], icoh, color=style.SERIES[1], lw=style.LW)

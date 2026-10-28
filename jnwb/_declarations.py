@@ -305,12 +305,12 @@ DECLARATIONS: Dict[str, Declaration] = {
         unit="unitless r and p",
         base="samples, 0-based",
     ),
-    # Bivariate Granger causality; the statistic is a log variance ratio (nats); no rate parameter.
+    # Bivariate Granger causality; the statistic is a log variance ratio; no rate parameter.
     "jnwb.connectivity._granger.granger_causality": Declaration(
         input_class=frozenset({"spikes", "lfp"}),
         estimator="bivariate VAR log variance ratio (Granger 1969)",
         estimand="Granger statistic in each direction",
-        unit="nats",
+        unit="log variance ratio",
         base="samples, 0-based",
     ),
     # All-pairs directed estimators; the unit follows the chosen method, q-values are unitless.
