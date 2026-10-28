@@ -29,7 +29,6 @@ design or a scan across `jnwb/`.
 | 3 | H coherence graph | 16-20 | L | reviewed by `reviewer` at high |
 | 3 | I fact graph | 17-08, 11-03, 11-09 | L, L, L | nothing |
 | 4 | J non-finite | 17-24 | L | waves 1 to 3 merged (writes across `jnwb/`) |
-| 3 | H2 declarations | 17-03 | L | ruled 2026-10-28 |
 | - | Held | 17-05, 17-07 | - | Hamm's rulings |
 
 ### 17-60 Paper, library and methods verdicts on the dashboard
@@ -38,13 +37,6 @@ Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, `tests/test_build_dashboard.py`.
 - 17-60: Each showcase replication carries one verdict and no numeric paper value, where jaxfne splits the verdict into paper, library and methods. Check: `tests/test_build_dashboard.py` asserts each replication card carries a paper, a library and a methods verdict. Waits: one verdict per replication was ruled for 0.2.14 (2026-10-26); the split needs each replication's receipts read again. Roadmap row 17-57 until 2026-10-27, renumbered because 17-57 names a finished item.
-
-### 17-03 Declared types on the remaining numeric operations
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: none (ruled 2026-10-28: keyword-only `signal_class` on each generic-input operation; fact I4's holder becomes a computed scan in `scripts/build_fact_graph.py`).
-Writes: `jnwb/_declarations.py`, `scripts/build_fact_graph.py`, `jnwb/connectivity/_granger.py`, `jnwb/connectivity/_network.py`, `jnwb/spectral/_coupling.py`.
-- 17-03: Fact I4 is UNHELD: only the operations whose parameter names show spikes or LFP declare signal types (`jnwb/_declarations.py`); generic-input operations such as `granger_causality`, `directed_network` and `imaginary_coherency` take either class and declare nothing. Check: each generic-input operation declares a per-call class in `jnwb/_declarations.py`, and fact I4 reports HELD. Waits: A per-call class for generic inputs; nothing shipped changes. Split from I1 (ruled 2026-10-24).
 
 ### 16-20 A distance-aware coherence graph
 

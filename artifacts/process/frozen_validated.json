@@ -138,8 +138,8 @@
     {
       "file": "jnwb/spectral/_coupling.py",
       "qualname": "imaginary_coherency",
-      "sha256": "6157838f366321ab9d74916bc13d20a525bc5eae8c68be0f454b62547b51878a",
-      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "sha256": "a11808db2a6383f42558975d14b3d982fafc0e9a05656d53ef01a27201f593ab",
+      "verified_at": "36b7816227fee4e4af5be9048af653e65a8621bf",
       "killed_by": [
         "tests/test_estimator_discrimination.py::TestImaginaryCoherencyAgainstAnIndependentOracle::test_matches_an_independent_oracle_on_a_phase_shifted_pair",
         "tests/test_estimator_discrimination.py::TestImaginaryCoherencyAgainstAnIndependentOracle::test_a_phase_shifted_pair_produces_a_non_zero_estimate_of_the_right_sign",
@@ -168,8 +168,8 @@
     {
       "file": "jnwb/connectivity/_granger.py",
       "qualname": "granger_causality",
-      "sha256": "6f627b8916b37fdee21b07b477835bfe0bf55b0a75e240eda9859aa0afc9984d",
-      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "sha256": "94cdeacf5d777638d4787df3a7e9f40c5caa6e80b8645b1372a7371a905dafc5",
+      "verified_at": "36b7816227fee4e4af5be9048af653e65a8621bf",
       "killed_by": [
         "tests/test_estimator_values_are_pinned.py::TestDeprecatedGrangerCausalityIsReportedInNats::test_each_statistic_is_the_log_of_the_variances_it_reports"
       ]
