@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+from collections.abc import Iterable
 from pathlib import Path
 
 __all__ = [
@@ -49,6 +50,7 @@ __all__ = [
     "layer_masks_path",
     "resolve_nwb_path",
     "sha256_file",
+    "sha256_groups",
     "require",
     "describe",
 ]
@@ -228,17 +230,28 @@ def layer_masks_path(subdir: str | os.PathLike = "publication_visual_review/area
     return outputs_dir(subdir, "layer_masks.json")
 
 
-def resolve_nwb_path(prefix: str, nwb_dir_override: str | os.PathLike | None = None) -> Path:
-    """Resolve a session prefix to its NWB file, trying ``{prefix}_rec.nwb`` then
-    ``{prefix}.nwb``.
-    Does not check existence beyond the ``_rec.nwb`` probe -- callers that need a hard
-    guarantee should still check ``.exists()`` or use :func:`require`.
+def resolve_nwb_path(
+    prefix: str,
+    nwb_dir_override: str | os.PathLike | None = None,
+    *,
+    suffixes: tuple[str, ...] = ("_rec", ""),
+) -> Path:
+    """Resolve a session prefix to its NWB file: the first existing file among
+    ``{prefix}{suffix}.nwb``, probed in the order of ``suffixes``.
+
+    Raises ``FileNotFoundError`` naming every probed path when none is a file. A name that
+    only starts with a probe (``{prefix}_rec-old.nwb``) never matches. Pass ``suffixes`` for
+    another naming scheme.
     """
     base = nwb_dir(nwb_dir_override)
-    rec_path = base / (prefix + "_rec.nwb")
-    if rec_path.exists():
-        return rec_path
-    return base / (prefix + ".nwb")
+    probes = [base / (prefix + suffix + ".nwb") for suffix in suffixes]
+    for probe in probes:
+        if probe.is_file():
+            return probe
+    raise FileNotFoundError(
+        f"No NWB file for session prefix {prefix!r} in {base}. "
+        f"Probed: {', '.join(str(p) for p in probes)}."
+    )
 
 
 def sha256_file(path: str | os.PathLike, chunk_size: int = 1024 * 1024) -> str:
@@ -247,6 +260,51 @@ def sha256_file(path: str | os.PathLike, chunk_size: int = 1024 * 1024) -> str:
     with open(path, "rb") as handle:
         for chunk in iter(lambda: handle.read(chunk_size), b""):
             h.update(chunk)
+    return h.hexdigest()
+
+
+def _frame(data: bytes) -> bytes:
+    """``data`` with its length prefixed, so adjacent fields cannot run together."""
+    return len(data).to_bytes(8, "little") + data
+
+
+def sha256_groups(path: str | os.PathLike, groups: Iterable[str]) -> str:
+    """SHA-256 hex digest of every dataset under the named HDF5 groups of ``path``.
+
+    Each dataset contributes its path in the file, its shape, its dtype and its bytes.
+    Datasets are hashed in sorted path order, so the order of ``groups`` changes nothing.
+    Datasets outside the named groups, file attributes and timestamps do not contribute.
+
+    Raises:
+        KeyError: If the file holds no group of a given name; the message names it.
+    """
+    import h5py
+    import numpy as np
+
+    found: dict[str, h5py.Dataset] = {}
+    with h5py.File(path, "r") as f:
+        for group in groups:
+            if group not in f:
+                raise KeyError(f"sha256_groups: no group {group!r} in {path}")
+            node = f[group]
+            if isinstance(node, h5py.Dataset):
+                found[node.name] = node
+            else:
+                def collect(_name, obj):
+                    if isinstance(obj, h5py.Dataset):
+                        found[obj.name] = obj
+                node.visititems(collect)
+        h = hashlib.sha256()
+        for name in sorted(found):
+            ds = found[name]
+            values = np.asarray(ds[()])
+            if values.dtype.kind == "O":
+                payload = [repr(v).encode("utf-8") for v in values.ravel()]
+            else:
+                payload = [np.ascontiguousarray(values).tobytes()]
+            h.update(_frame(repr((name, tuple(ds.shape), ds.dtype.str)).encode("utf-8")))
+            for part in payload:
+                h.update(_frame(part))
     return h.hexdigest()
 
 

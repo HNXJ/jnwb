@@ -44,10 +44,12 @@ class TestResolveNwbPath:
         (tmp_path / "s1.nwb").write_bytes(b"p")
         assert paths.resolve_nwb_path("s1", nwb_dir_override=tmp_path) == tmp_path / "s1.nwb"
 
-    def test_nothing_on_disk_still_names_the_plain_file(self, tmp_path):
-        """Documented: only the `_rec.nwb` probe checks existence; `require` is the hard check."""
-        p = paths.resolve_nwb_path("s1", nwb_dir_override=tmp_path)
-        assert p == tmp_path / "s1.nwb" and not p.exists()
+    def test_nothing_on_disk_raises_naming_both_probes(self, tmp_path):
+        """17-69: no file for the prefix raises, naming every probe."""
+        with pytest.raises(FileNotFoundError) as exc:
+            paths.resolve_nwb_path("s1", nwb_dir_override=tmp_path)
+        assert str(tmp_path / "s1_rec.nwb") in str(exc.value)
+        assert str(tmp_path / "s1.nwb") in str(exc.value)
 
 
 class TestRequire:
