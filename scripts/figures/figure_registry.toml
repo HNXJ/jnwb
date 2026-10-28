@@ -7,7 +7,7 @@ n_unit = "channels"
 height_px = 340
 seeds = []
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -18,7 +18,7 @@ n_unit = "trials"
 height_px = 390
 seeds = [42]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -29,7 +29,7 @@ n_unit = "signals"
 height_px = 400
 seeds = [7]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -40,7 +40,7 @@ n_unit = "signals"
 height_px = 310
 seeds = [12]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -51,7 +51,7 @@ n_unit = "signals"
 height_px = 460
 seeds = [3]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = ["panel 2: contour set"]
 
@@ -62,7 +62,7 @@ n_unit = "units"
 height_px = 320
 seeds = [99]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -73,7 +73,7 @@ n_unit = "trials"
 height_px = 330
 seeds = [21]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -84,7 +84,7 @@ n_unit = "pairs"
 height_px = 330
 seeds = [101]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -95,7 +95,7 @@ n_unit = "trials"
 height_px = 340
 seeds = [0, 55]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -106,7 +106,7 @@ n_unit = "trials"
 height_px = 320
 seeds = [88]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -117,7 +117,7 @@ n_unit = "signals"
 height_px = 340
 seeds = [31]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -128,7 +128,7 @@ n_unit = "signal pairs"
 height_px = 360
 seeds = [42, 64]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = ["figure: a figure-level legend or text"]
 
@@ -139,7 +139,7 @@ n_unit = "channels"
 height_px = 360
 seeds = [7]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -150,7 +150,7 @@ n_unit = "signals"
 height_px = 380
 seeds = []
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -161,7 +161,7 @@ n_unit = "spikes"
 height_px = 480
 seeds = [15]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -172,7 +172,7 @@ n_unit = "trials"
 height_px = 360
 seeds = [16, 160]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = ["panel 1: contour set"]
 
@@ -183,7 +183,7 @@ n_unit = "signal pairs"
 height_px = 360
 seeds = [0, 17]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -194,7 +194,7 @@ n_unit = "signal pairs"
 height_px = 360
 seeds = [0, 42]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -205,7 +205,7 @@ n_unit = "conditions"
 height_px = 600
 seeds = [19]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -216,7 +216,7 @@ n_unit = "trials"
 height_px = 640
 seeds = [20]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = ["panel 2: symlog scale"]
 
@@ -227,7 +227,7 @@ n_unit = "units"
 height_px = 360
 seeds = []
 input_sha256 = "049518a12119162181ace32bc26ca66d800e2fa53748a9cfe0e95dc8d0230aac"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -238,7 +238,7 @@ n_unit = "trials per group"
 height_px = 360
 seeds = [42]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -249,7 +249,7 @@ n_unit = "channels"
 height_px = 620
 seeds = [0, 42]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -260,7 +260,7 @@ n_unit = "units"
 height_px = 360
 seeds = [42]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -271,7 +271,7 @@ n_unit = "trials"
 height_px = 420
 seeds = [11]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -282,7 +282,7 @@ n_unit = "signal pairs"
 height_px = 420
 seeds = [23]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -293,7 +293,7 @@ n_unit = "channels"
 height_px = 1090
 seeds = [0]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -304,7 +304,7 @@ n_unit = "units"
 height_px = 760
 seeds = [3]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -315,7 +315,7 @@ n_unit = "onsets"
 height_px = 560
 seeds = [42]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -326,7 +326,7 @@ n_unit = "interval tables"
 height_px = 560
 seeds = [42]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -337,7 +337,7 @@ n_unit = "contacts"
 height_px = 560
 seeds = [42]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -348,7 +348,7 @@ n_unit = "trials"
 height_px = 560
 seeds = [8]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -359,7 +359,7 @@ n_unit = "rows"
 height_px = 560
 seeds = [0]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -370,7 +370,7 @@ n_unit = "waveforms"
 height_px = 560
 seeds = [9]
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []
 
@@ -381,6 +381,6 @@ n_unit = "checks"
 height_px = 560
 seeds = []
 input_sha256 = "synthetic"
-code_sha256 = "974324c63a2162f158615a6bf56b711cfb147c3ab5e31f3fd1dc182a455a85a9"
+code_sha256 = "af811c3437cc68813844a44f8c6df0b2d5c63502126357b4904d838b6235cd9c"
 jnwb_version = "0.2.14"
 unconvertible = []

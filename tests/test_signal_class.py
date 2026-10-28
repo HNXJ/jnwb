@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import inspect
+import sys
 import warnings
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -12,7 +14,11 @@ import jnwb
 from jnwb import _declarations
 from jnwb.connectivity import _network
 from jnwb.spectral import _coupling
-from scripts import build_fact_graph
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+from scripts import build_fact_graph  # noqa: E402
 
 FS = 500.0
 BAND = (8.0, 14.0)
