@@ -228,7 +228,7 @@ class TestReleaseGateOrder:
         step_7 = main[main.index("=== STEP 7"):main.index("=== STEP 8")]
         assert "smoke_installed.py" in step_7, "STEP 7 does not run scripts/smoke_installed.py"
         assert "--expected-version" in step_7 and "--not-under" in step_7, step_7
-        assert 'k != "PYTHONPATH"' in step_7 and "env=smoke_env" in step_7, step_7
+        assert "smoke_env = isolated_env()" in step_7 and "env=smoke_env" in step_7, step_7
         assert "INSTALLED_SMOKE" not in main, "STEP 7 still builds its own smoke script"
 
     @staticmethod

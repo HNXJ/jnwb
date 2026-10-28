@@ -667,8 +667,10 @@ class TestInstalledArtifactVerification:
         wheel."""
         gate = (REPO_ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
         step7 = gate[gate.index("=== STEP 7"):gate.index("=== STEP 8")]
-        assert 'k != "PYTHONPATH"' in step7, "STEP 7 does not strip PYTHONPATH"
+        assert "smoke_env = isolated_env()" in step7, "STEP 7 does not use the PYTHONPATH-free environment"
         assert "env=smoke_env" in step7, "STEP 7 runs the smoke script with the inherited environment"
+        helper = gate[gate.index("def isolated_env"):gate.index("def check_jnwb_installed")]
+        assert 'k != "PYTHONPATH"' in helper, "isolated_env does not strip PYTHONPATH"
 
     def test_release_gate_installs_the_extras_the_ci_tutorial_step_has(self):
         """CI's tutorial step runs after `vis` and `wavemap` are installed into the clean env;
