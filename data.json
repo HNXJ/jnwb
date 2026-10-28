@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "a825a203cbe1ea1ffed6b0054cb7ee9d6bea2956",
-    "date": "2026-10-28T18:00:46Z"
+    "commit": "2acb973e9f4aa15884c5cc94af6315534b4b9fab",
+    "date": "2026-10-28T19:31:18Z"
   },
   "sources": {
     "generated": [
@@ -4710,7 +4710,25 @@
             "seed": "20261012",
             "report_sha256": "ad276925005c223a1b8a80af10b6293b81c3c5cd0bf034bedb78b5de0e07151c",
             "note": "288 of 297 checks match; the 7 mismatches were statements in the write-up, since corrected",
-            "label": "reproduced"
+            "label": "reproduced",
+            "methods": {
+              "verdict": "reproduces"
+            },
+            "paper": {
+              "verdict": "not applicable",
+              "reason": "Uses DANDI 000253, the data of PMC11741236. The paper and its Extended Data show no xxxx comparison across main, randomized and sequenced contexts and no context decoding (PUBLISHED_VS_PROPOSED.md)."
+            },
+            "library": {
+              "verdict": "partial",
+              "uncovered": [
+                "filter_by_criteria",
+                "unit_spike_times",
+                "compute_response_metrics",
+                "classify_response_significance",
+                "rate_in_window",
+                "exact_sign_flip"
+              ]
+            }
           }
         ],
         "links": [
@@ -4847,7 +4865,24 @@
             "seed": "20261012",
             "report_sha256": "064620e3439dfac1a48b7c8f14b3b4a13b2979242936ced7b759915628a339b2",
             "note": "the other contrasts were not rerun",
-            "label": "reproduced"
+            "label": "reproduced",
+            "methods": {
+              "verdict": "partial",
+              "reason": "the other contrasts were not rerun"
+            },
+            "paper": {
+              "verdict": "not applicable",
+              "reason": "Uses DANDI 000253, the data of PMC11741236. The paper and its Extended Data show no xxxx comparison across main, randomized and sequenced contexts and no context decoding (PUBLISHED_VS_PROPOSED.md)."
+            },
+            "library": {
+              "verdict": "partial",
+              "uncovered": [
+                "filter_by_criteria",
+                "unit_spike_times",
+                "rate_in_window",
+                "exact_sign_flip"
+              ]
+            }
           }
         ],
         "links": [
@@ -4990,7 +5025,22 @@
             "seed": "20261012",
             "report_sha256": "ce1b0cb396a9bf2c44d98aafbb65957952320d07a2086776ba7e3ac9d11b76fe",
             "note": "0 of 11 fields per area differ by more than 1e-6",
-            "label": "reproduced"
+            "label": "reproduced",
+            "methods": {
+              "verdict": "reproduces"
+            },
+            "paper": {
+              "verdict": "not applicable",
+              "reason": "Uses DANDI 000253, the data of PMC11741236. The paper and its Extended Data show no xxxx comparison across main, randomized and sequenced contexts and no context decoding (PUBLISHED_VS_PROPOSED.md)."
+            },
+            "library": {
+              "verdict": "partial",
+              "uncovered": [
+                "filter_by_criteria",
+                "nested_cv_linear_svm",
+                "exact_sign_flip"
+              ]
+            }
           },
           {
             "by": "independent rerun with separate code",
@@ -5000,7 +5050,22 @@
             "seed": "20261013",
             "report_sha256": "ce1b0cb396a9bf2c44d98aafbb65957952320d07a2086776ba7e3ac9d11b76fe",
             "note": "no cell reaches p < 0.13; the VISal gain is −0.015 (p 0.51) against +0.042 (p 0.047)",
-            "label": "reproduced"
+            "label": "reproduced",
+            "methods": {
+              "verdict": "reproduces"
+            },
+            "paper": {
+              "verdict": "not applicable",
+              "reason": "Uses DANDI 000253, the data of PMC11741236. The paper and its Extended Data show no xxxx comparison across main, randomized and sequenced contexts and no context decoding (PUBLISHED_VS_PROPOSED.md)."
+            },
+            "library": {
+              "verdict": "partial",
+              "uncovered": [
+                "filter_by_criteria",
+                "nested_cv_linear_svm",
+                "exact_sign_flip"
+              ]
+            }
           }
         ],
         "links": [
@@ -5099,7 +5164,20 @@
             "seed": null,
             "report_sha256": "3e76a792bf34e7be2cf7daad5f98f99aa6be04a2bef06adeeb04cc9bf066783d",
             "note": "−9.73 and −9.76 ms in 1232959154; +0.24 and +0.28 ms in 1203581890; each within one sample (0.8 ms) of the showcase value",
-            "label": "reproduced"
+            "label": "reproduced",
+            "methods": {
+              "verdict": "reproduces"
+            },
+            "paper": {
+              "verdict": "not applicable",
+              "reason": "Data check for a proposed LFP showcase; the paper reports no such check."
+            },
+            "library": {
+              "verdict": "unverified",
+              "uncovered": [
+                "bandpass_filter"
+              ]
+            }
           }
         ],
         "links": [

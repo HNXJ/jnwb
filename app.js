@@ -1203,6 +1203,8 @@
 
   // One row per independent replication of the work. The verdict and the other fields are shown
   // as recorded; a digest shows its first characters, with the full value in the cell's title.
+  // The three verdicts sit beside the record's own: paper, library, methods. Each keeps its
+  // words, so no meaning rides on colour alone; keyboard order is unchanged (no new stops).
   var REPLICATION_COLUMNS = ['Verdict', 'By', 'Date', 'Scope', 'Seed', 'Report sha256', 'Note'];
   var DIGEST_CHARS = 12;
 
@@ -1230,6 +1232,16 @@
         verdict.appendChild(document.createTextNode(' '));
         textInto(verdict, row.verdict, true);
       }
+      [['Paper', row.paper], ['Library', row.library], ['Methods', row.methods]].forEach(
+        function (axis) {
+          var record = axis[1];
+          if (!record || isBlank(record.verdict)) { return; }
+          verdict.appendChild(document.createTextNode(' '));
+          var chip = verdictChip(axis[0] + ': ' + record.verdict);
+          var detail = record.reason || (record.uncovered || []).join(', ');
+          if (!isBlank(detail)) { chip.title = String(detail); }
+          verdict.appendChild(chip);
+        });
       tr.appendChild(verdict);
       tr.appendChild(cellWith(row.by));
       tr.appendChild(cellWith(row.date));
