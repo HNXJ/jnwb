@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "4aaaae6103d3b046dde0023ca7d8d470a82bf611",
-    "date": "2026-10-28T00:20:12Z"
+    "commit": "0838b2c7177b3c8ddf7ccd4a6a5aa18efd0f22c7",
+    "date": "2026-10-28T01:57:42Z"
   },
   "sources": {
     "generated": [
@@ -5247,13 +5247,13 @@
       "section": "closure",
       "title": "Blocker fixpoint receipt, 0.2.14",
       "path": "artifacts/process/blocker_fixpoint_receipt.md",
-      "commit": "bd36031a615cd1fbd9edec7fccf544bf2f2e3194",
-      "sha256": "049c65e61e7727199649110706c65367c3379aab1db56ebc335dbf8873b39d13",
+      "commit": "d2045329968ef560ca4e3734403af8c7829498f2",
+      "sha256": "40daf04c78e3e35b17dc5bb0650c54d351b687a44c3f95b9fb804fd64a8202b5",
       "fields": {
         "new_blockers": 0
       },
       "html": null,
-      "recorded_commit": "47f060c4b23e6280d97670cc0437102ce10aebba"
+      "recorded_commit": "4aaaae6103d3b046dde0023ca7d8d470a82bf611"
     }
   ],
   "deferred": [
