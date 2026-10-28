@@ -407,7 +407,7 @@ class TestEdgesNearEvents:
         path = tmp_path / "square.nwb"
         _write_square_wave(path, rate=True)
         df = edges_near_events(
-            path, "acquisition/photodiode", [0.9, 2.1], threshold=0.5, window=(0.2, 0.5)
+            path, "acquisition/photodiode", [0.9, 2.1], threshold=0.5, window_s=(0.2, 0.5)
         )
         one_sample = 1.0 / EDGE_RATE_HZ
         assert len(df) == 2
@@ -424,7 +424,7 @@ class TestEdgesNearEvents:
         _write_square_wave(path, rate=True)
         # Window [0.8, 2.0] holds rising 1.0 (-0.4) and 2.0 (+0.6); the nearer one is 1.0.
         df = edges_near_events(
-            path, "acquisition/photodiode", [1.4], threshold=0.5, window=(0.6, 0.6)
+            path, "acquisition/photodiode", [1.4], threshold=0.5, window_s=(0.6, 0.6)
         )
         one_sample = 1.0 / EDGE_RATE_HZ
         np.testing.assert_allclose(df["rising_edge_s"], [1.0], atol=one_sample)
@@ -435,7 +435,7 @@ class TestEdgesNearEvents:
         path = tmp_path / "square.nwb"
         _write_square_wave(path, rate=True)
         df = edges_near_events(
-            path, "acquisition/photodiode", [3.0], threshold=0.5, window=(0.1, 0.1)
+            path, "acquisition/photodiode", [3.0], threshold=0.5, window_s=(0.1, 0.1)
         )
         for column in ("rising_edge_s", "rising_lag_s", "falling_edge_s", "falling_lag_s"):
             assert np.isnan(df[column].iloc[0]), column
@@ -445,7 +445,7 @@ class TestEdgesNearEvents:
         stamp_path = tmp_path / "stamps.nwb"
         _write_square_wave(rate_path, rate=True)
         _write_square_wave(stamp_path, rate=False)
-        kwargs = dict(threshold=0.5, window=(0.2, 0.5))
+        kwargs = dict(threshold=0.5, window_s=(0.2, 0.5))
         events_s = [0.9, 2.1]
         by_rate = edges_near_events(rate_path, "acquisition/photodiode", events_s, **kwargs)
         by_stamp = edges_near_events(stamp_path, "acquisition/photodiode", events_s, **kwargs)
@@ -455,11 +455,11 @@ class TestEdgesNearEvents:
         path = tmp_path / "square.nwb"
         _write_square_wave(path, rate=True)
         from_path = edges_near_events(
-            path, "acquisition/photodiode", [0.9], threshold=0.5, window=(0.2, 0.5)
+            path, "acquisition/photodiode", [0.9], threshold=0.5, window_s=(0.2, 0.5)
         )
         with NWBHDF5IO(str(path), "r") as io:
             from_open = edges_near_events(
-                io.read(), "acquisition/photodiode", [0.9], threshold=0.5, window=(0.2, 0.5)
+                io.read(), "acquisition/photodiode", [0.9], threshold=0.5, window_s=(0.2, 0.5)
             )
         np.testing.assert_allclose(from_open.to_numpy(), from_path.to_numpy())
 
@@ -470,7 +470,7 @@ class TestEdgesNearEvents:
         _write_interval_only_nwb(path, {"trials": table})
         with pytest.raises(TypeError, match="not a TimeSeries"):
             edges_near_events(
-                path, "intervals/trials", [1.0], threshold=0.5, window=(0.1, 0.1)
+                path, "intervals/trials", [1.0], threshold=0.5, window_s=(0.1, 0.1)
             )
 
     @pytest.mark.parametrize("window", [(-0.1, 0.2), (0.2, -0.1)])
@@ -478,14 +478,14 @@ class TestEdgesNearEvents:
         path = tmp_path / "square.nwb"
         _write_square_wave(path, rate=True)
         with pytest.raises(ValueError, match="window"):
-            edges_near_events(path, "acquisition/photodiode", [1.0], threshold=0.5, window=window)
+            edges_near_events(path, "acquisition/photodiode", [1.0], threshold=0.5, window_s=window)
 
     def test_threshold_series_and_window_have_no_default(self, tmp_path):
         params = inspect.signature(edges_near_events).parameters
-        for name in ("series_path", "threshold", "window"):
+        for name in ("series_path", "threshold", "window_s"):
             assert params[name].default is inspect.Parameter.empty, name
         path = tmp_path / "square.nwb"
         _write_square_wave(path, rate=True)
         with pytest.raises(TypeError):
-            edges_near_events(path, "acquisition/photodiode", [1.0], window=(0.1, 0.1))
+            edges_near_events(path, "acquisition/photodiode", [1.0], window_s=(0.1, 0.1))
 

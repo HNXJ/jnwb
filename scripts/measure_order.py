@@ -313,7 +313,7 @@ def _gaze_departure_onsets(n_samples: int, _tmp: Path) -> Callable[[], object]:
 
     def call():
         return jnwb.gaze_departure_onsets(
-            gaze, rate, starts, baseline_window=(0.0, 0.1), reference_trials=[0])
+            gaze, rate, starts, baseline_window_s=(0.0, 0.1), reference_trials=[0])
 
     assert np.isfinite(call()[1:]).all(), "fixture must depart in every stepped trial"
     return call
@@ -334,7 +334,7 @@ def _edges_near(n_events: int, _tmp: Path) -> Callable[[], object]:
 
     def call() -> object:
         return jnwb.edges_near_events(nwb, "acquisition/photodiode", events, threshold=0.5,
-                                      window=(0.05, 0.05))
+                                      window_s=(0.05, 0.05))
 
     assert np.isfinite(call()["rising_edge_s"]).mean() > 0.9, "fixture must find rising edges"
     return call
@@ -476,7 +476,7 @@ SPECS: Dict[str, Spec] = {
     "edges_near_events[n_events]": Spec(
         "n_events", (1_000, 10_000, 100_000, 1_000_000),
         "10 s square wave at 1000 Hz, flip every 10 ms, in-memory NWBFile; threshold=0.5, "
-        "window=(0.05, 0.05) s; admissible T(E*W)",
+        "window_s=(0.05, 0.05) s; admissible T(E*W)",
         _edges_near,
     ),
     "effective_sample_size[n_samples]": Spec(

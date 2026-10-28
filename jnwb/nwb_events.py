@@ -462,12 +462,12 @@ def _nearest_in_window(
     return picked
 
 
-def _window_bounds(window: tuple[float, float]) -> tuple[float, float]:
-    before_s, after_s = (float(v) for v in window)
+def _window_bounds(window_s: tuple[float, float]) -> tuple[float, float]:
+    before_s, after_s = (float(v) for v in window_s)
     if not (np.isfinite(before_s) and np.isfinite(after_s)) or before_s < 0.0 or after_s < 0.0:
         raise ValueError(
-            "edges_near_events: window must be two finite non-negative seconds "
-            f"(before_s, after_s); got {window!r}"
+            "edges_near_events: window_s must be two finite non-negative seconds "
+            f"(before_s, after_s); got {window_s!r}"
         )
     return before_s, after_s
 
@@ -478,7 +478,7 @@ def edges_near_events(
     events: Sequence[float] | np.ndarray,
     *,
     threshold: float,
-    window: tuple[float, float],
+    window_s: tuple[float, float],
 ) -> pd.DataFrame:
     """Return the rising and falling edge nearest each event of a TimeSeries.
 
@@ -495,7 +495,7 @@ def edges_near_events(
         A sample at or above ``threshold`` is high. A rising edge is the first high sample after
         a low one; a falling edge the first low sample after a high one. Each edge is stamped with
         its sample's time.
-    window:
+    window_s:
         ``(before_s, after_s)``: edges within ``before_s`` before and ``after_s`` after each event
         are candidates. Both must be finite and non-negative.
 
@@ -507,7 +507,7 @@ def edges_near_events(
         nearest the event (ties to the earlier one); a lag is ``edge_s - event_s``, so negative
         means the edge came first. NaN where the window holds no edge of that kind.
     """
-    before_s, after_s = _window_bounds(window)
+    before_s, after_s = _window_bounds(window_s)
     centers = np.asarray(events, dtype=np.float64).ravel()
 
     def _build(nwb: NWBFile) -> pd.DataFrame:

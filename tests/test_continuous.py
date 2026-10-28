@@ -446,7 +446,7 @@ class TestGazeDepartureOnsets:
 
     def _onsets(self, gaze, reference_trials=(2,), **kwargs):
         return jnwb.gaze_departure_onsets(
-            gaze, self.RATE, self.STARTS_S, baseline_window=self.BASELINE_S,
+            gaze, self.RATE, self.STARTS_S, baseline_window_s=self.BASELINE_S,
             reference_trials=list(reference_trials), **kwargs)
 
     def test_a_planted_departure_lands_within_one_sample(self):

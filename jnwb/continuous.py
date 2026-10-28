@@ -487,7 +487,7 @@ def gaze_departure_onsets(
     rate: float,
     trial_starts: np.ndarray | Sequence[float],
     *,
-    baseline_window: tuple[float, float],
+    baseline_window_s: tuple[float, float],
     reference_trials: np.ndarray | Sequence[int],
     envelope_percentile: float = 99.5,
     hold_s: float = 0.025,
@@ -496,7 +496,7 @@ def gaze_departure_onsets(
     """Find, per trial, the time the gaze leaves its baseline position.
 
     Per trial, the deviation of each sample is its distance from the median gaze over
-    ``baseline_window``. The envelope is the ``envelope_percentile`` of the deviation pooled over
+    ``baseline_window_s``. The envelope is the ``envelope_percentile`` of the deviation pooled over
     ``reference_trials``. The departure is the first sample from which the deviation stays above
     the envelope for ``hold_s``. The onset then walks back to the last sample before it at or
     below ``walkback_fraction`` times the envelope; if no such sample exists, the onset is the
@@ -515,7 +515,7 @@ def gaze_departure_onsets(
         Sampling rate of ``gaze`` in Hz, positive and finite.
     trial_starts:
         1-D array of trial start times in seconds on the gaze clock, where sample 0 is t = 0.
-    baseline_window:
+    baseline_window_s:
         ``(start_s, stop_s)`` in seconds relative to each trial start, with ``start_s < stop_s``.
     reference_trials:
         Integer indices into ``trial_starts`` whose deviations set the envelope.
@@ -565,11 +565,11 @@ def gaze_departure_onsets(
             f"gaze_departure_onsets: reference_trials must hold trial indices in "
             f"[0, {starts_s.size}), got {refs.tolist()}"
         )
-    base_lo_s, base_hi_s = (float(baseline_window[0]), float(baseline_window[1]))
+    base_lo_s, base_hi_s = (float(baseline_window_s[0]), float(baseline_window_s[1]))
     if not (np.isfinite(base_lo_s) and np.isfinite(base_hi_s) and base_lo_s < base_hi_s):
         raise ValueError(
-            f"gaze_departure_onsets: baseline_window must be (start_s, stop_s) with start_s "
-            f"< stop_s, got {baseline_window}"
+            f"gaze_departure_onsets: baseline_window_s must be (start_s, stop_s) with start_s "
+            f"< stop_s, got {baseline_window_s}"
         )
     if not 0.0 <= envelope_percentile <= 100.0:
         raise ValueError(
@@ -598,7 +598,7 @@ def gaze_departure_onsets(
         b1 = int(first[k]) + _containment_sample(base_hi_s, rate)
         if b0 < 0 or b1 > n or b1 <= b0:
             raise ValueError(
-                f"gaze_departure_onsets: baseline_window {baseline_window} for trial {k} is "
+                f"gaze_departure_onsets: baseline_window_s {baseline_window_s} for trial {k} is "
                 f"empty or outside the gaze samples [0, {n})"
             )
         centre = np.nanmedian(g[b0:b1], axis=0)

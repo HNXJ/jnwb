@@ -90,7 +90,7 @@ All 230 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.derive_tick_clock | function | `(tick_segments: 'Sequence[np.ndarray]', spike_times) -> 'TickClock'`<br>*Derive the map from acquisition ticks to spike-clock seconds from one recording.* |
 | jnwb.effective_rate | function | `(data: 'np.ndarray | Sequence[float]', rate: 'float') -> 'EffectiveRate'`<br>*Measure whether a stream repeats samples as if it were held from a lower rate.* |
 | jnwb.epoch_continuous | function | `(data: 'np.ndarray', onsets: 'np.ndarray | Sequence[float]', *, win_s: 'tuple[float, float]', fs: 'float', start_s: 'float' = 0.0, onset_unit: 'OnsetUnit' = 'seconds', boundary_policy: 'BoundaryPolicy' = 'nan', return_indices: 'bool' = False) -> 'tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]'`<br>*Extract fixed-duration epochs from a continuous signal aligned to event onsets.* |
-| jnwb.gaze_departure_onsets | function | `(gaze: 'np.ndarray | Sequence[float]', rate: 'float', trial_starts: 'np.ndarray | Sequence[float]', *, baseline_window: 'tuple[float, float]', reference_trials: 'np.ndarray | Sequence[int]', envelope_percentile: 'float' = 99.5, hold_s: 'float' = 0.025, walkback_fraction: 'float' = 0.5) -> 'np.ndarray'`<br>*Find, per trial, the time the gaze leaves its baseline position.* |
+| jnwb.gaze_departure_onsets | function | `(gaze: 'np.ndarray | Sequence[float]', rate: 'float', trial_starts: 'np.ndarray | Sequence[float]', *, baseline_window_s: 'tuple[float, float]', reference_trials: 'np.ndarray | Sequence[int]', envelope_percentile: 'float' = 99.5, hold_s: 'float' = 0.025, walkback_fraction: 'float' = 0.5) -> 'np.ndarray'`<br>*Find, per trial, the time the gaze leaves its baseline position.* |
 
 ## Module: jnwb.decoding
 
@@ -185,7 +185,7 @@ All 230 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.IntervalTableNotFoundError | class | *The requested interval table does not exist.* |
 | jnwb.InvalidOnsetValueError | class | *A selected row has a missing or non-finite onset timestamp.* |
 | jnwb.NWBEventError | class | *Base class for event/onset extraction errors.* |
-| jnwb.edges_near_events | function | `(path_or_nwb: 'NWBInput', series_path: 'str', events: 'Sequence[float] | np.ndarray', *, threshold: 'float', window: 'tuple[float, float]') -> 'pd.DataFrame'`<br>*Return the rising and falling edge nearest each event of a TimeSeries.* |
+| jnwb.edges_near_events | function | `(path_or_nwb: 'NWBInput', series_path: 'str', events: 'Sequence[float] | np.ndarray', *, threshold: 'float', window_s: 'tuple[float, float]') -> 'pd.DataFrame'`<br>*Return the rising and falling edge nearest each event of a TimeSeries.* |
 | jnwb.event_onsets | function | `(path_or_nwb: 'NWBInput', *, table: 'str | None' = None, codes: 'CodeSequence | None' = None, code_column: 'str | None' = 'codes', onset_column: 'str' = 'start_time') -> 'np.ndarray'`<br>*Return onset timestamps (seconds) for rows matching ``codes``.* |
 | jnwb.events | function | `(path_or_nwb: 'NWBInput', *, table: 'str | None' = None, code_column: 'str | None' = 'codes', onset_column: 'str' = 'start_time') -> 'EventTable'`<br>*Read event codes and onset timestamps from one interval table.* |
 | jnwb.resolve_interval_table | function | `(path_or_nwb: 'NWBInput', table: 'str | None' = None) -> 'str'`<br>*Resolve an interval table name using jnwb addressing rules.* |
