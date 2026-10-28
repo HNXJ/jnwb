@@ -117,6 +117,7 @@
     "detect_trial_cycles",
     "directed_connectivity",
     "directed_network",
+    "edges_near_events",
     "effective_rate",
     "effective_sample_size",
     "electrode_inventory",

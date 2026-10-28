@@ -1,0 +1,1 @@
+- `jnwb.edges_near_events` (`jnwb/nwb_events.py`): nearest rising and falling edge to each event, with lags.

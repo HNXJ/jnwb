@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 229 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 230 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -185,6 +185,7 @@ All 229 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.IntervalTableNotFoundError | class | *The requested interval table does not exist.* |
 | jnwb.InvalidOnsetValueError | class | *A selected row has a missing or non-finite onset timestamp.* |
 | jnwb.NWBEventError | class | *Base class for event/onset extraction errors.* |
+| jnwb.edges_near_events | function | `(path_or_nwb: 'NWBInput', series_path: 'str', events: 'Sequence[float] | np.ndarray', *, threshold: 'float', window: 'tuple[float, float]') -> 'pd.DataFrame'`<br>*Return the rising and falling edge nearest each event of a TimeSeries.* |
 | jnwb.event_onsets | function | `(path_or_nwb: 'NWBInput', *, table: 'str | None' = None, codes: 'CodeSequence | None' = None, code_column: 'str | None' = 'codes', onset_column: 'str' = 'start_time') -> 'np.ndarray'`<br>*Return onset timestamps (seconds) for rows matching ``codes``.* |
 | jnwb.events | function | `(path_or_nwb: 'NWBInput', *, table: 'str | None' = None, code_column: 'str | None' = 'codes', onset_column: 'str' = 'start_time') -> 'EventTable'`<br>*Read event codes and onset timestamps from one interval table.* |
 | jnwb.resolve_interval_table | function | `(path_or_nwb: 'NWBInput', table: 'str | None' = None) -> 'str'`<br>*Resolve an interval table name using jnwb addressing rules.* |

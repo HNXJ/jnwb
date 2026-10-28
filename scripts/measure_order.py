@@ -319,6 +319,27 @@ def _gaze_departure_onsets(n_samples: int, _tmp: Path) -> Callable[[], object]:
     return call
 
 
+def _edges_near(n_events: int, _tmp: Path) -> Callable[[], object]:
+    """A 10 s square wave at 1000 Hz with a flip every 10 ms; events uniform on [1, 9] s."""
+    import jnwb
+    import pynwb
+    from datetime import datetime, timezone
+
+    values = ((np.arange(10_000) // 10) % 2).astype(np.float64)
+    assert np.count_nonzero(np.diff(values)) > 900, "fixture must flip every 10 ms"
+    nwb = pynwb.NWBFile(session_description="edge timing", identifier="EDGE_TIMING",
+                        session_start_time=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    nwb.add_acquisition(pynwb.TimeSeries(name="photodiode", data=values, unit="a.u.", rate=1000.0))
+    events = np.sort(np.random.default_rng(0).uniform(1.0, 9.0, n_events))
+
+    def call() -> object:
+        return jnwb.edges_near_events(nwb, "acquisition/photodiode", events, threshold=0.5,
+                                      window=(0.05, 0.05))
+
+    assert np.isfinite(call()["rising_edge_s"]).mean() > 0.9, "fixture must find rising edges"
+    return call
+
+
 def _cutoff(n: int, _tmp: Path) -> Callable[[], object]:
     from jnwb import unit_quality as uq
 
@@ -451,6 +472,12 @@ SPECS: Dict[str, Spec] = {
         "n_samples", (100_000, 400_000, 1_600_000, 6_400_000),
         "10 trials of 2-axis gaze at 1000 Hz; baseline 0 to 0.1 s; trial 0 the reference",
         _gaze_departure_onsets,
+    ),
+    "edges_near_events[n_events]": Spec(
+        "n_events", (1_000, 10_000, 100_000, 1_000_000),
+        "10 s square wave at 1000 Hz, flip every 10 ms, in-memory NWBFile; threshold=0.5, "
+        "window=(0.05, 0.05) s; admissible T(E*W)",
+        _edges_near,
     ),
     "effective_sample_size[n_samples]": Spec(
         "n_samples", (10_000, 100_000, 1_000_000, 4_000_000),

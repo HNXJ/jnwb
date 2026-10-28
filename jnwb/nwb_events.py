@@ -10,7 +10,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
-from pynwb import NWBFile
+from pynwb import NWBFile, TimeSeries
 
 from jnwb.nwb_io import NWBInput, _with_nwb
 CodeValue = Union[str, int, float]
@@ -366,5 +366,163 @@ def event_onsets(
             onset_column=onset_column,
         )
         return onsets
+
+    return _with_nwb(path_or_nwb, _build)
+
+
+def _series_at(nwb: NWBFile, series_path: str) -> TimeSeries:
+    """Return the object at ``series_path`` (``<container>/<name>``), which must be a TimeSeries."""
+    obj: Any = nwb
+    for part in series_path.strip("/").split("/"):
+        try:
+            obj = obj[part] if isinstance(obj, dict) else getattr(obj, part)
+        except (KeyError, AttributeError) as exc:
+            raise KeyError(
+                f"edges_near_events: no object at '{series_path}' (no '{part}')"
+            ) from exc
+    if not isinstance(obj, TimeSeries):
+        raise TypeError(
+            f"edges_near_events: '{series_path}' is a {type(obj).__name__}, not a TimeSeries"
+        )
+    return obj
+
+
+def _series_samples(series: TimeSeries) -> tuple[np.ndarray, np.ndarray]:
+    """Return ``(times_s, values)`` of a one-dimensional TimeSeries on the session clock.
+
+    A series with a ``rate`` has sample ``i`` at ``starting_time + i / rate``, as
+    :func:`jnwb.nwb_inspect.acquisition_channel` reads it; one with ``timestamps`` has those.
+    """
+    values = np.asarray(series.data[:], dtype=np.float64)
+    if values.ndim != 1:
+        raise ValueError(
+            f"edges_near_events: series '{series.name}' has shape {values.shape}; "
+            "one-dimensional data is required"
+        )
+    if series.rate is not None:
+        rate = float(series.rate)
+        if not (np.isfinite(rate) and rate > 0):
+            raise ValueError(
+                f"edges_near_events: series '{series.name}' has rate {rate!r} Hz, "
+                "which is not a finite positive rate"
+            )
+        start = 0.0 if series.starting_time is None else float(series.starting_time)
+        times = start + np.arange(values.size) / rate
+    else:
+        if series.timestamps is None:
+            raise ValueError(
+                f"edges_near_events: series '{series.name}' has neither a rate nor timestamps"
+            )
+        times = np.asarray(series.timestamps[:], dtype=np.float64)
+    if times.size != values.size or not np.all(np.diff(times) > 0):
+        raise ValueError(
+            f"edges_near_events: series '{series.name}' needs strictly increasing times, one "
+            "per sample"
+        )
+    return times, values
+
+
+def _edge_times(
+    times: np.ndarray, values: np.ndarray, threshold: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Times of the rising and falling edges: the first sample at or past ``threshold``.
+
+    A sample is high when ``value >= threshold``; a NaN sample is low.
+    """
+    step = np.diff((values >= threshold).astype(np.int8))
+    rising = times[np.flatnonzero(step == 1) + 1]
+    falling = times[np.flatnonzero(step == -1) + 1]
+    return rising, falling
+
+
+def _nearest_in_window(
+    edges: np.ndarray, centers: np.ndarray, before_s: float, after_s: float
+) -> np.ndarray:
+    """The edge nearest each center within ``[center - before_s, center + after_s]``, else NaN.
+
+    Ties go to the earlier edge. A NaN center gets NaN.
+    """
+    picked = np.full(centers.shape, np.nan)
+    if edges.size == 0:
+        return picked
+    # edges[j - 1] < center <= edges[j]: the two candidates are the nearest on each side.
+    j = np.searchsorted(edges, centers, side="left")
+    left = np.full(centers.shape, np.nan)
+    right = np.full(centers.shape, np.nan)
+    has_left = j > 0
+    has_right = j < edges.size
+    left[has_left] = edges[j[has_left] - 1]
+    right[has_right] = edges[j[has_right]]
+    left_ok = centers - left <= before_s
+    right_ok = right - centers <= after_s
+    prefer_left = left_ok & (~right_ok | (centers - left <= right - centers))
+    prefer_right = right_ok & ~prefer_left
+    picked[prefer_left] = left[prefer_left]
+    picked[prefer_right] = right[prefer_right]
+    return picked
+
+
+def _window_bounds(window: tuple[float, float]) -> tuple[float, float]:
+    before_s, after_s = (float(v) for v in window)
+    if not (np.isfinite(before_s) and np.isfinite(after_s)) or before_s < 0.0 or after_s < 0.0:
+        raise ValueError(
+            "edges_near_events: window must be two finite non-negative seconds "
+            f"(before_s, after_s); got {window!r}"
+        )
+    return before_s, after_s
+
+
+def edges_near_events(
+    path_or_nwb: NWBInput,
+    series_path: str,
+    events: Sequence[float] | np.ndarray,
+    *,
+    threshold: float,
+    window: tuple[float, float],
+) -> pd.DataFrame:
+    """Return the rising and falling edge nearest each event of a TimeSeries.
+
+    Parameters
+    ----------
+    path_or_nwb:
+        NWB path or in-memory file.
+    series_path:
+        Path of a TimeSeries in the file, e.g. ``acquisition/photodiode_1_tracking``. A
+        non-TimeSeries object is refused with ``TypeError``.
+    events:
+        Event times in seconds, on the session clock.
+    threshold:
+        A sample at or above ``threshold`` is high. A rising edge is the first high sample after
+        a low one; a falling edge the first low sample after a high one. Each edge is stamped with
+        its sample's time.
+    window:
+        ``(before_s, after_s)``: edges within ``before_s`` before and ``after_s`` after each event
+        are candidates. Both must be finite and non-negative.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per event, in input order, with columns ``event_s``, ``rising_edge_s``,
+        ``rising_lag_s``, ``falling_edge_s`` and ``falling_lag_s``. The edge is the candidate
+        nearest the event (ties to the earlier one); a lag is ``edge_s - event_s``, so negative
+        means the edge came first. NaN where the window holds no edge of that kind.
+    """
+    before_s, after_s = _window_bounds(window)
+    centers = np.asarray(events, dtype=np.float64).ravel()
+
+    def _build(nwb: NWBFile) -> pd.DataFrame:
+        times, values = _series_samples(_series_at(nwb, series_path))
+        rising, falling = _edge_times(times, values, threshold)
+        rising_edge = _nearest_in_window(rising, centers, before_s, after_s)
+        falling_edge = _nearest_in_window(falling, centers, before_s, after_s)
+        return pd.DataFrame(
+            {
+                "event_s": centers,
+                "rising_edge_s": rising_edge,
+                "rising_lag_s": rising_edge - centers,
+                "falling_edge_s": falling_edge,
+                "falling_lag_s": falling_edge - centers,
+            }
+        )
 
     return _with_nwb(path_or_nwb, _build)

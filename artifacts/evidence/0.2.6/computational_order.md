@@ -16,11 +16,11 @@ more than one input dimension and the orders differ between them.
 
 | Category | Exports | Evidence |
 |---|---|---|
-| `jnwb.__all__` | 229 | runtime probe with a provenance assertion |
-| Cost grows with input size -- measured | 148 | 241 sweeps, 241 completed |
+| `jnwb.__all__` | 230 | runtime probe with a provenance assertion |
+| Cost grows with input size -- measured | 149 | 242 sweeps, 242 completed |
 | Cost does not grow with input size -- excluded | 71 | section 7, one reason each |
 | Cost grows, input not buildable from this repository | 10 | section 8 |
-| **Total** | **229** | partition checked exact against a live `jnwb.__all__` |
+| **Total** | **230** | partition checked exact against a live `jnwb.__all__` |
 
 The three categories are disjoint and their union is `jnwb.__all__`; no export is in two,
 and none is in none. `classification: observed`.
@@ -322,6 +322,7 @@ contradicts a written claim it appears in section 6.
 
 | spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
 |---|---|---|---|---|---|---|---|---|---|---|
+| `edges_near_events[n_events]` | n_events | 1000, 10000, 100000, 1000000 | 0.9973, 1.935, 17.89, 206.4 | +0.79 | 0.949 | 207x | O(n) | T(E*W) | derived | agree |
 | `event_onsets` | n_events | 50, 500, 5000, 20000 | 89.2, 132.0, 411.1, 1350 | +0.45 | 0.918 | 15x | sub-linear | T(n) on one column | derived | CONSTANT |
 | `events` | n_events | 50, 500, 5000, 20000 | 104.0, 120.6, 407.4, 1314 | +0.42 | 0.875 | 13x | sub-linear (POOR FIT) | T(n) on the 2-3 needed columns, vectorized | derived | CONSTANT |
 | `resolve_interval_table` | n_events | 50, 500, 5000, 20000 | 97.7, 82.9, 81.1, 99.5 | -0.00 | 0.005 | 1x | O(1) (NOT SEPARATED, POOR FIT) | O(1) in rows; T(t log t) in the number of tables t | observed | agree |

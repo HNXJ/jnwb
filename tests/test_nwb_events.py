@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from datetime import datetime
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from jnwb.nwb_events import (
     IntervalTableNotFoundError,
     InvalidOnsetValueError,
     codes_equal,
+    edges_near_events,
     event_onsets,
     events,
     resolve_interval_table,
@@ -368,4 +370,122 @@ class TestTablePathNamesTheTable:
     def test_table_path_still_resolves_to_its_table(self, canonical_path):
         path, _ = canonical_path
         assert resolve_interval_table(path, f"/intervals/{TASK_TABLE}") == TASK_TABLE
+
+
+EDGE_RATE_HZ = 1000.0
+#: Planted flips of the square wave, in seconds: high on [1.0, 1.2), [2.0, 2.3) and [3.5, end).
+PLANTED_RISING_S = (1.0, 2.0, 3.5)
+PLANTED_FALLING_S = (1.2, 2.3)
+
+
+def _square_wave() -> np.ndarray:
+    t = np.arange(4000) / EDGE_RATE_HZ
+    high = (t >= 1.0) & (t < 1.2) | (t >= 2.0) & (t < 2.3) | (t >= 3.5)
+    values = high.astype(np.float64)
+    assert np.count_nonzero(np.diff(values)) == 5, "fixture must plant five flips"
+    return values
+
+
+def _write_square_wave(path: Path, *, rate: bool) -> None:
+    nwb = pynwb.NWBFile(
+        session_description="edge test",
+        identifier="EDGE_TEST",
+        session_start_time=datetime(2020, 1, 1, tzinfo=tzutc()),
+    )
+    times = np.arange(4000) / EDGE_RATE_HZ
+    timing = {"rate": EDGE_RATE_HZ} if rate else {"timestamps": times}
+    series = pynwb.TimeSeries(name="photodiode", data=_square_wave(), unit="a.u.", **timing)
+    nwb.add_acquisition(series)
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+
+
+class TestEdgesNearEvents:
+    """edges_near_events: lags of the rising and falling edges to planted flips."""
+
+    def test_lags_match_planted_flips(self, tmp_path):
+        path = tmp_path / "square.nwb"
+        _write_square_wave(path, rate=True)
+        df = edges_near_events(
+            path, "acquisition/photodiode", [0.9, 2.1], threshold=0.5, window=(0.2, 0.5)
+        )
+        one_sample = 1.0 / EDGE_RATE_HZ
+        assert len(df) == 2
+        # Event 0.9: rising 1.0 (+0.1), falling 1.2 (+0.3).
+        # Event 2.1: rising 2.0 (-0.1), falling 2.3 (+0.2).
+        np.testing.assert_allclose(df["event_s"], [0.9, 2.1])
+        np.testing.assert_allclose(df["rising_edge_s"], [1.0, 2.0], atol=one_sample)
+        np.testing.assert_allclose(df["falling_edge_s"], [1.2, 2.3], atol=one_sample)
+        np.testing.assert_allclose(df["rising_lag_s"], [0.1, -0.1], atol=one_sample)
+        np.testing.assert_allclose(df["falling_lag_s"], [0.3, 0.2], atol=one_sample)
+
+    def test_nearest_edge_wins_over_an_earlier_one(self, tmp_path):
+        path = tmp_path / "square.nwb"
+        _write_square_wave(path, rate=True)
+        # Window [0.8, 2.0] holds rising 1.0 (-0.4) and 2.0 (+0.6); the nearer one is 1.0.
+        df = edges_near_events(
+            path, "acquisition/photodiode", [1.4], threshold=0.5, window=(0.6, 0.6)
+        )
+        one_sample = 1.0 / EDGE_RATE_HZ
+        np.testing.assert_allclose(df["rising_edge_s"], [1.0], atol=one_sample)
+        np.testing.assert_allclose(df["rising_lag_s"], [-0.4], atol=one_sample)
+        np.testing.assert_allclose(df["falling_lag_s"], [-0.2], atol=one_sample)
+
+    def test_window_with_no_edge_gives_nan(self, tmp_path):
+        path = tmp_path / "square.nwb"
+        _write_square_wave(path, rate=True)
+        df = edges_near_events(
+            path, "acquisition/photodiode", [3.0], threshold=0.5, window=(0.1, 0.1)
+        )
+        for column in ("rising_edge_s", "rising_lag_s", "falling_edge_s", "falling_lag_s"):
+            assert np.isnan(df[column].iloc[0]), column
+
+    def test_timestamps_series_reads_like_a_rate_series(self, tmp_path):
+        rate_path = tmp_path / "rate.nwb"
+        stamp_path = tmp_path / "stamps.nwb"
+        _write_square_wave(rate_path, rate=True)
+        _write_square_wave(stamp_path, rate=False)
+        kwargs = dict(threshold=0.5, window=(0.2, 0.5))
+        events_s = [0.9, 2.1]
+        by_rate = edges_near_events(rate_path, "acquisition/photodiode", events_s, **kwargs)
+        by_stamp = edges_near_events(stamp_path, "acquisition/photodiode", events_s, **kwargs)
+        np.testing.assert_allclose(by_stamp.to_numpy(), by_rate.to_numpy())
+
+    def test_open_file_and_path_agree(self, tmp_path):
+        path = tmp_path / "square.nwb"
+        _write_square_wave(path, rate=True)
+        from_path = edges_near_events(
+            path, "acquisition/photodiode", [0.9], threshold=0.5, window=(0.2, 0.5)
+        )
+        with NWBHDF5IO(str(path), "r") as io:
+            from_open = edges_near_events(
+                io.read(), "acquisition/photodiode", [0.9], threshold=0.5, window=(0.2, 0.5)
+            )
+        np.testing.assert_allclose(from_open.to_numpy(), from_path.to_numpy())
+
+    def test_a_non_timeseries_path_is_refused(self, tmp_path):
+        path = tmp_path / "intervals.nwb"
+        table = TimeIntervals(name="trials", description="trials")
+        table.add_row(start_time=1.0, stop_time=2.0)
+        _write_interval_only_nwb(path, {"trials": table})
+        with pytest.raises(TypeError, match="not a TimeSeries"):
+            edges_near_events(
+                path, "intervals/trials", [1.0], threshold=0.5, window=(0.1, 0.1)
+            )
+
+    @pytest.mark.parametrize("window", [(-0.1, 0.2), (0.2, -0.1)])
+    def test_a_negative_window_bound_is_refused(self, tmp_path, window):
+        path = tmp_path / "square.nwb"
+        _write_square_wave(path, rate=True)
+        with pytest.raises(ValueError, match="window"):
+            edges_near_events(path, "acquisition/photodiode", [1.0], threshold=0.5, window=window)
+
+    def test_threshold_series_and_window_have_no_default(self, tmp_path):
+        params = inspect.signature(edges_near_events).parameters
+        for name in ("series_path", "threshold", "window"):
+            assert params[name].default is inspect.Parameter.empty, name
+        path = tmp_path / "square.nwb"
+        _write_square_wave(path, rate=True)
+        with pytest.raises(TypeError):
+            edges_near_events(path, "acquisition/photodiode", [1.0], window=(0.1, 0.1))
 
