@@ -287,6 +287,38 @@ def _derive_tick_clock(n_ticks: int, _tmp: Path) -> Callable[[], object]:
     return lambda: jnwb.derive_tick_clock(segments, spikes)
 
 
+def _effective_rate(n_samples: int, _tmp: Path) -> Callable[[], object]:
+    """White noise at 500 Hz, each sample held for two samples at 1 kHz."""
+    import jnwb
+
+    source = np.random.default_rng(0).standard_normal(n_samples // 2)
+    data = np.repeat(source, 2)
+    assert jnwb.effective_rate(data, 1000.0).held, "fixture must read as held"
+    return lambda: jnwb.effective_rate(data, 1000.0)
+
+
+def _gaze_departure_onsets(n_samples: int, _tmp: Path) -> Callable[[], object]:
+    """Ten trials at 1 kHz: trial 0 is noise only (the reference); the other nine step away
+    halfway through, from a clean baseline."""
+    import jnwb
+
+    rate, n_trials = 1000.0, 10
+    span = n_samples // n_trials
+    rng = np.random.default_rng(0)
+    gaze = np.zeros((span * n_trials, 2))
+    gaze[:span] = rng.normal(0.0, 0.01, size=(span, 2))
+    for k in range(1, n_trials):
+        gaze[k * span + span // 2:(k + 1) * span, 0] = 1.0
+    starts = np.arange(n_trials) * span / rate
+
+    def call():
+        return jnwb.gaze_departure_onsets(
+            gaze, rate, starts, baseline_window=(0.0, 0.1), reference_trials=[0])
+
+    assert np.isfinite(call()[1:]).all(), "fixture must depart in every stepped trial"
+    return call
+
+
 def _cutoff(n: int, _tmp: Path) -> Callable[[], object]:
     from jnwb import unit_quality as uq
 
@@ -409,6 +441,16 @@ SPECS: Dict[str, Spec] = {
         "n_ticks", (30_000, 300_000, 3_000_000, 12_000_000),
         "three equal segments at tick step 24, 1000 spikes",
         _derive_tick_clock,
+    ),
+    "effective_rate[n_samples]": Spec(
+        "n_samples", (100_000, 400_000, 1_600_000, 6_400_000),
+        "white noise at 500 Hz, each sample repeated once, read at 1000 Hz",
+        _effective_rate,
+    ),
+    "gaze_departure_onsets[n_samples]": Spec(
+        "n_samples", (100_000, 400_000, 1_600_000, 6_400_000),
+        "10 trials of 2-axis gaze at 1000 Hz; baseline 0 to 0.1 s; trial 0 the reference",
+        _gaze_departure_onsets,
     ),
     "effective_sample_size[n_samples]": Spec(
         "n_samples", (10_000, 100_000, 1_000_000, 4_000_000),

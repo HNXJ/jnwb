@@ -16,11 +16,11 @@ more than one input dimension and the orders differ between them.
 
 | Category | Exports | Evidence |
 |---|---|---|
-| `jnwb.__all__` | 226 | runtime probe with a provenance assertion |
-| Cost grows with input size -- measured | 146 | 239 sweeps, 239 completed |
-| Cost does not grow with input size -- excluded | 70 | section 7, one reason each |
+| `jnwb.__all__` | 229 | runtime probe with a provenance assertion |
+| Cost grows with input size -- measured | 148 | 241 sweeps, 241 completed |
+| Cost does not grow with input size -- excluded | 71 | section 7, one reason each |
 | Cost grows, input not buildable from this repository | 10 | section 8 |
-| **Total** | **226** | partition checked exact against a live `jnwb.__all__` |
+| **Total** | **229** | partition checked exact against a live `jnwb.__all__` |
 
 The three categories are disjoint and their union is `jnwb.__all__`; no export is in two,
 and none is in none. `classification: observed`.
@@ -213,6 +213,8 @@ contradicts a written claim it appears in section 6.
 | `derive_tick_clock[n_ticks]` | n_ticks | 30000, 300000, 3000000, 12000000 | 0.3269, 1.584, 72.29, 223.1 | +1.16 | 0.971 | 682x | O(n) | T(n log n) | derived | agree |
 | `epoch_continuous[n_events]` | n_events | 2000, 6000, 20000, 60000 | 8.41, 22.2, 70.8, 213.2 | +0.95 | 0.999 | 25x | O(n) | T(E*W*C) | derived | CONSTANT |
 | `epoch_continuous[n_window_samples]` | n_window_samples | 3000, 10000, 30000, 100000 | 4.79, 10.1, 26.0, 84.2 | +0.82 | 0.990 | 18x | O(n) | T(E*W) | derived | agree |
+| `effective_rate[n_samples]` | n_samples | 100000, 400000, 1600000, 6400000 | 46.59, 177.2, 743.6, 3112 | +1.01 | 1.000 | 67x | O(n) | T(n) | derived | agree |
+| `gaze_departure_onsets[n_samples]` | n_samples | 100000, 400000, 1600000, 6400000 | 8.828, 25.43, 113.6, 408 | +0.94 | 0.996 | 46x | O(n) | T(n) | derived | agree |
 
 ### `jnwb.decoding`
 
@@ -851,8 +853,8 @@ algorithm column still describes the replaced code for both rows.
 
 | Category | Count |
 |---|---|
-| result container | 26 |
-| exception class | 18 |
+| result container | 31 |
+| exception class | 20 |
 | constant | 5 |
 | stateful class | 4 |
 | module | 4 |
@@ -862,7 +864,7 @@ algorithm column still describes the replaced code for both rows.
 | fixed-shape input | 1 |
 | plan description | 1 |
 | caller-owned store | 2 |
-| **Total** | **63** |
+| **Total** | **71** |
 
 | Export | Category | Reason |
 |---|---|---|
@@ -882,6 +884,7 @@ algorithm column still describes the replaced code for both rows.
 | `DETECTION_TAILS` | constant | A 2-element tuple of str literals. |
 | `Dataset` | result container | frozen dataclass, no __post_init__. Its __hash__/__eq__ do grow, but construction does not. |
 | `DirectedResult` | result container | plain dataclass (jnwb/connectivity.py:627-719); __init__ binds references. Its methods are O(number of bands), not O(input). |
+| `EffectiveRate` | result container | frozen dataclass, no __post_init__; binds 4 fields. |
 | `EpochCollection` | result container | frozen dataclass, no __post_init__. Its __len__/__eq__ grow; construction does not. |
 | `EventTable` | result container | frozen dataclass; generated __init__ binds 8 already-built fields by reference, no __post_init__. |
 | `ExecutionRecord` | result container | frozen dataclass; __post_init__ validates the device string and the worker count, then binds 2 fields. |

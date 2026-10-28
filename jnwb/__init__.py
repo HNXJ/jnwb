@@ -100,7 +100,14 @@ from .nwb_integrity import (
     repair_ragged_index,
 )
 from .nwb_validate import NWBValidationReport, validate_nwb
-from .continuous import TickClock, derive_tick_clock, epoch_continuous
+from .continuous import (
+    EffectiveRate,
+    TickClock,
+    derive_tick_clock,
+    effective_rate,
+    epoch_continuous,
+    gaze_departure_onsets,
+)
 from .addressing import (
     map_peak_channel_to_area,
     classify_layer_from_depth,
@@ -354,6 +361,9 @@ __all__ = [
     'epoch_continuous',
     'TickClock',
     'derive_tick_clock',
+    'EffectiveRate',
+    'effective_rate',
+    'gaze_departure_onsets',
 
     # Addressing
     'map_peak_channel_to_area',

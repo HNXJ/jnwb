@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 226 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 229 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -85,9 +85,12 @@ All 226 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
+| jnwb.EffectiveRate | class | *Evidence on the rate a stream was sampled at, returned by `effective_rate`.* |
 | jnwb.TickClock | class | *Map from timestamp ticks to seconds on a spike clock, built by `derive_tick_clock`.* |
 | jnwb.derive_tick_clock | function | `(tick_segments: 'Sequence[np.ndarray]', spike_times) -> 'TickClock'`<br>*Derive the map from acquisition ticks to spike-clock seconds from one recording.* |
+| jnwb.effective_rate | function | `(data: 'np.ndarray | Sequence[float]', rate: 'float') -> 'EffectiveRate'`<br>*Measure whether a stream repeats samples as if it were held from a lower rate.* |
 | jnwb.epoch_continuous | function | `(data: 'np.ndarray', onsets: 'np.ndarray | Sequence[float]', *, win_s: 'tuple[float, float]', fs: 'float', start_s: 'float' = 0.0, onset_unit: 'OnsetUnit' = 'seconds', boundary_policy: 'BoundaryPolicy' = 'nan', return_indices: 'bool' = False) -> 'tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]'`<br>*Extract fixed-duration epochs from a continuous signal aligned to event onsets.* |
+| jnwb.gaze_departure_onsets | function | `(gaze: 'np.ndarray | Sequence[float]', rate: 'float', trial_starts: 'np.ndarray | Sequence[float]', *, baseline_window: 'tuple[float, float]', reference_trials: 'np.ndarray | Sequence[int]', envelope_percentile: 'float' = 99.5, hold_s: 'float' = 0.025, walkback_fraction: 'float' = 0.5) -> 'np.ndarray'`<br>*Find, per trial, the time the gaze leaves its baseline position.* |
 
 ## Module: jnwb.decoding
 

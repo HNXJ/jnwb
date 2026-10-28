@@ -7,6 +7,7 @@ import warnings
 from typing import Literal, Sequence
 
 import numpy as np
+from scipy import signal
 
 
 BoundaryPolicy = Literal["nan", "error", "drop"]
@@ -395,3 +396,237 @@ def derive_tick_clock(tick_segments: Sequence[np.ndarray], spike_times) -> TickC
         first_tick=first_tick,
         offset_s=first_spike,
     )
+
+
+# `effective_rate` holds a series when at least this share of its consecutive samples repeat
+# exactly. A hold to twice the source rate repeats half of them; a native continuous series
+# repeats none. The value is set from those two cases and has not been checked on recorded data.
+HELD_MIN_REPEAT_FRACTION = 0.25
+
+
+@dataclass(frozen=True)
+class EffectiveRate:
+    """Evidence on the rate a stream was sampled at, returned by `effective_rate`.
+
+    ``repeat_fraction`` is the share of consecutive sample pairs that are exactly equal.
+    ``repeat_runs`` maps each run length, in samples, to the number of runs of identical
+    consecutive samples at least two long: a hold to twice the source rate gives ``{2: n}``.
+    ``power_above_quarter`` is the share of the Welch power spectrum above ``rate / 4``; it is
+    NaN when the series has no power. ``held`` is True when ``repeat_fraction`` is at least
+    `HELD_MIN_REPEAT_FRACTION`.
+    """
+
+    repeat_fraction: float
+    repeat_runs: dict[int, int]
+    power_above_quarter: float
+    held: bool
+
+
+def effective_rate(data: np.ndarray | Sequence[float], rate: float) -> EffectiveRate:
+    """Measure whether a stream repeats samples as if it were held from a lower rate.
+
+    A stream held from a lower source rate repeats each source sample, so its consecutive
+    samples repeat exactly and its power above ``rate / 4`` is reduced. ``held`` is True when
+    the repeat fraction is at least ``HELD_MIN_REPEAT_FRACTION`` (0.25, a module constant, not
+    a parameter). The power fraction is returned as evidence and does not enter the decision.
+    A constant series repeats every sample and is reported as held.
+
+    Parameters
+    ----------
+    data:
+        1-D array of shape ``(n_samples,)`` with ``n_samples >= 2``, all finite.
+    rate:
+        Stored sampling rate in Hz, positive and finite.
+
+    Returns
+    -------
+    EffectiveRate
+
+    Raises
+    ------
+    ValueError
+        If ``data`` is not 1-D with at least two samples, holds a NaN or infinite value, or
+        ``rate`` is not a positive finite number.
+    """
+    x = np.asarray(data, dtype=np.float64)
+    if x.ndim != 1 or x.size < 2:
+        raise ValueError(
+            f"effective_rate: data must be 1-D with at least two samples, got shape {x.shape}"
+        )
+    if not np.all(np.isfinite(x)):
+        bad = int(np.flatnonzero(~np.isfinite(x))[0])
+        raise ValueError(f"effective_rate: data must be finite; index {bad} is {x[bad]!r}")
+    if not (np.isfinite(rate) and rate > 0):
+        raise ValueError(f"effective_rate: rate must be positive and finite in Hz, got {rate!r}")
+
+    same = x[1:] == x[:-1]
+    repeat_fraction = float(np.mean(same))
+    # Pad with False so every run of repeats has a start and an end in `edges`.
+    edges = np.diff(np.concatenate(([0], same.astype(np.int64), [0])))
+    run_starts = np.flatnonzero(edges == 1)
+    run_ends = np.flatnonzero(edges == -1)
+    # A run of r repeats spans r + 1 identical samples.
+    lengths, counts = np.unique((run_ends - run_starts) + 1, return_counts=True)
+    repeat_runs = {int(length): int(count) for length, count in zip(lengths, counts)}
+
+    freqs, psd = signal.welch(x, fs=float(rate))
+    total = float(np.sum(psd))
+    power_above_quarter = (
+        float(np.sum(psd[freqs > rate / 4.0])) / total if total > 0 else float("nan")
+    )
+    return EffectiveRate(
+        repeat_fraction=repeat_fraction,
+        repeat_runs=repeat_runs,
+        power_above_quarter=power_above_quarter,
+        held=bool(repeat_fraction >= HELD_MIN_REPEAT_FRACTION),
+    )
+
+
+def gaze_departure_onsets(
+    gaze: np.ndarray | Sequence[float],
+    rate: float,
+    trial_starts: np.ndarray | Sequence[float],
+    *,
+    baseline_window: tuple[float, float],
+    reference_trials: np.ndarray | Sequence[int],
+    envelope_percentile: float = 99.5,
+    hold_s: float = 0.025,
+    walkback_fraction: float = 0.5,
+) -> np.ndarray:
+    """Find, per trial, the time the gaze leaves its baseline position.
+
+    Per trial, the deviation of each sample is its distance from the median gaze over
+    ``baseline_window``. The envelope is the ``envelope_percentile`` of the deviation pooled over
+    ``reference_trials``. The departure is the first sample from which the deviation stays above
+    the envelope for ``hold_s``. The onset then walks back to the last sample before it at or
+    below ``walkback_fraction`` times the envelope; if no such sample exists, the onset is the
+    departure sample.
+
+    Each trial's search runs from its start to the next trial's start, or to the end of the
+    data for the last trial. The baseline window may lie outside that span (a pre-trial
+    fixation), but not outside the data.
+
+    Parameters
+    ----------
+    gaze:
+        Gaze position of shape ``(n_samples,)`` or ``(n_samples, n_axes)``. NaN marks a
+        sample that breaks a run; infinite values are refused.
+    rate:
+        Sampling rate of ``gaze`` in Hz, positive and finite.
+    trial_starts:
+        1-D array of trial start times in seconds on the gaze clock, where sample 0 is t = 0.
+    baseline_window:
+        ``(start_s, stop_s)`` in seconds relative to each trial start, with ``start_s < stop_s``.
+    reference_trials:
+        Integer indices into ``trial_starts`` whose deviations set the envelope.
+    envelope_percentile:
+        Percentile of the reference deviations that sets the envelope, in ``[0, 100]``.
+    hold_s:
+        Duration in seconds the deviation must stay above the envelope, positive and finite.
+    walkback_fraction:
+        Fraction of the envelope, in ``[0, 1]``, that the walk back must reach.
+
+    Returns
+    -------
+    numpy.ndarray
+        Float array of shape ``(n_trials,)``: each onset in seconds on the gaze clock, NaN for a
+        trial with no departure.
+
+    Raises
+    ------
+    ValueError
+        On a malformed argument, an empty ``reference_trials``, a baseline that is empty or
+        outside the data, or reference deviations that are all NaN.
+    """
+    g = np.asarray(gaze, dtype=np.float64)
+    if g.ndim not in (1, 2) or g.shape[0] == 0:
+        raise ValueError(
+            f"gaze_departure_onsets: gaze must be 1-D or (n_samples, n_axes), got shape {g.shape}"
+        )
+    if np.isinf(g).any():
+        raise ValueError("gaze_departure_onsets: gaze holds an infinite value; NaN is allowed")
+    g = g.reshape(g.shape[0], -1)
+    n = g.shape[0]
+    if not (np.isfinite(rate) and rate > 0):
+        raise ValueError(f"gaze_departure_onsets: rate must be positive and finite, got {rate!r}")
+    starts_s = np.asarray(trial_starts, dtype=np.float64)
+    if starts_s.ndim != 1 or starts_s.size == 0 or not np.all(np.isfinite(starts_s)):
+        raise ValueError(
+            "gaze_departure_onsets: trial_starts must be a non-empty 1-D array of finite seconds"
+        )
+    refs = np.asarray(reference_trials)
+    if refs.size == 0:
+        raise ValueError(
+            "gaze_departure_onsets: reference_trials is empty; name at least one trial "
+            "to set the envelope"
+        )
+    if refs.dtype.kind not in "iu" or refs.min() < 0 or refs.max() >= starts_s.size:
+        raise ValueError(
+            f"gaze_departure_onsets: reference_trials must hold trial indices in "
+            f"[0, {starts_s.size}), got {refs.tolist()}"
+        )
+    base_lo_s, base_hi_s = (float(baseline_window[0]), float(baseline_window[1]))
+    if not (np.isfinite(base_lo_s) and np.isfinite(base_hi_s) and base_lo_s < base_hi_s):
+        raise ValueError(
+            f"gaze_departure_onsets: baseline_window must be (start_s, stop_s) with start_s "
+            f"< stop_s, got {baseline_window}"
+        )
+    if not 0.0 <= envelope_percentile <= 100.0:
+        raise ValueError(
+            f"gaze_departure_onsets: envelope_percentile must be in [0, 100], got "
+            f"{envelope_percentile}"
+        )
+    if not (np.isfinite(hold_s) and hold_s > 0):
+        raise ValueError(f"gaze_departure_onsets: hold_s must be positive and finite, got {hold_s}")
+    if not 0.0 <= walkback_fraction <= 1.0:
+        raise ValueError(
+            f"gaze_departure_onsets: walkback_fraction must be in [0, 1], got {walkback_fraction}"
+        )
+    # Sample counts as `epoch_continuous` takes them: a trial start rounds to a sample, and the
+    # window and hold edges are containment bounds.
+    hold = max(1, _containment_sample(hold_s, rate))
+
+    first = np.round(starts_s * rate).astype(np.int64)
+    spans = []
+    for k in range(starts_s.size):
+        stop = int(first[k + 1]) if k + 1 < starts_s.size else n
+        spans.append((min(max(int(first[k]), 0), n), min(max(stop, 0), n)))
+
+    devs = []
+    for k in range(starts_s.size):
+        b0 = int(first[k]) + _containment_sample(base_lo_s, rate)
+        b1 = int(first[k]) + _containment_sample(base_hi_s, rate)
+        if b0 < 0 or b1 > n or b1 <= b0:
+            raise ValueError(
+                f"gaze_departure_onsets: baseline_window {baseline_window} for trial {k} is "
+                f"empty or outside the gaze samples [0, {n})"
+            )
+        centre = np.nanmedian(g[b0:b1], axis=0)
+        lo, hi = spans[k]
+        devs.append(np.sqrt(np.sum((g[lo:hi] - centre) ** 2, axis=1)))
+
+    pooled = np.concatenate([devs[k] for k in refs.tolist()])
+    finite = pooled[np.isfinite(pooled)]
+    if finite.size == 0:
+        raise ValueError(
+            "gaze_departure_onsets: no finite deviation in reference_trials; the envelope "
+            "is undefined"
+        )
+    envelope = float(np.percentile(finite, envelope_percentile))
+    walk_threshold = walkback_fraction * envelope
+
+    onsets = np.full(starts_s.size, np.nan)
+    for k, dev in enumerate(devs):
+        if dev.size < hold:
+            continue
+        # A NaN deviation compares False, so it breaks a run.
+        above = (dev > envelope).astype(np.int64)
+        cumulative = np.concatenate(([0], np.cumsum(above)))
+        sustained = cumulative[hold:] - cumulative[:-hold] == hold
+        if not sustained.any():
+            continue
+        departure = int(np.argmax(sustained))
+        at_or_below = np.flatnonzero(dev[:departure] <= walk_threshold)
+        onset = int(at_or_below[-1]) if at_or_below.size else departure
+        onsets[k] = (spans[k][0] + onset) / rate
+    return onsets

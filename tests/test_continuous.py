@@ -392,3 +392,81 @@ class TestTickClock:
     def test_a_zero_spike_span_is_refused(self):
         with pytest.raises(ValueError, match="derive_tick_clock.*zero span"):
             jnwb.derive_tick_clock([24.0 * np.arange(10)], [1.0, 1.0])
+
+
+class TestEffectiveRate:
+    def test_public_export(self):
+        assert "effective_rate" in jnwb.__all__ and "EffectiveRate" in jnwb.__all__
+        assert hasattr(jnwb, "effective_rate") and hasattr(jnwb, "EffectiveRate")
+
+    def test_a_planted_hold_from_500_hz_to_1_khz_is_flagged(self):
+        rng = np.random.default_rng(20261028)
+        source = rng.standard_normal(5000)
+        assert np.count_nonzero(np.diff(source) == 0) == 0, "fixture must hold distinct samples"
+        data = np.repeat(source, 2)
+        result = jnwb.effective_rate(data, 1000.0)
+        assert result.held
+        assert result.repeat_fraction == pytest.approx(0.5, abs=0.01)
+        assert result.repeat_runs == {2: 5000}
+
+    def test_a_native_broadband_signal_is_not_flagged(self):
+        rng = np.random.default_rng(20261029)
+        data = rng.standard_normal(10000)
+        result = jnwb.effective_rate(data, 1000.0)
+        assert not result.held
+        assert result.repeat_fraction == 0.0
+        assert result.repeat_runs == {}
+        # White noise has half its power between rate/4 and rate/2.
+        assert result.power_above_quarter == pytest.approx(0.5, abs=0.05)
+
+    def test_nan_input_is_refused(self):
+        with pytest.raises(ValueError, match="effective_rate.*finite"):
+            jnwb.effective_rate(np.array([0.0, 1.0, np.nan, 2.0]), 1000.0)
+
+    def test_fewer_than_two_samples_are_refused(self):
+        with pytest.raises(ValueError, match="effective_rate.*at least two"):
+            jnwb.effective_rate(np.array([1.0]), 1000.0)
+
+
+class TestGazeDepartureOnsets:
+    RATE = 1000.0
+    STARTS_S = [0.2, 1.2, 2.2]  # trial spans [200, 1200), [1200, 2200), [2200, 3000) samples
+    BASELINE_S = (0.0, 0.2)
+
+    def _planted_gaze(self, seed=20261028):
+        """Trials 0 and 1 hold a clean baseline and step away at 0.6 s and 1.6 s; trial 2 is noise."""
+        rng = np.random.default_rng(seed)
+        gaze = np.zeros((3000, 2))
+        gaze[600:1200, 0] = 1.0
+        gaze[1600:2200, 0] = 1.0
+        gaze[2200:] = rng.normal(0.0, 0.01, size=(800, 2))
+        assert np.all(gaze[200:600] == 0.0) and np.all(gaze[1200:1600] == 0.0)
+        assert gaze[2200:].std() > 0, "fixture must hold noise in the reference trial"
+        return gaze
+
+    def _onsets(self, gaze, reference_trials=(2,), **kwargs):
+        return jnwb.gaze_departure_onsets(
+            gaze, self.RATE, self.STARTS_S, baseline_window=self.BASELINE_S,
+            reference_trials=list(reference_trials), **kwargs)
+
+    def test_a_planted_departure_lands_within_one_sample(self):
+        onsets = self._onsets(self._planted_gaze())
+        planted_s = np.array([0.6, 1.6])
+        assert np.isfinite(onsets[:2]).all(), onsets
+        assert np.all(np.abs(onsets[:2] - planted_s) <= 1.0 / self.RATE + 1e-9), onsets
+
+    def test_a_trial_without_a_departure_gives_nan(self):
+        onsets = self._onsets(self._planted_gaze())
+        assert onsets.shape == (3,) and onsets.dtype == np.float64
+        assert np.isnan(onsets[2]), onsets
+
+    def test_a_deviation_shorter_than_the_hold_is_not_a_departure(self):
+        gaze = self._planted_gaze()
+        gaze[600:1200, 0] = 0.0
+        gaze[600:610, 0] = 1.0  # 10 ms, shorter than the 25 ms hold
+        assert np.count_nonzero(gaze[200:1200, 0]) == 10, "fixture must hold a 10 ms blip"
+        assert np.isnan(self._onsets(gaze)[0])
+
+    def test_empty_reference_trials_are_refused(self):
+        with pytest.raises(ValueError, match="gaze_departure_onsets.*reference_trials"):
+            self._onsets(self._planted_gaze(), reference_trials=[])
