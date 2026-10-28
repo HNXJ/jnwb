@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "4ab4bec858fe492510b6b9b60f205e59e7c4f1a3",
-    "date": "2026-10-28T16:37:43Z"
+    "commit": "a825a203cbe1ea1ffed6b0054cb7ee9d6bea2956",
+    "date": "2026-10-28T18:00:46Z"
   },
   "sources": {
     "generated": [
@@ -2039,7 +2039,7 @@
       {
         "file": "jnwb/spectral/_coupling.py",
         "qualname": "imaginary_coherency",
-        "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+        "verified_at": "36b7816227fee4e4af5be9048af653e65a8621bf",
         "tests": [
           "tests/test_estimator_discrimination.py::TestImaginaryCoherencyAgainstAnIndependentOracle::test_matches_an_independent_oracle_on_a_phase_shifted_pair",
           "tests/test_estimator_discrimination.py::TestImaginaryCoherencyAgainstAnIndependentOracle::test_a_phase_shifted_pair_produces_a_non_zero_estimate_of_the_right_sign",
@@ -2066,7 +2066,7 @@
       {
         "file": "jnwb/connectivity/_granger.py",
         "qualname": "granger_causality",
-        "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+        "verified_at": "36b7816227fee4e4af5be9048af653e65a8621bf",
         "tests": [
           "tests/test_estimator_values_are_pinned.py::TestDeprecatedGrangerCausalityIsReportedInNats::test_each_statistic_is_the_log_of_the_variances_it_reports"
         ]
@@ -5199,8 +5199,8 @@
       "section": "frozen",
       "title": "Independently verified functions",
       "path": "artifacts/process/frozen_validated.json",
-      "commit": "a06e43a2564922371ee74e761c08233f4078d6ad",
-      "sha256": "075ca00921974fd70cca14445ec4f7b7057f38a7d30e78a2a0e2ffc42a66959b",
+      "commit": "8a938e665c0715e12016e844c164dc9345a0ad26",
+      "sha256": "2894304969d07cb9e5af7db7c5e13ea185a314340aa404d98090ea03c055d044",
       "fields": {
         "functions": 27
       },
