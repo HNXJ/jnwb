@@ -1,127 +1,70 @@
-# 0.2.14
+# 0.2.15
 
-Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. 0.2.13
-closed on 2026-10-21 (tag `v0.2.13`), and its section is gone from this file. The theme and plan of
-0.2.14 are in the section below, as ruled 2026-10-19; its checkpoint closes when its table passes
-row by row. A 0.2.14 item carries `deferred-0.2.14` in its Release field until the version is bumped to 0.2.14
-(`artifacts/evidence/0.2.8/plan/decisions.md` D2).
-
-Theme (ruled 2026-10-19): the public NWB mutation and execution APIs (07-21 and 07-22 landed), and the
-existing tools brought to their stated contract: fact closure, reading edges, the pitfall
-estimators, the deferred laminar and curation work, and the removals ruled for 0.2.14. The rulings the plan needs come first (wave 0), one
-question per message; the checkpoint is the 0.2.13 table with 0.2.14 in place of 0.2.13.
+Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. 0.2.14
+closed on 2026-10-27 (tag `v0.2.14`). Items run fastest first; the lanes below split them into
+parallel writers that share no file.
 
 ## How this stack is executed
 
 | Rule | Why |
 |---|---|
 | `AUTONOMY: max` unless an item says otherwise (`AGENTS.md` §12) | actor and critic sequence the work |
-| One item per packet, in the contract of `artifacts/skills/jnwb-fact-action` §5; role `jnwb-developer` unless named | a batched packet redefines the hard item |
-| A lane is one clone and one writer; up to three lanes run at once, when they share no file (Hamm 2026-10-10, 2026-10-11, 2026-10-19); a lane's items run in the order listed | lanes never share a file, so they merge without conflict |
-| Writers (ruled 2026-10-24): Cursor CLI GLM 5.3 flash at high effort for most packets; Muse (opencode) writes and criticises; Haiku 5.5 writes and runs the skill, doc and `checker` checks; a writer never verifies its own packet | the actor is never the verifier |
-| A packet reproduces each bullet on its own tree first; a bullet that does not reproduce is deleted | non-reproduction is a result |
-| The integrator owns the stacks, `CHANGELOG.md`, `docs/api.md` and every commit and push | packets report the disposition and the changelog text |
-| A public signature, an estimand or a skill line goes to Hamm before code, one question per message | public API and skills are Hamm's |
-| Match skills (Hamm 2026-10-21): a packet loads `match-code-style` for code and tests, `match-writing-style` for docs, docstrings, stack text and commit messages, and `match-visual-style` for figures and the dashboard, rendered at final size in light and dark; before each commit `checker` (check mode) runs on the changed files and the integrator re-checks every number in its diff | numbers and claims stay fixed while the wording is cut |
-| Wave barrier: `python scripts/harness_gate.py` (count PASS lines), the full suite, commit, push, CI green on `dev` at that SHA | a local pass is not a CI pass |
+| One item per packet (`artifacts/skills/jnwb-fact-action` §5); a lane is one clone and one Haiku 5.5 `worker`; up to three lanes at once; a lane's items run in the order listed | lanes share no file, so they merge without conflict |
+| A public signature, an estimand or a skill line goes to Hamm before code, batched in one message per wave; Haiku implements a ruled signature and never chooses one | public API and skills are Hamm's |
+| A packet reproduces its bullet first, writes the failing test, then the fix; a `reviewer` that did not write it verifies; the integrator commits, owns the stacks, `CHANGELOG.md` and `docs/api.md` | the actor is never the verifier |
+| Wave barrier: `python scripts/harness_gate.py`, the full suite, push, CI green on `dev` at that SHA | a local pass is not a CI pass |
 
-Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then `Do`, `Accept`, `Stop` as
-needed; `AUTONOMY` and a one-line source or ruling note follow the fields they qualify. A bullet reads
-`ID: defect, as input -> observed against expected, with numbers and units. Check: a predicate that
-decides it, naming the file and the asserted value. Waits: why it cannot make release evidence
-falsely pass.` `Waits:` appears in deferred cycles; `Waits: not stated.` marks a reason no source
-gives, for the closure pass to classify. An item holds one defect and one check, in at most eight
-lines.
+Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet:
+`ID: defect with numbers. Check: a predicate naming the file and the asserted value. Waits: why.`
+At most eight lines per item.
 
 ## Lanes
 
-Full suites run one at a time; on the maintainer's machine through its local `suite_lock.py`,
-elsewhere as `python -m pytest tests/ -q`.
+Speed: S is one module and one test file, M adds a public signature or several files, L needs a
+design or a scan across `jnwb/`.
 
-| Wave | Lane | Items, in order | Writer | Waits for |
+| Wave | Lane | Items, in order | Speed | Needs first |
 |---|---|---|---|---|
-| 0 | Proposals | 15-20's prune rule was ruled 2026-10-26; 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
-| 1 | M mutation | none left: 07-21's core five and 07-22's execution and cache API landed (CI green on `dev` at f5c55f2b) | integrator | nothing |
-| 2 | F facts | 11-07 and 12-11 landed 2026-10-26 (S1, S2, S5, S7 held) | Cursor GLM or Muse writes, Haiku checks | nothing |
-| 2 | L laminar | none left: 15-22 landed 2026-10-26, a repository-only skill Hamm accepted | Muse | nothing |
-| 2 | X outside code | none left: 12-21's spectrum test landed (delay and direction moved to the roadmap by the 2026-10-23 ruling) and 14-08's rows cite the lab pipeline | Haiku | nothing |
-| 2 | D docs and dashboard | reopened 2026-10-24: docs with interactive and still figures and a validation dashboard, after jaxfne's; items follow the preference rulings | Cursor GLM and Haiku for pages and figures, Muse for the dashboard design | the comparison with jaxfne and Hamm's preference rulings |
-| 2 | N numerics and I/O (audit 2026-10-25) | none left: every item landed 2026-10-25 | Cursor GLM writes, Haiku checks; one lane per file set | nothing |
-| 2 | P process and docs (audit 2026-10-25) | 17-34, 17-36 and 17-58 landed 2026-10-26 | Haiku writes, Muse reviews | nothing |
-| 3 | H harness | 07-05, 12-06, 12-07, 17-26, 17-27, 17-30, 17-31, 17-32, 17-41, 17-54, 17-55, 12-05 and 17-56 landed 2026-10-26, 11-03 went to the roadmap | Haiku | wave 2 merged |
-| 3 | Freeze | 16-18 landed 2026-10-26: 27 definitions, each mutant re-run by a second reviewer | integrator | waves 2 and 3 merged |
-| 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
+| 1 | K thin artifacts | 18-01 | S | nothing (artifacts only) |
+| 1 | A paths | 17-69, 17-67 | S, S | signatures ruled |
+| 1 | B release gate | 17-62 | S | nothing |
+| 1 | C windows | 17-04, 17-06, 17-65 | S, S, M | 17-65's signature ruled |
+| 2 | D streams | 17-63, 17-64 | M, M | signatures ruled |
+| 2 | E events | 17-66 | M | signature ruled |
+| 2 | F units | 17-61, 17-68 | M, M | 17-68's signature ruled |
+| 3 | G tests and dashboard | 17-59, 17-60 | M, L | nothing |
+| 3 | H declarations | 17-03, 16-20 | M, L | 16-20 reviewed by `reviewer` at high |
+| 3 | I fact graph | 17-08, 11-03, 11-09 | L, L, L | nothing |
+| 4 | J non-finite | 17-24 | L | waves 1 to 3 merged (writes across `jnwb/`) |
+| - | Held | 17-05, 17-07 | - | Hamm's rulings |
 
-## Checklist 0.2.14
-
-0.2.14 is released when every row below passes; nothing else is required (ruled 2026-10-24). Rows 1 to 13 are what ships, checked on `dev`; rows 14 to 16 are the release itself, in the order of the checkpoint below. Anything raised during the cycle goes to 0.2.15. A row whose items have left this file still passes only when its check is re-run at the checkpoint.
-
-| # | Holds at release | Check | Items |
-|---|---|---|---|
-| 1 | The NWB mutation API: the core five, then the execution and cache API, each signature ruled by Hamm before code | `docs/api.md`, `CHANGELOG.md` and the `skills/` routing rows name each symbol; `tests/test_skills_validation.py` passes; each function has a round-trip test on a written file | items gone (07-21, 07-22) |
-| 2 | The four pitfall estimators, `noise_correlation` and `screen_units_against_labels`, as ruled 2026-10-20 | each has a planted-case test that recovers the planted value and one that refuses the documented bad input; each cites its source in `docs/references.md` | items gone (14-06, 14-07, 13-04) |
-| 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | items gone (16-01, 16-02) |
-| 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | item gone (11-01) |
-| 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 12-07, 11-07, 12-11 and 16-10 landed, 11-03 to roadmap (ruled 2026-10-26); 11-09 to roadmap (ruled 2026-10-25) |
-| 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 15-22 and 16-03 landed |
-| 7 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 07-05, 12-06, 15-20, 12-05 and 09-07 landed 2026-10-26 |
-| 8 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 27 definitions (28 counted `fdr_correct` twice); the surface-manifest test passes | 16-18 and 16-19 landed |
-| 9 | Docs pages carry still and interactive figures, after jaxfne's form (ruled 2026-10-24) | the form and the page set follow Hamm's preference rulings; a test builds each figure from committed inputs; the strict docs build passes | 17-01 landed 2026-10-26 |
-| 10 | A validation dashboard after jaxfne's, keeping the proof of work, the HTML outputs and the GLO cards (ruled 2026-10-23 and 2026-10-24) | `tests/test_build_dashboard.py` builds it from committed files with every receipt digest matching; the published page shows each section the preference rulings name, in light and dark | 17-02 landed 2026-10-26 |
-| 11 | Reference claims checked against full text where an abstract decides nothing | each claim cell of `docs/references.md` has a ledger line, confirmed, reworded, or cut; the 14 core texts keep their cells (ruled 2026-10-23, ledger ruled 2026-10-25) | ledger: 93 cells, 60 cut, 6 reworded, 13 confirmed, 14 kept, 0 unrecorded; 17-58 landed 2026-10-26 |
-| 12 | Release form (`AGENTS.md` §11): low-verbosity docs, low-complexity code, an empty open stack, no required item | `checker` runs once at the checkpoint on every file changed since v0.2.13, its report committed (ruled 2026-10-25); the closure pass (checkpoint step 5) finds 0 new blockers | checkpoint steps 1 to 5 |
-| 13 | The audit of 2026-10-25 closed | every item 17-09 to 17-56 has left this file | 17-09 to 17-56 |
-| 14 | `dev` is green and release-ready | the suite stamp equals HEAD; CI green on `dev` at that SHA; `python scripts/release_gate.py` exits 0 | checkpoint steps 6 and 7 |
-| 15 | `main` carries 0.2.14 and the tag | CI green on `main` at the merge SHA; `v0.2.14` points at it; the TestPyPI and verify jobs pass | checkpoint steps 8 and 9 |
-| 16 | 0.2.14 is on PyPI and the next cycle is open | PyPI approved by Hamm; a fresh venv installs 0.2.14, imports it and runs the quickstart; release_gate STEP 0a reads no `deferred-0.2.14` | checkpoint steps 10 and 11 |
-
-## Checkpoint 0.2.14
-
-In order; a failed row stops the checkpoint and returns to the lanes. The steps are `.github/CONTRIBUTING.md`
-"Releasing" with the R5 ruling (2026-10-19: CI green on `main` at the SHA that is tagged). Merge,
-push and tag are authorized (Hamm 2026-10-19); PyPI's environment approval is Hamm's.
-
-Before step 8, merge `main` into `dev`, so the release merge's first parent is in `dev` (release_gate refuses it otherwise; 2026-10-21).
-
-| Step | Command or action | Passes when |
-|---|---|---|
-| 1 | Read the open stack and this section | `artifacts/open_stack.md` holds no table row; no `###` item above remains |
-| 2 | `python scripts/bump_version.py 0.2.14 --date` | the declared version reads 0.2.14 |
-| 3 | `python scripts/assemble_changelog.py --version 0.2.14 --date` | `artifacts/changelog.d/` holds no fragment; `CHANGELOG.md` has a 0.2.14 section |
-| 4 | `python scripts/measure_peak_memory.py --write` | each growth past 20% and 5 MiB has a reason in `CHANGELOG.md` |
-| 5 | Closure pass: a Muse `review` and a Haiku verifier, independently, with the G-04 claims check | `artifacts/process/blocker_fixpoint_receipt.md` names the commit and 0 new release-blocking problems |
-| 6 | Full suite, harness gate, docs build; push `dev` | the stamp equals HEAD; CI green on `dev` at that SHA |
-| 7 | `python scripts/release_gate.py` | exit 0 |
-| 8 | Merge `dev` into `main` with a merge commit; push `main` | CI green on `main` at the merge SHA |
-| 9 | Tag `v0.2.14` at that SHA; push the tag | the TestPyPI and verify jobs pass; PyPI waits on Hamm's approval |
-| 10 | Install 0.2.14 from PyPI in a fresh venv; import; run the quickstart | the installed version reads 0.2.14 |
-| 11 | Move the 0.2.15 roadmap rows here with their full text; 0.2.15 becomes this file's top section | release_gate STEP 0a reads no `deferred-0.2.14` |
-
-# 0.2.15
-
-The section opened 2026-10-27 at the 0.2.14 checkpoint, from the roadmap rows deferred to it. The three validation rows (15-11, 16-12, 12-21) stay on the roadmap, where the dashboard lists deferred validation.
-
-### 11-03 Design facts held
+### 18-01 Closed cycles leave artifacts/
 
 Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- 11-03: D1-D3, D5-D10 report UNHELD: no scan reads delegation or side-effect categories (D1-D3), `AmbiguousMappingError` and `UndeclaredUnitError` are exported and never raised (D5, D7, D9), and no test holds condition meaning, trial semantics or cache decisions (D6, D8, D10). Check: each of D1-D3 and D5-D10 gets its own scan or refusal with a planted case. Waits: Ruled 2026-10-26: each needs its own scan or refusal with a planted case; D4 and D11 are held.
-Accept: the Design table reports no UNHELD fact.
+Writes: `artifacts/archive/**`, `artifacts/evidence/0.2.6/**` to `artifacts/evidence/0.2.12/**`, `artifacts/roadmap.md`, `.gitignore`.
+- 18-01: `artifacts/` tracks 184 files; 124 have no reader in `scripts/`, `tests/`, `jnwb/` or `.github/`, among them 19 files under `artifacts/archive/` (about 450 KB, mostly old todo stacks) and 48 closed-cycle evidence files of 0.2.6 to 0.2.12 (inventory 2026-10-27). AGENTS.md section 0 keeps a closed cycle only while a file reads or cites it. Check: each deleted file has no code reader and no citation outside the deleted set; a live citation is rewritten to `git show <sha>:<path>`; `python scripts/harness_gate.py` passes 22 of 22 and the tests that read `artifacts/` pass. Waits: nothing; rulings, receipts and evidence that code reads stay.
 
-### 16-20 A distance-aware coherence graph
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
-Writes: `jnwb/spectral/_coupling.py`, `jnwb/connectivity/_network.py`, `tests/test_connectivity_pitfalls.py`, `docs/references.md`.
-- 16-20: `cross_area_coherence` and `network_topology` take a coherence matrix as it is, so a graph of nearby contacts or electrodes is dense from field spread alone; Nejat and Hajipour Sardouie 2021 normalize edge weights by distance and compare groups edge by edge (`docs/references.md`, Pitfalls). Check: on a planted field with spread between nearby contacts, the distance-normalized edges differ from the raw coherence edges, asserted in `tests/test_connectivity_pitfalls.py`. Waits: raised during 0.2.14, after its scope was set (goal F3, ruled 2026-10-21).
-
-### 17-03 Declared types on the remaining numeric operations
+### 17-69 resolve_nwb_path refuses a missing file
 
 Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/_declarations.py`, `jnwb/connectivity/_granger.py`, `jnwb/connectivity/_network.py`, `jnwb/spectral/_coupling.py`.
-- 17-03: Fact I4 is UNHELD: only the operations whose parameter names show spikes or LFP declare signal types (`jnwb/_declarations.py`); generic-input operations such as `granger_causality`, `directed_network` and `imaginary_coherency` take either class and declare nothing. Check: each generic-input operation declares a per-call class in `jnwb/_declarations.py`, and fact I4 reports HELD. Waits: A per-call class for generic inputs; nothing shipped changes. Split from I1 (ruled 2026-10-24).
+Writes: `jnwb/paths.py`, `tests/test_paths.py`.
+- 17-69: `resolve_nwb_path` (`jnwb/paths.py:231`) probes `{prefix}_rec.nwb`, then returns `{prefix}.nwb` without checking it exists, so a renamed corpus resolves every prefix to a missing file with no error (omission JNWB-020). Check: the suffixes probed are a parameter (default unchanged), a prefix with no file raises `FileNotFoundError` naming each probe, and a suffix that only starts with a probed one is never matched. Waits: requested 2026-10-27; the corpus suffix stays in the project.
+
+### 17-67 A content fingerprint of the groups a reader used
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/paths.py`, `tests/test_paths.py`.
+- 17-67: `jnwb.paths.sha256_file` hashes a whole file, which is slow on large NWBs and changes when an unread group changes; a receipt cannot cheaply say its inputs are unchanged (omission JNWB-026). Check: a function hashes the named HDF5 groups of an NWB; changing a dataset in a named group changes the hash and changing one outside does not. Waits: requested 2026-10-27.
+
+### 17-62 The release gate installs the wheel with PYTHONPATH stripped
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/release_gate.py`, `tests/test_release_gate_receipt_history.py`.
+- 17-62: STEP 6 and STEP 8 run `pip install` in the isolated venv with the caller's environment (`scripts/release_gate.py:2100`, `:2101`, `:2131`); STEP 7 strips `PYTHONPATH`. With `PYTHONPATH` on the checkout, pip takes the checkout's `jnwb.egg-info` as jnwb installed and skips the wheel, `pip check` passes, and STEP 7 fails on `import jnwb` (2026-10-27, run at 39d6474f). Check: every subprocess the gate runs in the isolated venv gets the environment with `PYTHONPATH` removed, and STEP 6 refuses when `jnwb` is absent from the venv's site-packages after the install, asserted with `PYTHONPATH` set on the checkout. Waits: the 0.2.14 gate passed when run as `python -m scripts.release_gate` with `PYTHONPATH` unset.
 
 ### 17-04 The deprecated time windows become required
 
@@ -130,13 +73,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/_units.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `artifacts/fact_stack.md`.
 - 17-04: `UnitAnalyzer.psth`/`raster` `window_ms` and `build_time_resolved_matrix`/`compute_population_trajectory` `time_window_ms` warn when omitted and still use (-1000, 2000) ms (`jnwb/_units.py` `omitted_window`); four B3 exceptions rows cite the deprecation. Check: omitting any of the four windows raises instead of warning, and the four rows are gone from the `## B3 exceptions` table of `artifacts/fact_stack.md`. Waits: The 0.2.15 cycle: drop the default and the warning, delete the four rows. Ruled 2026-10-24.
 
-### 17-05 B3's lexicon covers the other choice names
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: a ruling per name group on which defaults a source cites (Hamm).
-Writes: `artifacts/fact_stack.md`, `scripts/build_fact_graph.py`.
-- 17-05: The lexicon holds time windows only (ruled 2026-10-24); defaulted role windows (`response_window`, `response_window_s`, `sink_window_ms`, `exclude_window_ms`, `reward_window_ms`), baselines, bands, bins, segments, null sizes and method names go unchecked. Check: each name group is in the `B3 choice names` constant of `artifacts/fact_stack.md` or excepted in its `## B3 exceptions` table with a source-cited reason. Waits: A ruling per name group on which defaults a source cites; nothing shipped changes.
-
 ### 17-06 Required windows become keyword-only
 
 Release: deferred-0.2.15.
@@ -144,62 +80,12 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/spiking.py`, `jnwb/statistics/_firing.py`, `tests/test_api_consistency.py`.
 - 17-06: Six public functions take a required window positionally (`fano_factor`, `network_burst_index`, `spike_count_correlation`, `fire_indicator`, `fires_in_window`, `rate_in_window`); B3 dropped "keyword-only" (ruled 2026-10-25). Check: `tests/test_api_consistency.py` asserts the deprecation path for each of the six positional callers. Waits: A deprecation path for positional callers.
 
-### 17-07 S8 over prose
+### 17-65 Bin times say which edge they name
 
 Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: Hamm's rulings on the per-class vocabulary and the skill line.
-Writes: `skills/jnwb-connectivity/SKILL.md`, `jnwb/connectivity/_transfer_entropy.py`, `jnwb/analyzers.py`, `scripts/build_fact_graph.py`.
-- 17-07: S8's check reads figure labels and returned units only (ruled 2026-10-25); a sentence-level vocabulary scan of docs, skills and docstrings hit 49 sentences, about 47 legitimate (zflip's delays, "volume conduction", transfer entropy's `delay=`, negations). Two read as overclaims: `skills/jnwb-connectivity/SKILL.md` calls PSI "the frequency-dependent driver/receiver lag", and the `jnwb/connectivity/_transfer_entropy.py` module docstring calls TE "directed information flow"; `UnitAnalyzer.correlate_areas` (`jnwb/analyzers.py:306`) calls a correlation of band power "inter-area synchrony" (audit 2026-10-25). Check: a ruled per-class vocabulary and a reviewed exceptions table decide each sentence the scan hits, and the two overclaims are reworded or cut. Waits: A ruled per-class vocabulary and a reviewed exceptions table; the skill line needs an amendment ruling.
-
-### 17-08 I3 beyond named units
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/build_fact_graph.py`, `artifacts/fact_stack.md`.
-- 17-08: I3's check reads unit- and base-suffixed names across call edges (ruled 2026-10-25); a coordinate frame, a sample rate (`fs` carries no suffix) or an index base a name does not spell can still change at a boundary unseen. Check: the I3 rule in `scripts/build_fact_graph.py` reports a planted boundary call that changes a frame, a rate or an index base the name does not spell. Waits: A representation of frames, rates and bases a scan can read.
-
-### 17-24 Non-finite inputs fail loudly
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/build_fact_graph.py`, `jnwb/**/*.py`.
-- 17-24: S9's holder reads swallowed handlers only (ruled 2026-10-25); NaN or inf passed to a public numeric function can still return a number without a refusal or warning, as seven functions did in the 2026-10-25 audit (items 17-10, 17-13, 17-21, 17-23, 17-50, 17-51). Check: the S9 holder in `scripts/build_fact_graph.py` feeds NaN and inf to each public numeric function and asserts a refusal or a warning. Waits: A computed holder that feeds NaN and inf to each public numeric function and requires a refusal or a warning. Ruled 2026-10-25.
-
-### 11-09 Planned skills
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- 11-09: The fact gate can report a planned skill for which K1 or K5 does not hold; K5 (a skill only for a coherent capability surface no existing skill handles more simply) has no mechanical predicate, and the planned set is prose only. Check: the fact gate reports a planned skill only when K1 and K5 hold for it. Waits: No planned skill ships in 0.2.14 and nothing public claims one; K5 is held by review until a predicate exists. Ruled 2026-10-25.
-Accept: K5 reports HELD; no UNHELD fact names a 0.2.15 item.
-
-### 17-59 Frozen bodies kill every planted change
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutants.py`.
-- 17-59: Planted changes that survive the tests the core freeze names (measured 2026-10-26): `shuffle_r2_ci` with its CI upper percentile 97.5 -> 95 or its p-value +1; `cluster_permutation_test` with its t standard error x2 or the max-mass statistic; the GPU branch of `cross_area_coherence` on a CPU-only machine. Check: each planted change in that list fails a test in `tests/test_frozen_core_mutants.py`. Waits: Each frozen body has a test that kills a planted change, so the freeze holds; the survivors are behaviours no test pins, and no released number is shown wrong.
-
-### 17-60 Paper, library and methods verdicts on the dashboard
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, `tests/test_build_dashboard.py`.
-- 17-60: Each showcase replication carries one verdict and no numeric paper value, where jaxfne splits the verdict into paper, library and methods. Check: `tests/test_build_dashboard.py` asserts each replication card carries a paper, a library and a methods verdict. Waits: one verdict per replication was ruled for 0.2.14 (2026-10-26); the split needs each replication's receipts read again. Roadmap row 17-57 until 2026-10-27, renumbered because 17-57 names a finished item.
-
-### 17-61 Peak channels resolve through units.electrodes and hardware_channel
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/addressing.py`, `tests/test_addressing.py`.
-- 17-61: `_resolve_electrode_row` (`jnwb/addressing.py:214`) looks `peak_channel_id` up in the first of `channel_id`, `id`, `electrode_id`; nothing reads `units.electrodes` or `electrodes.hardware_channel`. pypeline NWBs now order the electrodes table by probe position and store `peak_channel_id` as a hardware channel (pypeline `docs/JNWB_ALIGNMENT.md`), so a lookup through `id` returns the wrong row when position and hardware order differ. Check: on a file where they differ, area and layer resolve from `units.electrodes` when present, else through `hardware_channel`, asserted in `tests/test_addressing.py`; an empty `units.electrodes` entry and a probe whose `hardware_channel` is -1 resolve to nothing and never fall back to `id`; a file without both columns keeps the current lookup. Waits: deferred from 0.2.14 (ruled 2026-10-27). Fixture from pypeline, unjudged, join only: `D:/_BL_DATA_PIPELINE/_SCRATCH/ja01_fixture/ja01_two_area_units_electrodes.nwb` (35 units on two probes; per pypeline's `peak_vs_position.json`, none has `peak_channel_id` equal to its row).
-
-### 17-62 The release gate installs the wheel with PYTHONPATH stripped
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/release_gate.py`, `tests/test_release_gate_receipt_history.py`.
-- 17-62: STEP 6 and STEP 8 run `pip install` in the isolated venv with the caller's environment (`scripts/release_gate.py:2100`, `:2101`, `:2131`); STEP 7 strips `PYTHONPATH`. With `PYTHONPATH` on the checkout, pip takes the checkout's `jnwb.egg-info` as jnwb installed and skips the wheel, `pip check` passes, and STEP 7 fails on `import jnwb` (2026-10-27, run at 39d6474f). Check: every subprocess the gate runs in the isolated venv gets the environment with `PYTHONPATH` removed, and STEP 6 refuses when `jnwb` is absent from the venv's site-packages after the install, asserted with `PYTHONPATH` set on the checkout. Waits: the 0.2.14 gate passed when run as `python -m scripts.release_gate` with `PYTHONPATH` unset.
+Role: jnwb-developer. Skill: none. Blocked by: 17-04 (same signatures).
+Writes: `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/_bins.py`, `tests/test_api_consistency.py`.
+- 17-65: `UnitAnalyzer.psth` (`bin_centers_ms`, `jnwb/analyzers.py:417`) and `build_time_resolved_matrix` (`jnwb/trajectory.py:63`) label a bin at its centre only, so an onset read off the trace leads an instantaneous event by half a bin (omission JNWB-024). Check: each binning helper takes `label='center'|'right'` (right: bin (t-w, t] labelled t) and returns the convention it used; a step at t=0 first shows in the bin labelled 0 under `'right'`. Waits: requested 2026-10-27.
 
 ### 17-63 The effective rate of a sampled stream
 
@@ -215,13 +101,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/continuous.py`, `tests/test_continuous.py`.
 - 17-64: The logged break time is the trial's stop code, which follows the eye leaving the window by tens of milliseconds; no function returns the departure itself (omission JNWB-023, algorithm in its `scripts/gz_gaze_break.py`). Check: a function returns per-trial departure onsets from a gaze series, with baseline, envelope percentile, hold duration and walk-back fraction as parameters; on a planted departure the onset lands within one sample of the planted time. Waits: requested 2026-10-27.
 
-### 17-65 Bin times say which edge they name
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: 17-04 (same signatures).
-Writes: `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/_bins.py`, `tests/test_api_consistency.py`.
-- 17-65: `UnitAnalyzer.psth` (`bin_centers_ms`, `jnwb/analyzers.py:417`) and `build_time_resolved_matrix` (`jnwb/trajectory.py:63`) label a bin at its centre only, so an onset read off the trace leads an instantaneous event by half a bin (omission JNWB-024). Check: each binning helper takes `label='center'|'right'` (right: bin (t-w, t] labelled t) and returns the convention it used; a step at t=0 first shows in the bin labelled 0 under `'right'`. Waits: requested 2026-10-27.
-
 ### 17-66 Edge times of a tracked series near each event
 
 Release: deferred-0.2.15.
@@ -229,12 +108,12 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/nwb_events.py`, `tests/test_nwb_events.py`.
 - 17-66: jnwb reads no photodiode or reward line, so screen and reward timing are assumed from event codes (omission JNWB-025; JNWB-021 asks the same of a reward line whose interval pairing is ambiguous). Check: a function takes a series or interval table by path, returns per event the nearest rising and falling edge and its lag to the event, and names neither a series nor a threshold by default; on a planted flip train the lags match. Waits: requested 2026-10-27.
 
-### 17-67 A content fingerprint of the groups a reader used
+### 17-61 Peak channels resolve through units.electrodes and hardware_channel
 
 Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/paths.py`, `tests/test_paths.py`.
-- 17-67: `jnwb.paths.sha256_file` hashes a whole file, which is slow on large NWBs and changes when an unread group changes; a receipt cannot cheaply say its inputs are unchanged (omission JNWB-026). Check: a function hashes the named HDF5 groups of an NWB; changing a dataset in a named group changes the hash and changing one outside does not. Waits: requested 2026-10-27.
+Writes: `jnwb/addressing.py`, `tests/test_addressing.py`.
+- 17-61: `_resolve_electrode_row` (`jnwb/addressing.py:214`) looks `peak_channel_id` up in the first of `channel_id`, `id`, `electrode_id`; nothing reads `units.electrodes` or `electrodes.hardware_channel`. pypeline NWBs now order the electrodes table by probe position and store `peak_channel_id` as a hardware channel (pypeline `docs/JNWB_ALIGNMENT.md`), so a lookup through `id` returns the wrong row when position and hardware order differ. Check: on a file where they differ, area and layer resolve from `units.electrodes` when present, else through `hardware_channel`, asserted in `tests/test_addressing.py`; an empty `units.electrodes` entry and a probe whose `hardware_channel` is -1 resolve to nothing and never fall back to `id`; a file without both columns keeps the current lookup. Waits: deferred from 0.2.14 (ruled 2026-10-27). Fixture from pypeline, unjudged, join only: `D:/_BL_DATA_PIPELINE/_SCRATCH/ja01_fixture/ja01_two_area_units_electrodes.nwb` (35 units on two probes; per pypeline's `peak_vs_position.json`, none has `peak_channel_id` equal to its row).
 
 ### 17-68 One unit table with a column dictionary
 
@@ -243,9 +122,74 @@ Role: jnwb-developer. Skill: none. Blocked by: 17-61.
 Writes: `jnwb/metadata.py`, `tests/test_metadata.py`.
 - 17-68: Every consumer rebuilds the per-unit join of identity, probe, peak channel, area, layer and waveform features (omission JNWB-027). Check: `units_table(nwb)` returns one row per unit in unit order with a column dictionary (definition, source, units), and on the 17-61 fixture area comes through `units.electrodes`. Waits: requested 2026-10-27; area resolution waits on 17-61.
 
-### 17-69 resolve_nwb_path refuses a missing file
+### 17-59 Frozen bodies kill every planted change
 
 Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/paths.py`, `tests/test_paths.py`.
-- 17-69: `resolve_nwb_path` (`jnwb/paths.py:231`) probes `{prefix}_rec.nwb`, then returns `{prefix}.nwb` without checking it exists, so a renamed corpus resolves every prefix to a missing file with no error (omission JNWB-020). Check: the suffixes probed are a parameter (default unchanged), a prefix with no file raises `FileNotFoundError` naming each probe, and a suffix that only starts with a probed one is never matched. Waits: requested 2026-10-27; the corpus suffix stays in the project.
+Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutants.py`.
+- 17-59: Planted changes that survive the tests the core freeze names (measured 2026-10-26): `shuffle_r2_ci` with its CI upper percentile 97.5 -> 95 or its p-value +1; `cluster_permutation_test` with its t standard error x2 or the max-mass statistic; the GPU branch of `cross_area_coherence` on a CPU-only machine. Check: each planted change in that list fails a test in `tests/test_frozen_core_mutants.py`. Waits: Each frozen body has a test that kills a planted change, so the freeze holds; the survivors are behaviours no test pins, and no released number is shown wrong.
+
+### 17-60 Paper, library and methods verdicts on the dashboard
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, `tests/test_build_dashboard.py`.
+- 17-60: Each showcase replication carries one verdict and no numeric paper value, where jaxfne splits the verdict into paper, library and methods. Check: `tests/test_build_dashboard.py` asserts each replication card carries a paper, a library and a methods verdict. Waits: one verdict per replication was ruled for 0.2.14 (2026-10-26); the split needs each replication's receipts read again. Roadmap row 17-57 until 2026-10-27, renumbered because 17-57 names a finished item.
+
+### 17-03 Declared types on the remaining numeric operations
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/_declarations.py`, `jnwb/connectivity/_granger.py`, `jnwb/connectivity/_network.py`, `jnwb/spectral/_coupling.py`.
+- 17-03: Fact I4 is UNHELD: only the operations whose parameter names show spikes or LFP declare signal types (`jnwb/_declarations.py`); generic-input operations such as `granger_causality`, `directed_network` and `imaginary_coherency` take either class and declare nothing. Check: each generic-input operation declares a per-call class in `jnwb/_declarations.py`, and fact I4 reports HELD. Waits: A per-call class for generic inputs; nothing shipped changes. Split from I1 (ruled 2026-10-24).
+
+### 16-20 A distance-aware coherence graph
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
+Writes: `jnwb/spectral/_coupling.py`, `jnwb/connectivity/_network.py`, `tests/test_connectivity_pitfalls.py`, `docs/references.md`.
+- 16-20: `cross_area_coherence` and `network_topology` take a coherence matrix as it is, so a graph of nearby contacts or electrodes is dense from field spread alone; Nejat and Hajipour Sardouie 2021 normalize edge weights by distance and compare groups edge by edge (`docs/references.md`, Pitfalls). Check: on a planted field with spread between nearby contacts, the distance-normalized edges differ from the raw coherence edges, asserted in `tests/test_connectivity_pitfalls.py`. Waits: raised during 0.2.14, after its scope was set (goal F3, ruled 2026-10-21).
+
+### 17-08 I3 beyond named units
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/build_fact_graph.py`, `artifacts/fact_stack.md`.
+- 17-08: I3's check reads unit- and base-suffixed names across call edges (ruled 2026-10-25); a coordinate frame, a sample rate (`fs` carries no suffix) or an index base a name does not spell can still change at a boundary unseen. Check: the I3 rule in `scripts/build_fact_graph.py` reports a planted boundary call that changes a frame, a rate or an index base the name does not spell. Waits: A representation of frames, rates and bases a scan can read.
+
+### 11-03 Design facts held
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
+- 11-03: D1-D3, D5-D10 report UNHELD: no scan reads delegation or side-effect categories (D1-D3), `AmbiguousMappingError` and `UndeclaredUnitError` are exported and never raised (D5, D7, D9), and no test holds condition meaning, trial semantics or cache decisions (D6, D8, D10). Check: each of D1-D3 and D5-D10 gets its own scan or refusal with a planted case. Waits: Ruled 2026-10-26: each needs its own scan or refusal with a planted case; D4 and D11 are held.
+Accept: the Design table reports no UNHELD fact.
+
+### 11-09 Planned skills
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
+- 11-09: The fact gate can report a planned skill for which K1 or K5 does not hold; K5 (a skill only for a coherent capability surface no existing skill handles more simply) has no mechanical predicate, and the planned set is prose only. Check: the fact gate reports a planned skill only when K1 and K5 hold for it. Waits: No planned skill ships in 0.2.14 and nothing public claims one; K5 is held by review until a predicate exists. Ruled 2026-10-25.
+Accept: K5 reports HELD; no UNHELD fact names a 0.2.15 item.
+
+### 17-24 Non-finite inputs fail loudly
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/build_fact_graph.py`, `jnwb/**/*.py`.
+- 17-24: S9's holder reads swallowed handlers only (ruled 2026-10-25); NaN or inf passed to a public numeric function can still return a number without a refusal or warning, as seven functions did in the 2026-10-25 audit (items 17-10, 17-13, 17-21, 17-23, 17-50, 17-51). Check: the S9 holder in `scripts/build_fact_graph.py` feeds NaN and inf to each public numeric function and asserts a refusal or a warning. Waits: A computed holder that feeds NaN and inf to each public numeric function and requires a refusal or a warning. Ruled 2026-10-25.
+
+### 17-05 B3's lexicon covers the other choice names
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: a ruling per name group on which defaults a source cites (Hamm).
+Writes: `artifacts/fact_stack.md`, `scripts/build_fact_graph.py`.
+- 17-05: The lexicon holds time windows only (ruled 2026-10-24); defaulted role windows (`response_window`, `response_window_s`, `sink_window_ms`, `exclude_window_ms`, `reward_window_ms`), baselines, bands, bins, segments, null sizes and method names go unchecked. Check: each name group is in the `B3 choice names` constant of `artifacts/fact_stack.md` or excepted in its `## B3 exceptions` table with a source-cited reason. Waits: A ruling per name group on which defaults a source cites; nothing shipped changes.
+
+### 17-07 S8 over prose
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: Hamm's rulings on the per-class vocabulary and the skill line.
+Writes: `skills/jnwb-connectivity/SKILL.md`, `jnwb/connectivity/_transfer_entropy.py`, `jnwb/analyzers.py`, `scripts/build_fact_graph.py`.
+- 17-07: S8's check reads figure labels and returned units only (ruled 2026-10-25); a sentence-level vocabulary scan of docs, skills and docstrings hit 49 sentences, about 47 legitimate (zflip's delays, "volume conduction", transfer entropy's `delay=`, negations). Two read as overclaims: `skills/jnwb-connectivity/SKILL.md` calls PSI "the frequency-dependent driver/receiver lag", and the `jnwb/connectivity/_transfer_entropy.py` module docstring calls TE "directed information flow"; `UnitAnalyzer.correlate_areas` (`jnwb/analyzers.py:306`) calls a correlation of band power "inter-area synchrony" (audit 2026-10-25). Check: a ruled per-class vocabulary and a reviewed exceptions table decide each sentence the scan hits, and the two overclaims are reworded or cut. Waits: A ruled per-class vocabulary and a reviewed exceptions table; the skill line needs an amendment ruling.
