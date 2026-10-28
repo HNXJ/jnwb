@@ -25,19 +25,11 @@ design or a scan across `jnwb/`.
 
 | Wave | Lane | Items, in order | Speed | Needs first |
 |---|---|---|---|---|
-| 2 | F units | 17-68 | M | ruled 2026-10-28 |
 | 3 | G dashboard | 17-60 | L | nothing |
 | 3 | H coherence graph | 16-20 | L | reviewed by `reviewer` at high |
 | 3 | I fact graph | 17-08, 11-03, 11-09 | L, L, L | nothing |
 | 4 | J non-finite | 17-24 | L | waves 1 to 3 merged (writes across `jnwb/`) |
 | - | Held | 17-03, 17-05, 17-07 | - | Hamm's rulings |
-
-### 17-68 One unit table with a column dictionary
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/metadata.py`, `tests/test_metadata.py`.
-- 17-68: Every consumer rebuilds the per-unit join of identity, probe, peak channel, area, layer and waveform features (omission JNWB-027). Check: `units_table(nwb)` returns one row per unit in unit order with a column dictionary (definition, source, units), and on the 17-61 fixture area comes through `units.electrodes`. Waits: requested 2026-10-27.
 
 ### 17-60 Paper, library and methods verdicts on the dashboard
 
