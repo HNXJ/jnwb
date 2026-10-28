@@ -27,7 +27,7 @@ design or a scan across `jnwb/`.
 |---|---|---|---|---|
 | 3 | G dashboard | 17-60 | L | nothing |
 | 3 | H coherence graph | 16-20 | L | reviewed by `reviewer` at high |
-| 3 | I fact graph | 17-08, 11-03, 11-09 | L, L, L | nothing |
+| 3 | I fact graph | 11-03, 11-09 | L, L | nothing |
 | 4 | J non-finite | 17-24 | L | waves 1 to 3 merged (writes across `jnwb/`) |
 | - | Held | 17-05, 17-07 | - | Hamm's rulings |
 
