@@ -25,18 +25,10 @@ design or a scan across `jnwb/`.
 
 | Wave | Lane | Items, in order | Speed | Needs first |
 |---|---|---|---|---|
-| 3 | G dashboard | 17-60 | L | nothing |
 | 3 | H coherence graph | 16-20 | L | reviewed by `reviewer` at high |
 | 3 | I fact graph | 11-03, 11-09 | L, L | nothing |
 | 4 | J non-finite | 17-24 | L | waves 1 to 3 merged (writes across `jnwb/`) |
 | - | Held | 17-05, 17-07 | - | Hamm's rulings |
-
-### 17-60 Paper, library and methods verdicts on the dashboard
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, `tests/test_build_dashboard.py`.
-- 17-60: Each showcase replication carries one verdict and no numeric paper value, where jaxfne splits the verdict into paper, library and methods. Check: `tests/test_build_dashboard.py` asserts each replication card carries a paper, a library and a methods verdict. Waits: one verdict per replication was ruled for 0.2.14 (2026-10-26); the split needs each replication's receipts read again. Roadmap row 17-57 until 2026-10-27, renumbered because 17-57 names a finished item.
 
 ### 16-20 A distance-aware coherence graph
 
