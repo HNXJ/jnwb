@@ -200,3 +200,52 @@ Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/release_gate.py`, `tests/test_release_gate_receipt_history.py`.
 - 17-62: STEP 6 and STEP 8 run `pip install` in the isolated venv with the caller's environment (`scripts/release_gate.py:2100`, `:2101`, `:2131`); STEP 7 strips `PYTHONPATH`. With `PYTHONPATH` on the checkout, pip takes the checkout's `jnwb.egg-info` as jnwb installed and skips the wheel, `pip check` passes, and STEP 7 fails on `import jnwb` (2026-10-27, run at 39d6474f). Check: every subprocess the gate runs in the isolated venv gets the environment with `PYTHONPATH` removed, and STEP 6 refuses when `jnwb` is absent from the venv's site-packages after the install, asserted with `PYTHONPATH` set on the checkout. Waits: the 0.2.14 gate passed when run as `python -m scripts.release_gate` with `PYTHONPATH` unset.
+
+### 17-63 The effective rate of a sampled stream
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/continuous.py`, `tests/test_continuous.py`.
+- 17-63: Nothing reports the rate a stream was sampled at before it was stored; a 500 Hz source upsampled to a 1 kHz series reads as 1 kHz (omission JNWB-022: on one session 2.7% of consecutive eye samples repeat exactly and a third of the power lies above 250 Hz). Check: a helper returns the exact-repeat fraction, the run-length distribution and the power fraction above rate/4 of a series; a planted sample-and-hold signal at half the stored rate is flagged and a native one is not. Waits: requested 2026-10-27.
+
+### 17-64 Gaze departure onset per trial
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/continuous.py`, `tests/test_continuous.py`.
+- 17-64: The logged break time is the trial's stop code, which follows the eye leaving the window by tens of milliseconds; no function returns the departure itself (omission JNWB-023, algorithm in its `scripts/gz_gaze_break.py`). Check: a function returns per-trial departure onsets from a gaze series, with baseline, envelope percentile, hold duration and walk-back fraction as parameters; on a planted departure the onset lands within one sample of the planted time. Waits: requested 2026-10-27.
+
+### 17-65 Bin times say which edge they name
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: 17-04 (same signatures).
+Writes: `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/_bins.py`, `tests/test_api_consistency.py`.
+- 17-65: `UnitAnalyzer.psth` (`bin_centers_ms`, `jnwb/analyzers.py:417`) and `build_time_resolved_matrix` (`jnwb/trajectory.py:63`) label a bin at its centre only, so an onset read off the trace leads an instantaneous event by half a bin (omission JNWB-024). Check: each binning helper takes `label='center'|'right'` (right: bin (t-w, t] labelled t) and returns the convention it used; a step at t=0 first shows in the bin labelled 0 under `'right'`. Waits: requested 2026-10-27.
+
+### 17-66 Edge times of a tracked series near each event
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/nwb_events.py`, `tests/test_nwb_events.py`.
+- 17-66: jnwb reads no photodiode or reward line, so screen and reward timing are assumed from event codes (omission JNWB-025; JNWB-021 asks the same of a reward line whose interval pairing is ambiguous). Check: a function takes a series or interval table by path, returns per event the nearest rising and falling edge and its lag to the event, and names neither a series nor a threshold by default; on a planted flip train the lags match. Waits: requested 2026-10-27.
+
+### 17-67 A content fingerprint of the groups a reader used
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/paths.py`, `tests/test_paths.py`.
+- 17-67: `jnwb.paths.sha256_file` hashes a whole file, which is slow on large NWBs and changes when an unread group changes; a receipt cannot cheaply say its inputs are unchanged (omission JNWB-026). Check: a function hashes the named HDF5 groups of an NWB; changing a dataset in a named group changes the hash and changing one outside does not. Waits: requested 2026-10-27.
+
+### 17-68 One unit table with a column dictionary
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: 17-61.
+Writes: `jnwb/metadata.py`, `tests/test_metadata.py`, `docs/api.md`.
+- 17-68: Every consumer rebuilds the per-unit join of identity, probe, peak channel, area, layer and waveform features (omission JNWB-027). Check: `units_table(nwb)` returns one row per unit in unit order with a column dictionary (definition, source, units), and on the 17-61 fixture area comes through `units.electrodes`. Waits: requested 2026-10-27; area resolution waits on 17-61.
+
+### 17-69 resolve_nwb_path refuses a missing file
+
+Release: deferred-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/paths.py`, `tests/test_paths.py`.
+- 17-69: `resolve_nwb_path` (`jnwb/paths.py:231`) probes `{prefix}_rec.nwb`, then returns `{prefix}.nwb` without checking it exists, so a renamed corpus resolves every prefix to a missing file with no error (omission JNWB-020). Check: the suffixes probed are a parameter (default unchanged), a prefix with no file raises `FileNotFoundError` naming each probe, and a suffix that only starts with a probed one is never matched. Waits: requested 2026-10-27; the corpus suffix stays in the project.
