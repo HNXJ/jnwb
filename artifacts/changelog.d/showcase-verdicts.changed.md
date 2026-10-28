@@ -1,0 +1,1 @@
+- Each showcase replication card shows paper, library and methods verdicts (`scripts/build_dashboard.py`).

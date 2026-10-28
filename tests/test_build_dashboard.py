@@ -396,7 +396,131 @@ def test_the_schema_accepts_the_unmutated_entry():
     assert not _schema_errors(lambda entry: None), "the control entry must validate"
 
 
-# ---- validation cards ---------------------------------------------------------------------
+# ---- paper, library and methods verdicts ---------------------------------------------------
+
+REAL_RECORD_PATH = REPO_ROOT / "artifacts" / "showcases" / "openscope_glo.json"
+REAL_FROZEN_PATH = REPO_ROOT / "artifacts" / "process" / "frozen_validated.json"
+
+
+def _real_record():
+    return json.loads(REAL_RECORD_PATH.read_text(encoding="utf-8"))
+
+
+def _real_rows(data):
+    rows = [(entry["id"], row)
+            for entry in data["showcases"]["entries"] for row in entry["replications"]]
+    assert len(rows) == 5, f"the real record must hold five replication rows, found {len(rows)}"
+    return rows
+
+
+def _register_covered():
+    register = json.loads(REAL_FROZEN_PATH.read_text(encoding="utf-8"))
+    covered = set()
+    for func in register["functions"]:
+        covered.add(func["qualname"])
+        covered.add(func["qualname"].split(".")[-1])
+        for served in func.get("serves", []):
+            covered.add(served)
+            covered.add(served.split(".")[-1])
+    return covered
+
+
+def test_every_replication_card_carries_paper_library_and_methods(data):
+    assert _real_record()["entries"], "the real record must hold entries"
+    for ident, row in _real_rows(data):
+        for axis in ("paper", "library", "methods"):
+            assert axis in row, f"{ident}: replication lacks {axis}"
+            assert "verdict" in row[axis], f"{ident}: {axis} lacks a verdict"
+
+
+def test_library_matches_the_frozen_register_coverage(data):
+    covered = _register_covered()
+    assert "nwb_read_io" in covered and "bin_spikes" in covered and "fdr_correct" in covered, \
+        "the hand count needs these covered names"
+    assert "bandpass_filter" not in covered and "exact_sign_flip" not in covered, \
+        "the hand count needs these uncovered names"
+    for ident, row in _real_rows(data):
+        assert set(row["library"]) == {"verdict", "uncovered"}, (ident, row["library"])
+    by_entry = {}
+    for ident, row in _real_rows(data):
+        by_entry.setdefault(ident, []).append(row["library"])
+    assert by_entry["glo_s1_responsive"][0]["verdict"] == "partial"
+    assert by_entry["glo_s1_responsive"][0]["uncovered"] == [
+        "filter_by_criteria", "unit_spike_times", "compute_response_metrics",
+        "classify_response_significance", "rate_in_window", "exact_sign_flip"]
+    assert by_entry["glo_lfp_clock"][0] == {"verdict": "unverified",
+                                            "uncovered": ["bandpass_filter"]}
+    record = {entry["id"]: entry for entry in _real_record()["entries"]}
+    for ident, row in _real_rows(data):
+        functions = record[ident]["jnwb"]["functions"]
+        covered_count = sum(name in covered for name in functions)
+        if covered_count == len(functions):
+            expected = "verified"
+        elif covered_count:
+            expected = "partial"
+        else:
+            expected = "unverified"
+        assert row["library"]["verdict"] == expected, ident
+        assert row["library"]["uncovered"] == [name for name in functions
+                                               if name not in covered], ident
+
+
+def test_methods_follows_the_record_except_the_partially_rerun_entry(data):
+    record = {entry["id"]: entry for entry in _real_record()["entries"]}
+    rerun = record["glo_s1_allunits"]["replications"][0]
+    assert rerun["verdict"] == "reproduces", "the record's word for the partially rerun row"
+    assert rerun["note"] == "the other contrasts were not rerun", "the reason the card must keep"
+    seen = set()
+    for ident, row in _real_rows(data):
+        if ident == "glo_s1_allunits":
+            assert row["methods"] == {"verdict": "partial",
+                                      "reason": "the other contrasts were not rerun"}, ident
+            continue
+        seen.add(ident)
+    assert seen == {"glo_s1_responsive", "glo_s2v2", "glo_lfp_clock"}, seen
+    # Each other row carries the record's own verdict for its position in the entry.
+    positions = {}
+    for ident, row in _real_rows(data):
+        if ident == "glo_s1_allunits":
+            continue
+        position = positions.get(ident, 0)
+        assert row["methods"]["verdict"] == record[ident]["replications"][position]["verdict"], \
+            (ident, position)
+        assert "reason" not in row["methods"], (ident, position)
+        positions[ident] = position + 1
+
+
+def test_paper_is_not_applicable_with_the_record_reason_and_no_numeric_value(data):
+    builder = _builder()
+    assert "not applicable" in builder.PAPER_VERDICTS, "the vocabulary must allow the word"
+    for entry in _real_record()["entries"]:
+        assert entry["relation_to_published"], entry["id"]
+    record = {entry["id"]: entry for entry in _real_record()["entries"]}
+    for ident, row in _real_rows(data):
+        assert row["paper"]["verdict"] in builder.PAPER_VERDICTS, ident
+        assert row["paper"]["verdict"] == "not applicable", ident
+        assert not any(char.isdigit() for char in row["paper"]["verdict"]), ident
+        assert row["paper"]["reason"] == record[ident]["relation_to_published"], ident
+
+
+@pytest.mark.parametrize("remove", ["verdict", "relation", "functions"],
+                         ids=["no-verdict", "no-relation", "no-functions"])
+def test_a_card_missing_a_verdict_axis_is_refused(point_at, remove):
+    record = _record()
+    entry = record["entries"][0]
+    assert entry["replications"][0]["verdict"] == "reproduces", "the fixture must hold a verdict"
+    assert entry["relation_to_published"], "the fixture must state a relation"
+    assert entry["jnwb"]["functions"], "the fixture must list functions"
+    if remove == "verdict":
+        del entry["replications"][0]["verdict"]
+    elif remove == "relation":
+        del entry["relation_to_published"]
+    else:
+        del entry["jnwb"]["functions"]
+    point_at(record)
+    with pytest.raises(ValueError) as info:
+        _builder().build_data()
+    assert "fixture_entry" in str(info.value)
 
 CALIBRATION_DIR = REPO_ROOT / "artifacts" / "benchmarks" / "calibration"
 CALIBRATION_NAMES = ("xflip_calibration_0.2.5.md", "vflip_calibration_0.2.4.md",

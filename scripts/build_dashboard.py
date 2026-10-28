@@ -15,6 +15,9 @@ repository.
 
 ``deferred`` has one row per roadmap row that is a validation, each read as not started. Each
 replication in ``showcases`` carries a ``label``: the dashboard's name for the record's verdict.
+Each also carries ``paper``, ``library`` and ``methods``: what the paper says about the replication,
+which of the functions it lists the frozen register covers, and the methods outcome, which follows
+the record's verdict except where a rerun covered only part of the scope.
 
     python scripts/build_dashboard.py --out <dir>    # writes <dir>/data.json and the page
 """
@@ -87,6 +90,16 @@ _RESULT_HEADING = re.compile(r"^#+\s*(?:result|verdict|summary)\b", re.IGNORECAS
 DOCS_VERSION_PATH = "en/latest/"
 #: The dashboard's name for each replication verdict in the record; the record keeps its own words.
 VERDICT_LABELS = {"reproduces": "reproduced", "partial": "mixed", "does_not": "failed"}
+#: The allowed paper verdicts for a replication. Every current replication targets no paper
+#: claim, so each reads "not applicable"; a replication that does target one keeps the field
+#: and takes one of the other values.
+PAPER_VERDICTS = ("not applicable", "reproduces", "partial", "does_not")
+#: The library verdicts the frozen-register coverage computes: every listed function covered,
+#: some covered, none covered.
+LIBRARY_VERDICTS = ("verified", "partial", "unverified")
+#: Entries whose methods verdict is narrower than the record's verdict, by entry id. The
+#: replication's own note already states the narrower scope and is kept as the reason.
+METHODS_NARROWER = {"glo_s1_allunits": "partial"}
 #: A roadmap row is a validation when its theme cell ends with this tag; the tag is left off the
 #: theme the dashboard shows.
 VALIDATION_TAG = "(validation)"
@@ -460,16 +473,54 @@ def _copy_showcase_figures(showcases: dict, out: Path) -> None:
                 shutil.copy2(_showcase_figures() / name, target / name)
 
 
+def _frozen_function_names() -> set[str]:
+    """Every name the frozen register covers: each qualname and each public name one serves."""
+    if not FROZEN.is_file():
+        raise ValueError(f"{_rel(FROZEN)} is missing; the library verdicts cannot be computed")
+    names = set()
+    for func in json.loads(_read(FROZEN))["functions"]:
+        names.add(func["qualname"])
+        names.add(func["qualname"].split(".")[-1])
+        for served in func.get("serves", []):
+            names.add(served)
+            names.add(served.split(".")[-1])
+    return names
+
+
+def _library_verdict(functions: list, covered: set[str]) -> dict:
+    """The library verdict for the functions a replication lists as used.
+
+    ``verified`` when the register covers every one, ``partial`` when it covers some,
+    ``unverified`` when it covers none. A name the register cannot resolve counts as not
+    covered and is listed.
+    """
+    uncovered = [name for name in functions if name not in covered]
+    if functions and not uncovered:
+        verdict = "verified"
+    elif len(functions) != len(uncovered):
+        verdict = "partial"
+    else:
+        verdict = "unverified"
+    assert verdict in LIBRARY_VERDICTS
+    return {"verdict": verdict, "uncovered": uncovered}
+
+
 def showcases_section() -> dict | None:
     """The showcase record, its figure paths relative to the built site; null while none exists.
 
     Refuses, naming the entry: a figure without its dark twin, a verified entry without a
-    reproducing replication that carries a report digest, a verdict without a dashboard label, an
-    asset without its SHA-256. The data schema holds the rest of the shape.
+    reproducing replication that carries a report digest, a replication without a verdict, a
+    verdict without a dashboard label, an entry stating no relation to the paper, an entry
+    listing no functions, an asset without its SHA-256. Each replication keeps its record
+    verdict and label and gains ``paper`` (the entry's stated relation to the paper),
+    ``library`` (the frozen-register coverage of the functions the entry lists) and ``methods``
+    (the record's verdict, or the narrower one METHODS_NARROWER names). The data schema holds
+    the rest of the shape.
     """
     if not SHOWCASE_RECORD.is_file():
         return None
     record = json.loads(_read(SHOWCASE_RECORD))
+    covered = _frozen_function_names()
     where = SHOWCASE_RECORD.name
     figures_dir = _showcase_figures()
     for entry in record["entries"]:
@@ -481,16 +532,37 @@ def showcases_section() -> dict | None:
                                  f"(light {light!r}, dark {dark!r})")
             if not light or not (figures_dir / light).is_file():
                 raise ValueError(f"{where}: entry {ident!r} has no light figure {light!r}")
-        reproduced = any(r["verdict"] == "reproduces" and r.get("report_sha256")
+        reproduced = any(r.get("verdict") == "reproduces" and r.get("report_sha256")
                          for r in entry["replications"])
         if entry["status"] == "verified" and not reproduced:
             raise ValueError(f"{where}: entry {ident!r} is verified but has no reproducing "
                              "replication with a report_sha256")
+        relation = entry.get("relation_to_published")
+        if not relation:
+            raise ValueError(f"{where}: entry {ident!r} states no relation to the paper")
+        functions = entry.get("jnwb", {}).get("functions")
+        if not functions:
+            raise ValueError(f"{where}: entry {ident!r} lists no functions")
         for row in entry["replications"]:
+            if "verdict" not in row:
+                raise ValueError(f"{where}: entry {ident!r} has a replication without a verdict")
             if row["verdict"] not in VERDICT_LABELS:
                 raise ValueError(f"{where}: entry {ident!r} has verdict {row['verdict']!r}, "
                                  "which has no dashboard label")
             row["label"] = VERDICT_LABELS[row["verdict"]]
+            methods = METHODS_NARROWER.get(ident, row["verdict"])
+            if methods not in VERDICT_LABELS:
+                raise ValueError(f"{where}: entry {ident!r} has methods verdict {methods!r}, "
+                                 "which has no dashboard label")
+            row["methods"] = {"verdict": methods}
+            if ident in METHODS_NARROWER:
+                row["methods"]["reason"] = row["note"]
+            paper = {"verdict": "not applicable", "reason": relation}
+            if paper["verdict"] not in PAPER_VERDICTS:
+                raise ValueError(f"{where}: entry {ident!r} has paper verdict "
+                                 f"{paper['verdict']!r}, which the vocabulary does not allow")
+            row["paper"] = paper
+            row["library"] = _library_verdict(functions, covered)
         for asset in entry["dandi"]["assets"]:
             if not asset.get("sha256"):
                 raise ValueError(f"{where}: entry {ident!r} asset {asset.get('asset_id')!r} "

@@ -315,6 +315,30 @@
               "seed": {"type": ["string", "null"]},
               "report_sha256": {"$ref": "#/$defs/sha256"},
               "label": {"enum": ["reproduced", "mixed", "failed"], "description": "the dashboard's name for the verdict; the build adds it"},
+              "paper": {
+                "type": "object", "description": "what the paper says about the replication; the build adds it",
+                "required": ["verdict", "reason"], "additionalProperties": false,
+                "properties": {
+                  "verdict": {"enum": ["not applicable", "reproduces", "partial", "does_not"]},
+                  "reason": {"type": "string"}
+                }
+              },
+              "library": {
+                "type": "object", "description": "frozen-register coverage of the functions the replication lists; the build adds it",
+                "required": ["verdict", "uncovered"], "additionalProperties": false,
+                "properties": {
+                  "verdict": {"enum": ["verified", "partial", "unverified"]},
+                  "uncovered": {"type": "array", "items": {"type": "string"}}
+                }
+              },
+              "methods": {
+                "type": "object", "description": "the methods outcome; the build adds it from the record's verdict",
+                "required": ["verdict"], "additionalProperties": false,
+                "properties": {
+                  "verdict": {"enum": ["reproduces", "partial", "does_not"]},
+                  "reason": {"type": "string"}
+                }
+              },
               "note": {"type": "string"}
             }
           }
