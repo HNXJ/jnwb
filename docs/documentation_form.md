@@ -130,7 +130,7 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Kind | Ceiling | Why this number |
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
-| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `quickstart` at 821 and `recipes` at 348 sit under it |
+| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `quickstart` at 843 and `recipes` at 348 sit under it |
 | Concept (`02`–`09`, `architecture`, `reading_nwb`, `repairing_nwb`, `coherence_and_tfr`, `laminar`, `vis`) | 1200 words | seven of the fourteen sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
@@ -141,11 +141,11 @@ Eleven pages sit over their ceiling, and each owes the one sentence the rule ask
 
 | Page | Words | Why the excess stands |
 |---|---|---|
-| `common_mistakes` | 3199 | twelve failure modes, each with a wrong form, a correct form and the reason, and the nine-row table of coupling and direction pitfalls; cutting one removes a failure mode rather than words; the causal-step and narrowband-PSI figures and their captions add 154 words |
+| `common_mistakes` | 3201 | twelve failure modes, each with a wrong form, a correct form and the reason, and the nine-row table of coupling and direction pitfalls; cutting one removes a failure mode rather than words; the causal-step and narrowband-PSI figures and their captions add 154 words |
 | `02_paths_addressing_metadata` | 1887 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls, and the curated-labels section states what a grade licenses and the one-sheet limit |
 | `03_representational_similarity_jrsa` | 1496 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, the standalone RDM section says its p is not a relatedness test, and the save paragraph says what each file format holds; the RDM and jRSA-trace figure and its caption add 75 words |
 | `04_spectral_analysis_and_tfr` | 1397 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number; the spectra and band-profile figures and their captions add 161 words |
-| `06_spikes_psth_and_onset_dynamics` | 1705 | PSTH and response tests, phase locking, onset fitting, trajectories, unit quality measures and WaveMAP share a page, and the page sat at 1199 words before the unit quality table; the phase-locking and causal-step figures and their captions add 170 words |
+| `06_spikes_psth_and_onset_dynamics` | 1709 | PSTH and response tests, phase locking, onset fitting, trajectories, unit quality measures and WaveMAP share a page, and the page sat at 1199 words before the unit quality table; the phase-locking and causal-step figures and their captions add 170 words |
 | `07_statistical_inference_and_nulls` | 1314 | the cluster-permutation figure and its caption add 114 words; the section's limit on what a significant cluster licenses applies to the cluster the figure outlines |
 | `08_directed_connectivity_and_information` | 1472 | the spectral Granger and phase-slope figures and their captions add 150 words, each showing one directional estimate on a synthetic pair |
 | `architecture` | 1956 | two pages merged: the module map is a 673-word reference table, and the prose states the boundary, the invariants and the claim table once each |

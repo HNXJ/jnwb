@@ -69,7 +69,7 @@ integer base seed, which the plan returns as `seed`.
 
 ### 4. Structured Return Types
 - Complex multi-parameter estimators return dataclasses (e.g. `VFlipResult`, `AperiodicFitResult`, `DirectedResult`, `JRSAResult`, `ComplexTFR`, `EventTable`).
-- `AperiodicFitResult`, `DirectedResult`, `LaminarCurationResult`, `VFlipResult`, `VFlip2Result`, `XFlipResult` and `ZFlipResult` implement `.to_dict()` and mapping access (`__getitem__`), so they unpack like the dictionaries they replaced and serialize. `ComplexTFR`, `EventTable`, `JRSAResult`, `ProbeGeometry`, `SynthLaminarReceipt`, `SynthVFlip2Receipt` and `TickClock` are attribute-only: read their fields as attributes (`result.value`, `result.p`).
+- `AperiodicFitResult`, `DirectedResult`, `LaminarCurationResult`, `VFlipResult`, `VFlip2Result`, `XFlipResult` and `ZFlipResult` implement `.to_dict()` and mapping access (`__getitem__`), so they unpack like the dictionaries they replaced and serialize. `ComplexTFR`, `EffectiveRate`, `EventTable`, `JRSAResult`, `ProbeGeometry`, `SynthLaminarReceipt`, `SynthVFlip2Receipt` and `TickClock` are attribute-only: read their fields as attributes (`result.value`, `result.p`).
 
 ### 5. Axis & Dimension Vocabulary
 - Array dimensions follow standard named tensor shapes:

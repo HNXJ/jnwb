@@ -85,6 +85,7 @@ ONTOLOGY = [
 RETURNED_BY = {
     "AperiodicFitResult": ["aperiodic_fit"],
     "TickClock": ["derive_tick_clock"],
+    "EffectiveRate": ["effective_rate"],
     "ComplexTFR": ["complex_tfr"],
     "DirectedResult": ["granger", "granger_spectral", "phase_slope_index", "transfer_entropy",
                        "directed_connectivity"],
