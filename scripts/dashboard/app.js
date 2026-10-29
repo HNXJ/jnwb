@@ -798,9 +798,9 @@
     return { text: text, font: { color: colors.muted } };
   }
 
-  // Plotly sizes a chart drawn in a hidden tab at its 700 px default and does not re-measure it
-  // when the tab opens, so a chart is drawn only while its panel is shown. A hidden chart is
-  // marked undrawn and drawn when its tab opens; a theme change redraws the visible ones.
+  // Plotly sizes a chart drawn in a hidden tab at its 700 px default and never re-measures it,
+  // so a chart is drawn only while its panel shows. A hidden chart is marked undrawn and drawn
+  // when its tab opens; a theme change redraws the visible ones.
   function addChart(box, spec) {
     charts.push({ box: box, spec: spec, drawn: false });
   }

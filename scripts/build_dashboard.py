@@ -15,9 +15,9 @@ repository.
 
 ``deferred`` has one row per roadmap row that is a validation, each read as not started. Each
 replication in ``showcases`` carries a ``label``: the dashboard's name for the record's verdict.
-Each also carries ``paper``, ``library`` and ``methods``: what the paper says about the replication,
-which of the functions it lists the frozen register covers, and the methods outcome, which follows
-the record's verdict except where a rerun covered only part of the scope.
+Each also carries ``paper``, ``library`` and ``methods``: the relation to the paper, the frozen-register
+coverage of the functions it lists, and the methods outcome, which follows the record's verdict
+except where a rerun covered only part of the scope.
 
     python scripts/build_dashboard.py --out <dir>    # writes <dir>/data.json and the page
 """
@@ -639,7 +639,7 @@ def _record(path: Path, card: str) -> dict:
 
 def _card(card: str, section: str, path: Path, title: str, fields: dict,
           recorded_commit: str | None = None) -> dict:
-    """One card: the receipt's path, the commit git last changed it in, its SHA-256 and the fields
+    """One card: the receipt's path, the commit that last changed it, its SHA-256 and the fields
     read from it. ``recorded_commit`` is the commit the receipt itself states, when it states one."""
     rel = _receipt(path, card)
     commit = _git("log", "-1", "--format=%H", "--", rel)
@@ -717,8 +717,8 @@ def _frozen_card() -> dict:
 
 
 def _study_cards() -> list[dict]:
-    """One card per row of the studies table. Each card's digest is the digest of the whole
-    references page, the file the row sits in."""
+    """One card per studies row. Each card's digest is that of the whole references page, which
+    holds the row."""
     _receipt(REFERENCES, "studies")
     rows, in_table = [], False
     for raw in _read(REFERENCES).splitlines():

@@ -1,8 +1,8 @@
 """The fact graph is a pure function of the tree, and the fact gate reports what it establishes.
 
-Each case below builds the situation it is named after on a small synthetic graph or fact
-source, except the two live cases, which run on this tree: the gate passes here, and a violation
-planted into this tree's own graph fails it.
+Each case builds the situation it is named after on a small synthetic graph or fact source,
+except the two live cases, which run on this tree: the gate passes here, and a violation planted
+into this tree's graph fails it.
 """
 
 from __future__ import annotations

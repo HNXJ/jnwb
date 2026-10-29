@@ -155,8 +155,8 @@ Constants = Dict[str, List[str]]
 
 
 def live_items(todo_text: str, roadmap_text: str = "") -> List[str]:
-    """Item ids in the todo stack, read by the shared stack parser at every heading form, then those
-    of the roadmap's readable rows."""
+    """Item ids of the todo stack, read by the shared parser at every heading form, then the
+    roadmap's readable rows."""
     return ([i for i, _, _ in parse_todo_stack(todo_text)[0]]
             + [i for i, _ in roadmap_rows(roadmap_text)[0]])
 
@@ -584,9 +584,9 @@ def evaluate(facts: Sequence[Dict[str, Any]], constants: Constants, graph: Graph
 def run(package: Any = None, root: Path = REPO_ROOT, facts_path: Optional[Path] = None,
         todo_path: Path = TODO_PATH, graph: Optional[Graph] = None,
         roadmap_path: Path = ROADMAP_PATH, *, release: bool = False):
-    """Build the fact graph (unless given) and evaluate every fact of the fact source. A missing
-    roadmap holds no item, so a ``todo:`` holder naming one is VIOLATED. A source that holds no
-    fact row is VIOLATED too: zero facts examined is no pass. With ``release`` set, a fact held
+    """Build the fact graph (unless given) and evaluate every fact of the source. A missing
+    roadmap holds no item, so a ``todo:`` holder naming one is VIOLATED. A source with no fact
+    row is VIOLATED too: zero facts examined is no pass. With ``release`` set, a fact held
     only by an item due in the declared release (``RELEASE_CYCLE``) is VIOLATED; the harness
     gate runs without it."""
     source = facts_path or build_fact_graph.FACT_STACK
