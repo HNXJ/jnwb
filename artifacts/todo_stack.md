@@ -26,7 +26,7 @@ design or a scan across `jnwb/`.
 | Wave | Lane | Items, in order | Speed | Needs first |
 |---|---|---|---|---|
 | 3 | H coherence graph | 16-20 | L | reviewed by `reviewer` at high |
-| 3 | I fact graph | 11-03, 11-09 | L, L | nothing |
+| 3 | I fact graph | 11-09 | L | nothing |
 | 4 | J non-finite | 17-24 | L | waves 1 to 3 merged (writes across `jnwb/`) |
 | - | Held | 17-05, 17-07 | - | Hamm's rulings |
 
@@ -36,14 +36,6 @@ Release: deferred-0.2.15.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
 Writes: `jnwb/spectral/_coupling.py`, `jnwb/connectivity/_network.py`, `tests/test_connectivity_pitfalls.py`, `docs/references.md`.
 - 16-20: `cross_area_coherence` and `network_topology` take a coherence matrix as it is, so a graph of nearby contacts or electrodes is dense from field spread alone; Nejat and Hajipour Sardouie 2021 normalize edge weights by distance and compare groups edge by edge (`docs/references.md`, Pitfalls). Check: on a planted field with spread between nearby contacts, the distance-normalized edges differ from the raw coherence edges, asserted in `tests/test_connectivity_pitfalls.py`. Waits: raised during 0.2.14, after its scope was set (goal F3, ruled 2026-10-21).
-
-### 11-03 Design facts held
-
-Release: deferred-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- 11-03: D1-D3, D5-D10 report UNHELD: no scan reads delegation or side-effect categories (D1-D3), `AmbiguousMappingError` and `UndeclaredUnitError` are exported and never raised (D5, D7, D9), and no test holds condition meaning, trial semantics or cache decisions (D6, D8, D10). Check: each of D1-D3 and D5-D10 gets its own scan or refusal with a planted case. Waits: Ruled 2026-10-26: each needs its own scan or refusal with a planted case; D4 and D11 are held.
-Accept: the Design table reports no UNHELD fact.
 
 ### 11-09 Planned skills
 
