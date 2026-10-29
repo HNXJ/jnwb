@@ -493,11 +493,128 @@ def test_a_page_documents_an_export_only_by_a_heading_or_a_code_span(tmp_path, t
     assert bool(build_fact_graph._documents([page], ["op"], tmp_path)) is documented
 
 
-@pytest.mark.parametrize("fact", ["D4", "D11"])
+@pytest.mark.parametrize("fact", ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8",
+                               "D9", "D10", "D11"])
 def test_a_design_fact_held_by_a_named_test_is_held_on_the_live_tree(live, fact):
     source, g = live
     _, results = fact_gate.run(facts_path=source, graph=g)
     assert {f: s for f, s, _ in results}[fact] == "HELD"
+
+
+def _tail_leaf(x):
+    return x
+
+
+def _tail_other(x):
+    return x
+
+
+def _tail_single(x):
+    return _tail_leaf(x)
+
+
+def _tail_double(x):
+    if x:
+        return _tail_leaf(x)
+    return _tail_other(x)
+
+
+def design_graph(**relations):
+    """A graph with every Design examined counter set and the named relation rows."""
+    base = {
+        "delegation": [], "nwb_side_effects": [], "cache_side_effects": [],
+        "reserved_errors": [], "documented_guesses": [], "cache_decisions": [],
+    }
+    base.update(relations)
+    return {
+        "entities": {
+            "delegation_examined": 1, "nwb_side_effects_examined": 1,
+            "cache_side_effects_examined": 1, "reserved_examined": 2,
+            "guesses_examined": 7, "cache_decisions_examined": 1,
+        },
+        "relations": base,
+    }
+
+
+class TestDelegationStaysSingular:
+    def test_two_tail_call_targets_are_flagged(self):
+        """A callable returning two distinct public callables names a sequenced choice."""
+        package = types.ModuleType("tail_pkg")
+        for name in ("_tail_leaf", "_tail_other", "_tail_single", "_tail_double"):
+            setattr(package, name, globals()[name])
+        package.__all__ = ["_tail_leaf", "_tail_other", "_tail_single", "_tail_double"]
+        examined, found = build_fact_graph.delegation_scan(package)
+        assert examined == 4
+        assert [row[0] for row in found] == [f"{_tail_double.__module__}._tail_double"]
+        assert "2 public callables" in found[0][1]
+
+    def test_no_live_callable_tail_calls_two_public_callables(self, live):
+        _, g = live
+        assert fact_gate.delegation(g, CONSTANTS) == []
+
+
+class TestNwbSideEffectsCarryOneCategory:
+    def test_a_sink_reacher_without_a_category_is_violated(self):
+        g = design_graph(nwb_side_effects=[["op", "reaches a mutation sink but carries "
+                                                     "no single mutation category"]])
+        found, reasons = status(g, "computed:nwb_side_effects")
+        assert found == "VIOLATED"
+        assert "mutation category" in reasons[0]
+
+    def test_every_live_sink_reacher_carries_one_mutation_category(self, live):
+        _, g = live
+        assert fact_gate.nwb_side_effects(g, CONSTANTS) == []
+
+
+class TestCacheSideEffectsCarryOneCategory:
+    def test_a_cache_reacher_without_a_category_is_violated(self):
+        g = design_graph(cache_side_effects=[["op", "reaches a cache sink but carries "
+                                                       "no single cache category"]])
+        found, reasons = status(g, "computed:cache_side_effects")
+        assert found == "VIOLATED"
+        assert "cache category" in reasons[0]
+
+    def test_every_live_cache_reacher_carries_one_cache_category(self, live):
+        _, g = live
+        assert fact_gate.cache_side_effects(g, CONSTANTS) == []
+
+
+class TestReservedErrorsStayReserved:
+    def test_an_unexported_reserved_error_is_violated(self):
+        g = design_graph(reserved_errors=[["AmbiguousMappingError", "not exported"]])
+        found, reasons = status(g, "computed:reserved_errors")
+        assert found == "VIOLATED"
+        assert "AmbiguousMappingError" in reasons[0]
+
+    def test_both_refusals_are_defined_exported_and_documented(self, live):
+        _, g = live
+        assert fact_gate.reserved_errors(g, CONSTANTS) == []
+
+
+class TestDocumentedGuessesCoverEveryGuess:
+    def test_a_default_outside_the_constant_is_violated(self):
+        g = design_graph(documented_guesses=[["table default foo: op",
+                                                        "a defaulted name outside the "
+                                                        "documented guesses"]])
+        found, reasons = status(g, "computed:documented_guesses")
+        assert found == "VIOLATED"
+        assert "documented guesses" in reasons[0]
+
+    def test_every_live_guess_is_a_documented_row_and_no_row_is_stale(self, live):
+        _, g = live
+        assert fact_gate.documented_guesses(g, CONSTANTS) == []
+
+
+class TestCacheDecisionsStayOutOfTheCore:
+    def test_a_cache_call_in_the_library_is_violated(self):
+        g = design_graph(cache_decisions=[["jnwb/op.py", "line 3: calls cache_store"]])
+        found, reasons = status(g, "computed:cache_decisions")
+        assert found == "VIOLATED"
+        assert "cache_store" in reasons[0]
+
+    def test_no_live_library_call_reaches_the_cache_functions(self, live):
+        _, g = live
+        assert fact_gate.cache_decisions(g, CONSTANTS) == []
 
 
 PARTITION_CONSTANTS = {**CONSTANTS, "k": ["3"]}

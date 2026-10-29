@@ -88,6 +88,25 @@ Computed predicates:
   signal_class    each operation fact I4 names has a keyword-only ``signal_class`` in its live
                    signature and a declaration (the graph's ``signal_class``); an examined count
                    of zero is a failure
+  delegation    no public callable tail-calls two or more distinct public callables
+                   (the graph's ``delegation``); an examined count of zero is a failure
+  nwb_side_effects  every public callable reaching a file write, transform or repair
+                   sink carries exactly one category of the ``mutation categories``
+                   constant in its declaration (the graph's ``nwb_side_effects``); an
+                   examined count of zero is a failure
+  cache_side_effects  every public callable reaching the cache-write sink carries
+                   exactly one category of the ``cache categories`` constant in its
+                   declaration (the graph's ``cache_side_effects``); an examined count
+                   of zero is a failure
+  reserved_errors  the two reserved refusal errors are defined as mutation errors,
+                   exported and documented reserved (the graph's ``reserved_errors``)
+  documented_guesses  no defaulted table or code-column name, preferred interval
+                   table, or layout basis lies outside the ``documented guesses``
+                   constant, and no row of it is stale (the graph's
+                   ``documented_guesses``)
+  cache_decisions  no call in ``jnwb/`` reaches the cache-write or cache-key
+                   function (the graph's ``cache_decisions``); an examined file count
+                   of zero is a failure
   claim_class_labels  no figure label, and no ``unit=`` literal of a call whose callee's name
                    ends in ``Result`` in ``jnwb/``, names a magnitude or direction estimand of
                    the claim table in ``docs/architecture.md`` while holding a term of a higher
@@ -378,6 +397,54 @@ def signal_class(graph: Graph, constants: Constants) -> List[str]:
     return [f"{name}: {reason}" for name, reason in graph["relations"]["signal_class"]]
 
 
+def delegation(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable that tail-calls two or more distinct public callables, and
+    the failure of a scan that examined no callable."""
+    if not graph["entities"].get("delegation_examined"):
+        return ["the graph examined no public callable, so no delegation could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["delegation"]]
+
+
+def nwb_side_effects(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable reaching a file write, transform or repair sink whose
+    declaration carries no single category of ``mutation categories``, each stale
+    categorized declaration, and the failure of a scan that examined no callable."""
+    if not graph["entities"].get("nwb_side_effects_examined"):
+        return ["the graph examined no public callable, so no NWB side effect could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["nwb_side_effects"]]
+
+
+def cache_side_effects(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable reaching the cache-write sink whose declaration carries no
+    single category of ``cache categories``, each stale categorized declaration, and
+    the failure of a scan that examined no callable."""
+    if not graph["entities"].get("cache_side_effects_examined"):
+        return ["the graph examined no public callable, so no cache side effect could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["cache_side_effects"]]
+
+
+def reserved_errors(graph: Graph, constants: Constants) -> List[str]:
+    """Each missing hold of the two reserved refusal errors."""
+    if not graph["entities"].get("reserved_examined"):
+        return ["the graph checked no reserved error, so no refusal could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["reserved_errors"]]
+
+
+def documented_guesses(graph: Graph, constants: Constants) -> List[str]:
+    """Each guess outside the ``documented guesses`` constant and each stale row of it."""
+    if not graph["entities"].get("guesses_examined"):
+        return ["the graph read no documented guess, so no guess could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["documented_guesses"]]
+
+
+def cache_decisions(graph: Graph, constants: Constants) -> List[str]:
+    """Each call in ``jnwb/`` to the cache-write or cache-key function, and the failure
+    of a scan that examined no file."""
+    if not graph["entities"].get("cache_decisions_examined"):
+        return ["the graph examined no jnwb file, so no cache decision could be checked"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["cache_decisions"]]
+
+
 def claim_class_labels(graph: Graph, constants: Constants) -> List[str]:
     """Each figure label or ``*Result`` unit literal that names a magnitude or direction
     estimand while holding a term of a higher claim class, and the failure of a scan that
@@ -445,6 +512,12 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "choice_defaults": choice_defaults,
     "signature_types": signature_types,
     "signal_class": signal_class,
+    "delegation": delegation,
+    "nwb_side_effects": nwb_side_effects,
+    "cache_side_effects": cache_side_effects,
+    "reserved_errors": reserved_errors,
+    "documented_guesses": documented_guesses,
+    "cache_decisions": cache_decisions,
     "claim_class_labels": claim_class_labels,
     "boundary_units": boundary_units,
     "owned_rules": owned_rules,
