@@ -18,17 +18,41 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value. Waits: why.`
 At most eight lines per item.
 
-## Lanes
+## Path to the release
 
-Speed: S is one module and one test file, M adds a public signature or several files, L needs a
-design or a scan across `jnwb/`.
+One ordered path from now to the tag. Each step names its check; a pass goes to the next step, a fail
+takes the branch under it. Steps on one line run in parallel lanes (one Muse or Haiku writer per
+clone, at most three); the integrator reads each diff and reruns its acceptance before merging.
 
-| Wave | Lane | Items, in order | Speed | Needs first |
-|---|---|---|---|---|
-| 3 | H coherence graph | 16-20 | M | nothing |
-| 3 | I fact graph | 11-09, 17-05 | M | nothing |
-| 3 | L suite profile, dashboard, showcase | 17-71, 17-72, 17-73 | S | nothing |
-| 4 | J vocabulary, non-finite | 17-07, 17-24 scan, then repairs | L | wave 3 merged (17-07 shares `skills/jnwb-connectivity/SKILL.md` with 16-20 and `scripts/build_fact_graph.py` with 17-05) |
+1. Suite green at HEAD, stamp written; push `dev`; CI green.
+   - Fails: repair the failing test or item text, rerun from 1.
+2. Wave 3, three lanes: 16-20 | 11-09 then 17-05 | 17-72 then 17-73.
+   - A lane fails its acceptance: send it back once with the failure; a second fail, the integrator does it.
+   - 16-20: a `reviewer` reads the planted-field test before merge (science).
+   - 17-05: a default with no truthful reason or source: ask Hamm (cite it, or except it).
+3. 17-71: profile the suite through the lock; write the tiered-CI plan. Plan only.
+   - Hamm approves the plan: a 0.2.16 item changes `workflow.yml`. Not approved: the plan stays a receipt.
+4. Barrier: harness gate, suite, push, CI green on `dev`.
+5. Wave 4, two lanes: 17-07 | 17-24 scan (each failing function marked strict-xfail).
+   - The scan lists N functions awaiting repair: split them into repair lanes by module, three at a time;
+     each repair removes its xfail. Done when the awaiting set is empty.
+   - A repair would change a released number, or a docstring would need to state NaN propagation: ask Hamm.
+   - 17-07 finds an overclaim beyond its three sites: reword it under the same ruling, or ask Hamm if unclear.
+6. Barrier, as 4.
+7. Open stack to zero: P-215-10 and P-215-16 close with waves 3 and 4; P-215-28, `state.md` to 80 lines
+   (generator change, tests first).
+8. Release mechanics, in order: assemble `CHANGELOG.md` from `artifacts/changelog.d/`; bump `__version__`
+   to 0.2.15; merge `origin/main` into `dev`; regenerate state; barrier as 4.
+9. Quality pass (release condition: low-verbosity docs, low-complexity code): agy sweeps the docs, a
+   measured complexity scan reads `jnwb/`.
+   - A finding that blocks the release: fix it, back to 6. One that blocks nothing: a 0.2.16 item.
+10. Closure pass: an independent blocker-focused review (reviewer and agy, different models) checks each
+    advertised claim against the deferred rows; its receipt is committed at HEAD.
+    - A new blocker: it becomes an item, back to the step that owns its file.
+11. `python scripts/release_gate.py` with the checkout on `PYTHONPATH`: passes; checklist 13 of 13.
+12. 17-74, after the gate: merge to `main`, tag `v0.2.15`, tell omission on Hamm's word.
+
+Deferred to 0.2.16, off the path: 17-75 (deletions only Hamm runs), 17-76, 17-77, the roadmap rows.
 
 ### 16-20 A distance-aware coherence graph
 
