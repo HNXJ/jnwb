@@ -27,41 +27,41 @@ design or a scan across `jnwb/`.
 |---|---|---|---|---|
 | 3 | H coherence graph | 16-20 | L | reviewed by `reviewer` at high |
 | 3 | I fact graph | 11-09 | L | nothing |
-| 4 | J non-finite | 17-24 | L | waves 1 to 3 merged (writes across `jnwb/`) |
+| 4 | J non-finite | 17-24 | L | wave 3 merged; waves 1 and 2 are done (left the stack in 1e2f2225) |
 | - | Held | 17-05, 17-07 | - | Hamm's rulings |
 
 ### 16-20 A distance-aware coherence graph
 
-Release: deferred-0.2.15.
+Release: required-0.2.15.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
-Writes: `jnwb/spectral/_coupling.py`, `jnwb/connectivity/_network.py`, `tests/test_connectivity_pitfalls.py`, `docs/references.md`.
+Writes: `jnwb/spectral/_coupling.py`, `jnwb/connectivity/_network.py`, `tests/test_connectivity_pitfalls.py`, `docs/references.md`, `artifacts/changelog.d/coherence-distance.changed.md` (new fragment; the behaviour change to two public operations).
 - 16-20: `cross_area_coherence` and `network_topology` take a coherence matrix as it is, so a graph of nearby contacts or electrodes is dense from field spread alone; Nejat and Hajipour Sardouie 2021 normalize edge weights by distance and compare groups edge by edge (`docs/references.md`, Pitfalls). Check: on a planted field with spread between nearby contacts, the distance-normalized edges differ from the raw coherence edges, asserted in `tests/test_connectivity_pitfalls.py`. Waits: raised during 0.2.14, after its scope was set (goal F3, ruled 2026-10-21).
 
 ### 11-09 Planned skills
 
-Release: deferred-0.2.15.
+Release: required-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- 11-09: The fact gate can report a planned skill for which K1 or K5 does not hold; K5 (a skill only for a coherent capability surface no existing skill handles more simply) has no mechanical predicate, and the planned set is prose only. Check: the fact gate reports a planned skill only when K1 and K5 hold for it. Waits: No planned skill ships in 0.2.14 and nothing public claims one; K5 is held by review until a predicate exists. Ruled 2026-10-25.
+- 11-09: The fact gate can report a planned skill for which K1 or K5 does not hold; K5 (a skill only for a coherent capability surface no existing skill handles more simply) has no mechanical predicate, and the planned set is prose only. Check: `tests/test_fact_gate.py::test_planned_skill_needs_k1_and_k5` (new; fails on the baseline) asserts the fact gate reports a planned skill only when K1 and K5 hold for it. Waits: No planned skill ships in 0.2.14 and nothing public claims one; K5 is held by review until a predicate exists. Ruled 2026-10-25.
 Accept: K5 reports HELD; no UNHELD fact names a 0.2.15 item.
 
 ### 17-24 Non-finite inputs fail loudly
 
-Release: deferred-0.2.15.
+Release: required-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/build_fact_graph.py`, `jnwb/**/*.py`.
 - 17-24: S9's holder reads swallowed handlers only (ruled 2026-10-25); NaN or inf passed to a public numeric function can still return a number without a refusal or warning, as seven functions did in the 2026-10-25 audit (items 17-10, 17-13, 17-21, 17-23, 17-50, 17-51). Check: the S9 holder in `scripts/build_fact_graph.py` feeds NaN and inf to each public numeric function and asserts a refusal or a warning. Waits: A computed holder that feeds NaN and inf to each public numeric function and requires a refusal or a warning. Ruled 2026-10-25.
 
 ### 17-05 B3's lexicon covers the other choice names
 
-Release: deferred-0.2.15.
+Release: required-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: a ruling per name group on which defaults a source cites (Hamm).
 Writes: `artifacts/fact_stack.md`, `scripts/build_fact_graph.py`.
 - 17-05: The lexicon holds time windows only (ruled 2026-10-24); defaulted role windows (`response_window`, `response_window_s`, `sink_window_ms`, `exclude_window_ms`, `reward_window_ms`), baselines, bands, bins, segments, null sizes and method names go unchecked. Check: each name group is in the `B3 choice names` constant of `artifacts/fact_stack.md` or excepted in its `## B3 exceptions` table with a source-cited reason. Waits: A ruling per name group on which defaults a source cites; nothing shipped changes.
 
 ### 17-07 S8 over prose
 
-Release: deferred-0.2.15.
+Release: required-0.2.15.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: Hamm's rulings on the per-class vocabulary and the skill line.
 Writes: `skills/jnwb-connectivity/SKILL.md`, `jnwb/connectivity/_transfer_entropy.py`, `jnwb/analyzers.py`, `scripts/build_fact_graph.py`.
 - 17-07: S8's check reads figure labels and returned units only (ruled 2026-10-25); a sentence-level vocabulary scan of docs, skills and docstrings hit 49 sentences, about 47 legitimate (zflip's delays, "volume conduction", transfer entropy's `delay=`, negations). Two read as overclaims: `skills/jnwb-connectivity/SKILL.md` calls PSI "the frequency-dependent driver/receiver lag", and the `jnwb/connectivity/_transfer_entropy.py` module docstring calls TE "directed information flow"; `UnitAnalyzer.correlate_areas` (`jnwb/analyzers.py:306`) calls a correlation of band power "inter-area synchrony" (audit 2026-10-25). Check: a ruled per-class vocabulary and a reviewed exceptions table decide each sentence the scan hits, and the two overclaims are reworded or cut. Waits: A ruled per-class vocabulary and a reviewed exceptions table; the skill line needs an amendment ruling.
