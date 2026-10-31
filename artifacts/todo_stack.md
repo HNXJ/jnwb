@@ -25,43 +25,64 @@ design or a scan across `jnwb/`.
 
 | Wave | Lane | Items, in order | Speed | Needs first |
 |---|---|---|---|---|
-| 3 | H coherence graph | 16-20 | L | reviewed by `reviewer` at high |
-| 3 | I fact graph | 11-09 | L | nothing |
-| 4 | J non-finite | 17-24 | L | wave 3 merged; waves 1 and 2 are done (left the stack in 1e2f2225) |
-| - | Held | 17-05, 17-07 | - | Hamm's rulings |
+| 3 | H coherence graph | 16-20 | M | nothing |
+| 3 | I fact graph | 11-09, 17-05 | M | nothing |
+| 3 | L suite profile, dashboard, showcase | 17-71, 17-72, 17-73 | S | nothing |
+| 4 | J vocabulary, non-finite | 17-07, 17-24 scan, then repairs | L | wave 3 merged (17-07 shares `skills/jnwb-connectivity/SKILL.md` with 16-20 and `scripts/build_fact_graph.py` with 17-05) |
 
 ### 16-20 A distance-aware coherence graph
 
 Release: required-0.2.15.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
-Writes: `jnwb/spectral/_coupling.py`, `jnwb/connectivity/_network.py`, `tests/test_connectivity_pitfalls.py`, `docs/references.md`, `artifacts/changelog.d/coherence-distance.changed.md` (new fragment; the behaviour change to two public operations).
-- 16-20: `cross_area_coherence` and `network_topology` take a coherence matrix as it is, so a graph of nearby contacts or electrodes is dense from field spread alone; Nejat and Hajipour Sardouie 2021 normalize edge weights by distance and compare groups edge by edge (`docs/references.md`, Pitfalls). Check: on a planted field with spread between nearby contacts, the distance-normalized edges differ from the raw coherence edges, asserted in `tests/test_connectivity_pitfalls.py`. Waits: raised during 0.2.14, after its scope was set (goal F3, ruled 2026-10-21).
+Writes: `tests/test_connectivity_pitfalls.py`, `docs/common_mistakes.md`, `skills/jnwb-connectivity/SKILL.md`, `artifacts/changelog.d/coherence-distance.added.md` (new fragment). Form and normalization ruled 2026-10-31: caller-side, no API change; binned distance mean.
+- 16-20: `cross_area_coherence` and `network_topology` take a coherence matrix as it is, so a graph of nearby contacts or electrodes is dense from field spread alone; Nejat and Hajipour Sardouie 2021 normalize edge weights by distance and compare groups edge by edge (`docs/references.md`, Pitfalls). Check: in `tests/test_connectivity_pitfalls.py`, on a planted field with spread between nearby contacts and one planted far-pair interaction, dividing each edge by its distance-bin mean removes a spread edge that the raw graph keeps and keeps the planted far-pair edge; the fixture asserts raw near-pair coherence exceeds the threshold. Waits: raised during 0.2.14, after its scope was set (goal F3, ruled 2026-10-21).
 
-### 11-09 Planned skills
+### 11-09 Planned skills: show the empty set
 
 Release: required-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- 11-09: The fact gate can report a planned skill for which K1 or K5 does not hold; K5 (a skill only for a coherent capability surface no existing skill handles more simply) has no mechanical predicate, and the planned set is prose only. Check: `tests/test_fact_gate.py::test_planned_skill_needs_k1_and_k5` (new; fails on the baseline) asserts the fact gate reports a planned skill only when K1 and K5 hold for it. Waits: No planned skill ships in 0.2.14 and nothing public claims one; K5 is held by review until a predicate exists. Ruled 2026-10-25.
-Accept: K5 reports HELD; no UNHELD fact names a 0.2.15 item.
+Role: jnwb-developer. Skill: none. Blocked by: nothing. Ruled 2026-10-31: the vacuous K5 pass is accepted if reported.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`.
+- 11-09: K5 reads HELD on an empty `PLANNED_SKILLS` (65ef303a) and the gate output does not say so. Check: `tests/test_fact_gate.py` asserts the fact gate's K5 line says "examined 0 planned skills" when `PLANNED_SKILLS` is empty.
 
 ### 17-24 Non-finite inputs fail loudly
 
 Release: required-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/build_fact_graph.py`, `jnwb/**/*.py`.
-- 17-24: S9's holder reads swallowed handlers only (ruled 2026-10-25); NaN or inf passed to a public numeric function can still return a number without a refusal or warning, as seven functions did in the 2026-10-25 audit (items 17-10, 17-13, 17-21, 17-23, 17-50, 17-51). Check: the S9 holder in `scripts/build_fact_graph.py` feeds NaN and inf to each public numeric function and asserts a refusal or a warning. Waits: A computed holder that feeds NaN and inf to each public numeric function and requires a refusal or a warning. Ruled 2026-10-25.
+Writes: `tests/test_nonfinite_inputs.py` (new), `scripts/build_fact_graph.py`, then one repair per silent function in its own module. Ruled 2026-10-31: split into scan and repairs; refuse; audit ids retired.
+- 17-24 scan: S9's holder reads swallowed handlers only (ruled 2026-10-25); NaN or inf passed to a public numeric function can still return a number silently. The 2026-10-31 scan (166 functions) called 61 and found 7 silent: `nwb_read_io`, `channel_correlation_matrix`, `trial_correlation_matrix`, `consensus_bad_trials`, `to_db`, `pairwise_phase_consistency`, `resample_onsets`; 105 could not be called with an array alone. Check: `tests/test_nonfinite_inputs.py` builds valid inputs per public numeric function, injects NaN and inf, and asserts `ValueError` unless the docstring states NaN propagation; its examined set covers all 166, and S9's holder calls it.
+- 17-24 repairs: each silent function raises `ValueError` naming the argument on NaN or inf, unless its docstring states NaN propagation (`to_db` is the first to check). Check: the function's row in `tests/test_nonfinite_inputs.py` fails on the baseline and passes after.
+
+### 17-71 Suite profile and a tiered-CI plan
+
+Release: required-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing. Ruled 2026-10-31: plan only; `workflow.yml` is unchanged until Hamm approves the plan.
+Writes: `artifacts/evidence/0.2.15/suite_profile.md`, `artifacts/evidence/0.2.15/tiered_ci_plan.md` (new).
+- 17-71: the only suite profile is 0.2.14's (`artifacts/evidence/0.2.14/verification_inventory.md` D13-D19) and no tiered-CI plan exists. Check: `suite_profile.md` gives per-file durations from `pytest --durations=0` at a named 0.2.15 SHA; `tiered_ci_plan.md` assigns every test file to a tier, and the fast tier's measured total is given.
+
+### 17-72 Dashboard methods chip uses the ruled verdict word
+
+Release: required-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing. Ruled 2026-10-24 (verdict vocabulary): reproduces maps to reproduced, partial to mixed, does_not to failed.
+Writes: `scripts/build_dashboard.py`, `scripts/dashboard/app.js`, `tests/test_build_dashboard.py`.
+- 17-72: the methods chip prints the record's raw verdict ("Methods: reproduces", `scripts/dashboard/app.js:1235-1240`); `VERDICT_LABELS` (`scripts/build_dashboard.py:92`) is not applied to it. Check: a test asserts no chip text in the built dashboard contains `reproduces`, `partial` or `does_not`.
+
+### 17-73 Showcase receipts move into jnwb
+
+Release: required-0.2.15.
+Role: jnwb-developer. Skill: none. Blocked by: nothing. Ruled 2026-10-31: the receipts live in jnwb, under `artifacts/showcases/`.
+Writes: `artifacts/showcases/openscope_glo.json`, `artifacts/showcases/openscope_glo/receipts/README.md` (new) and the copied receipt files, `artifacts/showcases/openscope_glo/scripts/README.md` (new) and the copied scripts.
+- 17-73: the four entries of `artifacts/showcases/openscope_glo.json` (lines 102, 242, 376, 487) say their receipts are in "local git repository C:/workspace/jnwb-showcase (not public)"; that repository is now `C:/workspace/_temp_jnwb-showcase` (HEAD 8604480; `receipts/` 29 files, 1.0 MB; `scripts/` 180 KB; `results/` 64 MB stays out). Check: each `location` names a committed path under `artifacts/showcases/openscope_glo/`, every receipt the JSON cites resolves on disk, and each copied file's SHA-256 equals its source at 8604480.
 
 ### 17-05 B3's lexicon covers the other choice names
 
 Release: required-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: a ruling per name group on which defaults a source cites (Hamm).
+Role: jnwb-developer. Skill: none. Blocked by: nothing. Ruled 2026-10-31: all groups join B3; an uncited default gets an exceptions row, no API change.
 Writes: `artifacts/fact_stack.md`, `scripts/build_fact_graph.py`.
-- 17-05: The lexicon holds time windows only (ruled 2026-10-24); defaulted role windows (`response_window`, `response_window_s`, `sink_window_ms`, `exclude_window_ms`, `reward_window_ms`), baselines, bands, bins, segments, null sizes and method names go unchecked. Check: each name group is in the `B3 choice names` constant of `artifacts/fact_stack.md` or excepted in its `## B3 exceptions` table with a source-cited reason. Waits: A ruling per name group on which defaults a source cites; nothing shipped changes.
+- 17-05: The lexicon holds time windows only (ruled 2026-10-24); defaulted role windows (`response_window`, `response_window_s`, `sink_window_ms`, `exclude_window_ms`, `reward_window_ms`), baselines, bands, bins, segments, null sizes and method names go unchecked. Check: every defaulted parameter in the seven groups (keyword sets from the P4 inventory, reviewed) is in the `B3 choice names` constant of `artifacts/fact_stack.md` and either cites a source or has a row in its `## B3 exceptions` table with a reason; the fact gate reports B3 HELD. Waits: nothing; no shipped default changes.
 
 ### 17-07 S8 over prose
 
 Release: required-0.2.15.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: Hamm's rulings on the per-class vocabulary and the skill line.
-Writes: `skills/jnwb-connectivity/SKILL.md`, `jnwb/connectivity/_transfer_entropy.py`, `jnwb/analyzers.py`, `scripts/build_fact_graph.py`.
-- 17-07: S8's check reads figure labels and returned units only (ruled 2026-10-25); a sentence-level vocabulary scan of docs, skills and docstrings hit 49 sentences, about 47 legitimate (zflip's delays, "volume conduction", transfer entropy's `delay=`, negations). Two read as overclaims: `skills/jnwb-connectivity/SKILL.md` calls PSI "the frequency-dependent driver/receiver lag", and the `jnwb/connectivity/_transfer_entropy.py` module docstring calls TE "directed information flow"; `UnitAnalyzer.correlate_areas` (`jnwb/analyzers.py:306`) calls a correlation of band power "inter-area synchrony" (audit 2026-10-25). Check: a ruled per-class vocabulary and a reviewed exceptions table decide each sentence the scan hits, and the two overclaims are reworded or cut. Waits: A ruled per-class vocabulary and a reviewed exceptions table; the skill line needs an amendment ruling.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing. Ruled 2026-10-31: estimand words per class; SKILL.md:19 reads "PSI: the sign of the phase slope across frequency, a lead or lag between two signals; it does not identify a driver."
+Writes: `skills/jnwb-connectivity/SKILL.md`, `jnwb/connectivity/_transfer_entropy.py`, `jnwb/analyzers.py`, `docs/api.md`, `scripts/build_fact_graph.py`.
+- 17-07: S8's check reads figure labels and returned units only (ruled 2026-10-25); a sentence-level vocabulary scan of docs, skills and docstrings hit 49 sentences, about 47 legitimate (zflip's delays, "volume conduction", transfer entropy's `delay=`, negations). Two read as overclaims: `skills/jnwb-connectivity/SKILL.md` calls PSI "the frequency-dependent driver/receiver lag", and the `jnwb/connectivity/_transfer_entropy.py` module docstring calls TE "directed information flow"; `TFRAnalyzer.correlate_areas` (`jnwb/analyzers.py:305`) calls a correlation of band power "inter-area synchrony" (audit 2026-10-25); `docs/api.md:82` repeats the TE phrase. Check: S8's holder scans docs, skills and docstrings against the per-class vocabulary (phase measures: lead/lag; TE and Granger: predictive information; correlation and coherence: co-variation or coupling) and a reviewed exceptions table, and reports zero unexcepted hits; SKILL.md:19 reads the ruled sentence. Waits: nothing.

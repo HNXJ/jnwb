@@ -20,6 +20,8 @@ Rules and routes; the reasons are in `artifacts/rulings/history.md`. This is the
 | `docs/`, `examples/` | User docs: `api.md` lists every public symbol, `common_mistakes.md` the guarded failure modes, `references.md` the cited sources; `quickstart_jnwb.py` and the notebooks `tests/test_notebooks.py` executes |
 | `.github/CONTRIBUTING.md`, `.github/workflows/workflow.yml` | How to change code, docs, skills and releases; CI, whose publication order is a fact |
 
+Loaded at session start: @artifacts/agents.md
+
 ## 1. Evidence
 
 `configured != loaded != executed != verified`. Prose counts go stale; re-run and read the output. On conflict, authority runs: receipt on disk, live repository state, machine-readable state files, then prose. A reported number traces to a computation on real data, not to a literal, an RNG draw or a fallback branch.

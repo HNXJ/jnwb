@@ -23,6 +23,16 @@ def test_a_plain_push_in_jnwb_is_denied_and_the_wrapper_is_not():
     assert decide("bash work/jnwb/scripts/jnwb_push.sh work/jnwb dev </dev/null", "work/jnwb") == "allow"
 
 
+def test_a_push_of_temp_branches_only_passes():
+    assert decide("git push origin _temp_a _temp_b </dev/null", "work/jnwb") == "allow"
+    assert decide("git push -u origin +refs/heads/_temp_a:refs/heads/_temporary_a", "work/jnwb") == "allow"
+    assert decide("git push origin _temp_a dev", "work/jnwb") == "deny"
+    assert decide("git push origin _temp_a:dev", "work/jnwb") == "deny"
+    assert decide("git push origin", "work/jnwb") == "deny"
+    assert decide("git push --all origin _temp_a", "work/jnwb") == "deny"
+    assert decide("git push origin _temp_a && git push origin dev", "work/jnwb") == "deny"
+
+
 def test_pushes_elsewhere_and_other_git_commands_pass():
     assert decide("git push origin dev", "work/other") == "allow"
     assert decide("git -C work/other push", "work/jnwb") == "allow"

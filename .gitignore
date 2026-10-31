@@ -144,8 +144,10 @@ run_schema_test.py
 .DS_Store
 
 # Agent workspace / IDE
-# `.claude/` is local tool state and is never tracked; portable roles live in `artifacts/agents/`.
-.claude/
+# `.claude/` is local tool state, except `settings.json`, which wires `scripts/push_guard.py` in every
+# clone; portable roles live in `artifacts/agents/`.
+.claude/*
+!.claude/settings.json
 .cursor/
 .vscode/
 .idea/
