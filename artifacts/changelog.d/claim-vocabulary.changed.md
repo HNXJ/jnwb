@@ -1,0 +1,1 @@
+- `correlate_areas` reads band-power correlation, not synchrony (`tests/test_claim_vocabulary_prose.py`).
