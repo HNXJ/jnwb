@@ -351,6 +351,12 @@ def scope_line(graph: Graph) -> str:
             f"exempt: {', '.join(build_fact_graph.PROSE_EXEMPT)}")
 
 
+def planned_scope_line() -> str:
+    """How many planned skills the K5 rule examined; zero is an empty pass, reported."""
+    n = len(PLANNED_SKILLS)
+    return f"planned_skills examined {n} planned skills"
+
+
 def skill_contracts(graph: Graph, constants: Constants) -> List[str]:
     """Each skill sentence that names a manifest or receipt, or a plural, beside a contract term,
     unless a carrier is named and the sentence says the contract is carried by or extends it."""
@@ -649,6 +655,7 @@ def main() -> int:
             for reason in reasons:
                 print(f"  - {reason}")
     print(scope_line(graph))
+    print(planned_scope_line())
     counts = summary(results)
     print(", ".join(f"{status} {n}" for status, n in counts.items()))
     return 1 if counts[VIOLATED] else 0

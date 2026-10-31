@@ -2599,3 +2599,11 @@ def test_planned_skill_needs_k1_and_k5():
     k5_missing = {"skill": "jnwb-new", "K1": ("HELD", "partitions")}
     assert fact_gate.planned_skill_findings([k5_missing]) == ["jnwb-new: K5 is not held"]
     assert fact_gate.planned_skill_findings([]) == []
+
+
+def test_the_k5_line_reports_the_examined_planned_skill_count(monkeypatch):
+    """K5 reads HELD on an empty planned-skills list, and the gate output says so."""
+    assert fact_gate.planned_scope_line() == "planned_skills examined 0 planned skills"
+    monkeypatch.setitem(fact_gate.PLANNED_SKILLS, "jnwb-new",
+                        {"K1": "HELD", "K5": "HELD", "reason": "reviewed"})
+    assert fact_gate.planned_scope_line() == "planned_skills examined 1 planned skills"
