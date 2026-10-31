@@ -84,5 +84,33 @@ Writes: `artifacts/fact_stack.md`, `scripts/build_fact_graph.py`.
 
 Release: required-0.2.15.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing. Ruled 2026-10-31: estimand words per class; SKILL.md:19 reads "PSI: the sign of the phase slope across frequency, a lead or lag between two signals; it does not identify a driver."
-Writes: `skills/jnwb-connectivity/SKILL.md`, `jnwb/connectivity/_transfer_entropy.py`, `jnwb/analyzers.py`, `docs/api.md`, `scripts/build_fact_graph.py`.
+Writes: `skills/jnwb-connectivity/SKILL.md`, `jnwb/connectivity/_transfer_entropy.py`, `jnwb/analyzers.py`, `scripts/build_fact_graph.py` (the integrator regenerates the API page).
 - 17-07: S8's check reads figure labels and returned units only (ruled 2026-10-25); a sentence-level vocabulary scan of docs, skills and docstrings hit 49 sentences, about 47 legitimate (zflip's delays, "volume conduction", transfer entropy's `delay=`, negations). Two read as overclaims: `skills/jnwb-connectivity/SKILL.md` calls PSI "the frequency-dependent driver/receiver lag", and the `jnwb/connectivity/_transfer_entropy.py` module docstring calls TE "directed information flow"; `TFRAnalyzer.correlate_areas` (`jnwb/analyzers.py:305`) calls a correlation of band power "inter-area synchrony" (audit 2026-10-25); `docs/api.md:82` repeats the TE phrase. Check: S8's holder scans docs, skills and docstrings against the per-class vocabulary (phase measures: lead/lag; TE and Granger: predictive information; correlation and coherence: co-variation or coupling) and a reviewed exceptions table, and reports zero unexcepted hits; SKILL.md:19 reads the ruled sentence. Waits: nothing.
+
+### 17-74 Tag 0.2.15 and tell omission
+
+Release: release-step-0.2.15.
+Role: human. Skill: none. Blocked by: the release merge to `main`; the notice needs Hamm's word.
+Writes: `artifacts/rulings/2026-10-31.md`.
+- 17-74: from open rows P-215-03 and P-215-14. Check: `refs/tags/v0.2.15` peels to the release commit on `main`, and the rulings file records Hamm's word on the omission notice.
+
+### 17-75 Workspace cleanup
+
+Release: deferred-0.2.16.
+Role: human. Skill: none. Blocked by: the agent may not delete these (classifier and push guard).
+Writes: `artifacts/open_stack.md`.
+- 17-75: from P-215-05 and P-215-15. Hamm deletes the origin branches `proposal/spike-qc-pt-skill` and `skill/spectrolaminar-work-bastos` (kept as `_temp_spike-qc-pt-skill`, `_temp_spectrolaminar-work-bastos`), the folder `.claude/worktrees/site-overview-326890` then `git worktree prune`, `C:/workspace/_temp_lane_*` (8 clones, each clean and contained in dev, checked 2026-10-31), `C:/workspace/_temp_oc` and the scratchpad `lanes/`. Check: `git ls-remote origin` lists neither old name and `git worktree list` shows one entry.
+
+### 17-76 agy retry
+
+Release: deferred-0.2.16.
+Role: actor. Skill: none. Blocked by: nothing.
+Writes: `artifacts/rulings/2026-10-28.md`.
+- 17-76: from P-215-06. The 2026-10-28 work-routing ruling waits on a packet that needs no file reads; agy returned empty before. Check: one no-read packet run through `delegate-cli --backend agy` returns a non-empty answer, recorded under the routing ruling.
+
+### 17-77 Stale pointers in the fact stack and standing rulings
+
+Release: deferred-0.2.16.
+Role: human. Skill: none. Blocked by: Hamm's word (the fact stack and the rulings are his).
+Writes: `artifacts/fact_stack.md`, `artifacts/rulings/standing.md`.
+- 17-77: from P-215-20. `standing.md:144-148` and `fact_stack.md:68,82,86` cite roadmap 17-03 to 17-08 and 17-24, which are done or in this stack; `standing.md:144` says psth keeps `(-1000, 2000)` until 0.2.15, while psth now requires `window_ms`; S13 holds `todo:12-21`, which is a roadmap row. Check: every roadmap or todo id the two files cite resolves in `roadmap.md` or `todo_stack.md`, or is marked done with its commit.
