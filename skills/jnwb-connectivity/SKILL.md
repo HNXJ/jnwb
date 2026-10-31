@@ -39,6 +39,7 @@ Directional coupling, lag asymmetry, Granger causality, phase slope index or tra
 5. **Volume conduction**: the safeguard **No volume-conduction immunity** in section 4 of the router, [`skills/jnwb/SKILL.md`](../jnwb/SKILL.md), binds every operation here.
 6. **Filtering**: on the tested band-filtered VAR(3) pair, `order="auto"` moves to the `max_lag` ceiling, and no tested band-pass filter recovers a `granger_spectral` band value; read `per_band` of `granger_spectral` instead.
 7. **Estimator**: `granger` and `granger_spectral` fit a parametric VAR; the nonparametric multitaper estimate of Bastos et al. (2020) and Vezoli et al. (2021) is not implemented, so decline to match their values.
+8. **Distance**: a coherence graph is dense among neighboring contacts from spread alone, so each edge is divided by the mean coherence of the other pairs at its separation before thresholding ([Pitfalls](../../docs/references.md#pitfalls)).
 
 ## 4. Minimal Workflow
 ```python
