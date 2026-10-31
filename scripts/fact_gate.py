@@ -123,6 +123,8 @@ Computed predicates:
   figure_owner_calls  the same sites in the docs figure generators and the plotting modules: a
                    figure function evaluates one instead of calling its owner (the graph's
                    ``figure_owner_calls``); an examined count of zero is a failure
+  planned_skills   each planned skill of ``PLANNED_SKILLS`` whose recorded K1 or K5 verdict is
+                   not HELD; the gate checks that the reviewer recorded HELD, not that K5 is true
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -284,6 +286,30 @@ def partition(graph: Graph, constants: Constants) -> List[str]:
               for target, owning in sorted(_owners(graph).items()) if len(owning) > 1]
     return shared + [f"{skill} owns {count} exclusive operations, fewer than {floor}"
                      for skill, count in sorted(counts.items()) if count < floor]
+
+
+# Planned skills (K5 and K1). The reviewer records each planned skill's K1 and K5 verdicts here,
+# with a reason. The gate checks that a reviewer recorded K1 and K5 as HELD; it does not check
+# that K5 is true. Empty: no planned skill ships in 0.2.15 (ruled 2026-10-25).
+PLANNED_SKILLS: Dict[str, Dict[str, str]] = {}
+
+
+def planned_skill_findings(planned: Sequence[Dict[str, Any]]) -> List[str]:
+    """Each planned skill whose recorded K1 or K5 verdict is not HELD; a missing verdict is not
+    HELD. Each record names its ``skill`` and gives ``K1`` and ``K5`` as (verdict, reason)."""
+    found = []
+    for record in planned:
+        for key in ("K1", "K5"):
+            if record.get(key, ("MISSING", ""))[0] != HELD:
+                found.append(f"{record['skill']}: {key} is not held")
+    return found
+
+
+def planned_skills(graph: Graph, constants: Constants) -> List[str]:
+    """Each planned skill of ``PLANNED_SKILLS`` whose recorded K1 or K5 verdict is not HELD."""
+    return planned_skill_findings([
+        {"skill": name, "K1": (v["K1"], v["reason"]), "K5": (v["K5"], v["reason"])}
+        for name, v in sorted(PLANNED_SKILLS.items())])
 
 
 def global_seeds(graph: Graph, constants: Constants) -> List[str]:
@@ -498,6 +524,7 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "lifecycle": lifecycle,
     "routes": routes,
     "partition": partition,
+    "planned_skills": planned_skills,
     "routed_citations": routed_citations,
     "global_seeds": global_seeds,
     "rng_parameters": rng_parameters,

@@ -2584,3 +2584,18 @@ def test_the_live_percentile_intervals_are_read_through_their_owner_or_exempt(li
     named = [reason for _, reason in g["relations"]["owned_rules"]
              if "percentile bootstrap" in reason]
     assert named == [], named
+
+
+def test_planned_skill_needs_k1_and_k5():
+    """A planned skill is reported only when its recorded K1 and K5 verdicts are both HELD; a
+    missing or non-HELD verdict is reported as not held. This checks that the review was
+    recorded, not that K5 is true."""
+    held = {"skill": "jnwb-new", "K1": ("HELD", "partitions"), "K5": ("HELD", "own surface")}
+    assert fact_gate.planned_skill_findings([held]) == []
+    k5_unheld = {**held, "K5": ("UNHELD", "not reviewed")}
+    assert fact_gate.planned_skill_findings([k5_unheld]) == ["jnwb-new: K5 is not held"]
+    k1_violated = {**held, "K1": ("VIOLATED", "overlaps jnwb-two")}
+    assert fact_gate.planned_skill_findings([k1_violated]) == ["jnwb-new: K1 is not held"]
+    k5_missing = {"skill": "jnwb-new", "K1": ("HELD", "partitions")}
+    assert fact_gate.planned_skill_findings([k5_missing]) == ["jnwb-new: K5 is not held"]
+    assert fact_gate.planned_skill_findings([]) == []
