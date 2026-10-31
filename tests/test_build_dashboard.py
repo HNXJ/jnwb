@@ -490,6 +490,29 @@ def test_methods_follows_the_record_except_the_partially_rerun_entry(data):
         positions[ident] = position + 1
 
 
+def test_paper_and_methods_chips_show_the_ruled_verdict_word(data):
+    """The ruled vocabulary (2026-10-24) reads reproduces as reproduced, partial as mixed
+    and does_not as failed. The renderer shows the ruled word on the Paper and Methods
+    chips, so no chip shows a raw record word; the Library axis keeps its own words
+    (verified, partial, unverified), which the build still emits."""
+    builder = _builder()
+    source = (REPO_ROOT / "scripts" / "dashboard" / "app.js").read_text(encoding="utf-8")
+    for raw, ruled in builder.VERDICT_LABELS.items():
+        assert f"{raw}: '{ruled}'" in source, \
+            f"the renderer does not map {raw} to {ruled}"
+    assert "['Paper', row.paper, true]" in source, "the Paper axis is not mapped"
+    assert "['Methods', row.methods, true]" in source, "the Methods axis is not mapped"
+    assert "['Library', row.library, false]" in source, "the Library axis is not left alone"
+    assert "partial" in builder.LIBRARY_VERDICTS, "the Library axis keeps its own partial"
+    raw = set(builder.VERDICT_LABELS)
+    for ident, row in _real_rows(data):
+        for title, axis in (("Paper", "paper"), ("Methods", "methods")):
+            shown = builder.VERDICT_LABELS.get(row[axis]["verdict"], row[axis]["verdict"])
+            chip = f"{title}: {shown}"
+            for word in ("reproduces", "partial", "does_not"):
+                assert word not in chip, f"{ident}: the {title} chip shows {word!r}"
+
+
 def test_paper_is_not_applicable_with_the_record_reason_and_no_numeric_value(data):
     builder = _builder()
     assert "not applicable" in builder.PAPER_VERDICTS, "the vocabulary must allow the word"

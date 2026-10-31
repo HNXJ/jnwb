@@ -1,0 +1,114 @@
+{
+ "inputs": {
+  "1203581890": {
+   "asset_id": "b305ccec-fa84-445e-aea5-0126d6eff558",
+   "dandi_sha256": "1e448f1975169da927d1673ef2b86e5f2ea883cfcc99b5e97ba93617531fe332",
+   "counts_npz_sha256": "be7c926c0387760059bbe36dd9e2f9b37130dabf93ca9df2d84e2653967af613",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  },
+  "1204677304": {
+   "asset_id": "38e79b1b-e2a6-4f5c-ae62-5538d295b827",
+   "dandi_sha256": "baf0179e1d8cddc458fa81505daff76932843f7bed29f65f9d045198d65158cd",
+   "counts_npz_sha256": "81a3548b0ad28de166b7c4d992e74518bd79dbcc15eae96220cb5ad7e98280de",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  },
+  "1211241460": {
+   "asset_id": "2b44dc78-2c9f-4a71-95ed-360df2b70d61",
+   "dandi_sha256": "9af5cb2f8b8cbdc8c20c6211d485a756f9953681fd01a6b7cdddc2482c2782de",
+   "counts_npz_sha256": "7ca1509699462f04e9491f0ea9a4f0a989b602a95aa8068955e59249acfc27ef",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  },
+  "1212569512": {
+   "asset_id": "7bf17d6e-1ee6-49da-b7fe-836f0f4cd5ff",
+   "dandi_sha256": "2ff709b38ad81e289e8ecc84bc23c27bbed8699a7f89300d0868d65744422a09",
+   "counts_npz_sha256": "8d8a3ed310e47a6dc62fc00ad75ec448d46f1c37c8d5615935415abbde526c21",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  },
+  "1213341633": {
+   "asset_id": "6e4a0d70-3977-4053-8c03-f72b8fe6d451",
+   "dandi_sha256": "963aa05000c40796bf5d04622993c8735e80c6d39dff2b679ab99a1f63217389",
+   "counts_npz_sha256": "9f2897a61fa7f58743e6e092099779138cece1c7ecdca935ef57895b2f01fb4a",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  },
+  "1217213788": {
+   "asset_id": "be571a44-3250-4f6c-853c-33b50c1e6f6e",
+   "dandi_sha256": "2c1a3962a09217c685430702178bb1ab9b731aae993db2ddc60a38fc5f9c6d66",
+   "counts_npz_sha256": "af6a3b49d968a574a96bbf28c745aa076e72d1865b859c0837648eedf8106ac9",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  },
+  "1221092548": {
+   "asset_id": "9ed1f92f-a25f-4466-b88c-2a7fcae94bf4",
+   "dandi_sha256": "c679f228a5757a80f749f9ab5bff5107e901338981e28f631171bf5ce1fffcd5",
+   "counts_npz_sha256": "dfa9823a10fa6fb6d01ab486ea7204c8c9af87dc01cd63e11bf5544332ed9b89",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  },
+  "1224930300": {
+   "asset_id": "7c494ca2-03db-429f-aaf3-a6f065859f51",
+   "dandi_sha256": "940df6083b6e0d68f6e0dec0cdff587c9c374c91075938ed36d8da9063337bde",
+   "counts_npz_sha256": "020a0dda37007a96ab984fc829d359897b605514282994f09afeb9cfa2ceef3b",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  },
+  "1226526314": {
+   "asset_id": "3336f73d-d1de-47b8-b8b8-87c8a5bdb6b2",
+   "dandi_sha256": "55fb91bcc2e17f4ed04b4971b311c01bdb99363273d7f5e49bcc48a8c891b32b",
+   "counts_npz_sha256": "0463dcfdb0b362421bebd72b8d7a66d17292134bbba3783e76ce2a3d3f08dbc3",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  },
+  "1226788689": {
+   "asset_id": "f0aaa669-81ba-40e9-bd3e-4a05ad6018ad",
+   "dandi_sha256": "6c4dd1875ad5b710dc883637db35497710aa1b91f5e18e52c79630cc0e910953",
+   "counts_npz_sha256": "772c605bcc431e53bfb8263ecf2b64bb0ead59f4dddcf00789c2d4f95ef0b9e3",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  },
+  "1227858756": {
+   "asset_id": "e2a7c38c-837d-42e1-8b2d-18f464dc9af6",
+   "dandi_sha256": "4abf6b1ce0446597c0a569fab61d056bc6c3811a9b5834c93d9211c74e341a60",
+   "counts_npz_sha256": "e58f608920636ab2bf2fd45436efeda8e106ecc22c38332f669e6f0307b7cc74",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  },
+  "1232959154": {
+   "asset_id": "81f9bcf2-d0e3-41a4-97e4-6371dafa3e71",
+   "dandi_sha256": "60f71391702854963d95ccb164a1d1a8724d1a385f29667e6dd1d2aa6ac00db1",
+   "counts_npz_sha256": "ab261ee2a1b5adaef50159f968fd2fbd48c3f62e00f299082260c28568ac418a",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  },
+  "1233182025": {
+   "asset_id": "6a146d52-ea6c-456a-b484-d4256c86aa1d",
+   "dandi_sha256": "abe435248525c1295303915c2261fd8bc429a8c6300a16c320c29e2de10a2a73",
+   "counts_npz_sha256": "52c0e1b2516e8803e60e9f7c802f9acad7d7dbee5e84f5f90dfba4da76ba411e",
+   "extract_script_commit": "1b5aabda25f532530eeb46ceb558238d572d0291"
+  }
+ },
+ "excluded_sessions": {
+  "1186358749": {
+   "validation": {
+    "main_xxxx_share": 0.2,
+    "random_n_patterns": 16,
+    "seq_xxxx_share": 0.5142857142857142,
+    "pass": false
+   },
+   "clock_ms": {
+    "median_abs": 0.0,
+    "p95_abs": 0.0,
+    "max_abs": 0.0,
+    "n_rows": 6035
+   }
+  }
+ },
+ "n_sessions": 13,
+ "population": "all",
+ "min_units": 5,
+ "min_mice": 6,
+ "seconds": 156.0,
+ "jnwb_file": "C:\\workspace\\jnwb\\jnwb\\__init__.py",
+ "jnwb_version": "0.2.11",
+ "jnwb_commit": "9c0854f709381ec549130e4904290ecf4f09b9ee",
+ "jnwb_dirty": [],
+ "script_commit": "2acf2c57e74a5e8ecd560fcd24beb2e72c1e1adc",
+ "script_dirty": [
+  "?? results/"
+ ],
+ "python": "3.14.3",
+ "command": "python.exe analyze_s1.py all",
+ "seed": 20261012
+}

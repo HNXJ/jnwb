@@ -1,0 +1,69 @@
+{
+ "session": "1232959154",
+ "n_p1": 475,
+ "slots": {
+  "-5": {
+   "kind": "P1",
+   "peak_over_median": 1.5915374063522212,
+   "peak_ms": 94.99999999999709
+  },
+  "-4": {
+   "kind": "P2",
+   "peak_over_median": 1.4391685132425873,
+   "peak_ms": 113.9999999999759
+  },
+  "-3": {
+   "kind": "P3",
+   "peak_over_median": 1.4338925820407302,
+   "peak_ms": 92.99999999995512
+  },
+  "-2": {
+   "kind": "P4",
+   "peak_over_median": 1.6057824205972353,
+   "peak_ms": 91.99999999993413
+  },
+  "-1": {
+   "kind": "blank",
+   "peak_over_median": 1.0104463437796771,
+   "peak_ms": 870.9999999998963
+  },
+  "0": {
+   "kind": "P1",
+   "peak_over_median": 1.6282578875171467,
+   "peak_ms": 89.99999999989171
+  },
+  "1": {
+   "kind": "P2",
+   "peak_over_median": 1.4620660546586473,
+   "peak_ms": 88.99999999987051
+  },
+  "2": {
+   "kind": "P3",
+   "peak_over_median": 1.4509865991347473,
+   "peak_ms": 107.99999999984865
+  },
+  "3": {
+   "kind": "P4",
+   "peak_over_median": 1.651999577925504,
+   "peak_ms": 86.99999999982788
+  },
+  "4": {
+   "kind": "blank",
+   "peak_over_median": 1.0094966761633428,
+   "peak_ms": 785.9999999997917
+  }
+ },
+ "jnwb_file": "C:\\workspace\\jnwb\\jnwb\\__init__.py",
+ "jnwb_version": "0.2.11",
+ "jnwb_commit": "9fd2e7e0b10d00a5759603b0d20976302d8ec938",
+ "jnwb_dirty": [],
+ "script_commit": "0a1c7c39760d5676dee3ade459c750eddc534038",
+ "script_dirty": [
+  "?? CONTRIBUTOR_HANDOUT.md",
+  "?? CONTRIBUTOR_HANDOUT_v2.md",
+  "?? _verify_xhigh/"
+ ],
+ "python": "3.14.3",
+ "command": "python.exe spike_blank_slot.py 1232959154 ../receipts/spike_blank_slot_1232959154.json",
+ "seed": 20261012
+}
