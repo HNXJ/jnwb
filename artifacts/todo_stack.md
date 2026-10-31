@@ -54,13 +54,6 @@ clone, at most three); the integrator reads each diff and reruns its acceptance 
 
 Deferred to 0.2.16, off the path: 17-75 (deletions only Hamm runs), 17-76, 17-77, the roadmap rows.
 
-### 16-20 A distance-aware coherence graph
-
-Release: required-0.2.15.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
-Writes: `tests/test_connectivity_pitfalls.py`, `docs/common_mistakes.md`, `skills/jnwb-connectivity/SKILL.md`, `artifacts/changelog.d/coherence-distance.added.md` (new fragment). Form and normalization ruled 2026-10-31: caller-side, no API change; binned distance mean.
-- 16-20: `cross_area_coherence` and `network_topology` take a coherence matrix as it is, so a graph of nearby contacts or electrodes is dense from field spread alone; Nejat and Hajipour Sardouie 2021 normalize edge weights by distance and compare groups edge by edge (`docs/references.md`, Pitfalls). Check: in `tests/test_connectivity_pitfalls.py`, on a planted field with spread between nearby contacts and one planted far-pair interaction, dividing each edge by its distance-bin mean removes a spread edge that the raw graph keeps and keeps the planted far-pair edge; the fixture asserts raw near-pair coherence exceeds the threshold. Waits: raised during 0.2.14, after its scope was set (goal F3, ruled 2026-10-21).
-
 ### 17-24 Non-finite inputs fail loudly
 
 Release: required-0.2.15.
@@ -75,13 +68,6 @@ Release: required-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing. Ruled 2026-10-31: plan only; `workflow.yml` is unchanged until Hamm approves the plan.
 Writes: `artifacts/evidence/0.2.15/suite_profile.md`, `artifacts/evidence/0.2.15/tiered_ci_plan.md` (new).
 - 17-71: the only suite profile is 0.2.14's (`artifacts/evidence/0.2.14/verification_inventory.md` D13-D19) and no tiered-CI plan exists. Check: `suite_profile.md` gives per-file durations from `pytest --durations=0` at a named 0.2.15 SHA; `tiered_ci_plan.md` assigns every test file to a tier, and the fast tier's measured total is given.
-
-### 17-07 S8 over prose
-
-Release: required-0.2.15.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing. Ruled 2026-10-31: estimand words per class; SKILL.md:19 reads "PSI: the sign of the phase slope across frequency, a lead or lag between two signals; it does not identify a driver."
-Writes: `skills/jnwb-connectivity/SKILL.md`, `jnwb/connectivity/_transfer_entropy.py`, `jnwb/analyzers.py`, `tests/test_claim_vocabulary_prose.py` (new) (the integrator regenerates the API page).
-- 17-07: S8's check reads figure labels and returned units only (ruled 2026-10-25); a sentence-level vocabulary scan of docs, skills and docstrings hit 49 sentences, about 47 legitimate (zflip's delays, "volume conduction", transfer entropy's `delay=`, negations). Two read as overclaims: `skills/jnwb-connectivity/SKILL.md` calls PSI "the frequency-dependent driver/receiver lag", and the `jnwb/connectivity/_transfer_entropy.py` module docstring calls TE "directed information flow"; `TFRAnalyzer.correlate_areas` (`jnwb/analyzers.py:305`) calls a correlation of band power "inter-area synchrony" (audit 2026-10-25); `docs/api.md:82` repeats the TE phrase. Check: `tests/test_claim_vocabulary_prose.py` scans docs, skills and docstrings against the per-class vocabulary (phase measures: lead/lag; TE and Granger: predictive information; correlation and coherence: co-variation or coupling) and a reviewed exceptions table, and reports zero unexcepted hits; SKILL.md:19 reads the ruled sentence. Waits: nothing.
 
 ### 17-74 Tag 0.2.15 and tell omission
 
