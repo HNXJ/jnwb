@@ -41,7 +41,7 @@ refreeze, calibration rerun with an unchanged table), 17-71.
 Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (17-71, plan
 only); approved, a 0.2.16 item changes `workflow.yml`.
 
-Deferred to 0.2.16, off the path: 17-75 (deletions only Hamm runs), 17-76, 17-77, 17-78, 17-79, the
+Deferred to 0.2.16, off the path: 17-75 (deletions only Hamm runs), 17-76, 17-77, 17-78, 17-79, 17-80, the
 roadmap rows.
 
 ### 17-74 Tag 0.2.15 and tell omission
@@ -85,3 +85,10 @@ Release: deferred-0.2.16.
 Role: jnwb-developer. Skill: none. Blocked by: a body change voids its `frozen_validated.json` entry (gate 19), so each needs re-verification.
 Writes: `jnwb/laminar/_xflip.py`, `jnwb/laminar/_zflip.py`, `jnwb/laminar/_vflip.py`, `jnwb/jrsa/__init__.py`, `jnwb/connectivity/_psi.py`.
 - 17-79: at 93fd20e1, 977 functions, median cyclomatic complexity 4; 151 above 10, 56 above 20, 13 above 40; the largest are `xflip` 109, `jrsa` 93, `zflip` 80, `vflip` 71, `phase_slope_index` 67. Standing §11's code condition (algorithmic order, one mechanism per concern) holds through the harness gate; this is size only. Check: each named function split into helpers with the suite and its calibration receipt unchanged, and none above 40.
+
+### 17-80 The version bump leaves the figure registry behind
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/bump_version.py`, `scripts/version_surfaces.py`, `tests/test_bump_version.py`.
+- 17-80: twice (0.2.14 in 56d021c3, 0.2.15 in 1b55385b) the suite failed after `bump_version.py` because `scripts/figures/figure_registry.toml` still recorded the old `jnwb_version` in 35 entries. Check: `tests/test_bump_version.py` bumps a copy and asserts every registry entry carries the new version.

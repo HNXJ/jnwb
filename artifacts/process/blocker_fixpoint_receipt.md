@@ -1,33 +1,31 @@
-# Blocker fixpoint receipt, 0.2.14
+# Blocker fixpoint receipt, 0.2.15
 
 | Field | Value |
 |---|---|
-| commit | `4aaaae6103d3b046dde0023ca7d8d470a82bf611` |
+| commit | `1b55385b2db160b0176e5ef00a687c5808a44e8a` |
 | new release-blocking problems found | 0 |
 | ruling | `AGENTS.md` section 11 condition 3: the terminating condition is an independent blocker-focused pass that finds no new release-blocking problem; G-04 (2026-10-19): each advertised scientific claim is checked against the deferred rows |
-| pass | Independent reviewers, none of whom wrote what they reviewed: two closure passes over `v0.2.13..b2a3e85a` (Muse, read-only; Haiku 5.5 at xhigh, with probes), a Muse review of the repairs `b2a3e85a..8be01dcc`, then Sonnet 5.5 reviews of `8be01dcc..47f060c4` and `47f060c4..4aaaae61` |
+| pass | Independent reviewers, none of whom wrote what they reviewed: two closure passes over the repository at `6eeb3d04` (Sonnet 5.5, Gemini 3.8 flash through agy, read-only), the same two over the release delta `6eeb3d04..47812466`, then Sonnet 5.5 over the repairs `47812466..804ce1f3` and `804ce1f3..1b55385b` |
 
 ## Verification
 
 | Scope | Verified at | Verdict | New blockers |
 |---|---|---|---|
-| Closure pass (Muse, read-only) over `v0.2.13..b2a3e85a`: about 109 `[0.2.14]` changelog lines, 23 added symbols against `__all__` and `docs/api.md`, 4 removed names, 20 signatures read against their definitions, the raise sites of the announced refusals, G-04 over the 15 deferred items | `b2a3e85a` | PASS; refusal behaviour read in code, not run | 0 |
-| Closure pass (Haiku 5.5, xhigh) over the same delta: 109 changelog bullets, 59 named symbols, 162 `docs/api.md` rows against `inspect.signature`, 226 `__all__` names against 226 rows, 88 runtime probes (27 announced refusals raised as stated), G-04 over the 15 deferred items | `b2a3e85a` | DEFECT claimed on two rows: (1) a 0-d array indexed with `...` was said to return the scalar; it returns a 0-d array, as NumPy does, so only the wording was wrong; (2) five `docs/api.md` annotations read `typing.Collection` or `typing.Sequence` without `[str]`, as in 0.2.13. Both repaired in `56d021c3` | 0 after repair |
-| Haiku G-04 notes: `AmbiguousMappingError` and `UndeclaredUnitError` were described as if raised; README, `docs/architecture.md` and the connectivity skill state guarantees that items 17-03, 17-07 and 17-08 extend | `b2a3e85a` | the two errors' changelog line now says no function raises them (`docs/errors.md` already did); the three claims are the deferred items' own subjects, tracked in the `# 0.2.15` todo section | 0 |
-| Muse review of the repairs `b2a3e85a..8be01dcc`: the 0-d return path, no raise of the two reserved errors, the generator branch and its four rows, the roadmap and todo split, the changelog, the forward note | `8be01dcc` | PASS; the dispatcher measured the two items the reviewer could not: the longest `[0.2.14]` line is 120 characters, and 4 `docs/api.md` rows changed | 0 |
-| Sonnet 5.5 review of `8be01dcc..47f060c4`: gate 19 drops the `is_lazy` field Python 3.15 adds to `Import` and `ImportFrom` while it is false (the 3.15 CI leg failed on three frozen bodies with local imports); item 17-61 and the rulings of 2026-10-27 | `47f060c4` | PASS; the dispatcher measured the two items the reviewer inferred: gate 19 reports 0 violations on 3.12, 3.14 and 3.15 with the registered hashes unchanged, and the new test fails on the old code | 0 |
-| Sonnet 5.5 review of `47f060c4..4aaaae61`: the release run of the first `v0.2.14` tag (40580823631) failed one test on CI's detached, branchless tag checkout, which expected at least 3 generated state rows where only the worktree and defect-class rows exist; the bound is now 2. The rest of the range is the 0.2.15 todo rows | `4aaaae61` | PASS; `generated_rows()` returns at least 2 rows on any checkout, and no other test or script assumes a local branch. The dispatcher measured the failure and the fix in a depth-1 detached clone of the tag: the test failed before and passes after, and `tests/test_state_reconstruction.py` passes there (22 passed, 1 skipped) | 0 |
-| Dispatcher: the 0.2.7 block removed from `CHANGELOG.md` occurs once, verbatim, in `artifacts/archive/changelog_0.1.0-0.2.9.md` | `a22f2014` | PASS | 0 |
+| Closure pass (Sonnet 5.5): the open stack holds no row; no `required-0.2.15` item; each roadmap row (15-11, 16-12, 12-21, 17-70) and deferred item (17-75 to 17-79) against README, `docs/`, the skills and the changelog fragments; the `signal_class` fragment against its three call sites | `6eeb3d04` | NO NEW BLOCKER; numeric claims in `docs/0*.md` and figure captions not checked | 0 |
+| Closure pass (agy, read-only) over the same scope | `6eeb3d04` | NO NEW BLOCKER; `docs/06` and `jnwb/viz.py` limit right-open bins to `raster_psth`, so 17-70 contradicts no claim | 0 |
+| Release delta (Sonnet 5.5): `[0.2.15]` lines opened against `jnwb/`, version surfaces, the 0.2.10 block moved to `artifacts/archive/changelog_0.1.0-0.2.9.md` (identical to the block at `6eeb3d04` apart from one trailing blank line), the calibration and peak-memory records | `47812466` | NO NEW BLOCKER; no `jnwb/` file but `__init__.py` changed after `6eeb3d04` | 0 |
+| Release delta (agy): the same scope | `47812466` | two changelog defects: the `signal_class=` line named one file for three operations, and `nwb_read_io`'s refusal at call was missing; repaired in `804ce1f3`. A third claim, that the dropped Fixed entries for `sha256_groups` and `units_table` belong in the changelog, is not taken: neither function exists at `v0.2.14`, so no released behaviour changed | 0 after repair |
+| Repair (Sonnet 5.5): `804ce1f3` changes only `CHANGELOG.md`; both lines read against `jnwb/_units.py:121`, its three call sites and `jnwb/nwb_io.py:340-346`; the third claim judged not a blocker | `804ce1f3` | NO NEW BLOCKER | 0 |
+| Repair (Sonnet 5.5): the suite at `804ce1f3` failed two tests after the bump (2 failed, 10604 passed); `1b55385b` changes only the 35 `jnwb_version` fields of `scripts/figures/figure_registry.toml` and excuses `docs/02` line 304, a 0.2.14 removal, as history in `tests/test_prose_version_claims_are_live.py` | `1b55385b` | NO NEW BLOCKER | 0 |
 
-`b2a3e85a..8be01dcc` also returns roadmap rows 15-11, 16-12 and 12-21 from the todo stack (the dashboard lists deferred validation from tagged roadmap rows), regenerates the curation calibration receipt and the figure registry under 0.2.14, and rewrites the expired forward note on the three removed constructors as history.
-
-## Receipts at `8be01dcc`
+## Receipts at `1b55385b`
 
 | Check | Result |
 |---|---|
 | Harness gates | 22 of 22 passed |
-| Full suite | 10177 passed, 80 skipped, 38 xfailed, 0 failed (`jnwb_suite.sh`, stamp equal to the commit); 10178 passed at `4553b1da`, at `5d9e5749` and at `bdd6f456` |
-| Docs build | strict MkDocs build passed |
-| Peak-memory record | `jnwb_version` 0.2.14, measured at `a22f2014`; no operation grew past 20% and 5 MiB |
+| Full suite | 10606 passed, 81 skipped, 38 xfailed, 0 failed (`jnwb_suite.sh`, stamp equal to the commit); 10607 passed, 0 failed at `6eeb3d04` |
+| CI on `dev` | `6eeb3d04`: CI/CD run 41270902410 and dashboard run 41270902245 concluded success; the run on the commit recording this receipt follows it |
+| Curation calibration | rerun at the declared 0.2.15; 2784 trials, table unchanged from 0.2.14; estimator `5a8c30c542be7772` |
+| Peak-memory record | `jnwb_version` 0.2.15, measured at `a6d4ddac`; every operation at or below 505.875 MiB |
+| Frozen-validated | nine bodies changed by the 0.2.15 non-finite refusals re-verified at `896d6159`, each with a guard-removal mutant killed; gate 19 passes |
 | Release gate | not yet run; it follows this receipt |
-| NOT RUN | the CUDA constant-channel test |
