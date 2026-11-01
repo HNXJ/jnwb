@@ -88,7 +88,7 @@ Synthetic probe: `jnwb.channel_correlation_matrix` and `jnwb.bad_channels_from_c
 
 ## 3. Trial Repair (`jnwb.artifact_repair`)
 
-### `repair_lfp_trials`
+### Synchrony Detection and Median Substitution (`repair_lfp_trials`)
 Performs time-resolved cross-channel synchrony detection on trial-segmented LFP tensors, replacing flagged artifact intervals with the condition-matched cross-trial median:
 
 ```python
@@ -111,7 +111,7 @@ repaired_lfp, frac_flagged, diagnostics = jnwb.repair_lfp_trials(
 print(f"Total time-samples flagged and repaired: {frac_flagged * 100:.2f}%")
 ```
 
-### `detect_band_outliers` — the detection rule, on its own
+### The Detection Rule, on Its Own (`detect_band_outliers`)
 
 `repair_band_artifacts` pairs a detector with a substitution. `detect_band_outliers` is that
 detector alone, for callers who need the rule without the substitution:
@@ -151,12 +151,11 @@ no `"lower"`: a detector that flags only power decreases has no artifact rationa
 adding one would invite the mistake the warning above describes.
 
 **Prefer calling over retyping.** A numerical rule that is easier to retype than to reuse will
-be retyped, and the copy will diverge from its docstring without anyone noticing. That is why
-`repair_band_artifacts` calls this function rather than restating it (the rule has exactly one
-implementation), and why it accepts channel-averaged input (see below) rather than forcing a
-fork on anyone whose array is shaped differently.
+be retyped, and the copy will diverge from its docstring without anyone noticing. The rule
+therefore has exactly one implementation, and the function accepts channel-averaged input
+(see below) rather than forcing a fork on anyone whose array is shaped differently.
 
-### `repair_band_artifacts`
+### Time-Frequency Repair (`repair_band_artifacts`)
 Extends artifact repair into the time-frequency domain across canonical frequency bands:
 
 ```python

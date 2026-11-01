@@ -36,7 +36,7 @@ import numpy as np
 | **Spectral dynamics** | `jnwb.complex_tfr`, `jnwb.compute_multitaper_psd` | TFR + PSD | `ComplexTFR`, arrays |
 | **Directed interaction** | `jnwb.phase_slope_index`, `jnwb.granger` | PSI, Granger | `DirectedResult` |
 | **Spiking & latencies** | `jnwb.raster_psth`, `jnwb.fit_exponential_onset` | PSTH + onset fit | arrays, `dict` |
-| **Hypothesis testing** | `jnwb.paired_fire_prob_test`, `jnwb.permute_labels` | paired test + permutation | `dict` |
+| **Hypothesis testing** | `jnwb.paired_fire_prob_test`, `jnwb.permute_labels` | paired test + permutation | `dict`, array |
 | **Representational geometry** | `jnwb.jrsa` | jRSA | `JRSAResult` |
 
 ---

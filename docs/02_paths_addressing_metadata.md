@@ -151,7 +151,7 @@ association-to-causality step that [Architecture](architecture.md#causal-and-dir
 On a synthetic electrodes table, panel A of that figure is `jnwb.map_peak_channel_to_area`
 partitioning 24 contacts of one probe
 across V1, V2 and V3; panel B is `jnwb.classify_layer_from_depth` on the same contacts at
-`threshold=1000` µm, classes keyed, threshold drawn. Both are spatial
+`threshold=1000` um, classes keyed, threshold drawn. Both are spatial
 assignments and neither carries a causal direction.
 
 ---
@@ -199,7 +199,7 @@ Without an electrodes table, `area` is None on every row. A file with no units t
 snr_stats = jnwb.get_snr_analysis(classified_units, snr_threshold=1.0)
 # -> {'pass_rate': 0.84, 'snr_mean': 4.25, 'snr_median': 3.90}
 
-# Perform comprehensive unit audit
+# Audit units
 unit_audit = jnwb.audit_units(classified_units)
 
 # Audit electrode tables and area coverage

@@ -76,7 +76,7 @@ print("Rayleigh z:", pli_result["rayleigh_z"], "p-value:", pli_result["rayleigh_
 ```
 
 ### Pairwise Phase Consistency (`pairwise_phase_consistency`)
-Unlike heuristic histogram contrast or PLV/PLI, which has substantial positive sample-size bias ($\mathbb{E}[\text{PLV}] \sim 1/\sqrt{N}$ under noise), Vinck et al. (2010)'s Pairwise Phase Consistency (PPC) is an asymptotically unbiased estimator of squared phase synchronization and is the **recommended estimator** for population and across-unit comparisons:
+Unlike heuristic histogram contrast or PLV/PLI, which has positive sample-size bias ($\mathbb{E}[\text{PLV}] \sim 1/\sqrt{N}$ under noise), Vinck et al. (2010)'s Pairwise Phase Consistency (PPC) is an asymptotically unbiased estimator of squared phase synchronization and is the **recommended estimator** for population and across-unit comparisons:
 
 $$\text{PPC} = \frac{2}{N(N-1)} \sum_{j=1}^{N-1} \sum_{k=j+1}^N \cos(\theta_j - \theta_k)$$
 

@@ -125,7 +125,7 @@ diff, p_val_unpaired = jnwb.shuffle_pvalue_unpaired(a, b, n_shuffles=5000, rng=c
 
 ### Cluster-Based Permutation Testing (`cluster_permutation_test`)
 
-For continuous time series, spectra, and time-frequency representations (TFRs), mass-univariate testing creates severe multiple testing problems. `jnwb.cluster_permutation_test` implements Maris & Oostenveld (2007) non-parametric cluster-based permutation testing with maximum-cluster FWER control and exact finite Monte Carlo p-values:
+For continuous time series, spectra, and time-frequency representations (TFRs), mass-univariate testing creates multiple testing problems. `jnwb.cluster_permutation_test` implements Maris & Oostenveld (2007) non-parametric cluster-based permutation testing with maximum-cluster FWER control and exact finite Monte Carlo p-values:
 
 $$p = \frac{1 + k}{B + 1}$$
 

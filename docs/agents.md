@@ -1,6 +1,6 @@
 # Analyzing with an Agent
 
-`jnwb` is usable by a coding agent, but almost none of that is automatic. This page says
+`jnwb` is usable by a coding agent. This page says
 what reaches your machine from `pip install jnwb`, what does not, and how to supply
 the rest. [Architecture](architecture.md) shows where skills sit relative to the library and
 the outcomes a skill can end a task in.
@@ -99,8 +99,8 @@ the [router skill](https://github.com/HNXJ/jnwb/blob/main/skills/jnwb/SKILL.md).
 
 ## Without any of that
 
-An agent with nothing but the installed package and this documentation site can still work
-well, given these instructions:
+An agent with only the installed package and this documentation site needs these
+instructions:
 
 1. Start from [`00_your_own_file.py`](tutorials/00_your_own_file.md), which discovers a
    layout instead of assuming one.
