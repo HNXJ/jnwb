@@ -36,7 +36,7 @@ def _condensed_distances(X: np.ndarray, metric: str) -> np.ndarray:
     if n_conditions < 2:
         raise ValueError(f"rdm requires at least 2 conditions/observations; got {n_conditions}.")
     if not np.all(np.isfinite(arr)):
-        raise ValueError("rdm input array contains non-finite values (NaN or Inf).")
+        raise ValueError("rdm: X contains non-finite values (NaN or Inf).")
 
     with np.errstate(divide="ignore", invalid="ignore"):
         v = pdist(arr, metric=metric)
@@ -136,7 +136,7 @@ def _as_condensed_rdm(rdm_in: np.ndarray, name: str) -> np.ndarray:
         if v.shape[0] != v.shape[1]:
             raise ValueError(f"{name} must be square if 2D; got shape {v.shape}.")
         if not np.all(np.isfinite(v)):
-            raise ValueError("RDM vectors contain non-finite values (NaN or Inf).")
+            raise ValueError(f"{name} contains non-finite values (NaN or Inf).")
         tol = 1e-8 * max(1.0, float(np.max(np.abs(v)))) if v.size else 1e-8
         asymmetry = float(np.max(np.abs(v - v.T))) if v.size else 0.0
         if asymmetry > tol:
@@ -211,8 +211,11 @@ def rdm_similarity(
     if len(v1) != len(v2):
         raise ValueError(f"RDM length mismatch: {len(v1)} vs {len(v2)}.")
 
-    if not (np.all(np.isfinite(v1)) and np.all(np.isfinite(v2))):
-        raise ValueError("RDM vectors contain non-finite values (NaN or Inf).")
+    for _name, _v in (("rdm1", v1), ("rdm2", v2)):
+        if not np.all(np.isfinite(_v)):
+            raise ValueError(
+                f"rdm_similarity: {_name} contains non-finite values (NaN or Inf)."
+            )
 
     metric_lower = metric.lower()
     if metric_lower == "spearman":

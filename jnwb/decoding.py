@@ -23,6 +23,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.utils import check_random_state
 
+from ._bins import refuse_nonfinite_times
 from ._rng import DEFAULT_SEED, RNGLike, sklearn_random_state
 
 log = logging.getLogger(__name__)
@@ -483,6 +484,11 @@ def build_inner_validation_partitions(
         Long-format DataFrame, one row per (stratum, outer_fold, inner_fold, trial_id), with
         ``inner_role`` in {"inner_train", "inner_validation", "insufficient_training_groups"}.
     """
+    fold = np.asarray(outer_trials["outer_fold"])
+    if fold.dtype.kind in "iufc":
+        refuse_nonfinite_times(
+            fold, "build_inner_validation_partitions", "outer_trials[outer_fold]"
+        )
     rows: list = []
     for key, group in outer_trials.groupby(list(analysis_cols), sort=True, dropna=False):
         if not isinstance(key, tuple):

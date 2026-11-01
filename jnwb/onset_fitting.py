@@ -219,6 +219,7 @@ def fit_exponential_onset(
 
     t_ms = np.asarray(t_ms, dtype=float)
     rate = np.asarray(rate, dtype=float)
+    refuse_nonfinite_times(rate, "fit_exponential_onset", "rate")
     if t_ms.ndim != 1 or rate.shape != t_ms.shape:
         raise ValueError(
             f"fit_exponential_onset: t_ms and rate must be 1-D and of one length, got shapes "

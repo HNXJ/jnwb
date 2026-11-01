@@ -35,7 +35,7 @@ def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
     try:
         k_int = int(k)
         n_int = int(n)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError(f"k and n must be integer-convertible, got k={k!r}, n={n!r}") from exc
 
     if k != k_int or n != n_int:
@@ -81,7 +81,7 @@ def mann_whitney_p_floor(n1: int, n2: int, alternative: str = "two-sided") -> fl
     try:
         n1_int = int(n1)
         n2_int = int(n2)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError(f"n1 and n2 must be integers, got n1={n1!r}, n2={n2!r}") from exc
 
     if n1 != n1_int or n2 != n2_int:

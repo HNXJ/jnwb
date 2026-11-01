@@ -199,7 +199,7 @@ class TestDetectTrialCycles:
         # One NaN start made the median gap NaN, so no gap read as a break and all six trials
         # fell into cycle 0.
         df = pd.DataFrame({"start_time": [0.0, 1.0, np.nan, 1000.0, 1001.0, 1002.0]})
-        with pytest.raises(ValueError, match=r"detect_trial_cycles: start_time\[2\] is nan"):
+        with pytest.raises(ValueError, match=r"detect_trial_cycles: epochs_df\[start_time\]\[2\] is nan"):
             detect_trial_cycles(df, gap_factor=5.0)
 
 

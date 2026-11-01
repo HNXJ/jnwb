@@ -7,6 +7,7 @@ import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from .._backend import CPU, CUDA, resolve_device, warn_device_fallback, warn_no_gpu_path
+from .._bins import refuse_nonfinite_times
 from .._spread import is_constant, zscore
 from .._layout import require_trial_length
 from .._rng import Default, RNGLike, resolve_seed_alias
@@ -371,6 +372,8 @@ def granger_causality(
     )
     s1 = np.asarray(signal1).flatten()
     s2 = np.asarray(signal2).flatten()
+    for _name, _s in (("signal1", s1), ("signal2", s2)):
+        refuse_nonfinite_times(_s, "granger_causality", _name)
 
     s1 = zscore(s1.astype(float), axis=0)
     s2 = zscore(s2.astype(float), axis=0)

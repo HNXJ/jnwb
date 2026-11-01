@@ -123,8 +123,8 @@ def cluster_permutation_test(
     # both non-estimable, and are rejected identically.
     if not (np.isfinite(X_arr).all() and np.isfinite(Y_arr).all()):
         raise ValueError(
-            "Cannot perform cluster permutation test on data containing NaN or infinite "
-            "values."
+            "cluster_permutation_test: X and Y must be finite; "
+            "drop or repair NaN or infinite values first."
         )
 
     if scheme is None:

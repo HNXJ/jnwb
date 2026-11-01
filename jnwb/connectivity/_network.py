@@ -5,6 +5,7 @@ from __future__ import annotations
 import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
+from .._bins import refuse_nonfinite_times
 from .._parallel import parallel_map
 from .._rng import resolve_rng, resolve_seed_alias
 from .._units import _OMITTED, _check_signal_class
@@ -189,6 +190,8 @@ def directed_network(
         raise ValueError(f"directed_network needs >= 2 nodes; got {n}")
     if len(labels) != n:
         raise ValueError(f"{len(labels)} labels for {n} signals")
+    for _label, _s in zip(labels, series):
+        refuse_nonfinite_times(_s, "directed_network", f"signals[{_label}]")
 
     matrix = np.full((n, n), np.nan)
     p_matrix = np.full((n, n), np.nan)
