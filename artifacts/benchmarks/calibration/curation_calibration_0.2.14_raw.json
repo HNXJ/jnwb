@@ -2,7 +2,7 @@
  "release": "0.2.14",
  "declared_version": "0.2.14",
  "estimator": "curate_and_label",
- "estimator_sha256": "12d994b977b2d14c113d509e62744c4ac52667d83c4bb30ebb2f5aa0548b1cea",
+ "estimator_sha256": "5a8c30c542be77725fc837c294da53879da6fca6a35fa9460bd22df8c9ac66f7",
  "estimator_functions": [
   "CORRELATION_FS_HZ",
   "LaminarCurationResult",
@@ -47,6 +47,7 @@
   "jnwb._backend.resolve_device",
   "jnwb._backend.torch_cuda_available",
   "jnwb._backend.warn_no_gpu_path",
+  "jnwb._bins.refuse_infinite",
   "jnwb._dictlike.DictAccessMixin",
   "jnwb._layout.MAX_LAMINAR_CHANNELS",
   "jnwb._layout.MAX_PROBE_SPAN_UM",
