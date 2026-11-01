@@ -1208,6 +1208,12 @@
   var REPLICATION_COLUMNS = ['Verdict', 'By', 'Date', 'Scope', 'Seed', 'Report sha256', 'Note'];
   var DIGEST_CHARS = 12;
 
+  // The record's verdict words with the dashboard's ruled word for each (2026-10-24):
+  // reproduces reads reproduced, partial reads mixed, does_not reads failed. Paper and
+  // Methods chips show the ruled word; the Library axis keeps its own words (verified,
+  // partial, unverified).
+  var RECORD_LABELS = { reproduces: 'reproduced', partial: 'mixed', does_not: 'failed' };
+
   function showcaseReplications(parent, rows) {
     var head = make('p');
     head.appendChild(make('strong', '', 'Replications:'));
@@ -1232,12 +1238,14 @@
         verdict.appendChild(document.createTextNode(' '));
         textInto(verdict, row.verdict, true);
       }
-      [['Paper', row.paper], ['Library', row.library], ['Methods', row.methods]].forEach(
+      [['Paper', row.paper, true], ['Library', row.library, false],
+       ['Methods', row.methods, true]].forEach(
         function (axis) {
           var record = axis[1];
           if (!record || isBlank(record.verdict)) { return; }
           verdict.appendChild(document.createTextNode(' '));
-          var chip = verdictChip(axis[0] + ': ' + record.verdict);
+          var word = (axis[2] && RECORD_LABELS[record.verdict]) || record.verdict;
+          var chip = verdictChip(axis[0] + ': ' + word);
           var detail = record.reason || (record.uncovered || []).join(', ');
           if (!isBlank(detail)) { chip.title = String(detail); }
           verdict.appendChild(chip);
@@ -1360,8 +1368,9 @@
 
   // ---- validations: an index, and one page per validation -----------------
 
-  // The dashboard's verdict words with their chip class and symbol. The build maps each record
-  // verdict to one of them (reproduces, partial, does_not); the page names none of its own.
+  // The dashboard's verdict words with their chip class and symbol. The build maps each
+  // replication verdict to one of them; the page maps the record's words on the Paper and
+  // Methods chips to the same words and names none of its own beyond that mapping.
   var VERDICT_CLASSES = [
     { label: 'reproduced', slug: 'reproduced', symbol: '✓' },
     { label: 'reproduced (conditional)', slug: 'reproduced-conditional', symbol: '◐' },

@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "4d42e23ce82baa6d6f7d2be03cc0a0fd79ba72ad",
-    "date": "2026-10-31T07:32:06Z"
+    "commit": "6eeb3d04ef3b1e5653f65a962a9a651b0b8e204c",
+    "date": "2026-11-01T03:29:34Z"
   },
   "sources": {
     "generated": [
@@ -1957,17 +1957,19 @@
       {
         "file": "jnwb/statistics/_analysis.py",
         "qualname": "StatisticalAnalysis.fdr_correct",
-        "verified_at": "0fe48f7a914a991158ebf4a6f7901db10fa117e6",
+        "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
         "tests": [
-          "tests/test_statistics.py::TestFDRCorrect::test_by_is_benjamini_yekutieli_and_not_bh"
+          "tests/test_statistics.py::TestFDRCorrect::test_by_is_benjamini_yekutieli_and_not_bh",
+          "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[fdr_correct]"
         ]
       },
       {
         "file": "jnwb/nwb_io.py",
         "qualname": "nwb_read_io",
-        "verified_at": "0fe48f7a914a991158ebf4a6f7901db10fa117e6",
+        "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
         "tests": [
-          "tests/test_nwb_read_tolerance_and_visibility.py::test_a_mode_other_than_read_is_refused_before_the_file_opens"
+          "tests/test_nwb_read_tolerance_and_visibility.py::test_a_mode_other_than_read_is_refused_before_the_file_opens",
+          "tests/test_nonfinite_inputs.py::test_nan_path_is_refused_by_name"
         ]
       },
       {
@@ -2066,26 +2068,29 @@
       {
         "file": "jnwb/connectivity/_granger.py",
         "qualname": "granger_causality",
-        "verified_at": "36b7816227fee4e4af5be9048af653e65a8621bf",
+        "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
         "tests": [
-          "tests/test_estimator_values_are_pinned.py::TestDeprecatedGrangerCausalityIsReportedInNats::test_each_statistic_is_the_log_of_the_variances_it_reports"
+          "tests/test_estimator_values_are_pinned.py::TestDeprecatedGrangerCausalityIsReportedInNats::test_each_statistic_is_the_log_of_the_variances_it_reports",
+          "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[granger_causality]"
         ]
       },
       {
         "file": "jnwb/spectral/_reference.py",
         "qualname": "bipolar_reference",
-        "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+        "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
         "tests": [
-          "tests/test_estimator_discrimination.py::TestBipolarReferenceHasAPinnedSign::test_subtracts_the_shallower_channel_from_the_deeper"
+          "tests/test_estimator_discrimination.py::TestBipolarReferenceHasAPinnedSign::test_subtracts_the_shallower_channel_from_the_deeper",
+          "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[bipolar_reference]"
         ]
       },
       {
         "file": "jnwb/spectral/_reference.py",
         "qualname": "laplacian_reference",
-        "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+        "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
         "tests": [
           "tests/test_estimator_values_are_pinned.py::TestLaplacianReferenceSubtractsTheNeighbourMeanOnce::test_a_quadratic_profile_gives_exactly_minus_one",
-          "tests/test_estimator_values_are_pinned.py::TestLaplacianReferenceSubtractsTheNeighbourMeanOnce::test_a_linear_ramp_is_flattened_to_zero_in_the_interior"
+          "tests/test_estimator_values_are_pinned.py::TestLaplacianReferenceSubtractsTheNeighbourMeanOnce::test_a_linear_ramp_is_flattened_to_zero_in_the_interior",
+          "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[laplacian_reference]"
         ]
       },
       {
@@ -2107,38 +2112,42 @@
       {
         "file": "jnwb/statistics/_cluster.py",
         "qualname": "cluster_permutation_test",
-        "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+        "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
         "tests": [
-          "tests/test_frozen_core_mutants.py::TestClusterPValueIsTheFloorWhenNoPermutationReachesIt::test_an_unreached_cluster_has_the_exact_floor"
+          "tests/test_frozen_core_mutants.py::TestClusterPValueIsTheFloorWhenNoPermutationReachesIt::test_an_unreached_cluster_has_the_exact_floor",
+          "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[cluster_permutation_test]"
         ]
       },
       {
         "file": "jnwb/statistics/_tests.py",
         "qualname": "clopper_pearson",
-        "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+        "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
         "tests": [
-          "tests/test_statistics.py::TestClopperPearson::test_known_values"
+          "tests/test_statistics.py::TestClopperPearson::test_known_values",
+          "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[clopper_pearson]"
         ]
       },
       {
         "file": "jnwb/statistics/_tests.py",
         "qualname": "mann_whitney_p_floor",
-        "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+        "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
         "tests": [
-          "tests/test_statistics.py::TestMannWhitneyPFloor::test_known_floors"
+          "tests/test_statistics.py::TestMannWhitneyPFloor::test_known_floors",
+          "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[mann_whitney_p_floor]"
         ]
       },
       {
         "file": "jnwb/statistics/_regression.py",
         "qualname": "shuffle_r2_ci",
-        "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+        "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
         "tests": [
           "tests/test_statistics.py::TestShuffleR2Ci::test_perfect_correlation_gives_r2_near_one",
           "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.3]",
           "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.1]",
           "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[2.7]",
           "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.001]",
-          "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.5]"
+          "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.5]",
+          "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[shuffle_r2_ci]"
         ]
       },
       {
@@ -4679,7 +4688,7 @@
           "Session 1186358749 follows a different block design and is excluded."
         ],
         "code": {
-          "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+          "location": "artifacts/showcases/openscope_glo",
           "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
         },
         "receipts": [
@@ -4838,7 +4847,7 @@
           "Independent check reproduced the C2 cells only."
         ],
         "code": {
-          "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+          "location": "artifacts/showcases/openscope_glo",
           "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
         },
         "receipts": [
@@ -4990,7 +4999,7 @@
           "Session 1186358749 excluded (no main 2)."
         ],
         "code": {
-          "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+          "location": "artifacts/showcases/openscope_glo",
           "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
         },
         "receipts": [
@@ -5133,7 +5142,7 @@
           "The 1203581890 probe file was not replaced between versions."
         ],
         "code": {
-          "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+          "location": "artifacts/showcases/openscope_glo",
           "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
         },
         "receipts": [
@@ -5277,8 +5286,8 @@
       "section": "frozen",
       "title": "Independently verified functions",
       "path": "artifacts/process/frozen_validated.json",
-      "commit": "8a938e665c0715e12016e844c164dc9345a0ad26",
-      "sha256": "2894304969d07cb9e5af7db7c5e13ea185a314340aa404d98090ea03c055d044",
+      "commit": "d84f334321fd29931b25295a9332ced59418f255",
+      "sha256": "806c9889385b8d54c5d23d42089be7c6196ada9f98be7f743c75d05d6dd4e610",
       "fields": {
         "functions": 27
       },
@@ -5368,24 +5377,24 @@
       "id": "15-11",
       "theme": "`vflip2` recovers a planted vFLIP2 crossover on Andre Bastos's simulation code",
       "defect": "The generator half landed in 1dbcedbf (`artifacts/evidence/0.2.13/vflip2_recovery.md`: recovery 29 of 100, matched null 24 of 100); the same table has not run on his code, under the contract in `artifacts/evidence/0.2.13/vflip2_generator_design.md`; full text: `git log -S '### 15-11' -- artifacts/todo_stack.md`.",
-      "waits": "His simulation code; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-19).",
-      "release": "deferred-0.2.15",
+      "waits": "His simulation code; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-19), then 0.2.16 (ruled 2026-10-31).",
+      "release": "deferred-0.2.16",
       "label": "not started"
     },
     {
       "id": "16-12",
       "theme": "Dashboard real-data cards for `isi_cv` (9,056 units), WaveMAP and the omission results",
       "defect": "The dashboard ships with the four committed GLO entries; the others need a receipt computed without calling jnwb: the omission and WaveMAP receipts record jnwb calls (`jnwb_version`, `jnwb_wavemap_commit`), and the `isi_cv` receipt file (branch `claude/site-overview-326890`, commit 9b52c5e7) no longer exists",
-      "waits": "Independent recomputations with committed receipts; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-23).",
-      "release": "deferred-0.2.15",
+      "waits": "Independent recomputations with committed receipts; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-23), then 0.2.16 (ruled 2026-10-31).",
+      "release": "deferred-0.2.16",
       "label": "not started"
     },
     {
       "id": "12-21",
       "theme": "jnwb recovers a planted delay and a planted direction from a jaxfne field",
       "defect": "The spectrum half landed (`tests/test_jaxfne_ground_truth.py`: `compute_psd` recovers the planted 10.0 Hz of jaxfne's protocol_c planar field, commit 21c99f96); a single-frequency field has no phase-slope delay and no direction, so delay (`phase_slope_index`) and direction (`granger`) wait for a broadband jaxfne field",
-      "waits": "A broadband jaxfne field with a stated delay or coupling; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-23: the spectrum test closes the item for 0.2.14).",
-      "release": "deferred-0.2.15",
+      "waits": "A broadband jaxfne field with a stated delay or coupling; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-23: the spectrum test closes the item for 0.2.14); then 0.2.16 (ruled 2026-10-31).",
+      "release": "deferred-0.2.16",
       "label": "not started"
     }
   ]
