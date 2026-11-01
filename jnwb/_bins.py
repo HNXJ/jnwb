@@ -186,6 +186,23 @@ def _distinguishing_digits(values) -> int:
     return 17
 
 
+def refuse_infinite(values, func_name: str, name: str) -> None:
+    """Raise ``ValueError`` naming the first infinite entry of ``values``.
+
+    A NaN passes: it marks a missing value. An infinite one is refused. Complex input stays
+    complex, so an infinite imaginary part is refused too.
+    """
+    arr = np.asarray(values)
+    arr = (arr if arr.dtype.kind == "c" else arr.astype(float)).ravel()
+    bad = np.flatnonzero(np.isinf(arr))
+    if bad.size:
+        i = int(bad[0])
+        raise ValueError(
+            f"{func_name}: {name}[{i}] is {arr[i]}; NaN marks a missing value, "
+            "and an infinite one is refused."
+        )
+
+
 def refuse_nonfinite_times(values, func_name: str, name: str) -> None:
     """Raise ``ValueError`` naming the first non-finite entry of a trial-time array.
 

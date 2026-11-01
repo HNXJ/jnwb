@@ -11,7 +11,7 @@ import warnings
 from typing import Any, Optional, Tuple, Dict, List, Union
 import numpy as np
 
-from ._bins import onset_window, refuse_nonfinite_times, whole_bin_count
+from ._bins import onset_window, refuse_infinite, refuse_nonfinite_times, whole_bin_count
 from ._spread import is_constant
 from ._units import _REQUIRED, _window_from_positional, resolve_unit_alias
 from scipy import stats
@@ -301,9 +301,7 @@ def classify_response_significance(
     response_counts = np.asarray(metrics['response_counts'], dtype=float)
     baseline_counts = np.asarray(metrics['baseline_counts'], dtype=float)
     for key, counts in (('response_counts', response_counts), ('baseline_counts', baseline_counts)):
-        if np.isinf(counts).any():
-            raise ValueError(f"classify_response_significance: metrics['{key}'] holds an "
-                             "infinite count; NaN marks a missing count")
+        refuse_infinite(counts, "classify_response_significance", f"metrics['{key}']")
     if response_counts.ndim != 1 or baseline_counts.ndim != 1:
         raise ValueError(
             "classify_response_significance: 'response_counts' and 'baseline_counts' must be "

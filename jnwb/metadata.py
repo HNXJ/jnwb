@@ -19,6 +19,7 @@ from jnwb.addressing import (
     _STABLE_QUALITY_LABELS, _area_from_row, _finite_cutoff, _passes_cutoff, _quality_is_stable,
     _refuse_repeated_columns, _stable_label_set,
 )
+from jnwb._bins import refuse_infinite
 from jnwb.nwb_io import WAIVED_REQUIREMENTS_ATTR, _normalise_allow_missing, nwb_read_io
 
 log = logging.getLogger(__name__)
@@ -404,13 +405,9 @@ def filter_by_criteria(
             )
 
     numeric = df.select_dtypes(include="number").select_dtypes(exclude="complex")
-    if numeric.shape[1]:
-        bad_cols = numeric.columns[np.isinf(numeric.to_numpy(dtype=float)).any(axis=0)]
-        if len(bad_cols):
-            raise ValueError(
-                f"filter_by_criteria: df holds an infinite value in column {bad_cols[0]!r}; "
-                "NaN is allowed"
-            )
+    for _col in numeric.columns:
+        refuse_infinite(pd.to_numeric(numeric[_col], errors="coerce"), "filter_by_criteria",
+                        f"df['{_col}']")
 
     out = df.copy()
     for k, v in criteria.items():
@@ -542,11 +539,8 @@ def unit_census_report(
     """
     if "firing_rate" in units_df.columns:
         fr = pd.to_numeric(units_df["firing_rate"], errors="coerce")
-        if bool(np.isinf(fr.to_numpy(dtype=float)).any()):
-            raise ValueError(
-                "unit_census_report: units_df['firing_rate'] holds an infinite value; "
-                "NaN is allowed"
-            )
+        refuse_infinite(fr.to_numpy(dtype=float), "unit_census_report",
+                        "units_df['firing_rate']")
     if group_by is not None:
         absent = [col for col in group_by if col not in units_df.columns]
         if absent:
@@ -895,11 +889,8 @@ def audit_electrodes(elec_df: pd.DataFrame, units_df: Optional[pd.DataFrame] = N
     """
     if units_df is not None and "peak_channel_id" in units_df.columns:
         peak = pd.to_numeric(units_df["peak_channel_id"], errors="coerce")
-        if bool(np.isinf(peak.to_numpy(dtype=float)).any()):
-            raise ValueError(
-                "audit_electrodes: units_df['peak_channel_id'] holds an infinite value; "
-                "NaN is allowed"
-            )
+        refuse_infinite(peak.to_numpy(dtype=float), "audit_electrodes",
+                        "units_df['peak_channel_id']")
     result = {
         'total_electrodes': len(elec_df),
         'areas_represented': {},

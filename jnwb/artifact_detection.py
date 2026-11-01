@@ -30,7 +30,7 @@ from typing import Tuple
 
 import numpy as np
 
-from ._bins import refuse_nonfinite_times
+from ._bins import refuse_infinite, refuse_nonfinite_times
 from ._layout import require_channel_major
 
 MAD_SCALE = 1.4826  # normal-consistent scaling for the median absolute deviation
@@ -121,13 +121,7 @@ def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tu
     refused with a ``ValueError`` naming ``corr``.
     """
     corr_arr = np.asarray(corr, dtype=float)
-    inf = np.flatnonzero(np.isinf(corr_arr))
-    if inf.size:
-        i = int(inf[0])
-        raise ValueError(
-            f"bad_channels_from_correlation: corr[{i}] is {corr_arr.ravel()[i]}; drop or "
-            "impute the non-finite corr first."
-        )
+    refuse_infinite(corr_arr, "bad_channels_from_correlation", "corr")
     n = corr.shape[0]
     if n < 2:
         return np.zeros(n, dtype=bool), np.full(n, np.nan), np.full(n, np.nan)
@@ -198,14 +192,7 @@ def bad_trials_single_channel(
     An infinite sample is refused with a ``ValueError`` naming ``trial_waveforms``.
     """
     trial_waveforms = np.asarray(trial_waveforms, dtype=float)
-    inf = np.flatnonzero(np.isinf(trial_waveforms))
-    if inf.size:
-        i = int(inf[0])
-        raise ValueError(
-            f"bad_trials_single_channel: trial_waveforms[{i}] is "
-            f"{trial_waveforms.ravel()[i]}; drop or impute the non-finite "
-            "trial_waveforms first."
-        )
+    refuse_infinite(trial_waveforms, "bad_trials_single_channel", "trial_waveforms")
     n = trial_waveforms.shape[0]
     if n < 2:
         return np.zeros(n, dtype=bool), np.full(n, np.nan), np.full(n, np.nan)

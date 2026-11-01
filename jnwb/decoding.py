@@ -23,7 +23,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.utils import check_random_state
 
-from ._bins import refuse_nonfinite_times
+from ._bins import refuse_infinite, refuse_nonfinite_times
 from ._rng import DEFAULT_SEED, RNGLike, sklearn_random_state
 
 log = logging.getLogger(__name__)
@@ -452,11 +452,7 @@ def assign_outer_folds(
         raise ValueError(f"trial table missing fold columns: {sorted(missing)}")
     if "start_time" in trials.columns:
         times = pd.to_numeric(trials["start_time"], errors="coerce")
-        if bool(np.isinf(times.to_numpy(dtype=float)).any()):
-            raise ValueError(
-                "assign_outer_folds: trials['start_time'] holds an infinite value; "
-                "NaN is allowed"
-            )
+        refuse_infinite(times.to_numpy(dtype=float), "assign_outer_folds", "trials['start_time']")
     out = trials.copy()
     out["outer_fold"] = -1
     out["outer_group"] = out[group_col]

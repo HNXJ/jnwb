@@ -859,3 +859,75 @@ def test_every_poisoned_leaf_is_read(tmp_path):
     assert examined == len(LEAF), (
         f"{len(unread)} poisoned leaves are never read: {sorted(unread)}")
 
+
+def test_refuse_infinite_names_the_first_infinite_index_and_passes_nan():
+    """`refuse_infinite` refuses inf by index and lets NaN pass as missing."""
+    from jnwb._bins import refuse_infinite
+    refuse_infinite(np.array([1.0, np.nan, 2.0]), "some_function", "data")
+    with pytest.raises(ValueError) as err:
+        refuse_infinite(np.array([1.0, np.inf, 3.0, -np.inf]), "some_function", "data")
+    assert "data[1]" in str(err.value)
+    assert "inf" in str(err.value).lower()
+    with pytest.raises(ValueError) as err_neg:
+        refuse_infinite(np.array([1.0, 2.0, -np.inf]), "some_function", "data")
+    assert "data[2]" in str(err_neg.value)
+
+
+def test_epoch_continuous_refuses_an_infinite_imaginary_part():
+    """Complex data keeps its imaginary part through the inf check."""
+    from jnwb import epoch_continuous
+    data = np.ones(100, dtype=complex)
+    data[40] = complex(1.0, np.inf)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", np.exceptions.ComplexWarning)
+        with pytest.raises(ValueError, match=r"data\[40\]"):
+            epoch_continuous(data, np.array([0.5]), win_s=(0.0, 0.2), fs=100.0)
+
+
+def test_no_hand_written_infinite_refusal_remains_in_jnwb():
+    """Every inf-only refusal goes through `jnwb._bins.refuse_infinite`.
+
+    An offender is an `if` whose test reads `isinf` (directly, or through a
+    name bound to an `isinf` call in the same function) and whose body raises:
+    the hand-written shape this change replaces. `jnwb/_bins.py` holds the
+    mechanism itself and is excluded; the overflow guards are excluded by
+    construction, since their raises sit under zero or negative checks rather
+    than an `isinf` test.
+    """
+    import ast
+
+    root = Path(__file__).resolve().parents[1] / "jnwb"
+    files = sorted(root.rglob("*.py"))
+    assert len(files) > 0, "the scan examined no files"
+
+    def _has_isinf(node):
+        return any(isinstance(sub, ast.Attribute) and sub.attr == "isinf"
+                   for sub in ast.walk(node))
+
+    offenders = []
+    for path in files:
+        if path.parent == root and path.name == "_bins.py":
+            continue
+        tree = ast.parse(path.read_bytes().decode("utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            bound = set()
+            for sub in ast.walk(node):
+                targets, value = [], None
+                if isinstance(sub, ast.Assign):
+                    targets, value = sub.targets, sub.value
+                elif isinstance(sub, ast.AnnAssign) and sub.value is not None:
+                    targets, value = [sub.target], sub.value
+                if value is not None and _has_isinf(value):
+                    bound.update(t.id for t in targets if isinstance(t, ast.Name))
+            for sub in ast.walk(node):
+                if not isinstance(sub, ast.If):
+                    continue
+                reads = _has_isinf(sub.test) or any(
+                    isinstance(s, ast.Name) and s.id in bound
+                    for s in ast.walk(sub.test))
+                if reads and any(isinstance(s, ast.Raise) for s in ast.walk(sub)):
+                    offenders.append(f"{path.relative_to(root)}:{sub.lineno}")
+    assert offenders == [], f"hand-written infinite refusals remain: {offenders}"
+

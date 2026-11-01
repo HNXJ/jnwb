@@ -38,6 +38,7 @@ import pandas as pd
 from scipy import signal
 from scipy.ndimage import gaussian_filter1d
 
+from ._bins import refuse_infinite
 from ._dictlike import DictAccessMixin
 from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
 from .laminar import VFlip2Result, VFlipResult, XFlipResult, vflip, vflip2_from_lfp, xflip
@@ -234,8 +235,7 @@ def interpolate_channel_runs(
         ValueError: If ``bad_mask`` or ``blocked_mask`` does not match ``data.shape[0]``.
     """
     arr = np.array(data, dtype=float, copy=True)
-    if np.isinf(arr).any():
-        raise ValueError("interpolate_channel_runs: data holds an infinite value; NaN is allowed")
+    refuse_infinite(arr, "interpolate_channel_runs", "data")
     n = arr.shape[0]
     bad = np.asarray(bad_mask, dtype=bool)
     block = np.zeros(n, dtype=bool) if blocked_mask is None else np.asarray(blocked_mask, dtype=bool)

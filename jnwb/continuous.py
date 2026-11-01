@@ -9,6 +9,8 @@ from typing import Literal, Sequence
 import numpy as np
 from scipy import signal
 
+from ._bins import refuse_infinite
+
 
 BoundaryPolicy = Literal["nan", "error", "drop"]
 OnsetUnit = Literal["seconds", "samples"]
@@ -129,8 +131,8 @@ def epoch_continuous(
     arr = np.asarray(data)
     if arr.ndim not in (1, 2):
         raise ValueError(f"Continuous data must be 1D or 2D, got shape {arr.shape}")
-    if arr.dtype.kind in "fciub" and np.isinf(arr).any():
-        raise ValueError("epoch_continuous: data holds an infinite value; NaN is allowed")
+    if arr.dtype.kind in "fciub":
+        refuse_infinite(arr, "epoch_continuous", "data")
     if fs <= 0.0:
         raise ValueError(f"Sampling rate fs must be positive, got {fs}")
     start_s = float(start_s)
@@ -547,8 +549,7 @@ def gaze_departure_onsets(
         raise ValueError(
             f"gaze_departure_onsets: gaze must be 1-D or (n_samples, n_axes), got shape {g.shape}"
         )
-    if np.isinf(g).any():
-        raise ValueError("gaze_departure_onsets: gaze holds an infinite value; NaN is allowed")
+    refuse_infinite(g, "gaze_departure_onsets", "gaze")
     g = g.reshape(g.shape[0], -1)
     n = g.shape[0]
     if not (np.isfinite(rate) and rate > 0):
