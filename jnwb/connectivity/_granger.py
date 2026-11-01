@@ -7,9 +7,11 @@ import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from .._backend import CPU, CUDA, resolve_device, warn_device_fallback, warn_no_gpu_path
+from .._bins import refuse_nonfinite_times
 from .._spread import is_constant, zscore
 from .._layout import require_trial_length
 from .._rng import Default, RNGLike, resolve_seed_alias
+from .._units import _OMITTED, _check_signal_class
 from scipy import signal, stats
 from ..spectral import CANONICAL_BANDS
 from ..spectral._coupling import MIN_COHERENCE_NPERSEG, MIN_IDENTIFIABLE_SEGMENTS, welch_segment_count
@@ -338,6 +340,8 @@ def granger_causality(
     device: str = "cpu",
     ridge: float = 0.0,
     criterion: str = "aic",
+    *,
+    signal_class: Union[str, Tuple[str, str]] = _OMITTED,
 ) -> Dict[str, Union[float, dict, list]]:
     """
     Compute bivariate Granger Causality (GC) values between two continuous signals.
@@ -349,12 +353,18 @@ def granger_causality(
     GC as biological directionality when diagnostics warn. ``device_used`` names the
     device ('cpu' or 'cuda') that ran every fit.
 
+    ``signal_class`` names what the inputs are: ``'spikes'`` or ``'lfp'`` for both, or a
+    pair ``(class_1, class_2)``. A pair of different classes is refused, since spikes and
+    LFP are never pooled. Omitted, the call warns ``FutureWarning``; the argument becomes
+    required. It changes no number.
+
     References:
         Granger, C. W. J. (1969). Investigating causal relations by econometric models
         and cross-spectral methods. Econometrica. doi:10.2307/1912791 -- Granger
         causality: X Granger-predicts Y when the past of X improves the prediction of Y
         beyond the past of Y, a temporal-lag asymmetry rather than a causal effect.
     """
+    _check_signal_class("granger_causality", signal_class, 2)
     warnings.warn(
         "granger_causality is deprecated; use jnwb.granger, which returns DirectedResult.",
         DeprecationWarning,
@@ -362,6 +372,8 @@ def granger_causality(
     )
     s1 = np.asarray(signal1).flatten()
     s2 = np.asarray(signal2).flatten()
+    for _name, _s in (("signal1", s1), ("signal2", s2)):
+        refuse_nonfinite_times(_s, "granger_causality", _name)
 
     s1 = zscore(s1.astype(float), axis=0)
     s2 = zscore(s2.astype(float), axis=0)

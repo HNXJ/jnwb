@@ -7,6 +7,7 @@ from scipy import signal
 from .._backend import CUDA, resolve_device, warn_device_fallback
 from .._parallel import parallel_map
 from .._rng import DEFAULT_SEED, Default, RNGLike, recorded_rng
+from .._units import _OMITTED, _check_signal_class
 from ..permutation import _count_at_least_as_extreme
 from .._spread import is_constant as _is_constant
 from ._common import _require_band_bins, CANONICAL_BANDS, _resolve_fs
@@ -928,6 +929,8 @@ def imaginary_coherency(
     nperseg: Optional[int] = None,
     noverlap: Optional[int] = None,
     device: str = 'cpu',
+    *,
+    signal_class: Union[str, Tuple[str, str]] = _OMITTED,
 ) -> Dict[str, float]:
     """
     Imaginary part of coherency (Nolte et al. 2004) between two continuous signals.
@@ -953,6 +956,9 @@ def imaginary_coherency(
         noverlap: defaults to nperseg // 2.
         device: 'cpu' or 'cuda' (CuPy). A GPU failure warns and recomputes on the CPU;
             ``device_used`` records which ran.
+        signal_class: ``'spikes'`` or ``'lfp'`` for both traces, or a pair ``(class_1, class_2)``.
+            A pair of different classes is refused, since spikes and LFP are never pooled.
+            Omitted, the call warns ``FutureWarning``. It changes no number.
 
     Returns:
         dict with:
@@ -991,6 +997,7 @@ def imaginary_coherency(
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
         -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
+    _check_signal_class("imaginary_coherency", signal_class, 2)
     fs = _resolve_fs(fs, sampling_rate, "imaginary_coherency")
     _require_1d_pair(x, y, "imaginary_coherency")
     x = np.asarray(x, dtype=float).ravel()

@@ -1,4 +1,4 @@
-# Verifying a Written NWB File
+# Writing NWB
 
 `jnwb.verify_nwb` re-reads one written NWB file and reports what it found. It is the
 check every jnwb writer runs, public so a caller can re-run it.

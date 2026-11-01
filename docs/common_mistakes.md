@@ -271,7 +271,7 @@ lfp, fs = jnwb.acquisition_channel("session.nwb", channel=0)  # which acquisitio
 NWB constrains the container, not the contents. The code column is named by the file's author,
 and [Errors](errors.md#columnnotfounderror) says what the `codes` default does with a file that
 names it otherwise. A file may hold five interval tables, of which the one you
-want is not the first. Onsets are seconds here and milliseconds in plenty of other
+want is not the first. Onsets are seconds here and milliseconds in other
 toolboxes, and a continuous array may be stored time-by-channel or channel-by-time.
 
 The one of those jnwb resolves for you is the array orientation: `acquisition_channel`
@@ -328,7 +328,8 @@ from observations.
 
 ```python
 # An area with no units. The trajectory is not at the origin; there is no trajectory.
-res = jnwb.compute_population_trajectory(session, area="NONEXISTENT", epochs_df=epochs)
+res = jnwb.compute_population_trajectory(session, area="NONEXISTENT", epochs_df=epochs,
+                                         time_window_ms=(-1000, 2000))
 assert np.all(np.isnan(res["trajectory"]))
 assert np.all(np.isnan(res["explained_variance_ratio"]))
 
@@ -359,7 +360,7 @@ recorded through and did not fire in: that zero *was* observed, and it is correc
 ## 11. Onsets on a Different Clock from the Data
 
 ### The Mistake
-`start_time` is seconds in the NWB specification, and milliseconds in plenty of the
+`start_time` is seconds in the NWB specification, and milliseconds in the
 toolboxes that wrote the file you were handed. Nothing in the file says which, and the
 difference is a factor of 1000 that every function downstream will accept:
 
@@ -423,6 +424,27 @@ Screen units against cut-offs you state, report a measure the input cannot suppo
 `'Unknown'`) as not estimable, and leave the single-neuron claim unmade. The fifth safeguard of
 the [`jnwb-qc` skill](https://github.com/HNXJ/jnwb/blob/main/skills/jnwb-qc/SKILL.md) holds the
 rule.
+
+---
+
+## 13. A Coherence Graph Thresholded Without Distance
+
+### The Mistake
+Thresholding a coherence matrix keeps the edges field spread put there. Nearby contacts
+cohere through spread alone, so the graph is dense among neighbors and sparse between
+distant sites: one threshold keeps the spread edges and can drop a real far-pair
+interaction sitting below them.
+
+### The Correct Pattern
+Divide each edge by the mean coherence of the other pairs at its separation before
+thresholding: pairs one, two and three steps apart by their own separation's mean,
+farther pairs by the pooled far mean. The pair itself is left out of its baseline,
+so a strong edge cannot lift the bar it is read against. Dividing by the
+separation mean removes edges that are high only because they are near, and keeps
+an interaction that stands above its own separation. Nejat and Hajipour Sardouie
+(2021) normalize edge weights by how coherence changes with distance before comparing
+groups edge by edge ([Pitfalls](references.md#pitfalls)). `cross_area_coherence` with
+`network_topology` builds the graph; the distance-bin normalization is the caller's step.
 
 ---
 

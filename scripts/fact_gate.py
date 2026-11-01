@@ -85,6 +85,28 @@ Computed predicates:
                    its parameters show, and no declared caller reaches a declared callable of
                    a wider class (the graph's ``signature_types``); an examined count of zero
                    is a failure
+  signal_class    each operation fact I4 names has a keyword-only ``signal_class`` in its live
+                   signature and a declaration (the graph's ``signal_class``); an examined count
+                   of zero is a failure
+  delegation    no public callable tail-calls two or more distinct public callables
+                   (the graph's ``delegation``); an examined count of zero is a failure
+  nwb_side_effects  every public callable reaching a file write, transform or repair
+                   sink carries exactly one category of the ``mutation categories``
+                   constant in its declaration (the graph's ``nwb_side_effects``); an
+                   examined count of zero is a failure
+  cache_side_effects  every public callable reaching the cache-write sink carries
+                   exactly one category of the ``cache categories`` constant in its
+                   declaration (the graph's ``cache_side_effects``); an examined count
+                   of zero is a failure
+  reserved_errors  the two reserved refusal errors are defined as mutation errors,
+                   exported and documented reserved (the graph's ``reserved_errors``)
+  documented_guesses  no defaulted table or code-column name, preferred interval
+                   table, or layout basis lies outside the ``documented guesses``
+                   constant, and no row of it is stale (the graph's
+                   ``documented_guesses``)
+  cache_decisions  no call in ``jnwb/`` reaches the cache-write or cache-key
+                   function (the graph's ``cache_decisions``); an examined file count
+                   of zero is a failure
   claim_class_labels  no figure label, and no ``unit=`` literal of a call whose callee's name
                    ends in ``Result`` in ``jnwb/``, names a magnitude or direction estimand of
                    the claim table in ``docs/architecture.md`` while holding a term of a higher
@@ -101,6 +123,8 @@ Computed predicates:
   figure_owner_calls  the same sites in the docs figure generators and the plotting modules: a
                    figure function evaluates one instead of calling its owner (the graph's
                    ``figure_owner_calls``); an examined count of zero is a failure
+  planned_skills   each planned skill of ``PLANNED_SKILLS`` whose recorded K1 or K5 verdict is
+                   not HELD; the gate checks that the reviewer recorded HELD, not that K5 is true
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -133,8 +157,8 @@ Constants = Dict[str, List[str]]
 
 
 def live_items(todo_text: str, roadmap_text: str = "") -> List[str]:
-    """Item ids in the todo stack, read by the shared stack parser at every heading form, then those
-    of the roadmap's readable rows."""
+    """Item ids of the todo stack, read by the shared parser at every heading form, then the
+    roadmap's readable rows."""
     return ([i for i, _, _ in parse_todo_stack(todo_text)[0]]
             + [i for i, _ in roadmap_rows(roadmap_text)[0]])
 
@@ -264,6 +288,30 @@ def partition(graph: Graph, constants: Constants) -> List[str]:
                      for skill, count in sorted(counts.items()) if count < floor]
 
 
+# Planned skills (K5 and K1). The reviewer records each planned skill's K1 and K5 verdicts here,
+# with a reason. The gate checks that a reviewer recorded K1 and K5 as HELD; it does not check
+# that K5 is true. Empty: no planned skill ships in 0.2.15 (ruled 2026-10-25).
+PLANNED_SKILLS: Dict[str, Dict[str, str]] = {}
+
+
+def planned_skill_findings(planned: Sequence[Dict[str, Any]]) -> List[str]:
+    """Each planned skill whose recorded K1 or K5 verdict is not HELD; a missing verdict is not
+    HELD. Each record names its ``skill`` and gives ``K1`` and ``K5`` as (verdict, reason)."""
+    found = []
+    for record in planned:
+        for key in ("K1", "K5"):
+            if record.get(key, ("MISSING", ""))[0] != HELD:
+                found.append(f"{record['skill']}: {key} is not held")
+    return found
+
+
+def planned_skills(graph: Graph, constants: Constants) -> List[str]:
+    """Each planned skill of ``PLANNED_SKILLS`` whose recorded K1 or K5 verdict is not HELD."""
+    return planned_skill_findings([
+        {"skill": name, "K1": (v["K1"], v["reason"]), "K5": (v["K5"], v["reason"])}
+        for name, v in sorted(PLANNED_SKILLS.items())])
+
+
 def global_seeds(graph: Graph, constants: Constants) -> List[str]:
     """Each call, in a jnwb file, that seeds the global random state."""
     python = graph["entities"].get("python", [])
@@ -301,6 +349,12 @@ def scope_line(graph: Graph) -> str:
     """The number of text files the immunity rule examined, and the trees it exempts."""
     return (f"immunity_vocabulary examined {len(graph['entities'].get('prose', []))} text files; "
             f"exempt: {', '.join(build_fact_graph.PROSE_EXEMPT)}")
+
+
+def planned_scope_line() -> str:
+    """How many planned skills the K5 rule examined; zero is an empty pass, reported."""
+    n = len(PLANNED_SKILLS)
+    return f"planned_skills examined {n} planned skills"
 
 
 def skill_contracts(graph: Graph, constants: Constants) -> List[str]:
@@ -367,6 +421,62 @@ def signature_types(graph: Graph, constants: Constants) -> List[str]:
     return [f"{name}: {reason}" for name, reason in graph["relations"]["signature_types"]]
 
 
+def signal_class(graph: Graph, constants: Constants) -> List[str]:
+    """Each named generic-input operation that lacks a keyword-only ``signal_class`` or a
+    declaration, and the failure of a scan that examined no operation."""
+    if not graph["entities"].get("signal_class_examined"):
+        return ["the graph examined no named operation, so no signal class could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["signal_class"]]
+
+
+def delegation(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable that tail-calls two or more distinct public callables, and
+    the failure of a scan that examined no callable."""
+    if not graph["entities"].get("delegation_examined"):
+        return ["the graph examined no public callable, so no delegation could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["delegation"]]
+
+
+def nwb_side_effects(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable reaching a file write, transform or repair sink whose
+    declaration carries no single category of ``mutation categories``, each stale
+    categorized declaration, and the failure of a scan that examined no callable."""
+    if not graph["entities"].get("nwb_side_effects_examined"):
+        return ["the graph examined no public callable, so no NWB side effect could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["nwb_side_effects"]]
+
+
+def cache_side_effects(graph: Graph, constants: Constants) -> List[str]:
+    """Each public callable reaching the cache-write sink whose declaration carries no
+    single category of ``cache categories``, each stale categorized declaration, and
+    the failure of a scan that examined no callable."""
+    if not graph["entities"].get("cache_side_effects_examined"):
+        return ["the graph examined no public callable, so no cache side effect could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["cache_side_effects"]]
+
+
+def reserved_errors(graph: Graph, constants: Constants) -> List[str]:
+    """Each missing hold of the two reserved refusal errors."""
+    if not graph["entities"].get("reserved_examined"):
+        return ["the graph checked no reserved error, so no refusal could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["reserved_errors"]]
+
+
+def documented_guesses(graph: Graph, constants: Constants) -> List[str]:
+    """Each guess outside the ``documented guesses`` constant and each stale row of it."""
+    if not graph["entities"].get("guesses_examined"):
+        return ["the graph read no documented guess, so no guess could be checked"]
+    return [f"{name}: {reason}" for name, reason in graph["relations"]["documented_guesses"]]
+
+
+def cache_decisions(graph: Graph, constants: Constants) -> List[str]:
+    """Each call in ``jnwb/`` to the cache-write or cache-key function, and the failure
+    of a scan that examined no file."""
+    if not graph["entities"].get("cache_decisions_examined"):
+        return ["the graph examined no jnwb file, so no cache decision could be checked"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["cache_decisions"]]
+
+
 def claim_class_labels(graph: Graph, constants: Constants) -> List[str]:
     """Each figure label or ``*Result`` unit literal that names a magnitude or direction
     estimand while holding a term of a higher claim class, and the failure of a scan that
@@ -420,6 +530,7 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "lifecycle": lifecycle,
     "routes": routes,
     "partition": partition,
+    "planned_skills": planned_skills,
     "routed_citations": routed_citations,
     "global_seeds": global_seeds,
     "rng_parameters": rng_parameters,
@@ -433,6 +544,13 @@ COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "wrapper_defaults": wrapper_defaults,
     "choice_defaults": choice_defaults,
     "signature_types": signature_types,
+    "signal_class": signal_class,
+    "delegation": delegation,
+    "nwb_side_effects": nwb_side_effects,
+    "cache_side_effects": cache_side_effects,
+    "reserved_errors": reserved_errors,
+    "documented_guesses": documented_guesses,
+    "cache_decisions": cache_decisions,
     "claim_class_labels": claim_class_labels,
     "boundary_units": boundary_units,
     "owned_rules": owned_rules,
@@ -499,9 +617,9 @@ def evaluate(facts: Sequence[Dict[str, Any]], constants: Constants, graph: Graph
 def run(package: Any = None, root: Path = REPO_ROOT, facts_path: Optional[Path] = None,
         todo_path: Path = TODO_PATH, graph: Optional[Graph] = None,
         roadmap_path: Path = ROADMAP_PATH, *, release: bool = False):
-    """Build the fact graph (unless given) and evaluate every fact of the fact source. A missing
-    roadmap holds no item, so a ``todo:`` holder naming one is VIOLATED. A source that holds no
-    fact row is VIOLATED too: zero facts examined is no pass. With ``release`` set, a fact held
+    """Build the fact graph (unless given) and evaluate every fact of the source. A missing
+    roadmap holds no item, so a ``todo:`` holder naming one is VIOLATED. A source with no fact
+    row is VIOLATED too: zero facts examined is no pass. With ``release`` set, a fact held
     only by an item due in the declared release (``RELEASE_CYCLE``) is VIOLATED; the harness
     gate runs without it."""
     source = facts_path or build_fact_graph.FACT_STACK
@@ -537,6 +655,7 @@ def main() -> int:
             for reason in reasons:
                 print(f"  - {reason}")
     print(scope_line(graph))
+    print(planned_scope_line())
     counts = summary(results)
     print(", ".join(f"{status} {n}" for status, n in counts.items()))
     return 1 if counts[VIOLATED] else 0

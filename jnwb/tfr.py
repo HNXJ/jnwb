@@ -123,12 +123,18 @@ def morlet_wavelet(
         unit-energy normalization (section 3c, eq. 6); the default ``'amplitude'`` is
         this function's own, chosen so a unit cosine reads as amplitude 1.
     """
+    if not np.isfinite(f0):
+        raise ValueError(f"f0 must be finite, got {f0}")
     if f0 <= 0:
         raise ValueError(f"f0 must be positive, got {f0}")
+    if not np.isfinite(fs):
+        raise ValueError(f"fs must be finite, got {fs}")
     if fs <= 0:
         raise ValueError(f"fs must be positive, got {fs}")
     if f0 >= fs / 2.0:
         raise ValueError(f"f0 ({f0} Hz) must be below Nyquist limit ({fs / 2.0} Hz)")
+    if not np.isfinite(n_cycles):
+        raise ValueError(f"n_cycles must be finite, got {n_cycles}")
     if n_cycles <= 0:
         raise ValueError(f"n_cycles must be positive, got {n_cycles}")
 

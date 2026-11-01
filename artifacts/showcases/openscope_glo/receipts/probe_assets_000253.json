@@ -1,0 +1,846 @@
+{
+ "0.240503.0152": [
+  {
+   "path": "sub-621890/sub-621890_ses-1186358749_probe-2_ecephys.nwb",
+   "asset_id": "558626a5-43c8-4ae6-a69c-a0b0c6aea386",
+   "size": 5982848449
+  },
+  {
+   "path": "sub-621890/sub-621890_ses-1186358749_probe-3_ecephys.nwb",
+   "asset_id": "a76af573-96e2-4b45-a0b6-9fd2c931448e",
+   "size": 6285335013
+  },
+  {
+   "path": "sub-621890/sub-621890_ses-1186358749_probe-0_ecephys.nwb",
+   "asset_id": "78ac7c7f-6012-4ec7-a992-0c0ec62b4011",
+   "size": 8060450854
+  },
+  {
+   "path": "sub-621890/sub-621890_ses-1186358749_probe-5_ecephys.nwb",
+   "asset_id": "0f6b5fd3-944a-4d97-a167-451a852231c5",
+   "size": 7962656661
+  },
+  {
+   "path": "sub-621890/sub-621890_ses-1186358749_probe-1_ecephys.nwb",
+   "asset_id": "bee48312-b845-4780-b622-3ffe81c66643",
+   "size": 7610704809
+  },
+  {
+   "path": "sub-621890/sub-621890_ses-1186358749_probe-4_ecephys.nwb",
+   "asset_id": "a6d647f6-9cb1-43ca-a07a-cc43c7bb84b2",
+   "size": 7791182994
+  },
+  {
+   "path": "sub-632487/sub-632487_ses-1204677304_probe-2_ecephys.nwb",
+   "asset_id": "864f8afe-8e2e-49c0-806d-c637eeebf9c5",
+   "size": 7115015185
+  },
+  {
+   "path": "sub-632487/sub-632487_ses-1204677304_probe-1_ecephys.nwb",
+   "asset_id": "7d7ee72b-4f5e-4564-93a5-6614af86d359",
+   "size": 8486891839
+  },
+  {
+   "path": "sub-632487/sub-632487_ses-1204677304_probe-3_ecephys.nwb",
+   "asset_id": "29c72fa8-b6ec-478c-8542-6c5a6503b9b4",
+   "size": 8731228556
+  },
+  {
+   "path": "sub-632487/sub-632487_ses-1204677304_probe-4_ecephys.nwb",
+   "asset_id": "9a6fcffe-4ccd-416f-8184-842ab2c755f4",
+   "size": 9082014413
+  },
+  {
+   "path": "sub-632487/sub-632487_ses-1204677304_probe-0_ecephys.nwb",
+   "asset_id": "9fffc90e-7fab-42eb-905e-b6dd4fb0393a",
+   "size": 8218654117
+  },
+  {
+   "path": "sub-632487/sub-632487_ses-1204677304_probe-5_ecephys.nwb",
+   "asset_id": "bf2995dc-635a-4095-b71e-a749d6fe3f92",
+   "size": 8094859242
+  },
+  {
+   "path": "sub-637542/sub-637542_ses-1211241460_probe-1_ecephys.nwb",
+   "asset_id": "5724dfa8-b359-44aa-af91-327c8c8fdc3d",
+   "size": 5502123943
+  },
+  {
+   "path": "sub-637542/sub-637542_ses-1211241460_probe-3_ecephys.nwb",
+   "asset_id": "90b55907-c8b3-435a-ab2c-90a8cf78186c",
+   "size": 6924513627
+  },
+  {
+   "path": "sub-637542/sub-637542_ses-1211241460_probe-2_ecephys.nwb",
+   "asset_id": "12e6a3c4-6dfd-470f-b03d-0c5d149b36e4",
+   "size": 7815372303
+  },
+  {
+   "path": "sub-637542/sub-637542_ses-1211241460_probe-4_ecephys.nwb",
+   "asset_id": "67edcbed-c06d-418c-829a-eb501501c7a0",
+   "size": 7969382999
+  },
+  {
+   "path": "sub-637542/sub-637542_ses-1211241460_probe-0_ecephys.nwb",
+   "asset_id": "85d0561f-5579-4881-8842-b19614eebfe3",
+   "size": 5810579993
+  },
+  {
+   "path": "sub-637542/sub-637542_ses-1211241460_probe-5_ecephys.nwb",
+   "asset_id": "41461c9f-21f4-4d6b-9c36-bc60011eaf65",
+   "size": 7757237318
+  },
+  {
+   "path": "sub-632485/sub-632485_ses-1203581890_probe-1_ecephys.nwb",
+   "asset_id": "c271fd10-237b-4007-ad79-9e5628192f3f",
+   "size": 6783676278
+  },
+  {
+   "path": "sub-632485/sub-632485_ses-1203581890_probe-2_ecephys.nwb",
+   "asset_id": "6a69e1fb-8706-4553-b904-4b0e8442bc35",
+   "size": 7552289644
+  },
+  {
+   "path": "sub-632485/sub-632485_ses-1203581890_probe-5_ecephys.nwb",
+   "asset_id": "6d7b52ca-e3a7-44d9-8f11-fe4313180a9b",
+   "size": 8373279062
+  },
+  {
+   "path": "sub-632485/sub-632485_ses-1203581890_probe-3_ecephys.nwb",
+   "asset_id": "d24687ea-a534-4273-ad57-eff9ff8b6f6f",
+   "size": 8800200244
+  },
+  {
+   "path": "sub-632485/sub-632485_ses-1203581890_probe-4_ecephys.nwb",
+   "asset_id": "e22e718d-5339-4f7d-b90d-af5cbb82229d",
+   "size": 9191074354
+  },
+  {
+   "path": "sub-632485/sub-632485_ses-1203581890_probe-0_ecephys.nwb",
+   "asset_id": "e37b21ea-fba7-46a7-b519-82160786d1fc",
+   "size": 6593264827
+  },
+  {
+   "path": "sub-637909/sub-637909_ses-1212569512_probe-1_ecephys.nwb",
+   "asset_id": "5b082755-4736-4211-83cb-36ddc317bfd4",
+   "size": 7625889438
+  },
+  {
+   "path": "sub-637909/sub-637909_ses-1212569512_probe-4_ecephys.nwb",
+   "asset_id": "beaeac05-0fed-4737-bfd8-6e8f2483f659",
+   "size": 8332341006
+  },
+  {
+   "path": "sub-637909/sub-637909_ses-1212569512_probe-5_ecephys.nwb",
+   "asset_id": "05241f84-8c67-4f23-b713-e51435cf7318",
+   "size": 8810321856
+  },
+  {
+   "path": "sub-637909/sub-637909_ses-1212569512_probe-2_ecephys.nwb",
+   "asset_id": "1bb21e93-1518-4621-9587-5c077ac9822a",
+   "size": 7952493608
+  },
+  {
+   "path": "sub-637909/sub-637909_ses-1212569512_probe-0_ecephys.nwb",
+   "asset_id": "906dabf7-0cce-4f09-bfb1-2e60ac1bf145",
+   "size": 7742703872
+  },
+  {
+   "path": "sub-637909/sub-637909_ses-1212569512_probe-3_ecephys.nwb",
+   "asset_id": "64b9eeac-0dec-4f28-ab97-a82fab54edc4",
+   "size": 8710148196
+  },
+  {
+   "path": "sub-637908/sub-637908_ses-1213341633_probe-0_ecephys.nwb",
+   "asset_id": "adbedef0-3107-4145-b570-eb763c545556",
+   "size": 6948718962
+  },
+  {
+   "path": "sub-637908/sub-637908_ses-1213341633_probe-1_ecephys.nwb",
+   "asset_id": "a17e3968-e0f2-4fce-9ee9-1b90fbc45371",
+   "size": 8182147594
+  },
+  {
+   "path": "sub-637908/sub-637908_ses-1213341633_probe-5_ecephys.nwb",
+   "asset_id": "5e37813c-52db-4a6e-86da-97da8903ce51",
+   "size": 8994811260
+  },
+  {
+   "path": "sub-637908/sub-637908_ses-1213341633_probe-3_ecephys.nwb",
+   "asset_id": "6595c649-95ec-4a66-a3c4-103b27c9a4b3",
+   "size": 9008239457
+  },
+  {
+   "path": "sub-637908/sub-637908_ses-1213341633_probe-2_ecephys.nwb",
+   "asset_id": "0b6960c4-6826-4779-9c58-f077ccb0e362",
+   "size": 8035241025
+  },
+  {
+   "path": "sub-637908/sub-637908_ses-1213341633_probe-4_ecephys.nwb",
+   "asset_id": "fa3187ad-1fb0-4124-9ef7-cd8f22df1153",
+   "size": 8678800993
+  },
+  {
+   "path": "sub-640507/sub-640507_ses-1217213788_probe-0_ecephys.nwb",
+   "asset_id": "45af7549-490d-428a-8134-47742cffe039",
+   "size": 7532562802
+  },
+  {
+   "path": "sub-640507/sub-640507_ses-1217213788_probe-4_ecephys.nwb",
+   "asset_id": "ed47bd57-eaaf-46e4-9a2b-25cbc99419aa",
+   "size": 8245838689
+  },
+  {
+   "path": "sub-640507/sub-640507_ses-1217213788_probe-2_ecephys.nwb",
+   "asset_id": "e53dae4d-b1a8-4c2a-8db4-9b04fe2d464f",
+   "size": 7946055179
+  },
+  {
+   "path": "sub-640507/sub-640507_ses-1217213788_probe-3_ecephys.nwb",
+   "asset_id": "309989ce-9ec0-4168-af5a-def03ec84a96",
+   "size": 8352935616
+  },
+  {
+   "path": "sub-640507/sub-640507_ses-1217213788_probe-1_ecephys.nwb",
+   "asset_id": "e56d5379-9081-4e40-a636-32fc00c5eb3d",
+   "size": 7311439538
+  },
+  {
+   "path": "sub-640507/sub-640507_ses-1217213788_probe-5_ecephys.nwb",
+   "asset_id": "73a4842f-76a6-4776-8332-43a9d42ccedb",
+   "size": 8176773906
+  },
+  {
+   "path": "sub-647836/sub-647836_ses-1227858756_probe-0_ecephys.nwb",
+   "asset_id": "d0033a73-6fc0-41a2-98d7-ca6689d41b0c",
+   "size": 5317944905
+  },
+  {
+   "path": "sub-647836/sub-647836_ses-1227858756_probe-4_ecephys.nwb",
+   "asset_id": "37bb180c-4729-4a89-bc36-3588ff612666",
+   "size": 7139548985
+  },
+  {
+   "path": "sub-647836/sub-647836_ses-1227858756_probe-2_ecephys.nwb",
+   "asset_id": "6fbc35c9-6bda-4771-b7ee-bb360540db9f",
+   "size": 6787300309
+  },
+  {
+   "path": "sub-647836/sub-647836_ses-1227858756_probe-1_ecephys.nwb",
+   "asset_id": "a70710a6-a2b8-4a91-83ef-f0dc67b05023",
+   "size": 7109744289
+  },
+  {
+   "path": "sub-647836/sub-647836_ses-1227858756_probe-3_ecephys.nwb",
+   "asset_id": "9b9375cf-1194-414a-87d8-4cea104e260b",
+   "size": 7660358222
+  },
+  {
+   "path": "sub-647836/sub-647836_ses-1227858756_probe-5_ecephys.nwb",
+   "asset_id": "51c7902c-43a5-4d20-a90b-fbd33932705a",
+   "size": 7091848064
+  },
+  {
+   "path": "sub-645324/sub-645324_ses-1226788689_probe-0_ecephys.nwb",
+   "asset_id": "556b940f-ce8d-45be-ae0e-69df7a672096",
+   "size": 7117808867
+  },
+  {
+   "path": "sub-645324/sub-645324_ses-1226788689_probe-5_ecephys.nwb",
+   "asset_id": "97d352d2-5ea3-4ea1-b792-81560e327858",
+   "size": 7473926142
+  },
+  {
+   "path": "sub-645324/sub-645324_ses-1226788689_probe-4_ecephys.nwb",
+   "asset_id": "0c806188-bb59-4065-953c-1701450b2393",
+   "size": 7796015058
+  },
+  {
+   "path": "sub-645324/sub-645324_ses-1226788689_probe-3_ecephys.nwb",
+   "asset_id": "4726fab5-96f2-44d5-991c-2a076aa26fe5",
+   "size": 7853688777
+  },
+  {
+   "path": "sub-645324/sub-645324_ses-1226788689_probe-2_ecephys.nwb",
+   "asset_id": "26f007c1-a698-46d3-b173-7775c668e1f7",
+   "size": 6999095953
+  },
+  {
+   "path": "sub-645324/sub-645324_ses-1226788689_probe-1_ecephys.nwb",
+   "asset_id": "1fed0b25-db64-42eb-b103-97847d96ba5c",
+   "size": 6967784326
+  },
+  {
+   "path": "sub-645495/sub-645495_ses-1224930300_probe-1_ecephys.nwb",
+   "asset_id": "74b44751-5c38-4e49-94d4-d278e0e567c6",
+   "size": 7136256146
+  },
+  {
+   "path": "sub-645495/sub-645495_ses-1224930300_probe-5_ecephys.nwb",
+   "asset_id": "56fe7b11-d682-49cd-80a1-55092e0d5235",
+   "size": 7549970488
+  },
+  {
+   "path": "sub-645495/sub-645495_ses-1224930300_probe-0_ecephys.nwb",
+   "asset_id": "d0a8a30d-052d-4da9-80f3-c5ea9af18dee",
+   "size": 6941975332
+  },
+  {
+   "path": "sub-645495/sub-645495_ses-1224930300_probe-3_ecephys.nwb",
+   "asset_id": "54dddb3d-9fa6-415e-aea3-38fd0dde2773",
+   "size": 7712213019
+  },
+  {
+   "path": "sub-645495/sub-645495_ses-1224930300_probe-2_ecephys.nwb",
+   "asset_id": "e787943a-30f1-45e9-8e3a-96d742226b2d",
+   "size": 7213597286
+  },
+  {
+   "path": "sub-645495/sub-645495_ses-1224930300_probe-4_ecephys.nwb",
+   "asset_id": "02eca5d4-3d23-4f32-99a9-cf116fa93f32",
+   "size": 7392888004
+  },
+  {
+   "path": "sub-642507/sub-642507_ses-1221092548_probe-4_ecephys.nwb",
+   "asset_id": "0768b1ae-0294-4853-af70-3c6a24e85bb3",
+   "size": 7672192473
+  },
+  {
+   "path": "sub-642507/sub-642507_ses-1221092548_probe-1_ecephys.nwb",
+   "asset_id": "8c0f4fab-564a-428d-8ecb-f68fe9daf36f",
+   "size": 8029949092
+  },
+  {
+   "path": "sub-642507/sub-642507_ses-1221092548_probe-3_ecephys.nwb",
+   "asset_id": "de8b0b13-7112-4b25-9f0f-76bc0114a47f",
+   "size": 8157864360
+  },
+  {
+   "path": "sub-642507/sub-642507_ses-1221092548_probe-0_ecephys.nwb",
+   "asset_id": "6ad3327c-4f26-48c9-ab03-3df43801b53b",
+   "size": 9023680389
+  },
+  {
+   "path": "sub-642507/sub-642507_ses-1221092548_probe-2_ecephys.nwb",
+   "asset_id": "9909e61e-cc68-47d4-9442-73942bb26ab0",
+   "size": 7635559082
+  },
+  {
+   "path": "sub-642507/sub-642507_ses-1221092548_probe-5_ecephys.nwb",
+   "asset_id": "5b42adda-ef3f-4fc1-bfae-51a6abb79fcc",
+   "size": 8652029798
+  },
+  {
+   "path": "sub-649324/sub-649324_ses-1233182025_probe-0_ecephys.nwb",
+   "asset_id": "36594352-3ccf-4c8d-b170-bb1507acbd7a",
+   "size": 6983756713
+  },
+  {
+   "path": "sub-649324/sub-649324_ses-1233182025_probe-2_ecephys.nwb",
+   "asset_id": "29173ba5-94e4-4b22-8cbd-e89f66721d16",
+   "size": 6990356781
+  },
+  {
+   "path": "sub-649324/sub-649324_ses-1233182025_probe-3_ecephys.nwb",
+   "asset_id": "cbbd1ff3-d141-49ea-8305-e110a5e9c959",
+   "size": 7633089733
+  },
+  {
+   "path": "sub-649324/sub-649324_ses-1233182025_probe-1_ecephys.nwb",
+   "asset_id": "78de6769-deb4-440c-a30e-3cac1c6b2844",
+   "size": 6675758510
+  },
+  {
+   "path": "sub-649324/sub-649324_ses-1233182025_probe-5_ecephys.nwb",
+   "asset_id": "0ec2467b-b68e-4a3c-a798-b865ef1c1e21",
+   "size": 7404029889
+  },
+  {
+   "path": "sub-649324/sub-649324_ses-1233182025_probe-4_ecephys.nwb",
+   "asset_id": "5a4119e7-f2e1-4e39-825d-1560d1ea60cb",
+   "size": 7334747092
+  },
+  {
+   "path": "sub-645322/sub-645322_ses-1226526314_probe-2_ecephys.nwb",
+   "asset_id": "f016d6e5-94b8-4255-a2bb-94a5efc97344",
+   "size": 7166187376
+  },
+  {
+   "path": "sub-645322/sub-645322_ses-1226526314_probe-3_ecephys.nwb",
+   "asset_id": "70066d21-42cc-492a-bb0c-b86d9adbf68e",
+   "size": 7615635674
+  },
+  {
+   "path": "sub-645322/sub-645322_ses-1226526314_probe-5_ecephys.nwb",
+   "asset_id": "94ddc2c8-7689-44ad-8709-652328de8bd7",
+   "size": 7688448525
+  },
+  {
+   "path": "sub-645322/sub-645322_ses-1226526314_probe-4_ecephys.nwb",
+   "asset_id": "3d9ef58e-0c1a-432a-b6b0-e5cc66d1dd39",
+   "size": 7481433745
+  },
+  {
+   "path": "sub-645322/sub-645322_ses-1226526314_probe-0_ecephys.nwb",
+   "asset_id": "92bddc74-8d44-43af-ad73-65c831b31bde",
+   "size": 6941975332
+  },
+  {
+   "path": "sub-645322/sub-645322_ses-1226526314_probe-1_ecephys.nwb",
+   "asset_id": "95255246-69fa-4e9b-a21e-068092a6c637",
+   "size": 6976297263
+  },
+  {
+   "path": "sub-649323/sub-649323_ses-1232959154_probe-0_ecephys.nwb",
+   "asset_id": "15c2b845-f8e8-4746-90b2-fa0a15691d60",
+   "size": 1971004418
+  },
+  {
+   "path": "sub-649323/sub-649323_ses-1232959154_probe-5_ecephys.nwb",
+   "asset_id": "2747ef1b-a44f-4861-9b10-d602480b54b1",
+   "size": 2058132877
+  },
+  {
+   "path": "sub-649323/sub-649323_ses-1232959154_probe-3_ecephys.nwb",
+   "asset_id": "dbe26381-0efc-4527-a29b-c52ed2d5b117",
+   "size": 2168658070
+  },
+  {
+   "path": "sub-649323/sub-649323_ses-1232959154_probe-4_ecephys.nwb",
+   "asset_id": "a8e0b38b-f74c-4597-bb38-0a1a02226805",
+   "size": 2079303850
+  },
+  {
+   "path": "sub-649323/sub-649323_ses-1232959154_probe-2_ecephys.nwb",
+   "asset_id": "31e6c5e9-8729-4fb5-9424-0d8bae6027ef",
+   "size": 2013038217
+  },
+  {
+   "path": "sub-649323/sub-649323_ses-1232959154_probe-1_ecephys.nwb",
+   "asset_id": "56e98383-75da-4da3-a61d-39b6f814d9e5",
+   "size": 1906777325
+  }
+ ],
+ "0.240923.1441": [
+  {
+   "path": "sub-621890/sub-621890_ses-1186358749_probe-2_ecephys.nwb",
+   "asset_id": "558626a5-43c8-4ae6-a69c-a0b0c6aea386",
+   "size": 5982848449
+  },
+  {
+   "path": "sub-621890/sub-621890_ses-1186358749_probe-3_ecephys.nwb",
+   "asset_id": "a76af573-96e2-4b45-a0b6-9fd2c931448e",
+   "size": 6285335013
+  },
+  {
+   "path": "sub-621890/sub-621890_ses-1186358749_probe-0_ecephys.nwb",
+   "asset_id": "78ac7c7f-6012-4ec7-a992-0c0ec62b4011",
+   "size": 8060450854
+  },
+  {
+   "path": "sub-621890/sub-621890_ses-1186358749_probe-5_ecephys.nwb",
+   "asset_id": "0f6b5fd3-944a-4d97-a167-451a852231c5",
+   "size": 7962656661
+  },
+  {
+   "path": "sub-621890/sub-621890_ses-1186358749_probe-1_ecephys.nwb",
+   "asset_id": "bee48312-b845-4780-b622-3ffe81c66643",
+   "size": 7610704809
+  },
+  {
+   "path": "sub-621890/sub-621890_ses-1186358749_probe-4_ecephys.nwb",
+   "asset_id": "a6d647f6-9cb1-43ca-a07a-cc43c7bb84b2",
+   "size": 7791182994
+  },
+  {
+   "path": "sub-632487/sub-632487_ses-1204677304_probe-2_ecephys.nwb",
+   "asset_id": "864f8afe-8e2e-49c0-806d-c637eeebf9c5",
+   "size": 7115015185
+  },
+  {
+   "path": "sub-632487/sub-632487_ses-1204677304_probe-1_ecephys.nwb",
+   "asset_id": "7d7ee72b-4f5e-4564-93a5-6614af86d359",
+   "size": 8486891839
+  },
+  {
+   "path": "sub-632487/sub-632487_ses-1204677304_probe-3_ecephys.nwb",
+   "asset_id": "29c72fa8-b6ec-478c-8542-6c5a6503b9b4",
+   "size": 8731228556
+  },
+  {
+   "path": "sub-632487/sub-632487_ses-1204677304_probe-4_ecephys.nwb",
+   "asset_id": "9a6fcffe-4ccd-416f-8184-842ab2c755f4",
+   "size": 9082014413
+  },
+  {
+   "path": "sub-632487/sub-632487_ses-1204677304_probe-0_ecephys.nwb",
+   "asset_id": "9fffc90e-7fab-42eb-905e-b6dd4fb0393a",
+   "size": 8218654117
+  },
+  {
+   "path": "sub-632487/sub-632487_ses-1204677304_probe-5_ecephys.nwb",
+   "asset_id": "bf2995dc-635a-4095-b71e-a749d6fe3f92",
+   "size": 8094859242
+  },
+  {
+   "path": "sub-637542/sub-637542_ses-1211241460_probe-1_ecephys.nwb",
+   "asset_id": "5724dfa8-b359-44aa-af91-327c8c8fdc3d",
+   "size": 5502123943
+  },
+  {
+   "path": "sub-637542/sub-637542_ses-1211241460_probe-3_ecephys.nwb",
+   "asset_id": "90b55907-c8b3-435a-ab2c-90a8cf78186c",
+   "size": 6924513627
+  },
+  {
+   "path": "sub-637542/sub-637542_ses-1211241460_probe-2_ecephys.nwb",
+   "asset_id": "12e6a3c4-6dfd-470f-b03d-0c5d149b36e4",
+   "size": 7815372303
+  },
+  {
+   "path": "sub-637542/sub-637542_ses-1211241460_probe-4_ecephys.nwb",
+   "asset_id": "67edcbed-c06d-418c-829a-eb501501c7a0",
+   "size": 7969382999
+  },
+  {
+   "path": "sub-637542/sub-637542_ses-1211241460_probe-0_ecephys.nwb",
+   "asset_id": "85d0561f-5579-4881-8842-b19614eebfe3",
+   "size": 5810579993
+  },
+  {
+   "path": "sub-637542/sub-637542_ses-1211241460_probe-5_ecephys.nwb",
+   "asset_id": "41461c9f-21f4-4d6b-9c36-bc60011eaf65",
+   "size": 7757237318
+  },
+  {
+   "path": "sub-632485/sub-632485_ses-1203581890_probe-1_ecephys.nwb",
+   "asset_id": "c271fd10-237b-4007-ad79-9e5628192f3f",
+   "size": 6783676278
+  },
+  {
+   "path": "sub-632485/sub-632485_ses-1203581890_probe-2_ecephys.nwb",
+   "asset_id": "6a69e1fb-8706-4553-b904-4b0e8442bc35",
+   "size": 7552289644
+  },
+  {
+   "path": "sub-632485/sub-632485_ses-1203581890_probe-5_ecephys.nwb",
+   "asset_id": "6d7b52ca-e3a7-44d9-8f11-fe4313180a9b",
+   "size": 8373279062
+  },
+  {
+   "path": "sub-632485/sub-632485_ses-1203581890_probe-3_ecephys.nwb",
+   "asset_id": "d24687ea-a534-4273-ad57-eff9ff8b6f6f",
+   "size": 8800200244
+  },
+  {
+   "path": "sub-632485/sub-632485_ses-1203581890_probe-4_ecephys.nwb",
+   "asset_id": "e22e718d-5339-4f7d-b90d-af5cbb82229d",
+   "size": 9191074354
+  },
+  {
+   "path": "sub-632485/sub-632485_ses-1203581890_probe-0_ecephys.nwb",
+   "asset_id": "e37b21ea-fba7-46a7-b519-82160786d1fc",
+   "size": 6593264827
+  },
+  {
+   "path": "sub-637909/sub-637909_ses-1212569512_probe-1_ecephys.nwb",
+   "asset_id": "5b082755-4736-4211-83cb-36ddc317bfd4",
+   "size": 7625889438
+  },
+  {
+   "path": "sub-637909/sub-637909_ses-1212569512_probe-4_ecephys.nwb",
+   "asset_id": "beaeac05-0fed-4737-bfd8-6e8f2483f659",
+   "size": 8332341006
+  },
+  {
+   "path": "sub-637909/sub-637909_ses-1212569512_probe-5_ecephys.nwb",
+   "asset_id": "05241f84-8c67-4f23-b713-e51435cf7318",
+   "size": 8810321856
+  },
+  {
+   "path": "sub-637909/sub-637909_ses-1212569512_probe-2_ecephys.nwb",
+   "asset_id": "1bb21e93-1518-4621-9587-5c077ac9822a",
+   "size": 7952493608
+  },
+  {
+   "path": "sub-637909/sub-637909_ses-1212569512_probe-0_ecephys.nwb",
+   "asset_id": "906dabf7-0cce-4f09-bfb1-2e60ac1bf145",
+   "size": 7742703872
+  },
+  {
+   "path": "sub-637909/sub-637909_ses-1212569512_probe-3_ecephys.nwb",
+   "asset_id": "64b9eeac-0dec-4f28-ab97-a82fab54edc4",
+   "size": 8710148196
+  },
+  {
+   "path": "sub-637908/sub-637908_ses-1213341633_probe-0_ecephys.nwb",
+   "asset_id": "adbedef0-3107-4145-b570-eb763c545556",
+   "size": 6948718962
+  },
+  {
+   "path": "sub-637908/sub-637908_ses-1213341633_probe-1_ecephys.nwb",
+   "asset_id": "a17e3968-e0f2-4fce-9ee9-1b90fbc45371",
+   "size": 8182147594
+  },
+  {
+   "path": "sub-637908/sub-637908_ses-1213341633_probe-5_ecephys.nwb",
+   "asset_id": "5e37813c-52db-4a6e-86da-97da8903ce51",
+   "size": 8994811260
+  },
+  {
+   "path": "sub-637908/sub-637908_ses-1213341633_probe-3_ecephys.nwb",
+   "asset_id": "6595c649-95ec-4a66-a3c4-103b27c9a4b3",
+   "size": 9008239457
+  },
+  {
+   "path": "sub-637908/sub-637908_ses-1213341633_probe-2_ecephys.nwb",
+   "asset_id": "0b6960c4-6826-4779-9c58-f077ccb0e362",
+   "size": 8035241025
+  },
+  {
+   "path": "sub-637908/sub-637908_ses-1213341633_probe-4_ecephys.nwb",
+   "asset_id": "fa3187ad-1fb0-4124-9ef7-cd8f22df1153",
+   "size": 8678800993
+  },
+  {
+   "path": "sub-640507/sub-640507_ses-1217213788_probe-0_ecephys.nwb",
+   "asset_id": "45af7549-490d-428a-8134-47742cffe039",
+   "size": 7532562802
+  },
+  {
+   "path": "sub-640507/sub-640507_ses-1217213788_probe-4_ecephys.nwb",
+   "asset_id": "ed47bd57-eaaf-46e4-9a2b-25cbc99419aa",
+   "size": 8245838689
+  },
+  {
+   "path": "sub-640507/sub-640507_ses-1217213788_probe-2_ecephys.nwb",
+   "asset_id": "e53dae4d-b1a8-4c2a-8db4-9b04fe2d464f",
+   "size": 7946055179
+  },
+  {
+   "path": "sub-640507/sub-640507_ses-1217213788_probe-3_ecephys.nwb",
+   "asset_id": "309989ce-9ec0-4168-af5a-def03ec84a96",
+   "size": 8352935616
+  },
+  {
+   "path": "sub-640507/sub-640507_ses-1217213788_probe-1_ecephys.nwb",
+   "asset_id": "e56d5379-9081-4e40-a636-32fc00c5eb3d",
+   "size": 7311439538
+  },
+  {
+   "path": "sub-640507/sub-640507_ses-1217213788_probe-5_ecephys.nwb",
+   "asset_id": "73a4842f-76a6-4776-8332-43a9d42ccedb",
+   "size": 8176773906
+  },
+  {
+   "path": "sub-642507/sub-642507_ses-1221092548_probe-1_ecephys.nwb",
+   "asset_id": "6a343e05-5575-4cb9-ab5d-a41e12fd5142",
+   "size": 8070071215
+  },
+  {
+   "path": "sub-642507/sub-642507_ses-1221092548_probe-3_ecephys.nwb",
+   "asset_id": "35eee3ec-af28-4398-85c0-fd5be22cade8",
+   "size": 8198236271
+  },
+  {
+   "path": "sub-642507/sub-642507_ses-1221092548_probe-2_ecephys.nwb",
+   "asset_id": "849b757f-8689-4bd8-b066-6309375a0cf6",
+   "size": 7675700007
+  },
+  {
+   "path": "sub-642507/sub-642507_ses-1221092548_probe-0_ecephys.nwb",
+   "asset_id": "c63f3de0-42cf-4239-ac5b-3af1075d51bc",
+   "size": 9062760342
+  },
+  {
+   "path": "sub-642507/sub-642507_ses-1221092548_probe-4_ecephys.nwb",
+   "asset_id": "ba52f6c9-be5f-4752-8e52-65a0e5c8380d",
+   "size": 7712237655
+  },
+  {
+   "path": "sub-642507/sub-642507_ses-1221092548_probe-5_ecephys.nwb",
+   "asset_id": "1930e969-032e-4d40-8702-5b8fc2cadbc4",
+   "size": 8692557167
+  },
+  {
+   "path": "sub-649324/sub-649324_ses-1233182025_probe-3_ecephys.nwb",
+   "asset_id": "63e440a8-4591-461c-9db4-9443085114ce",
+   "size": 7672724522
+  },
+  {
+   "path": "sub-649324/sub-649324_ses-1233182025_probe-2_ecephys.nwb",
+   "asset_id": "8378cf98-1be5-44b9-bc85-7e6dccfc6164",
+   "size": 7029582104
+  },
+  {
+   "path": "sub-649324/sub-649324_ses-1233182025_probe-1_ecephys.nwb",
+   "asset_id": "5ff06474-08b8-4d80-8256-e2dbfe6ec291",
+   "size": 6713058231
+  },
+  {
+   "path": "sub-649324/sub-649324_ses-1233182025_probe-0_ecephys.nwb",
+   "asset_id": "0cf7548f-d9a6-404b-bc09-52441436c471",
+   "size": 7022855651
+  },
+  {
+   "path": "sub-649324/sub-649324_ses-1233182025_probe-4_ecephys.nwb",
+   "asset_id": "fc765e36-2dbc-448e-9c1c-e84c10efcaf5",
+   "size": 7374233950
+  },
+  {
+   "path": "sub-649324/sub-649324_ses-1233182025_probe-5_ecephys.nwb",
+   "asset_id": "6d9c0657-b2f1-43d2-8d8a-6cea94983bcc",
+   "size": 7443156990
+  },
+  {
+   "path": "sub-645322/sub-645322_ses-1226526314_probe-1_ecephys.nwb",
+   "asset_id": "523a8db5-ff7d-41f1-b0af-885ae876095b",
+   "size": 7015129294
+  },
+  {
+   "path": "sub-645322/sub-645322_ses-1226526314_probe-0_ecephys.nwb",
+   "asset_id": "70783c6a-5de6-4cf8-8c6a-72d3eec3266e",
+   "size": 6981061544
+  },
+  {
+   "path": "sub-645322/sub-645322_ses-1226526314_probe-3_ecephys.nwb",
+   "asset_id": "d9fdd6c1-6d8a-4128-b011-3a190989a558",
+   "size": 7654466763
+  },
+  {
+   "path": "sub-645322/sub-645322_ses-1226526314_probe-2_ecephys.nwb",
+   "asset_id": "5d89a5e8-9f51-4860-9164-84e30c67c78c",
+   "size": 7204789731
+  },
+  {
+   "path": "sub-645322/sub-645322_ses-1226526314_probe-4_ecephys.nwb",
+   "asset_id": "27a33358-7276-496f-bfc6-489388c7ad8e",
+   "size": 7520258592
+  },
+  {
+   "path": "sub-645322/sub-645322_ses-1226526314_probe-5_ecephys.nwb",
+   "asset_id": "773d1170-ef73-4ce2-a88a-9f2bc20382d2",
+   "size": 7727133690
+  },
+  {
+   "path": "sub-649323/sub-649323_ses-1232959154_probe-0_ecephys.nwb",
+   "asset_id": "b0199176-79df-4080-96af-8723e925fdb8",
+   "size": 7855640541
+  },
+  {
+   "path": "sub-649323/sub-649323_ses-1232959154_probe-1_ecephys.nwb",
+   "asset_id": "347940ea-6d34-4b0d-8e28-17aaf7b3f937",
+   "size": 7551237235
+  },
+  {
+   "path": "sub-649323/sub-649323_ses-1232959154_probe-2_ecephys.nwb",
+   "asset_id": "436bf3fd-a9b8-4a48-baff-bb1b1308a79c",
+   "size": 7968658658
+  },
+  {
+   "path": "sub-649323/sub-649323_ses-1232959154_probe-3_ecephys.nwb",
+   "asset_id": "31dcc1e7-ccdf-447a-8ac6-095e41820b38",
+   "size": 8593182241
+  },
+  {
+   "path": "sub-649323/sub-649323_ses-1232959154_probe-4_ecephys.nwb",
+   "asset_id": "2cb5f930-d199-4243-bb9e-1a42bc58e34a",
+   "size": 8242602776
+  },
+  {
+   "path": "sub-649323/sub-649323_ses-1232959154_probe-5_ecephys.nwb",
+   "asset_id": "9d98fdb2-eceb-4eb7-bc79-881a6a3abe56",
+   "size": 8153669553
+  },
+  {
+   "path": "sub-647836/sub-647836_ses-1227858756_probe-0_ecephys.nwb",
+   "asset_id": "9bf49da6-0b57-435f-8223-e1d9c109937a",
+   "size": 5356885029
+  },
+  {
+   "path": "sub-647836/sub-647836_ses-1227858756_probe-2_ecephys.nwb",
+   "asset_id": "8dc30c56-6085-4f7a-97ef-593e1163ae5c",
+   "size": 6826317360
+  },
+  {
+   "path": "sub-647836/sub-647836_ses-1227858756_probe-1_ecephys.nwb",
+   "asset_id": "4dd1def0-a8e7-4efb-9e65-6a1591b9b6b9",
+   "size": 7148633511
+  },
+  {
+   "path": "sub-647836/sub-647836_ses-1227858756_probe-3_ecephys.nwb",
+   "asset_id": "c8220659-ad00-4568-a498-6acc7d5d35ff",
+   "size": 7699384054
+  },
+  {
+   "path": "sub-647836/sub-647836_ses-1227858756_probe-5_ecephys.nwb",
+   "asset_id": "7f201c91-e9ac-494d-aa18-3a94cdc74378",
+   "size": 7130443691
+  },
+  {
+   "path": "sub-647836/sub-647836_ses-1227858756_probe-4_ecephys.nwb",
+   "asset_id": "bda5d8e6-7033-4030-aeb2-bc4e76e90266",
+   "size": 7178618617
+  },
+  {
+   "path": "sub-645495/sub-645495_ses-1224930300_probe-3_ecephys.nwb",
+   "asset_id": "b8bb4620-45b2-49ec-b886-e4780776fed2",
+   "size": 7581739412
+  },
+  {
+   "path": "sub-645495/sub-645495_ses-1224930300_probe-0_ecephys.nwb",
+   "asset_id": "8859f96b-f593-4dd6-a6f9-76eaceb81bb3",
+   "size": 6961832913
+  },
+  {
+   "path": "sub-645495/sub-645495_ses-1224930300_probe-1_ecephys.nwb",
+   "asset_id": "425e00d0-3b4e-4938-a12f-b62e18d83bf4",
+   "size": 7210107407
+  },
+  {
+   "path": "sub-645495/sub-645495_ses-1224930300_probe-2_ecephys.nwb",
+   "asset_id": "7636c719-55ba-4d7b-aaa1-8a44d93d6c76",
+   "size": 7099723079
+  },
+  {
+   "path": "sub-645495/sub-645495_ses-1224930300_probe-5_ecephys.nwb",
+   "asset_id": "c4b6586e-e166-4fa8-b5d1-1963551668c1",
+   "size": 7566964387
+  },
+  {
+   "path": "sub-645495/sub-645495_ses-1224930300_probe-4_ecephys.nwb",
+   "asset_id": "3d74af1f-6717-4aac-89da-099c884ed90e",
+   "size": 7354726581
+  },
+  {
+   "path": "sub-645324/sub-645324_ses-1226788689_probe-1_ecephys.nwb",
+   "asset_id": "1c362af9-67e8-4330-8b7f-bce140ef4e0b",
+   "size": 7126812926
+  },
+  {
+   "path": "sub-645324/sub-645324_ses-1226788689_probe-0_ecephys.nwb",
+   "asset_id": "21138665-a3e6-4f76-b217-b6ec0393f0e9",
+   "size": 7696750677
+  },
+  {
+   "path": "sub-645324/sub-645324_ses-1226788689_probe-2_ecephys.nwb",
+   "asset_id": "3565016d-4a02-4b57-84cc-35861aeefe3b",
+   "size": 7289878627
+  },
+  {
+   "path": "sub-645324/sub-645324_ses-1226788689_probe-3_ecephys.nwb",
+   "asset_id": "1033fabe-11ce-4ae0-a8c4-1c43bf297baa",
+   "size": 8170487087
+  },
+  {
+   "path": "sub-645324/sub-645324_ses-1226788689_probe-4_ecephys.nwb",
+   "asset_id": "ea8d4680-660a-4517-8b58-0ba495cf6f27",
+   "size": 8313789826
+  },
+  {
+   "path": "sub-645324/sub-645324_ses-1226788689_probe-5_ecephys.nwb",
+   "asset_id": "6dcf2ab9-a811-42a7-8d58-5f421f7ad8ec",
+   "size": 7763710092
+  }
+ ]
+}

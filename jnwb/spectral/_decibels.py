@@ -25,6 +25,9 @@ def to_db(ratio):
     """``10*log10(ratio)`` with divide and invalid warnings silenced — average power, divide
     by baseline, then take the logarithm exactly once.
 
+    A NaN ratio stays NaN and an infinite ratio stays infinite: this is a bare
+    conversion, so non-finite values propagate instead of raising.
+
     The formula itself is :func:`_ratio_to_db`, shared with ``band_power``, which calls it
     directly so a zero band still warns.
     """

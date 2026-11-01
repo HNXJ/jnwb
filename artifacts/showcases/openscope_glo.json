@@ -99,7 +99,7 @@
     "Session 1186358749 follows a different block design and is excluded."
    ],
    "code": {
-    "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+    "location": "artifacts/showcases/openscope_glo",
     "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
    },
    "receipts": [
@@ -239,7 +239,7 @@
     "Independent check reproduced the C2 cells only."
    ],
    "code": {
-    "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+    "location": "artifacts/showcases/openscope_glo",
     "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
    },
    "receipts": [
@@ -373,7 +373,7 @@
     "Session 1186358749 excluded (no main 2)."
    ],
    "code": {
-    "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+    "location": "artifacts/showcases/openscope_glo",
     "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
    },
    "receipts": [
@@ -484,7 +484,7 @@
     "The 1203581890 probe file was not replaced between versions."
    ],
    "code": {
-    "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+    "location": "artifacts/showcases/openscope_glo",
     "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
    },
    "receipts": [

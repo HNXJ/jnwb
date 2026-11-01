@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import least_squares
 
+from ._bins import refuse_nonfinite_times
 from ._spread import is_constant, r_squared
 from ._units import resolve_unit_alias
 from .unit_quality import _positive_finite
@@ -133,6 +134,10 @@ def causal_gaussian_smooth(rate: np.ndarray, sigma_bins: float) -> tuple[np.ndar
 
 def onset_model(t: np.ndarray, t0: float, tau: float, amplitude: float, baseline: float) -> np.ndarray:
     """rate(t) = baseline for t < t0, baseline + amplitude*(1-exp(-(t-t0)/tau)) for t >= t0."""
+    refuse_nonfinite_times(t, "onset_model", "t")
+    for _name, _value in (("t0", t0), ("tau", tau), ("amplitude", amplitude),
+                          ("baseline", baseline)):
+        refuse_nonfinite_times(_value, "onset_model", _name)
     t = np.asarray(t, dtype=float)
     out = np.full_like(t, baseline, dtype=float)
     mask = t >= t0
@@ -190,7 +195,8 @@ def fit_exponential_onset(
     Returns dict: t0, tau, amplitude, baseline, r2, converged, cost.
 
     Raises:
-        ValueError: If ``t_ms`` and ``rate`` are not 1-D of one length, or ``rate`` is
+        ValueError: If ``t_ms`` or ``rate`` holds a non-finite value, if ``t_ms``
+            and ``rate`` are not 1-D of one length, or ``rate`` is
             constant: a flat trace has no onset, and every ``t0`` fits it equally well.
     """
     t0_bounds_unset = t0_bounds_ms is None and t0_bounds is None
@@ -217,6 +223,8 @@ def fit_exponential_onset(
 
     t_ms = np.asarray(t_ms, dtype=float)
     rate = np.asarray(rate, dtype=float)
+    refuse_nonfinite_times(t_ms, "fit_exponential_onset", "t_ms")
+    refuse_nonfinite_times(rate, "fit_exponential_onset", "rate")
     if t_ms.ndim != 1 or rate.shape != t_ms.shape:
         raise ValueError(
             f"fit_exponential_onset: t_ms and rate must be 1-D and of one length, got shapes "

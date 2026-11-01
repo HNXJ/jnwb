@@ -1898,6 +1898,55 @@ def check_resolves_under(resolved: str, purelib: str) -> None:
         raise SystemExit(f"jnwb resolved to {resolved}, outside the installed package root {purelib}")
 
 
+def isolated_env() -> dict:
+    """The caller's environment without PYTHONPATH. Each process the gate runs in the isolated
+    venv gets it, so a checkout on PYTHONPATH cannot satisfy `import jnwb` there."""
+    return {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+
+
+def check_jnwb_installed(purelib: str) -> None:
+    """Exit unless the wheel's jnwb package is under `purelib`, the venv's site-packages.
+
+    pip skips a wheel whose requirement the checkout's egg-info already meets, so an install
+    that reports success does not prove the package reached the venv.
+    """
+    if not (pathlib.Path(purelib) / "jnwb" / "__init__.py").is_file():
+        raise SystemExit(f"jnwb is not installed in the isolated venv: no jnwb/__init__.py under {purelib}")
+
+
+def install_wheel_in_venv(venv_dir: pathlib.Path, whl: pathlib.Path) -> Tuple[str, str]:
+    """Create the isolated venv, install the wheel into it and run pip check.
+
+    Returns the venv's python and its site-packages directory (purelib).
+    """
+    subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
+
+    if sys.platform == "win32":
+        venv_python = str(venv_dir / "Scripts" / "python.exe")
+    else:
+        venv_python = str(venv_dir / "bin" / "python")
+
+    env = isolated_env()
+    log.info(f"Installing wheel {whl} into isolated environment...")
+    # `python -m pip`, not the pip executable: on Windows pip refuses to replace its
+    # own running .exe and exits 1, which failed this gate before it tested anything.
+    subprocess.run([venv_python, "-m", "pip", "install", "--upgrade", "pip"], check=True, env=env)
+    subprocess.run([venv_python, "-m", "pip", "install", str(whl)], check=True, env=env)
+    purelib = subprocess.run(
+        [venv_python, "-c", "import sysconfig; print(sysconfig.get_paths()['purelib'])"],
+        check=True, capture_output=True, text=True, env=env).stdout.strip()
+    check_jnwb_installed(purelib)
+
+    log.info("Checking package dependencies with pip check...")
+    check_res = subprocess.run([venv_python, "-m", "pip", "check"], capture_output=True, text=True,
+                               env=env)
+    if check_res.returncode != 0:
+        log.error(f"pip check failed: {check_res.stderr}\n{check_res.stdout}")
+        sys.exit(check_res.returncode)
+    log.info("PASS: pip check verified zero broken requirements.")
+    return venv_python, purelib
+
+
 def main() -> None:
     log.info("=== STEP 0a: Checking release readiness (AGENTS.md section 11, condition 3) ===")
     try:
@@ -2086,32 +2135,13 @@ def main() -> None:
         run_cmd([sys.executable, "-m", "twine", "check", str(whl), str(sdist)])
 
         log.info("=== STEP 6: Creating isolated venv for wheel installation ===")
-        venv_dir = staging_dir / "isolated_venv"
-        subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
-
-        if sys.platform == "win32":
-            venv_python = str(venv_dir / "Scripts" / "python.exe")
-        else:
-            venv_python = str(venv_dir / "bin" / "python")
-
-        log.info(f"Installing wheel {whl} into isolated environment...")
-        # `python -m pip`, not the pip executable: on Windows pip refuses to replace its
-        # own running .exe and exits 1, which failed this gate before it tested anything.
-        subprocess.run([venv_python, "-m", "pip", "install", "--upgrade", "pip"], check=True)
-        subprocess.run([venv_python, "-m", "pip", "install", str(whl)], check=True)
-
-        log.info("Checking package dependencies with pip check...")
-        check_res = subprocess.run([venv_python, "-m", "pip", "check"], capture_output=True, text=True)
-        if check_res.returncode != 0:
-            log.error(f"pip check failed: {check_res.stderr}\n{check_res.stdout}")
-            sys.exit(check_res.returncode)
-        log.info("PASS: pip check verified zero broken requirements.")
+        venv_python, purelib = install_wheel_in_venv(staging_dir / "isolated_venv", whl)
 
         log.info("=== STEP 7: Executing installed-package smoke tests outside repository ===")
         # The one installed smoke, scripts/smoke_installed.py, with the arguments CI passes
         # (2026-10-13). PYTHONPATH is stripped, as for the tutorials below: the checkout must not
         # satisfy `import jnwb`.
-        smoke_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        smoke_env = isolated_env()
         res = subprocess.run(
             [venv_python, str(REPO_ROOT / "scripts" / "smoke_installed.py"),
              "--expected-version", jnwb_source_version(), "--not-under", str(REPO_ROOT)],
@@ -2129,15 +2159,12 @@ def main() -> None:
         # As CI does: the extras the tutorials draw are installed only now, after STEP 7 has
         # checked the wheel without them (tutorial 10 needs `vis` and `wavemap`).
         subprocess.run([venv_python, "-m", "pip", "install", f"{whl}[{','.join(TUTORIAL_EXTRAS)}]"],
-                       check=True)
-        purelib = subprocess.run(
-            [venv_python, "-c", "import sysconfig; print(sysconfig.get_paths()['purelib'])"],
-            check=True, capture_output=True, text=True).stdout.strip()
+                       check=True, env=isolated_env())
         # PYTHONPATH is stripped and the CWD is the staging directory, so a tutorial that
         # only runs from the source tree fails here instead of passing by checkout proximity.
         # JNWB_EXPECTED_PACKAGE_ROOT makes each tutorial's prefer-the-checkout guard stand
         # aside; without it every tutorial imported the checkout it ships in, not the wheel.
-        tutorial_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        tutorial_env = isolated_env()
         tutorial_env["JNWB_EXPECTED_PACKAGE_ROOT"] = purelib
         # Before any tutorial runs: where `import jnwb` lands under the same environment.
         resolved = probe_jnwb_file(venv_python, str(staging_dir), tutorial_env)

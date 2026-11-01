@@ -151,7 +151,7 @@ association-to-causality step that [Architecture](architecture.md#causal-and-dir
 On a synthetic electrodes table, panel A of that figure is `jnwb.map_peak_channel_to_area`
 partitioning 24 contacts of one probe
 across V1, V2 and V3; panel B is `jnwb.classify_layer_from_depth` on the same contacts at
-`threshold=1000` µm, classes keyed, threshold drawn. Both are spatial
+`threshold=1000` um, classes keyed, threshold drawn. Both are spatial
 assignments and neither carries a causal direction.
 
 ---
@@ -178,6 +178,20 @@ census = jnwb.unit_census_report(classified_units, group_by=["area"])
 print(census)
 ```
 
+### Per-Unit Join of One File (`units_table`)
+
+```python
+# One row per unit, in the units table's order: unit_id, group_name (probe), peak_channel_id,
+# area, depth_class and each waveform_* column the units table carries.
+units, columns = jnwb.units_table(nwb)
+
+# columns maps each column to {"definition", "source", "units"}; its keys are units.columns.
+print(columns["area"]["source"])
+```
+
+A unit's area comes from the electrode its `electrodes` region names, else from its peak channel.
+Without an electrodes table, `area` is None on every row. A file with no units table raises `ValueError`.
+
 ### SNR Analysis, Quality Tiers & Inventory
 
 ```python
@@ -185,7 +199,7 @@ print(census)
 snr_stats = jnwb.get_snr_analysis(classified_units, snr_threshold=1.0)
 # -> {'pass_rate': 0.84, 'snr_mean': 4.25, 'snr_median': 3.90}
 
-# Perform comprehensive unit audit
+# Audit units
 unit_audit = jnwb.audit_units(classified_units)
 
 # Audit electrode tables and area coverage

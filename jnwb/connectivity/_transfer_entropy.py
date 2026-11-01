@@ -196,7 +196,7 @@ def transfer_entropy(
     seed: Any = Default(0),
 ) -> DirectedResult:
     """
-    Transfer entropy — model-free, nonlinear directed information flow, in bits.
+    Transfer entropy — model-free, nonlinear, directed predictive information, in bits.
 
     ``TE(X -> Y) = I(Y_t ; X_past | Y_past)``: how much X's past reduces
     uncertainty about Y's present *beyond* what Y's own past already explains.

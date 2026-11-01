@@ -5,8 +5,10 @@ from __future__ import annotations
 import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
+from .._bins import refuse_nonfinite_times
 from .._parallel import parallel_map
 from .._rng import resolve_rng, resolve_seed_alias
+from .._units import _OMITTED, _check_signal_class
 from ._common import DirectedResult
 from ._granger import granger, granger_spectral
 from ._psi import phase_slope_index
@@ -21,6 +23,7 @@ def network_topology(
     Compute network graph metrics from a correlation or Granger causality matrix.
 
     The diagonal is ignored. An edge is an entry whose absolute value exceeds ``threshold``.
+    A NaN or inf on the diagonal stays ignored; off the diagonal it is refused.
 
     Raises:
         TypeError: If ``adjacency_matrix`` is complex. Casting to float would keep the real
@@ -114,6 +117,7 @@ def directed_network(
     n_jobs: int = 1,
     *,
     conditional: bool = False,
+    signal_class: Union[str, Tuple[str, str]] = _OMITTED,
     **kwargs,
 ) -> Dict[str, Any]:
     """
@@ -139,6 +143,9 @@ def directed_network(
         conditional: condition each Granger pair on all other nodes (``method='granger'``
             only; ``Z`` must not be passed as well). Every pair then fits a VAR with
             ``n_nodes`` series, so it needs proportionally more samples.
+        signal_class: ``'spikes'`` or ``'lfp'``, the class of every node; one class only, since
+            spikes and LFP are never pooled. Omitted, the call warns ``FutureWarning``. It is
+            not passed to the pairwise estimator and changes no number.
         **kwargs: forwarded to the estimator. ``rng`` (or ``seed``) gives every pair its own
             child seed, drawn in pair order before any worker starts: from
             ``default_rng(rng)`` for an int (the estimators' default 0 included), from the
@@ -166,6 +173,7 @@ def directed_network(
         between time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1984.10477110
         -- the conditional measure ``conditional=True`` fits for each pair.
     """
+    _check_signal_class("directed_network", signal_class, 1)
     if isinstance(signals, dict):
         labels = list(signals.keys())
         series = [signals[k] for k in labels]
@@ -183,6 +191,8 @@ def directed_network(
         raise ValueError(f"directed_network needs >= 2 nodes; got {n}")
     if len(labels) != n:
         raise ValueError(f"{len(labels)} labels for {n} signals")
+    for _label, _s in zip(labels, series):
+        refuse_nonfinite_times(_s, "directed_network", f"signals[{_label}]")
 
     matrix = np.full((n, n), np.nan)
     p_matrix = np.full((n, n), np.nan)

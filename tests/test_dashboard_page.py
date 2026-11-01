@@ -391,6 +391,19 @@ def _collect(page, problems):
     page.on("requestfailed", on_failed)
 
 
+def test_the_replication_table_shows_the_three_verdicts_beside_the_record_verdict():
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    axes = schema["$defs"]["showcase"]["properties"]["replications"]["items"]["properties"]
+    for axis in ("paper", "library", "methods"):
+        assert axis in axes, f"the contract must declare {axis}"
+    source = RENDERER.read_text(encoding="utf-8")
+    for axis in ("row.paper", "row.library", "row.methods"):
+        assert axis in source, f"the renderer does not read {axis}"
+    template = TEMPLATE.read_text(encoding="utf-8")
+    assert "paper, a library and a methods verdict" in template, \
+        "the lede must say each replication shows the three verdicts"
+
+
 def test_every_route_renders_in_light_and_dark_without_errors(browser, base_url, site):
     sync_api = pytest.importorskip("playwright.sync_api")
     routes = _routes(site)

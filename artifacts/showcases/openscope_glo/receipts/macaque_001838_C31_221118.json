@@ -1,0 +1,385 @@
+{
+ "assets": [
+  "421505cb-713a-448f-8a30-45d3e865b93d",
+  "7de073eb-87ff-4155-8862-e4bd2e944e06"
+ ],
+ "subject": {
+  "421505cb-713a-448f-8a30-45d3e865b93d": {
+   "age": "b'P10Y'",
+   "sex": "b'M'",
+   "species": "b'http://purl.obolibrary.org/obo/NCBITaxon_9548'",
+   "subject_id": "b'C31'"
+  },
+  "7de073eb-87ff-4155-8862-e4bd2e944e06": {
+   "age": "b'P10Y'",
+   "sex": "b'U'",
+   "species": "b'Macaca mulatta'",
+   "subject_id": "b'C31'"
+  }
+ },
+ "passive_glo_rows": 9722,
+ "passive_glo_columns": {
+  "codes": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 6,
+   "counts": {
+    "10.0": 2043,
+    "20.0": 1662,
+    "22.0": 1486,
+    "24.0": 1307,
+    "30.0": 1156,
+    "40.0": 2068
+   }
+  },
+  "contrast": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 1,
+   "counts": {
+    "0.8": 9722
+   }
+  },
+  "correct": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 2484,
+    "1.0": 7238
+   }
+  },
+  "drift_rate": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 1,
+   "counts": {
+    "2.0": 9722
+   }
+  },
+  "event_code_type": {
+   "kind": "text",
+   "n_unique": 6,
+   "top": {
+    "reward": 2068,
+    "fix cue appearance": 2043,
+    "presentation 1": 1662,
+    "presentation 2": 1486,
+    "presentation 3": 1307,
+    "presentation 4": 1156
+   }
+  },
+  "gloexp": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 4073,
+    "1.0": 5649
+   }
+  },
+  "go_gloexp": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 9587,
+    "1.0": 135
+   }
+  },
+  "go_rndctl": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 9700,
+    "1.0": 22
+   }
+  },
+  "go_seq": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 7310,
+    "1.0": 2412
+   }
+  },
+  "go_seqctl": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 9605,
+    "1.0": 117
+   }
+  },
+  "igo_rndctl": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 9687,
+    "1.0": 35
+   }
+  },
+  "igo_seq": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 8425,
+    "1.0": 1297
+   }
+  },
+  "igo_seqctl": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 9618,
+    "1.0": 104
+   }
+  },
+  "ilo_rndctl": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 9695,
+    "1.0": 27
+   }
+  },
+  "ilo_seq": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 9488,
+    "1.0": 234
+   }
+  },
+  "lo_gloexp": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 9155,
+    "1.0": 567
+   }
+  },
+  "lo_rndctl": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 9692,
+    "1.0": 30
+   }
+  },
+  "lo_seq": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 4904,
+    "1.0": 4818
+   }
+  },
+  "notes": {
+   "kind": "text",
+   "n_unique": 29,
+   "top": {
+    "\u0002": 4106,
+    "\u001d": 1112,
+    "\u0003": 1078,
+    "\u001c": 1025,
+    "\u0001": 465,
+    "\u0014": 132,
+    "\u0013": 121,
+    "\u0007": 111,
+    "\u000e": 99,
+    "\u0016": 96,
+    "\n": 95,
+    "\u0010": 93,
+    "\u0015": 92,
+    "\t": 92,
+    "\f": 87,
+    "\u000f": 85,
+    "\u0005": 77,
+    "\u0004": 76,
+    "\u0019": 76,
+    "\b": 69,
+    "\u0011": 69,
+    "\u0018": 69,
+    "\u0006": 69,
+    "\u000b": 65,
+    "\u001b": 59
+   }
+  },
+  "orientation": {
+   "kind": "num",
+   "n_nan": 4111,
+   "n_unique": 2,
+   "counts": {
+    "45.0": 3903,
+    "135.0": 1708
+   }
+  },
+  "presentation": {
+   "kind": "num",
+   "n_nan": 4111,
+   "n_unique": 4,
+   "counts": {
+    "1.0": 1662,
+    "2.0": 1486,
+    "3.0": 1307,
+    "4.0": 1156
+   }
+  },
+  "rndctl": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 7786,
+    "1.0": 1936
+   }
+  },
+  "seq_type": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 16,
+   "counts": {
+    "1.0": 2412,
+    "2.0": 4818,
+    "3.0": 54,
+    "4.0": 96,
+    "5.0": 121,
+    "6.0": 93,
+    "7.0": 69,
+    "8.0": 132,
+    "9.0": 92,
+    "10.0": 76,
+    "11.0": 50,
+    "12.0": 69,
+    "13.0": 50,
+    "14.0": 59,
+    "15.0": 234,
+    "16.0": 1297
+   }
+  },
+  "seqctl": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2,
+   "counts": {
+    "0.0": 7585,
+    "1.0": 2137
+   }
+  },
+  "sequence_type": {
+   "kind": "text",
+   "n_unique": 3,
+   "top": {
+    "gloexp": 5649,
+    "seqctl": 2137,
+    "rndctl": 1936
+   }
+  },
+  "start_time": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 9722,
+   "min": 80.4923,
+   "max": 16815.494733333333
+  },
+  "stop_time": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 9722,
+   "min": 81.1842,
+   "max": 16824.006033333335
+  },
+  "trial_num": {
+   "kind": "num",
+   "n_nan": 0,
+   "n_unique": 2043,
+   "min": 1.0,
+   "max": 2043.0
+  }
+ },
+ "electrode_locations": {
+  "kind": "text",
+  "n_unique": 2,
+  "top": {
+   "Pmd": 32,
+   "V4": 32
+  }
+ },
+ "photodiode_changes": 14133,
+ "tables_equal_A_vs_B": {
+  "glo/codes": true,
+  "glo/contrast": true,
+  "glo/correct": true,
+  "glo/drift_rate": true,
+  "glo/event_code_type": true,
+  "glo/gloexp": true,
+  "glo/go_gloexp": true,
+  "glo/go_rndctl": true,
+  "glo/go_seq": true,
+  "glo/go_seqctl": true,
+  "glo/id": true,
+  "glo/igo_rndctl": true,
+  "glo/igo_seq": true,
+  "glo/igo_seqctl": true,
+  "glo/ilo_rndctl": true,
+  "glo/ilo_seq": true,
+  "glo/lo_gloexp": true,
+  "glo/lo_rndctl": true,
+  "glo/lo_seq": true,
+  "glo/notes": true,
+  "glo/orientation": true,
+  "glo/presentation": true,
+  "glo/rndctl": true,
+  "glo/seq_type": true,
+  "glo/seqctl": true,
+  "glo/sequence_type": true,
+  "glo/start_time": true,
+  "glo/stop_time": true,
+  "glo/trial_num": true,
+  "pd/id": true,
+  "pd/start_time": true,
+  "pd/stop_time": true,
+  "el/filtering": true,
+  "el/group": true,
+  "el/id": true,
+  "el/imp": true,
+  "el/label": true,
+  "el/location": true,
+  "el/probe": true,
+  "el/x": true,
+  "el/y": true,
+  "el/z": true
+ },
+ "muae_slices_equal_A_vs_B": {
+  "probe_0_muae@0": true,
+  "probe_0_muae@4206835": true,
+  "probe_0_muae@8413670": true,
+  "probe_0_muae@12620505": true,
+  "probe_0_muae@16827340": true,
+  "probe_1_muae@0": true,
+  "probe_1_muae@4206835": true,
+  "probe_1_muae@8413670": true,
+  "probe_1_muae@12620505": true,
+  "probe_1_muae@16827340": true
+ },
+ "muae_rate_hz_from_step": 999.9999999999991,
+ "muae_rate_attr": 1000.0,
+ "glo_start_span_s": [
+  80.4923,
+  16815.494733333333
+ ],
+ "glo_start_step_median_s": 1.0336999999999534,
+ "utc": "2026-10-12T17:32:04Z"
+}

@@ -26,7 +26,7 @@ The review ran against `dev` at `6741d23c`. Sixteen files changed between that c
 $ git diff --stat 6741d23c..HEAD
  .github/workflows/workflow.yml, AGENTS.md, README.md, artifacts/agents/jnwb-developer.md,
  artifacts/archive/0.2.5/alignment_review_0.2.5.md, artifacts/direction.md, artifacts/goal.md,
- artifacts/archive/0.2.5/planned_post_0.2.5.md, artifacts/todo_stack.md, artifacts/archive/0.2.5/todo_stack_0.2.5.md,
+ git show b6388414:artifacts/archive/0.2.5/planned_post_0.2.5.md, artifacts/todo_stack.md, artifacts/archive/0.2.5/todo_stack_0.2.5.md,
  docs/install.md, scripts/harness_gate.py, skills/jnwb-fact-action/SKILL.md,
  tests/test_gates_reject_the_trees_they_passed.py, tests/test_harness_adversarial_gates.py,
  tests/test_skills_validation.py
@@ -339,7 +339,7 @@ Of the 29 `reproduced`, 13 are claimed by a stack item and 16 are unclaimed and 
 
 - Finding: P0 states a hypothesis and pre-registration constraints and says the design work has not been done.
 - Disposition: reproduced. Claimed by 06-33.
-- Evidence (`observed`): `git diff 6741d23c..HEAD -- artifacts/archive/0.2.5/planned_post_0.2.5.md` changes only the opening paragraph, which now adds "it is candidate input to a cycle that must reproduce each item, not a queue of accepted work." P0 itself is unchanged. 06-33 requires task set, scoring rubric, arms, repetitions, refusal scoring and inferential unit to be declared and marked unrun.
+- Evidence (`observed`): `git show b6388414:artifacts/archive/0.2.5/planned_post_0.2.5.md` changes only the opening paragraph, which now adds "it is candidate input to a cycle that must reproduce each item, not a queue of accepted work." P0 itself is unchanged. 06-33 requires task set, scoring rubric, arms, repetitions, refusal scoring and inferential unit to be declared and marked unrun.
 
 ### evaluation-and-roadmap/roadmap-and-direction-are-unindexed
 
@@ -426,7 +426,7 @@ Of the 29 `reproduced`, 13 are claimed by a stack item and 16 are unclaimed and 
 
 - Finding: presenting the skills layer as demonstrated rather than hypothesised would contradict a written ruling.
 - Disposition: refuted.
-- Evidence (`observed`): the receipts verify -- `artifacts/archive/0.2.5/planned_post_0.2.5.md` P0 is still headed "(hypothesis, ruled 2026-09-17)" and `artifacts/direction.md` Prior art is unchanged except the `todo_stack_0.2.5.md` pointer. No repository asset makes the forbidden claim: the deck that would have made it is not a repository artifact, and the statement jnwb is now measured against, `artifacts/goal.md`, asserts no benchmark result. A ruling being obeyed is not a defect.
+- Evidence (`observed`): the receipts verify -- `git show b6388414:artifacts/archive/0.2.5/planned_post_0.2.5.md` P0 is still headed "(hypothesis, ruled 2026-09-17)" and `artifacts/direction.md` Prior art is unchanged except the `todo_stack_0.2.5.md` pointer. No repository asset makes the forbidden claim: the deck that would have made it is not a repository artifact, and the statement jnwb is now measured against, `artifacts/goal.md`, asserts no benchmark result. A ruling being obeyed is not a defect.
 
 ### evaluation-and-roadmap/nearest-roadmap-record-is-p0-p3-plus-three-bullets
 

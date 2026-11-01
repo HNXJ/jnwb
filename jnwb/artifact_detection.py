@@ -30,6 +30,7 @@ from typing import Tuple
 
 import numpy as np
 
+from ._bins import refuse_infinite, refuse_nonfinite_times
 from ._layout import require_channel_major
 
 MAD_SCALE = 1.4826  # normal-consistent scaling for the median absolute deviation
@@ -89,6 +90,7 @@ def channel_correlation_matrix(data_ch_by_time: np.ndarray) -> np.ndarray:
         screening criteria are not this function.
     """
     arr = np.asarray(data_ch_by_time, dtype=float)
+    refuse_nonfinite_times(arr, "channel_correlation_matrix", "data_ch_by_time")
     if arr.ndim == 2:
         require_channel_major(
             arr, 0, "channel_correlation_matrix", argument="data_ch_by_time"
@@ -114,7 +116,12 @@ def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tu
         J. Exp. Soc. Psychol. doi:10.1016/j.jesp.2013.03.013 -- the median/MAD
         outlier rule, with the normal-consistent x1.4826 scaling. The default
         threshold (5.0) is jnwb's, not the paper's.
+
+    A NaN entry is missing and left out of the channel's median; an infinite entry is
+    refused with a ``ValueError`` naming ``corr``.
     """
+    corr_arr = np.asarray(corr, dtype=float)
+    refuse_infinite(corr_arr, "bad_channels_from_correlation", "corr")
     n = corr.shape[0]
     if n < 2:
         return np.zeros(n, dtype=bool), np.full(n, np.nan), np.full(n, np.nan)
@@ -137,6 +144,9 @@ def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tu
 
 def trial_correlation_matrix(trial_waveforms: np.ndarray) -> np.ndarray:
     """trial_waveforms: (n_trials, n_times), single channel. Returns (n_trials, n_trials) corr.
+
+    A NaN or infinite sample propagates: every correlation the sample touches is
+    non-finite, instead of the trial being dropped.
 
     References:
         Bigdely-Shamlo, N., et al. (2015). The PREP pipeline: standardized
@@ -177,8 +187,12 @@ def bad_trials_single_channel(
         J. Exp. Soc. Psychol. doi:10.1016/j.jesp.2013.03.013 -- the median/MAD
         outlier rule (x1.4826) behind both the correlation and the amplitude
         flags. The default thresholds are jnwb's, not the paper's.
+
+    A NaN sample is missing: the correlations it touches are left out of the medians.
+    An infinite sample is refused with a ``ValueError`` naming ``trial_waveforms``.
     """
     trial_waveforms = np.asarray(trial_waveforms, dtype=float)
+    refuse_infinite(trial_waveforms, "bad_trials_single_channel", "trial_waveforms")
     n = trial_waveforms.shape[0]
     if n < 2:
         return np.zeros(n, dtype=bool), np.full(n, np.nan), np.full(n, np.nan)
@@ -208,6 +222,9 @@ def consensus_bad_trials(per_channel_flags: np.ndarray, min_frac_channels: float
     consensus requirement (real artifacts are shared events, not one channel's quirk).
 
     Returns (consensus_bad_mask, frac_channels_flagged_per_trial)."""
+    refuse_nonfinite_times(per_channel_flags, "consensus_bad_trials", "per_channel_flags")
+    # A NaN threshold makes every comparison False and flags nothing.
+    refuse_nonfinite_times(min_frac_channels, "consensus_bad_trials", "min_frac_channels")
     per_channel_flags = np.asarray(per_channel_flags, dtype=bool)
     if per_channel_flags.shape[0] == 0:
         n_trials = per_channel_flags.shape[1] if per_channel_flags.ndim == 2 else 0

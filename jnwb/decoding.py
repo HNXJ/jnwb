@@ -23,6 +23,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.utils import check_random_state
 
+from ._bins import refuse_infinite, refuse_nonfinite_times
 from ._rng import DEFAULT_SEED, RNGLike, sklearn_random_state
 
 log = logging.getLogger(__name__)
@@ -433,7 +434,8 @@ def assign_outer_folds(
 
     Args:
         trials: DataFrame with at least ``analysis_cols``, ``group_col``, and ``trial_id``
-            columns.
+            columns. A NaN ``start_time`` is missing: the row is carried through and its
+            fold assignment ignores that column.
         analysis_cols: columns identifying an independent analysis stratum (folds are assigned
             separately within each combination of these columns).
         group_col: column giving the group id (e.g. a repetition/cycle id) that outer folds hold
@@ -448,6 +450,9 @@ def assign_outer_folds(
     missing = required.difference(trials.columns)
     if missing:
         raise ValueError(f"trial table missing fold columns: {sorted(missing)}")
+    if "start_time" in trials.columns:
+        times = pd.to_numeric(trials["start_time"], errors="coerce")
+        refuse_infinite(times.to_numpy(dtype=float), "assign_outer_folds", "trials['start_time']")
     out = trials.copy()
     out["outer_fold"] = -1
     out["outer_group"] = out[group_col]
@@ -483,6 +488,11 @@ def build_inner_validation_partitions(
         Long-format DataFrame, one row per (stratum, outer_fold, inner_fold, trial_id), with
         ``inner_role`` in {"inner_train", "inner_validation", "insufficient_training_groups"}.
     """
+    fold = np.asarray(outer_trials["outer_fold"])
+    if fold.dtype.kind in "iufc":
+        refuse_nonfinite_times(
+            fold, "build_inner_validation_partitions", "outer_trials[outer_fold]"
+        )
     rows: list = []
     for key, group in outer_trials.groupby(list(analysis_cols), sort=True, dropna=False):
         if not isinstance(key, tuple):

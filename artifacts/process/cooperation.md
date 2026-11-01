@@ -81,8 +81,8 @@ re-runs the acceptance command itself.
 
 | The packet's claims are decided by | Actor | Review |
 |---|---|---|
-| a gate or test alone: stack, rulings and pointer edits, docs a test reads | `worker-med` or `jnwb-actor-fast`, or the integrator inline | the gate; no verifier |
-| a bounded code repair with a test, or a multi-step sweep | `worker` or `worker-xhigh` in a lane | `reviewer`, with a mutant the integrator runs when the reviewer cannot |
+| a gate or test alone: stack, rulings and pointer edits, docs a test reads | `worker` with `effort: medium` or `jnwb-actor-fast`, or the integrator inline | the gate; no verifier |
+| a bounded code repair with a test, or a multi-step sweep | `worker` or `worker` with `effort: xhigh` in a lane | `reviewer`, with a mutant the integrator runs when the reviewer cannot |
 | scientific meaning, a public API, a rule-file rewrite, or a release step | the integrator or `jnwb-actor` | `jnwb-verifier` and `jnwb-critic-sonnet`, independently |
 
 - **A review names the class of each finding**, from `artifacts/process/defect_classes.md` or `new`; the

@@ -28,13 +28,21 @@ __all__ = [
 
 @dataclass(frozen=True)
 class Declaration:
-    """The declared signal contract of one public operation."""
+    """The declared contract of one public operation.
+
+    Signal operations declare their input class, estimator, output estimand, unit, and
+    time or index base. Side-effecting operations (a file write, transform or repair, or
+    a cache write) declare none of those and carry ``category`` instead: the one entry
+    of the fact stack's ``mutation categories`` or ``cache categories`` the operation
+    records on its report.
+    """
 
     input_class: FrozenSet[str]
     estimator: str
     estimand: str
     unit: str
     base: str
+    category: str = ""
 
 
 #: The declared operations, keyed by ``module.qualname``. A domain callable with no
@@ -304,5 +312,74 @@ DECLARATIONS: Dict[str, Declaration] = {
         estimand="correlation between a TFR-derived series and a spike-count series",
         unit="unitless r and p",
         base="samples, 0-based",
+    ),
+    # Bivariate Granger causality; the statistic is a log variance ratio; no rate parameter.
+    "jnwb.connectivity._granger.granger_causality": Declaration(
+        input_class=frozenset({"spikes", "lfp"}),
+        estimator="bivariate VAR log variance ratio (Granger 1969)",
+        estimand="Granger statistic in each direction",
+        unit="log variance ratio",
+        base="samples, 0-based",
+    ),
+    # All-pairs directed estimators; the unit follows the chosen method, q-values are unitless.
+    "jnwb.connectivity._network.directed_network": Declaration(
+        input_class=frozenset({"spikes", "lfp"}),
+        estimator="all-pairs directed estimators with Benjamini-Hochberg FDR",
+        estimand="directed influence matrix with p- and q-values per ordered pair",
+        unit="method-dependent; q-values unitless",
+        base="method-dependent: samples at fs Hz (psi), samples, 0-based (granger)",
+    ),
+    # Imaginary part of coherency (Nolte et al. 2004); a ratio of spectra, so unitless; fs in Hz.
+    "jnwb.spectral._coupling.imaginary_coherency": Declaration(
+        input_class=frozenset({"spikes", "lfp"}),
+        estimator="Welch cross-spectrum, imaginary part of coherency (Nolte et al. 2004)",
+        estimand="signed and absolute band means of Im(coherency), and mean coherence",
+        unit="unitless",
+        base="samples at fs Hz",
+    ),
+    # Writes a caller-built file; records WRITE_CATEGORY on its report.
+    "jnwb.nwb_write.write_nwb": Declaration(
+        input_class=frozenset(),
+        estimator="",
+        estimand="",
+        unit="",
+        base="",
+        category="write or create",
+    ),
+    # Copies a file with declared changes; records TRANSFORM_CATEGORY on its report.
+    "jnwb.nwb_write.transform_nwb": Declaration(
+        input_class=frozenset(),
+        estimator="",
+        estimand="",
+        unit="",
+        base="",
+        category="copy or transform",
+    ),
+    # Repairs a representation whose intended form is identified; records REPAIR_CATEGORY.
+    "jnwb.nwb_write.repair_nwb": Declaration(
+        input_class=frozenset(),
+        estimator="",
+        estimand="",
+        unit="",
+        base="",
+        category="structural repair",
+    ),
+    # Corrects one ragged index; a dry run writes nothing. Records REPAIR_CATEGORY.
+    "jnwb.nwb_integrity.repair_ragged_index": Declaration(
+        input_class=frozenset(),
+        estimator="",
+        estimand="",
+        unit="",
+        base="",
+        category="structural repair",
+    ),
+    # Persists one cache entry as an ``.npz`` archive; the key mixes in the version.
+    "jnwb.execution.cache_store": Declaration(
+        input_class=frozenset(),
+        estimator="",
+        estimand="",
+        unit="",
+        base="",
+        category="safe artifact persistence",
     ),
 }

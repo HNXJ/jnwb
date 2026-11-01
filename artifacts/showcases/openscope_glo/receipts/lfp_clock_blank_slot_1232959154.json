@@ -1,0 +1,146 @@
+{
+ "n_p1": 125,
+ "channel_local_index": 274,
+ "axes": {
+  "ticks_over_30k": {
+   "-5": {
+    "kind": "P1",
+    "range_uV": 193.7722774782742,
+    "extreme_uV": 177.08888879598135,
+    "extreme_ms": 140.0
+   },
+   "-4": {
+    "kind": "P2",
+    "range_uV": 105.44039927219728,
+    "extreme_uV": -14.889419860217004,
+    "extreme_ms": 276.0
+   },
+   "-3": {
+    "kind": "P3",
+    "range_uV": 164.75471887588355,
+    "extreme_uV": 142.8196838514623,
+    "extreme_ms": 129.6
+   },
+   "-2": {
+    "kind": "P4",
+    "range_uV": 116.83307916234753,
+    "extreme_uV": 98.4141590247691,
+    "extreme_ms": 114.4
+   },
+   "-1": {
+    "kind": "blank",
+    "range_uV": 140.79311886143842,
+    "extreme_uV": 105.23385537263721,
+    "extreme_ms": 132.8
+   },
+   "0": {
+    "kind": "P1",
+    "range_uV": 201.14015748822567,
+    "extreme_uV": 184.73441766948554,
+    "extreme_ms": 138.4
+   },
+   "1": {
+    "kind": "P2",
+    "range_uV": 101.93507898782173,
+    "extreme_uV": -14.409002339493782,
+    "extreme_ms": 275.2
+   },
+   "2": {
+    "kind": "P3",
+    "range_uV": 165.89663909235242,
+    "extreme_uV": 145.04433731920017,
+    "extreme_ms": 135.2
+   },
+   "3": {
+    "kind": "P4",
+    "range_uV": 113.81447868916439,
+    "extreme_uV": 95.53368156149872,
+    "extreme_ms": 113.60000000000001
+   },
+   "4": {
+    "kind": "blank",
+    "range_uV": 134.13971892362042,
+    "extreme_uV": 101.16593683520932,
+    "extreme_ms": 134.4
+   }
+  },
+  "ticks_over_30k_plus_3.5768": {
+   "-5": {
+    "kind": "P1",
+    "range_uV": 157.5131987910936,
+    "extreme_uV": -61.59313622284344,
+    "extreme_ms": 329.6
+   },
+   "-4": {
+    "kind": "P2",
+    "range_uV": 114.75827927733917,
+    "extreme_uV": -73.26611671302317,
+    "extreme_ms": 223.20000000000002
+   },
+   "-3": {
+    "kind": "P3",
+    "range_uV": 115.46339918061221,
+    "extreme_uV": -76.15068157142787,
+    "extreme_ms": 323.2
+   },
+   "-2": {
+    "kind": "P4",
+    "range_uV": 200.08403737938352,
+    "extreme_uV": -103.28036066725417,
+    "extreme_ms": 358.4
+   },
+   "-1": {
+    "kind": "blank",
+    "range_uV": 38.326079644093625,
+    "extreme_uV": -11.319921606609569,
+    "extreme_ms": 336.0
+   },
+   "0": {
+    "kind": "P1",
+    "range_uV": 164.75471887588355,
+    "extreme_uV": -66.06035197284882,
+    "extreme_ms": 327.2
+   },
+   "1": {
+    "kind": "P2",
+    "range_uV": 116.83307916234753,
+    "extreme_uV": -75.90298482588196,
+    "extreme_ms": 356.8
+   },
+   "2": {
+    "kind": "P3",
+    "range_uV": 122.03411934115138,
+    "extreme_uV": -79.38013168980206,
+    "extreme_ms": 324.0
+   },
+   "3": {
+    "kind": "P4",
+    "range_uV": 211.04927726082678,
+    "extreme_uV": -107.43236287290074,
+    "extreme_ms": 357.59999999999997
+   },
+   "4": {
+    "kind": "blank",
+    "range_uV": 36.55391964696264,
+    "extreme_uV": -11.259268618332499,
+    "extreme_ms": 335.2
+   }
+  }
+ },
+ "jnwb_file": "C:\\workspace\\jnwb\\jnwb\\__init__.py",
+ "jnwb_version": "0.2.11",
+ "jnwb_commit": "9fd2e7e0b10d00a5759603b0d20976302d8ec938",
+ "jnwb_dirty": [],
+ "script_commit": "4634e46dc8eaf44426914897f18f25f458d1c109",
+ "script_dirty": [
+  "?? CONTRIBUTOR_HANDOUT.md",
+  "?? CONTRIBUTOR_HANDOUT_v2.md",
+  "?? _verify_xhigh/",
+  "?? receipts/lfp_clock_sta_1203581890_probe-1.json",
+  "?? receipts/lfp_clock_sta_1211241460_probe-1.json",
+  "?? receipts/lfp_clock_sta_1232959154_probe-1.json"
+ ],
+ "python": "3.14.3",
+ "command": "python.exe lfp_clock_blank_slot.py ../receipts/lfp_clock_blank_slot_1232959154.json",
+ "seed": 20261012
+}

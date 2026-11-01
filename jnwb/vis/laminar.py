@@ -15,6 +15,7 @@ from typing import Dict, Optional, Tuple
 import numpy as np
 import plotly.graph_objects as go
 
+from .._bins import refuse_infinite
 from ..laminar._vflip import CANONICAL_VFLIP_BANDS
 from .canvas import PlotlyPublicationCanvas
 from .theme import COLORS, FONT_FAMILY, FONT_SIZES, checked_colorbar_label, configure_axis
@@ -138,11 +139,7 @@ def plot_spectrolaminar_map(
         raise ValueError(
             f"rel_power shape {rel_power.shape} does not match freqs ({len(freqs)}) and depths ({len(depths)})."
         )
-    if np.isinf(z_data).any():
-        raise ValueError(
-            "rel_power holds infinite values; plot_spectrolaminar_map draws NaN as a gap and "
-            "refuses +inf and -inf on its fixed [0, 1] colour scale."
-        )
+    refuse_infinite(z_data, "plot_spectrolaminar_map", "rel_power")
     finite = z_data[np.isfinite(z_data)]
     if finite.size and (finite.min() < 0.0 or finite.max() > 1.0):
         raise ValueError(

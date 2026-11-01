@@ -11,8 +11,8 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.2.14'
-__release_date__ = '2026-10-27'
+__version__ = '0.2.15'
+__release_date__ = '2026-10-31'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
@@ -86,6 +86,7 @@ from .nwb_events import (
     IntervalTableNotFoundError,
     InvalidOnsetValueError,
     NWBEventError,
+    edges_near_events,
     event_onsets,
     events,
     resolve_interval_table,
@@ -100,7 +101,14 @@ from .nwb_integrity import (
     repair_ragged_index,
 )
 from .nwb_validate import NWBValidationReport, validate_nwb
-from .continuous import TickClock, derive_tick_clock, epoch_continuous
+from .continuous import (
+    EffectiveRate,
+    TickClock,
+    derive_tick_clock,
+    effective_rate,
+    epoch_continuous,
+    gaze_departure_onsets,
+)
 from .addressing import (
     map_peak_channel_to_area,
     classify_layer_from_depth,
@@ -326,6 +334,7 @@ __all__ = [
     'ContainerTypeContradictionWarning',
     'events',
     'event_onsets',
+    'edges_near_events',
     'EventTable',
     'resolve_interval_table',
     'NWBEventError',
@@ -354,6 +363,9 @@ __all__ = [
     'epoch_continuous',
     'TickClock',
     'derive_tick_clock',
+    'EffectiveRate',
+    'effective_rate',
+    'gaze_departure_onsets',
 
     # Addressing
     'map_peak_channel_to_area',
@@ -442,6 +454,7 @@ __all__ = [
     'audit_units',
     'audit_electrodes',
     'assign_quality_tier',
+    'units_table',
 
     # Unit quality measures
     'waveform_features',

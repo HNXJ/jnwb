@@ -94,7 +94,28 @@ Relations, each a sorted list of ``[source, target]`` pairs:
               stale declarations key, or calls a declared callable whose class is not a subset
               of its own, directly or through private helpers of its package
               (``signature_types_scan``, read from ``jnwb/_declarations.py``);
+              a categorized key (``category`` set) is read by the side-effect scans instead;
               a callable whose source cannot be read is a finding, never a pass
+   delegation  callable -> a public callable with two or more distinct tail-call
+               (``return f(...)``) targets among public callables (``delegation_scan``)
+   nwb_side_effects  callable -> a public callable reaching a file write, transform or
+               repair sink (``NWB_SINKS``) whose declaration carries no single category of
+               the ``mutation categories`` constant, or a categorized declaration whose key
+               reaches no such sink (``nwb_side_effects_scan``)
+   cache_side_effects  callable -> a public callable reaching the cache-write sink
+               (``CACHE_SINKS``) whose declaration carries no single category of the
+               ``cache categories`` constant, or a categorized declaration whose key
+               reaches no such sink (``cache_side_effects_scan``)
+   reserved_errors  check -> a missing hold of the two reserved refusal errors
+               (``reserved_errors_scan``): defined in ``jnwb/`` and subclassing the base
+               mutation error, exported, and documented reserved in ``docs/errors.md``
+   documented_guesses  check -> a defaulted table or code-column name, a preferred
+               interval table, or a layout basis outside the ``documented guesses``
+               constant, or a constant row no longer in the tree
+               (``documented_guesses_scan``)
+   cache_decisions  call site -> a call to the cache-write or cache-key function in
+               ``jnwb/`` (``cache_decisions_scan``); an assigned name that is never
+               called is no site
   claim_class_labels  file -> a figure label, or a ``unit=`` literal of a call whose callee's
               name ends in ``Result`` in ``jnwb/``, that names a magnitude or direction
               estimand and holds a term of a higher claim class -- a delay unit (in a label,
@@ -105,7 +126,11 @@ Relations, each a sorted list of ``[source, target]`` pairs:
               a short label name whose estimator is in neither row is stale
   boundary_units  call site -> a call in ``jnwb/`` whose callee is a function or method defined
               in ``jnwb/`` and whose bare-name argument reaches a parameter of a different unit
-              or base suffix (``UNIT_SUFFIXES``, ``BASE_SUFFIXES``), by keyword or position
+              or base suffix (``UNIT_SUFFIXES``, ``BASE_SUFFIXES``), by keyword or position;
+              past the suffixes, a value in samples or rows reaching a parameter in seconds or
+              the reverse (``TIME_SUFFIXES``, ``SAMPLE_WORDS``, ``ROW_WORDS``), or a rate,
+              frame or base default (``RATE_PARAMETERS``, ``FRAME_PARAMETERS``,
+              ``BASE_PARAMETERS``) differing across the edge
               (``boundary_unit_scan``); a call on a line an ``INTENTIONAL BREAK`` comment
               holds, or in the statement block such a comment opens, is excused and counted
               apart
@@ -132,6 +157,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import importlib
 import inspect
 import io
 import json
@@ -507,6 +533,8 @@ OPTIONAL_IMPORT_ERRORS = ("ImportError", "ModuleNotFoundError")
 LOGGER_WARNINGS = ("warning", "error", "exception")
 #: The except handlers the silent_handlers scan skips, by (module path, qualified function): the
 #: probes and controls whose silence is the answer, each read by hand against its handler (fact S9).
+#: Non-finite inputs need no handler: every public numeric function refuses them by name, as
+#: tests/test_nonfinite_inputs.py checks, or documents their propagation or missingness.
 #: A key that matches no flagged handler is reported as stale.
 S9_EXCUSED: Dict[Tuple[str, str], str] = {
     ("jnwb/_backend.py", "_probe"): "backend probe: False when the backend will not load",
@@ -1415,7 +1443,10 @@ def signature_types_scan(package: Any) -> Tuple[int, List[List[str]]]:
                           f"signal parameters show {sorted(classes)}"])
     domain_keys = {f"{module}.{qualname}" for module, qualname in domain}
     for key in sorted(declarations):
-        if key not in domain_keys:
+        # The fact I4 operations take generic inputs, so they lie outside this domain by name;
+        # ``signal_class_scan`` checks their declarations. A categorized operation (its
+        # ``category`` set) is read by the side-effect scans instead.
+        if key not in domain_keys and key not in I4_OPERATIONS and not declarations[key].category:
             found.append([key, "DECLARATIONS lists it, but it takes no signal "
                                "parameter: stale"])
     for (module, qualname), (fn, owner, _) in sorted(domain.items()):
@@ -1726,6 +1757,369 @@ def rng_scan(package: Any) -> Tuple[int, List[List[str]]]:
     return examined, sorted(found)
 
 
+# ------------------------------------------------------------------------ signal class (fact I4)
+
+#: The operations fact I4 names. Each takes inputs of either signal class, so it carries a
+#: keyword-only ``signal_class`` and a declaration in ``jnwb/_declarations.py``. Keys are
+#: ``module.qualname``, as in ``DECLARATIONS``.
+I4_OPERATIONS: Tuple[str, ...] = (
+    "jnwb.connectivity._granger.granger_causality",
+    "jnwb.connectivity._network.directed_network",
+    "jnwb.spectral._coupling.imaginary_coherency",
+)
+
+
+def signal_class_scan() -> Tuple[int, List[List[str]]]:
+    """How many named operations the signal-class rule examined, and each that fails it, as
+    sorted [module.qualname, reason] pairs. An operation fails when its live signature has no
+    keyword-only ``signal_class``, when ``DECLARATIONS`` holds no entry for it, or when it cannot
+    be read. The callable is looked up at call time, so a stand-in is the one checked."""
+    examined, found = 0, []
+    for key in I4_OPERATIONS:
+        examined += 1
+        module_name, _, qualname = key.rpartition(".")
+        try:
+            fn = getattr(importlib.import_module(module_name), qualname)
+            parameter = inspect.signature(fn).parameters.get("signal_class")
+        except (ImportError, AttributeError, TypeError, ValueError) as exc:
+            found.append([key, f"not readable: {exc}"])
+            continue
+        if parameter is None or parameter.kind is not inspect.Parameter.KEYWORD_ONLY:
+            found.append([key, "signature has no keyword-only signal_class"])
+        if key not in _declarations.DECLARATIONS:
+            found.append([key, "declares no input class in jnwb/_declarations.py"])
+    return examined, sorted(found)
+
+
+# ------------------------------------------------------------------------ delegation (fact D1)
+
+
+def _own_returns(fn: ast.AST):
+    """The ``return`` values of a function's own statements, not of the functions and
+    lambdas it defines."""
+    pending = list(fn.body)
+    while pending:
+        node = pending.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+            continue
+        if isinstance(node, ast.Return) and node.value is not None:
+            yield node.value
+        pending.extend(ast.iter_child_nodes(node))
+
+
+def delegation_scan(package: Any) -> Tuple[int, List[List[str]]]:
+    """How many public callables the delegation rule examined, and each that tail-calls
+    (``return f(...)``) two or more distinct public callables, as sorted [module.name,
+    reason] pairs. One tail-call target is a delegation; two is a sequenced choice the
+    signature does not name. A callable whose source cannot be read is a finding, never
+    a pass."""
+    callables = _public_callables(package)
+    index = {id(fn): (qualname, owner) for qualname, fn, owner in callables}
+    examined, found = 0, []
+    for qualname, fn, owner in callables:
+        examined += 1
+        try:
+            tree, _ = _own_tree(fn)
+        except (OSError, TypeError, SyntaxError, ValueError):
+            found.append([f"{fn.__module__}.{qualname}", "source unreadable: not checked"])
+            continue
+        targets = set()
+        for value in _own_returns(_own_root(tree)):
+            if not isinstance(value, ast.Call):
+                continue
+            target = _public_target(fn, _dotted(value.func), owner, index)
+            if target is not None and target is not fn:
+                gqualname, _ = index[id(target)]
+                targets.add(f"{target.__module__}.{gqualname}")
+        if len(targets) > 1:
+            found.append([f"{fn.__module__}.{qualname}",
+                          f"tail-calls {len(targets)} public callables: {sorted(targets)}"])
+    return examined, sorted(found)
+
+
+# ------------------------------------------------------------------------ side-effect categories (facts D2, D3)
+
+#: The public operations with NWB side effects: the file the caller built is written,
+#: copied with declared changes, or repaired once its intended form is identified.
+NWB_SINKS: Tuple[str, ...] = (
+    "jnwb.nwb_write.write_nwb",
+    "jnwb.nwb_write.transform_nwb",
+    "jnwb.nwb_write.repair_nwb",
+    "jnwb.nwb_integrity.repair_ragged_index",
+)
+
+#: The public operation with caching side effects: one entry persisted under its key.
+CACHE_SINKS: Tuple[str, ...] = (
+    "jnwb.execution.cache_store",
+)
+
+
+def _reaches_sink(fn: Any, owner: Any, index: Dict[int, Any], sink_ids: set) -> Optional[bool]:
+    """Whether ``fn`` is a sink or transitively calls one, through public callables and
+    the private helpers of its package. None when a body in the walk cannot be read."""
+    if id(fn) in sink_ids:
+        return True
+    queue, seen = [(fn, owner)], {id(fn)}
+    while queue:
+        body, body_owner = queue.pop()
+        try:
+            tree, _ = _own_tree(body)
+        except (OSError, TypeError, SyntaxError, ValueError):
+            return None
+        for call in _own_calls(_own_root(tree)):
+            dotted = _dotted(call.func)
+            target = _public_target(body, dotted, body_owner, index)
+            if target is not None:
+                if id(target) in sink_ids:
+                    return True
+                if id(target) not in seen:
+                    seen.add(id(target))
+                    _, target_owner = index[id(target)]
+                    queue.append((target, target_owner))
+                continue
+            helper = _private_helper(body, dotted, body_owner, index)
+            if helper is not None and id(helper) not in seen:
+                seen.add(id(helper))
+                queue.append((helper, None))
+    return False
+
+
+def _side_effect_scan(package: Any, sinks: Sequence[str], categories: Sequence[str],
+                      kind: str) -> Tuple[int, List[List[str]]]:
+    """How many public callables the side-effect rule examined, and each failure, as
+    sorted [module.name, reason] pairs. The domain is every public callable reaching a
+    sink of ``kind``, sinks included; each carries exactly one category of the fact
+    stack constant in its declaration. A categorized declaration whose key reaches no
+    sink is stale. A callable or sink whose source cannot be read is a finding, never
+    a pass."""
+    declarations = _declarations.DECLARATIONS
+    callables = _public_callables(package)
+    index = {id(fn): (qualname, owner) for qualname, fn, owner in callables}
+    sink_ids = set()
+    examined, found = 0, []
+    for key in sinks:
+        module_name, _, qualname = key.rpartition(".")
+        try:
+            sink_ids.add(id(getattr(importlib.import_module(module_name), qualname)))
+        except (ImportError, AttributeError):
+            found.append([key, f"{kind} sink not readable: not checked"])
+    reached = set()
+    for qualname, fn, owner in callables:
+        examined += 1
+        key = f"{fn.__module__}.{qualname}"
+        hit = _reaches_sink(fn, owner, index, sink_ids)
+        if hit is None:
+            found.append([key, "source unreadable: not checked"])
+            continue
+        if not hit:
+            continue
+        reached.add(key)
+        declared = declarations.get(key)
+        category = declared.category if declared is not None else ""
+        if category not in categories:
+            found.append([key, f"reaches a {kind} sink but carries no single "
+                              f"{kind} category in jnwb/_declarations.py"])
+    for key in sorted(declarations):
+        category = declarations[key].category
+        if category and category in categories and key not in reached:
+            found.append([key, f"carries {kind} category {category!r} but reaches no "
+                              f"{kind} sink: stale"])
+    return examined, sorted(found)
+
+
+def nwb_side_effects_scan(package: Any, categories: Sequence[str]) -> Tuple[int, List[List[str]]]:
+    """How many public callables the NWB side-effect rule examined, and each failure."""
+    return _side_effect_scan(package, NWB_SINKS, categories, "mutation")
+
+
+def cache_side_effects_scan(package: Any,
+                            categories: Sequence[str]) -> Tuple[int, List[List[str]]]:
+    """How many public callables the cache side-effect rule examined, and each failure."""
+    return _side_effect_scan(package, CACHE_SINKS, categories, "cache")
+
+
+# ------------------------------------------------------------------------ reserved refusals (facts D5, D7, D9)
+
+#: The refusal errors held back for mutation operations that cannot yet name their
+#: mapping or unit: defined, exported and documented reserved, never raised.
+RESERVED_ERRORS: Tuple[str, ...] = (
+    "AmbiguousMappingError",
+    "UndeclaredUnitError",
+)
+
+
+def reserved_errors_scan(package: Any, root: Path) -> Tuple[int, List[List[str]]]:
+    """The two reserved refusal errors, and each missing hold, as sorted [name, reason]
+    pairs. Each is defined in ``jnwb.nwb_write`` subclassing the base mutation error,
+    exported in ``jnwb.__all__``, and named beside ``reserv`` in ``docs/errors.md``."""
+    try:
+        module = importlib.import_module("jnwb.nwb_write")
+    except ImportError as exc:
+        return len(RESERVED_ERRORS), [[name, f"jnwb.nwb_write not readable: {exc}"]
+                                      for name in sorted(RESERVED_ERRORS)]
+    base = getattr(module, "NWBMutationError", None)
+    try:
+        page = (root / "docs" / "errors.md").read_text(encoding="utf-8")
+    except OSError:
+        page = ""
+    found = []
+    for name in sorted(RESERVED_ERRORS):
+        obj = getattr(module, name, None)
+        if not inspect.isclass(obj) or base is None or not issubclass(obj, base):
+            found.append([name, "not defined in jnwb.nwb_write as a mutation error"])
+        if name not in getattr(package, "__all__", ()):
+            found.append([name, "not exported in jnwb.__all__"])
+        if name not in page or "reserv" not in page.lower():
+            found.append([name, "not documented reserved in docs/errors.md"])
+    return len(RESERVED_ERRORS), sorted(found)
+
+
+# ------------------------------------------------------------------------ documented guesses (facts D6, D8)
+
+#: The parameter names whose string default is a reading the tree takes for granted.
+GUESS_PARAMETERS: Tuple[str, ...] = ("table", "code_column")
+
+
+def _default_guess_sites(root: Path, python: Sequence[str]) -> List[Tuple[str, str, str]]:
+    """Each string default of a ``table`` or ``code_column`` parameter in ``jnwb/`` as
+    (parameter, default, module.qualname) triples."""
+    sites = []
+    for rel in python:
+        if not rel.startswith(JNWB_PACKAGE):
+            continue
+        tree = ast.parse((root / rel).read_text(encoding="utf-8"))
+        module = rel[:-len(".py")].replace("/", ".")
+        stack: List[str] = []
+
+        def visit(node: ast.AST) -> None:
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    stack.append(child.name)
+                    if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        slots = list(zip(child.args.args, child.args.defaults)) + list(
+                            zip(child.args.kwonlyargs, child.args.kw_defaults))
+                        for arg, default in slots:
+                            if (arg.arg in GUESS_PARAMETERS and isinstance(default, ast.Constant)
+                                    and isinstance(default.value, str)):
+                                sites.append((arg.arg, default.value,
+                                              f"{module}." + ".".join(stack)))
+                    visit(child)
+                    stack.pop()
+                else:
+                    visit(child)
+
+        visit(tree)
+    return sites
+
+
+def _interval_preference(root: Path) -> List[str]:
+    """The missing holds of the preferred-table rule: ``_resolve_interval_table`` names
+    ``trials`` by membership and returns it, and no other interval name is returned as
+    a literal. The ``trials``/``epochs``/``invalid_times`` census of the file inventory
+    is prose about what a file holds, not a preference, and lives elsewhere."""
+    try:
+        tree = ast.parse((root / "jnwb" / "nwb_events.py").read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return [["trials preferred over epochs", "jnwb/nwb_events.py not readable"]]
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "_resolve_interval_table":
+            preferred = any(
+                isinstance(sub, ast.If) and isinstance(sub.test, ast.Compare)
+                and any(isinstance(op, ast.In) for op in sub.test.ops)
+                and any(isinstance(part, ast.Constant) and part.value == "trials"
+                        for part in ast.walk(sub.test))
+                and any(isinstance(ret, ast.Return) and isinstance(ret.value, ast.Constant)
+                        and ret.value.value == "trials" for ret in ast.walk(sub))
+                for sub in ast.walk(node))
+            literals = {ret.value.value for ret in ast.walk(node)
+                        if isinstance(ret, ast.Return) and isinstance(ret.value, ast.Constant)
+                        and isinstance(ret.value.value, str)}
+            found = []
+            if not preferred:
+                found.append(["trials preferred over epochs",
+                              "_resolve_interval_table names no trials preference"])
+            for extra in sorted(literals - {"trials"}):
+                found.append(["trials preferred over epochs",
+                              f"_resolve_interval_table also returns {extra!r}"])
+            return found
+    return [["trials preferred over epochs", "_resolve_interval_table not found"]]
+
+
+def _layout_bases(root: Path) -> List[str]:
+    """The missing holds of the layout rule: ``_resolve_layout`` answers from the
+    electrode count or from the shape guess, with the schema time-first rule for types
+    without an electrode region, and from nothing else."""
+    try:
+        tree = ast.parse((root / "jnwb" / "nwb_inspect.py").read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return [["layout from electrode count, shape guess otherwise",
+                 "jnwb/nwb_inspect.py not readable"]]
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "_resolve_layout":
+            bases = {part.value for ret in ast.walk(node)
+                     if isinstance(ret, ast.Return)
+                     for part in ast.walk(ret.value)
+                     if isinstance(part, ast.Constant) and isinstance(part.value, str)}
+            if bases != {"electrode_count", "shape", "schema"}:
+                return [["layout from electrode count, shape guess otherwise",
+                         f"_resolve_layout answers from {sorted(bases)}"]]
+            return []
+    return [["layout from electrode count, shape guess otherwise",
+             "_resolve_layout not found"]]
+
+
+def documented_guesses_scan(root: Path, python: Sequence[str],
+                            guesses: Sequence[str]) -> Tuple[int, List[List[str]]]:
+    """The guess sites the ``documented guesses`` constant covers, and each failure, as
+    sorted [site, reason] pairs. A string default of a ``table`` or ``code_column``
+    parameter matches a ``<parameter> default <default>: <module.qualname>`` row; the
+    preferred-table and layout-basis rows are checked against the functions that read
+    them. A site outside the constant is a new guess; a row no longer in the tree is
+    stale."""
+    rows = {guess: False for guess in guesses}
+    found = []
+    for parameter, default, qualname in _default_guess_sites(root, python):
+        row = f"{parameter} default {default}: {qualname}"
+        if row in rows:
+            rows[row] = True
+        else:
+            found.append([row, "a defaulted name outside the documented guesses"])
+    for row, holds in [("trials preferred over epochs", _interval_preference(root)),
+                       ("layout from electrode count, shape guess otherwise",
+                        _layout_bases(root))]:
+        if row in rows:
+            rows[row] = True
+            found.extend(holds)
+        else:
+            found.append([row, "a documented guess the constant does not name"])
+    for row, seen in sorted(rows.items()):
+        if not seen:
+            found.append([row, "a documented guess no longer in the tree: stale"])
+    return len(rows), sorted(found)
+
+
+# ------------------------------------------------------------------------ cache decisions (fact D10)
+
+#: The functions through which the core would decide what to cache.
+CACHE_CALLS: Tuple[str, ...] = ("cache_store", "cache_key")
+
+
+def cache_decisions_scan(root: Path, python: Sequence[str]) -> Tuple[int, List[List[str]]]:
+    """The ``jnwb/`` files the cache-decision rule read, and each call to the
+    cache-write or cache-key function in them, as sorted [file, reason] pairs. An
+    assigned name that is never called is no site."""
+    examined, found = 0, []
+    for rel in python:
+        if not rel.startswith(JNWB_PACKAGE):
+            continue
+        examined += 1
+        tree = ast.parse((root / rel).read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and _final(node.func) in CACHE_CALLS:
+                found.append([rel, f"line {node.lineno}: calls {_final(node.func)}"])
+    return examined, sorted(found)
+
+
 # ------------------------------------------------------------------------ claim classes (fact S8)
 
 #: The claim table of ``docs/architecture.md``: its ``Magnitude`` and ``Direction`` rows name,
@@ -2012,6 +2406,24 @@ SUFFIX_ALIASES = {"_sec": "_s", "_index": "_idx"}
 #: The comment that states an intentional break at its change site, excusing the edges on its
 #: line or in the statement it stands above.
 BREAK_MARK = "INTENTIONAL BREAK"
+#: The sample-rate parameters the boundary rule reads: names that carry a rate but no unit
+#: suffix. The rate a value carries is the numeric default its own parameter declares; a
+#: value reaching a parameter declaring another rate changes rate with no conversion.
+RATE_PARAMETERS = ("fs", "sampling_rate", "sample_rate")
+#: The frame parameters the boundary rule reads: the frame a value carries is the string
+#: default its own parameter declares.
+FRAME_PARAMETERS = ("coordinate_frame",)
+#: The base parameters the boundary rule reads: the base a value carries is the numeric
+#: default its own parameter declares (0-based or 1-based).
+BASE_PARAMETERS = ("index_base",)
+#: The time suffixes among ``UNIT_SUFFIXES``, read against the count words below: a value
+#: in samples or rows reaching a parameter in seconds, or the reverse, changes quantity
+#: with no conversion on the way.
+TIME_SUFFIXES = ("_ms", "_s", "_sec", "_us")
+#: The words a sample count travels under; ``ROW_WORDS`` is the other base.
+SAMPLE_WORDS = ("_sample", "_samples")
+#: The words a row count travels under.
+ROW_WORDS = ("_row", "_rows")
 
 
 def _boundary_suffix(name: str) -> Optional[str]:
@@ -2022,6 +2434,121 @@ def _boundary_suffix(name: str) -> Optional[str]:
         if lowered.endswith(suffix):
             return SUFFIX_ALIASES.get(suffix, suffix)
     return None
+
+
+def _implicit_domain(name: str) -> Optional[str]:
+    """The unsuffixed domain ``name`` spells -- ``rate``, ``frame`` or ``base`` -- or None.
+    A name outside the three tables spells nothing and is not guessed."""
+    if name in RATE_PARAMETERS:
+        return "rate"
+    if name in FRAME_PARAMETERS:
+        return "frame"
+    if name in BASE_PARAMETERS:
+        return "base"
+    return None
+
+
+def _quantity_kind(name: str) -> Optional[str]:
+    """The quantity ``name`` carries -- ``time``, ``samples`` or ``rows`` -- or None. A
+    suffix the rule reads decides time; the count words decide the other two."""
+    lowered = name.lower()
+    if lowered.endswith(SAMPLE_WORDS):
+        return "samples"
+    if lowered.endswith(ROW_WORDS):
+        return "rows"
+    if lowered.endswith(TIME_SUFFIXES):
+        return "time"
+    return None
+
+
+def _literal_defaults(fn: ast.AST) -> Dict[str, Tuple[str, Any]]:
+    """Each parameter of ``fn`` with a numeric or string literal default, as
+    ``name -> (kind, value)``. ``None``, booleans and any other default spell nothing
+    and are not read."""
+    args = fn.args
+    positional = list(args.posonlyargs) + list(args.args)
+    entries: Dict[str, Tuple[str, Any]] = {}
+    aligned = positional[len(positional) - len(args.defaults):] if args.defaults else []
+    for param, default in list(zip(aligned, args.defaults)) + list(
+            zip(args.kwonlyargs, args.kw_defaults)):
+        if (isinstance(default, ast.Constant)
+                and isinstance(default.value, (int, float, str))
+                and not isinstance(default.value, bool)):
+            kind = "number" if isinstance(default.value, (int, float)) else "string"
+            entries[param.arg] = (kind, default.value)
+    return entries
+
+
+def _boundary_default_lists(tree: ast.AST) -> Dict[str, List[Dict[str, Tuple[str, Any]]]]:
+    """Each function or method name defined in one module, mapped to one literal-default
+    map per definition (``_literal_defaults``), in definition order."""
+    found: Dict[str, List[Dict[str, Tuple[str, Any]]]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            found.setdefault(node.name, []).append(_literal_defaults(node))
+    return found
+
+
+def _enclosing_defaults(tree: ast.AST) -> Dict[int, Dict[str, Tuple[str, Any]]]:
+    """Each call of one module, by ``id``, mapped to the literal defaults of the
+    innermost function definition holding it, or to no map outside any definition."""
+    found: Dict[int, Dict[str, Tuple[str, Any]]] = {}
+    pending: List[Tuple[ast.AST, Dict[str, Tuple[str, Any]]]] = [(tree, {})]
+    while pending:
+        node, current = pending.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            current = _literal_defaults(node)
+        if isinstance(node, ast.Call):
+            found[id(node)] = current
+        pending.extend((child, current) for child in ast.iter_child_nodes(node))
+    return found
+
+
+#: The literal kind the default rule requires of each unsuffixed domain: a rate and a
+#: base are numbers, a frame is a string.
+_DOMAIN_KIND = {"rate": "number", "frame": "string", "base": "number"}
+
+
+def _implicit_edge(callee: str, param: str, value: ast.Name, site: str, line: int,
+                   caller: Dict[str, Tuple[str, Any]],
+                   callee_maps: List[Dict[str, Tuple[str, Any]]],
+                   excused: Callable[[int], bool], examined: Dict[str, int],
+                   found: List[List[str]]) -> None:
+    """One argument of a boundary call under the unsuffixed rule: a value whose name
+    carries a quantity kind (``TIME_SUFFIXES``, ``SAMPLE_WORDS``, ``ROW_WORDS``) reaching
+    a parameter carrying another is a finding; else, when both names spell the same rate,
+    frame or base domain and both declare a literal default of its kind, differing
+    defaults are a finding. An expression is the conversion, not examined; a missing or
+    non-literal default spells nothing and is not guessed. ``examined`` counts a quantity
+    edge only on a mismatch, and a default edge on every comparison."""
+    vkind, pkind = _quantity_kind(value.id), _quantity_kind(param)
+    if vkind is not None and pkind is not None and vkind != pkind:
+        examined["edges"] += 1
+        if excused(line):
+            examined["excused"] += 1
+        else:
+            found.append([site, f"{value.id} ({vkind}) reaches {callee}({param}) ({pkind})"])
+        return
+    domain = _implicit_domain(param)
+    if domain is None or _implicit_domain(value.id) != domain:
+        return
+    want = _DOMAIN_KIND[domain]
+    carried = caller.get(value.id)
+    if carried is None or carried[0] != want:
+        return
+    declared = [mapping.get(param) for mapping in callee_maps]
+    if any(item is None or item[0] != want for item in declared):
+        return
+    if len({item[1] for item in declared}) != 1:
+        return  # ambiguous: the edge may reach either spelling
+    examined["edges"] += 1
+    if carried[1] == declared[0][1]:
+        return
+    if excused(line):
+        examined["excused"] += 1
+    else:
+        found.append([site, f"{value.id} ({domain} {carried[1]!r}) reaches "
+                            f"{callee}({param}) ({domain} {declared[0][1]!r})"])
 
 
 def _boundary_definitions(tree: ast.AST) -> Dict[str, List[Tuple[Tuple[str, ...],
@@ -2096,22 +2623,30 @@ def boundary_unit_scan(root: Path, python: Sequence[str]) -> Tuple[Dict[str, int
     (``BOUNDARY_SUFFIXES``, longest match) differs from the parameter's suffix at the same
     keyword or position is a finding. A name defined more than once with different parameter
     lists is skipped for positional arguments only; an argument that is an expression is the
-    conversion, not examined. A call on a line an ``INTENTIONAL BREAK`` comment holds, or in
+    conversion, not examined. Past the suffixes, one argument whose quantity kinds
+    (``TIME_SUFFIXES``, ``SAMPLE_WORDS``, ``ROW_WORDS``) differ, or whose rate, frame or
+    base defaults (``RATE_PARAMETERS``, ``FRAME_PARAMETERS``, ``BASE_PARAMETERS``) differ
+    across the edge, is a finding too (``_implicit_edge``). A call on a line an
+    ``INTENTIONAL BREAK`` comment holds, or in
     the statement such a comment stands above (``_break_regions``), is excused and counted
     apart.
     """
     files = [rel for rel in python if rel.startswith(JNWB_PACKAGE)]
     definitions: Dict[str, List[Tuple[Tuple[str, ...], FrozenSet[str]]]] = {}
+    callee_maps: Dict[str, List[Dict[str, Tuple[str, Any]]]] = {}
     trees: Dict[str, ast.AST] = {}
     for rel in files:
         trees[rel] = ast.parse((root / rel).read_text(encoding="utf-8"))
         for name, lists in _boundary_definitions(trees[rel]).items():
             definitions.setdefault(name, []).extend(lists)
+        for name, maps in _boundary_default_lists(trees[rel]).items():
+            callee_maps.setdefault(name, []).extend(maps)
     examined: Dict[str, int] = {"edges": 0, "excused": 0}
     found: List[List[str]] = []
     for rel in files:
         regions = _break_regions((root / rel).read_text(encoding="utf-8"), trees[rel])
         excused = lambda line: any(start <= line <= end for start, end in regions)  # noqa: E731
+        callers = _enclosing_defaults(trees[rel])
         for node in ast.walk(trees[rel]):
             if not isinstance(node, ast.Call):
                 continue
@@ -2120,6 +2655,8 @@ def boundary_unit_scan(root: Path, python: Sequence[str]) -> Tuple[Dict[str, int
             lists = definitions.get(callee)
             if lists is None:
                 continue
+            caller = callers.get(id(node), {})
+            maps = callee_maps.get(callee, [])
             for keyword in node.keywords:
                 param, value = keyword.arg, keyword.value
                 if param is None or not isinstance(value, ast.Name):
@@ -2128,6 +2665,8 @@ def boundary_unit_scan(root: Path, python: Sequence[str]) -> Tuple[Dict[str, int
                     continue
                 psuffix, vsuffix = _boundary_suffix(param), _boundary_suffix(value.id)
                 if psuffix is None or vsuffix is None:
+                    _implicit_edge(callee, param, value, f"{rel}:{value.lineno}",
+                                   value.lineno, caller, maps, excused, examined, found)
                     continue
                 examined["edges"] += 1
                 if psuffix == vsuffix or excused(value.lineno):
@@ -2144,6 +2683,8 @@ def boundary_unit_scan(root: Path, python: Sequence[str]) -> Tuple[Dict[str, int
                     continue
                 psuffix, vsuffix = _boundary_suffix(positional[index]), _boundary_suffix(arg.id)
                 if psuffix is None or vsuffix is None:
+                    _implicit_edge(callee, positional[index], arg, f"{rel}:{arg.lineno}",
+                                   arg.lineno, caller, maps, excused, examined, found)
                     continue
                 examined["edges"] += 1
                 if psuffix == vsuffix or excused(arg.lineno):
@@ -2755,6 +3296,16 @@ def build(package: Any = None, root: Path = REPO_ROOT,
     units_examined, unit_conversions = unit_scan(package)
     wrappers_examined, wrapper_defaults = wrapper_scan(package)
     signatures_examined, signature_types = signature_types_scan(package)
+    signal_examined, signal_class_findings = signal_class_scan()
+    delegation_examined, delegation = delegation_scan(package)
+    nwb_examined, nwb_side_effects = nwb_side_effects_scan(
+        package, constants["mutation categories"])
+    cache_se_examined, cache_side_effects = cache_side_effects_scan(
+        package, constants["cache categories"])
+    reserved_examined, reserved_errors = reserved_errors_scan(package, root)
+    guesses_examined, documented_guesses = documented_guesses_scan(
+        root, python, constants["documented guesses"])
+    decisions_examined, cache_decisions = cache_decisions_scan(root, python)
     choices_examined, choice_defaults = choice_default_scan(
         package, constants["B3 choice names"], exceptions)
     claim_examined, claim_labels = claim_class_scan(root, python)
@@ -2784,6 +3335,13 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "unit_examined": units_examined,
             "wrapper_examined": wrappers_examined,
             "signature_examined": signatures_examined,
+            "signal_class_examined": signal_examined,
+            "delegation_examined": delegation_examined,
+            "nwb_side_effects_examined": nwb_examined,
+            "cache_side_effects_examined": cache_se_examined,
+            "reserved_examined": reserved_examined,
+            "guesses_examined": guesses_examined,
+            "cache_decisions_examined": decisions_examined,
             "choice_examined": choices_examined,
             "claim_examined": claim_examined,
             "boundary_examined": boundary_examined,
@@ -2803,6 +3361,13 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "unit_conversions": unit_conversions,
             "wrapper_defaults": wrapper_defaults,
             "signature_types": signature_types,
+            "signal_class": signal_class_findings,
+            "delegation": delegation,
+            "nwb_side_effects": nwb_side_effects,
+            "cache_side_effects": cache_side_effects,
+            "reserved_errors": reserved_errors,
+            "documented_guesses": documented_guesses,
+            "cache_decisions": cache_decisions,
             "choice_defaults": choice_defaults,
             "claim_class_labels": claim_labels,
             "boundary_units": boundary_edges,

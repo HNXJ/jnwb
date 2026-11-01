@@ -76,7 +76,7 @@ print("Rayleigh z:", pli_result["rayleigh_z"], "p-value:", pli_result["rayleigh_
 ```
 
 ### Pairwise Phase Consistency (`pairwise_phase_consistency`)
-Unlike heuristic histogram contrast or PLV/PLI, which has substantial positive sample-size bias ($\mathbb{E}[\text{PLV}] \sim 1/\sqrt{N}$ under noise), Vinck et al. (2010)'s Pairwise Phase Consistency (PPC) is an asymptotically unbiased estimator of squared phase synchronization and is the **recommended estimator** for population and across-unit comparisons:
+Unlike heuristic histogram contrast or PLV/PLI, which has positive sample-size bias ($\mathbb{E}[\text{PLV}] \sim 1/\sqrt{N}$ under noise), Vinck et al. (2010)'s Pairwise Phase Consistency (PPC) is an asymptotically unbiased estimator of squared phase synchronization and is the **recommended estimator** for population and across-unit comparisons:
 
 $$\text{PPC} = \frac{2}{N(N-1)} \sum_{j=1}^{N-1} \sum_{k=j+1}^N \cos(\theta_j - \theta_k)$$
 
@@ -186,7 +186,7 @@ import jnwb
 
 # Assemble the time-resolved population tensor: (n_trials, n_units, n_bins)
 X, unit_ids, bin_centers = jnwb.build_time_resolved_matrix(
-    session, area="V1", epochs_df=trials_df,
+    session, area="V1", epochs_df=trials_df, time_window_ms=(-1000, 2000),
 )
 
 # Low-dimensional population trajectory, from the same three inputs.
@@ -194,7 +194,7 @@ X, unit_ids, bin_centers = jnwb.build_time_resolved_matrix(
 # and explained_variance_per_component (each (n_components,), as in scikit-learn's PCA),
 # unit_ids, bin_centers.
 trajectory_res = jnwb.compute_population_trajectory(
-    session, area="V1", epochs_df=trials_df, n_components=3,
+    session, area="V1", epochs_df=trials_df, time_window_ms=(-1000, 2000), n_components=3,
 )
 ```
 

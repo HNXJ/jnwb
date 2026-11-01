@@ -5,7 +5,7 @@ no item or landed change holds; the rest of it is accounted for in the commit th
 Ruled 2026-09-25: the benchmark stays as declared, and a paper agent's with-and-without-jnwb
 comparison is reported downstream (`artifacts/rulings/2026-09-25.md`).
 
-The hypothesis ruled 2026-09-17 (`artifacts/archive/0.2.5/planned_post_0.2.5.md`, P0): an agent
+The hypothesis ruled 2026-09-17 (`git show b6388414:artifacts/archive/0.2.5/planned_post_0.2.5.md`, P0): an agent
 given jnwb's skills and tested operations outperforms the same agent given raw repository access,
 on a predefined set of NWB analysis tasks. Pre-registered here. **None of it has run**, it is a
 non-goal of 0.2.6 and it gates nothing: an experiment whose either outcome is admissible cannot

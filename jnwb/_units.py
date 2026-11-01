@@ -16,7 +16,7 @@ from __future__ import annotations
 import warnings
 from typing import Any
 
-__all__ = ["omitted_window", "resolve_unit_alias"]
+__all__ = ["resolve_unit_alias"]
 
 
 _MISSING = object()
@@ -70,17 +70,85 @@ def resolve_unit_alias(
     )
 
 
-def omitted_window(value: Any, old_default: Any, *, name: str, func_name: str) -> Any:
-    """``value``, or ``old_default`` with a FutureWarning when the caller left it out.
+class _Required:
+    """Default of a window the caller must pass. Its repr is fixed, so the API page is stable."""
 
-    A time window that defaulted to a span no source cites becomes required in 0.2.15;
-    until then the omitted window keeps its old value and the warning says to pass it.
+    def __repr__(self) -> str:
+        return "_REQUIRED"
+
+
+_REQUIRED = _Required()
+
+
+def _window_from_positional(func_name: str, name: str, window: Any, positional: tuple) -> Any:
+    """The window a call names: the keyword, or one positional value under a FutureWarning.
+
+    ``positional`` is what ``*_positional`` collected after the leading arguments. Two values,
+    or a value next to the keyword, raise TypeError; so does an omitted window.
     """
-    if value is not None:
-        return value
-    warnings.warn(
-        f"{func_name}: {name} will be required in 0.2.15; pass it explicitly. "
-        f"The old default {old_default!r} is used for now.",
-        FutureWarning, stacklevel=3,
-    )
-    return old_default
+    if len(positional) > 1:
+        raise TypeError(
+            f"{func_name} takes one window; got {len(positional)} positional values after "
+            "its leading arguments."
+        )
+    if positional:
+        if window is not _REQUIRED:
+            raise TypeError(f"{func_name} got {name} both positionally and by keyword.")
+        warnings.warn(
+            f"{func_name}: pass {name}= by keyword; positional use will stop working",
+            FutureWarning, stacklevel=3,
+        )
+        window = positional[0]
+    if window is _REQUIRED:
+        raise TypeError(f"{func_name} requires {name}.")
+    return window
+
+
+#: The signal classes a ``signal_class`` argument may name. Spikes and LFP are never pooled.
+SIGNAL_CLASSES = ("spikes", "lfp")
+
+
+class _Omitted:
+    """Default of a ``signal_class`` the caller has not passed. Its repr is fixed, so the API page is stable."""
+
+    def __repr__(self) -> str:
+        return "_OMITTED"
+
+
+_OMITTED = _Omitted()
+
+
+def _check_signal_class(func_name: str, signal_class: Any, n_inputs: int) -> None:
+    """Refuse a ``signal_class`` that names an unknown class or a mix; warn when it is omitted.
+
+    One class names every input. A pair ``(class_1, class_2)`` names each of two inputs. A pair
+    of different classes is refused. Omitted, the call still runs and warns ``FutureWarning``:
+    the argument becomes required.
+
+    Raises:
+        ValueError: On a value outside ``SIGNAL_CLASSES``, a pair given to a one-input operation,
+            or a pair that mixes spikes and LFP.
+    """
+    allowed = " or ".join(repr(c) for c in SIGNAL_CLASSES)
+    if signal_class is _OMITTED:
+        warnings.warn(
+            f"{func_name}: pass signal_class= by keyword ({allowed}); it will become required",
+            FutureWarning, stacklevel=3,
+        )
+        return
+    if isinstance(signal_class, str):
+        pair = (signal_class,) * n_inputs
+    elif isinstance(signal_class, tuple) and n_inputs == 2 and len(signal_class) == 2:
+        pair = signal_class
+    else:
+        shape = "one class" if n_inputs == 1 else "one class or a pair (class_1, class_2)"
+        raise ValueError(
+            f"{func_name}: signal_class takes {shape}, each {allowed}; got {signal_class!r}."
+        )
+    if any(c not in SIGNAL_CLASSES for c in pair):
+        raise ValueError(f"{func_name}: signal_class must be {allowed}; got {signal_class!r}.")
+    if len(set(pair)) > 1:
+        raise ValueError(
+            f"{func_name}: spikes and LFP are never pooled; signal_class={signal_class!r} "
+            "names both. Call once for each class."
+        )

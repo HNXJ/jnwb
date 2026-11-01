@@ -78,7 +78,8 @@ Each function draws into one `(row, col)` of a canvas.
 | `plot_rsm_heatmap` | a representational dissimilarity matrix (RDM) |
 
 Every other interval, null and correction is an input: compute it with the jnwb operation
-that estimates it and pass the result in. Signatures are on [Public API](api.md).
+that estimates it and pass the result in. Signatures live in the functions' docstrings
+(e.g. `help(jnwb.vis.plot_csd)`).
 
 ## WaveMAP display
 

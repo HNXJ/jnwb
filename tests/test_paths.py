@@ -217,3 +217,88 @@ class TestPackageRootRename:
         assert result["PACKAGE_ROOT"]["path"] == str(paths.PACKAGE_ROOT)
         assert "REPO_ROOT" not in result
 
+
+class TestResolveNwbPath:
+    """17-69: a session prefix names an existing file, or refuses naming every probe."""
+
+    def test_default_probes_rec_then_plain(self, tmp_path):
+        (tmp_path / "s1_rec.nwb").write_bytes(b"r")
+        (tmp_path / "s1.nwb").write_bytes(b"p")
+        assert paths.resolve_nwb_path("s1", nwb_dir_override=tmp_path) == tmp_path / "s1_rec.nwb"
+
+    def test_suffixes_are_probed_in_the_order_given(self, tmp_path):
+        (tmp_path / "s1_rec.nwb").write_bytes(b"r")
+        (tmp_path / "s1.nwb").write_bytes(b"p")
+        found = paths.resolve_nwb_path("s1", nwb_dir_override=tmp_path, suffixes=("", "_rec"))
+        assert found == tmp_path / "s1.nwb"
+
+    def test_a_custom_suffix_is_probed(self, tmp_path):
+        (tmp_path / "s1_v2.nwb").write_bytes(b"v")
+        found = paths.resolve_nwb_path("s1", nwb_dir_override=tmp_path, suffixes=("_v2",))
+        assert found == tmp_path / "s1_v2.nwb"
+
+    def test_no_file_raises_naming_every_probe(self, tmp_path):
+        with pytest.raises(FileNotFoundError) as exc:
+            paths.resolve_nwb_path("s1", nwb_dir_override=tmp_path)
+        msg = str(exc.value)
+        assert str(tmp_path / "s1_rec.nwb") in msg
+        assert str(tmp_path / "s1.nwb") in msg
+
+    def test_a_name_that_only_starts_with_a_probe_never_matches(self, tmp_path):
+        (tmp_path / "s1_rec-old.nwb").write_bytes(b"x")
+        (tmp_path / "s1.nwb.bak").write_bytes(b"x")
+        assert (tmp_path / "s1_rec-old.nwb").exists() and (tmp_path / "s1.nwb.bak").exists()
+        with pytest.raises(FileNotFoundError):
+            paths.resolve_nwb_path("s1", nwb_dir_override=tmp_path)
+
+    def test_a_directory_named_as_a_probe_is_not_a_file(self, tmp_path):
+        (tmp_path / "s1_rec.nwb").mkdir()
+        (tmp_path / "s1.nwb").write_bytes(b"p")
+        assert (tmp_path / "s1_rec.nwb").is_dir()
+        assert paths.resolve_nwb_path("s1", nwb_dir_override=tmp_path) == tmp_path / "s1.nwb"
+
+
+class TestSha256Groups:
+    """17-67: a receipt fingerprints the groups a reader used, not the whole file."""
+
+    @staticmethod
+    def _nwb(path, spikes=(1.0, 2.0), labels=("a", "bb"), acquisition=(0, 1, 2)):
+        import h5py
+        with h5py.File(path, "w") as f:
+            f.create_dataset("units/spike_times", data=list(spikes))
+            f.create_dataset("units/labels", data=list(labels), dtype=h5py.string_dtype())
+            f.create_dataset("acquisition/ts", data=list(acquisition))
+        return path
+
+    def test_identical_content_gives_the_same_digest(self, tmp_path):
+        a = self._nwb(tmp_path / "a.nwb")
+        b = self._nwb(tmp_path / "b.nwb")
+        assert paths.sha256_groups(a, ["units"]) == paths.sha256_groups(b, ["units"])
+
+    def test_a_dataset_inside_a_named_group_changes_the_digest(self, tmp_path):
+        a = self._nwb(tmp_path / "a.nwb")
+        b = self._nwb(tmp_path / "b.nwb", spikes=(1.0, 2.5))
+        assert paths.sha256_file(a) != paths.sha256_file(b)
+        assert paths.sha256_groups(a, ["units"]) != paths.sha256_groups(b, ["units"])
+
+    def test_a_string_inside_a_named_group_changes_the_digest(self, tmp_path):
+        a = self._nwb(tmp_path / "a.nwb")
+        b = self._nwb(tmp_path / "b.nwb", labels=("a", "bc"))
+        assert paths.sha256_groups(a, ["units"]) != paths.sha256_groups(b, ["units"])
+
+    def test_a_dataset_outside_the_named_groups_does_not_change_the_digest(self, tmp_path):
+        a = self._nwb(tmp_path / "a.nwb")
+        b = self._nwb(tmp_path / "b.nwb", acquisition=(0, 1, 9))
+        assert paths.sha256_file(a) != paths.sha256_file(b)
+        assert paths.sha256_groups(a, ["units"]) == paths.sha256_groups(b, ["units"])
+
+    def test_group_order_does_not_change_the_digest(self, tmp_path):
+        a = self._nwb(tmp_path / "a.nwb")
+        assert (paths.sha256_groups(a, ["units", "acquisition"])
+                == paths.sha256_groups(a, ["acquisition", "units"]))
+
+    def test_a_missing_group_raises_naming_it(self, tmp_path):
+        a = self._nwb(tmp_path / "a.nwb")
+        with pytest.raises(KeyError, match="stimulus"):
+            paths.sha256_groups(a, ["units", "stimulus"])
+

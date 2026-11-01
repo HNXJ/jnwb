@@ -6,14 +6,14 @@ Supports PyTorch for GPU acceleration if available.
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
-from ._bins import bin_edges, refuse_nonfinite_times, right_open_counts, whole_bin_count
+from ._bins import (bin_edges, check_bin_label, onset_locked_counts_right, refuse_nonfinite_times,
+                    right_open_counts, whole_bin_count)
 from ._spread import zscore
-from ._units import omitted_window
 from .gpu_pca import _svd_numpy, pin_component_signs
 
 log = logging.getLogger(__name__)
@@ -24,9 +24,11 @@ def build_time_resolved_matrix(
     session,
     area: str,
     epochs_df: pd.DataFrame,
-    time_window_ms: Optional[Tuple[float, float]] = None,
+    time_window_ms: Tuple[float, float],
     bin_size_ms: float = 20.0,
-    quality: Optional[str] = None
+    quality: Optional[str] = None,
+    *,
+    label: Literal["center", "right"] = "center"
 ) -> Tuple[np.ndarray, List[int], np.ndarray]:
     """
     Build a trial-by-trial time-resolved population spike count matrix.
@@ -38,29 +40,31 @@ def build_time_resolved_matrix(
         time_window_ms: (start_ms, end_ms) relative to epoch onset. Its span must be a whole
             number of ``bin_size_ms`` bins. Every bin is right-open, as in
             :func:`jnwb.bin_spikes`, so a spike on ``end_ms`` is outside the window.
-            Required from 0.2.15; left out, it is (-1000, 2000) with a ``FutureWarning``.
         bin_size_ms: Width of time bins in ms
         quality: Filter units by quality tier ('stable_plus', 'stable', etc.)
+        label: ``"center"`` labels each bin at its midpoint. ``"right"`` counts a spike in
+            (t - bin, t] and labels that bin at t.
 
     Returns:
         X: Feature matrix of shape (n_trials, n_units, n_bins)
         unit_ids: List of unit identities (raw units_df row-index positions, matching
             the session's get_spike_times primary lookup convention) represented in the rows/columns of X
-        bin_centers: Center times of bins relative to trial onset in ms
+        bin_centers: Bin labels relative to trial onset in ms: the centres, or the right
+            edges when the caller passed ``label="right"``. The return does not name the label.
 
     Raises:
         ValueError: If the span of ``time_window_ms`` is not a whole multiple of
             ``bin_size_ms``; the message names the nearest valid windows. Also if a
             ``start_time`` is not finite; the message names its index.
     """
-    time_window_ms = omitted_window(time_window_ms, (-1000.0, 2000.0), name="time_window_ms",
-                                    func_name="build_time_resolved_matrix")
+    check_bin_label(label, "build_time_resolved_matrix")
     n_bins = whole_bin_count(time_window_ms, bin_size_ms, "build_time_resolved_matrix",
                              "time_window_ms", width_param="bin_size_ms")
     start_sec = time_window_ms[0] / 1000.0
     end_sec = time_window_ms[1] / 1000.0
     bin_sec = bin_size_ms / 1000.0
-    bin_centers = (bin_edges(start_sec, bin_sec, n_bins)[:-1] + bin_sec / 2.0) * 1000.0
+    edges = bin_edges(start_sec, bin_sec, n_bins)
+    bin_centers = (edges[1:] if label == "right" else edges[:-1] + bin_sec / 2.0) * 1000.0
 
     # Checked before the empty-population return: a NaN start is refused for every call.
     refuse_nonfinite_times(epochs_df['start_time'].values, "build_time_resolved_matrix", "start_time")
@@ -86,9 +90,13 @@ def build_time_resolved_matrix(
         if len(spike_times) == 0:
             continue
         # The same right-open bins as `bin_spikes`: a spike on the window end is outside.
+        # "right" selects (start, end] for bins (t - w, t].
         st = np.asarray(spike_times, dtype=float)
-        X[:, j, :] = right_open_counts((st - onset for onset in onsets),
-                                       start_sec, end_sec, bin_sec, n_bins)
+        if label == "right":
+            X[:, j, :] = onset_locked_counts_right(st, onsets, start_sec, end_sec, edges, 1.0)
+        else:
+            X[:, j, :] = right_open_counts((st - onset for onset in onsets),
+                                           start_sec, end_sec, bin_sec, n_bins)
 
     return X, unit_ids, bin_centers
 
@@ -97,11 +105,13 @@ def compute_population_trajectory(
     session,
     area: str,
     epochs_df: pd.DataFrame,
-    time_window_ms: Optional[Tuple[float, float]] = None,
+    time_window_ms: Tuple[float, float],
     bin_size_ms: float = 20.0,
     n_components: int = 3,
     quality: Optional[str] = None,
-    device: str = 'cpu'
+    device: str = 'cpu',
+    *,
+    label: Literal["center", "right"] = "center"
 ) -> Dict[str, Union[np.ndarray, List[int], float, str]]:
     """
     Compute population trajectory using standardized correlation PCA (SVD).
@@ -120,12 +130,12 @@ def compute_population_trajectory(
         session: session object exposing ``get_units`` and ``get_spike_times``
         area: Brain area to decode from
         epochs_df: DataFrame of trials/epochs (must have 'start_time')
-        time_window_ms: Time window in ms relative to onset. Required from 0.2.15; left
-            out, it is (-1000, 2000) with a ``FutureWarning``.
+        time_window_ms: Time window in ms relative to onset.
         bin_size_ms: Width of time bins in ms
         n_components: Number of PCA components to keep
         quality: Filter units by quality tier
         device: 'cpu' or 'cuda' (GPU acceleration)
+        label: ``"center"`` or ``"right"``, as in :func:`build_time_resolved_matrix`.
 
     Returns:
         Dict with:
@@ -139,7 +149,8 @@ def compute_population_trajectory(
           scikit-learn's name for them; it was once the kept components' summed
           fraction, which is ``np.nansum(explained_variance_ratio)``
         - unit_ids: unit IDs in analysis
-        - bin_centers: center times of bins
+        - bin_centers: center times of bins, or right edges under ``label="right"``
+        - label: the bin convention used, ``"center"`` or ``"right"``
         - device_used: 'cpu' or 'cuda', the device that performed the SVD; 'cpu' when there
           is no population and nothing was decomposed
 
@@ -165,10 +176,9 @@ def compute_population_trajectory(
         rate), not covariance PCA; the review surveys the method rather than
         specifying this pipeline.
     """
-    time_window_ms = omitted_window(time_window_ms, (-1000.0, 2000.0), name="time_window_ms",
-                                    func_name="compute_population_trajectory")
+    check_bin_label(label, "compute_population_trajectory")
     X, unit_ids, bin_centers = build_time_resolved_matrix(
-        session, area, epochs_df, time_window_ms, bin_size_ms, quality
+        session, area, epochs_df, time_window_ms, bin_size_ms, quality, label=label
     )
 
     n_trials, n_units, n_bins = X.shape
@@ -186,6 +196,7 @@ def compute_population_trajectory(
             'explained_variance_per_component': np.full(n_components, np.nan),
             'unit_ids': [],
             'bin_centers': bin_centers,
+            'label': label,
             'device_used': CPU,
         }
 
@@ -237,6 +248,7 @@ def compute_population_trajectory(
         'explained_variance_per_component': explained_variance,
         'unit_ids': unit_ids,
         'bin_centers': bin_centers,
+        'label': label,
         'device_used': resolved,
     }
 

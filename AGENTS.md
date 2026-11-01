@@ -20,6 +20,8 @@ Rules and routes; the reasons are in `artifacts/rulings/history.md`. This is the
 | `docs/`, `examples/` | User docs: `api.md` lists every public symbol, `common_mistakes.md` the guarded failure modes, `references.md` the cited sources; `quickstart_jnwb.py` and the notebooks `tests/test_notebooks.py` executes |
 | `.github/CONTRIBUTING.md`, `.github/workflows/workflow.yml` | How to change code, docs, skills and releases; CI, whose publication order is a fact |
 
+Loaded at session start: @artifacts/agents.md
+
 ## 1. Evidence
 
 `configured != loaded != executed != verified`. Prose counts go stale; re-run and read the output. On conflict, authority runs: receipt on disk, live repository state, machine-readable state files, then prose. A reported number traces to a computation on real data, not to a literal, an RNG draw or a fallback branch.
@@ -80,7 +82,7 @@ A request to encode a corpus convention in jnwb is a reason to stop.
 | `python scripts/release_gate.py` | Release readiness; run before tagging |
 | `python scripts/docs_build.py` | Strict MkDocs via `sys.executable`; never bare `mkdocs` |
 
-Agents run the suite with `bash C:/Users/nejath/.claude/bin/jnwb_suite.sh <dir> <log>`, which writes the stamp `.git/jnwb_suite_ok`, and push only with `bash C:/Users/nejath/.claude/bin/jnwb_push.sh <repo> dev </dev/null`. The push needs the stamp to equal HEAD unless it touches only `artifacts/`, no CI run in flight, and a newest completed run that did not fail; the host guard blocks a plain push. The interpreter set is fact R6.
+Agents run the suite with `bash <dir>/scripts/jnwb_suite.sh <dir> <log>`, which writes the stamp `.git/jnwb_suite_ok`, and push only with `bash <repo>/scripts/jnwb_push.sh <repo> dev </dev/null`. The push needs the stamp to equal HEAD unless it touches only `artifacts/`, no CI run in flight, and a newest completed run that did not fail; `scripts/push_guard.py`, a PreToolUse hook wired in `.claude/settings.json`, blocks a plain push. The interpreter set is fact R6.
 
 ## 7. Skills
 

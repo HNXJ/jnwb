@@ -106,8 +106,8 @@ count.
 the block length. Before 0.2.6.1 every metric used `"iid"`, so p-values of the paired metrics
 on autocorrelated data have changed.
 
-The axis-0 metrics form a null only when `null=` is named: `"iid"` for exchangeable conditions,
-`"circular_shift"` when axis 0 is time, where the row permutation made `"cka"` and `"rv"` reject
+The axis-0 metrics take `"iid"` for exchangeable conditions and `"circular_shift"` when
+axis 0 is time, where the row permutation made `"cka"` and `"rv"` reject
 all 40 independent AR(1) pairs at p ≤ 0.05. `"block"` is not calibrated for them.
 
 `bootstrap > 0` with a paired metric raises unless `null="iid"` is named. The bootstrap resamples

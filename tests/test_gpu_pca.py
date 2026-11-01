@@ -27,13 +27,14 @@ def test_the_trajectory_falls_back_to_numpy_when_torch_is_unavailable(monkeypatc
     X = np.random.default_rng(42).normal(size=(12, 6, 20))
     monkeypatch.setattr(traj, "build_time_resolved_matrix",
                         lambda *a, **k: (X, list(range(6)), np.arange(20.0)))
-    cpu = traj.compute_population_trajectory(None, "A", None, n_components=3, device="cpu")
+    cpu = traj.compute_population_trajectory(None, "A", None, time_window_ms=(-1000, 2000),
+                                             n_components=3, device="cpu")
 
     monkeypatch.setattr(traj, "resolve_device", lambda *a, **k: traj.CUDA)
     monkeypatch.setitem(sys.modules, "torch", None)
     with pytest.warns(Warning):
         fallback = traj.compute_population_trajectory(
-            None, "A", None, n_components=3, device="cuda")
+            None, "A", None, time_window_ms=(-1000, 2000), n_components=3, device="cuda")
 
     np.testing.assert_allclose(fallback["trajectory"], cpu["trajectory"], atol=1e-12)
     assert fallback["device_used"] == "cpu"

@@ -45,6 +45,8 @@ from __future__ import annotations
 import warnings
 import numpy as np
 
+from ._bins import refuse_nonfinite_times
+
 Z_THRESH = 6.0                       # cross-channel-synchrony threshold, see docstring above
 
 
@@ -410,6 +412,9 @@ def repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=TFR_Z_THRESH,
         flagged cells is jnwb's, not the paper's.
     """
     band_ranges = DEFAULT_BANDS if band_ranges is None else band_ranges
+    refuse_nonfinite_times(freqs, "repair_band_artifacts", "freqs")
+    # A NaN cell hid its trial's artifact and, with no band matching, passed through silently.
+    refuse_nonfinite_times(power, "repair_band_artifacts", "power")
     power = np.asarray(power)
     if power.ndim not in (3, 4):
         raise ValueError(

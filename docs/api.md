@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 226 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 231 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -69,9 +69,9 @@ All 226 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.bin_spikes | function | `(spike_times, window_s: 'Optional[Tuple[float, float]]' = None, bin_size_ms: 'float' = 10.0, trial_starts: 'Optional[Sequence[float]]' = None, output: 'str' = 'count', return_centers: 'bool' = False, *, window: 'Optional[Tuple[float, float]]' = None)`<br>*Bridge spike data into the ``(n_trials, n_bins)`` contract used by every estimator.* |
 | jnwb.binary_occupancy_mutual_information | function | `(spike_times1: 'np.ndarray', spike_times2: 'np.ndarray', time_window_s: 'Optional[Tuple[float, float]]' = None, bin_size_ms: 'float' = 10.0, *, time_window: 'Optional[Tuple[float, float]]' = None) -> 'float'`<br>*Deprecated alias for binary occupancy MI. `time_window_s` is in seconds.* |
 | jnwb.directed_connectivity | function | `(X, Y, method: 'str' = 'granger', **kwargs) -> 'DirectedResult'`<br>*One entry point for all three directed estimators.* |
-| jnwb.directed_network | function | `(signals, method: 'str' = 'granger', labels: 'Optional[Sequence[str]]' = None, fdr: 'bool' = True, fdr_method: 'str' = 'bh', n_jobs: 'int' = 1, *, conditional: 'bool' = False, **kwargs) -> 'Dict[str, Any]'`<br>*All-pairs directed connectivity over N nodes.* |
+| jnwb.directed_network | function | `(signals, method: 'str' = 'granger', labels: 'Optional[Sequence[str]]' = None, fdr: 'bool' = True, fdr_method: 'str' = 'bh', n_jobs: 'int' = 1, *, conditional: 'bool' = False, signal_class: 'Union[str, Tuple[str, str]]' = _OMITTED, **kwargs) -> 'Dict[str, Any]'`<br>*All-pairs directed connectivity over N nodes.* |
 | jnwb.granger | function | `(X, Y, order: 'Union[int, str]' = 'auto', max_lag: 'int' = 20, criterion: 'str' = 'bic', Z = None, ridge: 'float' = 0.0, detrend: 'Optional[str]' = 'zscore', n_surrogates: 'int' = 0, rng: 'RNGLike' = 0, time_axis: 'int' = -1, *, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Bivariate or conditional Granger causality between two arbitrary signals.* |
-| jnwb.granger_causality | function | `(signal1: 'np.ndarray', signal2: 'np.ndarray', order: 'Union[int, str]' = 5, device: 'str' = 'cpu', ridge: 'float' = 0.0, criterion: 'str' = 'aic') -> 'Dict[str, Union[float, dict, list]]'`<br>*Compute bivariate Granger Causality (GC) values between two continuous signals.* |
+| jnwb.granger_causality | function | `(signal1: 'np.ndarray', signal2: 'np.ndarray', order: 'Union[int, str]' = 5, device: 'str' = 'cpu', ridge: 'float' = 0.0, criterion: 'str' = 'aic', *, signal_class: 'Union[str, Tuple[str, str]]' = _OMITTED) -> 'Dict[str, Union[float, dict, list]]'`<br>*Compute bivariate Granger Causality (GC) values between two continuous signals.* |
 | jnwb.granger_nonparametric | function | `(X, Y, *, fs: 'float', bands, n_freqs: 'int' = 256, n_surrogates: 'int' = 0, rng: 'RNGLike' = 0, detrend: 'Optional[str]' = 'zscore', time_axis: 'int' = -1, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Frequency-resolved Granger causality by spectral factorization, with no fitted model.* |
 | jnwb.granger_spectral | function | `(X, Y, fs: 'float', order: 'Union[int, str]' = 'auto', max_lag: 'int' = 20, criterion: 'str' = 'bic', n_freqs: 'int' = 256, bands: 'Union[str, Dict[str, Tuple[float, float]], Tuple[float, float], None]' = None, ridge: 'float' = 0.0, detrend: 'Optional[str]' = 'zscore', n_surrogates: 'int' = 0, rng: 'RNGLike' = 0, time_axis: 'int' = -1, *, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Frequency-resolved Granger causality (Geweke, 1982) — directionality per band.* |
 | jnwb.granger_time_reversed | function | `(X, Y, *, order: 'int', n_surrogates: 'int' = 0, rng: 'RNGLike' = 0, detrend: 'Optional[str]' = 'zscore', time_axis: 'int' = -1, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Time-reversed Granger control: a directed claim needs the net flow to change sign under reversal.* |
@@ -79,15 +79,18 @@ All 226 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.phase_slope_index | function | `(X, Y, fs: 'float', bands: 'Union[str, Dict[str, Tuple[float, float]], Tuple[float, float], None]' = None, nperseg: 'Optional[int]' = None, noverlap: 'Optional[int]' = None, window: 'str' = 'hann', detrend: 'Optional[str]' = 'demean', jackknife: 'bool' = True, n_surrogates: 'int' = 0, rng: 'RNGLike' = 0, time_axis: 'int' = -1, *, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Phase Slope Index (Nolte et al., 2008) — which signal leads in phase.* |
 | jnwb.spike_count_mutual_information | function | `(spike_times1: 'np.ndarray', spike_times2: 'np.ndarray', time_window_s: 'Optional[Tuple[float, float]]' = None, bin_size_ms: 'float' = 10.0, *, time_window: 'Optional[Tuple[float, float]]' = None) -> 'float'`<br>*Deprecated alias for discrete MI on per-bin spike counts. `time_window_s` is in seconds.* |
 | jnwb.spike_mutual_information | function | `(spike_times1: 'np.ndarray', spike_times2: 'np.ndarray', time_window_s: 'Optional[Tuple[float, float]]' = None, bin_size_ms: 'float' = 10.0, estimator: 'str' = 'binary_occupancy', *, time_window: 'Optional[Tuple[float, float]]' = None) -> 'float'`<br>*Compute Shannon Mutual Information (MI) between two binned spike trains.* |
-| jnwb.transfer_entropy | function | `(X, Y, k: 'int' = 1, l: 'int' = 1, delay: 'int' = 1, estimator: 'str' = 'quantile', bins: 'int' = 4, symbolic_order: 'int' = 3, bias_correction: 'Optional[str]' = 'mm', n_surrogates: 'int' = 200, rng: 'RNGLike' = 0, detrend: 'Optional[str]' = None, time_axis: 'int' = -1, *, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Transfer entropy — model-free, nonlinear directed information flow, in bits.* |
+| jnwb.transfer_entropy | function | `(X, Y, k: 'int' = 1, l: 'int' = 1, delay: 'int' = 1, estimator: 'str' = 'quantile', bins: 'int' = 4, symbolic_order: 'int' = 3, bias_correction: 'Optional[str]' = 'mm', n_surrogates: 'int' = 200, rng: 'RNGLike' = 0, detrend: 'Optional[str]' = None, time_axis: 'int' = -1, *, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Transfer entropy — model-free, nonlinear, directed predictive information, in bits.* |
 
 ## Module: jnwb.continuous
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
+| jnwb.EffectiveRate | class | *Evidence on the rate a stream was sampled at, returned by `effective_rate`.* |
 | jnwb.TickClock | class | *Map from timestamp ticks to seconds on a spike clock, built by `derive_tick_clock`.* |
 | jnwb.derive_tick_clock | function | `(tick_segments: 'Sequence[np.ndarray]', spike_times) -> 'TickClock'`<br>*Derive the map from acquisition ticks to spike-clock seconds from one recording.* |
+| jnwb.effective_rate | function | `(data: 'np.ndarray | Sequence[float]', rate: 'float') -> 'EffectiveRate'`<br>*Measure whether a stream repeats samples as if it were held from a lower rate.* |
 | jnwb.epoch_continuous | function | `(data: 'np.ndarray', onsets: 'np.ndarray | Sequence[float]', *, win_s: 'tuple[float, float]', fs: 'float', start_s: 'float' = 0.0, onset_unit: 'OnsetUnit' = 'seconds', boundary_policy: 'BoundaryPolicy' = 'nan', return_indices: 'bool' = False) -> 'tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]'`<br>*Extract fixed-duration epochs from a continuous signal aligned to event onsets.* |
+| jnwb.gaze_departure_onsets | function | `(gaze: 'np.ndarray | Sequence[float]', rate: 'float', trial_starts: 'np.ndarray | Sequence[float]', *, baseline_window_s: 'tuple[float, float]', reference_trials: 'np.ndarray | Sequence[int]', envelope_percentile: 'float' = 99.5, hold_s: 'float' = 0.025, walkback_fraction: 'float' = 0.5) -> 'np.ndarray'`<br>*Find, per trial, the time the gaze leaves its baseline position.* |
 
 ## Module: jnwb.decoding
 
@@ -171,6 +174,7 @@ All 226 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.get_all_units_metadata | function | `(nwb_paths: str | pathlib.Path | pynwb.file.NWBFile | List[str | pathlib.Path | pynwb.file.NWBFile], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip', *, stable_threshold: float = 1.0, stable_labels: Collection[str] = ('good', 'sua', 'single', 'stable', 'clean'), allow_missing: Sequence[str] | str | None = None) -> pandas.DataFrame`<br>*Extract all units and metadata from one or more NWB files.* |
 | jnwb.get_snr_analysis | function | `(units_df: pandas.DataFrame, snr_threshold: float = 1.0, detail: bool = False) -> Dict`<br>*Analyze SNR distribution and quality.* |
 | jnwb.unit_census_report | function | `(units_df: pandas.DataFrame, group_by: List[str] | None = None) -> pandas.DataFrame`<br>*Generate a census/summary report of units grouped by session, area and depth class.* |
+| jnwb.units_table | function | `(nwb: pynwb.file.NWBFile) -> Tuple[pandas.DataFrame, Dict[str, Dict[str, str]]]`<br>*One row per unit of an open NWB file: identity, probe, peak channel, area, depth class and the waveform features the units table carries.* |
 
 ## Module: jnwb.nwb_events
 
@@ -182,6 +186,7 @@ All 226 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.IntervalTableNotFoundError | class | *The requested interval table does not exist.* |
 | jnwb.InvalidOnsetValueError | class | *A selected row has a missing or non-finite onset timestamp.* |
 | jnwb.NWBEventError | class | *Base class for event/onset extraction errors.* |
+| jnwb.edges_near_events | function | `(path_or_nwb: 'NWBInput', series_path: 'str', events: 'Sequence[float] | np.ndarray', *, threshold: 'float', window_s: 'tuple[float, float]') -> 'pd.DataFrame'`<br>*Return the rising and falling edge nearest each event of a TimeSeries.* |
 | jnwb.event_onsets | function | `(path_or_nwb: 'NWBInput', *, table: 'str | None' = None, codes: 'CodeSequence | None' = None, code_column: 'str | None' = 'codes', onset_column: 'str' = 'start_time') -> 'np.ndarray'`<br>*Return onset timestamps (seconds) for rows matching ``codes``.* |
 | jnwb.events | function | `(path_or_nwb: 'NWBInput', *, table: 'str | None' = None, code_column: 'str | None' = 'codes', onset_column: 'str' = 'start_time') -> 'EventTable'`<br>*Read event codes and onset timestamps from one interval table.* |
 | jnwb.resolve_interval_table | function | `(path_or_nwb: 'NWBInput', table: 'str | None' = None) -> 'str'`<br>*Resolve an interval table name using jnwb addressing rules.* |
@@ -220,7 +225,7 @@ All 226 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.ContainerTypeContradictionWarning | class | *A container's declared ``neurodata_type`` disagrees with what the file stores under it.* |
 | jnwb.MissingRequiredNWBFieldError | class | *A required NWB field is absent from the on-disk builder tree.* |
 | jnwb.SqueezedAttributeWarning | class | *A length-1 array attribute was collapsed to a scalar while reading a malformed file.* |
-| jnwb.nwb_read_io | function | `(path: 'Any', mode: 'str' = 'r', allow_missing: 'Union[Sequence[str], str, None]' = None, **kwargs: 'Any') -> 'Iterator[NWBHDF5IO]'`<br>*Open an NWB file for reading, with jnwb's builder repairs applied.* |
+| jnwb.nwb_read_io | function | `(path: 'Any', mode: 'str' = 'r', allow_missing: 'Union[Sequence[str], str, None]' = None, **kwargs: 'Any') -> 'ContextManager[NWBHDF5IO]'`<br>*Open an NWB file for reading, with jnwb's builder repairs applied.* |
 | jnwb.read_nwb | function | `(path: 'Any', allow_missing: 'Union[Sequence[str], str, None]' = None, **kwargs: 'Any') -> 'Any'`<br>*Read an NWB file through jnwb's scoped HDMF builder repairs.* |
 
 ## Module: jnwb.nwb_validate
@@ -300,7 +305,7 @@ All 226 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.cross_area_coherence | function | `(lfp_area1: numpy.ndarray, lfp_area2: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_bands: Dict[str, Tuple[float, float]] | str | None = None, device: str = 'cpu', rng: int | numpy.random._generator.Generator | None = 42, n_surrogates: int = 50, n_jobs: int = 1, nperseg: int | None = None, noverlap: int | None = None) -> Dict`<br>*Compute frequency-resolved coherence between two LFP signals.* |
 | jnwb.current_source_density_1d | function | `(lfp_matrix: numpy.ndarray, pitch_um: float, conductivity_s_per_m: float, axis: int = 0) -> numpy.ndarray`<br>*Compute physical 1D Current Source Density (CSD) along a laminar electrode array.* |
 | jnwb.harmonic_analysis | function | `(lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), harmonic_orders: int = 3, device: str = 'cpu') -> Dict`<br>*Decompose LFP trace into fundamental and harmonic components.* |
-| jnwb.imaginary_coherency | function | `(x: numpy.ndarray, y: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), nperseg: int | None = None, noverlap: int | None = None, device: str = 'cpu') -> Dict[str, float]`<br>*Imaginary part of coherency (Nolte et al. 2004) between two continuous signals.* |
+| jnwb.imaginary_coherency | function | `(x: numpy.ndarray, y: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), nperseg: int | None = None, noverlap: int | None = None, device: str = 'cpu', *, signal_class: str | Tuple[str, str] = _OMITTED) -> Dict[str, float]`<br>*Imaginary part of coherency (Nolte et al. 2004) between two continuous signals.* |
 | jnwb.laplacian_reference | function | `(channel_data: numpy.ndarray, channel_order: numpy.ndarray | None = None) -> numpy.ndarray`<br>*1D nearest-neighbor Laplacian re-reference along a probe's depth order.* |
 | jnwb.partial_coherence | function | `(X, Y, Z, *, fs: float, freq_bands, nperseg: int | None = None, noverlap: int | None = None, n_surrogates: int = 50, rng: int | numpy.random._generator.Generator | None = 42, n_jobs: int = 1) -> Dict`<br>*Partial coherence of X and Y given one conditioning signal Z (Dahlhaus, 2000).* |
 | jnwb.relative_power | function | `(power: numpy.ndarray, baseline: numpy.ndarray, *, model: str = 'mean_of_ratios', axis: int | Tuple[int, ...] | None = None, device: str = 'cpu') -> numpy.ndarray`<br>*Compute relative power of a signal against baseline under an explicit mathematical estimand.* |
@@ -315,14 +320,14 @@ All 226 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.classify_response_significance | function | `(metrics: Dict[str, float], zscore_threshold: float = 1.96, min_spike_count: int = 5, *, alpha: float = 0.05) -> Dict[str, bool | float]`<br>*Classify a unit's response against its baseline from `compute_response_metrics` output.* |
 | jnwb.compute_response_metrics | function | `(spike_times: numpy.ndarray, epoch_onsets: numpy.ndarray, baseline_window_s: Tuple[float, float] | None = None, response_window_s: Tuple[float, float] | None = None, z_score: bool = True, *, baseline_window: Tuple[float, float] | None = None, response_window: Tuple[float, float] | None = None) -> Dict[str, typing.Any]`<br>*Compute firing rate and spike count metrics for stimulus responses.* |
-| jnwb.fano_factor | function | `(spike_times, onsets_s, window_s: Tuple[float, float], *, summary: str) -> Dict[str, typing.Any]`<br>*Fano factor per unit across trials, summarised over units (Churchland et al. 2010).* |
+| jnwb.fano_factor | function | `(spike_times, onsets_s, *_positional, window_s: Tuple[float, float] = _REQUIRED, summary: str) -> Dict[str, typing.Any]`<br>*Fano factor per unit across trials, summarised over units (Churchland et al. 2010).* |
 | jnwb.fleiss_kappa | function | `(counts: numpy.ndarray) -> float`<br>*Fleiss' kappa: chance-corrected agreement of many raters on nominal categories (Fleiss 1971).* |
 | jnwb.gaussian_smooth_rate | function | `(rate: numpy.ndarray, bin_ms: float, sigma_ms: float = 20.0, axis: int = -1) -> numpy.ndarray`<br>*Apply symmetrical, acausal Gaussian smoothing to a binned firing rate trace.* |
-| jnwb.network_burst_index | function | `(spike_times, window_s: Tuple[float, float], *, bin_ms: float, threshold_hz: float, min_duration_ms: float) -> Dict[str, typing.Any]`<br>*Fraction of spikes inside network bursts found from the population rate (Wagenaar et al. 2006).* |
+| jnwb.network_burst_index | function | `(spike_times, *_positional, window_s: Tuple[float, float] = _REQUIRED, bin_ms: float, threshold_hz: float, min_duration_ms: float) -> Dict[str, typing.Any]`<br>*Fraction of spikes inside network bursts found from the population rate (Wagenaar et al. 2006).* |
 | jnwb.noise_correlation | function | `(counts, condition_id, *, min_trials: int) -> Dict[str, typing.Any]`<br>*Trial-based noise correlation: Pearson r of within-condition residual counts (Cohen and Kohn 2011).* |
 | jnwb.pairwise_phase_consistency | function | `(phases: numpy.ndarray, axis: int = -1) -> float | numpy.ndarray`<br>*Compute the Pairwise Phase Consistency (PPC) across angular samples (Vinck et al., 2010).* |
 | jnwb.phase_locking_index | function | `(unit_spike_times: numpy.ndarray, lfp_phase: numpy.ndarray, lfp_timestamps: numpy.ndarray, n_bins: int = 18) -> Dict[str, float | numpy.ndarray]`<br>*Compute circular phase distribution and Rayleigh non-uniformity test of spikes relative to LFP phase.* |
-| jnwb.spike_count_correlation | function | `(spike_times, window_s: Tuple[float, float], *, bin_ms: float) -> Dict[str, typing.Any]`<br>*Mean pairwise Pearson correlation of binned spike counts (Cohen and Kohn 2011).* |
+| jnwb.spike_count_correlation | function | `(spike_times, *_positional, window_s: Tuple[float, float] = _REQUIRED, bin_ms: float) -> Dict[str, typing.Any]`<br>*Mean pairwise Pearson correlation of binned spike counts (Cohen and Kohn 2011).* |
 
 ## Module: jnwb.statistics
 
@@ -337,11 +342,11 @@ All 226 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.effective_sample_size | function | `(x: 'np.ndarray') -> 'float'`<br>*Effective number of independent samples in autocorrelated data.* |
 | jnwb.exact_sign_flip | function | `(diffs: 'Union[Sequence[float], np.ndarray]', alternative: 'str' = 'two-sided', n_mc: 'int' = 10000, rng: 'RNGLike' = 42) -> 'Tuple[float, float, float]'`<br>*Exact paired sign-flip permutation test for paired sample differences.* |
 | jnwb.fdr_correct | function | `(p_values: 'Union[Sequence[float], np.ndarray]', method: 'str' = 'bh') -> 'np.ndarray'`<br>*Benjamini-Hochberg (or compatible) FDR across a hypothesis family.* |
-| jnwb.fire_indicator | function | `(spike_times: 'np.ndarray', onsets_s: 'np.ndarray', window_ms) -> 'np.ndarray'`<br>*Vectorized boolean fire indicator, one entry per onset, constant window.* |
-| jnwb.fires_in_window | function | `(spike_times: 'np.ndarray', onset_s: 'float', window_ms) -> 'bool'`<br>*True iff >=1 spike falls in [onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000).* |
+| jnwb.fire_indicator | function | `(spike_times: 'np.ndarray', onsets_s: 'np.ndarray', *_positional, window_ms = _REQUIRED) -> 'np.ndarray'`<br>*Vectorized boolean fire indicator, one entry per onset, constant window.* |
+| jnwb.fires_in_window | function | `(spike_times: 'np.ndarray', onset_s: 'float', *_positional, window_ms = _REQUIRED) -> 'bool'`<br>*True iff >=1 spike falls in [onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000).* |
 | jnwb.mann_whitney_p_floor | function | `(n1: 'int', n2: 'int', alternative: 'str' = 'two-sided') -> 'float'`<br>*Attainable minimal non-zero p-value floor for a Mann-Whitney U test without ties.* |
 | jnwb.paired_fire_prob_test | function | `(fires_target: 'np.ndarray', fires_null: 'np.ndarray', n_shuffles: 'int', n_bootstrap: 'int', rng: 'RNGLike') -> 'Dict'`<br>*Paired binary test: P(fire | target window) vs P(fire | paired baseline window).* |
-| jnwb.rate_in_window | function | `(spike_times: 'np.ndarray', onset_s: 'float', window_ms: 'Tuple[float, float]') -> 'float'`<br>*Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.* |
+| jnwb.rate_in_window | function | `(spike_times: 'np.ndarray', onset_s: 'float', *_positional, window_ms: 'Tuple[float, float]' = _REQUIRED) -> 'float'`<br>*Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.* |
 | jnwb.shuffle_pvalue_paired | function | `(a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'RNGLike', alternative: 'str' = 'two-sided') -> 'Tuple[float, float]'`<br>*Shuffle-controlled p-value for ``mean(a - b)`` via paired sign-flips.* |
 | jnwb.shuffle_pvalue_unpaired | function | `(a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'RNGLike', alternative: 'str' = 'two-sided') -> 'Tuple[float, float]'`<br>*Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.* |
 | jnwb.shuffle_r2_ci | function | `(y_true: 'np.ndarray', y_score: 'np.ndarray', groups: 'Optional[np.ndarray]' = None, n_shuffle: 'int' = 200, rng: 'RNGLike' = 42, *, random_state: 'Any' = 42) -> 'Dict[str, float]'`<br>*R^2 (squared Pearson correlation) between a continuous score and a 0/1 label, with a shuffle-null 95% CI.* |
@@ -365,8 +370,8 @@ All 226 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.build_time_resolved_matrix | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] | None = None, bin_size_ms: float = 20.0, quality: str | None = None) -> Tuple[numpy.ndarray, List[int], numpy.ndarray]`<br>*Build a trial-by-trial time-resolved population spike count matrix.* |
-| jnwb.compute_population_trajectory | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] | None = None, bin_size_ms: float = 20.0, n_components: int = 3, quality: str | None = None, device: str = 'cpu') -> Dict[str, numpy.ndarray | List[int] | float | str]`<br>*Compute population trajectory using standardized correlation PCA (SVD). Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.* |
+| jnwb.build_time_resolved_matrix | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float], bin_size_ms: float = 20.0, quality: str | None = None, *, label: Literal['center', 'right'] = 'center') -> Tuple[numpy.ndarray, List[int], numpy.ndarray]`<br>*Build a trial-by-trial time-resolved population spike count matrix.* |
+| jnwb.compute_population_trajectory | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float], bin_size_ms: float = 20.0, n_components: int = 3, quality: str | None = None, device: str = 'cpu', *, label: Literal['center', 'right'] = 'center') -> Dict[str, numpy.ndarray | List[int] | float | str]`<br>*Compute population trajectory using standardized correlation PCA (SVD). Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.* |
 
 ## Module: jnwb.unit_quality
 

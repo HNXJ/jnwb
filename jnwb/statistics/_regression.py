@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
+from .._bins import refuse_nonfinite_times
 from .._rng import RNGLike, recorded_rng, resolve_rng, Default, resolve_seed_alias, surrogate_rng
 from .._spread import is_constant as _is_constant
 from ..permutation import _count_at_least_as_extreme, permute_labels
@@ -54,9 +55,13 @@ def shuffle_r2_ci(
         r = np.corrcoef(y, s)[0, 1]
         return float(r ** 2)
 
+    y_true_arr = np.asarray(y_true, dtype=float)
+    y_score_arr = np.asarray(y_score, dtype=float)
+    refuse_nonfinite_times(y_true_arr, "shuffle_r2_ci", "y_true")
+    refuse_nonfinite_times(y_score_arr, "shuffle_r2_ci", "y_score")
     _require_shuffle_inputs(
-        np.asarray(y_true, dtype=float),
-        np.asarray(y_score, dtype=float),
+        y_true_arr,
+        y_score_arr,
         n_shuffle,
         "shuffle_r2_ci",
     )

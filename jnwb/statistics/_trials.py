@@ -26,7 +26,7 @@ def detect_trial_cycles(epochs_df: pd.DataFrame, gap_factor: float = 10.0) -> np
     Raises:
         ValueError: if a ``start_time`` is not finite; the message names its row index.
     """
-    refuse_nonfinite_times(epochs_df["start_time"].values, "detect_trial_cycles", "start_time")
+    refuse_nonfinite_times(epochs_df["start_time"].values, "detect_trial_cycles", "epochs_df[start_time]")
     order = np.argsort(epochs_df["start_time"].values)
     t_sorted = epochs_df["start_time"].values[order]
     gaps = np.diff(t_sorted)
@@ -54,7 +54,7 @@ def assign_subblock_quartiles(epochs_df: pd.DataFrame, n_quantiles: int = 4) -> 
         ValueError: if a ``start_time`` is not finite; the message names its row index.
     """
     refuse_nonfinite_times(
-        epochs_df["start_time"].values, "assign_subblock_quartiles", "start_time"
+        epochs_df["start_time"].values, "assign_subblock_quartiles", "epochs_df[start_time]"
     )
     order = np.argsort(epochs_df["start_time"].values)
     n = len(order)

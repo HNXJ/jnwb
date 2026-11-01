@@ -10,7 +10,7 @@ Verified lessons the code and git do not show. This project only. No state, secr
 
 - trigger: `suite_lock.py -- bash <script>` exits 127 with "No such file or directory"
   cause: the lock starts the command without the Git Bash environment, so `bash` resolves to `/bin/bash`
-  repair: give the full path, `"C:/Program Files/Git/usr/bin/bash.exe" C:/Users/nejath/.claude/bin/jnwb_suite.sh <dir> <log>`
+  repair: give the full path, `"C:/Program Files/Git/usr/bin/bash.exe" <dir>/scripts/jnwb_suite.sh <dir> <log>`
   evidence: background run of 2026-10-12 exited 127 with that message; the full path ran
   scope: jnwb suites under the lock on Windows
 

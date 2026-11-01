@@ -1421,6 +1421,140 @@ class TestNonStationarityIsOnlyFlaggedWhenExplosive:
         assert "spectral_radius" not in result.diagnostics
 
 
+_DISTANCE_N_CONTACTS = 6
+_DISTANCE_POSITIONS = np.arange(_DISTANCE_N_CONTACTS, dtype=float)
+_DISTANCE_BAND = {"alpha": (9.0, 13.0)}
+_DISTANCE_SEED = 21
+_DISTANCE_RAW_THRESHOLD = 0.5
+_DISTANCE_NORMALIZED_THRESHOLD = 0.95
+
+
+def _distance_spread_signals(seed=_DISTANCE_SEED):
+    """Six contacts on a line with distance-decaying field spread and one planted pair.
+
+    Ground truth: each site carries its own alpha source, seen through a blur that
+    decays with distance, so nearby contacts cohere through spread alone; contacts
+    0 and 5 additionally share an 11 Hz rhythm, the one planted interaction. The
+    band (9 to 13 Hz) covers the alpha sources and the rhythm and little else, so
+    band-edge noise does not set the thresholds.
+    """
+    rng = np.random.default_rng(seed)
+    n = N_TIMES
+    t = np.arange(n) / FS
+    sources = np.stack(
+        [
+            (
+                np.sin(2.0 * np.pi * 10.0 * t + 2.0 * np.pi * rng.random())
+                + np.sin(2.0 * np.pi * 12.5 * t + 2.0 * np.pi * rng.random())
+            )
+            / np.sqrt(2.0)
+            for _ in range(_DISTANCE_N_CONTACTS)
+        ]
+    )
+    blur = np.exp(
+        -(
+            (_DISTANCE_POSITIONS[:, None] - _DISTANCE_POSITIONS[None, :]) ** 2
+        )
+        / 2.0
+    )
+    signals = blur @ sources + 0.2 * rng.normal(size=(_DISTANCE_N_CONTACTS, n))
+    assert signals.shape == (_DISTANCE_N_CONTACTS, n), (
+        "fixture must build one trace per contact"
+    )
+    phase = 2.0 * np.pi * rng.random()
+    planted = 1.5 * np.sin(2.0 * np.pi * 11.0 * t + phase)
+    signals[0] += planted
+    signals[5] += planted
+    return signals
+
+
+def _distance_coherence_matrix(signals):
+    """All-pairs alpha coherence through the library's own estimator."""
+    n = signals.shape[0]
+    matrix = np.eye(n)
+    for i in range(n):
+        for j in range(i + 1, n):
+            coherence = jnwb.cross_area_coherence(
+                signals[i],
+                signals[j],
+                fs=FS,
+                freq_bands=_DISTANCE_BAND,
+                n_surrogates=19,
+                rng=0,
+            )["band_coherence"]["alpha"]
+            matrix[i, j] = matrix[j, i] = coherence
+    return matrix
+
+
+def _normalize_by_distance_bin(matrix, positions):
+    """Each edge divided by the mean coherence of the other pairs at its separation.
+
+    Bins are exact contact separations (1, 2 and 3 steps; 4 or more pooled into one
+    far bin). The pair itself is left
+    out of its bin mean, so a strong edge cannot lift its own baseline. The diagonal
+    carries no edge and stays 1.0.
+    """
+    distance = np.abs(positions[:, None] - positions[None, :])
+    bins = [(distance == 1), (distance == 2), (distance == 3), (distance >= 4)]
+    normalized = np.eye(matrix.shape[0])
+    for in_bin in bins:
+        in_bin = in_bin.copy()
+        in_bin[np.diag_indices(matrix.shape[0])] = False
+        for i, j in np.argwhere(in_bin):
+            baseline = in_bin.copy()
+            baseline[i, j] = baseline[j, i] = False
+            normalized[i, j] = matrix[i, j] / np.mean(matrix[baseline])
+    return normalized
+
+
+def test_distance_binned_normalization_removes_a_spread_edge_and_keeps_the_planted_far_pair():
+    """A coherence graph of nearby contacts is dense from field spread alone, so each
+    edge is divided by the mean coherence of the other pairs at its separation
+    (Nejat and Hajipour Sardouie 2021, Pitfalls; `docs/common_mistakes.md`
+    section 13). The raw graph keeps a spread near-pair edge; the normalized graph
+    removes it and keeps the planted far-pair interaction. The raw graph already
+    keeps the planted edge too (30 of 30 seeds), so this test shows the
+    normalization does not cost it, not that it rescues it. 27 of 30 seeds pass
+    every assertion below (seeds 11, 23 and 26 miss only the raw spread-edge
+    threshold)."""
+    signals = _distance_spread_signals(seed=_DISTANCE_SEED)
+    raw = _distance_coherence_matrix(signals)
+
+    # The fixture preconditions: spread alone puts the adjacent pair above threshold,
+    # and the planted rhythm puts the far pair there as well.
+    assert raw[0, 1] > _DISTANCE_RAW_THRESHOLD, (
+        f"spread must cohere the adjacent pair above threshold: {raw[0, 1]!r}"
+    )
+    assert raw[0, 5] > _DISTANCE_RAW_THRESHOLD, (
+        f"the planted pair must clear the raw threshold: {raw[0, 5]!r}"
+    )
+
+    normalized = _normalize_by_distance_bin(raw, _DISTANCE_POSITIONS)
+    raw_graph = raw > _DISTANCE_RAW_THRESHOLD
+    normalized_graph = normalized > _DISTANCE_NORMALIZED_THRESHOLD
+    np.fill_diagonal(raw_graph, False)
+    np.fill_diagonal(normalized_graph, False)
+
+    assert raw_graph[0, 1], "the raw graph keeps the spread near-pair edge"
+    assert raw_graph[0, 5], "the raw graph already keeps the planted far-pair edge"
+    assert not normalized_graph[0, 1], (
+        "the normalized graph removes the spread near-pair edge"
+    )
+    assert normalized_graph[0, 5], (
+        "the normalized graph keeps the planted far-pair interaction"
+    )
+
+    raw_topology = jnwb.network_topology(raw, threshold=_DISTANCE_RAW_THRESHOLD)
+    normalized_topology = jnwb.network_topology(
+        normalized, threshold=_DISTANCE_NORMALIZED_THRESHOLD
+    )
+    assert raw_topology["n_edges"] == int(raw_graph.sum())
+    assert normalized_topology["n_edges"] == int(normalized_graph.sum())
+    assert normalized_topology["n_edges"] < raw_topology["n_edges"], (
+        "normalization must thin the dense spread graph"
+    )
+
+
 #: Every row of the `docs/common_mistakes.md` pitfalls table, mapped to the class that
 #: holds it. Each of the nine rows must be held by a test here or
 #: have its gap named in that test's docstring. The rows marked `gap` are held by a test

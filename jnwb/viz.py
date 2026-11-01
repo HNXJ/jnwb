@@ -100,6 +100,7 @@ def resample_onsets(
     """
     if len(onsets) == 0:
         return np.array([])
+    refuse_nonfinite_times(onsets, "resample_onsets", "onsets")
     gen = resolve_rng(
         resolve_seed_alias(rng, random_state, alias_name="random_state",
                            func_name="resample_onsets"),

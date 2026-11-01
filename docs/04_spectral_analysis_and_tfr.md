@@ -91,8 +91,8 @@ They coincide only when the baseline is constant across the aggregated axis. In 
 default would pick one of these for you.
 
 **Geometric mean is deliberately rejected** rather than offered as a third option, because
-`10*log10(geomean(r))` is *identically* `mean(10*log10(r))`: it is mean-of-decibels wearing a
-respectable name. Passing `how="geomean"` raises and says so.
+`10*log10(geomean(r))` is *identically* `mean(10*log10(r))`: the same number as
+mean-of-decibels under another name. Passing `how="geomean"` raises and says so.
 
 **Negative input raises.** Ratio-scale power is non-negative by definition, whereas decibel
 arrays routinely carry negative values, so handing decibels to this function usually fails

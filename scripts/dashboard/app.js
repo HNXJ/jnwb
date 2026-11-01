@@ -798,9 +798,9 @@
     return { text: text, font: { color: colors.muted } };
   }
 
-  // Plotly sizes a chart drawn in a hidden tab at its 700 px default and does not re-measure it
-  // when the tab opens, so a chart is drawn only while its panel is shown. A hidden chart is
-  // marked undrawn and drawn when its tab opens; a theme change redraws the visible ones.
+  // Plotly sizes a chart drawn in a hidden tab at its 700 px default and never re-measures it,
+  // so a chart is drawn only while its panel shows. A hidden chart is marked undrawn and drawn
+  // when its tab opens; a theme change redraws the visible ones.
   function addChart(box, spec) {
     charts.push({ box: box, spec: spec, drawn: false });
   }
@@ -1203,8 +1203,16 @@
 
   // One row per independent replication of the work. The verdict and the other fields are shown
   // as recorded; a digest shows its first characters, with the full value in the cell's title.
+  // The three verdicts sit beside the record's own: paper, library, methods. Each keeps its
+  // words, so no meaning rides on colour alone; keyboard order is unchanged (no new stops).
   var REPLICATION_COLUMNS = ['Verdict', 'By', 'Date', 'Scope', 'Seed', 'Report sha256', 'Note'];
   var DIGEST_CHARS = 12;
+
+  // The record's verdict words with the dashboard's ruled word for each (2026-10-24):
+  // reproduces reads reproduced, partial reads mixed, does_not reads failed. Paper and
+  // Methods chips show the ruled word; the Library axis keeps its own words (verified,
+  // partial, unverified).
+  var RECORD_LABELS = { reproduces: 'reproduced', partial: 'mixed', does_not: 'failed' };
 
   function showcaseReplications(parent, rows) {
     var head = make('p');
@@ -1230,6 +1238,18 @@
         verdict.appendChild(document.createTextNode(' '));
         textInto(verdict, row.verdict, true);
       }
+      [['Paper', row.paper, true], ['Library', row.library, false],
+       ['Methods', row.methods, true]].forEach(
+        function (axis) {
+          var record = axis[1];
+          if (!record || isBlank(record.verdict)) { return; }
+          verdict.appendChild(document.createTextNode(' '));
+          var word = (axis[2] && RECORD_LABELS[record.verdict]) || record.verdict;
+          var chip = verdictChip(axis[0] + ': ' + word);
+          var detail = record.reason || (record.uncovered || []).join(', ');
+          if (!isBlank(detail)) { chip.title = String(detail); }
+          verdict.appendChild(chip);
+        });
       tr.appendChild(verdict);
       tr.appendChild(cellWith(row.by));
       tr.appendChild(cellWith(row.date));
@@ -1348,8 +1368,9 @@
 
   // ---- validations: an index, and one page per validation -----------------
 
-  // The dashboard's verdict words with their chip class and symbol. The build maps each record
-  // verdict to one of them (reproduces, partial, does_not); the page names none of its own.
+  // The dashboard's verdict words with their chip class and symbol. The build maps each
+  // replication verdict to one of them; the page maps the record's words on the Paper and
+  // Methods chips to the same words and names none of its own beyond that mapping.
   var VERDICT_CLASSES = [
     { label: 'reproduced', slug: 'reproduced', symbol: '✓' },
     { label: 'reproduced (conditional)', slug: 'reproduced-conditional', symbol: '◐' },

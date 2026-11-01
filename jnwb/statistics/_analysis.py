@@ -5,6 +5,7 @@ from __future__ import annotations
 import warnings
 from typing import Dict, Optional, Sequence, Tuple, Union
 import numpy as np
+from .._bins import refuse_nonfinite_times
 from .._rng import DEFAULT_SEED, RNGLike, surrogate_rng
 from .._spread import is_constant as _is_constant, percentile_interval
 from scipy import stats
@@ -108,6 +109,7 @@ class StatisticalAnalysis:
         p = np.asarray(p_values, dtype=float).ravel()
         if p.size == 0:
             return p
+        refuse_nonfinite_times(p, "fdr_correct", "p_values")
         return np.asarray(stats.false_discovery_control(p, method=method), dtype=float)
 
     @staticmethod

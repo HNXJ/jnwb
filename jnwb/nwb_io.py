@@ -19,7 +19,7 @@ import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, Iterator, Sequence, Tuple, Union
+from typing import Any, ContextManager, Iterator, Sequence, Tuple, Union
 
 import numpy as np
 from pynwb import NWBFile, NWBHDF5IO
@@ -301,13 +301,24 @@ def hdmf_build_repair_context(
             )
 
 
-@contextmanager
+def _refuse_nonfinite_path(path: Any, func_name: str) -> None:
+    """Refuse a non-finite scalar path by name; anything else passes through."""
+    if isinstance(path, (str, Path)):
+        return
+    if isinstance(path, (float, complex, np.floating, np.complexfloating)) and not bool(
+        np.isfinite(path)
+    ):
+        raise ValueError(
+            f"{func_name}: path is non-finite ({path!r}); pass a file path"
+        )
+
+
 def nwb_read_io(
     path: Any,
     mode: str = "r",
     allow_missing: Union[Sequence[str], str, None] = None,
     **kwargs: Any,
-) -> Iterator[NWBHDF5IO]:
+) -> ContextManager[NWBHDF5IO]:
     """Open an NWB file for reading, with jnwb's builder repairs applied.
 
     Use this rather than :func:`read_nwb` to read data arrays: the file stays open until the
@@ -323,12 +334,26 @@ def nwb_read_io(
 
     ``mode`` must be ``"r"``. Any other mode raises ``ValueError`` before the file is opened, so
     ``"w"`` cannot truncate it; write with ``pynwb.NWBHDF5IO``.
+
+    A non-finite ``path`` (NaN or infinite) is refused with ``ValueError`` naming it.
     """
+    _refuse_nonfinite_path(path, "nwb_read_io")
     if mode != "r":
         raise ValueError(
             f"nwb_read_io is a reader and mode is {mode!r}; it opens files with mode='r' only. "
             "Write NWB files with pynwb.NWBHDF5IO."
         )
+    return _nwb_read_io_open(path, mode, allow_missing=allow_missing, **kwargs)
+
+
+@contextmanager
+def _nwb_read_io_open(
+    path: Any,
+    mode: str = "r",
+    allow_missing: Union[Sequence[str], str, None] = None,
+    **kwargs: Any,
+) -> Iterator[NWBHDF5IO]:
+    """The open-file context :func:`nwb_read_io` returns after refusing bad arguments."""
     with hdmf_build_repair_context(allow_missing=allow_missing):
         with NWBHDF5IO(path, mode, **kwargs) as io:
             yield io

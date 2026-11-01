@@ -102,7 +102,8 @@ DEVICE_CALLS = {
     "PopulationAnalyzer.population_trajectory":
         lambda d: jnwb.PopulationAnalyzer.population_trajectory(POP, device=d),
     "compute_population_trajectory":
-        lambda d: compute_population_trajectory(_Session(), "V1", _EPOCHS, device=d),
+        lambda d: compute_population_trajectory(_Session(), "V1", _EPOCHS,
+                                                time_window_ms=(-1000, 2000), device=d),
     "rdm": lambda d: jnwb.rdm(POP[:30], device=d),
     "vflip": lambda d: jnwb.vflip(np.abs(LAMINAR[:, :64]) + 1.0, np.linspace(1, 200, 64), device=d),
     "vflip_from_lfp": lambda d: jnwb.vflip_from_lfp(LAMINAR, FS, device=d),

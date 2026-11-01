@@ -16,11 +16,11 @@ more than one input dimension and the orders differ between them.
 
 | Category | Exports | Evidence |
 |---|---|---|
-| `jnwb.__all__` | 226 | runtime probe with a provenance assertion |
-| Cost grows with input size -- measured | 146 | 239 sweeps, 239 completed |
-| Cost does not grow with input size -- excluded | 70 | section 7, one reason each |
+| `jnwb.__all__` | 231 | runtime probe with a provenance assertion |
+| Cost grows with input size -- measured | 150 | 243 sweeps, 243 completed |
+| Cost does not grow with input size -- excluded | 71 | section 7, one reason each |
 | Cost grows, input not buildable from this repository | 10 | section 8 |
-| **Total** | **226** | partition checked exact against a live `jnwb.__all__` |
+| **Total** | **231** | partition checked exact against a live `jnwb.__all__` |
 
 The three categories are disjoint and their union is `jnwb.__all__`; no export is in two,
 and none is in none. `classification: observed`.
@@ -213,6 +213,8 @@ contradicts a written claim it appears in section 6.
 | `derive_tick_clock[n_ticks]` | n_ticks | 30000, 300000, 3000000, 12000000 | 0.3269, 1.584, 72.29, 223.1 | +1.16 | 0.971 | 682x | O(n) | T(n log n) | derived | agree |
 | `epoch_continuous[n_events]` | n_events | 2000, 6000, 20000, 60000 | 8.41, 22.2, 70.8, 213.2 | +0.95 | 0.999 | 25x | O(n) | T(E*W*C) | derived | CONSTANT |
 | `epoch_continuous[n_window_samples]` | n_window_samples | 3000, 10000, 30000, 100000 | 4.79, 10.1, 26.0, 84.2 | +0.82 | 0.990 | 18x | O(n) | T(E*W) | derived | agree |
+| `effective_rate[n_samples]` | n_samples | 100000, 400000, 1600000, 6400000 | 46.59, 177.2, 743.6, 3112 | +1.01 | 1.000 | 67x | O(n) | T(n) | derived | agree |
+| `gaze_departure_onsets[n_samples]` | n_samples | 100000, 400000, 1600000, 6400000 | 8.828, 25.43, 113.6, 408 | +0.94 | 0.996 | 46x | O(n) | T(n) | derived | agree |
 
 ### `jnwb.decoding`
 
@@ -315,11 +317,13 @@ contradicts a written claim it appears in section 6.
 | `get_snr_analysis[n_units]` | n_units | 10000, 30000, 100000, 300000, 1000000 | 1.46, 2.61, 5.59, 16.1, 64.1 | +0.82 | 0.974 | 44x | O(n) | T(m) | derived | agree |
 | `unit_census_report[n_groups]` | n_groups | 50, 500, 5000, 20000, 50000 | 15.4, 15.2, 14.9, 17.1, 19.0 | +0.03 | 0.515 | 1x | O(1) (NOT SEPARATED, POOR FIT) | T(g) | derived | agree |
 | `unit_census_report[n_units]` | n_units | 1000, 3000, 10000, 30000, 100000 | 9.86, 8.43, 11.2, 17.1, 40.7 | +0.31 | 0.792 | 4x | sub-linear (POOR FIT) | T(m + g) | derived | agree |
+| `units_table[n_units]` | n_units | 1000, 4000, 16000, 64000 | 62.68, 78.34, 149.6, 224.1 | +0.32 | 0.970 | 4x | sub-linear | T(u), electrodes fixed at 64 | derived | CONSTANT |
 
 ### `jnwb.nwb_events`
 
 | spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
 |---|---|---|---|---|---|---|---|---|---|---|
+| `edges_near_events[n_events]` | n_events | 1000, 10000, 100000, 1000000 | 0.9973, 1.935, 17.89, 206.4 | +0.79 | 0.949 | 207x | O(n) | T(E*W) | derived | agree |
 | `event_onsets` | n_events | 50, 500, 5000, 20000 | 89.2, 132.0, 411.1, 1350 | +0.45 | 0.918 | 15x | sub-linear | T(n) on one column | derived | CONSTANT |
 | `events` | n_events | 50, 500, 5000, 20000 | 104.0, 120.6, 407.4, 1314 | +0.42 | 0.875 | 13x | sub-linear (POOR FIT) | T(n) on the 2-3 needed columns, vectorized | derived | CONSTANT |
 | `resolve_interval_table` | n_events | 50, 500, 5000, 20000 | 97.7, 82.9, 81.1, 99.5 | -0.00 | 0.005 | 1x | O(1) (NOT SEPARATED, POOR FIT) | O(1) in rows; T(t log t) in the number of tables t | observed | agree |
@@ -351,7 +355,7 @@ to 1024000. `n` samples in the file. `write_nwb` exports the object to a tempora
 (`_export_tmp`), checks the schema (`_schema_issues`), moves it to `dst` and hashes it
 (`_sha256`), so the linear term above the flat base of about 0.5 s is expected. The default
 post-write `verify_nwb` check is off here; its row covers that path. The receipt is
-`artifacts/evidence/0.2.6/write_nwb_order.json`.
+`git show b6388414:artifacts/evidence/0.2.6/write_nwb_order.json`.
 
 Added 2026-10-23 with `transform_nwb` and `repair_nwb`, counted in section 1. Measured with
 the same harness, repeats and ladder. Held fixed: 10 channels, `n_events_per_table=10`,
@@ -363,8 +367,8 @@ expected. `repair_nwb` was timed on the synth file with a length-1 array `descri
 attribute planted on `acquisition/probe_0_lfp` and `repairs=['squeeze_scalar_attributes']`:
 the same full copy with one attribute rewrite. The default post-write `verify_nwb` check is
 off in both rows; its row covers that path. The receipts are
-`artifacts/evidence/0.2.6/transform_nwb_order.json` and
-`artifacts/evidence/0.2.6/repair_nwb_order.json`.
+`git show b6388414:artifacts/evidence/0.2.6/transform_nwb_order.json` and
+`git show b6388414:artifacts/evidence/0.2.6/repair_nwb_order.json`.
 
 | spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -851,8 +855,8 @@ algorithm column still describes the replaced code for both rows.
 
 | Category | Count |
 |---|---|
-| result container | 26 |
-| exception class | 18 |
+| result container | 31 |
+| exception class | 20 |
 | constant | 5 |
 | stateful class | 4 |
 | module | 4 |
@@ -862,7 +866,7 @@ algorithm column still describes the replaced code for both rows.
 | fixed-shape input | 1 |
 | plan description | 1 |
 | caller-owned store | 2 |
-| **Total** | **63** |
+| **Total** | **71** |
 
 | Export | Category | Reason |
 |---|---|---|
@@ -882,6 +886,7 @@ algorithm column still describes the replaced code for both rows.
 | `DETECTION_TAILS` | constant | A 2-element tuple of str literals. |
 | `Dataset` | result container | frozen dataclass, no __post_init__. Its __hash__/__eq__ do grow, but construction does not. |
 | `DirectedResult` | result container | plain dataclass (jnwb/connectivity.py:627-719); __init__ binds references. Its methods are O(number of bands), not O(input). |
+| `EffectiveRate` | result container | frozen dataclass, no __post_init__; binds 4 fields. |
 | `EpochCollection` | result container | frozen dataclass, no __post_init__. Its __len__/__eq__ grow; construction does not. |
 | `EventTable` | result container | frozen dataclass; generated __init__ binds 8 already-built fields by reference, no __post_init__. |
 | `ExecutionRecord` | result container | frozen dataclass; __post_init__ validates the device string and the worker count, then binds 2 fields. |

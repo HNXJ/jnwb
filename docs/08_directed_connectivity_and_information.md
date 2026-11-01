@@ -224,6 +224,7 @@ pair = jnwb.directed_connectivity(X, Y, method="granger", order=2, n_surrogates=
 
 network = jnwb.directed_network(
     signals,
+    signal_class="lfp",
     method="granger",
     order=2,
     fdr=True,

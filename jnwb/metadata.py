@@ -19,6 +19,7 @@ from jnwb.addressing import (
     _STABLE_QUALITY_LABELS, _area_from_row, _finite_cutoff, _passes_cutoff, _quality_is_stable,
     _refuse_repeated_columns, _stable_label_set,
 )
+from jnwb._bins import refuse_infinite
 from jnwb.nwb_io import WAIVED_REQUIREMENTS_ATTR, _normalise_allow_missing, nwb_read_io
 
 log = logging.getLogger(__name__)
@@ -281,6 +282,94 @@ def get_all_units_metadata(
     return result
 
 
+def units_table(nwb: NWBFile) -> Tuple[pd.DataFrame, Dict[str, Dict[str, str]]]:
+    """
+    One row per unit of an open NWB file: identity, probe, peak channel, area, depth class and
+    the waveform features the units table carries.
+
+    The join is :func:`jnwb.addressing.enrich_units_dataframe`'s. A unit's electrode is the one
+    its ``electrodes`` region names, else the one its peak channel names, and the area and depth
+    class are read from that electrode.
+
+    Args:
+        nwb: an open :class:`pynwb.NWBFile` with a units table. The electrodes table is optional:
+            without one, ``area`` and ``group_name`` are None and ``depth_class`` is 'Unknown'.
+
+    Returns:
+        ``(units, columns)``. ``units`` has one row per unit, in the units table's order. Its
+        columns are ``unit_id``, ``group_name`` (the probe), ``peak_channel_id``, ``area``,
+        ``depth_class`` and each ``waveform_*`` column of the units table. ``columns`` maps each
+        column of ``units`` to ``{"definition", "source", "units"}``; its keys are the columns of
+        ``units``. ``units`` is ``""`` for a dimensionless or categorical column.
+
+    Raises:
+        ValueError: the file has no units table. A missing table is not an empty cohort.
+
+    Example:
+        >>> units, columns = units_table(nwb)
+        >>> units.groupby("area").size()
+    """
+    from jnwb.addressing import enrich_units_dataframe
+
+    if nwb.units is None:
+        raise ValueError("units_table: the file has no units table")
+    raw = nwb.units.to_dataframe().copy()
+    elec_df = nwb.electrodes.to_dataframe().copy() if nwb.electrodes is not None else None
+    joined = enrich_units_dataframe(raw, elec_df)
+    had_peak = "peak_channel_id" in joined.columns
+    if not had_peak:
+        joined["peak_channel_id"] = None
+    described = {column.name: column.description for column in nwb.units.columns}
+
+    columns: Dict[str, Dict[str, str]] = {
+        "unit_id": {
+            "definition": "unit identifier",
+            "source": "units table, via enrich_units_dataframe (cluster_id renamed; index when no column)",
+            "units": "",
+        },
+        "group_name": {
+            "definition": "name of the probe that holds the unit's electrode; None when unresolved",
+            "source": "electrodes table group column, via enrich_units_dataframe",
+            "units": "",
+        },
+        "peak_channel_id": {
+            "definition": (
+                "peak channel of the unit"
+                if had_peak else
+                "peak channel of the unit; added because the units table "
+                "has no peak_channel_id column, so None on every row"
+            ),
+            "source": (
+                "units table column peak_channel_id"
+                if had_peak else
+                "added by units_table because the units table "
+                "has no peak_channel_id column"
+            ),
+            "units": "",
+        },
+        "area": {
+            "definition": "brain area of the unit's electrode; None when unresolved",
+            "source": "electrodes location, via enrich_units_dataframe (units.electrodes region, else peak channel)",
+            "units": "",
+        },
+        "depth_class": {
+            "definition": "geometric depth class 'Deep', 'Superficial' or 'Unknown' from electrode z; "
+                          "a threshold on depth, not a cortical layer",
+            "source": "electrodes z and declared depth unit, via enrich_units_dataframe; "
+                      "'Unknown' unless a depth unit is declared",
+            "units": "",
+        },
+    }
+    for name in nwb.units.colnames:
+        if name.startswith("waveform_"):
+            columns[name] = {
+                "definition": described[name],
+                "source": f"units table column '{name}' (no unit is declared for it)",
+                "units": "",
+            }
+    return joined[list(columns)].copy(), columns
+
+
 def filter_by_criteria(
     df: pd.DataFrame,
     criteria: Dict,
@@ -297,6 +386,9 @@ def filter_by_criteria(
     - range tuple      : {'firing_rate': (10, 100)}
     - list membership  : {'area': ['V1', 'V4']}
 
+    A NaN entry is missing: a range criterion on its column excludes the row, and
+    criteria on other columns carry it through. An infinite entry is refused.
+
     Parameters
     ----------
     unknown
@@ -311,6 +403,11 @@ def filter_by_criteria(
                 f"filter_by_criteria: unknown column(s) {missing!r}; "
                 "pass unknown='ignore' to skip absent keys"
             )
+
+    numeric = df.select_dtypes(include="number").select_dtypes(exclude="complex")
+    for _col in numeric.columns:
+        refuse_infinite(pd.to_numeric(numeric[_col], errors="coerce"), "filter_by_criteria",
+                        f"df['{_col}']")
 
     out = df.copy()
     for k, v in criteria.items():
@@ -433,12 +530,17 @@ def unit_census_report(
             dropped with a ``UserWarning``.
 
     Returns:
-        Summary DataFrame with counts and statistics
+        Summary DataFrame with counts and statistics. A NaN ``firing_rate`` is missing:
+        group means skip it. An infinite ``firing_rate`` is refused.
 
     Example:
         >>> census = unit_census_report(all_units)
         >>> by_area = unit_census_report(all_units, group_by=['area'])
     """
+    if "firing_rate" in units_df.columns:
+        fr = pd.to_numeric(units_df["firing_rate"], errors="coerce")
+        refuse_infinite(fr.to_numpy(dtype=float), "unit_census_report",
+                        "units_df['firing_rate']")
     if group_by is not None:
         absent = [col for col in group_by if col not in units_df.columns]
         if absent:
@@ -511,7 +613,7 @@ def get_snr_analysis(
 
     Returns:
         Dict with SNR statistics and pass rates over the units whose SNR is a finite number;
-        a missing, non-numeric or infinite SNR is undefined and left out of every entry.
+        a missing (NaN), non-numeric or infinite SNR is undefined and left out of every entry.
 
     Raises:
         ValueError: ``snr_threshold`` is NaN or infinite, or ``snr``, or with ``detail=True``
@@ -782,7 +884,13 @@ def audit_electrodes(elec_df: pd.DataFrame, units_df: Optional[pd.DataFrame] = N
 
     Returns:
         Dict with total_electrodes, areas_represented, units_assigned, assignment_rate.
+        A NaN ``units_df`` peak_channel_id is missing: that unit counts as unassigned.
+        An infinite peak_channel_id is refused.
     """
+    if units_df is not None and "peak_channel_id" in units_df.columns:
+        peak = pd.to_numeric(units_df["peak_channel_id"], errors="coerce")
+        refuse_infinite(peak.to_numpy(dtype=float), "audit_electrodes",
+                        "units_df['peak_channel_id']")
     result = {
         'total_electrodes': len(elec_df),
         'areas_represented': {},
