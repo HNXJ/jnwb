@@ -32,8 +32,8 @@ stack to zero (P-215-28 in 4e87a5bf), the agy docs sweep.
    repairs touched).
    - A repair would change a released number: ask Hamm.
    - A lane fails its acceptance: send it back once with the failure; a second fail, the integrator does it.
-3. 17-71: profiled at bc76209c; the tiered-CI plan is in review. Plan only.
-   - Hamm approves the plan: a 0.2.16 item changes `workflow.yml`. Not approved: the plan stays a receipt.
+3. Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (17-71, done in ed86825f; plan only).
+   - Approved: a 0.2.16 item changes `workflow.yml`. Not approved: the plan stays a receipt. Blocks nothing.
 4. Barrier, as 1.
 5. Release mechanics, in order: assemble `CHANGELOG.md` from `artifacts/changelog.d/`; bump `__version__`
    to 0.2.15; merge `origin/main` into `dev`; regenerate state; barrier as 1.
@@ -53,13 +53,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `jnwb/_bins.py`, the modules that refuse inf by hand, `artifacts/process/frozen_validated.json`. Ruled 2026-10-31: split into scan and repairs; refuse; NaN by kind; inf-as-missing kept. Repairs, wiring and deliberate-NaN docs done in R1-R4 (149242d6: `AWAITING_REPAIR` empty, S9 held).
 - 17-24 one mechanism: eleven inf-only refusals are hand-written (`artifact_detection`, `continuous`, `decoding`, `laminar_curation`, `metadata`, `spiking`, `vis/laminar`). Check: they call one `_bins.refuse_infinite`, and a scan in `tests/test_nonfinite_inputs.py` finds no hand-written one.
 - 17-24 refreeze: the repairs changed nine frozen-validated bodies (`fdr_correct`, `nwb_read_io`, `granger_causality`, `bipolar_reference`, `laplacian_reference`, `cluster_permutation_test`, `clopper_pearson`, `mann_whitney_p_floor`, `shuffle_r2_ci`), so gate 19 fails at 149242d6. Check: each changed entry in `artifacts/process/frozen_validated.json` carries the new hash, the commit, and a test that kills a guard-removal mutant; gate 19 passes.
-
-### 17-71 Suite profile and a tiered-CI plan
-
-Release: required-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing. Ruled 2026-10-31: plan only; `workflow.yml` is unchanged until Hamm approves the plan.
-Writes: `artifacts/evidence/0.2.15/suite_profile.md`, `artifacts/evidence/0.2.15/tiered_ci_plan.md` (new).
-- 17-71: the only suite profile is 0.2.14's (`artifacts/evidence/0.2.14/verification_inventory.md` D13-D19) and no tiered-CI plan exists. Check: `suite_profile.md` gives per-file durations from `pytest --durations=0` at a named 0.2.15 SHA; `tiered_ci_plan.md` assigns every test file to a tier, and the fast tier's measured total is given.
 
 ### 17-74 Tag 0.2.15 and tell omission
 
