@@ -89,6 +89,7 @@ HISTORICAL_MENTIONS = {
     ("docs/install.md", "## Deferred imports (0.1.6+)"),
     ("docs/10_operation_specifications.md", "until 0.2.5 and named the minority"),
     ("docs/03_representational_similarity_jrsa.md", "Before 0.2.6.1 every metric used"),
+    ("docs/02_paths_addressing_metadata.md", "warned as deprecated, and 0.2.14 removed all three"),
 }
 
 # Versions that name an external dataset, not this package: the DANDI dataset in
