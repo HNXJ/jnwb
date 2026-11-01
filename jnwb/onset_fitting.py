@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import least_squares
 
+from ._bins import refuse_nonfinite_times
 from ._spread import is_constant, r_squared
 from ._units import resolve_unit_alias
 from .unit_quality import _positive_finite
@@ -133,6 +134,7 @@ def causal_gaussian_smooth(rate: np.ndarray, sigma_bins: float) -> tuple[np.ndar
 
 def onset_model(t: np.ndarray, t0: float, tau: float, amplitude: float, baseline: float) -> np.ndarray:
     """rate(t) = baseline for t < t0, baseline + amplitude*(1-exp(-(t-t0)/tau)) for t >= t0."""
+    refuse_nonfinite_times(t, "onset_model", "t")
     t = np.asarray(t, dtype=float)
     out = np.full_like(t, baseline, dtype=float)
     mask = t >= t0

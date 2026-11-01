@@ -2,6 +2,7 @@
 
 from typing import Optional
 import numpy as np
+from .._bins import refuse_nonfinite_times
 from .._layout import require_channel_major
 
 
@@ -64,6 +65,7 @@ def bipolar_reference(channel_data: np.ndarray, channel_order: Optional[np.ndarr
         function subtracts adjacent contacts.
     """
     channel_data = np.asarray(channel_data, dtype=float)
+    refuse_nonfinite_times(channel_data, "bipolar_reference", "channel_data")
     if channel_data.ndim != 2:
         raise ValueError(f"channel_data must be 2D (n_channels, n_samples), got shape {channel_data.shape}")
     order = (
@@ -111,6 +113,7 @@ def laplacian_reference(channel_data: np.ndarray, channel_order: Optional[np.nda
         neighbor, a first difference, and the output keeps every channel.
     """
     channel_data = np.asarray(channel_data, dtype=float)
+    refuse_nonfinite_times(channel_data, "laplacian_reference", "channel_data")
     if channel_data.ndim != 2:
         raise ValueError(f"channel_data must be 2D (n_channels, n_samples), got shape {channel_data.shape}")
     order = (

@@ -15,6 +15,7 @@ from typing import Any, Iterable, Optional
 
 import numpy as np
 
+from ._bins import refuse_nonfinite_times
 from ._rng import (
     Default, REQUIRED, RNGLike, resolve_rng, resolve_seed_alias, sklearn_random_state,
 )
@@ -144,6 +145,8 @@ def permute_labels(
         ValueError: If ``scheme='within_group'`` and ``groups`` holds a NaN or None id.
     """
     y = np.asarray(y)
+    if y.dtype.kind in "fc":
+        refuse_nonfinite_times(y, "permute_labels", "y")
     if scheme not in SCHEMES:
         raise ValueError(f"scheme must be one of {SCHEMES}, got {scheme!r}")
     rng = resolve_rng(rng, func_name="permute_labels")

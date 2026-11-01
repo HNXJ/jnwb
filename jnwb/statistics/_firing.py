@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 import numpy as np
+from .._bins import refuse_nonfinite_times
 from .._rng import RNGLike, surrogate_rng
 from .._spread import percentile_interval
 from .._units import _REQUIRED, _window_from_positional
@@ -100,6 +101,8 @@ def paired_fire_prob_test(
         ratio a McNemar-style discordant-pair estimate, neither paper's.
     """
     rng, seed_entropy = surrogate_rng(rng, "paired_fire_prob_test")
+    refuse_nonfinite_times(fires_target, "paired_fire_prob_test", "fires_target")
+    refuse_nonfinite_times(fires_null, "paired_fire_prob_test", "fires_null")
     t = np.asarray(fires_target, dtype=bool)
     u = np.asarray(fires_null, dtype=bool)
     # `n = min(len(t), len(u))` silently paired trial i of one condition with trial i of

@@ -30,6 +30,7 @@ from typing import Tuple
 
 import numpy as np
 
+from ._bins import refuse_nonfinite_times
 from ._layout import require_channel_major
 
 MAD_SCALE = 1.4826  # normal-consistent scaling for the median absolute deviation
@@ -89,6 +90,7 @@ def channel_correlation_matrix(data_ch_by_time: np.ndarray) -> np.ndarray:
         screening criteria are not this function.
     """
     arr = np.asarray(data_ch_by_time, dtype=float)
+    refuse_nonfinite_times(arr, "channel_correlation_matrix", "data_ch_by_time")
     if arr.ndim == 2:
         require_channel_major(
             arr, 0, "channel_correlation_matrix", argument="data_ch_by_time"
@@ -208,6 +210,7 @@ def consensus_bad_trials(per_channel_flags: np.ndarray, min_frac_channels: float
     consensus requirement (real artifacts are shared events, not one channel's quirk).
 
     Returns (consensus_bad_mask, frac_channels_flagged_per_trial)."""
+    refuse_nonfinite_times(per_channel_flags, "consensus_bad_trials", "per_channel_flags")
     per_channel_flags = np.asarray(per_channel_flags, dtype=bool)
     if per_channel_flags.shape[0] == 0:
         n_trials = per_channel_flags.shape[1] if per_channel_flags.ndim == 2 else 0
