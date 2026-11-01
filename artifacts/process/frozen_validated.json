@@ -41,19 +41,21 @@
     {
       "file": "jnwb/statistics/_analysis.py",
       "qualname": "StatisticalAnalysis.fdr_correct",
-      "sha256": "9f5c14513c3f1db01163f0314c537ee1c2b4eafafaecd08d9177825ea9962650",
-      "verified_at": "0fe48f7a914a991158ebf4a6f7901db10fa117e6",
+      "sha256": "a6e2ed68572668912a9139e321753daa6db0c8f229aac26158405af3bd1b8525",
+      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
       "killed_by": [
-        "tests/test_statistics.py::TestFDRCorrect::test_by_is_benjamini_yekutieli_and_not_bh"
+        "tests/test_statistics.py::TestFDRCorrect::test_by_is_benjamini_yekutieli_and_not_bh",
+        "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[fdr_correct]"
       ]
     },
     {
       "file": "jnwb/nwb_io.py",
       "qualname": "nwb_read_io",
-      "sha256": "b662c03c297f2b176ae9854a19dcb0d632d573a5be477e0e6a7f14221e02f223",
-      "verified_at": "0fe48f7a914a991158ebf4a6f7901db10fa117e6",
+      "sha256": "ab71bbaa81a9a48fd5a8aa4b24de87318d8270c705304abf997c9bbfa0886219",
+      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
       "killed_by": [
-        "tests/test_nwb_read_tolerance_and_visibility.py::test_a_mode_other_than_read_is_refused_before_the_file_opens"
+        "tests/test_nwb_read_tolerance_and_visibility.py::test_a_mode_other_than_read_is_refused_before_the_file_opens",
+        "tests/test_nonfinite_inputs.py::test_nan_path_is_refused_by_name"
       ]
     },
     {
@@ -168,29 +170,32 @@
     {
       "file": "jnwb/connectivity/_granger.py",
       "qualname": "granger_causality",
-      "sha256": "94cdeacf5d777638d4787df3a7e9f40c5caa6e80b8645b1372a7371a905dafc5",
-      "verified_at": "36b7816227fee4e4af5be9048af653e65a8621bf",
+      "sha256": "0f85aac5effdf21e24b229aa161215d8bbd54dc79f9f6ec576af69425e6e3fd2",
+      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
       "killed_by": [
-        "tests/test_estimator_values_are_pinned.py::TestDeprecatedGrangerCausalityIsReportedInNats::test_each_statistic_is_the_log_of_the_variances_it_reports"
+        "tests/test_estimator_values_are_pinned.py::TestDeprecatedGrangerCausalityIsReportedInNats::test_each_statistic_is_the_log_of_the_variances_it_reports",
+        "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[granger_causality]"
       ]
     },
     {
       "file": "jnwb/spectral/_reference.py",
       "qualname": "bipolar_reference",
-      "sha256": "e2bf4ad226f8e6f4708c16578338590b624f3794292979ecc03bb3f9e348b08e",
-      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "sha256": "fcee2fcd8f2924e5d9d48a37d2e3b9a74cdd32495c5e140d4e8b166f80a255c9",
+      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
       "killed_by": [
-        "tests/test_estimator_discrimination.py::TestBipolarReferenceHasAPinnedSign::test_subtracts_the_shallower_channel_from_the_deeper"
+        "tests/test_estimator_discrimination.py::TestBipolarReferenceHasAPinnedSign::test_subtracts_the_shallower_channel_from_the_deeper",
+        "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[bipolar_reference]"
       ]
     },
     {
       "file": "jnwb/spectral/_reference.py",
       "qualname": "laplacian_reference",
-      "sha256": "379ec714ca72b1d0debdd8ece1740a6b37f89230ca6930aaaf1d6ffb0110f9b6",
-      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "sha256": "8ed74b1ddbecc352af6f5a1f919dc84bf9a6261b96d1011d076b470ba5b3393b",
+      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
       "killed_by": [
         "tests/test_estimator_values_are_pinned.py::TestLaplacianReferenceSubtractsTheNeighbourMeanOnce::test_a_quadratic_profile_gives_exactly_minus_one",
-        "tests/test_estimator_values_are_pinned.py::TestLaplacianReferenceSubtractsTheNeighbourMeanOnce::test_a_linear_ramp_is_flattened_to_zero_in_the_interior"
+        "tests/test_estimator_values_are_pinned.py::TestLaplacianReferenceSubtractsTheNeighbourMeanOnce::test_a_linear_ramp_is_flattened_to_zero_in_the_interior",
+        "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[laplacian_reference]"
       ]
     },
     {
@@ -214,19 +219,21 @@
     {
       "file": "jnwb/statistics/_cluster.py",
       "qualname": "cluster_permutation_test",
-      "sha256": "876b33bcead5074400a1012e17b26e4341d2a5a65abe03c06df89babc9720eca",
-      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "sha256": "2b9a1ae6bf4bac15adb7c9d1fcb9b1c7017241ac4ac4be1d3b663bd0aaa19ec0",
+      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
       "killed_by": [
-        "tests/test_frozen_core_mutants.py::TestClusterPValueIsTheFloorWhenNoPermutationReachesIt::test_an_unreached_cluster_has_the_exact_floor"
+        "tests/test_frozen_core_mutants.py::TestClusterPValueIsTheFloorWhenNoPermutationReachesIt::test_an_unreached_cluster_has_the_exact_floor",
+        "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[cluster_permutation_test]"
       ]
     },
     {
       "file": "jnwb/statistics/_tests.py",
       "qualname": "clopper_pearson",
-      "sha256": "14a662c909adc7630b7813ecf760d6a8ca8ba7884ce551411819754a09740654",
-      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "sha256": "317e029779142cb72e6d5e63657420a50ede141ef2fb111fe9e76adbe6df494e",
+      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
       "killed_by": [
-        "tests/test_statistics.py::TestClopperPearson::test_known_values"
+        "tests/test_statistics.py::TestClopperPearson::test_known_values",
+        "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[clopper_pearson]"
       ],
       "serves": [
         "StatisticalAnalysis.clopper_pearson",
@@ -236,10 +243,11 @@
     {
       "file": "jnwb/statistics/_tests.py",
       "qualname": "mann_whitney_p_floor",
-      "sha256": "aac5d9dd9de3a0cfe252e049c09d95a94a437523140744a294e33ca467bd8bc3",
-      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "sha256": "6224d9942be694fa093a5dfee5c4aee78ceaeacd25fdda91e21b3129ccd8e5a0",
+      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
       "killed_by": [
-        "tests/test_statistics.py::TestMannWhitneyPFloor::test_known_floors"
+        "tests/test_statistics.py::TestMannWhitneyPFloor::test_known_floors",
+        "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[mann_whitney_p_floor]"
       ],
       "serves": [
         "StatisticalAnalysis.mann_whitney_p_floor"
@@ -248,15 +256,16 @@
     {
       "file": "jnwb/statistics/_regression.py",
       "qualname": "shuffle_r2_ci",
-      "sha256": "04f9bb739cbf44590b2065da91dd812568250885174bc9b86be77e1cb89d3fd3",
-      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "sha256": "7c6973e232c044ba91745f316a9094ffbafc828b23fd162c9354d77f064ba89b",
+      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
       "killed_by": [
         "tests/test_statistics.py::TestShuffleR2Ci::test_perfect_correlation_gives_r2_near_one",
         "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.3]",
         "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.1]",
         "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[2.7]",
         "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.001]",
-        "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.5]"
+        "tests/test_statistics.py::TestShuffleR2Ci::test_a_constant_score_has_no_r2_whatever_its_value[0.5]",
+        "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[shuffle_r2_ci]"
       ]
     },
     {
