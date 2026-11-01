@@ -147,6 +147,13 @@ def permute_labels(
     y = np.asarray(y)
     if y.dtype.kind in "fc":
         refuse_nonfinite_times(y, "permute_labels", "y")
+    else:
+        missing = int(np.count_nonzero(pd.isna(y)))
+        if missing:
+            raise ValueError(
+                f"permute_labels: y holds {missing} missing label(s) (NaN or None); give "
+                "every sample a label first, since a missing label matches no condition."
+            )
     if scheme not in SCHEMES:
         raise ValueError(f"scheme must be one of {SCHEMES}, got {scheme!r}")
     rng = resolve_rng(rng, func_name="permute_labels")

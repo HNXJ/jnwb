@@ -722,3 +722,42 @@ def test_nan_path_is_refused_by_name():
         jnwb.nwb_read_io(np.nan)
     assert "path" in str(err.value)
 
+
+def test_repair_band_artifacts_refuses_nonfinite_power():
+    rng = np.random.default_rng(0)
+    for value in (np.nan, np.inf):
+        power = np.abs(rng.standard_normal((6, 4, 8, 50))) + 0.5
+        power[0, 0, 0, 0] = value
+        with pytest.raises(ValueError) as err:
+            jnwb.repair_band_artifacts(
+                power, np.linspace(1.0, 100.0, 8),
+                band_ranges={"NoBand": (1000.0, 2000.0)})
+        assert "power" in str(err.value)
+
+
+def test_permute_labels_refuses_missing_object_y():
+    for value in (np.nan, None):
+        y = np.array(["a", "b", "c", value], dtype=object)
+        with pytest.raises(ValueError) as err:
+            jnwb.permute_labels(y, scheme="global", rng=0)
+        assert "y" in str(err.value)
+
+
+def test_onset_model_refuses_nonfinite_scalars():
+    t = np.linspace(0.0, 200.0, 200)
+    good = {"t0": 50.0, "tau": 10.0, "amplitude": 5.0, "baseline": 1.0}
+    for name in ("t0", "tau", "amplitude", "baseline"):
+        for value in (np.nan, np.inf):
+            kw = dict(good, **{name: value})
+            with pytest.raises(ValueError) as err:
+                jnwb.onset_model(t, **kw)
+            assert name in str(err.value)
+
+
+def test_consensus_bad_trials_refuses_nonfinite_min_frac():
+    flags = np.zeros((4, 8), dtype=bool)
+    for value in (np.nan, np.inf):
+        with pytest.raises(ValueError) as err:
+            jnwb.consensus_bad_trials(flags, min_frac_channels=value)
+        assert "min_frac_channels" in str(err.value)
+

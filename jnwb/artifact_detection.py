@@ -211,6 +211,8 @@ def consensus_bad_trials(per_channel_flags: np.ndarray, min_frac_channels: float
 
     Returns (consensus_bad_mask, frac_channels_flagged_per_trial)."""
     refuse_nonfinite_times(per_channel_flags, "consensus_bad_trials", "per_channel_flags")
+    # A NaN threshold makes every comparison False and flags nothing.
+    refuse_nonfinite_times(min_frac_channels, "consensus_bad_trials", "min_frac_channels")
     per_channel_flags = np.asarray(per_channel_flags, dtype=bool)
     if per_channel_flags.shape[0] == 0:
         n_trials = per_channel_flags.shape[1] if per_channel_flags.ndim == 2 else 0

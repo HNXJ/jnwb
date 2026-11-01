@@ -135,6 +135,9 @@ def causal_gaussian_smooth(rate: np.ndarray, sigma_bins: float) -> tuple[np.ndar
 def onset_model(t: np.ndarray, t0: float, tau: float, amplitude: float, baseline: float) -> np.ndarray:
     """rate(t) = baseline for t < t0, baseline + amplitude*(1-exp(-(t-t0)/tau)) for t >= t0."""
     refuse_nonfinite_times(t, "onset_model", "t")
+    for _name, _value in (("t0", t0), ("tau", tau), ("amplitude", amplitude),
+                          ("baseline", baseline)):
+        refuse_nonfinite_times(_value, "onset_model", _name)
     t = np.asarray(t, dtype=float)
     out = np.full_like(t, baseline, dtype=float)
     mask = t >= t0
