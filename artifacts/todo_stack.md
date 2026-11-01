@@ -41,8 +41,8 @@ refreeze, calibration rerun with an unchanged table), 17-71.
 Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (17-71, plan
 only); approved, a 0.2.16 item changes `workflow.yml`.
 
-Deferred to 0.2.16, off the path: 17-75 (deletions only Hamm runs), 17-76, 17-77, 17-78, 17-79, 17-80, the
-roadmap rows.
+Deferred to 0.2.16, off the path: 17-75 (deletions only Hamm runs), 17-76, 17-77, 17-78, 17-79, 17-80, 17-81,
+the roadmap rows.
 
 ### 17-74 Tag 0.2.15 and tell omission
 
@@ -92,3 +92,10 @@ Release: deferred-0.2.16.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/bump_version.py`, `scripts/version_surfaces.py`, `tests/test_bump_version.py`.
 - 17-80: twice (0.2.14 in 56d021c3, 0.2.15 in 1b55385b) the suite failed after `bump_version.py` because `scripts/figures/figure_registry.toml` still recorded the old `jnwb_version` in 35 entries. Check: `tests/test_bump_version.py` bumps a copy and asserts every registry entry carries the new version.
+
+### 17-81 A transient network error fails the dashboard browser test
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `tests/test_dashboard_page.py`.
+- 17-81: the full suite at 13253019 failed `test_every_route_renders_in_light_and_dark_without_errors` once on `net::ERR_NO_BUFFER_SPACE` loading `assets/fig12_coherence_zero_lag.png` (1 failed, 10605 passed); the file alone passed 16 of 16 and the full rerun passed 10606. Check: a transient `net::ERR_*` load is retried once, and a test with a missing asset still fails on its 404.
