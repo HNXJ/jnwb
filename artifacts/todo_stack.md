@@ -45,7 +45,7 @@ clone, at most three); the integrator reads each diff and reruns its acceptance 
    to 0.2.15; merge `origin/main` into `dev`; regenerate state; barrier as 4.
 9. Quality pass (release condition: low-verbosity docs, low-complexity code): agy sweeps the docs, a
    measured complexity scan reads `jnwb/`.
-   - A finding that blocks the release: fix it, back to 6. One that blocks nothing: a 0.2.16 item.
+   - A finding that blocks the tag is fixed, back to 6; one that blocks nothing becomes a 0.2.16 item.
 10. Closure pass: an independent blocker-focused review (reviewer and agy, different models) checks each
     advertised claim against the deferred rows; its receipt is committed at HEAD.
     - A new blocker: it becomes an item, back to the step that owns its file.
@@ -60,7 +60,7 @@ Release: required-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `tests/test_nonfinite_inputs.py` (new), `scripts/build_fact_graph.py`, then one repair per silent function in its own module. Ruled 2026-10-31: split into scan and repairs; refuse; audit ids retired.
 - 17-24 scan: S9's holder reads swallowed handlers only (ruled 2026-10-25); NaN or inf passed to a public numeric function can still return a number silently. The 2026-10-31 scan (166 functions) called 61 and found 7 silent: `nwb_read_io`, `channel_correlation_matrix`, `trial_correlation_matrix`, `consensus_bad_trials`, `to_db`, `pairwise_phase_consistency`, `resample_onsets`; 105 could not be called with an array alone. Check: `tests/test_nonfinite_inputs.py` builds valid inputs per public numeric function, injects NaN and inf, and asserts `ValueError` unless the docstring states NaN propagation; its examined set covers all 166, and S9's holder calls it.
-- 17-24 repairs: each silent function raises `ValueError` naming the argument on NaN or inf, unless its docstring states NaN propagation (`to_db` is the first to check). Check: the function's row in `tests/test_nonfinite_inputs.py` fails on the baseline and passes after.
+- 17-24 repairs: each silent function raises `ValueError` naming the argument on NaN or inf, unless its docstring states NaN propagation (`to_db` is the first to check). Ruled 2026-10-31, split by kind: array-math functions refuse; DataFrame, metadata and gap-handling functions keep NaN as missing, say so in the docstring, and are listed in the test's `NAN_IS_MISSING`. Check: the function's row in `tests/test_nonfinite_inputs.py` fails on the baseline and passes after.
 
 ### 17-71 Suite profile and a tiered-CI plan
 

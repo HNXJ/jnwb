@@ -444,9 +444,7 @@ separation mean removes edges that are high only because they are near, and keep
 an interaction that stands above its own separation. Nejat and Hajipour Sardouie
 (2021) normalize edge weights by how coherence changes with distance before comparing
 groups edge by edge ([Pitfalls](references.md#pitfalls)). `cross_area_coherence` with
-`network_topology` builds the graph; the distance-bin normalization is the caller's step,
-held by `test_distance_binned_normalization_removes_a_spread_edge_and_keeps_the_planted_far_pair`
-in `tests/test_connectivity_pitfalls.py`.
+`network_topology` builds the graph; the distance-bin normalization is the caller's step.
 
 ---
 
