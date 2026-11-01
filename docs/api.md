@@ -225,7 +225,7 @@ All 231 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.ContainerTypeContradictionWarning | class | *A container's declared ``neurodata_type`` disagrees with what the file stores under it.* |
 | jnwb.MissingRequiredNWBFieldError | class | *A required NWB field is absent from the on-disk builder tree.* |
 | jnwb.SqueezedAttributeWarning | class | *A length-1 array attribute was collapsed to a scalar while reading a malformed file.* |
-| jnwb.nwb_read_io | function | `(path: 'Any', mode: 'str' = 'r', allow_missing: 'Union[Sequence[str], str, None]' = None, **kwargs: 'Any') -> 'Iterator[NWBHDF5IO]'`<br>*Open an NWB file for reading, with jnwb's builder repairs applied.* |
+| jnwb.nwb_read_io | function | `(path: 'Any', mode: 'str' = 'r', allow_missing: 'Union[Sequence[str], str, None]' = None, **kwargs: 'Any') -> 'ContextManager[NWBHDF5IO]'`<br>*Open an NWB file for reading, with jnwb's builder repairs applied.* |
 | jnwb.read_nwb | function | `(path: 'Any', allow_missing: 'Union[Sequence[str], str, None]' = None, **kwargs: 'Any') -> 'Any'`<br>*Read an NWB file through jnwb's scoped HDMF builder repairs.* |
 
 ## Module: jnwb.nwb_validate

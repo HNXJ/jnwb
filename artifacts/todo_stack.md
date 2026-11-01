@@ -28,11 +28,11 @@ stack to zero (P-215-28 in 4e87a5bf), the agy docs sweep.
 
 1. Barrier at the integration HEAD: harness gate, suite, push `dev`, CI green.
    - Fails: repair the failing test or item text, rerun from 1.
-2. 17-24 repairs, three lanes from 93fd20e1: R1 naming gap (14) | R2 array math refuses (17) | R3 NaN is
-   missing (15), after R1 or R2 frees a slot. D1 (verified doc fixes) shares the slot cap.
-   - A repair would change a released number, or a function handles NaN on purpose: ask Hamm.
+2. 17-24 one mechanism, then refreeze, then the curation calibration rerun (its receipt hashes code the
+   repairs touched).
+   - A repair would change a released number: ask Hamm.
    - A lane fails its acceptance: send it back once with the failure; a second fail, the integrator does it.
-3. 17-71: profile at 93fd20e1 (`--durations=0`, junit) through the lock; write the tiered-CI plan. Plan only.
+3. 17-71: profiled at bc76209c; the tiered-CI plan is in review. Plan only.
    - Hamm approves the plan: a 0.2.16 item changes `workflow.yml`. Not approved: the plan stays a receipt.
 4. Barrier, as 1.
 5. Release mechanics, in order: assemble `CHANGELOG.md` from `artifacts/changelog.d/`; bump `__version__`
@@ -50,11 +50,9 @@ roadmap rows.
 
 Release: required-0.2.15.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `tests/test_nonfinite_inputs.py`, `scripts/build_fact_graph.py`, then one repair per function in its own module. Ruled 2026-10-31: split into scan and repairs; refuse; audit ids retired.
-- 17-24 wiring: the scan landed in cb57c4f3 (166 functions; 216 pass, 47 strict xfail in `AWAITING_REPAIR`), and S9's holder does not call it yet. Check: S9's holder in `scripts/build_fact_graph.py` names `tests/test_nonfinite_inputs.py`, and `AWAITING_REPAIR` is empty.
-- 17-24 deliberate NaN: R2 left eight functions that handle NaN on purpose, pinned by tests: `to_db` (fed by `aggregate_to_db`), `normalize_waveforms`, `network_topology` (diagonal), `bad_channels_from_correlation`, `bad_trials_single_channel`, `trial_correlation_matrix`, `pairwise_phase_consistency`, `phase_locking_index`. Check: each docstring states its NaN behavior and each sits in `NAN_PROPAGATES` or `NAN_IS_MISSING`.
-- 17-24 refreeze: the repairs changed eight frozen-validated bodies (`fdr_correct`, `granger_causality`, `bipolar_reference`, `laplacian_reference`, `cluster_permutation_test`, `clopper_pearson`, `mann_whitney_p_floor`, `shuffle_r2_ci`), so gate 19 fails at bc76209c. Check: each changed entry in `artifacts/process/frozen_validated.json` carries the new hash, the commit, and a test that kills a guard-removal mutant; gate 19 passes.
-- 17-24 repairs (lanes R1, R2, R3 in the path): each silent function raises `ValueError` naming the argument on NaN or inf, unless its docstring states NaN propagation (`to_db` is the first to check). Ruled 2026-10-31, split by kind: array-math functions refuse; DataFrame, metadata and gap-handling functions keep NaN as missing, say so in the docstring, and are listed in the test's `NAN_IS_MISSING`. Check: the function's row in `tests/test_nonfinite_inputs.py` fails on the baseline and passes after.
+Writes: `jnwb/_bins.py`, the modules that refuse inf by hand, `artifacts/process/frozen_validated.json`. Ruled 2026-10-31: split into scan and repairs; refuse; NaN by kind; inf-as-missing kept. Repairs, wiring and deliberate-NaN docs done in R1-R4 (149242d6: `AWAITING_REPAIR` empty, S9 held).
+- 17-24 one mechanism: eleven inf-only refusals are hand-written (`artifact_detection`, `continuous`, `decoding`, `laminar_curation`, `metadata`, `spiking`, `vis/laminar`). Check: they call one `_bins.refuse_infinite`, and a scan in `tests/test_nonfinite_inputs.py` finds no hand-written one.
+- 17-24 refreeze: the repairs changed nine frozen-validated bodies (`fdr_correct`, `nwb_read_io`, `granger_causality`, `bipolar_reference`, `laplacian_reference`, `cluster_permutation_test`, `clopper_pearson`, `mann_whitney_p_floor`, `shuffle_r2_ci`), so gate 19 fails at 149242d6. Check: each changed entry in `artifacts/process/frozen_validated.json` carries the new hash, the commit, and a test that kills a guard-removal mutant; gate 19 passes.
 
 ### 17-71 Suite profile and a tiered-CI plan
 
