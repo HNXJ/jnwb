@@ -619,7 +619,7 @@ def get_snr_analysis(
 
     Returns:
         Dict with SNR statistics and pass rates over the units whose SNR is a finite number;
-        a missing, non-numeric or infinite SNR is undefined and left out of every entry.
+        a missing (NaN), non-numeric or infinite SNR is undefined and left out of every entry.
 
     Raises:
         ValueError: ``snr_threshold`` is NaN or infinite, or ``snr``, or with ``detail=True``
@@ -890,14 +890,15 @@ def audit_electrodes(elec_df: pd.DataFrame, units_df: Optional[pd.DataFrame] = N
 
     Returns:
         Dict with total_electrodes, areas_represented, units_assigned, assignment_rate.
-        A NaN ``elec_df`` x is missing: area resolution reads the location column, not
-        coordinates, so the row still counts. An infinite x is refused.
+        A NaN ``units_df`` peak_channel_id is missing: that unit counts as unassigned.
+        An infinite peak_channel_id is refused.
     """
-    if "x" in elec_df.columns:
-        x = pd.to_numeric(elec_df["x"], errors="coerce")
-        if bool(np.isinf(x.to_numpy(dtype=float)).any()):
+    if units_df is not None and "peak_channel_id" in units_df.columns:
+        peak = pd.to_numeric(units_df["peak_channel_id"], errors="coerce")
+        if bool(np.isinf(peak.to_numpy(dtype=float)).any()):
             raise ValueError(
-                "audit_electrodes: elec_df['x'] holds an infinite value; NaN is allowed"
+                "audit_electrodes: units_df['peak_channel_id'] holds an infinite value; "
+                "NaN is allowed"
             )
     result = {
         'total_electrodes': len(elec_df),

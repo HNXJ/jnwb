@@ -486,8 +486,8 @@ def phase_locking_index(
     if n_nonfinite_phase:
         raise ValueError(
             f"phase_locking_index: {n_nonfinite_phase} of {spike_phases.size} spike phase(s) "
-            "are non-finite because the LFP phase holds a non-finite value at or beside "
-            "those spikes' samples; drop or impute the non-finite LFP phase samples first."
+            "are non-finite because lfp_phase holds a non-finite value at or beside "
+            "those spikes' samples; drop or impute the non-finite lfp_phase samples first."
         )
 
     # Phase histogram
@@ -551,6 +551,7 @@ def pairwise_phase_consistency(
           PPC = (|sum e^(i*theta)|^2 - N) / (N * (N - 1))
           which is mathematically identical to the O(N^2) double sum over all unique pairs.
         - Identical phases yield 1.0.
+        - A NaN or infinite phase propagates to a NaN result instead of raising.
         - Rotation-invariant: PPC(theta + phi) == PPC(theta).
         - Under a circular uniform distribution null, E[PPC] == 0.
 

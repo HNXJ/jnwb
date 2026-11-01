@@ -533,6 +533,8 @@ OPTIONAL_IMPORT_ERRORS = ("ImportError", "ModuleNotFoundError")
 LOGGER_WARNINGS = ("warning", "error", "exception")
 #: The except handlers the silent_handlers scan skips, by (module path, qualified function): the
 #: probes and controls whose silence is the answer, each read by hand against its handler (fact S9).
+#: Non-finite inputs need no handler: every public numeric function refuses them by name, as
+#: tests/test_nonfinite_inputs.py checks, or documents their propagation or missingness.
 #: A key that matches no flagged handler is reported as stale.
 S9_EXCUSED: Dict[Tuple[str, str], str] = {
     ("jnwb/_backend.py", "_probe"): "backend probe: False when the backend will not load",

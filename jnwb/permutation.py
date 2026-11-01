@@ -266,8 +266,9 @@ def build_permutation_plan(
     Raises:
         TypeError: If ``rng`` is not an int, a Generator or None, or ``groups`` is None.
         ValueError: If ``blocks`` has the wrong length, ``groups`` holds a NaN or None, a
-            block holds more than one label or spans more than one group, or ``seed`` is given
-            with a different value from ``rng``. A float ``rng`` with no ``seed`` is a TypeError.
+            block holds more than one label or spans more than one group, ``rng`` is
+            non-finite, or ``seed`` is given with a different value from ``rng``. A float
+            ``rng`` with no ``seed`` is a TypeError, unless it is non-finite.
     """
     if groups is None:
         raise TypeError(
@@ -277,6 +278,11 @@ def build_permutation_plan(
         )
     seed = resolve_seed_alias(rng, seed, alias_name='seed',
                               func_name='build_permutation_plan')
+    if isinstance(seed, float) and not np.isfinite(seed):
+        raise ValueError(
+            "build_permutation_plan: rng is non-finite; pass an int seed, a Generator, "
+            "or None for fresh entropy."
+        )
     # The manifest names every draw by an integer seed, so a Generator or None is turned
     # into one int base seed first, and an int is used as given.
     seed = sklearn_random_state(seed, func_name="build_permutation_plan")

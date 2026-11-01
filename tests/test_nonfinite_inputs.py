@@ -2,16 +2,17 @@
 
 Each plain function in `jnwb.__all__` is called once with valid inputs and twice
 more with one leaf poisoned, first NaN then inf. The poisoned call must raise
-`ValueError` naming the poisoned argument. Three functions document NaN
+`ValueError` naming the poisoned argument. Seven functions document NaN
 propagation instead of refusal and are checked for that; functions taking no
 numeric argument are exempt with a reason. A function that stays silent, or
-whose refusal does not name the argument, is listed in `AWAITING_REPAIR` as a
-strict xfail, so wiring the refusal turns the row green.
+whose refusal does not name the argument, is refused, propagates, or keeps
+non-finite as missing instead: `AWAITING_REPAIR` is empty.
 """
 
 from __future__ import annotations
 
 import inspect
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -39,6 +40,7 @@ EXEMPT = {
     "get_all_units_metadata": "takes paths, not a numeric array",
     "inspect": "takes a path or open NWB, not a numeric array",
     "label_layers": "takes result objects, not a numeric array",
+    "map_peak_channel_to_area": "matches channel identity to a location label; a NaN id is absent (None), nothing numeric is computed",
     "map_peak_channel_to_layer": "takes a LaminarCurationResult object, not a numeric array",
     "nwb_read_io": "takes a path only; the NaN-path row below tracks its refusal",
     "preflight": "takes a Question object, not a numeric array",
@@ -64,25 +66,34 @@ NAN_PROPAGATES = {
     "aggregate_to_db": "a NaN ratio stays NaN through the log",
     "causal_gaussian_smooth": "a NaN bin spreads through the kernel sum",
     "jrsa": "a NaN sample stays NaN through the alignment",
+    "normalize_waveforms": "a NaN or infinite row is returned as NaN",
+    "pairwise_phase_consistency": "a NaN or infinite phase gives a NaN result",
+    "to_db": "a NaN ratio stays NaN and an infinite ratio stays infinite",
+    "trial_correlation_matrix": "a NaN or infinite sample gives a non-finite row",
 }
 
 #: Functions that keep NaN as missing (say so in the docstring) and refuse inf.
-#: A row also in AWAITING_REPAIR is a strict xfail until its inf refusal lands.
 NAN_IS_MISSING = frozenset({
     "assign_outer_folds",
-    "assign_quality_tier",
     "audit_electrodes",
-    "audit_units",
-    "classify_layer_from_depth",
+    "bad_channels_from_correlation",
+    "bad_trials_single_channel",
     "classify_response_significance",
-    "classify_unit_quality",
-    "enrich_units_dataframe",
     "epoch_continuous",
     "filter_by_criteria",
-    "get_snr_analysis",
     "interpolate_channel_runs",
-    "map_peak_channel_to_area",
     "unit_census_report",
+})
+
+#: Functions that keep NaN and inf as missing (say so in the docstring) and refuse
+#: neither. Ruled 2026-10-31: their released reading of inf as missing stays.
+NONFINITE_IS_MISSING = frozenset({
+    "assign_quality_tier",
+    "audit_units",
+    "classify_layer_from_depth",
+    "classify_unit_quality",
+    "enrich_units_dataframe",
+    "get_snr_analysis",
 })
 
 #: The poisoned leaf per function: `key`, `key[column]`, `key[sub]` or `key[sub][column]`.
@@ -94,14 +105,14 @@ LEAF = {
     'assign_outer_folds': 'trials[start_time]',
     'assign_quality_tier': 'snr',
     'assign_subblock_quartiles': 'epochs_df[start_time]',
-    'audit_electrodes': 'elec_df[x]',
+    'audit_electrodes': 'units_df[peak_channel_id]',
     'audit_units': 'units_df[firing_rate]',
     'bad_channels_from_correlation': 'corr',
     'bad_trials_single_channel': 'trial_waveforms',
     'band_power': 'baseline',
     'bandpass_filter': 'data',
     'bin_spikes': 'window_s',
-    'binary_occupancy_mutual_information': 'time_window',
+    'binary_occupancy_mutual_information': 'time_window_s',
     'bipolar_reference': 'channel_data',
     'build_inner_validation_partitions': 'outer_trials[outer_fold]',
     'build_permutation_plan': 'rng',
@@ -109,7 +120,7 @@ LEAF = {
     'build_time_resolved_matrix': 'time_window_ms',
     'causal_exp_smooth': 'bin_ms',
     'channel_correlation_matrix': 'data_ch_by_time',
-    'classify_layer_from_depth': 'electrodes_df[x]',
+    'classify_layer_from_depth': 'electrodes_df[z]',
     'classify_response_significance': 'metrics[response_counts]',
     'classify_unit_quality': 'units_df[firing_rate]',
     'clopper_pearson': 'k',
@@ -133,7 +144,7 @@ LEAF = {
     'directed_network': 'signals',
     'effective_rate': 'data',
     'effective_sample_size': 'x',
-    'enrich_units_dataframe': 'electrodes_df[x]',
+    'enrich_units_dataframe': 'units_df[peak_channel_id]',
     'epoch_continuous': 'data',
     'evoked_csd_sink': 'erp',
     'exact_sign_flip': 'diffs',
@@ -147,7 +158,7 @@ LEAF = {
     'fold_majority_baseline': 'y_test',
     'gaussian_smooth_rate': 'bin_ms',
     'gaze_departure_onsets': 'trial_starts',
-    'get_snr_analysis': 'units_df[firing_rate]',
+    'get_snr_analysis': 'units_df[snr]',
     'granger': 'X',
     'granger_causality': 'signal1',
     'granger_nonparametric': 'X',
@@ -160,17 +171,14 @@ LEAF = {
     'laplacian_reference': 'channel_data',
     'majority_baseline': 'labels',
     'mann_whitney_p_floor': 'n1',
-    'map_peak_channel_to_area': 'electrodes_df[x]',
     'morlet_wavelet': 'f0',
     'nested_cv_linear_svm': 'X',
     'network_burst_index': 'window_s',
     'network_topology': 'adjacency_matrix',
     'noise_correlation': 'min_trials',
-    'normalize_waveforms': 'waveforms',
     'notch_filter': 'data',
     'onset_model': 't',
     'paired_fire_prob_test': 'fires_null',
-    'pairwise_phase_consistency': 'phases',
     'partial_coherence': 'fs',
     'permute_labels': 'y',
     'phase_locking_index': 'lfp_phase',
@@ -193,11 +201,9 @@ LEAF = {
     'spatial_derivative_sharpness': 'channel_positions',
     'spectral_tilt': 'lfp_trace',
     'spike_count_correlation': 'window_s',
-    'spike_count_mutual_information': 'time_window',
-    'spike_mutual_information': 'time_window',
-    'to_db': 'ratio',
+    'spike_count_mutual_information': 'time_window_s',
+    'spike_mutual_information': 'time_window_s',
     'transfer_entropy': 'X',
-    'trial_correlation_matrix': 'trial_waveforms',
     'unit_census_report': 'units_df[firing_rate]',
     'vflip': 'freqs',
     'vflip2': 'freqs',
@@ -217,23 +223,8 @@ LEAF = {
 }
 
 #: Rows silent on the poisoned leaf, or refusing without naming the argument.
-#: Strict xfail: wiring the refusal removes the row.
-AWAITING_REPAIR = {
-    'assign_quality_tier': 'silent: NaN/inf in snr returns a value',
-    'audit_units': 'silent: NaN/inf in units_df[firing_rate] returns a value',
-    'bad_channels_from_correlation': 'silent: NaN/inf in corr returns a value',
-    'bad_trials_single_channel': 'silent: NaN/inf in trial_waveforms returns a value',
-    'classify_layer_from_depth': 'silent: NaN/inf in electrodes_df[x] returns a value',
-    'classify_unit_quality': 'silent: NaN/inf in units_df[firing_rate] returns a value',
-    'get_snr_analysis': 'silent: NaN/inf in units_df[firing_rate] returns a value',
-    'network_topology': 'silent: NaN/inf in adjacency_matrix returns a value',
-    'normalize_waveforms': 'silent: NaN/inf in waveforms returns a value',
-    'pairwise_phase_consistency': 'silent: NaN/inf in phases returns a value',
-    'phase_locking_index': 'silent: NaN/inf in lfp_phase returns a value',
-    'probe_geometry': 'silent: NaN/inf in electrodes_table[x] returns a value',
-    'to_db': 'silent: NaN/inf in ratio returns a value',
-    'trial_correlation_matrix': 'silent: NaN/inf in trial_waveforms returns a value',
-}
+#: Empty: every row now refuses by name, propagates, or keeps non-finite as missing.
+AWAITING_REPAIR = {}
 
 UNITS_DF = pd.DataFrame({
     "unit_id": [0, 1, 2, 3],
@@ -443,6 +434,8 @@ def _overrides(rng):
             "quality": pd.Series(["good", "sua"] * 5),
             "trial_presence_fraction": pd.Series(rng.uniform(0.9, 1.0, 10)),
             "snr": pd.Series(rng.uniform(0.0, 3.0, 10))},
+        "audit_electrodes": {
+            "units_df": UNITS_DF},
         "build_time_resolved_matrix": {
             "session": _Session(st), "area": "V1", "epochs_df": EPOCHS_DF,
             "time_window_ms": (0.0, 100.0)},
@@ -456,6 +449,8 @@ def _overrides(rng):
                 "outer_group": ["g0", "g0", "g1", "g0", "g0", "g1"]})},
         "build_permutation_plan": {
             "groups": np.array([0, 1] * 10)},
+        "classify_layer_from_depth": {
+            "depth_unit": "um", "peak_channel_id": 0},
         "coherence_bias_floor": {
             "signals": rng.standard_normal((3, 4, 128)) + 5.0},
         "classify_response_significance": {
@@ -499,6 +494,7 @@ def _overrides(rng):
             "data": rng.standard_normal((4, 200)) + 5.0,
             "bad_mask": np.zeros(4, dtype=bool)},
         "jrsa": {"x1": rng.standard_normal((20, 6)) + 5.0, "null": "iid"},
+        "morlet_wavelet": {"n_cycles": 5.0},
         "nested_cv_linear_svm": {"X": rng.standard_normal((20, 5)) + 5.0},
         "network_burst_index": {"spike_times": [st, st + 0.05]},
         "noise_correlation": {
@@ -557,6 +553,13 @@ def build(name, tmp_path):
     over = _overrides(rng)
     if name in over:
         kwargs.update(over[name])
+    if name in ("binary_occupancy_mutual_information",
+                "spike_count_mutual_information", "spike_mutual_information"):
+        # The build passes the canonical spelling only: with both spellings present,
+        # removing one leaves the other and no removal changes the result.
+        kwargs.pop("time_window", None)
+    if name == "build_permutation_plan":
+        kwargs.pop("seed", None)
     if missing is not None and missing not in kwargs:
         raise AssertionError(f"{name}: no valid input for {missing}")
     return kwargs
@@ -571,7 +574,9 @@ def _poison(kwargs, spec, value):
     if len(parts) == 1:
         if isinstance(v, np.ndarray):
             a = np.array(v, dtype=float)
-            a.flat[0] = value
+            # network_topology ignores the diagonal by design
+            # (test_nan_diagonal_is_ignored), so poison off the diagonal.
+            a.flat[1 if spec == "adjacency_matrix" else 0] = value
             kw[top] = a
         elif isinstance(v, pd.Series):
             s = v.astype(float).copy()
@@ -625,12 +630,19 @@ def test_examined_set_covers_every_plain_function():
     assert set(LEAF) & set(NAN_PROPAGATES) == set()
     assert set(NAN_IS_MISSING) <= set(LEAF)
     assert set(NAN_IS_MISSING) & set(NAN_PROPAGATES) == set()
+    assert set(NONFINITE_IS_MISSING) <= set(LEAF)
+    assert set(NONFINITE_IS_MISSING) & set(NAN_PROPAGATES) == set()
+    assert set(NONFINITE_IS_MISSING) & set(NAN_IS_MISSING) == set()
     assert set(AWAITING_REPAIR) <= set(LEAF)
 
 
 def _poison_params():
     out = []
     for name in sorted(LEAF):
+        if name in NONFINITE_IS_MISSING:
+            # Neither value is refused; test_nonfinite_is_missing_where_documented
+            # checks both are kept as missing instead.
+            continue
         if name in AWAITING_REPAIR:
             out.append(pytest.param(
                 name, marks=pytest.mark.xfail(strict=True, reason=AWAITING_REPAIR[name])))
@@ -677,6 +689,17 @@ def test_nan_is_missing_where_documented(name, tmp_path):
         f"{name}: inf refusal does not name {arg}: {str(err.value)[:120]}")
 
 
+@pytest.mark.parametrize("name", sorted(NONFINITE_IS_MISSING))
+def test_nonfinite_is_missing_where_documented(name, tmp_path):
+    fn = getattr(jnwb, name)
+    spec = LEAF[name]
+    assert "inf" in (fn.__doc__ or "").lower(), (
+        f"{name}: docstring must say inf is missing")
+    assert "NaN" in (fn.__doc__ or ""), f"{name}: docstring must say NaN is missing"
+    assert fn(**_poison(build(name, tmp_path), spec, np.nan)) is not None
+    assert fn(**_poison(build(name, tmp_path), spec, np.inf)) is not None
+
+
 @pytest.mark.parametrize("name", sorted(set(LEAF) | set(NAN_PROPAGATES)))
 def test_valid_inputs_run(name, tmp_path):
     assert getattr(jnwb, name)(**build(name, tmp_path)) is not None
@@ -701,26 +724,34 @@ def _holds_nonfinite(out):
 def test_nan_propagates_where_documented(name, tmp_path):
     fn = getattr(jnwb, name)
     leaf = {"aggregate_to_db": "power",
-            "causal_gaussian_smooth": "rate", "jrsa": "x1"}[name]
+            "causal_gaussian_smooth": "rate", "jrsa": "x1",
+            "normalize_waveforms": "waveforms",
+            "pairwise_phase_consistency": "phases",
+            "to_db": "ratio",
+            "trial_correlation_matrix": "trial_waveforms"}[name]
     out = fn(**_poison(build(name, tmp_path), leaf, np.nan))
     if name != "jrsa":
         assert _holds_nonfinite(out), f"{name}: NaN in gives no NaN out"
 
 
 def test_inf_propagates_or_refuses_where_documented(tmp_path):
-    for name in ("aggregate_to_db", "causal_gaussian_smooth"):
+    for name in ("aggregate_to_db", "causal_gaussian_smooth", "normalize_waveforms",
+                 "pairwise_phase_consistency", "to_db", "trial_correlation_matrix"):
         fn = getattr(jnwb, name)
-        leaf = {"aggregate_to_db": "power", "causal_gaussian_smooth": "rate"}[name]
+        leaf = {"aggregate_to_db": "power", "causal_gaussian_smooth": "rate",
+                "normalize_waveforms": "waveforms",
+                "pairwise_phase_consistency": "phases", "to_db": "ratio",
+                "trial_correlation_matrix": "trial_waveforms"}[name]
         assert _holds_nonfinite(fn(**_poison(build(name, tmp_path), leaf, np.inf)))
     with pytest.raises(ValueError):
         getattr(jnwb, "jrsa")(**_poison(build("jrsa", tmp_path), "x1", np.inf))
 
 
-@pytest.mark.xfail(strict=True, reason="path-only entry: NaN path raises TypeError, not ValueError")
 def test_nan_path_is_refused_by_name():
-    with pytest.raises(ValueError) as err:
-        jnwb.nwb_read_io(np.nan)
-    assert "path" in str(err.value)
+    for value in (np.nan, np.inf):
+        with pytest.raises(ValueError) as err:
+            jnwb.nwb_read_io(value)
+        assert "path" in str(err.value)
 
 
 def test_repair_band_artifacts_refuses_nonfinite_power():
@@ -760,4 +791,71 @@ def test_consensus_bad_trials_refuses_nonfinite_min_frac():
         with pytest.raises(ValueError) as err:
             jnwb.consensus_bad_trials(flags, min_frac_channels=value)
         assert "min_frac_channels" in str(err.value)
+
+
+def test_fit_exponential_onset_refuses_nonfinite_t_ms(tmp_path):
+    for value in (np.nan, np.inf):
+        with pytest.raises(ValueError) as err:
+            jnwb.fit_exponential_onset(
+                **_poison(build("fit_exponential_onset", tmp_path), "t_ms", value))
+        assert "t_ms" in str(err.value)
+
+
+def test_morlet_wavelet_refuses_nonfinite_fs_and_n_cycles(tmp_path):
+    for leaf in ("fs", "n_cycles"):
+        for value in (np.nan, np.inf):
+            with pytest.raises(ValueError) as err:
+                jnwb.morlet_wavelet(
+                    **_poison(build("morlet_wavelet", tmp_path), leaf, value))
+            assert leaf in str(err.value)
+
+
+def _remove_leaf(kwargs, spec):
+    """Copy of built inputs with the poisoned leaf removed instead of poisoned."""
+    kw = dict(kwargs)
+    parts = spec[:-1].split("[") if spec.endswith("]") else [spec]
+    top = parts[0]
+    if len(parts) == 1:
+        del kw[top]
+        return kw
+    v = kwargs[top]
+    if isinstance(v, pd.DataFrame):
+        return {**kw, top: v.drop(columns=[parts[1]])}
+    if isinstance(v, dict):
+        d = dict(v)
+        sub = parts[1]
+        if len(parts) == 3:
+            d[sub] = v[sub].drop(columns=[parts[2]])
+        else:
+            del d[sub]
+        return {**kw, top: d}
+    raise AssertionError(f"cannot remove {spec}")
+
+
+def test_every_poisoned_leaf_is_read(tmp_path):
+    """Removing the poisoned leaf must raise or change the result.
+
+    A leaf the call never reads makes a silent scan row a false positive, so
+    every entry of `LEAF` must be read: without that key or column the call
+    raises (`KeyError`, `ValueError`, `TypeError`) or returns something else.
+    """
+    unread = []
+    for name in sorted(LEAF):
+        fn = getattr(jnwb, name)
+        kwargs = build(name, tmp_path)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            baseline = fn(**kwargs)
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                out = fn(**_remove_leaf(kwargs, LEAF[name]))
+        except (KeyError, ValueError, TypeError):
+            continue
+        if repr(out) != repr(baseline):
+            continue
+        unread.append(name)
+    examined = len(LEAF) - len(unread)
+    assert examined == len(LEAF), (
+        f"{len(unread)} poisoned leaves are never read: {sorted(unread)}")
 

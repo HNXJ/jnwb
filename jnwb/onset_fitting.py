@@ -195,7 +195,8 @@ def fit_exponential_onset(
     Returns dict: t0, tau, amplitude, baseline, r2, converged, cost.
 
     Raises:
-        ValueError: If ``t_ms`` and ``rate`` are not 1-D of one length, or ``rate`` is
+        ValueError: If ``t_ms`` or ``rate`` holds a non-finite value, if ``t_ms``
+            and ``rate`` are not 1-D of one length, or ``rate`` is
             constant: a flat trace has no onset, and every ``t0`` fits it equally well.
     """
     t0_bounds_unset = t0_bounds_ms is None and t0_bounds is None
@@ -222,6 +223,7 @@ def fit_exponential_onset(
 
     t_ms = np.asarray(t_ms, dtype=float)
     rate = np.asarray(rate, dtype=float)
+    refuse_nonfinite_times(t_ms, "fit_exponential_onset", "t_ms")
     refuse_nonfinite_times(rate, "fit_exponential_onset", "rate")
     if t_ms.ndim != 1 or rate.shape != t_ms.shape:
         raise ValueError(

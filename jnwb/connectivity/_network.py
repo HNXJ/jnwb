@@ -23,6 +23,7 @@ def network_topology(
     Compute network graph metrics from a correlation or Granger causality matrix.
 
     The diagonal is ignored. An edge is an entry whose absolute value exceeds ``threshold``.
+    A NaN or inf on the diagonal stays ignored; off the diagonal it is refused.
 
     Raises:
         TypeError: If ``adjacency_matrix`` is complex. Casting to float would keep the real

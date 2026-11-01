@@ -1,0 +1,1 @@
+- Deliberate NaN handling is documented and the rest refused by name (`tests/test_nonfinite_inputs.py`).

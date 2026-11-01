@@ -116,7 +116,18 @@ def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tu
         J. Exp. Soc. Psychol. doi:10.1016/j.jesp.2013.03.013 -- the median/MAD
         outlier rule, with the normal-consistent x1.4826 scaling. The default
         threshold (5.0) is jnwb's, not the paper's.
+
+    A NaN entry is missing and left out of the channel's median; an infinite entry is
+    refused with a ``ValueError`` naming ``corr``.
     """
+    corr_arr = np.asarray(corr, dtype=float)
+    inf = np.flatnonzero(np.isinf(corr_arr))
+    if inf.size:
+        i = int(inf[0])
+        raise ValueError(
+            f"bad_channels_from_correlation: corr[{i}] is {corr_arr.ravel()[i]}; drop or "
+            "impute the non-finite corr first."
+        )
     n = corr.shape[0]
     if n < 2:
         return np.zeros(n, dtype=bool), np.full(n, np.nan), np.full(n, np.nan)
@@ -139,6 +150,9 @@ def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tu
 
 def trial_correlation_matrix(trial_waveforms: np.ndarray) -> np.ndarray:
     """trial_waveforms: (n_trials, n_times), single channel. Returns (n_trials, n_trials) corr.
+
+    A NaN or infinite sample propagates: every correlation the sample touches is
+    non-finite, instead of the trial being dropped.
 
     References:
         Bigdely-Shamlo, N., et al. (2015). The PREP pipeline: standardized
@@ -179,8 +193,19 @@ def bad_trials_single_channel(
         J. Exp. Soc. Psychol. doi:10.1016/j.jesp.2013.03.013 -- the median/MAD
         outlier rule (x1.4826) behind both the correlation and the amplitude
         flags. The default thresholds are jnwb's, not the paper's.
+
+    A NaN sample is missing: the correlations it touches are left out of the medians.
+    An infinite sample is refused with a ``ValueError`` naming ``trial_waveforms``.
     """
     trial_waveforms = np.asarray(trial_waveforms, dtype=float)
+    inf = np.flatnonzero(np.isinf(trial_waveforms))
+    if inf.size:
+        i = int(inf[0])
+        raise ValueError(
+            f"bad_trials_single_channel: trial_waveforms[{i}] is "
+            f"{trial_waveforms.ravel()[i]}; drop or impute the non-finite "
+            "trial_waveforms first."
+        )
     n = trial_waveforms.shape[0]
     if n < 2:
         return np.zeros(n, dtype=bool), np.full(n, np.nan), np.full(n, np.nan)
