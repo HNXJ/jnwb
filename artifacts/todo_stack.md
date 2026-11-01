@@ -36,7 +36,8 @@ stack to zero (P-215-28 in 4e87a5bf), the agy docs sweep.
    - Approved: a 0.2.16 item changes `workflow.yml`. Not approved: the plan stays a receipt. Blocks nothing.
 4. Barrier, as 1.
 5. Release mechanics, in order: assemble `CHANGELOG.md` from `artifacts/changelog.d/`; bump `__version__`
-   to 0.2.15; merge `origin/main` into `dev`; regenerate state; barrier as 1.
+   to 0.2.15; rerun `scripts/calibrate_curation.py` (its receipt records the declared version); merge
+   `origin/main` into `dev`; regenerate state; barrier as 1.
 6. Closure pass: an independent blocker-focused review (reviewer and agy, different models) checks each
    advertised claim against the deferred rows; its receipt is committed at HEAD.
    - A new blocker: it becomes an item, back to the step that owns its file.
