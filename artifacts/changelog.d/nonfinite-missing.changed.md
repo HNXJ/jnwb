@@ -1,0 +1,1 @@
+- NaN is missing and inf is refused in 9 functions; see `tests/test_nonfinite_inputs.py`.

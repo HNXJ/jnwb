@@ -434,7 +434,8 @@ def assign_outer_folds(
 
     Args:
         trials: DataFrame with at least ``analysis_cols``, ``group_col``, and ``trial_id``
-            columns.
+            columns. A NaN ``start_time`` is missing: the row is carried through and its
+            fold assignment ignores that column.
         analysis_cols: columns identifying an independent analysis stratum (folds are assigned
             separately within each combination of these columns).
         group_col: column giving the group id (e.g. a repetition/cycle id) that outer folds hold
@@ -449,6 +450,13 @@ def assign_outer_folds(
     missing = required.difference(trials.columns)
     if missing:
         raise ValueError(f"trial table missing fold columns: {sorted(missing)}")
+    if "start_time" in trials.columns:
+        times = pd.to_numeric(trials["start_time"], errors="coerce")
+        if bool(np.isinf(times.to_numpy(dtype=float)).any()):
+            raise ValueError(
+                "assign_outer_folds: trials['start_time'] holds an infinite value; "
+                "NaN is allowed"
+            )
     out = trials.copy()
     out["outer_fold"] = -1
     out["outer_group"] = out[group_col]

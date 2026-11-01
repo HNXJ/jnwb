@@ -385,6 +385,9 @@ def filter_by_criteria(
     - range tuple      : {'firing_rate': (10, 100)}
     - list membership  : {'area': ['V1', 'V4']}
 
+    A NaN entry is missing: a range criterion on its column excludes the row, and
+    criteria on other columns carry it through. An infinite entry is refused.
+
     Parameters
     ----------
     unknown
@@ -398,6 +401,15 @@ def filter_by_criteria(
             raise ValueError(
                 f"filter_by_criteria: unknown column(s) {missing!r}; "
                 "pass unknown='ignore' to skip absent keys"
+            )
+
+    numeric = df.select_dtypes(include="number").select_dtypes(exclude="complex")
+    if numeric.shape[1]:
+        bad_cols = numeric.columns[np.isinf(numeric.to_numpy(dtype=float)).any(axis=0)]
+        if len(bad_cols):
+            raise ValueError(
+                f"filter_by_criteria: df holds an infinite value in column {bad_cols[0]!r}; "
+                "NaN is allowed"
             )
 
     out = df.copy()
@@ -521,12 +533,20 @@ def unit_census_report(
             dropped with a ``UserWarning``.
 
     Returns:
-        Summary DataFrame with counts and statistics
+        Summary DataFrame with counts and statistics. A NaN ``firing_rate`` is missing:
+        group means skip it. An infinite ``firing_rate`` is refused.
 
     Example:
         >>> census = unit_census_report(all_units)
         >>> by_area = unit_census_report(all_units, group_by=['area'])
     """
+    if "firing_rate" in units_df.columns:
+        fr = pd.to_numeric(units_df["firing_rate"], errors="coerce")
+        if bool(np.isinf(fr.to_numpy(dtype=float)).any()):
+            raise ValueError(
+                "unit_census_report: units_df['firing_rate'] holds an infinite value; "
+                "NaN is allowed"
+            )
     if group_by is not None:
         absent = [col for col in group_by if col not in units_df.columns]
         if absent:
@@ -870,7 +890,15 @@ def audit_electrodes(elec_df: pd.DataFrame, units_df: Optional[pd.DataFrame] = N
 
     Returns:
         Dict with total_electrodes, areas_represented, units_assigned, assignment_rate.
+        A NaN ``elec_df`` x is missing: area resolution reads the location column, not
+        coordinates, so the row still counts. An infinite x is refused.
     """
+    if "x" in elec_df.columns:
+        x = pd.to_numeric(elec_df["x"], errors="coerce")
+        if bool(np.isinf(x.to_numpy(dtype=float)).any()):
+            raise ValueError(
+                "audit_electrodes: elec_df['x'] holds an infinite value; NaN is allowed"
+            )
     result = {
         'total_electrodes': len(elec_df),
         'areas_represented': {},

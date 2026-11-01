@@ -66,6 +66,25 @@ NAN_PROPAGATES = {
     "jrsa": "a NaN sample stays NaN through the alignment",
 }
 
+#: Functions that keep NaN as missing (say so in the docstring) and refuse inf.
+#: A row also in AWAITING_REPAIR is a strict xfail until its inf refusal lands.
+NAN_IS_MISSING = frozenset({
+    "assign_outer_folds",
+    "assign_quality_tier",
+    "audit_electrodes",
+    "audit_units",
+    "classify_layer_from_depth",
+    "classify_response_significance",
+    "classify_unit_quality",
+    "enrich_units_dataframe",
+    "epoch_continuous",
+    "filter_by_criteria",
+    "get_snr_analysis",
+    "interpolate_channel_runs",
+    "map_peak_channel_to_area",
+    "unit_census_report",
+})
+
 #: The poisoned leaf per function: `key`, `key[column]`, `key[sub]` or `key[sub][column]`.
 LEAF = {
     'align_waveforms': 'fs',
@@ -91,7 +110,7 @@ LEAF = {
     'causal_exp_smooth': 'bin_ms',
     'channel_correlation_matrix': 'data_ch_by_time',
     'classify_layer_from_depth': 'electrodes_df[x]',
-    'classify_response_significance': 'metrics[z]',
+    'classify_response_significance': 'metrics[response_counts]',
     'classify_unit_quality': 'units_df[firing_rate]',
     'clopper_pearson': 'k',
     'cluster_permutation_test': 'X',
@@ -200,21 +219,13 @@ LEAF = {
 #: Rows silent on the poisoned leaf, or refusing without naming the argument.
 #: Strict xfail: wiring the refusal removes the row.
 AWAITING_REPAIR = {
-    'assign_outer_folds': 'silent: NaN/inf in trials[start_time] returns a value',
     'assign_quality_tier': 'silent: NaN/inf in snr returns a value',
-    'audit_electrodes': 'silent: NaN/inf in elec_df[x] returns a value',
     'audit_units': 'silent: NaN/inf in units_df[firing_rate] returns a value',
     'bad_channels_from_correlation': 'silent: NaN/inf in corr returns a value',
     'bad_trials_single_channel': 'silent: NaN/inf in trial_waveforms returns a value',
     'classify_layer_from_depth': 'silent: NaN/inf in electrodes_df[x] returns a value',
-    'classify_response_significance': 'silent: NaN/inf in metrics[z] returns a value',
     'classify_unit_quality': 'silent: NaN/inf in units_df[firing_rate] returns a value',
-    'enrich_units_dataframe': 'silent: NaN/inf in electrodes_df[x] returns a value',
-    'epoch_continuous': 'silent: NaN/inf in data returns a value',
-    'filter_by_criteria': 'silent: NaN/inf in df[firing_rate] returns a value',
     'get_snr_analysis': 'silent: NaN/inf in units_df[firing_rate] returns a value',
-    'interpolate_channel_runs': 'silent: NaN/inf in data returns a value',
-    'map_peak_channel_to_area': 'silent: NaN/inf in electrodes_df[x] returns a value',
     'network_topology': 'silent: NaN/inf in adjacency_matrix returns a value',
     'normalize_waveforms': 'silent: NaN/inf in waveforms returns a value',
     'pairwise_phase_consistency': 'silent: NaN/inf in phases returns a value',
@@ -222,7 +233,6 @@ AWAITING_REPAIR = {
     'probe_geometry': 'silent: NaN/inf in electrodes_table[x] returns a value',
     'to_db': 'silent: NaN/inf in ratio returns a value',
     'trial_correlation_matrix': 'silent: NaN/inf in trial_waveforms returns a value',
-    'unit_census_report': 'silent: NaN/inf in units_df[firing_rate] returns a value',
 }
 
 UNITS_DF = pd.DataFrame({
@@ -448,6 +458,13 @@ def _overrides(rng):
             "groups": np.array([0, 1] * 10)},
         "coherence_bias_floor": {
             "signals": rng.standard_normal((3, 4, 128)) + 5.0},
+        "classify_response_significance": {
+            "metrics": {"response_count": 10,
+                        "response_counts": np.array([3, 4, 3]),
+                        "baseline_counts": np.array([1, 1, 2]),
+                        "baseline_duration_s": 0.2,
+                        "response_duration_s": 0.15,
+                        "response_zscore": 2.5}},
         "compute_population_trajectory": {
             "session": _Session(st), "area": "V1", "epochs_df": EPOCHS_DF,
             "time_window_ms": (0.0, 100.0)},
@@ -606,6 +623,8 @@ def test_examined_set_covers_every_plain_function():
     assert set(EXEMPT) | set(LEAF) | set(NAN_PROPAGATES) == set(names)
     assert set(LEAF) & set(EXEMPT) == set()
     assert set(LEAF) & set(NAN_PROPAGATES) == set()
+    assert set(NAN_IS_MISSING) <= set(LEAF)
+    assert set(NAN_IS_MISSING) & set(NAN_PROPAGATES) == set()
     assert set(AWAITING_REPAIR) <= set(LEAF)
 
 
@@ -625,11 +644,37 @@ def test_nan_and_inf_in_poisoned_leaf_are_refused_by_name(name, tmp_path):
     fn = getattr(jnwb, name)
     spec = LEAF[name]
     arg = spec.split("[")[0]
-    for value in (np.nan, np.inf):
+    # A NAN_IS_MISSING function keeps NaN as missing; only inf must raise.
+    values = (np.inf,) if name in NAN_IS_MISSING else (np.nan, np.inf)
+    for value in values:
         with pytest.raises(ValueError) as err:
             fn(**_poison(build(name, tmp_path), spec, value))
         assert arg in str(err.value), (
             f"{name}: refusal does not name {arg}: {str(err.value)[:120]}")
+
+
+def _missing_params():
+    out = []
+    for name in sorted(NAN_IS_MISSING):
+        if name in AWAITING_REPAIR:
+            out.append(pytest.param(
+                name, marks=pytest.mark.xfail(strict=True, reason=AWAITING_REPAIR[name])))
+        else:
+            out.append(pytest.param(name))
+    return out
+
+
+@pytest.mark.parametrize("name", _missing_params())
+def test_nan_is_missing_where_documented(name, tmp_path):
+    fn = getattr(jnwb, name)
+    spec = LEAF[name]
+    arg = spec.split("[")[0]
+    assert "NaN" in (fn.__doc__ or ""), f"{name}: docstring must say NaN is missing"
+    assert fn(**_poison(build(name, tmp_path), spec, np.nan)) is not None
+    with pytest.raises(ValueError) as err:
+        fn(**_poison(build(name, tmp_path), spec, np.inf))
+    assert arg in str(err.value), (
+        f"{name}: inf refusal does not name {arg}: {str(err.value)[:120]}")
 
 
 @pytest.mark.parametrize("name", sorted(set(LEAF) | set(NAN_PROPAGATES)))

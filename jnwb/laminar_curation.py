@@ -227,12 +227,15 @@ def interpolate_channel_runs(
 
     Returns:
         Dict with ``data`` (a copy, float), ``interpolated_mask`` and ``unresolved_mask``
-        (each ``(n_channels,)`` bool).
+        (each ``(n_channels,)`` bool). A NaN ``data`` sample is missing: outside a bad run
+        it is carried through unchanged. An infinite sample is refused.
 
     Raises:
         ValueError: If ``bad_mask`` or ``blocked_mask`` does not match ``data.shape[0]``.
     """
     arr = np.array(data, dtype=float, copy=True)
+    if np.isinf(arr).any():
+        raise ValueError("interpolate_channel_runs: data holds an infinite value; NaN is allowed")
     n = arr.shape[0]
     bad = np.asarray(bad_mask, dtype=bool)
     block = np.zeros(n, dtype=bool) if blocked_mask is None else np.asarray(blocked_mask, dtype=bool)

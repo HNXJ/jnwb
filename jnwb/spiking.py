@@ -261,7 +261,7 @@ def classify_response_significance(
 
     Raises:
         ValueError: `alpha` outside (0, 1); count arrays that are not 1-D, differ in
-            shape, or hold a negative or non-integer value; a window length that is not
+            shape, or hold an infinite, negative or non-integer value; a window length that is not
             positive and finite.
 
     Example:
@@ -300,6 +300,10 @@ def classify_response_significance(
 
     response_counts = np.asarray(metrics['response_counts'], dtype=float)
     baseline_counts = np.asarray(metrics['baseline_counts'], dtype=float)
+    for key, counts in (('response_counts', response_counts), ('baseline_counts', baseline_counts)):
+        if np.isinf(counts).any():
+            raise ValueError(f"classify_response_significance: metrics['{key}'] holds an "
+                             "infinite count; NaN marks a missing count")
     if response_counts.ndim != 1 or baseline_counts.ndim != 1:
         raise ValueError(
             "classify_response_significance: 'response_counts' and 'baseline_counts' must be "

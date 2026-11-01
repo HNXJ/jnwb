@@ -72,6 +72,8 @@ def epoch_continuous(
     ----------
     data:
         1D array of shape ``(n_samples,)`` or 2D array of shape ``(n_samples, n_channels)``.
+        A NaN sample is missing: the epoch holding it carries NaN. An infinite sample
+        is refused.
     onsets:
         1D array or sequence of event onset timestamps.
     win_s:
@@ -127,6 +129,8 @@ def epoch_continuous(
     arr = np.asarray(data)
     if arr.ndim not in (1, 2):
         raise ValueError(f"Continuous data must be 1D or 2D, got shape {arr.shape}")
+    if arr.dtype.kind in "fciub" and np.isinf(arr).any():
+        raise ValueError("epoch_continuous: data holds an infinite value; NaN is allowed")
     if fs <= 0.0:
         raise ValueError(f"Sampling rate fs must be positive, got {fs}")
     start_s = float(start_s)

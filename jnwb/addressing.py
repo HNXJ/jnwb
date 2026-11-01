@@ -349,8 +349,17 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
 
     Returns:
         Brain area name (e.g. 'V1', 'PFC', 'FEF') or None if unresolved. A channel ID that is not
-        a number is also None, with a UserWarning that names it.
+        a number is also None, with a UserWarning that names it. A NaN ``electrodes_df`` x is
+        missing: the lookup reads channel identity and location, not coordinates, so the area
+        still resolves. An infinite x is refused.
     """
+    if isinstance(electrodes_df, pd.DataFrame) and "x" in electrodes_df.columns:
+        x = pd.to_numeric(electrodes_df["x"], errors="coerce")
+        if bool(np.isinf(x.to_numpy(dtype=float)).any()):
+            raise ValueError(
+                "map_peak_channel_to_area: electrodes_df['x'] holds an infinite value; "
+                "NaN is allowed"
+            )
     unread: list = []
     idx, row = _resolve_electrode_row(peak_channel_id, electrodes_df, unread)
     area = _area_from_row(peak_channel_id, idx, row, electrodes_df, {})
@@ -835,7 +844,8 @@ def enrich_units_dataframe(
     ``peak_channel_id`` column and ``electrodes_df`` has rows. Otherwise each of them that
     ``units_df`` lacks is filled on every row, with None or 'Unknown'; a ``units_df`` without
     ``peak_channel_id`` beside a non-empty ``electrodes_df`` emits a ``UserWarning`` when it
-    fills any of them.
+    fills any of them. A NaN ``electrodes_df`` x is missing: area and group resolution ignore
+    coordinates, so the row still resolves. An infinite x is refused.
 
     With an ``electrodes`` column (the units' region, as ``units.to_dataframe()`` gives it), a
     unit's row is the electrode its region names; a region of several electrodes is matched on
@@ -880,6 +890,13 @@ def enrich_units_dataframe(
     labels = _stable_label_set(stable_labels, "enrich_units_dataframe")
     stable_threshold = _finite_cutoff(stable_threshold, "stable_threshold",
                                       "enrich_units_dataframe")
+    if isinstance(electrodes_df, pd.DataFrame) and "x" in electrodes_df.columns:
+        x = pd.to_numeric(electrodes_df["x"], errors="coerce")
+        if bool(np.isinf(x.to_numpy(dtype=float)).any()):
+            raise ValueError(
+                "enrich_units_dataframe: electrodes_df['x'] holds an infinite value; "
+                "NaN is allowed"
+            )
     _declared_depth_axis(depth_axis, shallow_end, electrodes_df, "enrich_units_dataframe")
     reads = list(_ENRICH_READS)
     if 'unit_id' not in units_df.columns:
