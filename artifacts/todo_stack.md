@@ -24,36 +24,25 @@ One ordered path from now to the tag. Each step names its check; a pass goes to 
 takes the branch under it. Steps on one line run in parallel lanes (one Muse or Haiku writer per
 clone, at most three); the integrator reads each diff and reruns its acceptance before merging.
 Done 2026-10-31 and deleted: wave 3 (16-20, 11-09, 17-05, 17-72, 17-73), 17-07, the 17-24 scan, the open
-stack to zero (P-215-28 in 4e87a5bf), the agy docs sweep.
+stack to zero (P-215-28 in 4e87a5bf), the agy docs sweep, 17-24 (repairs R1-R4, one `refuse_infinite`,
+refreeze, calibration rerun with an unchanged table), 17-71.
 
 1. Barrier at the integration HEAD: harness gate, suite, push `dev`, CI green.
    - Fails: repair the failing test or item text, rerun from 1.
-2. 17-24 one mechanism, then refreeze, then the curation calibration rerun (its receipt hashes code the
-   repairs touched).
-   - A repair would change a released number: ask Hamm.
-   - A lane fails its acceptance: send it back once with the failure; a second fail, the integrator does it.
-3. Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (17-71, done in ed86825f; plan only).
-   - Approved: a 0.2.16 item changes `workflow.yml`. Not approved: the plan stays a receipt. Blocks nothing.
-4. Barrier, as 1.
-5. Release mechanics, in order: assemble `CHANGELOG.md` from `artifacts/changelog.d/`; bump `__version__`
+2. Release mechanics, in order: assemble `CHANGELOG.md` from `artifacts/changelog.d/`; bump `__version__`
    to 0.2.15; rerun `scripts/calibrate_curation.py` (its receipt records the declared version); merge
    `origin/main` into `dev`; regenerate state; barrier as 1.
-6. Closure pass: an independent blocker-focused review (reviewer and agy, different models) checks each
+3. Closure pass: an independent blocker-focused review (reviewer and agy, different models) checks each
    advertised claim against the deferred rows; its receipt is committed at HEAD.
    - A new blocker: it becomes an item, back to the step that owns its file.
-7. `python scripts/release_gate.py` with the checkout on `PYTHONPATH`: passes; checklist 13 of 13.
-8. 17-74, after the gate: merge to `main`, tag `v0.2.15`, tell omission on Hamm's word.
+4. `python scripts/release_gate.py` with the checkout on `PYTHONPATH`: passes; checklist 13 of 13.
+5. 17-74, after the gate: merge to `main`, tag `v0.2.15`, tell omission on Hamm's word.
+
+Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (17-71, plan
+only); approved, a 0.2.16 item changes `workflow.yml`.
 
 Deferred to 0.2.16, off the path: 17-75 (deletions only Hamm runs), 17-76, 17-77, 17-78, 17-79, the
 roadmap rows.
-
-### 17-24 Non-finite inputs fail loudly
-
-Release: required-0.2.15.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/_bins.py`, the modules that refuse inf by hand, `artifacts/process/frozen_validated.json`. Ruled 2026-10-31: split into scan and repairs; refuse; NaN by kind; inf-as-missing kept. Repairs, wiring and deliberate-NaN docs done in R1-R4 (149242d6: `AWAITING_REPAIR` empty, S9 held).
-- 17-24 one mechanism: eleven inf-only refusals are hand-written (`artifact_detection`, `continuous`, `decoding`, `laminar_curation`, `metadata`, `spiking`, `vis/laminar`). Check: they call one `_bins.refuse_infinite`, and a scan in `tests/test_nonfinite_inputs.py` finds no hand-written one.
-- 17-24 refreeze: the repairs changed nine frozen-validated bodies (`fdr_correct`, `nwb_read_io`, `granger_causality`, `bipolar_reference`, `laplacian_reference`, `cluster_permutation_test`, `clopper_pearson`, `mann_whitney_p_floor`, `shuffle_r2_ci`), so gate 19 fails at 149242d6. Check: each changed entry in `artifacts/process/frozen_validated.json` carries the new hash, the commit, and a test that kills a guard-removal mutant; gate 19 passes.
 
 ### 17-74 Tag 0.2.15 and tell omission
 
