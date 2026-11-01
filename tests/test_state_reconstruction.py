@@ -381,10 +381,15 @@ def test_a_prunable_worktree_and_a_merged_branch_are_named(monkeypatch: pytest.M
     worktrees = reconstruct_state.worktree_rows()
     assert worktrees == ["| `C:/a` | `111111111111` | `dev` |  |",
                          "| `C:/gone` | `222222222222` | `(detached)` | prunable |"]
-    branches = {row.split("`")[1]: row for row in reconstruct_state.branch_rows()}
-    assert set(branches) == {"dev", "lane-done", "lane-open"}
-    assert "stale" in branches["lane-done"]
-    assert "stale" not in branches["lane-open"] and "stale" not in branches["dev"]
+    rows = reconstruct_state.branch_rows()
+    by_name = {}
+    for row in rows:
+        for name in ("dev", "lane-done", "lane-open"):
+            if f"`{name}`" in row:
+                by_name[name] = row
+    assert set(by_name) == {"dev", "lane-done", "lane-open"}, rows
+    assert "stale" in by_name["lane-done"], rows
+    assert "stale" not in by_name["lane-open"] and "stale" not in by_name["dev"], rows
 
 
 def test_open_defect_classes_are_the_rows_with_no_landed_check(tmp_path: pathlib.Path):
@@ -407,9 +412,9 @@ def test_growth_rows_count_the_scripts_and_each_process_test(generated: str):
 
     scripts = sorted((REPO_ROOT / "scripts").glob("*.py"))
     total = sum(len(p.read_text(encoding="utf-8").splitlines()) for p in scripts)
-    assert f"| `scripts/` | {total} |" in generated, total
+    assert f"`scripts/` {total};" in generated, total
     for rel in PROCESS_TESTS:
         path = REPO_ROOT / rel
         if path.is_file():
             lines = len(path.read_text(encoding="utf-8").splitlines())
-            assert f"| `{rel}` | {lines} |" in generated, rel
+            assert re.search(rf"`{re.escape(rel)}` {lines}[;.]", generated), rel
