@@ -23,7 +23,7 @@ Releases 0.2.10, 0.2.9, 0.2.8, 0.2.7, 0.2.6.1, 0.2.6, 0.2.5, 0.2.4, 0.1.8 and 0.
 - `effective_rate`: exact-repeat fraction, repeat runs and power above rate/4 of a stream (`jnwb/continuous.py`).
 - `gaze_departure_onsets`: per-trial gaze departure from a percentile envelope (`jnwb/continuous.py`).
 - `sha256_groups`: a SHA-256 over the datasets under named HDF5 groups (`jnwb/paths.py`).
-- `jnwb/connectivity/_granger.py`: `signal_class=` on three generic-input operations; omitted, a `FutureWarning`.
+- `signal_class=` on `granger_causality`, `directed_network`, `imaginary_coherency`; omitted, warns (`jnwb/_units.py`).
 - `units_table`: one row per unit with probe, area, depth class and waveform columns (`jnwb/metadata.py`).
 
 ### Changed
@@ -31,6 +31,7 @@ Releases 0.2.10, 0.2.9, 0.2.8, 0.2.7, 0.2.6.1, 0.2.6, 0.2.5, 0.2.4, 0.1.8 and 0.
 - `correlate_areas` reads band-power correlation, not synchrony (`tests/test_claim_vocabulary_prose.py`).
 - DataFrame, metadata and gap-handling functions read NaN as missing and refuse inf (`tests/test_nonfinite_inputs.py`).
 - NaN or inf in an array-math input raises `ValueError` naming the argument (`tests/test_nonfinite_inputs.py`).
+- `nwb_read_io` refuses a mode other than `"r"` or a non-finite path at call, before `with` (`jnwb/nwb_io.py`).
 - Each showcase replication card shows paper, library and methods verdicts (`scripts/build_dashboard.py`).
 
 ### Deprecated
