@@ -1,1 +1,0 @@
-- `units_table` says `peak_channel_id` was added when the units table has none (`jnwb/metadata.py`).

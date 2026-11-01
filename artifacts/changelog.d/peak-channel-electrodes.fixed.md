@@ -1,1 +1,0 @@
-- `jnwb/addressing.py` resolves a peak channel through `units.electrodes` and `hardware_channel`, not `id`.

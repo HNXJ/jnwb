@@ -1,1 +1,0 @@
-- Fourteen public functions refuse NaN/inf with `ValueError` naming the argument (`tests/test_nonfinite_inputs.py`).

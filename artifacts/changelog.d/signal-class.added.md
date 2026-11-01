@@ -1,1 +1,0 @@
-- `jnwb/connectivity/_granger.py`: `signal_class=` on three generic-input operations; omitted, a `FutureWarning`.

@@ -1,1 +1,0 @@
-- `gaze_departure_onsets`: per-trial gaze departure from a percentile envelope (`jnwb/continuous.py`).

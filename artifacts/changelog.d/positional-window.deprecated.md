@@ -1,1 +1,0 @@
-- `jnwb/spiking.py`, `jnwb/statistics/_firing.py`: a positional window warns; pass it by keyword.

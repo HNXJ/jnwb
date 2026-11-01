@@ -1,1 +1,0 @@
-- `units_table`: one row per unit with probe, area, depth class and waveform columns (`jnwb/metadata.py`).

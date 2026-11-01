@@ -1,1 +1,0 @@
-- Distance-binned coherence normalization (`docs/common_mistakes.md` 13, `tests/test_connectivity_pitfalls.py`).

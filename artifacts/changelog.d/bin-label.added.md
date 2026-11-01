@@ -1,1 +1,0 @@
-- `jnwb/analyzers.py`, `jnwb/trajectory.py`: `label="right"` labels a bin (t - w, t] at t.

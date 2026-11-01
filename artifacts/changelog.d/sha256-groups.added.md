@@ -1,1 +1,0 @@
-- `sha256_groups`: a SHA-256 over the datasets under named HDF5 groups (`jnwb/paths.py`).

@@ -1,1 +1,0 @@
-- Nine array-math functions refuse NaN or inf naming the argument (`tests/test_nonfinite_inputs.py`).

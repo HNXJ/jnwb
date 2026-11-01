@@ -1,1 +1,0 @@
-- The non-finite scan poisons only leaves its functions read (`tests/test_nonfinite_inputs.py`).

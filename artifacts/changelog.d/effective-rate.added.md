@@ -1,1 +1,0 @@
-- `effective_rate`: exact-repeat fraction, repeat runs and power above rate/4 of a stream (`jnwb/continuous.py`).

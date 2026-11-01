@@ -1,1 +1,0 @@
-- `resolve_nwb_path` raises `FileNotFoundError` naming each probe; `suffixes=` sets the order (`jnwb/paths.py`).
