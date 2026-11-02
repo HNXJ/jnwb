@@ -1,0 +1,1 @@
+- The dashboard's OpenScope GLO tab lists related reproductions from `artifacts/showcases/related.json`.

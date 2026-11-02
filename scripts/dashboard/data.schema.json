@@ -194,6 +194,30 @@
       "properties": {
         "entries": {"type": "array", "items": {"$ref": "#/$defs/showcase"}}
       }
+    },
+    "related": {
+      "type": ["array", "null"],
+      "description": "artifacts/showcases/related.json entries, as recorded: reproductions kept outside this repository, each with its relation to jnwb and its links. The build reads no value from the linked pages. Null while no record exists.",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "relation", "links"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "title": {"type": "string"},
+          "relation": {"type": "string", "description": "how the reproduction relates to jnwb, in the record's words"},
+          "links": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["label", "url"],
+              "additionalProperties": false,
+              "properties": {"label": {"type": "string"}, "url": {"type": "string", "pattern": "^https://"}}
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {

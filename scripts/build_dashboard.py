@@ -13,6 +13,10 @@ keyed by ``spec`` and ``parameter`` and are not read.
 it, its SHA-256 and the fields it states. ``verify_validations`` checks a built site against the
 repository.
 
+``related`` has one card per entry of the related-reproductions record: a reproduction kept
+outside this repository, shown as its title, its stated relation to jnwb and its links. The build
+computes and checks none of its values.
+
 ``deferred`` has one row per roadmap row that is a validation, each read as not started. Each
 replication in ``showcases`` carries a ``label``: the dashboard's name for the record's verdict.
 Each also carries ``paper``, ``library`` and ``methods``: the relation to the paper, the frozen-register
@@ -57,6 +61,7 @@ FIGURES = ASSETS / "figures"
 DOCS = REPO_ROOT / "docs"
 ORDER_RECORD = REPO_ROOT / "artifacts" / "evidence" / "0.2.6" / "computational_order.md"
 SHOWCASE_RECORD = REPO_ROOT / "artifacts" / "showcases" / "openscope_glo.json"
+RELATED_RECORD = REPO_ROOT / "artifacts" / "showcases" / "related.json"
 ROADMAP = REPO_ROOT / "artifacts" / "roadmap.md"
 CALIBRATION = BENCHMARKS / "calibration"
 #: The calibration receipts a card reads. Their raw records are not read, so they get no card.
@@ -72,7 +77,7 @@ from scripts.release_gate import (RECEIPT_PATH as CLOSURE_RECEIPT_PATH,  # noqa:
 CLOSURE_RECEIPT = REPO_ROOT / CLOSURE_RECEIPT_PATH
 VALIDATION_HTML = ASSETS / "validations"
 SECTIONS =("generated", "release", "releases", "ci", "api", "verified", "performance",
-            "order", "references", "figures", "showcases", "validations", "deferred")
+            "order", "references", "figures", "showcases", "related", "validations", "deferred")
 
 _VERSION_LINE = re.compile(r"^## \[(?P<version>[^\]]+)\](?: - (?P<date>\S+))?$")
 _INIT_VERSION = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
@@ -574,6 +579,32 @@ def showcases_section() -> dict | None:
     return record
 
 
+def related_section() -> list[dict] | None:
+    """The related-reproductions record's entries, as recorded; null while no record exists.
+
+    Refuses, naming the entry: a missing id or title, an entry stating no relation to jnwb, an
+    entry with no link, a link without a label or whose URL is not https. The record's words and
+    links are passed through; the build reads no value from the linked pages.
+    """
+    if not RELATED_RECORD.is_file():
+        return None
+    where = RELATED_RECORD.name
+    entries = json.loads(_read(RELATED_RECORD))["entries"]
+    for entry in entries:
+        ident = entry.get("id")
+        if not ident or not entry.get("title"):
+            raise ValueError(f"{where}: an entry has no id or no title ({ident!r})")
+        if not entry.get("relation"):
+            raise ValueError(f"{where}: entry {ident!r} states no relation to jnwb")
+        if not entry.get("links"):
+            raise ValueError(f"{where}: entry {ident!r} has no link")
+        for link in entry["links"]:
+            if not link.get("label") or not str(link.get("url", "")).startswith("https://"):
+                raise ValueError(f"{where}: entry {ident!r} has a link without a label or an "
+                                 f"https URL ({link.get('url')!r})")
+    return entries
+
+
 def deferred_section() -> list[dict] | None:
     """The roadmap rows that are validations, each read as not started. A row is one when its
     theme cell ends with the validation tag, and the tag is left off the theme returned; a deferred
@@ -820,6 +851,7 @@ def build_data() -> dict:
     order = order_section()
     figures = figures_section()
     showcases = showcases_section()
+    related = related_section()
     validations = validations_section()
     deferred = deferred_section()
     pages = sorted({_rel(page) for figure in figures
@@ -836,6 +868,7 @@ def build_data() -> dict:
         "references": _present(REFERENCES) if references is not None else [],
         "figures": [_rel(FIGURES), *pages],
         "showcases": _present(SHOWCASE_RECORD) if showcases else [],
+        "related": _present(RELATED_RECORD) if related is not None else [],
         "validations": list(dict.fromkeys(card["path"] for card in validations)),
         "deferred": _present(ROADMAP) if deferred is not None else [],
     }
@@ -852,6 +885,7 @@ def build_data() -> dict:
         "references": references,
         "figures": figures,
         "showcases": showcases,
+        "related": related,
         "validations": validations,
         "deferred": deferred,
     }
@@ -906,6 +940,8 @@ def _size(name: str, value) -> str:
         return f"{len(value)} rows"
     if name == "showcases":
         return f"{len(value['entries'])} entries"
+    if name == "related":
+        return f"{len(value)} entries"
     if name == "validations":
         return f"{len(value)} cards"
     if name == "deferred":
