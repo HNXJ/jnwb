@@ -36,21 +36,20 @@ refreeze, calibration rerun with an unchanged table), 17-71.
    advertised claim against the deferred rows; its receipt is committed at HEAD.
    - A new blocker: it becomes an item, back to the step that owns its file.
 4. `python scripts/release_gate.py` with the checkout on `PYTHONPATH`: passes; checklist 13 of 13.
-5. 17-74: merged (`5822c3e9`) and tagged on Hamm's word of 2026-11-01; left: Hamm approves the `pypi`
-   environment, the gate's release-body step (0d) passes once the release exists, and omission is told on his word.
+5. 17-74: merged (`5822c3e9`), tagged, on PyPI and released (2026-11-02); left: omission is told on Hamm's word.
 
 Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (17-71, plan
 only); approved, a 0.2.16 item changes `workflow.yml`.
 
 Deferred to 0.2.16, off the path: 17-75 (deletions only Hamm runs), 17-76, 17-77, 17-78, 17-79, 17-80, 17-81,
-the roadmap rows.
+17-82, the roadmap rows.
 
 ### 17-74 Tag 0.2.15 and tell omission
 
 Release: release-step-0.2.15.
-Role: human. Skill: none. Blocked by: Hamm's approval of the `pypi` environment in run 41374091306; the notice needs his word.
+Role: human. Skill: none. Blocked by: the notice needs Hamm's word.
 Writes: `artifacts/rulings/2026-11-01.md`.
-- 17-74: from open rows P-215-03 and P-215-14. Merged and tagged 2026-11-01: `v0.2.15` peels to `5822c3e9` on `main`. Check: PyPI serves `jnwb==0.2.15`, `release_gate.py` passes with no skip, and the rulings file records Hamm's word on the omission notice.
+- 17-74: from open rows P-215-03 and P-215-14. Done: `v0.2.15` peels to `5822c3e9` on `main`; tag run 41374091306 succeeded and PyPI serves `jnwb-0.2.15-py3-none-any.whl` and `jnwb-0.2.15.tar.gz`; release `v0.2.15` published 2026-11-02; at `5822c3e9` the gate passed every step but 0d on 2026-11-01, and step 0d run alone passed on 2026-11-02 (`tag 'v0.2.15', draft=False`). Check: the rulings file records Hamm's word on the omission notice.
 
 ### 17-75 Workspace cleanup
 
@@ -100,3 +99,10 @@ Release: deferred-0.2.16.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `tests/test_dashboard_page.py`.
 - 17-81: the full suite at 13253019 failed `test_every_route_renders_in_light_and_dark_without_errors` once on `net::ERR_NO_BUFFER_SPACE` loading `assets/fig12_coherence_zero_lag.png` (1 failed, 10605 passed); the file alone passed 16 of 16 and the full rerun passed 10606. Check: a transient `net::ERR_*` load is retried once, and a test with a missing asset still fails on its 404.
+
+### 17-82 The release gate cannot pass with no skip in one run
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/release_gate.py`, `tests/test_release_version_is_unpublished.py`, `tests/test_release_body_gate.py`.
+- 17-82: before the tag run, step 0d (release body) skips because the workflow creates the release only after PyPI; after it, step 0b fails (`version 0.2.15 is already on the index`, 2026-11-02 at `5822c3e9`). In a `git clone --shared` step 0d also skips: `gh release view` cannot resolve a local-path origin (passed with `GH_REPO=hnxj/jnwb`). Check: a post-publication mode accepts an index version whose files match the tag's build, step 0d names the repository explicitly, and a test runs both modes.
