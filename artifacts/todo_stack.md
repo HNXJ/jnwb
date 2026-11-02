@@ -18,38 +18,16 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value. Waits: why.`
 At most eight lines per item.
 
-## Path to the release
+## Released
 
-One ordered path from now to the tag. Each step names its check; a pass goes to the next step, a fail
-takes the branch under it. Steps on one line run in parallel lanes (one Muse or Haiku writer per
-clone, at most three); the integrator reads each diff and reruns its acceptance before merging.
-Done 2026-10-31 and deleted: wave 3 (16-20, 11-09, 17-05, 17-72, 17-73), 17-07, the 17-24 scan, the open
-stack to zero (P-215-28 in 4e87a5bf), the agy docs sweep, 17-24 (repairs R1-R4, one `refuse_infinite`,
-refreeze, calibration rerun with an unchanged table), 17-71.
-
-1. Barrier at the integration HEAD: harness gate, suite, push `dev`, CI green.
-   - Fails: repair the failing test or item text, rerun from 1.
-2. Release mechanics, in order: assemble `CHANGELOG.md` from `artifacts/changelog.d/`; bump `__version__`
-   to 0.2.15; rerun `scripts/calibrate_curation.py` (its receipt records the declared version); merge
-   `origin/main` into `dev`; regenerate state; barrier as 1.
-3. Closure pass: an independent blocker-focused review (reviewer and agy, different models) checks each
-   advertised claim against the deferred rows; its receipt is committed at HEAD.
-   - A new blocker: it becomes an item, back to the step that owns its file.
-4. `python scripts/release_gate.py` with the checkout on `PYTHONPATH`: passes; checklist 13 of 13.
-5. 17-74: merged (`5822c3e9`), tagged, on PyPI and released (2026-11-02); left: omission is told on Hamm's word.
+0.2.15 closed on 2026-11-02: tag `v0.2.15` (`5822c3e9`), on PyPI, GitHub release published, omission told
+(`artifacts/rulings/2026-11-01.md`). Every item below is deferred to 0.2.16.
 
 Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (17-71, plan
 only); approved, a 0.2.16 item changes `workflow.yml`.
 
 Deferred to 0.2.16, off the path: 17-75 (deletions only Hamm runs), 17-76, 17-77, 17-78, 17-79, 17-80, 17-81,
 17-82, the roadmap rows.
-
-### 17-74 Tag 0.2.15 and tell omission
-
-Release: release-step-0.2.15.
-Role: human. Skill: none. Blocked by: the notice needs Hamm's word.
-Writes: `artifacts/rulings/2026-11-01.md`.
-- 17-74: from open rows P-215-03 and P-215-14. Done: `v0.2.15` peels to `5822c3e9` on `main`; tag run 41374091306 succeeded and PyPI serves `jnwb-0.2.15-py3-none-any.whl` and `jnwb-0.2.15.tar.gz`; release `v0.2.15` published 2026-11-02; at `5822c3e9` the gate passed every step but 0d on 2026-11-01, and step 0d run alone passed on 2026-11-02 (`tag 'v0.2.15', draft=False`). Check: the rulings file records Hamm's word on the omission notice.
 
 ### 17-75 Workspace cleanup
 
