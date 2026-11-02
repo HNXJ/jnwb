@@ -36,7 +36,8 @@ refreeze, calibration rerun with an unchanged table), 17-71.
    advertised claim against the deferred rows; its receipt is committed at HEAD.
    - A new blocker: it becomes an item, back to the step that owns its file.
 4. `python scripts/release_gate.py` with the checkout on `PYTHONPATH`: passes; checklist 13 of 13.
-5. 17-74, after the gate: merge to `main`, tag `v0.2.15`, tell omission on Hamm's word.
+5. 17-74: merged (`5822c3e9`) and tagged on Hamm's word of 2026-11-01; left: Hamm approves the `pypi`
+   environment, the gate's release-body step (0d) passes once the release exists, and omission is told on his word.
 
 Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (17-71, plan
 only); approved, a 0.2.16 item changes `workflow.yml`.
@@ -47,9 +48,9 @@ the roadmap rows.
 ### 17-74 Tag 0.2.15 and tell omission
 
 Release: release-step-0.2.15.
-Role: human. Skill: none. Blocked by: the release merge to `main`; the notice needs Hamm's word.
-Writes: `artifacts/rulings/2026-10-31.md`.
-- 17-74: from open rows P-215-03 and P-215-14. Check: `refs/tags/v0.2.15` peels to the release commit on `main`, and the rulings file records Hamm's word on the omission notice.
+Role: human. Skill: none. Blocked by: Hamm's approval of the `pypi` environment in run 41374091306; the notice needs his word.
+Writes: `artifacts/rulings/2026-11-01.md`.
+- 17-74: from open rows P-215-03 and P-215-14. Merged and tagged 2026-11-01: `v0.2.15` peels to `5822c3e9` on `main`. Check: PyPI serves `jnwb==0.2.15`, `release_gate.py` passes with no skip, and the rulings file records Hamm's word on the omission notice.
 
 ### 17-75 Workspace cleanup
 
