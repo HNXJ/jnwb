@@ -28,7 +28,7 @@ ones. Defects and correctness go in 0.2.16; thinning and matching in 0.2.17.
 - 0.2.16 lanes, no shared file: A `jnwb/analyzers.py` (17-83, 17-84, 17-88); B `jnwb/connectivity/`
   (17-85, then 17-88's `_network.py` part); C `jnwb/nwb_events.py`, `jnwb/statistics/_firing.py`
   (17-86, 17-87); D `tests/`, `scripts/gates/` (17-89, 17-90, 17-105); E docs and skills (17-91, then 17-78);
-  F `artifacts/evidence/` (17-92). Waiting on Hamm: 17-75, 17-77, 17-85, 17-93; skill lines in 17-91.
+  F `artifacts/evidence/` (17-92). Waiting on Hamm: 17-75, 17-77; skill lines in 17-91; open rows P-216-01, -05, -06, -07.
 - Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (17-71, plan
   only); approved, a 0.2.16 item changes `workflow.yml`.
 
@@ -98,16 +98,16 @@ Writes: `jnwb/analyzers.py`, `tests/test_api_consistency.py`.
 ### 17-84 psth bootstraps without an rng
 
 Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: a new `rng` parameter is a public signature (Hamm's word, batched with 17-85 and 17-93).
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: nothing (shape ruled 2026-11-02, `artifacts/rulings/2026-11-02.md`).
 Writes: `jnwb/analyzers.py`, `scripts/build_fact_graph.py`, `tests/test_rng_parameters_by_use.py`.
 - 17-84: `UnitAnalyzer.psth` returns `bootstrap_ci` from `StatisticalAnalysis.bootstrap_ci(...)` with no `rng` (`analyzers.py:428`), so draws use the default seed (fact S5); the `rng` scan checks direct draws only. Check: `psth(..., rng=)` passes it through, two seeds give different CIs, and the scan flags the pre-fix `psth`.
 
 ### 17-85 The no-pooling guard is only on the deprecated Granger function
 
 Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: Hamm's word on the signatures.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing (ruled 2026-11-02: the 2026-10-28 rule on the four estimators).
 Writes: `jnwb/connectivity/_granger.py`, `jnwb/connectivity/_network.py`, `tests/test_signal_class.py`.
-- 17-85: `signal_class` exists on deprecated `granger_causality` (`_granger.py:344`) and on `directed_network`, not on its replacement `granger` (`:558`) or on `directed_connectivity`; a caller who follows the DeprecationWarning loses the spikes-vs-LFP guard (AGENTS.md §5). Check: every directed estimator takes `signal_class` and refuses a mixed pair, or the guard leaves the deprecated function; a test covers each.
+- 17-85: `signal_class` exists on deprecated `granger_causality` (`_granger.py:344`) and on `directed_network`, not on its replacement `granger` (`:558`) or on `directed_connectivity`; a caller who follows the DeprecationWarning loses the spikes-vs-LFP guard (AGENTS.md §5). Check: `granger`, `granger_spectral`, `phase_slope_index` and `transfer_entropy` take keyword-only `signal_class`, warn when it is omitted and refuse a mixed pair, also through `directed_connectivity`; a test covers each.
 
 ### 17-86 edges_near_events thresholds raw stored values
 
@@ -161,9 +161,9 @@ Writes: `artifacts/evidence/0.2.13/*`, `artifacts/evidence/0.2.14/*`, `artifacts
 ### 17-93 Deprecated surfaces past their removal date
 
 Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: a Breaking batch needs Hamm's word.
+Role: jnwb-developer. Skill: none. Blocked by: nothing (ruled 2026-11-02; `granger_causality` stays, P-216-07).
 Writes: `jnwb/analyzers.py`, `jnwb/_dictlike.py`, `jnwb/connectivity/_granger.py`, `jnwb/connectivity/_information.py`, `jnwb/statistics/_analysis.py`.
-- 17-93: `analyzers.py:211` says the renamed `n_significant` keys "are removed in the next release" (added 2026-09-26, 8 releases ago); `RenamedKeyDict` (`_dictlike.py`, its only user) stays for them; `granger_causality`, `clopper_pearson_ci` and both MI aliases are deprecated and still extended. Check: removed with one Breaking entry, and `docs/api.md` and the skill rows lose them.
+- 17-93: `analyzers.py:211` says the renamed `n_significant` keys "are removed in the next release" (added 2026-09-26, 8 releases ago); `RenamedKeyDict` (`_dictlike.py`, its only user) stays for them; `granger_causality`, `clopper_pearson_ci` and both MI aliases are deprecated and still extended. Check: the keys, `RenamedKeyDict`, `clopper_pearson_ci` and the two MI aliases are removed with one Breaking entry; `docs/api.md` and the skill rows lose them; `granger_causality` is unchanged.
 
 ### 17-105 The stack gate passes an integrator-owned write set
 

@@ -22,4 +22,18 @@ Each row was checked against its file on 2026-10-28; the keeper commits this sec
 
 Verified closed, not open: the v0.2.14 tag re-cut (`refs/tags/v0.2.14` peels to 58a2b92e, which is `main`); the agent files point at `scripts/`.
 
-Audit of 2026-11-02 (seven models at `7ca5b9a6`): no open row; its findings went to the todo stack as 17-83 to 17-104.
+Audit of 2026-11-02 (seven models at `7ca5b9a6`): no open row; its findings went to the todo stack as 17-83 to 17-105.
+
+## Open at 0.2.16 (GitHub issues, 2026-11-02)
+
+Each issue's own repro was run on `dev` at `9fa0833a` (jnwb 0.2.15 from the checkout). #34 reproduced fixed (dae675a9, v0.2.15) and was closed on GitHub.
+
+| Id | Open item | Evidence | Owner | Next step |
+|---|---|---|---|---|
+| P-216-01 | hnxj/jnwb#35: `check_waveform_blocks` refuses amplitude and `waveform_mean` in different unit scales with no way to declare the scale | repro: `ValueError ... median ratio ... is 1e+06`; `waveform_mean.attrs["unit"]` unread | keeper, Hamm | a keyword-only scale argument is a public signature: Hamm's word, then a todo item |
+| P-216-02 | hnxj/jnwb#36: `validate_nwb` reports the installed distribution's version and hides read-layer warnings | `nwb_validate.py:273` reads `metadata.version`; repro prints `1 [0]` (one read warning, layer counts 0) | keeper | todo item: `jnwb.__version__`, record read-layer warnings |
+| P-216-03 | hnxj/jnwb#37: `events` and `inspect` cannot reach `TimeIntervals` in a processing module | repro: `inspect(...)["interval_tables"]` is `[]`; `events(table="processing/behavior/events")` raises `IntervalTableNotFoundError` | keeper | todo item: resolve slash paths, list them in `inspect` |
+| P-216-04 | hnxj/jnwb#38: `electrode_inventory`'s `group` column holds the `ElectrodeGroup` repr with memory addresses | repro prints `probeA pynwb.ecephys.ElectrodeGroup at 0x...` | keeper | todo item: map containers to `.name` |
+| P-216-05 | hnxj/jnwb#39: on a file with no `/units`, `unit_census_report` fails inside pandas and the integrity checks raise `KeyError` | repro: `ValueError Cannot describe a DataFrame without columns`, `KeyError "no table group 'units'"` twice | keeper, Hamm | `unit_census_report` is a bug; the checks' documented `KeyError` is Hamm's API call |
+| P-216-07 | `granger_causality` (deprecated since v0.1.7) is the only Granger with a GPU path; `granger` has no `device=` | `_granger.py` `resolve_device(device, context="granger_causality", prefer="cupy")`; `inspect.signature(jnwb.granger)` has no `device` | Hamm | rule: give `granger` a `device=` path, or drop GPU Granger with `granger_causality` (ruling 2026-11-02, 17-93) |
+| P-216-06 | hnxj/jnwb#40: proposal, a profile-driven `jnwb.lab` certification framework with lab profiles outside jnwb | the draft branch `lab-validate-bastoslab` is local only; no ruling or roadmap row names it | Hamm | Hamm rules scope (AGENTS.md §4.3: no corpus convention in jnwb) |
