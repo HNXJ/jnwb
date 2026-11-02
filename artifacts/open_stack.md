@@ -20,4 +20,6 @@ Each row was checked against its file on 2026-10-28; the keeper commits this sec
 | Id | Open item | Evidence | Owner | Next step |
 |---|---|---|---|---|
 
-Verified closed, not open: the v0.2.14 tag re-cut (`refs/tags/v0.2.14` peels to 58a2b92e, which is `main`); the four agent files point at `scripts/`.
+Verified closed, not open: the v0.2.14 tag re-cut (`refs/tags/v0.2.14` peels to 58a2b92e, which is `main`); the agent files point at `scripts/`.
+
+Audit of 2026-11-02 (seven models at `7ca5b9a6`): no open row; its findings went to the todo stack as 17-83 to 17-104.
