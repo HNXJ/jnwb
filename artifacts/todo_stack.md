@@ -10,27 +10,39 @@ writers that share no file.
 | Rule | Why |
 |---|---|
 | `AUTONOMY: max` unless an item says otherwise (`AGENTS.md` §12) | actor and critic sequence the work |
-| One item per packet (`artifacts/skills/jnwb-fact-action` §5); a lane is one clone and one Haiku 5.5 `worker`; up to three lanes at once; a lane's items run in the order listed | lanes share no file, so they merge without conflict |
+| One item per packet (`artifacts/agents/jnwb-developer.md`); a lane is one linked worktree (`scripts/verify_lane.py` refuses a clone) and one worker; up to three lanes at once; a lane's items run in the order listed | lanes share no file, so they merge without conflict |
 | A public signature, an estimand or a skill line goes to Hamm before code, batched in one message per wave; Haiku implements a ruled signature and never chooses one | public API and skills are Hamm's |
 | A packet reproduces its bullet first, writes the failing test, then the fix; a `reviewer` that did not write it verifies; the integrator commits, owns the stacks, `CHANGELOG.md` and `docs/api.md` | the actor is never the verifier |
 | Wave barrier: `python scripts/harness_gate.py`, the full suite, push, CI green on `dev` at that SHA | a local pass is not a CI pass |
 
 Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet:
-`ID: defect with numbers. Check: a predicate naming the file and the asserted value. Waits: why.`
+`ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
 ## Lanes
 
-Source: the seven-model audit of `7ca5b9a6` (2026-11-02: Opus, Sonnet, Haiku medium/high/xhigh, Muse,
-agy), each finding re-checked by the integrator; the commit that adds 17-83 to 17-104 lists the rejected
-ones. Defects and correctness go in 0.2.16; thinning and matching in 0.2.17.
+Sources: the seven-model audit of `7ca5b9a6` (17-83 to 17-105) and the eight-auditor audit of
+`9fd2b4bd` (17-106 to 17-117; open rows P-216-08 to -32), each finding re-checked by the integrator.
+Defects and correctness go in 0.2.16; thinning and matching in 0.2.17. Lanes ruled 2026-11-02 (Hamm,
+"Yes, as proposed"): claimed by the files in their items' Writes; no file is in two lanes of one batch,
+and an item that shares a file with another lane names it in Blocked by.
 
-- 0.2.16 lanes, no shared file: A `jnwb/analyzers.py` (17-83, 17-84, 17-88); B `jnwb/connectivity/`
-  (17-85, then 17-88's `_network.py` part); C `jnwb/nwb_events.py`, `jnwb/statistics/_firing.py`
-  (17-86, 17-87); D `tests/`, `scripts/gates/` (17-89, 17-90, 17-105); E docs and skills (17-91, then 17-78);
-  F `artifacts/evidence/` (17-92). Waiting on Hamm: 17-75, 17-77; skill lines in 17-91; open rows P-216-01, -05, -06, -07.
-- Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (17-71, plan
-  only); approved, a 0.2.16 item changes `workflow.yml`.
+| Lane | Items, in order | Files |
+|---|---|---|
+| A | 17-83, 17-84, 17-88, then 17-93 after 17-85 and 17-78 merge | `jnwb/analyzers.py` and the files of 17-93 |
+| B | 17-85, 17-106 | `jnwb/connectivity/_*.py`, the `granger` entry of `frozen_validated.json`, the connectivity skill |
+| C | 17-86, 17-87, 17-107, 17-108, 17-109, 17-110, 17-111 | `jnwb/nwb_events.py`, `jnwb/nwb_inspect.py`, `jnwb/spiking.py`, `jnwb/statistics/_*.py` |
+| D | 17-89, 17-90, 17-105, 17-114 | the named tests, `scripts/gates/`, `scripts/docs_form_gate.py` |
+| E | 17-91, then 17-78 after 17-90 merges | `docs/*.md`, `README.md`, `skills/jnwb/SKILL.md`, `skills/jnwb-population/SKILL.md`; the connectivity skill after 17-85 and `scripts/docs_form_gate.py` after 17-90 |
+| G | 17-115, 17-116, 17-117, 17-80, 17-81, 17-82 | `scripts/push_guard.py`, `scripts/jnwb_*.sh`, `scripts/verify_lane.py`, `scripts/bump_version.py`, `scripts/release_gate.py` |
+| F | 17-92 | `artifacts/evidence/` |
+| H | 17-112, 17-113 | `jnwb/nwb_validate.py`, `jnwb/metadata.py` |
+
+- Batches: A, B, C; then D, E, G; then F, H and 17-93. The integrator does 17-76.
+- Waiting on Hamm: 17-75, 17-77; skill lines in 17-91 and 17-116; open rows P-216-01, -05 to -08,
+  -15, -17 to -20, -22, -24, -32. Open rows with no item yet: P-216-16, -21, -25, -26.
+- Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (plan only);
+  approved, a 0.2.16 item changes `workflow.yml`.
 
 ### 17-75 Workspace cleanup
 
@@ -56,16 +68,9 @@ Writes: `artifacts/fact_stack.md`, `artifacts/rulings/standing.md`.
 ### 17-78 Doc form across pages
 
 Release: deferred-0.2.16.
-Role: docs-harness. Skill: none. Blocked by: nothing; `skills/` lines need Hamm's word.
-Writes: `docs/*.md`, `skills/jnwb/SKILL.md`.
+Role: docs-harness. Skill: none. Blocked by: 17-90 (shares `scripts/docs_form_gate.py`); `skills/` lines need Hamm's word.
+Writes: `docs/*.md`, `skills/jnwb/SKILL.md`, `scripts/docs_form_gate.py`.
 - 17-78: the 2026-10-31 agy sweep found form drift that blocks nothing (lane D1 fixed the wrong statements): numbered pages 02, 05, 06, 09, 10 end without the `## References` the others carry; page 08 raises operations to H2; `reading_nwb.md` and `coherence_and_tfr.md` number their headings, other concept pages do not; `um`, `µm` and `$\mu$m` all occur; `skills/jnwb/SKILL.md` adds a section 3 the other skills lack; `writing_nwb.md` repeats two refusal rows in three tables. Check: `scripts/docs_form_gate.py` gains one rule per listed form and passes.
-
-### 17-79 Complexity of the largest functions
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: a body change voids its `frozen_validated.json` entry (gate 19), so each needs re-verification.
-Writes: `jnwb/laminar/_xflip.py`, `jnwb/laminar/_zflip.py`, `jnwb/laminar/_vflip.py`, `jnwb/jrsa/__init__.py`, `jnwb/connectivity/_psi.py`.
-- 17-79: at 93fd20e1, 977 functions, median cyclomatic complexity 4; 151 above 10, 56 above 20, 13 above 40; the largest are `xflip` 109, `jrsa` 93, `zflip` 80, `vflip` 71, `phase_slope_index` 67. Standing §11's code condition (algorithmic order, one mechanism per concern) holds through the harness gate; this is size only. Check: each named function split into helpers with the suite and its calibration receipt unchanged, and none above 40.
 
 ### 17-80 The version bump leaves the figure registry behind
 
@@ -92,8 +97,8 @@ Writes: `scripts/release_gate.py`, `tests/test_release_version_is_unpublished.py
 
 Release: deferred-0.2.16.
 Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: nothing.
-Writes: `jnwb/analyzers.py`, `tests/test_api_consistency.py`.
-- 17-83: `UnitAnalyzer.psth` builds edges with `np.linspace` in seconds (`analyzers.py:405`); for `window_ms=(-100, 200)`, 10 ms bins, `edges[10] = 1.39e-17`, so a spike exactly at the onset counts in the bin centred at -5 ms (probe 2026-11-02 at `7ca5b9a6`). The test window (-100, 100, 50) rounds exactly. Related: roadmap 17-70. Check: edges built as `start + k*bin` in ms (as `viz.py:160`), and a test with a spike on the onset at (-100, 200, 10) finds it in the bin centred at +5 ms.
+Writes: `jnwb/analyzers.py`, `tests/test_analyzer_windows.py`.
+- 17-83: `UnitAnalyzer.psth` builds edges with `np.linspace` in seconds (`analyzers.py:405`); for `window_ms=(-100, 200)`, 10 ms bins, `edges[10] = 1.39e-17`, so a spike exactly at the onset counts in the bin centred at -5 ms (probe 2026-11-02 at `7ca5b9a6`). `quality_metrics` has the same defect (P-216-30, `analyzers.py:676-684`): t0 = 2.15, spikes 1 s apart count `[2 0 2]` against `[1 1 2]`, and `int(duration)` turns a 2 s span into 1.9999999999999998 and a NaN Fano. Related: roadmap 17-70. Check: edges built as `start + k*bin` (as `viz.py:160`), the 1 ns tolerance (`analyzers.py:626-627`) before `int()`; tests find the onset spike at +5 ms and counts `[1 1 2]` at t0 = 2.15.
 
 ### 17-84 psth bootstraps without an rng
 
@@ -106,7 +111,7 @@ Writes: `jnwb/analyzers.py`, `scripts/build_fact_graph.py`, `tests/test_rng_para
 
 Release: deferred-0.2.16.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing (ruled 2026-11-02: the 2026-10-28 rule on the four estimators).
-Writes: `jnwb/connectivity/_granger.py`, `jnwb/connectivity/_network.py`, `tests/test_signal_class.py`.
+Writes: `jnwb/connectivity/_granger.py`, `jnwb/connectivity/_psi.py`, `jnwb/connectivity/_transfer_entropy.py`, `jnwb/connectivity/_network.py`, `artifacts/process/frozen_validated.json`, `skills/jnwb-connectivity/SKILL.md`, `tests/test_signal_class.py`.
 - 17-85: `signal_class` exists on deprecated `granger_causality` (`_granger.py:344`) and on `directed_network`, not on its replacement `granger` (`:558`) or on `directed_connectivity`; a caller who follows the DeprecationWarning loses the spikes-vs-LFP guard (AGENTS.md §5). Check: `granger`, `granger_spectral`, `phase_slope_index` and `transfer_entropy` take keyword-only `signal_class`, warn when it is omitted and refuse a mixed pair, also through `directed_connectivity`; a test covers each.
 
 ### 17-86 edges_near_events thresholds raw stored values
@@ -127,8 +132,15 @@ Writes: `jnwb/statistics/_firing.py`, `tests/test_adversarial_inputs.py`.
 
 Release: deferred-0.2.16.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `jnwb/analyzers.py`, `jnwb/connectivity/_network.py`.
-- 17-88: `UnitAnalyzer`'s method list (`analyzers.py:313-318`) names a `firing_rate` method that does not exist and old signatures; `directed_connectivity` says "all three directed estimators" (`_network.py:91`) over four (`DIRECTED_METHODS`); `directed_network`'s annotation admits a pair the body refuses (`:120`). Check: the method list is deleted, the count is dropped, the annotation is `str`, and `docs/api.md` regenerates to match.
+Writes: `jnwb/analyzers.py`.
+- 17-88: `UnitAnalyzer`'s method list (`analyzers.py:313-318`) names a `firing_rate` method that does not exist and old signatures; the `_network.py` part is 17-106. Check: the method list is deleted, and the integrator's `scripts/generate_api_md.py` run leaves `docs/api.md` equal to its output.
+
+### 17-106 Stale statements in `_network.py`
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 17-85.
+Writes: `jnwb/connectivity/_network.py`.
+- 17-106: from 17-88. `directed_connectivity` says "all three directed estimators" (`_network.py:91`) over four (`DIRECTED_METHODS`); `directed_network`'s annotation admits a pair the body refuses (`:120`). Check: the count is dropped, the annotation is `str`, and `docs/api.md` regenerates to match.
 
 ### 17-89 Tests that cannot fail
 
@@ -147,7 +159,7 @@ Writes: `scripts/gates/docs.py`, `scripts/docs_form_gate.py`, `tests/test_docs_f
 ### 17-91 Wrong or internal statements on the public surface
 
 Release: deferred-0.2.16.
-Role: docs-harness. Skill: none. Blocked by: skill lines need Hamm's word.
+Role: docs-harness. Skill: none. Blocked by: 17-85 (shares the connectivity skill); skill lines need Hamm's word.
 Writes: `README.md`, `docs/quickstart.md`, `docs/agents.md`, `docs/documentation_form.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-connectivity/SKILL.md`.
 - 17-91: `CHANGELOG.md:21` lists "Distance-binned coherence normalization" under Added, but no function exists (`docs/common_mistakes.md:447`: the normalization is the caller's); `skills/jnwb-population/SKILL.md:23-24` omit `label=`, added in 0.2.15; `README.md:200` links `artifacts/agents.md`; `docs/quickstart.md:5` cites the `dev` branch; `docs/agents.md:15` lists `AGENTS.md`; `documentation_form.md:23` says 37 nav pages, `mkdocs.yml` has 39; the integrator corrects the CHANGELOG line. Check: each line corrected, `test_skills_validation.py` and gate 14 pass.
 
@@ -161,9 +173,9 @@ Writes: `artifacts/evidence/0.2.13/*`, `artifacts/evidence/0.2.14/*`, `artifacts
 ### 17-93 Deprecated surfaces past their removal date
 
 Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing (ruled 2026-11-02; `granger_causality` stays, P-216-07).
-Writes: `jnwb/analyzers.py`, `jnwb/_dictlike.py`, `jnwb/connectivity/_granger.py`, `jnwb/connectivity/_information.py`, `jnwb/statistics/_analysis.py`.
-- 17-93: `analyzers.py:211` says the renamed `n_significant` keys "are removed in the next release" (added 2026-09-26, 8 releases ago); `RenamedKeyDict` (`_dictlike.py`, its only user) stays for them; `granger_causality`, `clopper_pearson_ci` and both MI aliases are deprecated and still extended. Check: the keys, `RenamedKeyDict`, `clopper_pearson_ci` and the two MI aliases are removed with one Breaking entry; `docs/api.md` and the skill rows lose them; `granger_causality` is unchanged.
+Role: jnwb-developer. Skill: none. Blocked by: 17-85, 17-78 (shared files; ruled 2026-11-02, `granger_causality` stays, P-216-07).
+Writes: `jnwb/analyzers.py`, `jnwb/_dictlike.py`, `jnwb/spectral/__init__.py`, `jnwb/connectivity/__init__.py`, `jnwb/connectivity/_information.py`, `jnwb/statistics/_analysis.py`, `jnwb/_declarations.py`, `artifacts/process/frozen_validated.json`, `skills/jnwb-statistics/SKILL.md`, `skills/jnwb-connectivity/SKILL.md`, `docs/architecture.md`, `docs/references.md`, `tests/test_analyzers_coverage.py`, `tests/test_connectivity.py`, `tests/test_deprecated_aliases.py`, `tests/test_dict_access_shim.py`, `tests/test_nonfinite_inputs.py`, `tests/test_public_api_reachability.py`, `tests/test_skills_validation.py`, `tests/test_statistics.py`, `tests/test_substitution_class_sweep.py`, `tests/test_unit_suffixed_parameters.py`.
+- 17-93: `analyzers.py:211` says the renamed `n_significant` keys "are removed in the next release" (added 2026-09-26, 8 releases ago); `RenamedKeyDict` (`_dictlike.py`; used by `analyzers.py:232`, re-imported by `spectral/__init__.py:18`) stays for them; `granger_causality`, `clopper_pearson_ci` and both MI aliases are deprecated and still extended. Check: the keys, `RenamedKeyDict`, `clopper_pearson_ci` and the two MI aliases are removed with one Breaking entry; `docs/api.md` and the skill rows lose them; `granger_causality` is unchanged.
 
 ### 17-105 The stack gate passes an integrator-owned write set
 
@@ -172,11 +184,95 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/gates/stacks_closure.py`, `tests/test_generation_closure_is_declared.py`.
 - 17-105: `docs/api.md` went into a todo Writes field three times (2026-10-11, 2026-10-27, 2026-11-02); harness gate 17 passed each and only `tests/test_generation_closure_is_declared.py` caught it, after a suite. The stack rules make `CHANGELOG.md` integrator-owned too. Check: gate 17's STACK_FORM rejects either path in Writes, and a planted item fails it.
 
+### 17-107 assign_subblock_quartiles returns uninitialised memory
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `jnwb/statistics/_trials.py`, `tests/test_statistics_refusals.py`.
+- 17-107: from P-216-27. `q = np.empty(n)` and the loop over `range(n_quantiles)` writes nothing at `n_quantiles=0` (`_trials.py:61-64`); five start times returned `[4725103939736093674 -4489260897863941142 ...]` (probe at `9fd2b4bd`). Check: `n_quantiles < 1` raises `ValueError`, tested at 0 and -1.
+
+### 17-108 Counts below 1 pass silently
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: none. Blocked by: 17-87 (shares `_firing.py`).
+Writes: `jnwb/statistics/_firing.py`, `jnwb/statistics/_regression.py`, `jnwb/statistics/_tests.py`, `tests/test_statistics_refusals.py`.
+- 17-108: from P-216-28. `paired_fire_prob_test` gives p = 1.0 at `n_shuffles=0` and `IndexError` at `n_bootstrap=0` (`_firing.py:143-149`); `cross_modal_comparison` gives `lag_corrected_pvalue` 1.0 at `n_permutations=0` (`_regression.py:333,337`); `shuffle_pvalue_paired` and `_unpaired` return `(nan, nan)` at n < 2 before checking `alternative` (`_tests.py:293-296,353-355`). Siblings refuse (`spectral/_coupling.py:383,673`). Check: each count < 1 raises a named `ValueError`, and a bad `alternative` raises at n = 1.
+
+### 17-109 mann_whitney_p_floor overflows
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: none. Blocked by: 17-108 (shares `_tests.py`).
+Writes: `jnwb/statistics/_tests.py`, `tests/test_statistics_refusals.py`.
+- 17-109: from P-216-29. `1.0 / float(math.comb(n1 + n2, n1))` (`_tests.py:98-99`) raises `OverflowError` at n1 = n2 = 520; n = 510 gives `7.1e-306`. Check: computed in log space; n = 510 matches today's value to `rtol=1e-12`, and n = 520 returns a float without raising.
+
+### 17-110 spiking inputs read as a wrong state
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: nothing; labelling a missing `response_zscore` `'undefined'` (today `'none'`, `spiking.py:297-299`) needs Hamm's word.
+Writes: `jnwb/spiking.py`, `tests/test_spiking_inputs.py`.
+- 17-110: from P-216-31 and P-216-24. `phase_locking_index` accepts NaN `lfp_timestamps` (`steps <= 0` is False for NaN, `spiking.py:428-429`) and blames `lfp_phase` for a NaN beside spikes (`:480-488`); the comment at `:651-653` calls a question AGENTS.md §8 decides "not yet decided". Check: non-finite `lfp_timestamps` raise `ValueError` naming them; the comment is removed.
+
+### 17-111 TimeIntervals in a processing module
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 17-86 (shares `nwb_events.py`).
+Writes: `jnwb/nwb_events.py`, `jnwb/nwb_inspect.py`, `tests/test_nwb_events.py`, `tests/test_nwb_inspect.py`.
+- 17-111: from P-216-03 (hnxj/jnwb#37). `inspect(...)["interval_tables"]` is `[]` for a `TimeIntervals` under `processing/behavior`, and `events(table="processing/behavior/events")` raises `IntervalTableNotFoundError`. Check: the issue's repro lists the table in `inspect` and `events` reads it by its slash path.
+
+### 17-112 validate_nwb reports the wrong version and hides read warnings
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
+Writes: `jnwb/nwb_validate.py`, `tests/test_nwb_validate.py`.
+- 17-112: from P-216-02 (hnxj/jnwb#36). `nwb_validate.py:273` reads `metadata.version` (the installed distribution, not `jnwb.__version__`); the repro prints one read warning with layer counts 0. Check: the report carries `jnwb.__version__` from a source checkout, and the read layer counts its warnings.
+
+### 17-113 electrode_inventory prints container reprs
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
+Writes: `jnwb/metadata.py`, `tests/test_metadata.py`.
+- 17-113: from P-216-04 (hnxj/jnwb#38). The `group` column holds `probeA pynwb.ecephys.ElectrodeGroup at 0x...`. Check: the issue's repro gives `probeA`, and no cell of the inventory contains ` at 0x`.
+
+### 17-114 The log-last gate passes on an empty set
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: none. Blocked by: whether zero declarations fails is Hamm's (P-216-09); the count needs no ruling.
+Writes: `scripts/gates/boundary.py`, `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`.
+- 17-114: from P-216-09. No module of `jnwb/` declares `estimand: raw_power`, so `check_logarithm_last_in_package` (`boundary.py:481-497`) examines nothing and the pass line names no count. Check: the pass line prints the number of declared estimands examined, and a planted declaration that logs before its mean fails.
+
+### 17-115 push_guard misses copies and chained pushes
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/push_guard.py`, `tests/test_push_guard.py`.
+- 17-115: from P-216-13. The guard matches only a path component `jnwb` (`push_guard.py:37`), so a plain push from `_temp_integ` passes, and any command containing `jnwb_push.sh` passes whole (`:33-34`), e.g. `bash jnwb_push.sh ...; git push origin dev`. Check: tests expect deny for a jnwb clone under another name and for the chained command.
+
+### 17-116 The seal order the wrappers enforce
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: none. Blocked by: the skill line needs Hamm's word.
+Writes: `artifacts/skills/jnwb-fact-action/SKILL.md`, `scripts/jnwb_suite.sh`.
+- 17-116: from P-216-14. The skill seals with gates, commit, push (`SKILL.md:56-60`), but `jnwb_suite.sh` stamps only a clean tracked tree (`:30-33`), so the suite runs after the commit; the suite takes no machine lock (`artifacts/memory.md:7`). Check: the skill reads commit, suite, push; `jnwb_suite.sh` runs pytest through the suite lock when it exists and says so when it does not.
+
+### 17-117 Flow steps with no performer
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: none. Blocked by: 17-115 (shares the lane); the `artifacts/`-only exemption is Hamm's (P-216-22).
+Writes: `scripts/verify_lane.py`, `scripts/jnwb_push.sh`, `tests/test_lane_verifies_its_own_baseline.py`.
+- 17-117: from P-216-22. Prepare regenerates `state.md` "if `--check` fails" but nothing runs it (`AGENTS.md:51`, `verify_lane.py`); no step compares a lane's diff with its item's Writes. Check: `verify_lane.py` runs `reconstruct_state.py --check` and regenerates on failure; `jnwb_push.sh` refuses a diff outside the named Writes when given an item id; a test plants each case.
+
 # 0.2.17
 
 Thinning and matching from the 2026-11-02 audit. Lanes form at 0.2.16's close; 17-94 waits on 17-79,
 which rewrites `_xflip.py` and `_zflip.py`. Each item applies the jarness standards: `match-cleanup` for
 removals, `match-code-style` for code, `match-writing-style` for prose, `match-visual-style` for figures.
+
+### 17-79 Complexity of the largest functions
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: 17-85 (shares `_psi.py`; moved from 0.2.16 by the lane ruling of 2026-11-02).
+Writes: `jnwb/laminar/_xflip.py`, `jnwb/laminar/_zflip.py`, `jnwb/laminar/_vflip.py`, `jnwb/jrsa/__init__.py`, `jnwb/connectivity/_psi.py`.
+- 17-79: at 93fd20e1, 977 functions, median cyclomatic complexity 4; 151 above 10, 56 above 20, 13 above 40; the largest are `xflip` 109, `jrsa` 93, `zflip` 80, `vflip` 71, `phase_slope_index` 67. None has a `frozen_validated.json` entry, so gate 19 does not hold them; the suite and calibration receipts do. This is size only. Check: each named function split into helpers with the suite and its calibration receipt unchanged, and none above 40.
 
 ### 17-94 One home per helper in jnwb
 
