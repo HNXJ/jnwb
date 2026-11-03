@@ -14,7 +14,8 @@ import logging
 from typing import Literal, Optional, Dict, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
-from ._bins import (bins_within, check_bin_label, onset_locked_counts, onset_locked_counts_right,
+from ._bins import (bin_edges, bins_within, check_bin_label, onset_locked_counts,
+                    onset_locked_counts_right,
                     onset_window, refuse_nonfinite_times, whole_bin_count)
 from ._dictlike import RenamedKeyDict
 from .trajectory import _kept_components
@@ -402,18 +403,20 @@ class UnitAnalyzer:
                                    width_param="bin_size_ms")
         win_sec  = (window_ms[0] / 1000, window_ms[1] / 1000)
         bin_sec  = bin_size_ms / 1000
-        bin_edges = np.linspace(win_sec[0], win_sec[1], n_bins + 1)
+        # start + k * bin in ms, then to seconds, as jnwb.viz.raster_psth builds them. A linspace
+        # in seconds put an interior edge a float off, so a spike on that edge fell in the bin before.
+        edges_s = bin_edges(window_ms[0], bin_size_ms, n_bins) / 1000
 
         # spike - onset in [pre, post], both edges inclusive, and every selected spike is
         # counted (`onset_locked_counts`). "right" selects (pre, post] for bins (t - w, t].
         if label == "right":
             trial_counts = onset_locked_counts_right(spike_times, trial_onsets, win_sec[0],
-                                                     win_sec[1], bin_edges, 1.0)
-            bin_centers_ms = bin_edges[1:] * 1000
+                                                     win_sec[1], edges_s, 1.0)
+            bin_centers_ms = edges_s[1:] * 1000
         else:
             trial_counts = onset_locked_counts(spike_times, trial_onsets, win_sec[0], win_sec[1],
-                                               bin_edges, 1.0, right_closed=True)
-            bin_centers_ms = (bin_edges[:-1] + bin_edges[1:]) / 2 * 1000
+                                               edges_s, 1.0, right_closed=True)
+            bin_centers_ms = (edges_s[:-1] + edges_s[1:]) / 2 * 1000
         trial_psths = trial_counts / bin_sec
         mean_psth = np.mean(trial_psths, axis=0)
         sem_psth  = stats.sem(trial_psths, axis=0)
@@ -674,10 +677,9 @@ class UnitAnalyzer:
         if len(spike_times) > 1:
             t_start, t_end = spike_times[0], spike_times[-1]
             duration = t_end - t_start
-            if duration >= 2.0:
-                n_windows  = int(duration)          # 1-s windows
-                bin_edges  = np.linspace(t_start, t_start + n_windows, n_windows + 1)
-                counts, _  = np.histogram(spike_times, bins=bin_edges)
+            n_windows = bins_within(duration, 1.0)      # whole 1-s windows, rounding-tolerant
+            if n_windows >= 2:
+                counts, _  = np.histogram(spike_times, bins=bin_edges(t_start, 1.0, n_windows))
                 # The first window holds the first spike, so the mean is positive.
                 fano_factor = float(_count_fano(counts[None, :])[0])
             else:

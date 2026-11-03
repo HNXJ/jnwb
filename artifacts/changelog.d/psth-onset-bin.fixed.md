@@ -1,0 +1,2 @@
+- `jnwb/analyzers.py`: a spike on a `UnitAnalyzer.psth` bin edge counts in the bin that starts there.
+- `jnwb/analyzers.py`: a span just under whole seconds keeps its last `quality_metrics` window (was NaN).
