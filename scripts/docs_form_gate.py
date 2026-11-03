@@ -192,6 +192,7 @@ def corpus(root: Path) -> List[Tuple[str, str]]:
     | `docs/api.md` | readers of the reference | the generator or a docstring |
     | `skills/*/SKILL.md` and `skills/*/references/*.md` | agents routing to the library | the skill file |
     | `examples/tutorials/*.py` | readers of the tutorials | the script |
+    | `examples/*.py` | readers who run the quickstart | the script |
 
     A tutorial page is its own prose around a ``--8<--`` include of the script; the include is
     stripped from the prose and the script is scanned as its own surface. The generated
@@ -216,8 +217,11 @@ def corpus(root: Path) -> List[Tuple[str, str]]:
     for ref in sorted((root / "skills").glob("*/references/*.md")):
         pages.append((f"skills/{ref.parent.parent.name}/references/{ref.name}",
                       ref.read_text(encoding="utf-8")))
-    for script in sorted((root / "examples" / "tutorials").glob("*.py")):
-        pages.append((f"examples/tutorials/{script.name}", script.read_text(encoding="utf-8")))
+    # Every example script a reader runs or copies: the tutorials and each top-level example
+    # module (the quickstart). Read from the folders, so a new script is read without an edit.
+    examples = root / "examples"
+    for script in sorted([*examples.glob("*.py"), *(examples / "tutorials").glob("*.py")]):
+        pages.append((script.relative_to(root).as_posix(), script.read_text(encoding="utf-8")))
     return pages
 
 

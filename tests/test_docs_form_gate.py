@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import re
+import shutil
 import sys
 import types
 from pathlib import Path
@@ -24,6 +25,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts import docs_build  # noqa: E402
 from scripts import docs_form_gate as gate  # noqa: E402
+from scripts.gates.docs import check_nwb_onboarding_alignment  # noqa: E402
 
 CONTRACT = """# Documentation form
 
@@ -33,6 +35,7 @@ CONTRACT = """# Documentation form
 |---|---|---|
 | A rendered color | `color`, `colors` | `colour`, `colours` |
 | Scaling to a common range | `normalize`, `normalized` | `normalise`, `normalised` |
+| An exported function | `operation`, `operations` | `primitive`, `primitives` |
 
 ## Slop lexicon
 
@@ -172,6 +175,7 @@ def _unsuffixed_image(rel: str) -> Callable[[Path], None]:
 NAV = "mkdocs.yml"
 PAGE_A = "docs/a.md"
 TUTORIAL = "docs/tutorials/t1.md"
+QUICKSTART = "examples/quickstart_jnwb.py"
 
 SEEDS = {
     "superseded form": ("vocabulary", _append(PAGE_A, "\nThe trace colour is fixed.\n"),
@@ -251,6 +255,11 @@ SEEDS = {
         lambda root: _write(root / "skills/demo/SKILL.md",
                             "# Demo\n\nIt is worth noting that the rate is in Hz.\n"),
         "skills/demo/SKILL.md: 'it is worth noting'"),
+    "superseded form in the quickstart": (
+        "vocabulary", _append(QUICKSTART, "\n# Six primitives from the library.\n"),
+        "examples/quickstart_jnwb.py: 'primitives'"),
+    "slop term in the quickstart": ("slop lexicon", _append(QUICKSTART, "\n# We delve in.\n"),
+                                    "examples/quickstart_jnwb.py: 'delve'"),
     "slop lexicon missing": ("slop lexicon",
                              _replace("docs/documentation_form.md", "## Slop lexicon",
                                       "## Removed"),
@@ -330,6 +339,47 @@ def test_the_command_line_exit_code_follows_the_checks(tree, capsys):
     assert gate.main(tree) == 1
     out = capsys.readouterr().out
     assert "FAIL: parallel facts:" in out and "OVERALL: FAIL" in out
+
+
+def test_the_corpus_reads_the_quickstart_and_every_tutorial_script(tree):
+    """Bypass: the corpus reads only the tutorial folder, so a superseded form in the quickstart
+    passed the vocabulary and slop checks."""
+    _write(tree / "examples/tutorials/07_extra.py", "# A tutorial.\n")
+    names = {name for name, _ in gate.corpus(tree)}
+    assert {QUICKSTART, "examples/tutorials/07_extra.py"} <= names, sorted(names)
+
+
+# --------------------------------------------------------------------- tutorial scripts (gate 18)
+
+
+def _nwb_tree(tmp_path: Path) -> Path:
+    """A copy of what the tutorial gate reads: the scripts, their pages, the skills, the readme
+    and the nav."""
+    root = tmp_path / "tree"
+    for rel in ("examples/tutorials", "docs/tutorials", "skills"):
+        shutil.copytree(REPO_ROOT / rel, root / rel)
+    for rel in ("README.md", "mkdocs.yml"):
+        shutil.copy(REPO_ROOT / rel, root / rel)
+    return root
+
+
+def test_the_tutorial_gate_checks_a_script_added_to_the_folder(tmp_path):
+    """Bypass: the gate's list is fixed at 00 to 08, so a script added to the folder is not read."""
+    root = _nwb_tree(tmp_path)
+    _write(root / "examples/tutorials/11_extra.py", "def run():\n    pass\n")
+    violations = check_nwb_onboarding_alignment(root)
+    assert any("11_extra.py defines no main()" in v for v in violations), violations
+
+
+def test_the_tutorial_gate_checks_the_open_data_and_wavemap_scripts(tmp_path):
+    """Bypass: 09 and 10 are outside the gate's list, so a module-level raise or a missing main()
+    in either passes."""
+    root = _nwb_tree(tmp_path)
+    _write(root / "examples/tutorials/09_open_data.py", "raise SystemExit('nope')\n")
+    _replace("examples/tutorials/10_wavemap.py", "def main() -> None:", "def run() -> None:")(root)
+    violations = check_nwb_onboarding_alignment(root)
+    assert any("09_open_data.py raises at module level" in v for v in violations), violations
+    assert any("10_wavemap.py defines no main()" in v for v in violations), violations
 
 
 # ----------------------------------------------------------------------------- live tree
