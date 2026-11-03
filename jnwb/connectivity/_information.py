@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from typing import Optional, Tuple
 import numpy as np
 from .._units import resolve_unit_alias
@@ -105,53 +104,3 @@ def _spike_mi(spike_times1, spike_times2, time_window_s, bin_size_ms, estimator,
         y = hist2.astype(int)
 
     return _discrete_mi_from_labels(x, y)
-
-
-def binary_occupancy_mutual_information(
-    spike_times1: np.ndarray,
-    spike_times2: np.ndarray,
-    time_window_s: Optional[Tuple[float, float]] = None,
-    bin_size_ms: float = 10.0,
-    *,
-    time_window: Optional[Tuple[float, float]] = None,
-) -> float:
-    """Deprecated alias for binary occupancy MI. `time_window_s` is in seconds.
-
-    References:
-        Shannon, C. E. (1948). A mathematical theory of communication. Bell Syst.
-        Tech. J. doi:10.1002/j.1538-7305.1948.tb01338.x -- discrete mutual
-        information, computed here on binned spike occupancy with no bias correction.
-    """
-    warnings.warn(
-        "binary_occupancy_mutual_information is deprecated; use "
-        "spike_mutual_information(..., estimator='binary_occupancy').",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _spike_mi(spike_times1, spike_times2, time_window_s, bin_size_ms,
-                     "binary_occupancy", time_window, "binary_occupancy_mutual_information")
-
-
-def spike_count_mutual_information(
-    spike_times1: np.ndarray,
-    spike_times2: np.ndarray,
-    time_window_s: Optional[Tuple[float, float]] = None,
-    bin_size_ms: float = 10.0,
-    *,
-    time_window: Optional[Tuple[float, float]] = None,
-) -> float:
-    """Deprecated alias for discrete MI on per-bin spike counts. `time_window_s` is in seconds.
-
-    References:
-        Shannon, C. E. (1948). A mathematical theory of communication. Bell Syst.
-        Tech. J. doi:10.1002/j.1538-7305.1948.tb01338.x -- discrete mutual
-        information, computed here on per-bin spike counts with no bias correction.
-    """
-    warnings.warn(
-        "spike_count_mutual_information is deprecated; use "
-        "spike_mutual_information(..., estimator='spike_count').",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _spike_mi(spike_times1, spike_times2, time_window_s, bin_size_ms,
-                     "spike_count", time_window, "spike_count_mutual_information")

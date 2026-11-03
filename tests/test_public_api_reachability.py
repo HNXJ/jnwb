@@ -87,8 +87,7 @@ LISTED_IN_ALL = (
     # artifact_repair
     "repair_lfp_trials", "repair_band_artifacts",
     # connectivity
-    "spike_mutual_information", "binary_occupancy_mutual_information",
-    "spike_count_mutual_information", "granger_causality", "network_topology",
+    "spike_mutual_information", "granger_causality", "network_topology",
     "DirectedResult", "as_trials", "bin_spikes", "granger", "granger_spectral",
     "phase_slope_index", "transfer_entropy", "directed_connectivity", "directed_network",
     # decoding
@@ -127,8 +126,7 @@ def test_listed_in_jnwb_all(name):
 IMPORTED_FROM = {
     "jnwb.artifact_repair": ("repair_lfp_trials", "repair_band_artifacts",
                              "detect_band_outliers", "DETECTION_TAILS"),
-    "jnwb.connectivity": ("spike_mutual_information", "binary_occupancy_mutual_information",
-                          "spike_count_mutual_information", "granger_causality",
+    "jnwb.connectivity": ("spike_mutual_information", "granger_causality",
                           "network_topology", "DirectedResult", "as_trials", "bin_spikes",
                           "granger", "granger_spectral", "phase_slope_index",
                           "transfer_entropy", "directed_connectivity", "directed_network"),

@@ -729,8 +729,6 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("_backend.py", "jax_metal_available",
      "(ImportError, OSError, RuntimeError, AttributeError)", (), True, 1):
         "Returns False when JAX exposes no Metal device. A declared absence.",
-    ("_dictlike.py", "RenamedKeyDict.get", "KeyError", (), True, 1):
-        "dict-like .get returns the caller's own default. The caller named the fallback.",
     ("_dictlike.py", "DictAccessMixin.get", "KeyError", (), True, 1):
         "Attribute-backed .get returns the caller's own default when the key names no "
         "attribute. The caller named the fallback.",

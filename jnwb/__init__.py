@@ -252,8 +252,6 @@ from .spectral import (
 # Functional connectivity: mutual information, Granger causality, phase slope index, transfer entropy.
 from .connectivity import (
     spike_mutual_information,
-    binary_occupancy_mutual_information,
-    spike_count_mutual_information,
     granger_causality,
     network_topology,
     DirectedResult,
@@ -510,8 +508,6 @@ __all__ = [
 
     # Functional connectivity
     'spike_mutual_information',
-    'binary_occupancy_mutual_information',
-    'spike_count_mutual_information',
     'granger_causality',
     'network_topology',
     'DirectedResult',

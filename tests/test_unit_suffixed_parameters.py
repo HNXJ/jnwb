@@ -24,8 +24,6 @@ import jnwb
 from jnwb._units import resolve_unit_alias
 from jnwb.connectivity import (
     bin_spikes,
-    binary_occupancy_mutual_information,
-    spike_count_mutual_information,
     spike_mutual_information,
 )
 from jnwb.onset_fitting import fit_exponential_onset
@@ -52,8 +50,6 @@ RENAMED = [
     (compute_response_metrics, "response_window_s", "response_window"),
     (bin_spikes, "window_s", "window"),
     (spike_mutual_information, "time_window_s", "time_window"),
-    (binary_occupancy_mutual_information, "time_window_s", "time_window"),
-    (spike_count_mutual_information, "time_window_s", "time_window"),
     (fit_exponential_onset, "t0_bounds_ms", "t0_bounds"),
     (fit_exponential_onset, "tau_bounds_ms", "tau_bounds"),
     (fit_exponential_onset, "baseline_window_ms", "baseline_window"),
@@ -104,8 +100,7 @@ class TestConflictingSpellingsRaise:
 
     @pytest.mark.parametrize(
         "fn",
-        [spike_mutual_information, binary_occupancy_mutual_information,
-         spike_count_mutual_information],
+        [spike_mutual_information],
     )
     def test_the_mutual_information_family(self, fn):
         s1 = np.array([0.1, 0.3, 0.5])
@@ -170,8 +165,7 @@ class TestTheRenameChangedNoNumber:
 
     @pytest.mark.parametrize(
         "fn",
-        [spike_mutual_information, binary_occupancy_mutual_information,
-         spike_count_mutual_information],
+        [spike_mutual_information],
     )
     def test_the_mutual_information_family(self, fn):
         rng = np.random.default_rng(0)

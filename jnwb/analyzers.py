@@ -17,7 +17,6 @@ from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_devi
 from ._bins import (bin_edges, bins_within, check_bin_label, onset_locked_counts,
                     onset_locked_counts_right,
                     onset_window, refuse_nonfinite_times, whole_bin_count)
-from ._dictlike import RenamedKeyDict
 from ._rng import DEFAULT_SEED, RNGLike
 from .trajectory import _kept_components
 import pandas as pd
@@ -202,8 +201,6 @@ class TFRAnalyzer:
             Dict with ``n_tests``, ``n_significant_uncorrected``,
             ``fraction_significant_uncorrected``, ``n_significant_fdr``, ``mean_diff``,
             ``p_values``, ``q_values`` (NaN where p is NaN), ``t_statistics`` and ``summary``.
-            ``n_significant`` and ``fraction_significant`` still read, as the uncorrected
-            values, with a ``DeprecationWarning``; they are removed in the next release.
         """
         if tfr1.shape[:-1] != tfr2.shape[:-1]:
             raise ValueError("TFR spatial shapes must match (ch × freq × time)")
@@ -224,7 +221,7 @@ class TFRAnalyzer:
         q_val[tested] = StatisticalAnalysis.fdr_correct(p_val[tested])
         n_fdr = int((q_val < 0.05).sum())
 
-        return RenamedKeyDict({
+        return {
             'n_tests':             n_total,
             'n_significant_uncorrected': n_sig,
             'fraction_significant_uncorrected': n_sig / n_total if n_total > 0 else float('nan'),
@@ -235,10 +232,7 @@ class TFRAnalyzer:
             't_statistics':        t_stat,
             'summary': (f"{n_sig} / {n_total} locations p < 0.05 uncorrected; "
                         f"{n_fdr} with Benjamini-Hochberg q < 0.05"),
-        }, aliases={
-            'n_significant': 'n_significant_uncorrected',
-            'fraction_significant': 'fraction_significant_uncorrected',
-        })
+        }
 
     @staticmethod
     def by_layer(tfr_data: np.ndarray, layer_bounds: Dict) -> Dict:
@@ -707,9 +701,11 @@ class PopulationAnalyzer:
 
     @staticmethod
     def compare_criteria(units1: pd.DataFrame, units2: pd.DataFrame,
-                         metric: str = 'firing_rate') -> Dict:
+                         metric: str = 'firing_rate', *, rng: RNGLike = DEFAULT_SEED) -> Dict:
         """
         Compare two unit populations on a metric (t-test + Mann-Whitney U + Cohen's d).
+
+        ``rng`` seeds the bootstrap interval of the mean difference, as in ``exploratory_compare``.
         """
         data1 = pd.to_numeric(units1[metric], errors='coerce').dropna().values
         data2 = pd.to_numeric(units2[metric], errors='coerce').dropna().values
@@ -722,7 +718,7 @@ class PopulationAnalyzer:
             'group2_n_valid':  len(data2),
             'group1_mean':     float(np.mean(data1)) if len(data1) > 0 else np.nan,
             'group2_mean':     float(np.mean(data2)) if len(data2) > 0 else np.nan,
-            'statistics':      StatisticalAnalysis.exploratory_compare(data1, data2),
+            'statistics':      StatisticalAnalysis.exploratory_compare(data1, data2, rng=rng),
         }
 
     @staticmethod

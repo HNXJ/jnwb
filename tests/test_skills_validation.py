@@ -1620,11 +1620,7 @@ class TestClaimsTheSignatureCannotCarry:
             "the conditional-schema sentence this test executes is gone from the row"
         )
 
-    @pytest.mark.parametrize("spelling", [
-        "spike_mutual_information",
-        "binary_occupancy_mutual_information",
-        "spike_count_mutual_information",
-    ])
+    @pytest.mark.parametrize("spelling", ["spike_mutual_information"])
     def test_mutual_information_is_reported_in_bits_and_is_symmetric(self, spelling):
         """The row's two claims about the number, neither of them in the signature.
 

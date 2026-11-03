@@ -941,15 +941,12 @@ class TestTFRAnalyzerCompareConditions(unittest.TestCase):
         self.assertEqual(res['n_significant_fdr'], 0)
         self.assertTrue(np.isnan(res['fraction_significant_uncorrected']))
 
-    def test_the_old_key_names_read_the_uncorrected_values_with_a_warning(self):
+    def test_the_old_key_names_are_gone(self):
         res = TFRAnalyzer.compare_conditions(*self._pair(3))
-        self.assertNotIn('n_significant', list(res))
-        with self.assertWarns(DeprecationWarning):
-            self.assertEqual(res['n_significant'], res['n_significant_uncorrected'])
-        with self.assertWarns(DeprecationWarning):
-            self.assertEqual(res.get('fraction_significant'),
-                             res['fraction_significant_uncorrected'])
-        self.assertIn('n_significant', res)
+        self.assertNotIn('n_significant', res)
+        self.assertNotIn('fraction_significant', res)
+        with self.assertRaises(KeyError):
+            res['n_significant']
 
 
 if __name__ == '__main__':

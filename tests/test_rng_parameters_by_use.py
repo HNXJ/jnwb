@@ -7,13 +7,25 @@ names ``rng`` and ``seed`` reaches only the parameters spelled that way.
 from __future__ import annotations
 
 import ast
+import inspect
+import sys
+import types
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 import jnwb
-from jnwb._rng import DEFAULT_SEED
-from jnwb.analyzers import UnitAnalyzer
+from jnwb._rng import DEFAULT_SEED, RNGLike
+from jnwb.analyzers import PopulationAnalyzer, UnitAnalyzer
+from jnwb.connectivity._granger import _net_surrogate_p, granger
+from jnwb.statistics import StatisticalAnalysis
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # the installed-wheel run clears pythonpath
+
+from scripts import build_fact_graph  # noqa: E402
 
 PACKAGE = Path(jnwb.__file__).resolve().parent
 
@@ -177,3 +189,148 @@ def test_two_seeds_give_two_intervals_and_no_rng_gives_fresh_entropy():
     fresh = [UnitAnalyzer.psth(spikes, onsets, 10, window_ms=(-100, 200), rng=None)
              ["bootstrap_ci"]["surrogate_seed_entropy"] for _ in range(2)]
     assert fresh[0] != fresh[1], "rng=None must draw fresh entropy on each call"
+
+
+# ------------------------------------------------- compare_criteria: the rng its interval draws on
+
+
+def _criteria_fixture():
+    """Two unit populations from a fixed generator: firing rates of 30 and 25 units."""
+    gen = np.random.default_rng(11)
+    units1 = pd.DataFrame({"firing_rate": gen.gamma(2.0, 3.0, 30)})
+    units2 = pd.DataFrame({"firing_rate": gen.gamma(2.0, 4.0, 25)})
+    return units1, units2
+
+
+def test_compare_criteria_rng_is_keyword_only_and_defaults_to_the_seed_it_always_used():
+    parameter = inspect.signature(PopulationAnalyzer.compare_criteria).parameters["rng"]
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameter.default == DEFAULT_SEED
+
+
+def test_a_bare_compare_criteria_call_keeps_the_numbers_it_always_gave():
+    units1, units2 = _criteria_fixture()
+    stats = PopulationAnalyzer.compare_criteria(units1, units2)["statistics"]
+    assert stats["surrogate_seed_entropy"] == DEFAULT_SEED
+    np.testing.assert_allclose(stats["mean_diff_ci"]["bootstrap_ci"],
+                               (-4.445697201599825, 0.49427253947459815), rtol=1e-12)
+    np.testing.assert_allclose(stats["parametric"]["pval"], 0.14857336952830863, rtol=1e-12)
+    np.testing.assert_allclose(stats["non_parametric"]["pval"], 0.3227460897170271, rtol=1e-12)
+
+
+def test_compare_criteria_two_seeds_give_two_intervals():
+    units1, units2 = _criteria_fixture()
+    first, second = [PopulationAnalyzer.compare_criteria(units1, units2, rng=seed)
+                     ["statistics"]["mean_diff_ci"]["bootstrap_ci"] for seed in (1, 2)]
+    assert first != second, "two seeds must give two intervals"
+
+
+def test_compare_criteria_rng_none_draws_fresh_entropy_on_each_call():
+    units1, units2 = _criteria_fixture()
+    fresh = [PopulationAnalyzer.compare_criteria(units1, units2, rng=None)["statistics"]
+             ["surrogate_seed_entropy"] for _ in range(2)]
+    assert fresh[0] != fresh[1], "rng=None must draw fresh entropy on each call"
+
+
+# ------------------------------------------------- the rng scan follows calls into a drawing callee
+
+
+def planted_bootstrap_without_rng(x):
+    """The pre-fix psth shape: a drawing callee's result nested in the caller's, no rng passed."""
+    return {"ci": StatisticalAnalysis.bootstrap_ci(x)}
+
+
+def planted_bootstrap_with_rng(x, rng):
+    return {"ci": StatisticalAnalysis.bootstrap_ci(x, rng=rng)}
+
+
+def planted_bootstrap_positional_rng(x, rng):
+    return {"ci": StatisticalAnalysis.bootstrap_ci(x, np.mean, 10000, 0.95, rng)}
+
+
+def planted_granger_with_no_null(x, y):
+    """A drawing callee whose count is the literal 0: it draws no null, so it needs no rng."""
+    return {"gc": granger(x, y, n_surrogates=0)}
+
+
+def planted_granger_with_a_null(x, y):
+    return {"gc": granger(x, y, n_surrogates=5)}
+
+
+def planted_surrogate_rng_by_position(x, y, rng):
+    """The generator reaches ``_net_surrogate_p`` by position, under the name ``surrogate_rng``."""
+    return {"p": _net_surrogate_p(x, y, 2, 5, rng, "zscore")}
+
+
+def _scanned_package(*functions):
+    """A stand-in for the package: each planted function is exported under its own name."""
+    return types.SimpleNamespace(__all__=[f.__name__ for f in functions],
+                                 **{f.__name__: f for f in functions})
+
+
+def _reported_by_name(found):
+    return {name.rpartition(".")[2]: reason for name, reason in found}
+
+
+def test_a_drawing_callee_reached_without_an_rng_argument_is_flagged(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    draws, _ = build_fact_graph._reach(planted_bootstrap_without_rng, None, set(),
+                                       draw=build_fact_graph._resolver_call)
+    assert "surrogate_rng" in draws, "the fixture must reach the bootstrap's draw"
+    examined, found = build_fact_graph.rng_scan(_scanned_package(planted_bootstrap_without_rng))
+    assert examined == 1
+    reported = _reported_by_name(found)
+    assert set(reported) == {"planted_bootstrap_without_rng"}, found
+    assert "bootstrap_ci" in reported["planted_bootstrap_without_rng"]
+
+
+def test_a_drawing_callee_given_its_rng_by_keyword_or_position_is_not_flagged(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    examined, found = build_fact_graph.rng_scan(
+        _scanned_package(planted_bootstrap_with_rng, planted_bootstrap_positional_rng))
+    assert examined == 2
+    assert found == [], "an rng passed to the drawing callee is not a finding"
+
+
+def test_a_literal_zero_count_draws_nothing_so_its_call_is_not_flagged(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    draws, _ = build_fact_graph._reach(planted_granger_with_no_null, None, set(),
+                                       draw=build_fact_graph._resolver_call)
+    assert draws, "the fixture must reach granger's draw"
+    examined, found = build_fact_graph.rng_scan(_scanned_package(planted_granger_with_no_null))
+    assert examined == 1
+    assert found == [], found
+
+
+def test_a_count_that_is_not_a_literal_zero_still_needs_an_rng(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    examined, found = build_fact_graph.rng_scan(_scanned_package(planted_granger_with_a_null))
+    assert examined == 1
+    assert set(_reported_by_name(found)) == {"planted_granger_with_a_null"}, found
+
+
+def test_a_generator_passed_by_position_under_a_suffixed_name_is_not_flagged(monkeypatch):
+    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    examined, found = build_fact_graph.rng_scan(_scanned_package(planted_surrogate_rng_by_position))
+    assert examined == 1
+    assert found == [], found
+
+
+def test_a_parameter_named_with_a_generator_suffix_takes_the_rng_without_an_annotation():
+    def takes_a_suffixed(x, surrogate_rng):
+        return x
+
+    with_rng = ast.parse("takes_a_suffixed(x, g)", mode="eval").body
+    without_rng = ast.parse("takes_a_suffixed(x)", mode="eval").body
+    assert build_fact_graph._passes_rng(with_rng, "takes_a_suffixed", takes_a_suffixed)
+    assert not build_fact_graph._passes_rng(without_rng, "takes_a_suffixed", takes_a_suffixed)
+
+
+def test_a_parameter_annotated_as_a_generator_takes_the_rng_whatever_its_name():
+    def takes_a_generator(x, gen: RNGLike = DEFAULT_SEED):
+        return x
+
+    with_gen = ast.parse("takes_a_generator(x, g)", mode="eval").body
+    without_gen = ast.parse("takes_a_generator(x)", mode="eval").body
+    assert build_fact_graph._passes_rng(with_gen, "takes_a_generator", takes_a_generator)
+    assert not build_fact_graph._passes_rng(without_gen, "takes_a_generator", takes_a_generator)

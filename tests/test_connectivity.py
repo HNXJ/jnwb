@@ -16,8 +16,6 @@ import jnwb
 
 from jnwb.connectivity import (
     spike_mutual_information,
-    binary_occupancy_mutual_information,
-    spike_count_mutual_information,
     granger_causality,
     network_topology,
     DirectedResult,
@@ -39,16 +37,13 @@ class TestSpikeMutualInformation:
         mi = spike_mutual_information(spikes, spikes, time_window=(0.0, 5.0), bin_size_ms=10.0)
         assert mi > 0
 
-    def test_binary_occupancy_and_spike_count_aliases_delegate(self):
+    def test_each_estimator_of_spike_mutual_information_is_finite_and_nonnegative(self):
         rng = np.random.default_rng(1)
         s1 = np.sort(rng.uniform(0, 5, 100))
         s2 = np.sort(rng.uniform(0, 5, 100))
-        mi_bo = binary_occupancy_mutual_information(s1, s2, time_window=(0.0, 5.0))
-        mi_full = spike_mutual_information(s1, s2, time_window=(0.0, 5.0), estimator="binary_occupancy")
-        assert mi_bo == pytest.approx(mi_full)
-        mi_sc = spike_count_mutual_information(s1, s2, time_window=(0.0, 5.0))
-        mi_full_sc = spike_mutual_information(s1, s2, time_window=(0.0, 5.0), estimator="spike_count")
-        assert mi_sc == pytest.approx(mi_full_sc)
+        for estimator in ("binary_occupancy", "spike_count"):
+            mi = spike_mutual_information(s1, s2, time_window=(0.0, 5.0), estimator=estimator)
+            assert np.isfinite(mi) and mi >= 0.0
 
 
 class TestGrangerCausality:
@@ -1316,11 +1311,9 @@ class TestDirectedEstimatorEdges:
             quiet = directed_network(sig, method="psi", fs=1000.0, jackknife=False, fdr=False)
         assert "fdr_requested_but_no_pair_has_a_p_value" not in quiet["warnings"]
 
-    @pytest.mark.parametrize("fn", [spike_mutual_information,
-                                    binary_occupancy_mutual_information,
-                                    spike_count_mutual_information])
+    @pytest.mark.parametrize("fn", [spike_mutual_information])
     def test_each_mutual_information_function_names_itself(self, fn):
-        """The two wrappers raised under the name spike_mutual_information."""
+        """Each error names the function the caller used."""
         name = fn.__name__
         with pytest.raises(ValueError, match=rf"^{name} requires non-empty"):
             fn(np.array([]), np.array([0.1]), (0.0, 1.0))

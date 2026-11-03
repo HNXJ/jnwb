@@ -539,7 +539,6 @@ LOGGER_WARNINGS = ("warning", "error", "exception")
 S9_EXCUSED: Dict[Tuple[str, str], str] = {
     ("jnwb/_backend.py", "_probe"): "backend probe: False when the backend will not load",
     ("jnwb/_backend.py", "jax_metal_available"): "backend probe: False when no Metal device",
-    ("jnwb/_dictlike.py", "RenamedKeyDict.get"): "dict.get contract: the caller's default",
     ("jnwb/_dictlike.py", "DictAccessMixin.get"): "dict.get contract: the caller's default",
     ("jnwb/addressing.py", "enrich_units_dataframe._enrich"): "cache miss, computed next",
     ("jnwb/compression.py", "_repaired_reference"): "warns at the next line",
@@ -1336,6 +1335,15 @@ def scheme_scan(package: Any) -> Tuple[int, List[List[str]]]:
 #: ``random_state`` echo the rng input (an int seed, a Generator, or None).
 RNG_KEYS = ("surrogate_seed_entropy", "xflip_surrogate_seed_entropy", "seed",
             "louvain_seed", "umap_seed", "rng", "random_state")
+#: The parameter names that take a generator: the ``rng`` the package resolves, the ``seed`` it
+#: aliases, and scikit-learn's ``random_state`` and ``random_seed``. A name with a RNG_SUFFIXES
+#: suffix takes one too, and so does a parameter annotated as one of RNG_ANNOTATIONS.
+RNG_ARGUMENTS = ("rng", "seed", "random_state", "random_seed")
+RNG_SUFFIXES = ("_rng", "_seed")
+RNG_ANNOTATIONS = ("RNGLike", "Generator", "SeedSequence")
+#: The prefix of a count parameter. A drawing call that passes the literal 0 to one draws nothing.
+COUNT_PREFIX = "n_"
+_POSITIONAL = (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
 #: The callables the rng rule excuses, by (module, qualified name), each with its reason. A
 #: bare array or tuple carries no key: reshaping one to carry it is a public API choice, not
 #: a repair. A listed callable that no longer consumes unnamed randomness is stale.
@@ -1728,28 +1736,117 @@ def _resolver_call(call: ast.Call) -> Optional[str]:
     return final if final in RESOLVERS else None
 
 
+def _generator_name(name: str) -> bool:
+    """Whether a parameter name takes a generator: one of ``RNG_ARGUMENTS``, or a ``RNG_SUFFIXES``
+    suffix."""
+    return name in RNG_ARGUMENTS or name.endswith(RNG_SUFFIXES)
+
+
+def _generator_parameter(param: inspect.Parameter) -> bool:
+    """Whether a callee's parameter takes a generator, by its name or by its annotation."""
+    if _generator_name(param.name):
+        return True
+    annotation = param.annotation
+    if annotation is inspect.Parameter.empty:
+        return False
+    text = annotation if isinstance(annotation, str) else inspect.formatannotation(annotation)
+    return any(word in text for word in RNG_ANNOTATIONS)
+
+
+def _callee_parameters(dotted: str, target: Any) -> List[inspect.Parameter]:
+    """The parameters of ``target`` as a call through ``dotted`` sees them: without ``self`` or
+    ``cls`` when the call goes through one."""
+    params = list(inspect.signature(target).parameters.values())
+    return params[1:] if dotted.partition(".")[0] in ("self", "cls") else params
+
+
+def _passes_rng(call: ast.Call, dotted: str, target: Any) -> bool:
+    """Whether a call hands ``target`` a generator: by keyword, or positionally into one of its
+    generator parameters. ``*`` and ``**`` arguments are not seen into, so they count as passing;
+    a callee with no generator parameter cannot be passed one, so a call to it passes none."""
+    if (any(kw.arg is None for kw in call.keywords)
+            or any(isinstance(arg, ast.Starred) for arg in call.args)):
+        return True
+    params = _callee_parameters(dotted, target)
+    named = {param.name for param in params if _generator_parameter(param)}
+    if any(kw.arg in named or _generator_name(kw.arg) for kw in call.keywords):
+        return True
+    positional = [param for param in params if param.kind in _POSITIONAL]
+    return any(index < len(call.args) and _generator_parameter(param)
+               for index, param in enumerate(positional))
+
+
+def _is_literal_zero(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and type(node.value) is int and node.value == 0
+
+
+def _count_is_zero(call: ast.Call, dotted: str, target: Any) -> bool:
+    """Whether a call passes the literal 0 to a count parameter (one named with ``COUNT_PREFIX``),
+    so the callee draws nothing on that call."""
+    if any(kw.arg and kw.arg.startswith(COUNT_PREFIX) and _is_literal_zero(kw.value)
+           for kw in call.keywords):
+        return True
+    positional = [param for param in _callee_parameters(dotted, target)
+                  if param.kind in _POSITIONAL]
+    return any(index < len(call.args) and param.name.startswith(COUNT_PREFIX)
+               and _is_literal_zero(call.args[index])
+               for index, param in enumerate(positional))
+
+
+def _unnamed_rng_calls(fn: Any, owner: Any, seen: set, depth: int = 0) -> set:
+    """The (caller, callee) pairs where ``fn``, or a jnwb function it reaches by name, calls a
+    jnwb function that consumes randomness and is passed no generator (``_passes_rng``). A call
+    with a literal 0 count draws nothing, so it is neither flagged nor followed
+    (``_count_is_zero``). A resolver call is a draw itself, not a callee, so it is not walked."""
+    key = (fn.__module__, fn.__qualname__)
+    if key in seen or depth > 8:
+        return set()
+    seen.add(key)
+    tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+    found = set()
+    for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+        if _resolver_call(call) is not None:
+            continue
+        dotted = _dotted(call.func)
+        target = _callee(fn, dotted, owner)
+        if target is None or _count_is_zero(call, dotted, target):
+            continue
+        if not _passes_rng(call, dotted, target) and _reach(
+                target, owner, set(), draw=_resolver_call)[0]:
+            found.add((fn.__qualname__, dotted))
+        found |= _unnamed_rng_calls(target, owner, seen, depth + 1)
+    return found
+
+
 def rng_scan(package: Any) -> Tuple[int, List[List[str]]]:
     """How many public callables the rng rule examined, and each that consumes randomness
-    without an rng key among its results (``RNG_KEYS``), as sorted [module.name, reason]
-    pairs. A key set by a jnwb function that a callable reaches counts for that callable,
-    so forwarders whose target reports are not findings. A callable whose source cannot be
-    read is a finding, never a pass."""
+    without an rng key among its results (``RNG_KEYS``), or that reaches a jnwb function which
+    consumes randomness through a call passed no generator (``_unnamed_rng_calls``), as sorted
+    [module.name, reason] pairs. A key set by a jnwb function that a callable reaches counts for
+    that callable, so forwarders whose target reports are not findings. A callable whose source
+    cannot be read is a finding, never a pass."""
     examined, found, flagged = 0, [], set()
     for qualname, fn, owner in _public_callables(package):
         examined += 1
         try:
             draws, keys = _reach(fn, owner, set(), draw=_resolver_call)
+            unnamed = _unnamed_rng_calls(fn, owner, set())
         except (OSError, TypeError, SyntaxError):
             found.append([f"{fn.__module__}.{qualname}", "source unreadable: not checked"])
             continue
-        if not draws or keys & set(RNG_KEYS):
+        reasons = []
+        if draws and not keys & set(RNG_KEYS):
+            reasons.append(f"consumes randomness ({', '.join(sorted(draws))}) "
+                           "and reports no rng key")
+        if unnamed:
+            reasons.append("calls a drawing function with no rng argument: " + ", ".join(
+                f"{caller} calls {callee}" for caller, callee in sorted(unnamed)))
+        if not reasons:
             continue
         site = (fn.__module__, qualname)
         flagged.add(site)
         if site not in S11_EXCUSED:
-            found.append([f"{fn.__module__}.{qualname}",
-                          f"consumes randomness ({', '.join(sorted(draws))}) "
-                          "and reports no rng key"])
+            found.append([f"{fn.__module__}.{qualname}", "; ".join(reasons)])
     for module, qualname in sorted(S11_EXCUSED):
         if (module, qualname) not in flagged:
             found.append([f"{module}.{qualname}",

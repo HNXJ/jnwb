@@ -87,8 +87,6 @@ from ._trials import (
 from ._information import (
     _discrete_mi_from_labels,
     spike_mutual_information,
-    binary_occupancy_mutual_information,
-    spike_count_mutual_information,
 )
 from ._granger import (
     _residual_variance,
