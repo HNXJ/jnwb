@@ -95,8 +95,9 @@ def mann_whitney_p_floor(n1: int, n2: int, alternative: str = "two-sided") -> fl
             f"alternative must be 'two-sided', 'greater', or 'less', got {alternative!r}"
         )
 
+    # int true division is correctly rounded and underflows instead of overflowing.
     n_comb = math.comb(n1_int + n2_int, n1_int)
-    one_sided_floor = 1.0 / float(n_comb)
+    one_sided_floor = 1 / n_comb
     if alt in ("greater", "less"):
         return float(one_sided_floor)
     # two-sided: symmetric two-tailed floor is 2 / n_comb, capped at 1.0

@@ -6,7 +6,9 @@ valid value and pins its output: a refusal that fires on every input fails the c
 
 from __future__ import annotations
 
+import math
 import re
+from fractions import Fraction
 
 import numpy as np
 import pandas as pd
@@ -14,6 +16,7 @@ import pytest
 
 from jnwb.statistics import (
     assign_subblock_quartiles,
+    mann_whitney_p_floor,
     paired_fire_prob_test,
     shuffle_pvalue_paired,
     shuffle_pvalue_unpaired,
@@ -89,3 +92,20 @@ class TestCountsBelowOneAndAlternativeAreRefused:
             shuffle_pvalue_paired(a, b, n_shuffles=n_shuffles, rng=0)
         with pytest.raises(ValueError, match=rf"shuffle_pvalue_unpaired: n_shuffles must be a positive integer, got {n_shuffles}$"):
             shuffle_pvalue_unpaired(a, b, n_shuffles=n_shuffles, rng=0)
+
+
+class TestMannWhitneyPFloorAtLargeSamples:
+    def test_the_floor_below_the_float_range_is_a_float_without_overflow(self):
+        # comb(1040, 520) is about 1e311, past the float maximum, so float(comb) overflowed.
+        assert math.comb(1040, 520) > 10 ** 309, "fixture must pass the float range"
+        floor = mann_whitney_p_floor(520, 520, alternative="greater")
+        assert isinstance(floor, float)
+        assert floor == float(Fraction(1, math.comb(1040, 520)))
+        assert 0.0 < floor < 1e-300
+
+    @pytest.mark.parametrize("alternative, factor", [("greater", 1), ("two-sided", 2)])
+    def test_the_floor_inside_the_float_range_keeps_its_value(self, alternative, factor):
+        expected = factor * float(Fraction(1, math.comb(1020, 510)))
+        assert expected > 1e-306, "fixture must stay in the float range"
+        np.testing.assert_allclose(mann_whitney_p_floor(510, 510, alternative=alternative),
+                                   expected, rtol=1e-12)
