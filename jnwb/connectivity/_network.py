@@ -88,7 +88,7 @@ DIRECTED_METHODS = {
 
 def directed_connectivity(X, Y, method: str = "granger", **kwargs) -> DirectedResult:
     """
-    One entry point for all three directed estimators.
+    One entry point for every estimator in ``DIRECTED_METHODS``.
 
     Args:
         X, Y: any signal accepted by :func:`as_trials`
@@ -117,7 +117,7 @@ def directed_network(
     n_jobs: int = 1,
     *,
     conditional: bool = False,
-    signal_class: Union[str, Tuple[str, str]] = _OMITTED,
+    signal_class: str = _OMITTED,
     **kwargs,
 ) -> Dict[str, Any]:
     """
