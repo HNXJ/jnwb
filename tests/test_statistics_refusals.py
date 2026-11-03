@@ -15,6 +15,7 @@ import pandas as pd
 import pytest
 
 from jnwb.statistics import (
+    StatisticalAnalysis,
     assign_subblock_quartiles,
     mann_whitney_p_floor,
     paired_fire_prob_test,
@@ -109,3 +110,54 @@ class TestMannWhitneyPFloorAtLargeSamples:
         assert expected > 1e-306, "fixture must stay in the float range"
         np.testing.assert_allclose(mann_whitney_p_floor(510, 510, alternative=alternative),
                                    expected, rtol=1e-12)
+
+
+A_GROUP = np.array([1.0, 2.0, 4.0])
+B_GROUP = np.array([0.0, 1.0, 2.0])
+
+
+class TestDrawCountsBelowOneAreRefusedByStatisticalAnalysis:
+    """Each n_bootstrap and n_permutations of StatisticalAnalysis refuses a count below 1.
+
+    Each test first runs the valid count 1 (the control), then refuses 0 and -1 by name.
+    """
+
+    @pytest.mark.parametrize("n_bootstrap", [0, -1])
+    def test_bootstrap_mean_diff_ci_refuses_n_bootstrap_below_one(self, n_bootstrap):
+        assert "bootstrap_ci" in StatisticalAnalysis._bootstrap_mean_diff_ci(
+            A_GROUP, B_GROUP, paired=False, n_bootstrap=1, rng=1)
+        with pytest.raises(ValueError, match=rf"_bootstrap_mean_diff_ci: n_bootstrap must be >= 1, got {n_bootstrap}$"):
+            StatisticalAnalysis._bootstrap_mean_diff_ci(A_GROUP, B_GROUP, paired=False,
+                                                        n_bootstrap=n_bootstrap, rng=1)
+
+    @pytest.mark.parametrize("n_bootstrap", [0, -1])
+    def test_compare_groups_refuses_n_bootstrap_below_one(self, n_bootstrap):
+        assert "mean_diff_ci" in StatisticalAnalysis.compare_groups(A_GROUP, B_GROUP, n_bootstrap=1, rng=1)
+        with pytest.raises(ValueError, match=rf"compare_groups: n_bootstrap must be >= 1, got {n_bootstrap}$"):
+            StatisticalAnalysis.compare_groups(A_GROUP, B_GROUP, n_bootstrap=n_bootstrap, rng=1)
+
+    @pytest.mark.parametrize("n_bootstrap", [0, -1])
+    def test_bootstrap_ci_refuses_n_bootstrap_below_one(self, n_bootstrap):
+        assert "bootstrap_ci" in StatisticalAnalysis.bootstrap_ci(A_GROUP, n_bootstrap=1, rng=1)
+        with pytest.raises(ValueError, match=rf"bootstrap_ci: n_bootstrap must be >= 1, got {n_bootstrap}$"):
+            StatisticalAnalysis.bootstrap_ci(A_GROUP, n_bootstrap=n_bootstrap, rng=1)
+
+    @pytest.mark.parametrize("n_permutations", [0, -1])
+    def test_permutation_test_refuses_n_permutations_below_one(self, n_permutations):
+        assert "pval" in StatisticalAnalysis.permutation_test(A_GROUP, B_GROUP, n_permutations=1, rng=1)
+        with pytest.raises(ValueError, match=rf"permutation_test: n_permutations must be >= 1, got {n_permutations}$"):
+            StatisticalAnalysis.permutation_test(A_GROUP, B_GROUP, n_permutations=n_permutations, rng=1)
+
+    @pytest.mark.parametrize("n_bootstrap", [0, -1])
+    def test_exploratory_compare_refuses_n_bootstrap_below_one(self, n_bootstrap):
+        assert "mean_diff_ci" in StatisticalAnalysis.exploratory_compare(A_GROUP, B_GROUP, n_bootstrap=1, rng=1)
+        with pytest.raises(ValueError, match=rf"exploratory_compare: n_bootstrap must be >= 1, got {n_bootstrap}$"):
+            StatisticalAnalysis.exploratory_compare(A_GROUP, B_GROUP, n_bootstrap=n_bootstrap, rng=1)
+
+    @pytest.mark.parametrize("n_bootstrap", [0, -1])
+    def test_confirmatory_compare_refuses_n_bootstrap_below_one(self, n_bootstrap):
+        hyp = "mean A > mean B"
+        assert "q_parametric" in StatisticalAnalysis.confirmatory_compare(
+            A_GROUP, B_GROUP, hyp, n_bootstrap=1, rng=1)
+        with pytest.raises(ValueError, match=rf"confirmatory_compare: n_bootstrap must be >= 1, got {n_bootstrap}$"):
+            StatisticalAnalysis.confirmatory_compare(A_GROUP, B_GROUP, hyp, n_bootstrap=n_bootstrap, rng=1)

@@ -67,6 +67,12 @@ def _resolve_test_choice(test: str, func_name: str) -> Tuple[bool, bool]:
     return test in ("both", "parametric"), test in ("both", "nonparametric")
 
 
+def _require_draws(count, func_name: str, name: str) -> None:
+    """Refuse a bootstrap or permutation count below 1, naming the function and the argument."""
+    if count < 1:
+        raise ValueError(f"{func_name}: {name} must be >= 1, got {count}")
+
+
 class StatisticalAnalysis:
     """
     Dual statistical testing with honest multiple-comparison handling.
@@ -158,6 +164,7 @@ class StatisticalAnalysis:
         ci: float = 0.95,
         rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
+        _require_draws(n_bootstrap, "_bootstrap_mean_diff_ci", "n_bootstrap")
         rng, seed_entropy = surrogate_rng(rng, "_bootstrap_mean_diff_ci")
         if paired and len(a) == len(b) and len(a) > 1:
             diffs = a - b
@@ -234,6 +241,7 @@ class StatisticalAnalysis:
                 here when a pre-registered analysis budgets one test per hypothesis;
                 leaving the default runs two and spends two.
         """
+        _require_draws(n_bootstrap, "compare_groups", "n_bootstrap")
         run_param, run_nonparam = _resolve_test_choice(test, "compare_groups")
 
         # Resolved here so the result names the entropy it ran on; the generator is
@@ -555,6 +563,7 @@ class StatisticalAnalysis:
 
         Non-finite values are dropped with a RuntimeWarning that counts them.
         """
+        _require_draws(n_bootstrap, "bootstrap_ci", "n_bootstrap")
         rng, seed_entropy = surrogate_rng(rng, "bootstrap_ci")
 
         data = np.asarray(data).flatten()
@@ -635,6 +644,7 @@ class StatisticalAnalysis:
         ``surrogate_seed_entropy`` is the entropy the permutations ran on: the seed for an
         int ``rng``, the fresh OS entropy drawn for ``rng=None``, None for a ``Generator``.
         """
+        _require_draws(n_permutations, "permutation_test", "n_permutations")
         rng, seed_entropy = surrogate_rng(rng, "permutation_test")
 
         x = np.asarray(x, dtype=float).flatten()
@@ -738,6 +748,7 @@ class StatisticalAnalysis:
             ``_bootstrap_mean_diff_ci``. This entry point only forwards there and
             strips the correction block; the p-values stay raw.
         """
+        _require_draws(n_bootstrap, "exploratory_compare", "n_bootstrap")
         # Re-use compare_groups and strip the multiple_comparison block
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
@@ -834,6 +845,7 @@ class StatisticalAnalysis:
                 (the ``pval`` keys stay raw).
             A test whose ``pval`` is NaN has a NaN q-value and is not confirmed.
         """
+        _require_draws(n_bootstrap, "confirmatory_compare", "n_bootstrap")
         if not isinstance(hypothesis, str) or not hypothesis.strip():
             raise ValueError(
                 "confirmatory_compare() requires a non-empty hypothesis string. "
