@@ -579,6 +579,15 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
         shuffled = UnitAnalyzer.quality_metrics(rng.permutation(st), 300.0, 5.0)
         self.assertEqual(shuffled, ref)
 
+    def test_a_last_spike_an_ulp_past_a_whole_second_span_is_counted(self):
+        """A span of two seconds up to rounding (summed intervals overshoot by an ulp) counts
+        two windows; the last spike sat past their closing edge and was dropped: counts 2 and
+        0, Fano 2, against 2 and 1, Fano 1/3."""
+        st = np.array([0.1, 0.6, np.nextafter(0.1 + 2.0, np.inf)])
+        assert st[-1] > 0.1 + 2.0, "fixture must put the last spike past the closing edge"
+        result = UnitAnalyzer.quality_metrics(st, 300.0, 1.5)
+        self.assertAlmostEqual(result['fano_factor'], 1.0 / 3.0, places=12)
+
     def test_a_non_finite_or_multi_dimensional_train_raises(self):
         """A NaN read as a good single unit, an infinity raised OverflowError and a 2-D
         array was pooled into one train."""

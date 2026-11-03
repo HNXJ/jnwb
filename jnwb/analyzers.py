@@ -14,7 +14,7 @@ import logging
 from typing import Literal, Optional, Dict, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
-from ._bins import (bin_edges, bins_within, check_bin_label, onset_locked_counts,
+from ._bins import (_count_tolerance, bin_edges, bins_within, check_bin_label, onset_locked_counts,
                     onset_locked_counts_right,
                     onset_window, refuse_nonfinite_times, whole_bin_count)
 from ._rng import DEFAULT_SEED, RNGLike
@@ -665,7 +665,12 @@ class UnitAnalyzer:
             duration = t_end - t_start
             n_windows = bins_within(duration, 1.0)      # whole 1-s windows, rounding-tolerant
             if n_windows >= 2:
-                counts, _  = np.histogram(spike_times, bins=bin_edges(t_start, 1.0, n_windows))
+                edges = bin_edges(t_start, 1.0, n_windows)
+                # A span of whole seconds up to rounding closes on its last spike, which the
+                # edge t_start + n_windows can miss by an ulp.
+                if 0.0 < t_end - edges[-1] <= _count_tolerance(t_start, t_end, 1.0):
+                    edges[-1] = t_end
+                counts, _  = np.histogram(spike_times, bins=edges)
                 # The first window holds the first spike, so the mean is positive.
                 fano_factor = float(_count_fano(counts[None, :])[0])
             else:
