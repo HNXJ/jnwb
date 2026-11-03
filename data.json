@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "de4584cd1ff2f2aa7cb0c10b888c260002541e51",
-    "date": "2026-11-02T20:04:40Z"
+    "commit": "d6d3ec07b75111ad8449acda08d7a4b3eb671ac0",
+    "date": "2026-11-03T03:02:48Z"
   },
   "sources": {
     "generated": [
@@ -1844,7 +1844,7 @@
       {
         "file": "jnwb/connectivity/_granger.py",
         "qualname": "granger",
-        "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+        "verified_at": "af9ffbfda6e462caadc288a7549762de7c74e99f",
         "tests": [
           "tests/test_composition_randomness.py::TestDirectedNetworkSurrogatesFollowTheCallerSeed::test_two_different_seeds_give_different_p_values[granger]"
         ]
@@ -1914,7 +1914,7 @@
       {
         "file": "jnwb/statistics/_tests.py",
         "qualname": "mann_whitney_p_floor",
-        "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
+        "verified_at": "af9ffbfda6e462caadc288a7549762de7c74e99f",
         "tests": [
           "tests/test_statistics.py::TestMannWhitneyPFloor::test_known_floors",
           "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[mann_whitney_p_floor]"
@@ -5070,8 +5070,8 @@
       "section": "frozen",
       "title": "Independently verified functions",
       "path": "artifacts/process/frozen_validated.json",
-      "commit": "d84f334321fd29931b25295a9332ced59418f255",
-      "sha256": "806c9889385b8d54c5d23d42089be7c6196ada9f98be7f743c75d05d6dd4e610",
+      "commit": "aa0d84658230a9c00a2cb72b9ad9bc1696e389f0",
+      "sha256": "7463aa8b12794be206adb7d074923c89b306baadaefa01db520a357ba0828c5c",
       "fields": {
         "functions": 27
       },
