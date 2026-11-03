@@ -148,9 +148,10 @@ def _planted_stack(root, writes):
     return root
 
 
-@pytest.mark.parametrize("shared", ["docs/api.md", "CHANGELOG.md"])
+@pytest.mark.parametrize("shared", ["docs/api.md", "CHANGELOG.md", "docs/*.md", "*.md"])
 def test_a_write_set_naming_an_integration_path_fails_the_gate(tmp_path, shared):
-    """Planted case: the gate rejects the path, on a fixture whose field names it."""
+    """Planted case: the gate rejects the path, or a glob that matches one, on a fixture whose
+    field names it."""
     root = _planted_stack(tmp_path, f"`{shared}`")
     assert _writes_fields((root / "artifacts" / "todo_stack.md").read_text(encoding="utf-8")), (
         "the fixture must declare a Writes field, or the check below passes vacuously"
@@ -158,6 +159,17 @@ def test_a_write_set_naming_an_integration_path_fails_the_gate(tmp_path, shared)
     found = [v for v in check_stack_form_consistency(root) if SHARED_MARKER in v]
     assert found, f"a Writes field naming {shared} passed the stack form check"
     assert shared in found[0], found
+
+
+@pytest.mark.parametrize("glob", ["tests/test_*.py", "docs/assets/**", "artifacts/changelog.d/*.md"])
+def test_a_glob_that_covers_no_integration_path_passes(tmp_path, glob):
+    """Negative control: a glob that matches neither integration path is not reported."""
+    root = _planted_stack(tmp_path, f"`{glob}`")
+    assert _writes_fields((root / "artifacts" / "todo_stack.md").read_text(encoding="utf-8")), (
+        "the fixture must declare a Writes field, or the check below passes vacuously"
+    )
+    found = [v for v in check_stack_form_consistency(root) if SHARED_MARKER in v]
+    assert found == [], found
 
 
 def test_the_frozen_validated_file_may_be_named(tmp_path):

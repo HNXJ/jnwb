@@ -490,7 +490,7 @@ def count_declared_raw_power_estimands(repo_root: Optional[Path] = None) -> int:
     """How many raw-power estimand declarations the log-last scan of ``jnwb/`` examines.
 
     One count per declaration match, over the same modules ``check_logarithm_last_in_package``
-    scans. Zero is a pass with nothing examined; the gate's pass line says so.
+    scans. Zero fails that check, so the gate's pass line never reports zero.
     """
     root = repo_root or REPO_ROOT
     return sum(len(RAW_POWER_DECLARATION.findall(module.read_text(encoding="utf-8")))
@@ -501,7 +501,8 @@ def check_logarithm_last_in_package(repo_root: Optional[Path] = None) -> List[st
     """No declared raw-power estimand takes its log before its mean, in any module of ``jnwb/``.
 
     Applies ``check_logarithm_last_rule`` to each module and names the module of each finding. A
-    package with no module is a failure: no estimand was examined.
+    package with no module is a failure: no estimand was examined. So is a package with no
+    declaration: the rule then checked nothing, and a pass would read as a clean package.
     """
     root = repo_root or REPO_ROOT
     modules = _jnwb_modules(root)
@@ -513,6 +514,12 @@ def check_logarithm_last_in_package(repo_root: Optional[Path] = None) -> List[st
         text = module.read_text(encoding="utf-8")
         for reason in check_logarithm_last_rule(text):
             violations.append(f"{module.relative_to(root).as_posix()}: {reason}")
+    if count_declared_raw_power_estimands(root) == 0:
+        violations.append(
+            f"NO_ESTIMAND: no module of {(root / 'jnwb').as_posix()} declares a raw-power estimand, "
+            "so the log-last rule examined nothing. Declare `estimand: raw_power` in the docstring "
+            "of each function that averages power before its decibel conversion."
+        )
     return violations
 
 

@@ -272,13 +272,14 @@ def _computational_contract_checks() -> List[Tuple[str, List[str]]]:
     estimands = check_logarithm_last_in_package(REPO_ROOT)
     if estimands:
         found.append(
-            ("FAIL: A declared raw-power estimand takes its log before its mean:", estimands))
+            ("FAIL: A declared raw-power estimand takes its log before its mean, or none is "
+             "declared:", estimands))
     return found
 
 
 def _computational_pass_line() -> str:
     """The computational contract's and the log-last scan's PASS line, naming the declarations
-    the scan examined; zero is printed, not omitted."""
+    the scan examined. Zero never reaches it: zero fails the scan."""
     declared = count_declared_raw_power_estimands(REPO_ROOT)
     return ("PASS: Computational contract holds (every device, backend and n_jobs argument "
             "reaches its deciding mechanism, every precision request is honoured or refused, "
