@@ -6,12 +6,24 @@
 #   - no Actions run on the branch is in flight, and
 #   - the newest completed run on the branch succeeded (override: JNWB_PUSH_OVER_RED=1,
 #     for the push that carries the fix).
-# Usage: jnwb_push.sh <dir> [branch=dev]
+# Usage: jnwb_push.sh <dir> [branch=dev] [--item <id>]
+#   --item <id>: also refuse a push whose diff against origin/<branch> leaves the Writes of that
+#   todo item (read from origin/<branch>), beyond the always-writable stacks and changelog paths.
+#   The check is verify_lane.py --push-item.
 set -o pipefail
 dir="$1"; branch="${2:-dev}"
+[ "$branch" != "--item" ] || { echo "usage: jnwb_push.sh <dir> [branch] [--item <id>]"; exit 2; }
 cd "$dir" || exit 2
 [ "$(git rev-parse --abbrev-ref HEAD)" = "$branch" ] || { echo "not on $branch"; exit 1; }
 [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "tracked changes present"; exit 1; }
+item=""
+if [ "${3:-}" = "--item" ]; then
+  item="${4:-}"
+  [ -n "$item" ] || { echo "usage: jnwb_push.sh <dir> [branch] [--item <id>]"; exit 2; }
+  # The item's Writes are read from the target, so fetch it first.
+  git fetch origin "$branch" </dev/null || { echo "fetch of origin/$branch failed"; exit 1; }
+  python scripts/verify_lane.py --push-item "$item" --target "origin/$branch" || exit 1
+fi
 head=$(git rev-parse HEAD)
 stamp="$(git rev-parse --git-dir)/jnwb_suite_ok"
 outside=$(git diff --name-only "origin/$branch..HEAD" | grep -v '^artifacts/' || true)
