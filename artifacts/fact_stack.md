@@ -139,10 +139,6 @@ evidence and a critic's sign-off.
 | `jnwb.connectivity._trials.bin_spikes` | `window` | `None` | the alias of `window_s`; as above | as above |
 | `jnwb.connectivity._information.spike_mutual_information` | `time_window_s` | `None` | marks an omitted argument of the `time_window_s`/`time_window` pair; with neither, the call raises, so the window is required | `_spike_mi` calls `resolve_unit_alias` with no `default`; `tests/test_skill_decline_behaviour.py` ("requires time_window_s") |
 | `jnwb.connectivity._information.spike_mutual_information` | `time_window` | `None` | the alias of `time_window_s`; as above | as above |
-| `jnwb.connectivity._information.binary_occupancy_mutual_information` | `time_window_s` | `None` | as for `spike_mutual_information`, whose body `_spike_mi` it shares; the call raises after its own `DeprecationWarning` | `tests/test_window_default_deprecation.py` (the deprecated MI aliases) |
-| `jnwb.connectivity._information.binary_occupancy_mutual_information` | `time_window` | `None` | as above | as above |
-| `jnwb.connectivity._information.spike_count_mutual_information` | `time_window_s` | `None` | as for `spike_mutual_information`, whose body `_spike_mi` it shares; the call raises after its own `DeprecationWarning` | `tests/test_window_default_deprecation.py` (the deprecated MI aliases) |
-| `jnwb.connectivity._information.spike_count_mutual_information` | `time_window` | `None` | as above | as above |
 | `jnwb.jrsa.jrsa` | `window` | `None` | no window: the whole aligned axis; `window` counts samples, not time, and the input sets the span | `jnwb/jrsa/_stages.py`, `_make_windows` returns the inputs unchanged for `None` |
 | `jnwb.laminar._xflip.xflip` | `window` | `None` | no window: every probe row; `window` names rows, not time | `xflip` reads rows only when `window is not None` |
 | `jnwb.laminar._zflip.zflip` | `window` | `None` | no window: every probe row; `window` names rows, not time | `zflip` reads rows only when `window` is given |
@@ -171,8 +167,6 @@ evidence and a critic's sign-off.
 | `jnwb.analyzers.UnitAnalyzer.autocorrelogram` | `bin_size_ms` | `1` | 1 ms bins centred on multiples of the width | `jnwb/analyzers.py:433`; `:437-440` |
 | `jnwb.analyzers.UnitAnalyzer.psth` | `bin_size_ms` | `10` | 10 ms PSTH bins; the window span must be a whole number of them | `jnwb/analyzers.py:362`; `:380-381` |
 | `jnwb.connectivity._information.spike_mutual_information` | `bin_size_ms` | `10.0` | 10 ms bins of the binned trains the MI is computed on, with no bias correction (Shannon 1948 is cited for the MI, not the width) | `jnwb/connectivity/_information.py:42`; `:48-69` |
-| `jnwb.connectivity._information.binary_occupancy_mutual_information` | `bin_size_ms` | `10.0` | as above | `jnwb/connectivity/_information.py:110`; as above |
-| `jnwb.connectivity._information.spike_count_mutual_information` | `bin_size_ms` | `10.0` | as above | `jnwb/connectivity/_information.py:135`; as above |
 | `jnwb.connectivity._trials.bin_spikes` | `bin_size_ms` | `10.0` | 10 ms bin width; the count K must be whole | `jnwb/connectivity/_trials.py:133`; `:143-145` |
 | `jnwb.connectivity._transfer_entropy.transfer_entropy` | `bins` | `4` | 4 states for the quantile/uniform estimators; the null calibration in the docstring is measured at bins 4 | `jnwb/connectivity/_transfer_entropy.py:188`; `:249`, `:223-228` |
 | `jnwb.spiking.phase_locking_index` | `n_bins` | `18` | 18 phase bins (20° each); the Rayleigh test on them is Berens 2009 | `jnwb/spiking.py:359`; `:376`, `:406-412` |

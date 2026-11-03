@@ -176,7 +176,6 @@ contradicts a written claim it appears in section 6.
 | `as_trials[n_samples]` | n_samples | 1000000, 3000000, 8000000, 20000000, 40000000 | 8.02, 24.7, 59.6, 148.7, 285.3 | +0.96 | 1.000 | 36x | O(n) | T(N) | derived | agree |
 | `bin_spikes[n_bins]` | n_bins | 500000, 1500000, 4000000, 10000000, 20000000 | 15.9, 49.5, 141.1, 332.7, 674.8 | +1.01 | 1.000 | 42x | O(n) | T(n_spikes + n_bins) | derived | ORDER |
 | `bin_spikes[n_spikes]` | n_spikes | 400000, 1500000, 5000000, 12000000, 20000000 | 8.05, 30.3, 99.3, 239.7, 392.9 | +0.99 | 1.000 | 49x | O(n) | T(n_spikes + n_bins) | derived | ORDER |
-| `binary_occupancy_mutual_information[n_spikes]` | n_spikes | 100000, 500000, 2000000, 5000000, 10000000 | 9.36, 50.6, 205.4, 529.1, 1092 | +1.03 | 1.000 | 117x | O(n) | T(n_spikes + n_bins) | derived | ORDER |
 | `directed_connectivity[n_samples]` | n_samples | 10000, 40000, 120000, 300000, 600000 | 11.0, 51.7, 174.2, 516.6, 1145 | +1.13 | 1.000 | 104x | O(n) | the dispatched estimator's | derived | agree |
 | `directed_network[n_samples]` | n_samples | 1000, 4000, 16000, 64000, 128000 | 21.4, 33.0, 72.2, 298.2, 663.6 | +0.71 | 0.948 | 31x | sub-linear | T(n^2*N) | derived | agree |
 | `directed_network[n_signals]` | n_signals | 4, 8, 16, 28, 40 | 19.0, 87.6, 346.2, 1040, 2240 | +2.05 | 1.000 | 118x | O(n^2) | Omega(n^2) irreducible; about T(n^2*N log N + n^2*p^2) | derived | agree |
@@ -195,7 +194,6 @@ contradicts a written claim it appears in section 6.
 | `network_topology[n_nodes]` | n_nodes | 800, 1600, 3000, 5000, 8000 | 8.45, 33.2, 115.7, 320.2, 814.8 | +1.98 | 1.000 | 96x | O(n^2) | T(n^2) | derived | agree |
 | `phase_slope_index[n_samples]` | n_samples | 60000, 200000, 700000, 2000000, 4000000 | 8.69, 39.9, 123.6, 334.0, 692.1 | +1.02 | 0.996 | 80x | O(n) | T(N log L) | derived | agree |
 | `phase_slope_index[n_samples_jackknife]` | n_samples | 60000, 200000, 700000, 2000000, 4000000 | 13.06, 59.15, 197.2, 555.3, 1151 | +1.05 | 0.997 | 88x | O(n) | T(S*L) | derived | agree |
-| `spike_count_mutual_information[n_spikes]` | n_spikes | 100000, 500000, 2000000, 5000000, 10000000 | 11.0, 55.3, 228.2, 562.6, 1138 | +1.01 | 1.000 | 104x | O(n) | T(n_spikes + n_bins) | derived | ORDER |
 | `spike_mutual_information[n_bins]` | n_bins | 10000, 50000, 200000, 800000, 2000000 | 23.1, 31.5, 78.3, 289.1, 800.8 | +0.68 | 0.933 | 35x | sub-linear | T(n_spikes + n_bins) | derived | ORDER |
 | `spike_mutual_information[n_spikes]` | n_spikes | 100000, 500000, 2000000, 5000000, 10000000 | 9.72, 49.9, 208.7, 534.8, 1066 | +1.02 | 1.000 | 110x | O(n) | T(n_spikes + n_bins) | derived | ORDER |
 | `transfer_entropy[n_samples]` | n_samples | 1500, 6000, 25000, 80000, 150000 | 13.0, 51.4, 278.1, 1079, 2184 | +1.13 | 0.999 | 169x | O(n) | T(N*(k+l)) expected | derived | ORDER |

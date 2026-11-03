@@ -236,8 +236,7 @@
         "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[clopper_pearson]"
       ],
       "serves": [
-        "StatisticalAnalysis.clopper_pearson",
-        "StatisticalAnalysis.clopper_pearson_ci"
+        "StatisticalAnalysis.clopper_pearson"
       ]
     },
     {
