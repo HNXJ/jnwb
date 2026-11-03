@@ -1,0 +1,1 @@
+- `jnwb/statistics/_trials.py`: `assign_subblock_quartiles` raises `ValueError` for `n_quantiles` < 1 and non-integers.

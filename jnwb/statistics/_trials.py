@@ -51,8 +51,14 @@ def assign_subblock_quartiles(epochs_df: pd.DataFrame, n_quantiles: int = 4) -> 
         (n_rows,) int array of quantile bucket ids, in ``epochs_df``'s original row order.
 
     Raises:
-        ValueError: if a ``start_time`` is not finite; the message names its row index.
+        ValueError: if ``n_quantiles`` is not an integer >= 1, or if a ``start_time`` is not
+            finite (the message names its row index).
     """
+    if (isinstance(n_quantiles, bool) or not isinstance(n_quantiles, (int, np.integer))
+            or n_quantiles < 1):
+        raise ValueError(
+            f"assign_subblock_quartiles: n_quantiles must be an integer >= 1; got {n_quantiles!r}"
+        )
     refuse_nonfinite_times(
         epochs_df["start_time"].values, "assign_subblock_quartiles", "epochs_df[start_time]"
     )
