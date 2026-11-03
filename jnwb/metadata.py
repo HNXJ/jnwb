@@ -531,7 +531,8 @@ def unit_census_report(
 
     Returns:
         Summary DataFrame with counts and statistics. A NaN ``firing_rate`` is missing:
-        group means skip it. An infinite ``firing_rate`` is refused.
+        group means skip it. An infinite ``firing_rate`` is refused. A frame with no columns
+        (a file with no units table) gives an empty report with the same columns.
 
     Example:
         >>> census = unit_census_report(all_units)
@@ -573,7 +574,21 @@ def unit_census_report(
             )
 
     # Filter to available columns
+    shape_cols = list(group_by)
     group_by = [col for col in group_by if col in units_df.columns]
+
+    if not group_by and units_df.columns.empty and shape_cols:
+        # A file with no units table reads as a frame with no columns. Its census is zero
+        # units with the columns and types of a census of units, so it is built as an empty
+        # units frame and goes through the same aggregation.
+        group_by = shape_cols
+        units_df = pd.DataFrame({
+            **{col: pd.Series(dtype=object) for col in group_by},
+            'unit_id': pd.Series(dtype=np.int64),
+            'firing_rate': pd.Series(dtype=float),
+            'waveform_duration': pd.Series(dtype=float),
+            'snr': pd.Series(dtype=float),
+        })
 
     if not group_by:
         return units_df.describe()
