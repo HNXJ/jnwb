@@ -29,11 +29,10 @@ and an item that shares a file with another lane names it in Blocked by.
 
 | Lane | Items, in order | Files |
 |---|---|---|
-| I | 17-121, 17-122 | `jnwb/metadata.py`, `jnwb/_units.py`, `jnwb/connectivity/_network.py` |
 | K | 17-124, 17-125 | `jnwb/analyzers.py`, `jnwb/statistics/_analysis.py` |
 | E | 17-78 | `docs/*.md` except `docs/api.md`, `scripts/docs_form_gate.py` |
 
-- Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B (2026-11-03, landed); then I, K, E;
+- Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B , then I (2026-11-03, landed); then K, E;
   the integrator does 17-76.
 - Waiting on Hamm: 17-75, 17-77; open rows P-216-01, -05 to -08, -15, -17 to -20, -22, -24, -32. Open
   rows with no item yet: P-216-16, -21, -25, -26.
@@ -67,20 +66,6 @@ Release: deferred-0.2.16.
 Role: docs-harness. Skill: none. Blocked by: nothing; forms ruled 2026-11-03.
 Writes: `docs/01_architecture_and_philosophy.md`, `docs/02_paths_addressing_metadata.md`, `docs/03_representational_similarity_jrsa.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/09_decoding_and_visual_qc.md`, `docs/10_operation_specifications.md`, `docs/agents.md`, `docs/architecture.md`, `docs/coherence_and_tfr.md`, `docs/common_mistakes.md`, `docs/documentation_form.md`, `docs/errors.md`, `docs/execution.md`, `docs/glossary.md`, `docs/index.md`, `docs/install.md`, `docs/laminar.md`, `docs/quickstart.md`, `docs/reading_nwb.md`, `docs/recipes.md`, `docs/references.md`, `docs/repairing_nwb.md`, `docs/unit_quality_example.md`, `docs/vis.md`, `docs/writing_nwb.md`, `scripts/docs_form_gate.py`, `tests/test_docs_form_gate.py`.
 - 17-78: the heading, H2-operation and repeated-row forms landed as F10 to F12. Left: `## References` (03, 07, 08, `coherence_and_tfr` carry it; 06, `reading_nwb`, `common_mistakes`, `laminar` cite without it; 04 carries it with no citation); the micrometre form in prose (`um` 6 times in 02 and `laminar`, `$\mu$m` once in 10). Check: F13, a page that cites a source ends with `## References` and a page that cites none has none; F14, prose writes `micrometers`, identifiers in code spans unchanged; a planted page fails each; the gate passes.
-
-### 17-121 unit_census_report on a file with no units table
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing; the integrity checks' `KeyError` waits on Hamm (P-216-05).
-Writes: `jnwb/metadata.py`, `tests/test_metadata.py`.
-- 17-121: from P-216-05 (hnxj/jnwb#39). `unit_census_report` on a file with no `/units` raises `ValueError: Cannot describe a DataFrame without columns` inside pandas. Check: it returns its usual report shape with zero units and empty tables; a test writes a file with no units and reads that report.
-
-### 17-122 The signal-class sentinel does not pickle
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
-Writes: `jnwb/_units.py`, `jnwb/connectivity/_network.py`, `tests/test_signal_class.py`.
-- 17-122: from P-216-36. `_units._OMITTED` does not pickle, so `directed_network` forwards `signal_class` to workers only when the caller gave one. Check: the sentinel round-trips through `pickle` as the same object; `directed_network(..., n_jobs=2)` with the class omitted warns as `n_jobs=1` does and returns identical numbers.
 
 ### 17-124 quality_metrics drops a spike on a window's closing edge
 
