@@ -40,6 +40,7 @@ import urllib.request
 import zipfile
 import tarfile
 import time
+import tomllib
 import subprocess
 import logging
 import re
@@ -1575,6 +1576,34 @@ def peak_memory_record_violation(root: pathlib.Path, rev: str = "HEAD") -> Optio
     return None
 
 
+#: The figure registry; each entry names the jnwb version its figure was rendered with.
+FIGURE_REGISTRY_PATH = "scripts/figures/figure_registry.toml"
+
+
+def figure_registry_violation(root: pathlib.Path, rev: str = "HEAD") -> Optional[str]:
+    """Why the figures committed at ``rev`` were not rendered by the version ``rev`` declares, or
+    ``None``. Between releases an entry keeps the version that rendered it; a release regenerates
+    every figure, so each entry names the released version."""
+    registry, init = _text_at(root, rev, FIGURE_REGISTRY_PATH), _text_at(root, rev, VERSION_PATH)
+    declared = _VERSION_RE.search(init) if init is not None else None
+    if declared is None:
+        return (f"{VERSION_PATH} declares no __version__ at {rev}, so whether the figures in "
+                f"{FIGURE_REGISTRY_PATH} are this version's is unknown")
+    try:
+        entries = tomllib.loads(registry) if registry is not None else {}
+    except tomllib.TOMLDecodeError:
+        entries = {}
+    if not entries:
+        return f"{FIGURE_REGISTRY_PATH} is missing, unreadable or empty at {rev}"
+    stale = sorted(name for name, entry in entries.items()
+                   if entry.get("jnwb_version") != declared.group(1))
+    if stale:
+        return (f"{len(stale)} figure(s) in {FIGURE_REGISTRY_PATH} were rendered by another jnwb than "
+                f"{declared.group(1)}: {', '.join(stale[:8])}" + (" ..." if len(stale) > 8 else "")
+                + "; run `python scripts/figures/generate_figures.py --write-registry` and commit it")
+    return None
+
+
 #: An operation's added MiB may grow by more than this fraction of the previous release's value, and
 #: by at least the floor, only with a reason in the declared version's CHANGELOG.md section.
 PEAK_MEMORY_GROWTH_FRACTION = 0.20
@@ -1975,6 +2004,9 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
         violations.append(stale_record)
     else:
         violations.extend(peak_memory_growth_violations(root))
+    stale_figures = figure_registry_violation(root)
+    if stale_figures:
+        violations.append(stale_figures)
 
     # 5. every changelog fragment has been assembled into CHANGELOG.md
     leftover = unassembled_fragments(root)
