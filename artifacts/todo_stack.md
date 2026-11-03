@@ -29,19 +29,19 @@ and an item that shares a file with another lane names it in Blocked by.
 
 | Lane | Items, in order | Files |
 |---|---|---|
-| A | 17-84, then 17-93 after 17-78 merges | `jnwb/analyzers.py`, `scripts/build_fact_graph.py` and the files of 17-93 |
+| A | 17-84, 17-93 | `jnwb/analyzers.py`, `scripts/build_fact_graph.py` and the files of 17-93 |
 | C | 17-108, 17-110, 17-111 | `jnwb/nwb_events.py`, `jnwb/nwb_inspect.py`, `jnwb/spiking.py`, `jnwb/statistics/_*.py` |
-| D | 17-89, 17-90, 17-105, 17-114 | the named tests, `scripts/gates/`, `scripts/docs_form_gate.py` |
-| E | 17-91, then 17-78 after 17-90 merges | `docs/*.md`, `README.md`, `skills/jnwb/SKILL.md`, `skills/jnwb-population/SKILL.md`; the connectivity skill, and `scripts/docs_form_gate.py` after 17-90 |
-| G | 17-115, 17-116, 17-117, 17-80, 17-81, 17-82 | `scripts/push_guard.py`, `scripts/jnwb_*.sh`, `scripts/verify_lane.py`, `scripts/bump_version.py`, `scripts/release_gate.py` |
+| E | 17-91, 17-78 (remainders) | `skills/jnwb/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-connectivity/SKILL.md`, `docs/*.md`, `scripts/docs_form_gate.py` |
+| G | 17-80, 17-116 (remainder) | `scripts/bump_version.py`, `scripts/version_surfaces.py`, `artifacts/skills/jnwb-fact-action/SKILL.md` |
 | F | 17-92 | `artifacts/evidence/` |
 | H | 17-112, 17-113 | `jnwb/nwb_validate.py`, `jnwb/metadata.py` |
 
-- Batches: A, B, C (run 2026-11-02; B closed, A and C hold ruled remainders); then D, E, G; then F,
-  H and 17-93. The integrator does 17-76.
-- Waiting on Hamm: 17-75, 17-77, 17-84, 17-108, 17-110, 17-111; skill lines in 17-91 and 17-116;
-  open rows P-216-01, -05 to -08, -15, -17 to -20, -22, -24, -32, -34. Open rows with no item yet:
-  P-216-16, -21, -25, -26, -35 to -37.
+- Batches: A, B, C (run 2026-11-02; B closed, A and C hold ruled remainders); D, E, G (run 2026-11-03;
+  D closed, E and G hold remainders that wait on rulings); then F, H and 17-93. The integrator does
+  17-76.
+- Waiting on Hamm: 17-75, 17-77, 17-78, 17-80, 17-84, 17-108, 17-110, 17-111; skill lines in 17-91 and
+  17-116; open rows P-216-01, -05 to -08, -15, -17 to -20, -22, -24, -32, -34, -39, -41, -42. Open rows
+  with no item yet: P-216-16, -21, -25, -26, -35 to -37, -40.
 - Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (plan only);
   approved, a 0.2.16 item changes `workflow.yml`.
 
@@ -69,30 +69,16 @@ Writes: `artifacts/fact_stack.md`, `artifacts/rulings/standing.md`.
 ### 17-78 Doc form across pages
 
 Release: deferred-0.2.16.
-Role: docs-harness. Skill: none. Blocked by: 17-90 (shares `scripts/docs_form_gate.py`); `skills/` lines need Hamm's word.
+Role: docs-harness. Skill: none. Blocked by: Hamm's word on each form below; shares `docs/*.md` with 17-93.
 Writes: `docs/*.md`, `skills/jnwb/SKILL.md`, `scripts/docs_form_gate.py`.
-- 17-78: the 2026-10-31 agy sweep found form drift that blocks nothing (lane D1 fixed the wrong statements): numbered pages 02, 05, 06, 09, 10 end without the `## References` the others carry; page 08 raises operations to H2; `reading_nwb.md` and `coherence_and_tfr.md` number their headings, other concept pages do not; `um`, `µm` and `$\mu$m` all occur; `skills/jnwb/SKILL.md` adds a section 3 the other skills lack; `writing_nwb.md` repeats two refusal rows in three tables. Check: `scripts/docs_form_gate.py` gains one rule per listed form and passes.
+- 17-78: the heading, H2-operation and repeated-row forms landed as F10 to F12 (batch 2). Left, each a tie or a choice: `## References` (03, 07, 08, `coherence_and_tfr` carry it; 06, `reading_nwb`, `common_mistakes`, `laminar` cite without it; 04 carries it with no citation); the micrometre form in prose (`um` 6 times in 02 and `laminar`, `$\mu$m` once in 10; F5 lists the word `micrometers`); `skills/jnwb/SKILL.md` section 3. Check: per the ruling, one F-rule each in `scripts/docs_form_gate.py`, and the gate passes.
 
 ### 17-80 The version bump leaves the figure registry behind
 
 Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/bump_version.py`, `scripts/version_surfaces.py`, `tests/test_bump_version.py`.
-- 17-80: twice (0.2.14 in 56d021c3, 0.2.15 in 1b55385b) the suite failed after `bump_version.py` because `scripts/figures/figure_registry.toml` still recorded the old `jnwb_version` in 35 entries. Check: `tests/test_bump_version.py` bumps a copy and asserts every registry entry carries the new version.
-
-### 17-81 A transient network error fails the dashboard browser test
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `tests/test_dashboard_page.py`.
-- 17-81: the full suite at 13253019 failed `test_every_route_renders_in_light_and_dark_without_errors` once on `net::ERR_NO_BUFFER_SPACE` loading `assets/fig12_coherence_zero_lag.png` (1 failed, 10605 passed); the file alone passed 16 of 16 and the full rerun passed 10606. Check: a transient `net::ERR_*` load is retried once, and a test with a missing asset still fails on its 404.
-
-### 17-82 The release gate cannot pass with no skip in one run
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/release_gate.py`, `tests/test_release_version_is_unpublished.py`, `tests/test_release_body_gate.py`.
-- 17-82: before the tag run, step 0d (release body) skips because the workflow creates the release only after PyPI; after it, step 0b fails (`version 0.2.15 is already on the index`, 2026-11-02 at `5822c3e9`). In a `git clone --shared` step 0d also skips: `gh release view` cannot resolve a local-path origin (passed with `GH_REPO=hnxj/jnwb`). Check: a post-publication mode accepts an index version whose files match the tag's build, step 0d names the repository explicitly, and a test runs both modes.
+Role: jnwb-developer. Skill: none. Blocked by: Hamm's word on what the registry's `jnwb_version` means (P-216-42).
+Writes: `scripts/bump_version.py`, `scripts/version_surfaces.py`, `tests/test_bump_version.py`, `tests/test_figure_registry_current.py`.
+- 17-80: twice (0.2.14 in 56d021c3, 0.2.15 in 1b55385b) the suite failed after `bump_version.py` because `scripts/figures/figure_registry.toml` still recorded the old `jnwb_version` in 35 entries; the generator writes the version of the run that rendered each figure. Check: per the ruling, either the bump rewrites the registry (a test bumps a copy and reads the new version in every entry) or the currency test accepts a rendered version at most the live one with an unchanged `code_sha256`.
 
 ### 17-84 The rng scan does not follow calls into a drawing callee
 
@@ -101,26 +87,12 @@ Role: jnwb-developer. Skill: none. Blocked by: `PopulationAnalyzer.compare_crite
 Writes: `scripts/build_fact_graph.py`, `tests/test_rng_parameters_by_use.py`, `jnwb/analyzers.py`.
 - 17-84: `rng_scan` credits a caller with its callee's rng key, so `psth` before batch 1 (no `rng` passed to `bootstrap_ci`) was no finding. A call-site rule (flag a call to a drawing jnwb function that passes no `rng`, `seed`, `random_state` or `random_seed`) flagged on the live package: `compare_criteria` -> `exploratory_compare` (true), `granger_spectral` and `granger_time_reversed` -> `granger` with `n_surrogates=0` (no draw), `_net_surrogate_p` (generator named `surrogate_rng`). Check: the rule reads generator parameters by suffix or annotation and skips calls whose count argument is a literal 0; a planted caller without rng is flagged, the two false cases are not.
 
-### 17-89 Tests that cannot fail
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `tests/test_jnwb_core.py`, `tests/test_docs_smoke.py`, `tests/test_api_consistency.py`.
-- 17-89: `test_jnwb_core.py:81-83` asserts `bootstrap_ci` only `if` the key is present; its `extract_band` tests (`:102,112,121,285`) assert non-None or shape only; `test_docs_smoke.py:80,182,188,199,204,297,301` and `test_api_consistency.py:245` assert `is not None` on always-set attributes. Check: each assertion names a value, and a mutant of the function under test turns each red.
-
-### 17-90 Two doc gates miss files they claim to cover
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/gates/docs.py`, `scripts/docs_form_gate.py`, `tests/test_docs_form_gate.py`.
-- 17-90: gate 18's `expected_scripts` (`scripts/gates/docs.py:301-311`) lists tutorials 00 to 08; `09_open_data.py` and `10_wavemap.py` exist and go unchecked. The F5/F8 corpus (`docs_form_gate.py:219-220`) reads `examples/tutorials/*.py` only, so `examples/quickstart_jnwb.py:6` ("Six primitives") passes. Check: the gate derives its list from the folder, and a planted "primitives" in the quickstart fails.
-
 ### 17-91 Wrong or internal statements on the public surface
 
 Release: deferred-0.2.16.
 Role: docs-harness. Skill: none. Blocked by: skill lines need Hamm's word.
-Writes: `README.md`, `docs/quickstart.md`, `docs/agents.md`, `docs/documentation_form.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-connectivity/SKILL.md`.
-- 17-91: `CHANGELOG.md:21` lists "Distance-binned coherence normalization" under Added, but no function exists (`docs/common_mistakes.md:447`: the normalization is the caller's); `skills/jnwb-population/SKILL.md:23-24` omit `label=`, added in 0.2.15; `README.md:200` links `artifacts/agents.md`; `docs/quickstart.md:5` cites the `dev` branch; `docs/agents.md:15` lists `AGENTS.md`; `documentation_form.md:23` says 37 nav pages, `mkdocs.yml` has 39; the integrator corrects the CHANGELOG line. Check: each line corrected, `test_skills_validation.py` and gate 14 pass.
+Writes: `skills/jnwb-population/SKILL.md`, `skills/jnwb-connectivity/SKILL.md`.
+- 17-91: the README, quickstart, agents-page, documentation-form and CHANGELOG lines landed in batch 2. Left: `skills/jnwb-population/SKILL.md:23-24` omit `label=`, added in 0.2.15. Check: the lines name `label=`, and `test_skills_validation.py` and gate 14 pass.
 
 ### 17-92 Closed evidence that nothing cites
 
@@ -132,16 +104,9 @@ Writes: `artifacts/evidence/0.2.13/*`, `artifacts/evidence/0.2.14/*`, `artifacts
 ### 17-93 Deprecated surfaces past their removal date
 
 Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: 17-78 (shared files; ruled 2026-11-02, `granger_causality` stays, P-216-07).
+Role: jnwb-developer. Skill: none. Blocked by: nothing (ruled 2026-11-02, `granger_causality` stays, P-216-07); shares `docs/*.md` with 17-78, whose remainder waits on Hamm.
 Writes: `jnwb/analyzers.py`, `jnwb/_dictlike.py`, `jnwb/spectral/__init__.py`, `jnwb/connectivity/__init__.py`, `jnwb/connectivity/_information.py`, `jnwb/statistics/_analysis.py`, `jnwb/_declarations.py`, `artifacts/process/frozen_validated.json`, `skills/jnwb-statistics/SKILL.md`, `skills/jnwb-connectivity/SKILL.md`, `docs/architecture.md`, `docs/references.md`, `tests/test_analyzers_coverage.py`, `tests/test_connectivity.py`, `tests/test_deprecated_aliases.py`, `tests/test_dict_access_shim.py`, `tests/test_nonfinite_inputs.py`, `tests/test_public_api_reachability.py`, `tests/test_skills_validation.py`, `tests/test_statistics.py`, `tests/test_substitution_class_sweep.py`, `tests/test_unit_suffixed_parameters.py`.
 - 17-93: `analyzers.py:211` says the renamed `n_significant` keys "are removed in the next release" (added 2026-09-26, 8 releases ago); `RenamedKeyDict` (`_dictlike.py`; used by `analyzers.py:232`, re-imported by `spectral/__init__.py:18`) stays for them; `granger_causality`, `clopper_pearson_ci` and both MI aliases are deprecated and still extended. Check: the keys, `RenamedKeyDict`, `clopper_pearson_ci` and the two MI aliases are removed with one Breaking entry; `docs/api.md` and the skill rows lose them; `granger_causality` is unchanged.
-
-### 17-105 The stack gate passes an integrator-owned write set
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/gates/stacks_closure.py`, `tests/test_generation_closure_is_declared.py`.
-- 17-105: `docs/api.md` went into a todo Writes field three times (2026-10-11, 2026-10-27, 2026-11-02); harness gate 17 passed each and only `tests/test_generation_closure_is_declared.py` caught it, after a suite. The stack rules make `CHANGELOG.md` integrator-owned too. Check: gate 17's STACK_FORM rejects either path in Writes, and a planted item fails it.
 
 ### 17-108 cross_modal_comparison at n_permutations=0
 
@@ -178,33 +143,12 @@ Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
 Writes: `jnwb/metadata.py`, `tests/test_metadata.py`.
 - 17-113: from P-216-04 (hnxj/jnwb#38). The `group` column holds `probeA pynwb.ecephys.ElectrodeGroup at 0x...`. Check: the issue's repro gives `probeA`, and no cell of the inventory contains ` at 0x`.
 
-### 17-114 The log-last gate passes on an empty set
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: whether zero declarations fails is Hamm's (P-216-09); the count needs no ruling.
-Writes: `scripts/gates/boundary.py`, `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`.
-- 17-114: from P-216-09. No module of `jnwb/` declares `estimand: raw_power`, so `check_logarithm_last_in_package` (`boundary.py:481-497`) examines nothing and the pass line names no count. Check: the pass line prints the number of declared estimands examined, and a planted declaration that logs before its mean fails.
-
-### 17-115 push_guard misses copies and chained pushes
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/push_guard.py`, `tests/test_push_guard.py`.
-- 17-115: from P-216-13. The guard matches only a path component `jnwb` (`push_guard.py:37`), so a plain push from `_temp_integ` passes, and any command containing `jnwb_push.sh` passes whole (`:33-34`), e.g. `bash jnwb_push.sh ...; git push origin dev`. Check: tests expect deny for a jnwb clone under another name and for the chained command.
-
 ### 17-116 The seal order the wrappers enforce
 
 Release: deferred-0.2.16.
 Role: jnwb-developer. Skill: none. Blocked by: the skill line needs Hamm's word.
-Writes: `artifacts/skills/jnwb-fact-action/SKILL.md`, `scripts/jnwb_suite.sh`.
-- 17-116: from P-216-14. The skill seals with gates, commit, push (`SKILL.md:56-60`), but `jnwb_suite.sh` stamps only a clean tracked tree (`:30-33`), so the suite runs after the commit; the suite takes no machine lock (`artifacts/memory.md:7`). Check: the skill reads commit, suite, push; `jnwb_suite.sh` runs pytest through the suite lock when it exists and says so when it does not.
-
-### 17-117 Flow steps with no performer
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: 17-115 (shares the lane); the `artifacts/`-only exemption is Hamm's (P-216-22).
-Writes: `scripts/verify_lane.py`, `scripts/jnwb_push.sh`, `tests/test_lane_verifies_its_own_baseline.py`.
-- 17-117: from P-216-22. Prepare regenerates `state.md` "if `--check` fails" but nothing runs it (`AGENTS.md:51`, `verify_lane.py`); no step compares a lane's diff with its item's Writes. Check: `verify_lane.py` runs `reconstruct_state.py --check` and regenerates on failure; `jnwb_push.sh` refuses a diff outside the named Writes when given an item id; a test plants each case.
+Writes: `artifacts/skills/jnwb-fact-action/SKILL.md`.
+- 17-116: from P-216-14. The skill seals with gates, commit, push (`SKILL.md:56-60`), but `jnwb_suite.sh` stamps only a clean tracked tree, so the suite runs after the commit; the suite lock landed in batch 2. Check: the skill reads commit, suite, push.
 
 # 0.2.17
 

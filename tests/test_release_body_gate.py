@@ -500,7 +500,7 @@ class TestRepositoryForTheLiveCheck:
             "https://gitlab.com/HNXJ/jnwb.git",
             "git@github.com.example:HNXJ/jnwb.git",
             "https://github.com/HNXJ",
-            "C:/workspace/jnwb",
+            "D:/clones/project",
         ],
     )
     def test_other_remotes_name_no_repository(self, remote: str) -> None:

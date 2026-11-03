@@ -18,7 +18,7 @@ Releases 0.2.10, 0.2.9, 0.2.8, 0.2.7, 0.2.6.1, 0.2.6, 0.2.5, 0.2.4, 0.1.8 and 0.
 ### Added
 
 - `jnwb/analyzers.py`, `jnwb/trajectory.py`: `label="right"` labels a bin (t - w, t] at t.
-- Distance-binned coherence normalization (`docs/common_mistakes.md` 13, `tests/test_connectivity_pitfalls.py`).
+- `docs/common_mistakes.md` 13: distance-binned coherence normalization is the caller's; no function computes it.
 - `jnwb.edges_near_events` (`jnwb/nwb_events.py`): nearest rising and falling edge to each event, with lags.
 - `effective_rate`: exact-repeat fraction, repeat runs and power above rate/4 of a stream (`jnwb/continuous.py`).
 - `gaze_departure_onsets`: per-trial gaze departure from a percentile envelope (`jnwb/continuous.py`).
