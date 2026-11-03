@@ -319,6 +319,43 @@ def test_directed_network_passes_the_class_to_each_pairwise_estimator():
     assert out["matrix"].shape == (3, 3)
 
 
+def test_directed_network_forwards_the_omitted_sentinel_to_each_pair(monkeypatch):
+    """Each pair's job carries the sentinel when the caller omitted the class, so a worker
+    process gets the same argument the serial path does."""
+    from jnwb import _units
+
+    jobs = []
+
+    def record(fn, items, n_jobs=1, **kwargs):
+        jobs.extend(kw for _, kw in items)
+        return [fn(item) for item in items]
+
+    monkeypatch.setattr(_network, "parallel_map", record)
+    _call(jnwb.directed_network, _network_signals(), method="granger", order=2, fdr=False,
+          n_jobs=2)
+    assert len(jobs) == 3, "fixture must give three pairs"
+    assert all(kw.get("signal_class") is _units._OMITTED for kw in jobs), jobs
+
+
+def test_directed_network_two_workers_with_the_class_omitted_keep_the_matrix_and_the_warning():
+    signals = _network_signals()
+    serial, serial_future = _call(jnwb.directed_network, signals, method="granger", order=2,
+                                  fdr=False, n_jobs=1)
+    parallel, future = _call(jnwb.directed_network, signals, method="granger", order=2, fdr=False,
+                             n_jobs=2)
+    assert [m.split(":")[0] for m in serial_future] == ["directed_network"], serial_future
+    assert future == serial_future, (future, serial_future)
+    np.testing.assert_array_equal(parallel["matrix"], serial["matrix"])
+
+
+def test_the_omitted_sentinel_pickles_as_the_module_singleton():
+    import pickle
+
+    from jnwb import _units
+
+    assert pickle.loads(pickle.dumps(_units._OMITTED)) is _units._OMITTED
+
+
 # ---------------------------------------------------------------- imaginary_coherency
 
 

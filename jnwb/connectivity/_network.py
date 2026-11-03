@@ -232,18 +232,25 @@ def directed_network(
     base = {k: v for k, v in kwargs.items() if k not in ("rng", "seed")}
     pair_kwargs = []
     for (i, j), s in zip(pairs, pair_seeds):
-        kw = {**base, "rng": s}
-        if signal_class is not _OMITTED:
-            # Not forwarded when omitted: the sentinel is not pickled into a worker process.
-            kw["signal_class"] = signal_class
+        kw = {**base, "rng": s, "signal_class": signal_class}
         if conditional:
             others = [series[k] for k in range(n) if k not in (i, j)]
             kw["Z"] = others or None
         pair_kwargs.append(kw)
+    def run_pair(job):
+        with warnings.catch_warnings():
+            if signal_class is _OMITTED:
+                # directed_network warned once above; each pair's estimator would warn again,
+                # in the parent at n_jobs=1 and unseen in a worker otherwise.
+                warnings.filterwarnings(
+                    "ignore", message=r"\w+: pass signal_class=", category=FutureWarning
+                )
+            return directed_connectivity(
+                series[job[0][0]], series[job[0][1]], method=method, **job[1]
+            )
+
     pair_results = parallel_map(
-        lambda job: directed_connectivity(
-            series[job[0][0]], series[job[0][1]], method=method, **job[1]
-        ),
+        run_pair,
         list(zip(pairs, pair_kwargs)),
         n_jobs=n_jobs,
     )
