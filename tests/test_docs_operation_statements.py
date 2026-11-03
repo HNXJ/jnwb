@@ -337,6 +337,9 @@ def _rng_probes():
         "shuffle_r2_ci": lambda r: jnwb.shuffle_r2_ci(a, a + b, n_shuffle=10, rng=r),
         "transfer_entropy": lambda r: jnwb.transfer_entropy(t1[:300], t2[:300], n_surrogates=5,
                                                             rng=r),
+        "UnitAnalyzer.psth": lambda r: jnwb.UnitAnalyzer.psth(
+            np.sort(g.uniform(0.0, 12.0, 300)), np.arange(1.0, 11.0), 10, window_ms=(-100, 200),
+            rng=r),
         "xflip": lambda r: jnwb.xflip(x6, n_surrogates=5, rng=r),
         "zflip": lambda r: jnwb.zflip(z4, 1000.0, orientation="superficial_to_deep",
                                       n_surrogates=5, rng=r),
