@@ -1,0 +1,1 @@
+- `UnitAnalyzer.psth` takes `rng` for its bootstrap interval; a bare call is unchanged (`jnwb/analyzers.py`).

@@ -9,7 +9,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import numpy as np
+
 import jnwb
+from jnwb._rng import DEFAULT_SEED
+from jnwb.analyzers import UnitAnalyzer
 
 PACKAGE = Path(jnwb.__file__).resolve().parent
 
@@ -138,3 +142,38 @@ def test_the_fixture_options_seed_is_annotated_as_the_resolver_accepts():
     from jnwb.testing.nwb_fixtures import SynthNWBBuildOptions
 
     assert SynthNWBBuildOptions.__annotations__["seed"] == "RNGLike"
+
+
+# ------------------------------------------------- psth: the rng its bootstrap interval draws on
+
+
+def _psth_fixture():
+    """Spikes and trial onsets from a fixed generator: 40 trials, so the interval varies."""
+    gen = np.random.default_rng(7)
+    onsets = np.sort(gen.uniform(0.0, 50.0, 40))
+    spikes = np.sort(gen.uniform(0.0, 60.0, 900))
+    return spikes, onsets
+
+
+def test_a_bare_psth_call_keeps_the_interval_it_always_gave():
+    spikes, onsets = _psth_fixture()
+    bare = UnitAnalyzer.psth(spikes, onsets, 10, window_ms=(-100, 200))
+    seeded = UnitAnalyzer.psth(spikes, onsets, 10, window_ms=(-100, 200), rng=DEFAULT_SEED)
+    assert bare["bootstrap_ci"]["surrogate_seed_entropy"] == DEFAULT_SEED, (
+        "the bare call must draw the default seed")
+    np.testing.assert_array_equal(bare["bootstrap_ci"]["bootstrap_ci"],
+                                  seeded["bootstrap_ci"]["bootstrap_ci"])
+    np.testing.assert_allclose(bare["bootstrap_ci"]["bootstrap_ci"],
+                               (13.833333333333334, 18.083333333333332), rtol=1e-12)
+
+
+def test_two_seeds_give_two_intervals_and_no_rng_gives_fresh_entropy():
+    spikes, onsets = _psth_fixture()
+    first, second = (UnitAnalyzer.psth(spikes, onsets, 10, window_ms=(-100, 200), rng=seed)
+                     for seed in (1, 2))
+    assert not np.array_equal(first["bootstrap_ci"]["bootstrap_ci"],
+                              second["bootstrap_ci"]["bootstrap_ci"]), (
+        "two seeds must give two intervals")
+    fresh = [UnitAnalyzer.psth(spikes, onsets, 10, window_ms=(-100, 200), rng=None)
+             ["bootstrap_ci"]["surrogate_seed_entropy"] for _ in range(2)]
+    assert fresh[0] != fresh[1], "rng=None must draw fresh entropy on each call"

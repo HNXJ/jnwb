@@ -18,6 +18,7 @@ from ._bins import (bin_edges, bins_within, check_bin_label, onset_locked_counts
                     onset_locked_counts_right,
                     onset_window, refuse_nonfinite_times, whole_bin_count)
 from ._dictlike import RenamedKeyDict
+from ._rng import DEFAULT_SEED, RNGLike
 from .trajectory import _kept_components
 import pandas as pd
 from scipy import stats
@@ -362,7 +363,8 @@ class UnitAnalyzer:
     def psth(spike_times: np.ndarray, trial_onsets: np.ndarray,
              bin_size_ms: float = 10, *,
              window_ms: Tuple[float, float],
-             label: Literal["center", "right"] = "center") -> Dict:
+             label: Literal["center", "right"] = "center",
+             rng: RNGLike = DEFAULT_SEED) -> Dict:
         """
         Peristimulus time histogram with bootstrap CI.
 
@@ -383,6 +385,9 @@ class UnitAnalyzer:
             label: ``"center"`` labels each bin at its midpoint. ``"right"`` counts a spike in
                 (t - bin, t] and labels that bin at t, so a spike on the onset lands in the bin
                 labelled 0.
+            rng: An int seed, a ``numpy.random.Generator``, or ``None`` for fresh OS entropy,
+                for the bootstrap interval. The default is the seed the interval always used,
+                so a call without ``rng`` returns the same interval as before.
 
         Returns:
             Dict with PSTH, CI, statistics, and ``label``, the convention used.
@@ -428,7 +433,8 @@ class UnitAnalyzer:
             'label':         label,
             'bin_size_ms':   bin_size_ms,
             'n_trials':      len(trial_onsets),
-            'bootstrap_ci':  StatisticalAnalysis.bootstrap_ci(np.mean(trial_psths, axis=1)),
+            'bootstrap_ci':  StatisticalAnalysis.bootstrap_ci(np.mean(trial_psths, axis=1),
+                                                             rng=rng),
         }
 
     @staticmethod
