@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 import numpy as np
-from .._bins import refuse_nonfinite_times
+from .._bins import onset_window, refuse_nonfinite_times
 from .._rng import RNGLike, surrogate_rng
 from .._spread import percentile_interval
 from .._units import _REQUIRED, _window_from_positional
@@ -13,10 +13,11 @@ from ._tests import _tie_tolerance
 
 
 def _spike_window_bounds(spike_times, onset_s, window_ms, func_name):
-    """Validate a spike-window query; return ``(spike_times, t0, t1)`` with bounds in seconds.
+    """Validate a spike-window query; return ``(spike_times, start_s, stop_s)``.
 
-    A reversed or zero-width window returned 0 Hz or "did not fire", indistinguishable from a
-    measurement, and ``searchsorted`` silently miscounted unsorted spike times.
+    The bounds are in seconds, relative to the onset, for :func:`onset_window`. A reversed or
+    zero-width window returned 0 Hz or "did not fire", indistinguishable from a measurement, and
+    ``searchsorted`` silently miscounted unsorted spike times.
     """
     if not (np.isfinite(onset_s) and np.all(np.isfinite(window_ms))):
         raise ValueError(f"{func_name}: onset_s={onset_s} and window_ms={window_ms} must be finite")
@@ -27,14 +28,14 @@ def _spike_window_bounds(spike_times, onset_s, window_ms, func_name):
         raise ValueError(f"{func_name}: spike_times must be finite")
     if spike_times.size > 1 and np.any(np.diff(spike_times) < 0):
         raise ValueError(f"{func_name}: spike_times must be sorted ascending")
-    return spike_times, onset_s + window_ms[0] / 1000.0, onset_s + window_ms[1] / 1000.0
+    return spike_times, window_ms[0] / 1000.0, window_ms[1] / 1000.0
 
 
 def fires_in_window(spike_times: np.ndarray, onset_s: float, *_positional,
                     window_ms=_REQUIRED) -> bool:
-    """True iff >=1 spike falls in [onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000).
+    """True iff >=1 spike has ``spike - onset_s`` in ``[window_ms[0]/1000, window_ms[1]/1000)``.
 
-    Pure spike-array/searchsorted arithmetic on an arbitrary onset and window.
+    Selected through :func:`jnwb._bins.onset_window` on an arbitrary onset and window.
     ``spike_times`` must be sorted ascending.
 
     Raises:
@@ -42,9 +43,9 @@ def fires_in_window(spike_times: np.ndarray, onset_s: float, *_positional,
             spike time is not finite, or ``spike_times`` is not sorted.
     """
     window_ms = _window_from_positional("fires_in_window", "window_ms", window_ms, _positional)
-    spike_times, t0, t1 = _spike_window_bounds(spike_times, onset_s, window_ms, "fires_in_window")
-    n = int(np.searchsorted(spike_times, t1, side="left") - np.searchsorted(spike_times, t0, side="left"))
-    return n > 0
+    spike_times, start_s, stop_s = _spike_window_bounds(spike_times, onset_s, window_ms, "fires_in_window")
+    lo, hi = onset_window(spike_times, [float(onset_s)], start_s, stop_s)
+    return bool(hi[0] > lo[0])
 
 
 def fire_indicator(spike_times: np.ndarray, onsets_s: np.ndarray, *_positional,
@@ -132,8 +133,8 @@ def paired_fire_prob_test(
             "surrogate_seed_entropy": seed_entropy,
         }
 
-    ta = t[:n].astype(float)
-    ua = u[:n].astype(float)
+    ta = t.astype(float)
+    ua = u.astype(float)
     diff = ta - ua
     obs = float(np.mean(diff))
     p_target = float(np.mean(ta))
@@ -175,7 +176,7 @@ def paired_fire_prob_test(
 
 def rate_in_window(spike_times: np.ndarray, onset_s: float, *_positional,
                    window_ms: Tuple[float, float] = _REQUIRED) -> float:
-    """Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.
+    """Firing rate (Hz) of spikes with ``spike - onset_s`` in ``[window_ms[0]/1000, window_ms[1]/1000)``.
 
     Rate-valued sibling of ``fires_in_window`` (spike count divided by window width).
     ``spike_times`` must be sorted ascending.
@@ -186,6 +187,7 @@ def rate_in_window(spike_times: np.ndarray, onset_s: float, *_positional,
             indistinguishable from a silent unit; unsorted spike times were miscounted.
     """
     window_ms = _window_from_positional("rate_in_window", "window_ms", window_ms, _positional)
-    spike_times, t0, t1 = _spike_window_bounds(spike_times, onset_s, window_ms, "rate_in_window")
-    n = int(np.searchsorted(spike_times, t1, side="left") - np.searchsorted(spike_times, t0, side="left"))
+    spike_times, start_s, stop_s = _spike_window_bounds(spike_times, onset_s, window_ms, "rate_in_window")
+    lo, hi = onset_window(spike_times, [float(onset_s)], start_s, stop_s)
+    n = int(hi[0] - lo[0])
     return n / ((window_ms[1] - window_ms[0]) / 1000.0)

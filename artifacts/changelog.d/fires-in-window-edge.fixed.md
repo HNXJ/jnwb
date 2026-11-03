@@ -1,0 +1,1 @@
+- `jnwb/statistics/_firing.py`: `fires_in_window` and `rate_in_window` no longer drop a spike on the start edge.
