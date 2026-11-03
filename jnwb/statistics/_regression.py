@@ -334,10 +334,14 @@ def cross_modal_comparison(
     for b in range(int(n_permutations)):
         y_null = np.roll(y, int(gen.integers(1, n_pts)))
         null_max[b] = max(_abs_pearson(*_lag_align(x, y_null, sh)) for sh in shifts)
-    lag_corrected_p = float(
-        (1 + _count_at_least_as_extreme(null_max, best_abs_r, "greater"))
-        / (int(n_permutations) + 1)
-    )
+    # Zero permutations draw no null, so there is no corrected p: NaN, not the floor 1/(0+1).
+    if int(n_permutations) > 0:
+        lag_corrected_p = float(
+            (1 + _count_at_least_as_extreme(null_max, best_abs_r, "greater"))
+            / (int(n_permutations) + 1)
+        )
+    else:
+        lag_corrected_p = float('nan')
 
     # How small a corrected p this configuration can even produce. A circular shift lands a
     # genuine peak back inside the searched window with probability about

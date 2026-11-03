@@ -177,3 +177,7 @@ def test_cross_modal_comparison_names_the_circular_shift_its_null_drew():
     undrawn = jnwb.cross_modal_comparison(tfr, spikes, lag_range_ms=(-50, 50), bin_ms=BIN_MS,
                                           n_permutations=0, rng=3)
     assert undrawn["surrogate_scheme"] is None
+    assert np.isnan(undrawn["lag_corrected_pvalue"]), (
+        "n_permutations=0 draws no null, so there is no corrected p to report; it must be "
+        "NaN, not the floor 1.0 of a null that was never drawn"
+    )
