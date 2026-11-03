@@ -24,14 +24,14 @@ Granger causality, PSI, and TE establish statistical predictability / lag asymme
 
 ---
 
-## 2. Granger Causality & Spectral Granger (`granger`, `granger_spectral`)
+## 2. Granger Causality & Spectral Granger (`jnwb.connectivity`)
 
 > **Deprecation:** `granger_causality` (dict return type) is deprecated in 0.1.7. Use
 > `jnwb.granger`, which returns `DirectedResult`.
 
 Every directed estimator returns a `DirectedResult` with `x_to_y`, `y_to_x`, `net`, and optional `p_x_to_y` / `p_y_to_x` / `p_net` fields (not `statistic` / `pvalue`).
 
-### Bivariate time-domain Granger
+### Bivariate time-domain Granger (`granger`)
 
 ```python
 import numpy as np
@@ -99,7 +99,9 @@ The figure is synthetic: X is an AR(2) process resonating at 22 Hz, and Y carrie
 
 ---
 
-## 3. Phase Slope Index (`phase_slope_index`)
+## 3. Phase Slope Index (`jnwb.connectivity`)
+
+### Phase slope index (`phase_slope_index`)
 
 PSI estimates lag asymmetry from the slope of cross-spectral phase across frequency bins. Positive `net` (and `x_to_y` for PSI) indicates X leads Y under the PSI convention.
 
@@ -142,7 +144,9 @@ The figure is synthetic: one seeded pair of 2000 samples at 1 kHz, with Y equal 
 
 ---
 
-## 4. Transfer Entropy (`transfer_entropy`)
+## 4. Transfer Entropy (`jnwb.connectivity`)
+
+### Transfer entropy (`transfer_entropy`)
 
 Information-theoretic directed coupling with explicit discretization strategy:
 
@@ -182,7 +186,9 @@ rejected.
 
 ---
 
-## 5. Spike Mutual Information (`spike_mutual_information`)
+## 5. Spike Mutual Information (`jnwb.connectivity`)
+
+### Spike mutual information (`spike_mutual_information`)
 
 ```python
 spike_times1 = np.array([0.01, 0.05, 0.12, 0.2])

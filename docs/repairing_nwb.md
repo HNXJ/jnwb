@@ -4,7 +4,7 @@ A file that opens is not a file that is correct. This page covers defects in mul
 spike-sorted NWB files that a read does not show, how to detect each, and what to check before
 and after a repair.
 
-## Ragged index offset
+## 1. Ragged index offset
 
 A ragged column such as `spike_times` or `waveform_mean` is a flat data array plus
 `<column>_index`, whose entry `i` is the exclusive end offset of row `i`; row 0 starts at 0
@@ -13,7 +13,7 @@ first-axis length of the data, and its dtype holds that length. An empty index o
 data is a valid empty table.
 
 The defect comes from a writer that appends each probe after the first, offsetting
-its index by the first element of the existing index, not its last (the running
+its index by the existing index's first element, not its last (the running
 total). The flat data are complete; only the index is wrong, so rows of later
 probes slice into earlier probes' data.
 
@@ -60,7 +60,7 @@ verified file. `in_place=True` with a `backup_path` replaces the input instead, 
 verified copy and an atomic `os.replace`; the backup holds the old index. A new `output_path` is
 claimed exclusively just before the move; a file that appears there meanwhile is refused. A
 dry run writes nothing and ignores `backup_path`. A failure at any step
-leaves the input byte-identical, so a file wrong in another way stays unchanged and reported.
+leaves the input byte-identical, so a file wrong in another way is reported.
 
 **Also check:** a ragged column whose data and `_index` exist but whose name is missing from the
 table's `colnames` attribute is hidden by pynwb (`units["spike_times"]` raises `KeyError`).
@@ -71,7 +71,7 @@ dense spiking, or a waveform table with one row per channel per unit, can exceed
 that wraps silently produces a decreasing index. `length_fits` and `monotonic` catch both; the
 fix is rewriting the file with a wider integer type, not editing the index.
 
-## Waveform block ownership
+## 2. Waveform block ownership
 
 A unit's `waveform_mean` block is sliced by `waveform_mean_index`, or, with no index, is
 `waveform_mean[unit]`, shape `(units, samples, channels)`. Nothing ties the block to the
@@ -100,7 +100,7 @@ When the median ratio of amplitude to largest block peak-to-peak, over units wit
 amplitude and a finite, nonflat block, is 1000 or more, or 1/1000 or less, the check raises
 `ValueError` for a unit mismatch (microvolts against volts, say) and judges no unit.
 
-## Units schema across sessions
+## 3. Units schema across sessions
 
 Pooling units from several files needs the same columns, dtypes and index layout.
 Compare each file's column set and `<column>_index` dtype with
@@ -108,13 +108,13 @@ Compare each file's column set and `<column>_index` dtype with
 plain in another, or an index stored as `int32` in one and `int64` in another, is a schema
 difference a per-file read does not show.
 
-## Continuous data dtype
+## 4. Continuous data dtype
 
 `float64` takes twice the bytes of `float32`. `jnwb.compress_fp32(src, select=[...])` casts
 exactly the named datasets and verifies the result. A cast is irreversible and changes
 `data_dtype` in `jnwb.inspect`; record it with the file.
 
-## Validate the result
+## 5. Validate the result
 
 One call runs every layer and says whether the file is ready for DANDI:
 
@@ -141,7 +141,7 @@ report.dandi_ready   # read, both pynwb schema layers and the dandi layer ran an
 
 A skipped layer is never a pass: `dandi_ready` is False unless the `dandi` layer ran.
 
-## Keep repaired outputs frozen
+## 6. Keep repaired outputs frozen
 
 After a repair, mark the file read-only and record a manifest: path, size, SHA-256, the check
 report, tool versions and the original file. A later job verifies by hash instead of

@@ -75,8 +75,8 @@ changes values other than a declared `cast`. The source is never modified.
 | a cast naming an `*_index` dataset, a cast of an integer or boolean dataset to a narrower or non-floating dtype, or a cast of a float dataset to a non-floating dtype | `TypeError` | nothing written |
 | dropping a dataset another kept object references or links to | `NWBMutationError` naming the referrer | nothing written |
 | the copy failing schema validation | `NWBMutationError` | nothing written |
-| `dst` exists and `overwrite` is False | `FileExistsError` | nothing written |
-| a post-write check failing with `verify=True` | `NWBVerificationError` | the file is left in place |
+
+The `dst` refusal and the post-write refusal are those of `write_nwb` above.
 
 ## Making read repairs persistent
 
@@ -106,7 +106,7 @@ therefore refuse a file the read accepts.
 | a name not in `REPAIRS` | `ValueError` | nothing written |
 | a named repair whose precondition does not hold, or that would change nothing | `UnidentifiableRepairError` | nothing written |
 | a missing `session_description` | `MissingRequiredNWBFieldError` | nothing written |
-| `dst` exists and `overwrite` is False | `FileExistsError` | nothing written |
-| a post-write check failing with `verify=True` | `NWBVerificationError` | the file is left in place |
+
+The `dst` refusal and the post-write refusal are those of `write_nwb` above.
 
 A container-type contradiction is reported in the report's `issues`, never rewritten.

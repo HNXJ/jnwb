@@ -4,7 +4,7 @@ jnwb is a Python toolbox for analyzing Neurodata Without Borders (NWB) datasets,
 called directly by researchers and composed by AI agents. This page covers the two entry paths,
 the package boundary, the scientific invariants every operation keeps, and the module map.
 
-## Two entry paths
+## 1. Two entry paths
 
 Researchers and agents reach the same operations by parallel paths, and both end in the same
 verification:
@@ -22,7 +22,7 @@ A researcher never passes through the agent layer: the package is complete witho
 researcher starts at the [Quickstart](quickstart.md); an agent starts at
 [Analyzing with an Agent](agents.md).
 
-## Core and skills
+## 2. Core and skills
 
 The core is the operations, their documentation and the tests that verify them; `pip install
 jnwb` installs the operations, and the documentation and tests live in the source repository.
@@ -41,7 +41,7 @@ sit outside that relation and act on it. A skill names an operation and quotes i
 signature; the documentation defines it, and a test checks every quoted signature against the
 code, so a skill carries no second copy of the operation's scientific interface.
 
-## Routing outcomes
+## 3. Routing outcomes
 
 Every task a skill receives ends in one of four outcomes:
 
@@ -69,7 +69,7 @@ and `missing` a script can score. The caller declares an unsupported inference
 are `signals`, `signal_units`, `contrast` and `inference_unit`. Given `input_path`, the outcome
 names that file by `input_sha256` and `input_path`.
 
-## From NWB file to result
+## 4. From NWB file to result
 
 `jnwb.inspect` reports what a session holds. The loaders read the chosen series, events and
 units; continuous data is cut into trials around the event onsets before an operation runs.
@@ -93,7 +93,7 @@ graph LR
     O --> V[Verification]
 ```
 
-## What belongs in jnwb
+## 5. What belongs in jnwb
 
 jnwb owns generic, testable operations. Study-specific conditions, hypotheses and interpretation
 stay in the project that uses jnwb. `jnwb` keeps two things apart:
@@ -125,7 +125,7 @@ hold:
 A question that existing operations answer in composition gets a composition, and new code is
 written only for a missing generic capability.
 
-## Scientific invariants
+## 6. Scientific invariants
 
 ### Signal class independence
 * **Physical Classes**: Spikes (SUA/MUA), Multi-unit activity envelopes (MUAe), Local Field Potentials (LFP), and behavioral covariates are distinct observables.
@@ -170,7 +170,7 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 * A null finding ($p \ge \alpha$) is an observation, not an error. Parameters, frequency bands and windows are never retrofitted to reach significance.
 * Synthetic signals exist for verification, in `jnwb.testing`, and are never presented as measurements.
 
-## Module Map
+## 7. Module Map
 
 | Module | Core Responsibility | Primary Public Symbols in `jnwb.__all__` |
 |--------|---------------------|------------------------------------------|

@@ -40,13 +40,16 @@ page violates a rule, the fix goes to the generator or the script it includes.
 | F7 | No page states a fact that a gate or a test does not enforce and no command in the page demonstrates. | review |
 | F8 | No term from the [slop lexicon](#slop-lexicon) appears in prose. | machine-checked against the lexicon below, across `docs/`, `README.md`, `skills/` and the tutorial scripts |
 | F9 | No page but `references.md` names a path under the evidence or benchmarks folders of `artifacts/`; validation detail goes on the dashboard. | machine-checked across `docs/` |
+| F10 | Concept pages number their H2 headings and leave H3 unnumbered. | machine-checked: `concept headings`, over the fourteen concept pages of the Length table |
+| F11 | An H2 on a concept page names a module (`jnwb.x`) or a class, never a function; a function is named in an H3. | machine-checked: `module headings`, over the same pages |
+| F12 | No data row appears in two tables of one page; a row that several tables need is kept in the table whose subject owns it. | machine-checked: `repeated table rows`, over every authored page |
 
 **F7 and a rewrite.** A rewrite never leaves a fact that was present before absent after, so that
 rule outranks F7. F7 binds the facts a change adds: a new fact is enforced by a gate or a test,
 demonstrated by a command in the page, or left out. A true fact already on a page stays when
 nothing enforces it, because deleting it to satisfy a form rule loses information.
 
-`scripts/docs_form_gate.py` runs F1, F5, F8, F9, the navigation rules N1, N2, N3 and N5, figure rule
+`scripts/docs_form_gate.py` runs F1, F5, F8, F9, F10, F11, F12, the navigation rules N1, N2, N3 and N5, figure rule
 G2, and the F2 detector, and prints one PASS or FAIL line for each. The rows whose column reads
 review are checked by a reader: F3, F4, F6, F7, N4 and G3.
 
@@ -147,8 +150,8 @@ Eleven pages sit over their ceiling, and each owes the one sentence the rule ask
 | `04_spectral_analysis_and_tfr` | 1398 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number; the spectra and band-profile figures and their captions add 161 words |
 | `06_spikes_psth_and_onset_dynamics` | 1708 | PSTH and response tests, phase locking, onset fitting, trajectories, unit quality measures and WaveMAP share a page, and the page sat at 1199 words before the unit quality table; the phase-locking and causal-step figures and their captions add 170 words |
 | `07_statistical_inference_and_nulls` | 1313 | the cluster-permutation figure and its caption add 114 words; the section's limit on what a significant cluster licenses applies to the cluster the figure outlines |
-| `08_directed_connectivity_and_information` | 1473 | the spectral Granger and phase-slope figures and their captions add 150 words, each showing one directional estimate on a synthetic pair |
-| `architecture` | 1959 | two pages merged: the module map is a 673-word reference table, and the prose states the boundary, the invariants and the claim table once each |
+| `08_directed_connectivity_and_information` | 1487 | the spectral Granger and phase-slope figures and their captions add 150 words, each showing one directional estimate on a synthetic pair |
+| `architecture` | 1966 | two pages merged: the module map is a 673-word reference table, and the prose states the boundary, the invariants and the claim table once each |
 | `install` | 938 | the pandas 3 override is the one install step hdmf's cap makes necessary, and the page sat at 889 words before it |
 | `index` | 419 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
 | `errors` | 2229 | twelve error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, the sixteen ragged-index check and repair messages, and the table of the two write errors, the repair refusal, and the two reserved subclasses. The messages are pinned to the source, so they are not paraphrasable |

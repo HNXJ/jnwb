@@ -46,6 +46,10 @@ CONTRACT = """# Documentation form
 
 ## Length
 
+| Kind | Ceiling | Why this number |
+|---|---|---|
+| Concept (`02`–`09`, `architecture`, `reading_nwb`, `repairing_nwb`, `coherence_and_tfr`, `laminar`, `vis`) | 1200 words | fixture |
+
 Prose after the table.
 """
 
@@ -92,6 +96,27 @@ graph TD
 ```
 """
 
+#: The fourteen concept pages of the contract's Length table, the Concept row, by file name.
+CONCEPT_NAMES = (
+    "02_paths_addressing_metadata.md", "03_representational_similarity_jrsa.md",
+    "04_spectral_analysis_and_tfr.md", "05_artifact_detection_and_repair.md",
+    "06_spikes_psth_and_onset_dynamics.md", "07_statistical_inference_and_nulls.md",
+    "08_directed_connectivity_and_information.md", "09_decoding_and_visual_qc.md",
+    "architecture.md", "reading_nwb.md", "repairing_nwb.md", "coherence_and_tfr.md",
+    "laminar.md", "vis.md",
+)
+
+CONCEPT = """# Concept
+
+## 1. Section (`jnwb.connectivity`)
+
+A paragraph.
+
+### Operation (`granger`)
+
+Text.
+"""
+
 GENERATOR = """THEMES = {"light": {"fg": "#000000"}, "dark": {"fg": "#ffffff"}}
 
 
@@ -123,6 +148,8 @@ def tree(tmp_path: Path) -> Path:
     for name in ("b", "c", "d"):
         _write(tmp_path / "docs" / f"{name}.md", f"# Page {name.upper()}\n\nA short page.\n")
     _write(tmp_path / "docs" / "tutorials" / "t1.md", "# Tutorial\n\nA short tutorial.\n")
+    for name in CONCEPT_NAMES:
+        _write(tmp_path / "docs" / name, CONCEPT)
     _write(tmp_path / "README.md", "# Fixture\n\nA readme.\n")
     for asset in ("figures/fig.png", "figures/fig.dark.png", "jnwb-logo.png"):
         (tmp_path / "docs" / "assets" / asset).parent.mkdir(parents=True, exist_ok=True)
@@ -264,6 +291,24 @@ SEEDS = {
                              _replace("docs/documentation_form.md", "## Slop lexicon",
                                       "## Removed"),
                              "no slop lexicon parsed"),
+    "concept H2 unnumbered": ("concept headings",
+                              _replace("docs/architecture.md", "## 1. Section", "## Section"),
+                              "architecture.md:3: H2 'Section"),
+    "concept H3 numbered": ("concept headings",
+                            _replace("docs/vis.md", "### Operation", "### 1. Operation"),
+                            "vis.md:7: H3 '1. Operation (`granger`)' is numbered"),
+    "concept H2 names a function": ("module headings",
+                                    _replace("docs/laminar.md", "(`jnwb.connectivity`)",
+                                             "(`granger`)"),
+                                    "laminar.md:3: H2 '1. Section (`granger`)' names "
+                                    "the function"),
+    "table row repeated across two tables": (
+        "repeated table rows",
+        _append(PAGE_A, "\n| Refusal | Error |\n|---|---|\n"
+                        "| `dst` exists | `FileExistsError` |\n"
+                        "\n| Refusal | Error |\n|---|---|\n"
+                        "| `dst` exists | `FileExistsError` |\n"),
+        "a.md: the row '| `dst` exists | `FileExistsError` |' is in 2 tables"),
 }
 
 
@@ -334,7 +379,9 @@ def test_a_check_that_raises_is_reported_and_the_others_still_run(tree):
 
 def test_the_command_line_exit_code_follows_the_checks(tree, capsys):
     assert gate.main(tree) == 0
-    assert "ALL DOCUMENTATION FORM CHECKS PASSED. 7 of 7" in capsys.readouterr().out
+    n = len(gate.CHECKS)
+    assert f"ALL DOCUMENTATION FORM CHECKS PASSED. {n} of {n} checks executed" in \
+        capsys.readouterr().out
     SEEDS["three parallel facts in a paragraph"][1](tree)
     assert gate.main(tree) == 1
     out = capsys.readouterr().out
@@ -407,6 +454,38 @@ def test_the_live_tree():
     assert count(r"paragraphs in (\d+) pages") >= 28
     assert count(r"none of (\d+) terms") >= 40
     assert count(r"terms in (\d+) pages") >= 28
+
+
+def test_the_concept_pages_are_the_fourteen_of_the_length_table():
+    """Bypass: a concept page missing from the gate's list is not numbered-checked; the list is
+    read from the live Length table's Concept row and pinned here."""
+    names = gate.concept_page_names(REPO_ROOT)
+    assert sorted(names) == sorted(CONCEPT_NAMES)
+    assert all((REPO_ROOT / "docs" / name).is_file() for name in names)
+
+
+def test_a_page_added_to_the_concept_row_is_checked(tree: Path):
+    """Bypass: a hard-coded page list misses a new concept page. One added to the row is read."""
+    contract = tree / "docs" / "documentation_form.md"
+    contract.write_text(contract.read_text(encoding="utf-8").replace("`vis`)", "`vis`, `extra`)"),
+                        encoding="utf-8")
+    _write(tree / "docs" / "extra.md", "# Extra\n\n## Unnumbered\n\nText.\n")
+    violations, _ = gate.check_concept_numbering(tree)
+    assert any("extra.md" in v and "not numbered" in v for v in violations), violations
+
+
+def test_a_contract_with_no_concept_row_reads_no_page_and_fails(tree: Path):
+    _write(tree / "docs" / "documentation_form.md", CONTRACT.split("| Kind | Ceiling")[0])
+    violations, _ = gate.check_concept_numbering(tree)
+    assert any("nothing to check" in v for v in violations), violations
+
+
+def test_the_live_concept_pages_are_read_and_their_h2_counted():
+    """The F10 and F11 reads of the live tree, as counts: a silent empty read shows here."""
+    pages, missing = gate.concept_pages(REPO_ROOT)
+    assert not missing and len(pages) == len(CONCEPT_NAMES)
+    h2 = sum(1 for _, text in pages for _, level, _ in gate.headings(text) if level == 2)
+    assert h2 > 0, "no H2 read from the concept pages; the reader is wrong"
 
 
 def test_the_prose_detector_sees_clauses_in_live_prose():

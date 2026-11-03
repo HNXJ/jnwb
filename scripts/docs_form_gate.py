@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Documentation form gate: the rules of ``docs/documentation_form.md`` a machine can settle.
 
-Seven checks, each run against a repository root (the live tree from the command line, a seeded
+Ten checks, each run against a repository root (the live tree from the command line, a seeded
 fixture tree from the suite):
 
   1. Vocabulary (F5). No superseded surface form from the contract's vocabulary table survives
@@ -29,6 +29,11 @@ fixture tree from the suite):
      case, in the prose of the documentation corpus, the skills included.
   7. Validation detail (F9). No page under ``docs/`` but ``references.md`` names a path under
      the evidence or benchmarks folders of ``artifacts/``.
+  8. Concept headings (F10). On each concept page, every H2 but ``References`` is numbered and
+     no H3 is.
+  9. Module headings (F11). On each concept page, an H2 names a module (``jnwb.x`` or
+     ``jnwb/x.py``) or a class, never a function: a function is named in an H3.
+  10. Repeated table rows (F12). No data row of an authored page appears in two of its tables.
 
 **What check 5 does not see.** It is a detector for one shape, tuned to report nothing on the
 live tree, and F2 stays a review item beyond it:
@@ -753,6 +758,157 @@ def check_evidence_paths(root: Path) -> Result:
         f"artifacts/benchmarks/ outside references.md, {len(pages)} pages read.")
 
 
+# ------------------------------------------------------------------ 8. concept headings
+
+
+_HEADING = re.compile(r"^(#{2,3})\s+(.*\S)\s*$")
+_NUMBERED = re.compile(r"^\d+\.\s")
+REFERENCES = "References"
+_CONCEPT_ROW = re.compile(r"^\| Concept \((.+?)\) \|", re.M)
+_PAGE_RANGE = re.compile(r"`(\d\d)`–`(\d\d)`")
+
+
+def concept_page_names(root: Path) -> List[str]:
+    """The concept pages the contract's Length table names in its Concept row, by file name under
+    ``docs/``: a ``NN``–``NN`` range expands to the numbered pages present, a backticked name is
+    one page. Read from the contract, so a page added to the row is checked without an edit here."""
+    contract = root / CONTRACT
+    if not contract.is_file():
+        return []
+    section = contract.read_text(encoding="utf-8").split("\n## Length\n", 1)
+    row = _CONCEPT_ROW.search(section[1]) if len(section) == 2 else None
+    if row is None:
+        return []
+    cell = row.group(1)
+    names = [page.name for lo, hi in _PAGE_RANGE.findall(cell) for n in range(int(lo), int(hi) + 1)
+             for page in sorted((root / "docs").glob(f"{n:02d}_*.md"))]
+    names += [f"{name}.md" for name in re.findall(r"`([^`]+)`", _PAGE_RANGE.sub("", cell))]
+    return names
+
+
+def concept_pages(root: Path) -> Tuple[List[Tuple[str, str]], List[str]]:
+    """(name, text) for each concept page under ``docs/`` present, and the names of the missing."""
+    docs = root / "docs"
+    names = concept_page_names(root)
+    present = [(name, (docs / name).read_text(encoding="utf-8"))
+               for name in names if (docs / name).is_file()]
+    return present, [name for name in names if not (docs / name).is_file()]
+
+
+def headings(text: str) -> Iterator[Tuple[int, int, str]]:
+    """(line number, level, title) of every H2 and H3 outside fenced code."""
+    for number, line in unfenced_lines(text):
+        match = _HEADING.match(line)
+        if match:
+            yield number, len(match.group(1)), match.group(2)
+
+
+def check_concept_numbering(root: Path) -> Result:
+    pages, missing = concept_pages(root)
+    violations = [f"docs/{name}: concept page is missing" for name in missing]
+    read = 0
+    for name, text in pages:
+        for number, level, title in headings(text):
+            if level == 2 and title == REFERENCES:
+                continue
+            read += 1
+            numbered = _NUMBERED.match(title) is not None
+            if level == 2 and not numbered:
+                violations.append(f"{name}:{number}: H2 '{title}' is not numbered")
+            if level == 3 and numbered:
+                violations.append(f"{name}:{number}: H3 '{title}' is numbered")
+    if not read:
+        violations.append("no heading read from the concept pages; F10 has nothing to check")
+    return violations, (
+        f"PASS: concept headings (F10): H2 numbered and H3 unnumbered on {len(pages)} concept "
+        f"pages, {read} headings read.")
+
+
+# ------------------------------------------------------------------ 9. module headings
+
+
+_BACKTICKED_NAME = re.compile(r"`([^`\n]+)`")
+_MODULE_PATH = re.compile(r"^jnwb[./]")
+
+
+def function_names(title: str) -> List[str]:
+    """The backticked names in a heading that are functions: lower case and not a module path.
+
+    A class is capitalised and is allowed; a module path is `jnwb.` or `jnwb/`, and it stays
+    allowed even where its last part is a function (the check reads the prefix, not the API).
+    """
+    return [name for name in _BACKTICKED_NAME.findall(title)
+            if not _MODULE_PATH.match(name) and not name[:1].isupper()]
+
+
+def check_module_headings(root: Path) -> Result:
+    pages, _ = concept_pages(root)
+    violations: List[str] = []
+    read = 0
+    for name, text in pages:
+        for number, level, title in headings(text):
+            if level != 2 or title == REFERENCES:
+                continue
+            read += 1
+            for function in function_names(title):
+                violations.append(f"{name}:{number}: H2 '{title}' names the function {function}; "
+                                  "a function is named in an H3")
+    if not read:
+        violations.append("no H2 read from the concept pages; F11 has nothing to check")
+    return violations, (
+        f"PASS: module headings (F11): no H2 of {len(pages)} concept pages names a function, "
+        f"{read} H2s read.")
+
+
+# ------------------------------------------------------------------ 10. repeated table rows
+
+
+_SEPARATOR = re.compile(r"\|[\s|:-]+\|")
+
+
+def table_rows(text: str) -> List[List[Tuple[int, str]]]:
+    """Each table of the unfenced text, as (line number, stripped line) rows, header included."""
+    tables: List[List[Tuple[int, str]]] = []
+    current: List[Tuple[int, str]] = []
+    for number, line in [*unfenced_lines(text), (0, "")]:
+        if line.lstrip().startswith("|"):
+            current.append((number, line.strip()))
+        elif current:
+            tables.append(current)
+            current = []
+    return tables
+
+
+def repeated_rows(text: str) -> List[Tuple[str, List[int], int]]:
+    """Each data row found in two or more tables of one page: (row, line numbers, table count).
+
+    A table's first row is its header and the separator line is not data, so a header that
+    repeats across tables is not reported.
+    """
+    where: Dict[str, List[Tuple[int, int]]] = {}
+    for index, table in enumerate(table_rows(text)):
+        for number, row in table[1:]:
+            if not _SEPARATOR.fullmatch(row):
+                where.setdefault(row, []).append((index, number))
+    found = []
+    for row, hits in where.items():
+        tables = {index for index, _ in hits}
+        if len(tables) > 1:
+            found.append((row, [number for _, number in hits], len(tables)))
+    return found
+
+
+def check_repeated_rows(root: Path) -> Result:
+    pages = f2_pages(root)
+    violations = [f"{name}: the row {row!r} is in {count} tables (lines {lines}); the table "
+                  "whose subject owns it keeps it"
+                  for name, text in pages
+                  for row, lines, count in repeated_rows(text)]
+    return violations, (
+        f"PASS: repeated table rows (F12): no data row repeats across the tables of a page, "
+        f"{len(pages)} pages read.")
+
+
 # ---------------------------------------------------------------------------------- runner
 
 
@@ -764,6 +920,9 @@ CHECKS: Sequence[Tuple[str, Callable[[Path], Result]]] = (
     ("parallel facts", check_parallel_facts),
     ("slop lexicon", check_slop),
     ("validation detail", check_evidence_paths),
+    ("concept headings", check_concept_numbering),
+    ("module headings", check_module_headings),
+    ("repeated table rows", check_repeated_rows),
 )
 
 
