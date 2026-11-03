@@ -429,6 +429,15 @@ class TestSessionIdFromFilename:
         assert len(get_all_units_metadata([good, bad])) == 2
 
 
+class TestElectrodeInventoryCells:
+    def test_group_column_holds_the_group_name_and_no_cell_is_a_container_repr(self, tmp_path):
+        elecs = electrode_inventory(_write_minimal_nwb(tmp_path / "ses-260724_ecephys.nwb"))
+        assert len(elecs) == 4, "fixture must yield electrodes"
+        assert elecs["group"].tolist() == ["probeA"] * 4
+        reprs = [str(v) for col in elecs.columns for v in elecs[col]]
+        assert not [c for c in reprs if " at 0x" in c], [c for c in reprs if " at 0x" in c][:3]
+
+
 class TestUndefinedQualityInput:
     """A quality function given a value it cannot compare reports that, never a verdict."""
 

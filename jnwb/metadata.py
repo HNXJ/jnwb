@@ -698,6 +698,9 @@ def electrode_inventory(
                 elec_df = nwb.electrodes.to_dataframe().copy()
                 elec_df['session_id'] = session_id
                 elec_df['elec_id'] = elec_df.index
+                if 'group' in elec_df.columns:
+                    # to_dataframe holds the ElectrodeGroup object; the column is its name
+                    elec_df['group'] = elec_df['group'].map(lambda g: getattr(g, 'name', g))
 
                 # Add unit assignment info
                 if nwb.units is not None:
