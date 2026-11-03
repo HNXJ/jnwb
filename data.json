@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "d6d3ec07b75111ad8449acda08d7a4b3eb671ac0",
-    "date": "2026-11-03T03:02:48Z"
+    "commit": "a5345f79784ebd587f95462d910cd55bf5390e6f",
+    "date": "2026-11-03T08:15:47Z"
   },
   "sources": {
     "generated": [
@@ -114,7 +114,7 @@
         },
         {
           "kind": "Added",
-          "text": "Distance-binned coherence normalization (`docs/common_mistakes.md` 13, `tests/test_connectivity_pitfalls.py`)."
+          "text": "`docs/common_mistakes.md` 13: distance-binned coherence normalization is the caller's; no function computes it."
         },
         {
           "kind": "Added",
