@@ -75,12 +75,14 @@ class TestStatisticalAnalysis(unittest.TestCase):
         """Test bootstrap confidence interval."""
         rng = np.random.default_rng(10)
         data = rng.standard_normal(100)
-        result = StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=100)
+        result = StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=100, rng=np.random.default_rng(3))
         self.assertIsInstance(result, dict)
-        # Result should have bootstrap_ci tuple
-        if 'bootstrap_ci' in result:
-            ci = result['bootstrap_ci']
-            self.assertEqual(len(ci), 2)
+        ci = result['bootstrap_ci']
+        self.assertEqual(len(ci), 2)
+        # NumPy reference: the 100 resamples of 100 draws from the same stream, their means, and
+        # the 2.5th and 97.5th percentiles.
+        resamples = np.random.default_rng(3).choice(data, size=(100, 100), replace=True)
+        np.testing.assert_allclose(ci, np.percentile(resamples.mean(axis=1), [2.5, 97.5]), rtol=1e-12)
 
     def test_permutation_test_valid_data(self):
         """Test permutation test."""
@@ -99,9 +101,11 @@ class TestTFRAnalyzer(unittest.TestCase):
         tfr_data = rng.standard_normal((10, 128, 50, 100))
         freqs = np.linspace(1.0, 100.0, 128)
         result = TFRAnalyzer.extract_band(tfr_data, 'alpha', freqs=freqs)
-        self.assertIsNotNone(result)
         # Should return (channels, time, trials)
         self.assertEqual(result.shape, (10, 50, 100))
+        # NumPy reference: mean over the bins in the 8-14 Hz alpha band, inclusive edges.
+        in_band = (freqs >= 8.0) & (freqs <= 14.0)
+        np.testing.assert_allclose(result, tfr_data[:, in_band].mean(axis=1), rtol=1e-12)
 
     def test_extract_band_beta(self):
         """Test extracting beta band."""
@@ -109,8 +113,10 @@ class TestTFRAnalyzer(unittest.TestCase):
         tfr_data = rng.standard_normal((10, 128, 50, 100))
         freqs = np.linspace(1.0, 100.0, 128)
         result = TFRAnalyzer.extract_band(tfr_data, 'beta', freqs=freqs)
-        self.assertIsNotNone(result)
         self.assertEqual(result.ndim, 3)
+        # NumPy reference: mean over the bins in the 14-30 Hz beta band, inclusive edges.
+        in_band = (freqs >= 14.0) & (freqs <= 30.0)
+        np.testing.assert_allclose(result, tfr_data[:, in_band].mean(axis=1), rtol=1e-12)
 
     def test_extract_band_theta(self):
         """Test extracting theta band."""
@@ -118,9 +124,11 @@ class TestTFRAnalyzer(unittest.TestCase):
         tfr_data = rng.standard_normal((15, 128, 99, 500))
         freqs = np.linspace(1.0, 100.0, 128)
         result = TFRAnalyzer.extract_band(tfr_data, 'theta', freqs=freqs)
-        self.assertIsNotNone(result)
         self.assertEqual(result.shape[1], 99)  # Time dimension preserved
         self.assertEqual(result.shape[2], 500)  # Trial dimension preserved
+        # NumPy reference: mean over the bins in the 4-8 Hz theta band, inclusive edges.
+        in_band = (freqs >= 4.0) & (freqs <= 8.0)
+        np.testing.assert_allclose(result, tfr_data[:, in_band].mean(axis=1), rtol=1e-12)
 
     def test_extract_band_invalid_band(self):
         """Test extracting invalid band raises error."""
@@ -282,8 +290,10 @@ class TestRobustness(unittest.TestCase):
         tfr_data = rng.standard_normal((1, 128, 5, 10))
         freqs = np.linspace(1.0, 100.0, 128)
         result = TFRAnalyzer.extract_band(tfr_data, 'alpha', freqs=freqs)
-        self.assertIsNotNone(result)
         self.assertEqual(result.shape[0], 1)
+        # NumPy reference: mean over the bins in the 8-14 Hz alpha band, inclusive edges.
+        in_band = (freqs >= 8.0) & (freqs <= 14.0)
+        np.testing.assert_allclose(result, tfr_data[:, in_band].mean(axis=1), rtol=1e-12)
 
 
 if __name__ == '__main__':
