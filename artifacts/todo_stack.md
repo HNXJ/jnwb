@@ -30,9 +30,8 @@ and an item that shares a file with another lane names it in Blocked by.
 | Lane | Items, in order | Files |
 |---|---|---|
 | K | 17-124, 17-125 | `jnwb/analyzers.py`, `jnwb/statistics/_analysis.py` |
-| E | 17-78 | `docs/*.md` except `docs/api.md`, `scripts/docs_form_gate.py` |
 
-- Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B , then I (2026-11-03, landed); then K, E;
+- Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B, then I, E (2026-11-03, landed); then K;
   the integrator does 17-76.
 - Waiting on Hamm: 17-75, 17-77; open rows P-216-01, -05 to -08, -15, -17 to -20, -22, -24, -32. Open
   rows with no item yet: P-216-16, -21, -25, -26.
@@ -59,13 +58,6 @@ Release: deferred-0.2.16.
 Role: human. Skill: none. Blocked by: Hamm's word (the fact stack and the rulings are his).
 Writes: `artifacts/fact_stack.md`, `artifacts/rulings/standing.md`.
 - 17-77: from P-215-20. `standing.md:144-148` and `fact_stack.md:68,82,86` cite roadmap 17-03 to 17-08 and 17-24, which are done or in this stack; `standing.md:144` says psth keeps `(-1000, 2000)` until 0.2.15, while psth now requires `window_ms`; S13 holds `todo:12-21`, which is a roadmap row; and (audit 2026-11-02) about 20 of 40 sampled B3 Evidence `file:line` cells in `fact_stack.md:138-203` no longer land on their parameter (`_network.py:87`, `viz.py:115` are blank lines), so cells name `module.function(param)`. Check: every roadmap or todo id the two files cite resolves in `roadmap.md` or `todo_stack.md`, or is marked done with its commit.
-
-### 17-78 Doc form across pages
-
-Release: deferred-0.2.16.
-Role: docs-harness. Skill: none. Blocked by: nothing; forms ruled 2026-11-03.
-Writes: `docs/01_architecture_and_philosophy.md`, `docs/02_paths_addressing_metadata.md`, `docs/03_representational_similarity_jrsa.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/09_decoding_and_visual_qc.md`, `docs/10_operation_specifications.md`, `docs/agents.md`, `docs/architecture.md`, `docs/coherence_and_tfr.md`, `docs/common_mistakes.md`, `docs/documentation_form.md`, `docs/errors.md`, `docs/execution.md`, `docs/glossary.md`, `docs/index.md`, `docs/install.md`, `docs/laminar.md`, `docs/quickstart.md`, `docs/reading_nwb.md`, `docs/recipes.md`, `docs/references.md`, `docs/repairing_nwb.md`, `docs/unit_quality_example.md`, `docs/vis.md`, `docs/writing_nwb.md`, `scripts/docs_form_gate.py`, `tests/test_docs_form_gate.py`.
-- 17-78: the heading, H2-operation and repeated-row forms landed as F10 to F12. Left: `## References` (03, 07, 08, `coherence_and_tfr` carry it; 06, `reading_nwb`, `common_mistakes`, `laminar` cite without it; 04 carries it with no citation); the micrometre form in prose (`um` 6 times in 02 and `laminar`, `$\mu$m` once in 10). Check: F13, a page that cites a source ends with `## References` and a page that cites none has none; F14, prose writes `micrometers`, identifiers in code spans unchanged; a planted page fails each; the gate passes.
 
 ### 17-124 quality_metrics drops a spike on a window's closing edge
 
@@ -139,7 +131,7 @@ Writes: `.github/CONTRIBUTING.md`, `docs/architecture.md`, `README.md`, `docs/in
 ### 17-100 Docs and examples thinning
 
 Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: 17-78.
+Role: docs-harness. Skill: none. Blocked by: nothing.
 Writes: `docs/01_architecture_and_philosophy.md`, `docs/02_paths_addressing_metadata.md`, `docs/03_representational_similarity_jrsa.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/09_decoding_and_visual_qc.md`, `docs/10_operation_specifications.md`, `docs/agents.md`, `docs/architecture.md`, `docs/coherence_and_tfr.md`, `docs/common_mistakes.md`, `docs/documentation_form.md`, `docs/errors.md`, `docs/execution.md`, `docs/glossary.md`, `docs/index.md`, `docs/install.md`, `docs/laminar.md`, `docs/quickstart.md`, `docs/reading_nwb.md`, `docs/recipes.md`, `docs/references.md`, `docs/repairing_nwb.md`, `docs/unit_quality_example.md`, `docs/vis.md`, `docs/writing_nwb.md`, `docs/assets/**`, `README.md`, `examples/**/*.py`, `mkdocs.yml`.
 - 17-100: figures fig14 and fig18 repeated in `common_mistakes.md` and pages 06 and 08; the README quickstart repeats `docs/quickstart.md:38-60`; the redirect stub `docs/01_architecture_and_philosophy.md`; `docs/vis.md:51` alone under `assets/vis/`; the 10-line `sys.path` guard in 11 example scripts; the check log in `references.md:5-11`; "labelled" 37 times beside "labeled" 12; `CHANGELOG.md` path forms mixed (the integrator's file); figure ids skip fig22 and fig23. Check: `docs_build.py` strict passes and each listed grep returns its one form.
 
