@@ -150,6 +150,48 @@ Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: nothing; zero examin
 Writes: `scripts/gates/boundary.py`, `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`, docstrings of the jnwb functions that average power before dB.
 - 17-120: from P-216-41. Gate 21 reads "examined: 0 declared raw-power estimands" and passes. Check: zero declarations fails gate 21; each function that averages power before `aggregate_to_db` declares `estimand: raw_power` in its docstring; the gate examines them and passes.
 
+### 17-121 unit_census_report on a file with no units table
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing; the integrity checks' `KeyError` waits on Hamm (P-216-05).
+Writes: `jnwb/metadata.py`, `tests/test_metadata.py`.
+- 17-121: from P-216-05 (hnxj/jnwb#39). `unit_census_report` on a file with no `/units` raises `ValueError: Cannot describe a DataFrame without columns` inside pandas. Check: it returns its usual report shape with zero units and empty tables; a test writes a file with no units and reads that report.
+
+### 17-122 The signal-class sentinel does not pickle
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
+Writes: `jnwb/_units.py`, `jnwb/connectivity/_network.py`, `tests/test_signal_class.py`.
+- 17-122: from P-216-36. `_units._OMITTED` does not pickle, so `directed_network` forwards `signal_class` to workers only when the caller gave one. Check: the sentinel round-trips through `pickle` as the same object; `directed_network(..., n_jobs=2)` with the class omitted warns as `n_jobs=1` does and returns identical numbers.
+
+### 17-123 The push wrapper reads one completed run per SHA
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Writes: `scripts/jnwb_push.sh`, `scripts/push_guard.py`, `tests/test_push_guard.py`, `tests/test_jnwb_push.py`.
+- 17-123: from P-216-33 and P-216-40. The wrapper took the first completed run, so a green `dashboard` run beside a red `CI/CD` run at one SHA let a push through; `push_guard.py` misses `git --git-dir=`/`--work-tree=` pushes and ends in a traceback when stdin is unreadable. Check: the wrapper refuses when any completed run at the newest SHA failed (a test with two runs at one SHA, one failed); each guard case is planted and denied.
+
+### 17-124 quality_metrics drops a spike on a window's closing edge
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: 17-93 (shares `jnwb/analyzers.py`).
+Writes: `jnwb/analyzers.py`, `tests/test_analyzers_coverage.py`.
+- 17-124: from P-216-35. `quality_metrics` drops the last spike on the closing edge of its 1 s windows at the ulp, in 962 of 200000 random spans. Check: the edge tolerance `_bins` documents; a test places the spike on the closing edge and counts it.
+
+### 17-125 Counts below 1 in StatisticalAnalysis
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 17-93 (shares `jnwb/statistics/_analysis.py`).
+Writes: `jnwb/statistics/_analysis.py`, `tests/test_statistics_refusals.py`.
+- 17-125: from P-216-37. `n_bootstrap` and `n_permutations` in `_analysis.py` (`:157,545,603,710,800`) take 0 and negatives unchecked. Check: each refuses a count below 1 by name with `ValueError`, as 17-108's siblings do; one test per parameter.
+
+### 17-126 The frozen granger entry does not see direction
+
+Release: deferred-0.2.16.
+Role: jnwb-developer. Skill: none. Blocked by: 17-93 (shares `tests/test_connectivity.py`).
+Writes: `artifacts/process/frozen_validated.json`, `tests/test_connectivity.py`.
+- 17-126: from P-216-38. Swapping `x_to_y` and `y_to_x` in `granger`'s return passes the entry's `killed_by` test. Check: `killed_by` names a test with a known driver direction, and the swap mutant fails it.
+
 # 0.2.17
 
 Thinning and matching from the 2026-11-02 audit. Lanes form at 0.2.16's close; 17-94 waits on 17-79,
