@@ -255,7 +255,8 @@ def classify_response_significance(
         - confidence: 'high', 'medium', 'none', 'low' (fewer than `min_spike_count`
           response spikes), or 'undefined' when `response_zscore` is NaN because the
           baseline had no across-trial variance, when a count is NaN, or when `metrics`
-          lacks the per-trial counts or window lengths (a `UserWarning` says so).
+          lacks `response_zscore`, the per-trial counts or window lengths (a `UserWarning`
+          says so).
           `is_significant` is False under 'undefined' whatever the p, because the
           effect-size cutoff cannot be evaluated.
 
@@ -296,7 +297,17 @@ def classify_response_significance(
         result['pvalue'] = float('nan')
         return result
 
-    zscore = abs(metrics.get('response_zscore', 0.0))
+    if 'response_zscore' not in metrics:
+        warnings.warn(
+            "classify_response_significance: metrics has no 'response_zscore', so the effect "
+            "size cannot be evaluated; pass the dict compute_response_metrics returns. "
+            "Classified 'undefined'.",
+            UserWarning,
+            stacklevel=2,
+        )
+        zscore = float('nan')
+    else:
+        zscore = abs(metrics['response_zscore'])
 
     response_counts = np.asarray(metrics['response_counts'], dtype=float)
     baseline_counts = np.asarray(metrics['baseline_counts'], dtype=float)
