@@ -1,9 +1,10 @@
 """Gate 15 (stack form): the generation closure and the consistency check."""
 from __future__ import annotations
 
+import posixpath
 import re
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 from scripts.gates.stacks_form import (
@@ -55,6 +56,23 @@ GENERATED_FROM = (
     },
 )
 
+#: Paths the integration step writes, which no item's `Writes:` field may name. An item that names
+#: one serializes against every other item that touches it, and the stack cannot say so. Matched as
+#: literal paths after normalization: a glob that covers one is not expanded. The frozen validated
+#: file is not listed, because an item that changes a frozen function's body writes it.
+INTEGRATION_PATHS = ("docs/api.md", "CHANGELOG.md")
+
+
+def integration_path_writes(text: str) -> List[Tuple[int, str]]:
+    """Each `Writes:` field that names a path in INTEGRATION_PATHS, as (line number, path)."""
+    hits: List[Tuple[int, str]] = []
+    for lineno, field in _writes_fields(text):
+        for span in re.findall(r"`([^`\n]*)`", field):
+            path = posixpath.normpath(span.strip())
+            if path in INTEGRATION_PATHS:
+                hits.append((lineno, path))
+    return hits
+
 
 def _row_delimiters(line: str) -> int:
     return _ESCAPED_PIPE.sub("", line).count("|")
@@ -79,6 +97,10 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
     four columns each but not the same four. Prose is not checked, and an open stack with no
     table passes: a release needs it to hold no table row, which STEP 0a decides. A missing
     open stack is a violation, because the sweep would otherwise read nothing.
+
+    **Integration paths stay out of write sets.** `docs/api.md` and `CHANGELOG.md` are written at
+    integration, so a `Writes:` field that names either one is reported. Literal paths only: a glob
+    that covers one passes.
     """
     root = repo_root or REPO_ROOT
     violations: List[str] = []
@@ -141,6 +163,12 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
                         "touches the tree. Name the files, or a glob if the item genuinely "
                         "spans them."
                     )
+        for lineno, path in integration_path_writes(stack_text):
+            violations.append(
+                f"STACK_FORM: {TODO_STACK}:{lineno} declares `{path}` in its 'Writes:' field. "
+                "That path is written at integration, not by an item, and an item that names it "
+                "serializes against every other item that touches it. Remove it from the field."
+            )
 
     open_path = root / OPEN_STACK
     if not open_path.is_file():

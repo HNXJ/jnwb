@@ -12,12 +12,11 @@ Write sets must be compared by resolved path rather than by string.
 This is the next layer: they must also be closed under generation. `GENERATED_FROM` is that
 closure, written down.
 
-The obligation sits on the integrator rather than on the write sets, and that was measured, not
-assumed: 7 of 52 live items name a path under `jnwb/` and none names `docs/api.md`, so
-requiring them all to name it would make those 7 mutually exclusive with one another and
-declare a maximum parallelism of one across every change touching the package -- that defect
-in a new spelling. The test below pins that measurement, so a future change to the rule has to
-confront the number rather than rediscover it.
+The obligation sits on the integration step rather than on the write sets, and that was measured,
+not assumed: requiring every item that touches `jnwb/` to name `docs/api.md` would make those items
+mutually exclusive with one another and declare a maximum parallelism of one across every change
+touching the package -- that defect in a new spelling. The tests below pin the converse rule: no
+write set may name a path the integration step writes.
 
 A declaration that points at other files goes stale without erroring, which is why the gate
 resolves every entry against disk and why these tests exercise the gate rather than the
@@ -26,12 +25,14 @@ constant.
 from __future__ import annotations
 
 import pathlib
-import re
 import sys
 
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+#: Text of the gate's violation for a path the integration step writes. Filtering on it keeps
+#: the other stack-form violations (a missing generator, a bare directory) out of these tests.
+SHARED_MARKER = "serializes against every other item"
 # append, never insert(0): the wheel leg must keep resolving the installed copy.
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
@@ -132,29 +133,47 @@ def test_a_described_trigger_is_not_resolved_as_a_path():
     assert violations == []
 
 
-def test_the_measurement_that_chose_the_integrator_over_the_write_sets():
-    """Pins why derived files are not required in `Writes:` sets.
-
-    If this count changes materially, the trade-off behind the rule has changed and should be
-    re-decided rather than inherited. The count of items writing under `jnwb/` is not held to
-    a floor: the stack drains to empty at every release, so a floor fails on a healthy stack.
-    What stays held is the arrangement the rule rejected -- a write set naming `docs/api.md`.
-    """
-    todo = (REPO_ROOT / "artifacts" / "todo_stack.md").read_text(encoding="utf-8")
-    fields = _writes_fields(todo)
-    assert fields, "the sweep is broken, not the stack"
-
-    naming = 0
-    for _lineno, field in fields:
-        spans = re.findall(r"`([^`\n]*)`", field)
-        if any(s.startswith("jnwb/") for s in spans) and "docs/api.md" in spans:
-            naming += 1
-
-    assert naming == 0, (
-        f"{naming} item(s) now name docs/api.md in a write set. That is the serializing "
-        "arrangement this rule rejected on measurement -- revisit the rule deliberately "
-        "rather than drifting into it"
+def _planted_stack(root, writes):
+    """A stack whose one item declares `writes`, beside an open stack with no table to disturb."""
+    (root / "artifacts").mkdir(parents=True, exist_ok=True)
+    (root / "artifacts" / "todo_stack.md").write_text(
+        "### 99-999 Planted item\n\n"
+        "Release: deferred-0.2.16.\n"
+        "Role: jnwb-developer. Skill: none. Blocked by: nothing.\n"
+        f"Writes: {writes}.\n"
+        "- 17-999: planted.\n",
+        encoding="utf-8",
     )
+    (root / "artifacts" / "open_stack.md").write_text("# Open\n\nNo table here.\n", encoding="utf-8")
+    return root
+
+
+@pytest.mark.parametrize("shared", ["docs/api.md", "CHANGELOG.md"])
+def test_a_write_set_naming_an_integration_path_fails_the_gate(tmp_path, shared):
+    """Planted case: the gate rejects the path, on a fixture whose field names it."""
+    root = _planted_stack(tmp_path, f"`{shared}`")
+    assert _writes_fields((root / "artifacts" / "todo_stack.md").read_text(encoding="utf-8")), (
+        "the fixture must declare a Writes field, or the check below passes vacuously"
+    )
+    found = [v for v in check_stack_form_consistency(root) if SHARED_MARKER in v]
+    assert found, f"a Writes field naming {shared} passed the stack form check"
+    assert shared in found[0], found
+
+
+def test_the_frozen_validated_file_may_be_named(tmp_path):
+    """Negative control: an item that changes a frozen function's body names this file."""
+    root = _planted_stack(tmp_path, "`artifacts/process/frozen_validated.json`")
+    assert _writes_fields((root / "artifacts" / "todo_stack.md").read_text(encoding="utf-8"))
+    found = [v for v in check_stack_form_consistency(root) if SHARED_MARKER in v]
+    assert found == [], found
+
+
+def test_the_live_stack_names_no_integration_path():
+    """The rule on the live stack: no item's write set names a path the integration step writes."""
+    todo = (REPO_ROOT / "artifacts" / "todo_stack.md").read_text(encoding="utf-8")
+    assert _writes_fields(todo), "the sweep is broken, not the stack"
+    found = [v for v in check_stack_form_consistency(REPO_ROOT) if SHARED_MARKER in v]
+    assert found == [], found
 
 
 def test_the_contract_requires_the_canonical_mutation_harness():
