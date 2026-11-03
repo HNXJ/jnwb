@@ -35,13 +35,6 @@ log = logging.getLogger(__name__)
 class TFRAnalyzer:
     """
     Time-Frequency Representation Analysis.
-
-    Methods:
-    - trial_average(tfr_data, epochs) → TFR averaged by condition
-    - compare_conditions(tfr1, tfr2) → Compare two conditions with stats
-    - extract_band(tfr_data, band, freqs, freq_axis=1) → Extract frequency band
-    - by_layer(tfr_data, layer_bounds) → Spectrolaminar analysis
-    - correlate_areas(tfr1, tfr2, freqs, band) → Inter-area correlation
     """
 
     # Authoritative band table: CANONICAL_BANDS consolidated with delta and broadband.
@@ -311,13 +304,6 @@ class TFRAnalyzer:
 class UnitAnalyzer:
     """
     Single-Unit Spike Analysis.
-
-    Methods:
-    - raster(spike_times, epochs) → Raster plot data
-    - psth(spike_times, epochs, bin_size) → PSTH with CI
-    - autocorrelogram(spike_times, max_lag) → ACG
-    - quality_metrics(spike_times, waveform_duration_us, firing_rate) → Quality scores
-    - firing_rate(spike_times, window) → FR over time
     """
 
     @staticmethod
@@ -717,12 +703,6 @@ class UnitAnalyzer:
 class PopulationAnalyzer:
     """
     Population-Level Statistics.
-
-    Methods:
-    - compare_criteria(units1, units2) → Population comparison with stats
-    - distribution_by_area(units) → Population distribution
-    - pie_chart_data(units, criteria) → Pie chart generation
-    - network_connectivity(correlations, threshold) → Network analysis
     """
 
     @staticmethod
