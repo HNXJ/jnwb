@@ -608,3 +608,60 @@ class TestEdgesNearEventsReadsPhysicalValues:
         )
         np.testing.assert_allclose(df["rising_edge_s"], [2.0], atol=1.0 / EDGE_RATE_HZ)
 
+
+class TestTimeIntervalsInProcessingModule:
+    """A TimeIntervals stored in a processing module is read by its slash path (hnxj/jnwb#37)."""
+
+    @pytest.fixture
+    def processing_path(self, tmp_path):
+        path = tmp_path / "processing_intervals.nwb"
+        nwb = pynwb.NWBFile(
+            session_description="processing intervals",
+            identifier="PROCESSING_INTERVALS",
+            session_start_time=datetime(2020, 1, 1, tzinfo=tzutc()),
+        )
+        table = TimeIntervals(name="events", description="digital event codes")
+        table.add_column(name="value", description="event code")
+        for onset, code in [(0.5, 10), (1.0, 20), (1.5, 30)]:
+            table.add_row(start_time=onset, stop_time=onset, value=code)
+        nwb.create_processing_module(name="behavior", description="behavior").add(table)
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        return path
+
+    def test_events_reads_the_table_by_its_slash_path(self, processing_path):
+        with NWBHDF5IO(str(processing_path), "r") as io:
+            assert len(io.read().processing["behavior"]["events"]) == 3, "fixture must hold 3 rows"
+        out = events(processing_path, table="processing/behavior/events", code_column="value")
+        assert tuple(out.codes) == (10, 20, 30)
+        np.testing.assert_allclose(out.onsets, [0.5, 1.0, 1.5])
+
+    def test_event_onsets_selects_by_code_from_the_slash_path(self, processing_path):
+        onsets = event_onsets(
+            processing_path, table="processing/behavior/events", codes=[20], code_column="value"
+        )
+        np.testing.assert_allclose(onsets, [1.0])
+
+    def test_a_bare_name_still_reads_the_intervals_table_when_both_exist(self, tmp_path):
+        path = tmp_path / "both_tables.nwb"
+        nwb = pynwb.NWBFile(
+            session_description="both tables",
+            identifier="BOTH_TABLES",
+            session_start_time=datetime(2020, 1, 1, tzinfo=tzutc()),
+        )
+        top = TimeIntervals(name="events", description="top-level event codes")
+        top.add_column(name="value", description="event code")
+        top.add_row(start_time=2.0, stop_time=2.0, value=99)
+        nwb.add_time_intervals(top)
+        processing = TimeIntervals(name="events", description="digital event codes")
+        processing.add_column(name="value", description="event code")
+        for onset, code in [(0.5, 10), (1.0, 20), (1.5, 30)]:
+            processing.add_row(start_time=onset, stop_time=onset, value=code)
+        nwb.create_processing_module(name="behavior", description="behavior").add(processing)
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        bare = events(path, table="events", code_column="value")
+        assert bare.path == "/intervals/events", "fixture must resolve the top-level table"
+        assert tuple(bare.codes) == (99,)
+        slash = events(path, table="processing/behavior/events", code_column="value")
+        assert tuple(slash.codes) == (10, 20, 30)

@@ -12,6 +12,7 @@ import h5py
 import numpy as np
 from hdmf.container import Container, Data
 from pynwb import NWBHDF5IO, NWBFile, get_type_map
+from pynwb.epoch import TimeIntervals
 
 from jnwb.nwb_io import (
     ContainerTypeContradictionWarning,
@@ -146,37 +147,55 @@ def _series_members(group: h5py.Group) -> list[tuple[str | None, str, h5py.Datas
     return members
 
 
+def _interval_table_h5py(grp: h5py.Group, name: str, path: str) -> dict[str, Any]:
+    """One interval table (a `TimeIntervals` group), from the file."""
+    columns: list[dict[str, Any]] = []
+    n_rows = None
+    if "start_time" in grp and isinstance(grp["start_time"], h5py.Dataset):
+        n_rows = int(grp["start_time"].shape[0])
+    for col_name in sorted(grp.keys()):
+        ds = grp[col_name]
+        if not isinstance(ds, h5py.Dataset):
+            continue
+        columns.append(
+            {
+                "name": col_name,
+                "dtype": str(ds.dtype),
+                "shape": list(ds.shape),
+                "sample_values": _sample_column(ds),
+                "description": _stored_description(ds),
+            }
+        )
+    return {"name": name, "path": path, "n_rows": n_rows, "columns": columns}
+
+
 def _inspect_intervals_h5py(intervals: h5py.Group) -> list[dict[str, Any]]:
     tables: list[dict[str, Any]] = []
     for name in sorted(intervals.keys()):
         grp = intervals[name]
         if not isinstance(grp, h5py.Group):
             continue
-        columns: list[dict[str, Any]] = []
-        n_rows = None
-        if "start_time" in grp and isinstance(grp["start_time"], h5py.Dataset):
-            n_rows = int(grp["start_time"].shape[0])
-        for col_name in sorted(grp.keys()):
-            ds = grp[col_name]
-            if not isinstance(ds, h5py.Dataset):
+        tables.append(_interval_table_h5py(grp, name, f"/intervals/{name}"))
+    return tables
+
+
+def _inspect_processing_intervals_h5py(handle: h5py.File) -> list[dict[str, Any]]:
+    """The `TimeIntervals` in processing modules, listed as interval tables with their module."""
+    if "processing" not in handle:
+        return []
+    processing = handle["processing"]
+    tables: list[dict[str, Any]] = []
+    for mod_name in sorted(processing.keys()):
+        mod = processing[mod_name]
+        if not isinstance(mod, h5py.Group):
+            continue
+        for cname in sorted(mod.keys()):
+            obj = mod[cname]
+            if not isinstance(obj, h5py.Group) or _ndt(obj) != "TimeIntervals":
                 continue
-            columns.append(
-                {
-                    "name": col_name,
-                    "dtype": str(ds.dtype),
-                    "shape": list(ds.shape),
-                    "sample_values": _sample_column(ds),
-                    "description": _stored_description(ds),
-                }
-            )
-        tables.append(
-            {
-                "name": name,
-                "path": f"/intervals/{name}",
-                "n_rows": n_rows,
-                "columns": columns,
-            }
-        )
+            entry = _interval_table_h5py(obj, cname, f"/processing/{mod_name}/{cname}")
+            entry["module"] = mod_name
+            tables.append(entry)
     return tables
 
 
@@ -1175,6 +1194,16 @@ def _inspect_object(nwb: NWBFile) -> dict[str, Any]:
             "n_rows": len(table),
             "columns": _table_columns_pynwb(table, with_shape=True, with_samples=True),
         })
+    for mod_name, mod in sorted((nwb.processing or {}).items()):
+        for cname, obj in sorted(getattr(mod, "data_interfaces", {}).items()):
+            if isinstance(obj, TimeIntervals):
+                interval_tables.append({
+                    "name": cname,
+                    "path": f"/processing/{mod_name}/{cname}",
+                    "n_rows": len(obj),
+                    "columns": _table_columns_pynwb(obj, with_shape=True, with_samples=True),
+                    "module": mod_name,
+                })
 
     acquisitions = [
         _continuous_entry_pynwb(obj, name, f"/acquisition/{name}")
@@ -1253,7 +1282,7 @@ def _inspect_file(path: Path, nwb: NWBFile | None = None) -> dict[str, Any]:
         )
         interval_tables = (
             _inspect_intervals_h5py(handle["intervals"]) if "intervals" in handle else []
-        )
+        ) + _inspect_processing_intervals_h5py(handle)
 
     return {
         "session": session,
