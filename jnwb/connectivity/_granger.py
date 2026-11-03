@@ -568,6 +568,7 @@ def granger(
     rng: RNGLike = Default(0),
     time_axis: int = -1,
     *,
+    signal_class: Union[str, Tuple[str, str]] = _OMITTED,
     seed: Any = Default(0),
 ) -> DirectedResult:
     """
@@ -604,6 +605,9 @@ def granger(
             which one child seed is drawn and used, or ``None`` for fresh OS entropy; a
             float is refused. Passing ``params['surrogate_seed_entropy']`` back as ``rng``
             reproduces the p-values (``seed`` is the old spelling and still works)
+        signal_class: ``'spikes'`` or ``'lfp'`` for both inputs, or a pair ``(class_1, class_2)``.
+            A pair of different classes is refused. Omitted, the call warns ``FutureWarning``.
+            It changes no number.
 
     Returns:
         DirectedResult with ``unit='log variance ratio'``. ``p_*`` are analytic
@@ -635,6 +639,7 @@ def granger(
         (``'bic'``) from the maximum-likelihood residual covariance, every candidate order
         fitted to the same sample.
     """
+    _check_signal_class("granger", signal_class, 2)
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger")
     if criterion not in ("aic", "bic", "hqic"):
@@ -1028,6 +1033,7 @@ def granger_spectral(
     rng: RNGLike = Default(0),
     time_axis: int = -1,
     *,
+    signal_class: Union[str, Tuple[str, str]] = _OMITTED,
     seed: Any = Default(0),
 ) -> DirectedResult:
     """
@@ -1061,6 +1067,8 @@ def granger_spectral(
             as in :func:`granger` and is recorded in ``params['surrogate_scheme']``
         rng: surrogate randomness, as in :func:`granger`; passing
             ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the p-values
+        signal_class: as in :func:`granger`: ``'spikes'`` or ``'lfp'``, or a pair; a mixed pair is
+            refused, and omitted the call warns ``FutureWarning``. It changes no number.
 
     Returns:
         DirectedResult with ``unit='log variance ratio'``,
@@ -1080,6 +1088,7 @@ def granger_spectral(
         frequency decomposition of the measure of linear feedback, from the transfer
         function of the fitted VAR.
     """
+    _check_signal_class("granger_spectral", signal_class, 2)
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_spectral')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger_spectral")
     if fs is None or not np.isfinite(fs) or fs <= 0:
@@ -1100,7 +1109,7 @@ def granger_spectral(
     if order == "auto":
         probe = granger(
             x, y, order="auto", max_lag=max_lag, criterion=criterion,
-            ridge=ridge, detrend=None, n_surrogates=0,
+            ridge=ridge, detrend=None, n_surrogates=0, signal_class=signal_class,
         )
         p = int(max(probe.params["order_x_to_y"], probe.params["order_y_to_x"]))
     else:

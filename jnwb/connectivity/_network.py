@@ -144,8 +144,8 @@ def directed_network(
             only; ``Z`` must not be passed as well). Every pair then fits a VAR with
             ``n_nodes`` series, so it needs proportionally more samples.
         signal_class: ``'spikes'`` or ``'lfp'``, the class of every node; one class only, since
-            spikes and LFP are never pooled. Omitted, the call warns ``FutureWarning``. It is
-            not passed to the pairwise estimator and changes no number.
+            spikes and LFP are never pooled. Omitted, the call warns ``FutureWarning``, here and
+            from each pairwise estimator. It changes no number.
         **kwargs: forwarded to the estimator. ``rng`` (or ``seed``) gives every pair its own
             child seed, drawn in pair order before any worker starts: from
             ``default_rng(rng)`` for an int (the estimators' default 0 included), from the
@@ -233,6 +233,9 @@ def directed_network(
     pair_kwargs = []
     for (i, j), s in zip(pairs, pair_seeds):
         kw = {**base, "rng": s}
+        if signal_class is not _OMITTED:
+            # Not forwarded when omitted: the sentinel is not pickled into a worker process.
+            kw["signal_class"] = signal_class
         if conditional:
             others = [series[k] for k in range(n) if k not in (i, j)]
             kw["Z"] = others or None

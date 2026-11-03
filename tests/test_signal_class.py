@@ -102,6 +102,143 @@ def test_granger_causality_accepts_an_equal_pair_with_the_single_class_numbers()
     assert pair["F_1_to_2"] == single["F_1_to_2"]
 
 
+# ---------------------------------------------------------------- granger
+
+
+def test_granger_omitted_class_warns_naming_the_keyword_and_still_runs():
+    x, y = _signals()
+    result, future = _call(jnwb.granger, x, y, order=2)
+    assert len(future) == 1 and "signal_class=" in future[0], future
+    assert np.isfinite(result.x_to_y), "the call must still compute"
+
+
+def test_granger_refuses_a_pair_that_mixes_spikes_and_lfp():
+    x, y = _signals()
+    with pytest.raises(ValueError, match="never pooled") as info:
+        jnwb.granger(x, y, order=2, signal_class=("spikes", "lfp"))
+    assert "granger" in str(info.value)
+
+
+def test_granger_explicit_class_is_silent_and_keeps_the_numbers():
+    x, y = _signals()
+    omitted, _ = _call(jnwb.granger, x, y, order=2)
+    explicit, future = _call(jnwb.granger, x, y, order=2, signal_class="lfp")
+    assert future == [], future
+    assert explicit.x_to_y == omitted.x_to_y
+    assert explicit.y_to_x == omitted.y_to_x
+
+
+# ---------------------------------------------------------------- granger_spectral
+
+
+def test_granger_spectral_omitted_class_warns_naming_the_keyword_and_still_runs():
+    x, y = _signals()
+    result, future = _call(jnwb.granger_spectral, x, y, fs=FS, order=2)
+    assert len(future) == 1 and "signal_class=" in future[0], future
+    assert np.isfinite(result.x_to_y), "the call must still compute"
+
+
+def test_granger_spectral_refuses_a_pair_that_mixes_spikes_and_lfp():
+    x, y = _signals()
+    with pytest.raises(ValueError, match="never pooled") as info:
+        jnwb.granger_spectral(x, y, fs=FS, order=2, signal_class=("lfp", "spikes"))
+    assert "granger_spectral" in str(info.value)
+
+
+def test_granger_spectral_explicit_class_is_silent_and_keeps_the_numbers():
+    x, y = _signals()
+    omitted, _ = _call(jnwb.granger_spectral, x, y, fs=FS, order=2)
+    explicit, future = _call(jnwb.granger_spectral, x, y, fs=FS, order=2, signal_class="lfp")
+    assert future == [], future
+    assert explicit.x_to_y == omitted.x_to_y
+    assert explicit.y_to_x == omitted.y_to_x
+
+
+def test_granger_spectral_order_probe_receives_the_class():
+    x, y = _signals()
+    _, omitted_future = _call(jnwb.granger_spectral, x, y, fs=FS, order="auto", max_lag=4)
+    assert any(m.startswith("granger:") for m in omitted_future), (
+        "fixture must reach the granger order probe", omitted_future)
+    _, future = _call(jnwb.granger_spectral, x, y, fs=FS, order="auto", max_lag=4,
+                      signal_class="lfp")
+    assert future == [], future
+
+
+# ---------------------------------------------------------------- phase_slope_index
+
+
+def test_phase_slope_index_omitted_class_warns_naming_the_keyword_and_still_runs():
+    x, y = _coherent_pair()
+    result, future = _call(jnwb.phase_slope_index, x, y, fs=FS, bands=BAND)
+    assert len(future) == 1 and "signal_class=" in future[0], future
+    assert np.isfinite(result.x_to_y), "the call must still compute"
+
+
+def test_phase_slope_index_refuses_a_pair_that_mixes_spikes_and_lfp():
+    x, y = _coherent_pair()
+    with pytest.raises(ValueError, match="never pooled") as info:
+        jnwb.phase_slope_index(x, y, fs=FS, bands=BAND, signal_class=("spikes", "lfp"))
+    assert "phase_slope_index" in str(info.value)
+
+
+def test_phase_slope_index_explicit_class_is_silent_and_keeps_the_numbers():
+    x, y = _coherent_pair()
+    omitted, _ = _call(jnwb.phase_slope_index, x, y, fs=FS, bands=BAND)
+    explicit, future = _call(jnwb.phase_slope_index, x, y, fs=FS, bands=BAND,
+                             signal_class=("spikes", "spikes"))
+    assert future == [], future
+    assert explicit.x_to_y == omitted.x_to_y
+
+
+# ---------------------------------------------------------------- transfer_entropy
+
+
+def test_transfer_entropy_omitted_class_warns_naming_the_keyword_and_still_runs():
+    x, y = _signals()
+    result, future = _call(jnwb.transfer_entropy, x, y, n_surrogates=0)
+    assert len(future) == 1 and "signal_class=" in future[0], future
+    assert np.isfinite(result.x_to_y), "the call must still compute"
+
+
+def test_transfer_entropy_refuses_a_pair_that_mixes_spikes_and_lfp():
+    x, y = _signals()
+    with pytest.raises(ValueError, match="never pooled") as info:
+        jnwb.transfer_entropy(x, y, n_surrogates=0, signal_class=("spikes", "lfp"))
+    assert "transfer_entropy" in str(info.value)
+
+
+def test_transfer_entropy_explicit_class_is_silent_and_keeps_the_numbers():
+    x, y = _signals()
+    omitted, _ = _call(jnwb.transfer_entropy, x, y, n_surrogates=0)
+    explicit, future = _call(jnwb.transfer_entropy, x, y, n_surrogates=0, signal_class="spikes")
+    assert future == [], future
+    assert explicit.x_to_y == omitted.x_to_y
+    assert explicit.y_to_x == omitted.y_to_x
+
+
+# ---------------------------------------------------------------- directed_connectivity
+
+ESTIMATOR_KWARGS = {
+    "granger": {"order": 2},
+    "granger_spectral": {"fs": FS, "order": 2},
+    "psi": {"fs": FS, "bands": BAND},
+    "te": {"n_surrogates": 0},
+}
+
+
+@pytest.mark.parametrize("method", sorted(ESTIMATOR_KWARGS))
+def test_directed_connectivity_passes_signal_class_to_each_estimator(method):
+    x, y = _coherent_pair()
+    kwargs = ESTIMATOR_KWARGS[method]
+    _, future = _call(jnwb.directed_connectivity, x, y, method=method, signal_class="lfp", **kwargs)
+    assert future == [], future
+    _, omitted = _call(jnwb.directed_connectivity, x, y, method=method, **kwargs)
+    assert any("signal_class=" in m for m in omitted), (
+        "fixture must reach the estimator's omitted-class warning", omitted)
+    with pytest.raises(ValueError, match="never pooled"):
+        jnwb.directed_connectivity(x, y, method=method, signal_class=("spikes", "lfp"), **kwargs)
+
+
 # ---------------------------------------------------------------- directed_network
 
 
@@ -115,12 +252,13 @@ def test_directed_network_explicit_class_is_silent_and_keeps_the_matrix():
     np.testing.assert_array_equal(explicit["matrix"], omitted["matrix"])
 
 
-def test_directed_network_omitted_class_warns_once_and_keeps_the_matrix():
+def test_directed_network_omitted_class_warns_and_keeps_the_matrix():
     signals = _network_signals()
     explicit, _ = _call(jnwb.directed_network, signals, method="granger", order=2, fdr=False,
                         signal_class="spikes")
     omitted, future = _call(jnwb.directed_network, signals, method="granger", order=2, fdr=False)
-    assert len(future) == 1 and "signal_class=" in future[0], future
+    assert any(m.startswith("directed_network:") for m in future), future
+    assert all("signal_class=" in m for m in future), future
     np.testing.assert_array_equal(omitted["matrix"], explicit["matrix"])
 
 
@@ -131,7 +269,7 @@ def test_directed_network_refuses_a_pair_where_one_class_is_expected():
                               signal_class=("spikes", "lfp"))
 
 
-def test_directed_network_consumes_the_class_and_does_not_pass_it_to_the_pairwise_estimator():
+def test_directed_network_passes_the_class_to_each_pairwise_estimator():
     rng = np.random.default_rng(6)
     signals = {k: v for k, v in zip("ABC", rng.normal(size=(3, 2000)))}
     out, future = _call(jnwb.directed_network, signals, method="psi", fs=FS, jackknife=False,

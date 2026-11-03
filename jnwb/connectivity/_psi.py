@@ -6,6 +6,7 @@ import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from .._rng import Default, RNGLike, resolve_seed_alias
+from .._units import _OMITTED, _check_signal_class
 from scipy import stats
 from ..spectral import CANONICAL_BANDS
 from ._common import DirectedResult, _surrogate_p, _surrogate_rng, _surrogate_scheme, _surrogate_source
@@ -155,6 +156,7 @@ def phase_slope_index(
     rng: RNGLike = Default(0),
     time_axis: int = -1,
     *,
+    signal_class: Union[str, Tuple[str, str]] = _OMITTED,
     seed: Any = Default(0),
 ) -> DirectedResult:
     """
@@ -224,6 +226,8 @@ def phase_slope_index(
             is as in :func:`granger` and is recorded in ``params['surrogate_scheme']``
         rng: surrogate randomness, as in :func:`granger`; passing
             ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the p-values
+        signal_class: as in :func:`granger`: ``'spikes'`` or ``'lfp'``, or a pair; a mixed pair is
+            refused, and omitted the call warns ``FutureWarning``. It changes no number.
 
     Returns:
         DirectedResult with ``unit='psi'``, ``per_band[name] = {value, z, sd,
@@ -249,6 +253,7 @@ def phase_slope_index(
         does so from three trials on, a trial being the epoch, and below that leaves out
         one Welch segment, adjacent segments overlapping by ``noverlap``.
     """
+    _check_signal_class("phase_slope_index", signal_class, 2)
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='phase_slope_index')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "phase_slope_index")
     if fs is None or not np.isfinite(fs) or fs <= 0:

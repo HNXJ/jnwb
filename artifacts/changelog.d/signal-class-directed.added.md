@@ -1,0 +1,5 @@
+- `jnwb/connectivity/_granger.py`: `granger` and `granger_spectral` take a keyword-only `signal_class`.
+- `jnwb/connectivity/_psi.py`: `phase_slope_index` takes a keyword-only `signal_class`.
+- `jnwb/connectivity/_transfer_entropy.py`: `transfer_entropy` takes a keyword-only `signal_class`.
+- `jnwb/connectivity/_network.py`: `directed_connectivity` and `directed_network` pass `signal_class` on.
+- `tests/test_signal_class.py`: each of the four warns `FutureWarning` when `signal_class` is omitted.
