@@ -29,19 +29,14 @@ and an item that shares a file with another lane names it in Blocked by.
 
 | Lane | Items, in order | Files |
 |---|---|---|
-| A | 17-84, 17-93 | `jnwb/analyzers.py`, `scripts/build_fact_graph.py` and the files of 17-93 |
-| C | 17-108, 17-110, 17-111 | `jnwb/nwb_events.py`, `jnwb/nwb_inspect.py`, `jnwb/spiking.py`, `jnwb/statistics/_*.py` |
-| E | 17-78 | `docs/*.md`, `scripts/docs_form_gate.py` |
-| F | 17-92 | `artifacts/evidence/` |
-| H | 17-112, 17-113 | `jnwb/nwb_validate.py`, `jnwb/metadata.py` |
-| B | 17-118 | `jnwb/connectivity/_granger.py` |
-| D | 17-119, 17-120 | `scripts/gates/` |
+| I | 17-121, 17-122 | `jnwb/metadata.py`, `jnwb/_units.py`, `jnwb/connectivity/_network.py` |
+| K | 17-124, 17-125 | `jnwb/analyzers.py`, `jnwb/statistics/_analysis.py` |
+| E | 17-78 | `docs/*.md` except `docs/api.md`, `scripts/docs_form_gate.py` |
 
-- Batches: A, B, C (run 2026-11-02); D, E, G (run 2026-11-03, D closed); rulings of 2026-11-03 cleared
-  the remainders, and the integrator closed 17-80, 17-91 and 17-116; then C, H, F; then A, D, B; then
-  E. The integrator does 17-76.
+- Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B (2026-11-03, landed); then I, K, E;
+  the integrator does 17-76 and 17-126.
 - Waiting on Hamm: 17-75, 17-77; open rows P-216-01, -05 to -08, -15, -17 to -20, -22, -24, -32. Open
-  rows with no item yet: P-216-16, -21, -25, -26, -35 to -37, -40.
+  rows with no item yet: P-216-16, -21, -25, -26.
 - Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (plan only);
   approved, a 0.2.16 item changes `workflow.yml`.
 
@@ -69,86 +64,9 @@ Writes: `artifacts/fact_stack.md`, `artifacts/rulings/standing.md`.
 ### 17-78 Doc form across pages
 
 Release: deferred-0.2.16.
-Role: docs-harness. Skill: none. Blocked by: 17-93 (shares `docs/*.md`); forms ruled 2026-11-03.
+Role: docs-harness. Skill: none. Blocked by: nothing; forms ruled 2026-11-03.
 Writes: `docs/01_architecture_and_philosophy.md`, `docs/02_paths_addressing_metadata.md`, `docs/03_representational_similarity_jrsa.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/09_decoding_and_visual_qc.md`, `docs/10_operation_specifications.md`, `docs/agents.md`, `docs/architecture.md`, `docs/coherence_and_tfr.md`, `docs/common_mistakes.md`, `docs/documentation_form.md`, `docs/errors.md`, `docs/execution.md`, `docs/glossary.md`, `docs/index.md`, `docs/install.md`, `docs/laminar.md`, `docs/quickstart.md`, `docs/reading_nwb.md`, `docs/recipes.md`, `docs/references.md`, `docs/repairing_nwb.md`, `docs/unit_quality_example.md`, `docs/vis.md`, `docs/writing_nwb.md`, `scripts/docs_form_gate.py`, `tests/test_docs_form_gate.py`.
 - 17-78: the heading, H2-operation and repeated-row forms landed as F10 to F12. Left: `## References` (03, 07, 08, `coherence_and_tfr` carry it; 06, `reading_nwb`, `common_mistakes`, `laminar` cite without it; 04 carries it with no citation); the micrometre form in prose (`um` 6 times in 02 and `laminar`, `$\mu$m` once in 10). Check: F13, a page that cites a source ends with `## References` and a page that cites none has none; F14, prose writes `micrometers`, identifiers in code spans unchanged; a planted page fails each; the gate passes.
-
-### 17-84 The rng scan does not follow calls into a drawing callee
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing; `compare_criteria(units1, units2, metric='firing_rate', *, rng: RNGLike = DEFAULT_SEED)` passed to `exploratory_compare`, ruled 2026-11-03; the psth half landed in batch 1.
-Writes: `scripts/build_fact_graph.py`, `tests/test_rng_parameters_by_use.py`, `jnwb/analyzers.py`.
-- 17-84: `rng_scan` credits a caller with its callee's rng key, so `psth` before batch 1 (no `rng` passed to `bootstrap_ci`) was no finding. A call-site rule (flag a call to a drawing jnwb function that passes no `rng`, `seed`, `random_state` or `random_seed`) flagged on the live package: `compare_criteria` -> `exploratory_compare` (true), `granger_spectral` and `granger_time_reversed` -> `granger` with `n_surrogates=0` (no draw), `_net_surrogate_p` (generator named `surrogate_rng`). Check: the rule reads generator parameters by suffix or annotation and skips calls whose count argument is a literal 0; a planted caller without rng is flagged, the two false cases are not.
-
-### 17-92 Closed evidence that nothing cites
-
-Release: deferred-0.2.16.
-Role: actor. Skill: none. Blocked by: nothing.
-Writes: `artifacts/evidence/0.2.13/*`, `artifacts/evidence/0.2.14/*`, `artifacts/evidence/0.2.15/suite_profile.md`, `artifacts/process/plans_0.2.15.md`, `.gitignore`.
-- 17-92: AGENTS.md §0, as commit `91b04aec` did for 58 files. `git grep -lF <basename>` finds no citer for `evidence/0.2.13/compress_scaling_probe.py`, `compress_scaling.json` (`.gitignore` only), `p335_laminar_curation_review.md`; `evidence/0.2.14/jaxfne_docs_dashboard_comparison.md`, `process_tests/plants.py`, `process_tests/prune_record.md` (266 lines); `evidence/0.2.15/suite_profile.md` (309 lines); `process/plans_0.2.15.md`. No gate globs `artifacts/evidence/`. Check: each removed with its `.gitignore` lines, the same grep is empty, harness 22 of 22.
-
-### 17-93 Deprecated surfaces past their removal date
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: 17-84 (shares `jnwb/analyzers.py`); ruled 2026-11-02, `granger_causality` stays (P-216-07).
-Writes: `jnwb/analyzers.py`, `jnwb/_dictlike.py`, `jnwb/spectral/__init__.py`, `jnwb/connectivity/__init__.py`, `jnwb/connectivity/_information.py`, `jnwb/statistics/_analysis.py`, `jnwb/_declarations.py`, `artifacts/process/frozen_validated.json`, `skills/jnwb-statistics/SKILL.md`, `skills/jnwb-connectivity/SKILL.md`, `docs/architecture.md`, `docs/references.md`, `tests/test_analyzers_coverage.py`, `tests/test_connectivity.py`, `tests/test_deprecated_aliases.py`, `tests/test_dict_access_shim.py`, `tests/test_nonfinite_inputs.py`, `tests/test_public_api_reachability.py`, `tests/test_skills_validation.py`, `tests/test_statistics.py`, `tests/test_substitution_class_sweep.py`, `tests/test_unit_suffixed_parameters.py`.
-- 17-93: `analyzers.py:211` says the renamed `n_significant` keys "are removed in the next release" (added 2026-09-26, 8 releases ago); `RenamedKeyDict` (`_dictlike.py`; used by `analyzers.py:232`, re-imported by `spectral/__init__.py:18`) stays for them; `granger_causality`, `clopper_pearson_ci` and both MI aliases are deprecated and still extended. Check: the keys, `RenamedKeyDict`, `clopper_pearson_ci` and the two MI aliases are removed with one Breaking entry; `docs/api.md` and the skill rows lose them; `granger_causality` is unchanged.
-
-### 17-108 cross_modal_comparison at n_permutations=0
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing; 0 stays the run that draws no null, ruled 2026-11-03; the rest of 17-108 landed in batch 1.
-Writes: `jnwb/statistics/_regression.py`, `tests/test_statistics_refusals.py`, `tests/test_cross_modal_comparison_faces_agree.py`.
-- 17-108: from P-216-28. `cross_modal_comparison` gives `lag_corrected_pvalue` 1.0 at `n_permutations=0` (`_regression.py:333-339`), a null result no draw made; `test_cross_modal_comparison_faces_agree.py:177-179` pins 0 as the undrawn mode (`surrogate_scheme` None). Check: at `n_permutations=0`, `lag_corrected_pvalue` is NaN and `surrogate_scheme` None, and the pinned test asserts both.
-
-### 17-110 A missing response z classified 'none'
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: nothing; `'undefined'` with a `UserWarning`, ruled 2026-11-03; the `lfp_timestamps` half landed in batch 1.
-Writes: `jnwb/spiking.py`, `tests/test_spiking_inputs.py`.
-- 17-110: from P-216-31. `classify_response_significance` reads a `metrics` dict with no `response_zscore` as z = 0 (`spiking.py:299`, `metrics.get('response_zscore', 0.0)`) and classifies `'none'`, while a missing count key classifies `'undefined'` with a `UserWarning` (`:285-297`). Check: the missing z classifies `'undefined'` with a `UserWarning`, and a test separates it from z = 0.
-
-### 17-111 TimeIntervals in a processing module
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing; ruled 2026-11-03: an `interval_tables` entry for a processing table has the bare `name` plus a `module` key, as `processing_continuous` entries carry.
-Writes: `jnwb/nwb_events.py`, `jnwb/nwb_inspect.py`, `tests/test_nwb_events.py`, `tests/test_nwb_inspect.py`.
-- 17-111: from P-216-03 (hnxj/jnwb#37). `inspect(...)["interval_tables"]` is `[]` for a `TimeIntervals` under `processing/behavior`, and `events(table="processing/behavior/events")` raises `IntervalTableNotFoundError` (reproduced at `26b3e98e`; four tests written and failing, held until the ruling). Siblings: `mcp_server/event_tools.py:91-97` reads `nwb.intervals` only. Check: the issue's repro lists the table in `inspect` with `name` `events` and `module` `behavior`, `events(table="processing/behavior/events")` reads it, and `table="events"` still reads `intervals/events` when both exist.
-
-### 17-112 validate_nwb reports the wrong version and hides read warnings
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
-Writes: `jnwb/nwb_validate.py`, `tests/test_nwb_validate.py`.
-- 17-112: from P-216-02 (hnxj/jnwb#36). `nwb_validate.py:273` reads `metadata.version` (the installed distribution, not `jnwb.__version__`); the repro prints one read warning with layer counts 0. Check: the report carries `jnwb.__version__` from a source checkout, and the read layer counts its warnings.
-
-### 17-113 electrode_inventory prints container reprs
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
-Writes: `jnwb/metadata.py`, `tests/test_metadata.py`.
-- 17-113: from P-216-04 (hnxj/jnwb#38). The `group` column holds `probeA pynwb.ecephys.ElectrodeGroup at 0x...`. Check: the issue's repro gives `probeA`, and no cell of the inventory contains ` at 0x`.
-
-### 17-118 granger_time_reversed takes no signal class
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing; keyword ruled 2026-11-03.
-Writes: `jnwb/connectivity/_granger.py`, `tests/test_signal_class.py`; the integrator updates the `skills/jnwb-connectivity` row.
-- 17-118: from P-216-34. `granger_time_reversed` calls `granger` twice with no class, so an omitted class warns twice naming `granger`. Check: keyword-only `signal_class` reaches both calls; omitted, exactly one `FutureWarning` names `granger_time_reversed`; a mixed pair raises `ValueError`.
-
-### 17-119 A Writes glob that covers an integration path
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing; a glob counts, ruled 2026-11-03.
-Writes: `scripts/gates/stacks_closure.py`, `tests/test_generation_closure_is_declared.py`, `artifacts/todo_stack.md` (the Writes of 17-78 and 17-100 only).
-- 17-119: from P-216-39. `integration_path_writes` matches `docs/api.md` and `CHANGELOG.md` literally, so `docs/*.md` in a Writes passes. Check: a planted Writes `docs/*.md` fails gate 15, and 17-78 and 17-100 exclude `docs/api.md` so the gate passes.
-
-### 17-120 Gate 21 passes with nothing declared
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: nothing; zero examined fails, ruled 2026-11-03.
-Writes: `scripts/gates/boundary.py`, `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`, docstrings of the jnwb functions that average power before dB.
-- 17-120: from P-216-41. Gate 21 reads "examined: 0 declared raw-power estimands" and passes. Check: zero declarations fails gate 21; each function that averages power before `aggregate_to_db` declares `estimand: raw_power` in its docstring; the gate examines them and passes.
 
 ### 17-121 unit_census_report on a file with no units table
 
@@ -164,31 +82,24 @@ Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
 Writes: `jnwb/_units.py`, `jnwb/connectivity/_network.py`, `tests/test_signal_class.py`.
 - 17-122: from P-216-36. `_units._OMITTED` does not pickle, so `directed_network` forwards `signal_class` to workers only when the caller gave one. Check: the sentinel round-trips through `pickle` as the same object; `directed_network(..., n_jobs=2)` with the class omitted warns as `n_jobs=1` does and returns identical numbers.
 
-### 17-123 The push wrapper reads one completed run per SHA
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/jnwb_push.sh`, `scripts/push_guard.py`, `tests/test_push_guard.py`, `tests/test_jnwb_push.py`.
-- 17-123: from P-216-33 and P-216-40. The wrapper took the first completed run, so a green `dashboard` run beside a red `CI/CD` run at one SHA let a push through; `push_guard.py` misses `git --git-dir=`/`--work-tree=` pushes and ends in a traceback when stdin is unreadable. Check: the wrapper refuses when any completed run at the newest SHA failed (a test with two runs at one SHA, one failed); each guard case is planted and denied.
-
 ### 17-124 quality_metrics drops a spike on a window's closing edge
 
 Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: 17-93 (shares `jnwb/analyzers.py`).
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: nothing.
 Writes: `jnwb/analyzers.py`, `tests/test_analyzers_coverage.py`.
 - 17-124: from P-216-35. `quality_metrics` drops the last spike on the closing edge of its 1 s windows at the ulp, in 962 of 200000 random spans. Check: the edge tolerance `_bins` documents; a test places the spike on the closing edge and counts it.
 
 ### 17-125 Counts below 1 in StatisticalAnalysis
 
 Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 17-93 (shares `jnwb/statistics/_analysis.py`).
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: nothing.
 Writes: `jnwb/statistics/_analysis.py`, `tests/test_statistics_refusals.py`.
 - 17-125: from P-216-37. `n_bootstrap` and `n_permutations` in `_analysis.py` (`:157,545,603,710,800`) take 0 and negatives unchecked. Check: each refuses a count below 1 by name with `ValueError`, as 17-108's siblings do; one test per parameter.
 
 ### 17-126 The frozen granger entry does not see direction
 
 Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: 17-93 (shares `tests/test_connectivity.py`).
+Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `artifacts/process/frozen_validated.json`, `tests/test_connectivity.py`.
 - 17-126: from P-216-38. Swapping `x_to_y` and `y_to_x` in `granger`'s return passes the entry's `killed_by` test. Check: `killed_by` names a test with a known driver direction, and the swap mutant fails it.
 
