@@ -238,3 +238,10 @@ with the paper only at 1. There is no default: apply the paper's rule (largest m
 every cluster above 20 units) to the sweep. Fine clusters can change with the seed, so compare
 labels across `rng` values before naming one. Waveforms filtered differently separate by
 pipeline (Lee et al. 2023), so cluster such datasets apart.
+
+## References
+
+- Vinck et al. (2010)
+- Lee et al. (2021)
+- Lambiotte et al. (2008)
+- Lee et al. (2023)

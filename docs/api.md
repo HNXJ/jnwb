@@ -386,7 +386,7 @@ All 229 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.waveform_flatness | function | `(waveform, *, threshold: 'float') -> 'Dict[str, Any]'`<br>*Whether a mean waveform is flat: its peak-channel amplitude is below `threshold`.* |
 | jnwb.waveform_halfwidth | function | `(waveform, fs: 'float', *, upsampling_factor: 'float' = 2.4390243902439024) -> 'float'`<br>*Width of the largest deflection at half its height, in ms (Jia et al. 2019).* |
 | jnwb.waveform_snr | function | `(spike_waveforms) -> 'float'`<br>*Signal-to-noise ratio of one unit on one channel (Siegle et al. 2021, Methods).* |
-| jnwb.waveform_spread | function | `(waveform, *, site_spacing_um: 'float', threshold: 'float' = 0.12, site_range: 'int' = 16, site_step: 'int' = 2, outlier_z: 'float' = 1.5) -> 'float'`<br>*Extent along the probe of the channels that carry the unit, in µm (Jia et al. 2019).* |
+| jnwb.waveform_spread | function | `(waveform, *, site_spacing_um: 'float', threshold: 'float' = 0.12, site_range: 'int' = 16, site_step: 'int' = 2, outlier_z: 'float' = 1.5) -> 'float'`<br>*Extent along the probe of the channels that carry the unit, in micrometers (Jia et al. 2019).* |
 
 ## Module: jnwb.viz
 

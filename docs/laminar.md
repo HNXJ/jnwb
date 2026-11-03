@@ -83,7 +83,7 @@ omega exceeds `omega_cut`, 6 by default; a rejected window keeps its values so t
 read. The cut matches vFLIP2.m; on noise-only synthetic probes it accepts 18 of 100, and
 24 of 100 (95% CI 0.16 to 0.34) at matched SNR 0, so an accepted fit is not by itself evidence
 of a crossover. At matched SNR 0 it accepts, by contact spacing, 0 of 100 at 25 and
-50 um, 24 at 100 um, 37 at 150 um and 39 at 200 um. Omega counts frequency bins, so it changes with the bin width and
+50 micrometers, 24 at 100 micrometers, 37 at 150 micrometers and 39 at 200 micrometers. Omega counts frequency bins, so it changes with the bin width and
 frequency range of the PSD.
 
 Rows are 0-based PSD rows in shaft order. `orientation` is `"upright"` when the deep group,
@@ -142,3 +142,8 @@ and declaring it raises `ValueError`.
 `xflip` and `zflip` record the seed of their surrogates as `surrogate_seed_entropy`; passing
 it back as `rng` reproduces the p-values. For a NumPy `Generator` the seed is one child draw
 from it, so the caller's stream advances by one draw.
+
+## References
+
+- Mendoza-Halliday et al. (2024)
+- Major et al. (2025)

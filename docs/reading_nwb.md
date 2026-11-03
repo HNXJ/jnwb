@@ -92,3 +92,8 @@ print(sliced_data.shape, sliced_data.dtype)
 ```
 
 Also accessible as `jnwb.io.stream_npz_array`.
+
+## References
+
+- Teeters et al. (2015)
+- Rübel et al. (2022)

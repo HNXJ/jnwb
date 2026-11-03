@@ -49,3 +49,7 @@ The page below is included from the tutorial script; edit the script, not this b
 ```python
 --8<-- "examples/tutorials/10_wavemap.py"
 ```
+
+## References
+
+- Lee et al. (2021), in [References](../references.md).

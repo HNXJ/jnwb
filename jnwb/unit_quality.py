@@ -301,7 +301,7 @@ def _modified_z(deviation):
 def waveform_spread(waveform, *, site_spacing_um: float, threshold: float = 0.12,
                     site_range: int = 16, site_step: int = 2,
                     outlier_z: float = 1.5) -> float:
-    """Extent along the probe of the channels that carry the unit, in µm (Jia et al. 2019).
+    """Extent along the probe of the channels that carry the unit, in micrometers (Jia et al. 2019).
 
     Input class: the unit's mean waveform ``(n_channels, n_samples)`` in any voltage unit,
     rows in the probe's channel order, and the vertical distance `site_spacing_um` that one

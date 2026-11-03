@@ -465,3 +465,11 @@ et al. 2014, Barnett and Seth 2011). A pitfall with no guard in `jnwb` is the ca
 | Phase slope as direction | A phase slope gives a lag asymmetry in the statistics, not an anatomical direction. An unrecorded common input with unequal delays to x and y also reads as a lead | `phase_slope_index` tests the lead (`p_net`) apart from coupling; see [its page](08_directed_connectivity_and_information.md#phase-slope-index-phase_slope_index) |
 | Filtering before Granger | The Granger causality of the process is invariant under an invertible filter (Barnett and Seth 2011), so band-passing cannot isolate a band; the estimate from a finite filtered sample does change, and the fitted order often rises | Caller: do not filter first; read `per_band` of `granger_spectral`. No estimator detects a filtered input |
 | Non-stationarity | A slowly decaying or drifting mode makes a finite-order VAR fail | `granger_spectral` records a warning in `diagnostics` and sets `diagnostics['stationary']` false when the fitted VAR's spectral radius reaches 1. That key is a fitted-VAR stability check, not a stationarity test: a slowly decaying mode passes it. `granger` has no such check, only `detrend='linear'` on request |
+
+## References
+
+- Nejat and Hajipour Sardouie (2021)
+- Bastos and Schoffelen (2016)
+- Vezoli et al. (2021)
+- Friston et al. (2014)
+- Barnett and Seth (2011)

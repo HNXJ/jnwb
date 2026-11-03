@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Documentation form gate: the rules of ``docs/documentation_form.md`` a machine can settle.
 
-Ten checks, each run against a repository root (the live tree from the command line, a seeded
+Twelve checks, each run against a repository root (the live tree from the command line, a seeded
 fixture tree from the suite):
 
   1. Vocabulary (F5). No superseded surface form from the contract's vocabulary table survives
@@ -34,6 +34,10 @@ fixture tree from the suite):
   9. Module headings (F11). On each concept page, an H2 names a module (``jnwb.x`` or
      ``jnwb/x.py``) or a class, never a function: a function is named in an H3.
   10. Repeated table rows (F12). No data row of an authored page appears in two of its tables.
+  11. References (F13). A page under ``docs/`` that cites a source ends with a ``## References``
+      section, and a page that cites none has none. ``references.md``, the list itself, is not read.
+  12. Micrometers (F14). No micrometre unit (the abbreviation, the micro sign or the LaTeX symbol)
+      in the prose of a page. Code spans, code blocks, identifiers and link targets are not prose.
 
 **What check 5 does not see.** It is a detector for one shape, tuned to report nothing on the
 live tree, and F2 stays a review item beyond it:
@@ -909,6 +913,128 @@ def check_repeated_rows(root: Path) -> Result:
         f"{len(pages)} pages read.")
 
 
+# ------------------------------------------------------------------ 11. references (F13)
+
+
+#: The reference list itself. It is the list the rule points to, so it carries no ``## References``
+#: section of its own; F9 exempts it from the evidence-path rule for the same reason.
+REFERENCE_LIST = "references.md"
+
+#: A source named in prose: a DOI, a link to an entry of the reference list (``references.md#entry``)
+#: or an author-year form the pages use ("Lee et al. (2021)", "Maris & Oostenveld (2007)",
+#: "Schreiber (2000)"). A bare link to the reference list is a pointer to it, not a citation.
+_DOI = re.compile(r"\b10\.\d{4,9}/[^\s\])<>]+")
+_NAMED_ENTRY = re.compile(r"references\.md#[\w-]+")
+_NAME = r"[A-Z][\w'’-]*(?:\s+[A-Z][\w'’-]*)?"
+_AUTHOR_YEAR = re.compile(
+    rf"\b{_NAME}(?:(?:[.,]*\s+et al\.?|[ ,]+(?:and|&)\s+{_NAME}),?\s*\(?|\s*\()"
+    r"(?:19|20)\d{2}[a-z]?\b")
+
+
+def documents(root: Path) -> List[Tuple[str, str]]:
+    """Every page under ``docs/`` as (name, text), the generated reference included."""
+    docs = root / "docs"
+    return [(_page_name(docs, page), page.read_text(encoding="utf-8"))
+            for page in sorted(docs.rglob("*.md"))]
+
+
+def cited_text(text: str) -> str:
+    """The prose a citation can sit in: unfenced, outside code spans, and outside the
+    ``## References`` section, which lists the sources rather than citing them in the text."""
+    kept: List[str] = []
+    in_references = False
+    for _, line in unfenced_lines(text):
+        match = _HEADING.match(line)
+        if match and len(match.group(1)) == 2:
+            in_references = match.group(2).strip() == REFERENCES
+        if not in_references:
+            kept.append(line)
+    return _INLINE_CODE.sub(" ", "\n".join(kept))
+
+
+def citation(text: str) -> Optional[str]:
+    """The first source the page cites in its prose, as written, or None."""
+    body = cited_text(text)
+    for pattern in (_DOI, _NAMED_ENTRY, _AUTHOR_YEAR):
+        match = pattern.search(body)
+        if match:
+            return match.group(0)
+    return None
+
+
+def citing_pages(root: Path) -> List[Tuple[str, str]]:
+    """(name, first citation) for each page the rule reads that cites a source."""
+    found = [(name, citation(text)) for name, text in documents(root)
+             if name not in (REFERENCE_LIST, GENERATED)]
+    return [(name, source) for name, source in found if source is not None]
+
+
+def check_references(root: Path) -> Result:
+    # The generated reference is skipped: each entry's sources are in the docstring it is built from.
+    pages = [(name, text) for name, text in documents(root)
+             if name not in (REFERENCE_LIST, GENERATED)]
+    violations: List[str] = []
+    cited = 0
+    for name, text in pages:
+        found = citation(text)
+        sections = [(number, title) for number, level, title in headings(text) if level == 2]
+        references = [number for number, title in sections if title == REFERENCES]
+        if found is not None:
+            cited += 1
+        if found is not None and not references:
+            violations.append(f"{name}: cites {found!r} and has no ## References section (F13)")
+        if references and found is None:
+            violations.append(f"{name}:{references[0]}: has a ## References section and cites "
+                              "no source (F13)")
+        if len(references) > 1:
+            violations.append(f"{name}: {len(references)} ## References sections; a page has one "
+                              "(F13)")
+        if references and sections[-1][1] != REFERENCES:
+            violations.append(f"{name}:{references[0]}: ## References is not the last section "
+                              "(F13)")
+    if not pages:
+        violations.append("no page read; F13 has nothing to check")
+    return violations, (
+        f"PASS: references (F13): {cited} pages cite a source and end with ## References; "
+        f"{len(pages) - cited} cite none and have none; {len(pages)} pages read.")
+
+
+# ------------------------------------------------------------------ 12. micrometers (F14)
+
+
+#: A micrometre written as a unit: ``um``, the micro sign or Greek mu before ``m``, or the LaTeX
+#: symbol. A letter or an underscore beside the match makes it part of a word (``depth_um``,
+#: ``umbrella``), so it is not a unit; a digit or a space beside it leaves it one.
+_MICROMETRE = re.compile(
+    r"(?<![A-Za-z_])(?:um|µm|μm)(?![A-Za-z_])"
+    r"|\$\\mu\$m(?![A-Za-z_])"
+    r"|\\mu\s*\\(?:text|mathrm)\{m\}")
+
+
+def _prose_units(line: str) -> str:
+    """A line as a reader sees its units: code spans, HTML tags, snippet includes and link targets
+    removed. Math stays, since a micrometre is often typed as math."""
+    line = _SNIPPET.sub(" ", line)
+    line = _INLINE_CODE.sub(" ", line)
+    line = _HTML.sub(" ", line)
+    return _LINK_TARGET.sub("]", line)
+
+
+def micrometre_units(text: str) -> List[Tuple[int, str]]:
+    """(line number, unit) for each micrometre unit in the prose of ``text``; fences are not read."""
+    return [(number, match.group(0))
+            for number, line in unfenced_lines(text)
+            for match in _MICROMETRE.finditer(_prose_units(line))]
+
+
+def check_micrometres(root: Path) -> Result:
+    pages = documents(root)
+    violations = [f"{name}:{number}: {unit} is a unit in prose; write micrometers (F14)"
+                  for name, text in pages for number, unit in micrometre_units(text)]
+    return violations, (
+        f"PASS: micrometers (F14): no micrometre unit in the prose of {len(pages)} pages.")
+
+
 # ---------------------------------------------------------------------------------- runner
 
 
@@ -923,6 +1049,8 @@ CHECKS: Sequence[Tuple[str, Callable[[Path], Result]]] = (
     ("concept headings", check_concept_numbering),
     ("module headings", check_module_headings),
     ("repeated table rows", check_repeated_rows),
+    ("references", check_references),
+    ("micrometers", check_micrometres),
 )
 
 

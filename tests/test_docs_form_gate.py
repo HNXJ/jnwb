@@ -79,9 +79,12 @@ The file is unlocked after `delve` returns, and delve-rs is a crate name.
 
 ```python
 #### a comment, not a heading
+# depth 40 um, in a code block
 
 `alpha` is one, `beta` is two, `gamma` is three.
 ```
+
+The contact depth is stored as `depth_um`, in micrometers, and `pitch_um` is its spacing.
 
 ![A figure](assets/figures/fig.png#only-light)
 ![A figure](assets/figures/fig.dark.png#only-dark)
@@ -117,6 +120,15 @@ A paragraph.
 Text.
 """
 
+CITED = """# Cited
+
+The method follows Lee et al. (2021).
+
+## References
+
+- Lee et al. (2021)
+"""
+
 GENERATOR = """THEMES = {"light": {"fg": "#000000"}, "dark": {"fg": "#ffffff"}}
 
 
@@ -148,6 +160,7 @@ def tree(tmp_path: Path) -> Path:
     for name in ("b", "c", "d"):
         _write(tmp_path / "docs" / f"{name}.md", f"# Page {name.upper()}\n\nA short page.\n")
     _write(tmp_path / "docs" / "tutorials" / "t1.md", "# Tutorial\n\nA short tutorial.\n")
+    _write(tmp_path / "docs" / "cited.md", CITED)
     for name in CONCEPT_NAMES:
         _write(tmp_path / "docs" / name, CONCEPT)
     _write(tmp_path / "README.md", "# Fixture\n\nA readme.\n")
@@ -309,6 +322,22 @@ SEEDS = {
                         "\n| Refusal | Error |\n|---|---|\n"
                         "| `dst` exists | `FileExistsError` |\n"),
         "a.md: the row '| `dst` exists | `FileExistsError` |' is in 2 tables"),
+    "cited source without a References section": (
+        "references", _append(PAGE_A, "\nThe method follows Lee et al. (2021).\n"),
+        "a.md: cites 'Lee et al. (2021' and has no ## References section"),
+    "References section on a page that cites none": (
+        "references", _append(PAGE_A, "\n## References\n\nNone is cited on this page.\n"),
+        "has a ## References section and cites no source"),
+    "References section that is not the last": (
+        "references",
+        _append(PAGE_A, "\nThe method follows Lee et al. (2021).\n\n## References\n\n- Lee et al. (2021)\n"
+                        "\n## Notes\n\nText.\n"),
+        "## References is not the last section"),
+    "micrometre unit in prose": ("micrometers", _append(PAGE_A, "\nThe probe is 40 um deep.\n"),
+                                 "um is a unit in prose"),
+    "micrometre symbol in math in prose": (
+        "micrometers", _append(PAGE_A, "\nThe depth is $\\mu\\text{m}$ here.\n"),
+        "\\mu\\text{m} is a unit in prose"),
 }
 
 
@@ -536,3 +565,45 @@ def test_the_docs_build_writes_outside_the_tree(monkeypatch, tmp_path):
     assert docs_build.main(["--keep", str(kept)]) == 0
     assert calls[1][0] == kept.resolve() and (kept / "index.html").is_file()
     assert docs_build.main(["--bogus"]) == 2
+
+
+# ------------------------------------------------------------ references and micrometers (F13, F14)
+
+
+def test_a_citation_in_code_or_in_the_list_is_not_a_citation():
+    """Bypass: a cite read from code, or from the References section, makes a page that cites none
+    look like one that does. A bare link to the list is a pointer, not a citation."""
+    assert gate.citation("Use `Lee et al. (2021)` as the key.\n\n```\nLee et al. (2021)\n```\n") is None
+    assert gate.citation("## References\n\n- Lee et al. (2021)\n") is None
+    assert gate.citation("The methods are in [References](references.md).\n") is None
+    assert gate.citation("See [unit quality](references.md#unit-quality).\n") == \
+        "references.md#unit-quality"
+
+
+def test_each_author_year_form_the_pages_use_is_a_citation():
+    """Bypass: a form the reader misses, such as two-author, initial-led or multi-line names, lets
+    a page cite without its section."""
+    for text in ("Maris & Oostenveld (2007).\n", "Schreiber (2000).\n",
+                 "Nejat and Hajipour Sardouie (2021) normalize.\n",
+                 "Westerberg, J., Durand, S., Cabasco, H., et al. (2024).\n",
+                 "Friston\net al. 2014.\n", "Winkler et al., 2016.\n"):
+        assert gate.citation(text) is not None, text
+
+
+def test_a_unit_in_an_identifier_a_code_span_or_a_block_is_not_prose():
+    """Bypass: a reader that matches `um` inside `depth_um`, a code span, a link target or a code
+    block fails every page that names a column. A unit in prose is read."""
+    assert gate.micrometre_units("The column `depth_um` and `um` are code; depth_um is a name.\n") == []
+    assert gate.micrometre_units("A word like umbrella, and ![x](assets/um/plot.png).\n") == []
+    assert gate.micrometre_units("```\n# 40 um\n```\n") == []
+    assert gate.micrometre_units("Depth is 40 um.\n") == [(1, "um")]
+    assert gate.micrometre_units("Depth is 40 µm.\n") == [(1, "µm")]
+    assert gate.micrometre_units("Depth is $\\mu\\text{m}$.\n") == [(1, "\\mu\\text{m}")]
+
+
+def test_the_references_and_micrometre_readers_reach_the_live_pages():
+    """Bypass: a reader that sees no page passes every page. The citation reader reads the pages
+    that cite; the micrometre reader reads every page under docs/."""
+    citing = dict(gate.citing_pages(REPO_ROOT))
+    assert "laminar.md" in citing and "06_spikes_psth_and_onset_dynamics.md" in citing, sorted(citing)
+    assert len(gate.documents(REPO_ROOT)) >= 28
