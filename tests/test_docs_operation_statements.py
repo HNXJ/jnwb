@@ -328,6 +328,8 @@ def _rng_probes():
         "nested_cv_linear_svm": lambda r: jnwb.nested_cv_linear_svm(xs, labs, 3, rng=r),
         "phase_slope_index": lambda r: jnwb.phase_slope_index(
             t1, t2, fs=100.0, bands=(10.0, 30.0), n_surrogates=5, rng=r),
+        "PopulationAnalyzer.compare_criteria": lambda r: jnwb.PopulationAnalyzer.compare_criteria(
+            pd.DataFrame({"firing_rate": a}), pd.DataFrame({"firing_rate": b}), rng=r),
         "resample_onsets": lambda r: jnwb.resample_onsets(np.arange(10.0), target_n=20, rng=r),
         "screen_units_against_labels": lambda r: jnwb.screen_units_against_labels(
             screen_frame, np.arange(60) % 2, np.repeat(np.array(["a", "b", "c"]), 20),
