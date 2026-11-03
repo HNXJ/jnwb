@@ -6,9 +6,10 @@ cannot move dev or main.
 A checkout is jnwb when the root holding its `.git` (a directory in a clone, a file in a linked
 worktree) contains `jnwb/__init__.py` and `scripts/jnwb_push.sh`. The folder name does not count.
 A command is split at `;`, `&&`, `||`, `|`, `&` and newlines. A `cd <dir>` segment sets the directory
-of the segments after it, `git -C <dir>` sets it for its own push, and a segment that starts with a
-jnwb_push.sh call is the wrapper and passes. An unreadable payload is denied only when its text names
-a git push.
+of the segments after it, `git -C <dir>` sets it for its own push, `--git-dir` and `--work-tree`
+(either form) name a checkout too, and a segment that starts with a jnwb_push.sh call is the wrapper
+and passes. A payload that cannot be read or interpreted is denied with a message: the guard cannot
+tell what it would push.
 
 Wire it in `.claude/settings.json` under hooks.PreToolUse with matcher "Bash":
     python <repo>/scripts/push_guard.py
@@ -21,7 +22,10 @@ import re
 import sys
 from pathlib import Path
 
-PUSH = re.compile(r"\bgit\s+(?:-C\s+(\"[^\"]*\"|'[^']*'|\S+)\s+)?(?:-c\s+\S+\s+)*push\b([^;&|<>\n]*)")
+PATH = r"(?:\"[^\"]*\"|'[^']*'|\S+)"
+GLOBAL = rf"(?:-C\s+{PATH}|-c\s+\S+|--git-dir(?:=|\s+){PATH}|--work-tree(?:=|\s+){PATH})"
+PUSH = re.compile(rf"\bgit\s+((?:{GLOBAL}\s+)*)push\b([^;&|<>\n]*)")
+GLOBAL_OPT = re.compile(rf"(-C|--git-dir|--work-tree)(?:=|\s+)({PATH})|-c\s+\S+")
 TEMP = re.compile(r"_temp(?:orary)?_")
 ALL_REFS = {"--all", "--mirror", "--tags"}
 SEGMENT_SEP = re.compile(r"&&|\|\||[;&|\n]")
@@ -30,6 +34,7 @@ WRAPPER = re.compile(r"\s*(?:(?:bash|sh)\s+)?\S*jnwb_push\.sh\b")
 JNWB_MARKERS = ("jnwb/__init__.py", "scripts/jnwb_push.sh")
 DENY = ("plain `git push` in jnwb skips the suite stamp and CI checks; run "
         "`bash <repo>/scripts/jnwb_push.sh <repo> dev </dev/null`.")
+UNREADABLE = "push_guard could not read the hook payload ({}); a command it cannot check is denied."
 
 
 def temp_only(args):
@@ -65,6 +70,18 @@ def is_jnwb(path):
     return root is not None and all((root / m).is_file() for m in JNWB_MARKERS)
 
 
+def push_dirs(base, global_text):
+    """The directories a push names. Each `-C` steps the working directory in turn; `--git-dir` and
+    `--work-tree` name their own, resolved against the directory the `-C` steps end in, as git does."""
+    steps = [(m.group(1), m.group(2)) for m in GLOBAL_OPT.finditer(global_text) if m.group(1)]
+    where = base
+    for flag, path in steps:
+        if flag == "-C":
+            where = under(where, unquote(path))
+    named = [under(where, unquote(path)) for flag, path in steps if flag != "-C"]
+    return [where, *named]
+
+
 def verdict(payload):
     """Return the deny reason for a plain `git push` in a jnwb checkout, else None."""
     cmd = (payload.get("tool_input") or {}).get("command") or ""
@@ -77,25 +94,33 @@ def verdict(payload):
         if WRAPPER.match(seg):
             continue
         for m in PUSH.finditer(seg):
-            where = under(base, unquote(m.group(1) or ""))
-            if is_jnwb(where) and not temp_only(m.group(2)):
+            if temp_only(m.group(2)):
+                continue
+            if any(is_jnwb(where) for where in push_dirs(base, m.group(1))):
                 return DENY
     return None
 
 
 def decide(raw):
-    """Deny reason for the raw payload text, else None. A payload that does not parse is denied
-    only when its text names a git push, so the guard never lets such a push through unchecked."""
+    """Deny reason for the raw payload text (None when the push is allowed). Unreadable stdin is
+    denied with a message. A payload that does not interpret as a Bash call is denied when its text
+    names a git push, so such a push never passes unchecked, and any other command is let through."""
+    if raw is None:
+        return UNREADABLE.format("stdin unreadable")
     try:
         return verdict(json.loads(raw))
     except Exception as exc:
         if re.search(r"\bgit\b[\s\S]*\bpush\b", raw):
-            return f"push_guard could not read this command ({type(exc).__name__}); a push it cannot check is denied."
+            return UNREADABLE.format(type(exc).__name__)
         return None
 
 
 def main():
-    reason = decide(sys.stdin.buffer.read().decode("utf-8", "replace"))
+    try:
+        raw = sys.stdin.buffer.read().decode("utf-8", "replace")
+    except Exception:  # missing or closed stdin
+        raw = None
+    reason = decide(raw)
     if reason:
         print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",
                                                  "permissionDecision": "deny",

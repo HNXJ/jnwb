@@ -26,10 +26,14 @@ the checker already believes (a fixture must build the case it is named after).
 """
 from __future__ import annotations
 
+import contextlib
+import json
 import os
 import pathlib
 import subprocess
 import sys
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
@@ -366,8 +370,33 @@ def _push_lane(tmp_path, change):
     bindir = tmp_path / "home" / ".claude" / "bin"
     bindir.mkdir(parents=True)
     (bindir / "ci_inflight.py").write_text("print(0)\n", encoding="utf-8")
-    (bindir / "ci_last_conclusion.py").write_text('print("success")\n', encoding="utf-8")
     return repo, bare, origin_sha, head
+
+
+@contextlib.contextmanager
+def _green_ci():
+    """A local stand-in for the Actions API that lists one successful run, so the wrapper's CI
+    check passes without reading the live repository."""
+    body = json.dumps({"workflow_runs": [
+        {"name": "CI/CD", "head_sha": "0" * 40, "conclusion": "success"}]}).encode("utf-8")
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 def _run_push(tmp_path, repo, *args):
@@ -375,11 +404,13 @@ def _run_push(tmp_path, repo, *args):
     env["HOME"] = (tmp_path / "home").as_posix()
     env["PATH"] = os.pathsep.join([str(pathlib.Path(sys.executable).parent), env.get("PATH", "")])
     env.pop("JNWB_PUSH_OVER_RED", None)
-    return subprocess.run(
-        [_bash(), PUSH.as_posix(), repo.as_posix(), "dev", *args], cwd=str(repo), env=env,
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-        stdin=subprocess.DEVNULL, timeout=300,
-    )
+    with _green_ci() as api:
+        env["JNWB_CI_API"] = api
+        return subprocess.run(
+            [_bash(), PUSH.as_posix(), repo.as_posix(), "dev", *args], cwd=str(repo), env=env,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            stdin=subprocess.DEVNULL, timeout=300,
+        )
 
 
 def test_a_push_for_an_item_refuses_a_path_outside_its_writes(tmp_path):

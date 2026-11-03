@@ -4,13 +4,14 @@
 #     origin/<branch> touches only artifacts/ (plan/stack edits; their stack tests are the gate),
 #   - the tracked tree is clean, and
 #   - no Actions run on the branch is in flight, and
-#   - the newest completed run on the branch succeeded (override: JNWB_PUSH_OVER_RED=1,
-#     for the push that carries the fix).
+#   - every completed run at the newest SHA on the branch succeeded, and at least one is listed
+#     (scripts/ci_gate.py; override: JNWB_PUSH_OVER_RED=1, for the push that carries the fix).
 # Usage: jnwb_push.sh <dir> [branch=dev] [--item <id>]
 #   --item <id>: also refuse a push whose diff against origin/<branch> leaves the Writes of that
 #   todo item (read from origin/<branch>), beyond the always-writable stacks and changelog paths.
 #   The check is verify_lane.py --push-item.
 set -o pipefail
+here=$(cd "$(dirname "$0")" && pwd)
 dir="$1"; branch="${2:-dev}"
 [ "$branch" != "--item" ] || { echo "usage: jnwb_push.sh <dir> [branch] [--item <id>]"; exit 2; }
 cd "$dir" || exit 2
@@ -34,16 +35,17 @@ if [ -n "$outside" ]; then
     exit 1
   }
 fi
-bin="$HOME/.claude/bin"  # the CI helpers jarness installs
+bin="$HOME/.claude/bin"  # the CI in-flight helper jarness installs
 inflight=$(python "$bin/ci_inflight.py" hnxj/jnwb "$branch") || { echo "CI count unreadable"; exit 1; }
 [ "$inflight" = "0" ] || { echo "$inflight run(s) in flight on $branch"; exit 1; }
-last=$(python "$bin/ci_last_conclusion.py" hnxj/jnwb "$branch") || { echo "CI conclusion unreadable"; exit 1; }
-case "$last" in
-  success*|none*) ;;
+gate_out=$(python "$here/ci_gate.py" hnxj/jnwb "$branch"); gate_rc=$?
+case "$gate_rc" in
+  0) ;;
+  2) echo "CI conclusion unreadable: $gate_out"; exit 1 ;;
   *) if [ "${JNWB_PUSH_OVER_RED:-}" = "1" ]; then
-       echo "last CI run on $branch: $last; pushing anyway (JNWB_PUSH_OVER_RED=1)"
+       echo "CI gate on $branch: $gate_out; pushing anyway (JNWB_PUSH_OVER_RED=1)"
      else
-       echo "last CI run on $branch: $last; refusing. Read its failure; to push the fix, set JNWB_PUSH_OVER_RED=1"
+       echo "CI gate on $branch: $gate_out; refusing. Read its failure; to push the fix, set JNWB_PUSH_OVER_RED=1"
        exit 1
      fi ;;
 esac
