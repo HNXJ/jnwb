@@ -456,12 +456,14 @@ def test_every_route_renders_in_light_and_dark_without_errors(browser, base_url,
     assert not problems, "\n".join(problems)
 
 
-FIG12 = "fig12_coherence_zero_lag.png"
+#: An image every route requests on load. The figures load lazily, so whether a figure is requested
+#: before a route's check ends depends on the viewport and the timing.
+LOGO = "jnwb-logo.png"
 
 
 class _FaultyBrowser:
-    """The browser fixture with one figure's requests answered by a fault. "abort" fails the first
-    request for FIG12 with net::ERR_CONNECTION_RESET and lets the later ones through; "404" answers
+    """The browser fixture with the logo's requests answered by a fault. "abort" fails the first
+    request for LOGO with net::ERR_CONNECTION_RESET and lets the later ones through; "404" answers
     every request for it with HTTP 404. Counts the contexts opened, so a retry shows."""
 
     def __init__(self, browser, fault):
@@ -484,20 +486,20 @@ class _FaultyBrowser:
             else:
                 route.continue_()
 
-        context.route(f"**/assets/{FIG12}", answer)
+        context.route(f"**/assets/{LOGO}", answer)
         return context
 
 
-def test_a_transient_figure_abort_is_retried_once(browser, base_url, site):
+def test_a_transient_asset_abort_is_retried_once(browser, base_url, site):
     faulty = _FaultyBrowser(browser, "abort")
     test_every_route_renders_in_light_and_dark_without_errors(faulty, base_url, site)
-    assert faulty.faults == 1, "the fixture must abort one figure request"
+    assert faulty.faults == 1, "the fixture must abort one asset request"
     assert faulty.contexts == 2 * len(_routes(site)) + 1, "the aborted load must be retried once"
 
 
-def test_a_missing_figure_still_fails_on_its_404(browser, base_url, site):
+def test_a_missing_asset_still_fails_on_its_404(browser, base_url, site):
     faulty = _FaultyBrowser(browser, "404")
-    with pytest.raises(AssertionError, match=r"status of 404 .*assets/" + re.escape(FIG12)):
+    with pytest.raises(AssertionError, match=r"status of 404 .*assets/" + re.escape(LOGO)):
         test_every_route_renders_in_light_and_dark_without_errors(faulty, base_url, site)
-    assert faulty.faults >= 1, "the fixture must answer a figure request with a 404"
+    assert faulty.faults >= 1, "the fixture must answer an asset request with a 404"
     assert faulty.contexts == 2 * len(_routes(site)), "a 404 must not be retried"
