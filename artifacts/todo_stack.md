@@ -34,7 +34,7 @@ and an item that shares a file with another lane names it in Blocked by.
 | E | 17-78 | `docs/*.md` except `docs/api.md`, `scripts/docs_form_gate.py` |
 
 - Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B (2026-11-03, landed); then I, K, E;
-  the integrator does 17-76 and 17-126.
+  the integrator does 17-76.
 - Waiting on Hamm: 17-75, 17-77; open rows P-216-01, -05 to -08, -15, -17 to -20, -22, -24, -32. Open
   rows with no item yet: P-216-16, -21, -25, -26.
 - Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (plan only);
@@ -95,13 +95,6 @@ Release: deferred-0.2.16.
 Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: nothing.
 Writes: `jnwb/statistics/_analysis.py`, `tests/test_statistics_refusals.py`.
 - 17-125: from P-216-37. `n_bootstrap` and `n_permutations` in `_analysis.py` (`:157,545,603,710,800`) take 0 and negatives unchecked. Check: each refuses a count below 1 by name with `ValueError`, as 17-108's siblings do; one test per parameter.
-
-### 17-126 The frozen granger entry does not see direction
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `artifacts/process/frozen_validated.json`, `tests/test_connectivity.py`.
-- 17-126: from P-216-38. Swapping `x_to_y` and `y_to_x` in `granger`'s return passes the entry's `killed_by` test. Check: `killed_by` names a test with a known driver direction, and the swap mutant fails it.
 
 # 0.2.17
 

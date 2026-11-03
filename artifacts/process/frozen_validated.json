@@ -164,7 +164,8 @@
       "sha256": "acd0afc01562726e5db70b21901fbbcf5dbd7139936d330da4494c9881ec979a",
       "verified_at": "af9ffbfda6e462caadc288a7549762de7c74e99f",
       "killed_by": [
-        "tests/test_composition_randomness.py::TestDirectedNetworkSurrogatesFollowTheCallerSeed::test_two_different_seeds_give_different_p_values[granger]"
+        "tests/test_composition_randomness.py::TestDirectedNetworkSurrogatesFollowTheCallerSeed::test_two_different_seeds_give_different_p_values[granger]",
+        "tests/test_connectivity.py::TestGranger::test_x_leads_y_gives_positive_net"
       ]
     },
     {
