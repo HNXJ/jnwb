@@ -161,8 +161,8 @@
     {
       "file": "jnwb/connectivity/_granger.py",
       "qualname": "granger",
-      "sha256": "7722b6138096fa7da6e64f06512d25ca33c30f925820aa0a5b06a8eaafb3c8d5",
-      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "sha256": "acd0afc01562726e5db70b21901fbbcf5dbd7139936d330da4494c9881ec979a",
+      "verified_at": "af9ffbfda6e462caadc288a7549762de7c74e99f",
       "killed_by": [
         "tests/test_composition_randomness.py::TestDirectedNetworkSurrogatesFollowTheCallerSeed::test_two_different_seeds_give_different_p_values[granger]"
       ]
@@ -243,8 +243,8 @@
     {
       "file": "jnwb/statistics/_tests.py",
       "qualname": "mann_whitney_p_floor",
-      "sha256": "6224d9942be694fa093a5dfee5c4aee78ceaeacd25fdda91e21b3129ccd8e5a0",
-      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
+      "sha256": "1d99358ff13d1907bd1b74b6c8ec2525b9e6ab78ebf5cdec9c32c99398c9359d",
+      "verified_at": "af9ffbfda6e462caadc288a7549762de7c74e99f",
       "killed_by": [
         "tests/test_statistics.py::TestMannWhitneyPFloor::test_known_floors",
         "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[mann_whitney_p_floor]"
