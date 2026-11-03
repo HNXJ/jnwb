@@ -414,6 +414,10 @@ def check_no_shadow_packages(repo_root: Optional[Path] = None) -> List[str]:
 # General Scientific Integrity Gates
 # ==============================================================================
 
+#: One declaration of a raw-power estimand: ``estimand: raw_power...`` in a comment or docstring.
+RAW_POWER_DECLARATION = re.compile(r"estimand\s*[:=]\s*['\"]?raw_power", re.IGNORECASE)
+
+
 def check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> List[str]:
     """Scoped Estimand Gate: Enforce raw-power aggregation before logarithmic transformation.
 
@@ -424,7 +428,7 @@ def check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> List[str]:
     """
     code_text = code_or_tree if isinstance(code_or_tree, str) else ""
     if isinstance(code_or_tree, str):
-        if not re.search(r"estimand\s*[:=]\s*['\"]?raw_power", code_text, re.IGNORECASE):
+        if not RAW_POWER_DECLARATION.search(code_text):
             return []
         try:
             tree = ast.parse(code_or_tree)
@@ -434,12 +438,12 @@ def check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> List[str]:
     else:
         tree = code_or_tree
         doc = ast.get_docstring(tree) or ""
-        if not re.search(r"estimand\s*[:=]\s*['\"]?raw_power", doc, re.IGNORECASE):
+        if not RAW_POWER_DECLARATION.search(doc):
             has_declaration = False
             for node in ast.walk(tree):
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     fdoc = ast.get_docstring(node) or ""
-                    if re.search(r"estimand\s*[:=]\s*['\"]?raw_power", fdoc, re.IGNORECASE):
+                    if RAW_POWER_DECLARATION.search(fdoc):
                         has_declaration = True
                         break
             if not has_declaration:
@@ -478,6 +482,21 @@ def check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> List[str]:
     return violations
 
 
+def _jnwb_modules(root: Path) -> List[Path]:
+    return sorted((root / "jnwb").rglob("*.py")) if (root / "jnwb").is_dir() else []
+
+
+def count_declared_raw_power_estimands(repo_root: Optional[Path] = None) -> int:
+    """How many raw-power estimand declarations the log-last scan of ``jnwb/`` examines.
+
+    One count per declaration match, over the same modules ``check_logarithm_last_in_package``
+    scans. Zero is a pass with nothing examined; the gate's pass line says so.
+    """
+    root = repo_root or REPO_ROOT
+    return sum(len(RAW_POWER_DECLARATION.findall(module.read_text(encoding="utf-8")))
+               for module in _jnwb_modules(root))
+
+
 def check_logarithm_last_in_package(repo_root: Optional[Path] = None) -> List[str]:
     """No declared raw-power estimand takes its log before its mean, in any module of ``jnwb/``.
 
@@ -485,7 +504,7 @@ def check_logarithm_last_in_package(repo_root: Optional[Path] = None) -> List[st
     package with no module is a failure: no estimand was examined.
     """
     root = repo_root or REPO_ROOT
-    modules = sorted((root / "jnwb").rglob("*.py")) if (root / "jnwb").is_dir() else []
+    modules = _jnwb_modules(root)
     if not modules:
         return [f"NO_SOURCE: {(root / 'jnwb').as_posix()} holds no Python module, so no estimand "
                 "was examined"]
