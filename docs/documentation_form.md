@@ -14,13 +14,13 @@ Five kinds of page, with different rules, because a tutorial and an API page fai
 
 | Kind | Pages | Authored where |
 |---|---|---|
-| Authored | `index`, `install`, `quickstart`, `recipes`, `agents`, `errors`, `common_mistakes`, `references`, `architecture`, `glossary`, `vis`, `reading_nwb`, `coherence_and_tfr`, `laminar`, `unit_quality_example`, `repairing_nwb`, and `02`–`10` (25 pages) | the Markdown page itself |
+| Authored | `index`, `install`, `quickstart`, `recipes`, `agents`, `errors`, `common_mistakes`, `references`, `architecture`, `glossary`, `vis`, `reading_nwb`, `writing_nwb`, `coherence_and_tfr`, `laminar`, `unit_quality_example`, `repairing_nwb`, `execution`, and `02`–`10` (27 pages) | the Markdown page itself |
 | Generated | `api.md` | `scripts/generate_api_md.py` |
 | Included | the 11 `tutorials/*.md` | `examples/tutorials/*.py`, pulled in by a snippet include |
 | Contract | this page | the Markdown page itself; F1 and F5 bind it like any other, and it has no length ceiling. It is kept off the published site and the nav |
 | Redirect | `01_architecture_and_philosophy`, merged into `architecture` | the Markdown page itself: a title, a refresh to the new URL and a link to the new page, listed under `not_in_nav` in `mkdocs.yml` so the old URL keeps working |
 
-The first three rows cover all 37 pages in the nav.
+The first three rows cover all 39 pages in the nav.
 
 **Generated and included pages are governed through their source, never by editing the page.**
 An edit to one of those eleven pages is discarded by the next build, silently. A change that
@@ -130,7 +130,7 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Kind | Ceiling | Why this number |
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
-| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `quickstart` at 844 and `recipes` at 348 sit under it |
+| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `quickstart` at 836 and `recipes` at 348 sit under it |
 | Concept (`02`–`09`, `architecture`, `reading_nwb`, `repairing_nwb`, `coherence_and_tfr`, `laminar`, `vis`) | 1200 words | seven of the fourteen sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |

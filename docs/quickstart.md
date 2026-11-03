@@ -2,8 +2,6 @@
 
 A tour of jnwb on NWB 2.0+ electrophysiology. Every operation takes arrays or NWB structures and assumes no particular experiment.
 
-> Documentation tracks the `dev` branch public contract.
-
 ## NWB file workflow (start here)
 
 For a new session, use the [Tutorials](tutorials/01_nwb_basics.md) sequence:
