@@ -880,6 +880,42 @@ def _warn_if_declared_unit_contradicts_storage(series: Any, acq_name: str, chann
     )
 
 
+def _to_physical(
+    series: Any, data: np.ndarray, channel: int, n_channels: int, name: str
+) -> np.ndarray:
+    """Scale one channel's stored samples: ``conversion``, then ``channel_conversion``, then ``offset``.
+
+    ``channel`` indexes the series' ``channel_conversion`` and must be below ``n_channels``, the
+    channel count the factors must match. A NaN ``conversion`` or ``offset`` is skipped; a factor
+    of 1.0 (or an offset of 0.0) leaves the data as it is. A ``channel_conversion`` whose length
+    is not ``n_channels`` raises ``ValueError``.
+    """
+    conversion = getattr(series, "conversion", None)
+    if conversion is not None and not (isinstance(conversion, float) and np.isnan(conversion)):
+        c_val = float(conversion)
+        if c_val != 1.0:
+            data = data * c_val
+    # `channel_conversion` is the per-channel factor of an ElectricalSeries, applied after
+    # `conversion` and before `offset`; indexed on the channel axis, like `channel`.
+    channel_conversion = getattr(series, "channel_conversion", None)
+    if channel_conversion is not None:
+        factors = np.asarray(channel_conversion[:], dtype=np.float64).ravel()
+        if factors.size != n_channels:
+            raise ValueError(
+                f"Series '{name}' stores {factors.size} channel_conversion factors "
+                f"for {n_channels} channels; the physical value of channel {channel} "
+                f"cannot be computed"
+            )
+        if factors[channel] != 1.0:
+            data = data * factors[channel]
+    offset = getattr(series, "offset", None)
+    if offset is not None and not (isinstance(offset, float) and np.isnan(offset)):
+        o_val = float(offset)
+        if o_val != 0.0:
+            data = data + o_val
+    return data
+
+
 def acquisition_channel(
     path_or_nwb: InspectInput,
     name: str | None = None,
@@ -991,30 +1027,7 @@ def acquisition_channel(
                 f"Unsupported series data shape {shape} for '{acq_name}' (expected 1D or 2D)"
             )
 
-        conversion = getattr(series, "conversion", None)
-        offset = getattr(series, "offset", None)
-        if conversion is not None and not (isinstance(conversion, float) and np.isnan(conversion)):
-            c_val = float(conversion)
-            if c_val != 1.0:
-                data = data * c_val
-        # `channel_conversion` is the per-channel factor of an ElectricalSeries, applied after
-        # `conversion` and before `offset`; indexed on the channel axis, like `channel`.
-        channel_conversion = getattr(series, "channel_conversion", None)
-        if channel_conversion is not None:
-            factors = np.asarray(channel_conversion[:], dtype=np.float64).ravel()
-            n_expected = 1 if len(shape) == 1 else n
-            if factors.size != n_expected:
-                raise ValueError(
-                    f"Series '{acq_name}' stores {factors.size} channel_conversion factors "
-                    f"for {n_expected} channels; the physical value of channel {channel} "
-                    f"cannot be computed"
-                )
-            if factors[channel] != 1.0:
-                data = data * factors[channel]
-        if offset is not None and not (isinstance(offset, float) and np.isnan(offset)):
-            o_val = float(offset)
-            if o_val != 0.0:
-                data = data + o_val
+        data = _to_physical(series, data, channel, 1 if len(shape) == 1 else n, acq_name)
 
         rate = getattr(series, "rate", None)
         if rate is None:

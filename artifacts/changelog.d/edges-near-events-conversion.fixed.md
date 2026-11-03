@@ -1,0 +1,1 @@
+- `jnwb/nwb_events.py`: `edges_near_events` thresholds physical values, not stored counts.

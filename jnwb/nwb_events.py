@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from pynwb import NWBFile, TimeSeries
 
+from jnwb.nwb_inspect import _to_physical
 from jnwb.nwb_io import NWBInput, _with_nwb
 CodeValue = Union[str, int, float]
 CodeSequence = Union[CodeValue, Sequence[CodeValue]]
@@ -392,6 +393,8 @@ def _series_samples(series: TimeSeries) -> tuple[np.ndarray, np.ndarray]:
 
     A series with a ``rate`` has sample ``i`` at ``starting_time + i / rate``, as
     :func:`jnwb.nwb_inspect.acquisition_channel` reads it; one with ``timestamps`` has those.
+    Values are physical: scaled by ``conversion``, ``channel_conversion`` and ``offset`` as
+    ``acquisition_channel`` scales them.
     """
     values = np.asarray(series.data[:], dtype=np.float64)
     if values.ndim != 1:
@@ -399,6 +402,7 @@ def _series_samples(series: TimeSeries) -> tuple[np.ndarray, np.ndarray]:
             f"edges_near_events: series '{series.name}' has shape {values.shape}; "
             "one-dimensional data is required"
         )
+    values = _to_physical(series, values, 0, 1, series.name)
     if series.rate is not None:
         rate = float(series.rate)
         if not (np.isfinite(rate) and rate > 0):
@@ -492,9 +496,10 @@ def edges_near_events(
     events:
         Event times in seconds, on the session clock.
     threshold:
-        A sample at or above ``threshold`` is high. A rising edge is the first high sample after
-        a low one; a falling edge the first low sample after a high one. Each edge is stamped with
-        its sample's time.
+        In the series' unit after its ``channel_conversion``, ``conversion`` and ``offset`` (its
+        ``unit`` attribute, e.g. volts). A sample at or above ``threshold`` is high. A rising edge
+        is the first high sample after a low one; a falling edge the first low sample after a high
+        one. Each edge is stamped with its sample's time.
     window_s:
         ``(before_s, after_s)``: edges within ``before_s`` before and ``after_s`` after each event
         are candidates. Both must be finite and non-negative.
