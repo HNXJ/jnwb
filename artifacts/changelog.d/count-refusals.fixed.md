@@ -1,0 +1,2 @@
+- `jnwb/statistics/_firing.py`: `paired_fire_prob_test` raises `ValueError` for `n_shuffles` or `n_bootstrap` below 1.
+- `jnwb/statistics/_tests.py`: shuffle p-values reject a bad `alternative` with fewer than two values.

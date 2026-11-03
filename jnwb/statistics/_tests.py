@@ -272,7 +272,8 @@ def shuffle_pvalue_paired(
 
     Raises:
         ValueError: If ``a`` and ``b`` differ in length (they were truncated to the shorter,
-            pairing unrelated trials), contain NaN or Inf, or ``n_shuffles`` < 1.
+            pairing unrelated trials), contain NaN or Inf, ``n_shuffles`` < 1, or ``alternative``
+            is not 'two-sided', 'greater' or 'less' (checked even for fewer than two pairs).
 
     References:
         Pitman, E. J. G. (1937). Significance tests which may be applied to
@@ -290,10 +291,10 @@ def shuffle_pvalue_paired(
             f"shuffle_pvalue_paired: a and b must be paired (equal length); got {len(a)} and {len(b)}"
         )
     _require_shuffle_inputs(a, b, n_shuffles, "shuffle_pvalue_paired")
+    alt = _require_alternative_casefold(alternative, "shuffle_pvalue_paired")
     n = len(a)
     if n < 2:
         return float("nan"), float("nan")
-    alt = _require_alternative_casefold(alternative, "shuffle_pvalue_paired")
     diff = a - b
     obs = float(np.mean(diff))
     flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
@@ -337,7 +338,8 @@ def shuffle_pvalue_unpaired(
     values.
 
     Raises:
-        ValueError: If ``a`` or ``b`` contains NaN or Inf, or ``n_shuffles`` < 1.
+        ValueError: If ``a`` or ``b`` contains NaN or Inf, ``n_shuffles`` < 1, or ``alternative``
+            is not 'two-sided', 'greater' or 'less' (checked even for fewer than two values).
 
     References:
         Phipson, B., & Smyth, G. K. (2010). Permutation p-values should never be
@@ -350,9 +352,9 @@ def shuffle_pvalue_unpaired(
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
     _require_shuffle_inputs(a, b, n_shuffles, "shuffle_pvalue_unpaired")
+    alt = _require_alternative_casefold(alternative, "shuffle_pvalue_unpaired")
     if len(a) < 2 or len(b) < 2:
         return float("nan"), float("nan")
-    alt = _require_alternative_casefold(alternative, "shuffle_pvalue_unpaired")
     pooled = np.concatenate([a, b])
     pooled = pooled - np.mean(pooled)  # see _tie_tolerance
     n_a = len(a)

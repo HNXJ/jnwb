@@ -79,8 +79,8 @@ def paired_fire_prob_test(
     Args:
         fires_target: (n,) bool array, one entry per paired trial.
         fires_null: (n,) bool array, the paired baseline/control condition.
-        n_shuffles: number of sign-flip draws for the shuffle-null p-value.
-        n_bootstrap: number of paired-bootstrap draws for the risk-difference CI.
+        n_shuffles: number of sign-flip draws for the shuffle-null p-value; at least 1.
+        n_bootstrap: number of paired-bootstrap draws for the risk-difference CI; at least 1.
         rng: an int seed, a numpy.random.Generator, or None for fresh OS entropy.
 
     Returns:
@@ -116,6 +116,10 @@ def paired_fire_prob_test(
             f"length); got {len(t)} and {len(u)}. Trials were silently truncated to the "
             "shorter of the two, which pairs unrelated trials."
         )
+    if n_shuffles < 1:
+        raise ValueError(f"paired_fire_prob_test: n_shuffles must be >= 1, got {n_shuffles}")
+    if n_bootstrap < 1:
+        raise ValueError(f"paired_fire_prob_test: n_bootstrap must be >= 1, got {n_bootstrap}")
     n = len(t)
     if n < 2:
         return {
