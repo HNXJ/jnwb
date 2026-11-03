@@ -110,12 +110,13 @@ def _version(dist: str) -> str | None:
 def _layer_read(path: Path, cap: int) -> ValidationLayer:
     from jnwb.nwb_io import read_nwb
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
             read_nwb(path)
     except Exception as exc:  # any failure to read is the finding
         return ValidationLayer("read", "fail", 1, 0, (f"{type(exc).__name__}: {exc}"[:500],))
-    return ValidationLayer("read", "pass", detail="opened with jnwb.read_nwb")
+    msgs = tuple(f"{type(w.message).__name__}: {w.message}"[:500] for w in caught)
+    return ValidationLayer("read", "pass", 0, len(msgs), msgs[:cap], "opened with jnwb.read_nwb")
 
 
 def _layer_pynwb(path: Path, name: str, cap: int) -> ValidationLayer:
@@ -270,5 +271,8 @@ def validate_nwb(path: str | Path, *, layers: Sequence[str] | None = None,
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         out = tuple(runners[x]() for x in want)
-    versions = {d: _version(d) for d in ("pynwb", "hdmf", "nwbinspector", "dandi", "jnwb")}
+    versions = {d: _version(d) for d in ("pynwb", "hdmf", "nwbinspector", "dandi")}
+    # the source version, not the installed distribution's metadata, which can be older
+    from jnwb import __version__ as jnwb_version  # top-level import would be circular
+    versions["jnwb"] = jnwb_version
     return NWBValidationReport(path.name, versions, out)
