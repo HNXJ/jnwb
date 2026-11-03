@@ -392,7 +392,8 @@ def phase_locking_index(
         ``rayleigh_pvalue`` are NaN.
 
     Raises:
-        ValueError: ``lfp_timestamps`` that are not strictly increasing; or a non-finite LFP
+        ValueError: ``lfp_timestamps`` that are non-finite (the message names the first) or
+            not strictly increasing; or a non-finite LFP
             phase value at a spike's sample, or in the sample beside one that the
             interpolation reaches (the message names how many spike phases came out
             non-finite -- such a spike used to take a NaN phase, which made ``rayleigh_z``
@@ -425,6 +426,8 @@ def phase_locking_index(
     }
 
     lfp_timestamps = np.asarray(lfp_timestamps, dtype=float)
+    # A NaN step compares False to 0, so a NaN timestamp passed the ordering check below.
+    refuse_nonfinite_times(lfp_timestamps, "phase_locking_index", "lfp_timestamps")
     steps = np.diff(lfp_timestamps)
     if np.any(steps <= 0):
         # Descending timestamps made the window t_lo > t_hi, so every spike was excluded and
@@ -648,9 +651,6 @@ def gaussian_smooth_rate(
     # Measured on the output rather than predicted from sigma: the kernel's reach is truncated
     # at an array edge, so a boundary NaN spreads less far than an interior one and a computed
     # radius would overstate the loss at exactly the position where the loss actually occurs.
-    # No `nan_policy` argument is offered here on purpose -- whether an additive public API
-    # change requires a CHANGELOG entry and a deprecation path is not yet decided, and
-    # warning needs no new parameter.
     n_bad_in = int(np.count_nonzero(~np.isfinite(arr)))
     if n_bad_in:
         n_bad_out = int(np.count_nonzero(~np.isfinite(out)))
