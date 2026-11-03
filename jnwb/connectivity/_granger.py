@@ -1526,6 +1526,7 @@ def _net_surrogate_p(
     n_surrogates: int,
     surrogate_rng: np.random.Generator,
     detrend: Optional[str],
+    signal_class: Union[str, Tuple[str, str]],
 ) -> float:
     """Two-sided surrogate p of the net flow ``x_to_y - y_to_x`` of trials ``x`` and ``y`` at ``order``.
 
@@ -1533,13 +1534,17 @@ def _net_surrogate_p(
     direction is the :func:`granger` flow on the surrogate pair, and the null of the net is their
     difference. The tie width is that of :func:`_surrogate_p` for the magnitude of the two observed flows.
     """
-    observed = granger(x, y, order=order, n_surrogates=0, detrend=detrend)
+    observed = granger(x, y, order=order, n_surrogates=0, detrend=detrend, signal_class=signal_class)
     null = np.empty(int(n_surrogates))
     for i in range(int(n_surrogates)):
         x_s = _surrogate_source(x, surrogate_rng)
-        null_xy = granger(x_s, y, order=order, n_surrogates=0, detrend=detrend).x_to_y
+        null_xy = granger(
+            x_s, y, order=order, n_surrogates=0, detrend=detrend, signal_class=signal_class
+        ).x_to_y
         y_s = _surrogate_source(y, surrogate_rng)
-        null_yx = granger(x, y_s, order=order, n_surrogates=0, detrend=detrend).y_to_x
+        null_yx = granger(
+            x, y_s, order=order, n_surrogates=0, detrend=detrend, signal_class=signal_class
+        ).y_to_x
         null[i] = null_xy - null_yx
     gc_xy, gc_yx = observed.x_to_y, observed.y_to_x
     return _surrogate_p(
@@ -1557,6 +1562,7 @@ def granger_time_reversed(
     rng: RNGLike = Default(0),
     detrend: Optional[str] = "zscore",
     time_axis: int = -1,
+    signal_class: Union[str, Tuple[str, str]] = _OMITTED,
     seed: Any = Default(0),
 ) -> DirectedResult:
     """
@@ -1578,11 +1584,14 @@ def granger_time_reversed(
         rng: randomness of the surrogates, as in :func:`granger`
         detrend: per-trial detrending, as in :func:`granger`
         time_axis: time axis of a 2-D input
+        signal_class: as in :func:`granger`: ``'spikes'`` or ``'lfp'`` for both inputs, or a pair; a mixed
+            pair is refused. Omitted, the call warns ``FutureWarning`` naming this function, once. It changes
+            no number.
         seed: the old spelling of ``rng``
 
     Raises:
-        ValueError: ``order`` is ``'auto'``, or not an integer >= 1 (through :func:`_fixed_order`); input
-            refused by :func:`granger`.
+        ValueError: ``order`` is ``'auto'``, or not an integer >= 1 (through :func:`_fixed_order`); a
+            ``signal_class`` pair that mixes spikes and LFP; input refused by :func:`granger`.
 
     Random draws: with ``n_surrogates > 0`` the forward draws come first and then the reversed draws, each
     draw taking an X surrogate then a Y surrogate, all from the generator built from ``rng``.
@@ -1603,6 +1612,7 @@ def granger_time_reversed(
         testing Granger causality. IEEE Trans. Signal Process. doi:10.1109/TSP.2016.2531628 -- the sign rule
         under time reversal.
     """
+    _check_signal_class("granger_time_reversed", signal_class, 2)
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_time_reversed')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger_time_reversed")
     if isinstance(order, str):
@@ -1614,18 +1624,28 @@ def granger_time_reversed(
     x, y = _pair_trials(X, Y, time_axis=time_axis)
     x_rev = np.ascontiguousarray(x[:, ::-1])
     y_rev = np.ascontiguousarray(y[:, ::-1])
-    forward = granger(x, y, order=order, n_surrogates=0, detrend=detrend)
-    reverse = granger(x_rev, y_rev, order=order, n_surrogates=0, detrend=detrend)
-    net_forward = float(forward.net)
-    net_reversed = float(reverse.net)
-    sign_flip = bool(net_forward * net_reversed < 0)
+    # An omitted class was warned once above; the inner calls must not repeat it under their own name.
+    with warnings.catch_warnings():
+        if signal_class is _OMITTED:
+            warnings.filterwarnings(
+                "ignore", message=r"granger: pass signal_class=", category=FutureWarning
+            )
+        forward = granger(x, y, order=order, n_surrogates=0, detrend=detrend,
+                          signal_class=signal_class)
+        reverse = granger(x_rev, y_rev, order=order, n_surrogates=0, detrend=detrend,
+                          signal_class=signal_class)
+        net_forward = float(forward.net)
+        net_reversed = float(reverse.net)
+        sign_flip = bool(net_forward * net_reversed < 0)
 
-    p_net_forward = p_net_reversed = None
-    if int(n_surrogates) > 0:
-        p_net_forward = _net_surrogate_p(x, y, order, int(n_surrogates), surrogate_rng, detrend)
-        p_net_reversed = _net_surrogate_p(
-            x_rev, y_rev, order, int(n_surrogates), surrogate_rng, detrend
-        )
+        p_net_forward = p_net_reversed = None
+        if int(n_surrogates) > 0:
+            p_net_forward = _net_surrogate_p(
+                x, y, order, int(n_surrogates), surrogate_rng, detrend, signal_class
+            )
+            p_net_reversed = _net_surrogate_p(
+                x_rev, y_rev, order, int(n_surrogates), surrogate_rng, detrend, signal_class
+            )
 
     warnings_all = list(forward.diagnostics["warnings"])
     for warning in reverse.diagnostics["warnings"]:

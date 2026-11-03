@@ -128,6 +128,46 @@ def test_granger_explicit_class_is_silent_and_keeps_the_numbers():
     assert explicit.y_to_x == omitted.y_to_x
 
 
+# ---------------------------------------------------------------- granger_time_reversed
+
+
+def test_granger_time_reversed_omitted_class_warns_once_naming_it_and_still_runs():
+    x, y = _signals()
+    result, future = _call(jnwb.granger_time_reversed, x, y, order=2)
+    assert len(future) == 1, future
+    assert "granger_time_reversed" in future[0] and "signal_class=" in future[0], future
+    assert np.isfinite(result.x_to_y), "the call must still compute"
+
+
+def test_granger_time_reversed_refuses_a_pair_that_mixes_spikes_and_lfp():
+    x, y = _signals()
+    with pytest.raises(ValueError, match="never pooled") as info:
+        jnwb.granger_time_reversed(x, y, order=2, signal_class=("spikes", "lfp"))
+    assert "granger_time_reversed" in str(info.value)
+
+
+def test_granger_time_reversed_explicit_class_is_silent_and_bit_identical():
+    x, y = _signals()
+    omitted, _ = _call(jnwb.granger_time_reversed, x, y, order=2)
+    explicit, future = _call(jnwb.granger_time_reversed, x, y, order=2, signal_class="lfp")
+    assert future == [], future
+    assert explicit.x_to_y == omitted.x_to_y
+    assert explicit.y_to_x == omitted.y_to_x
+    assert explicit.net == omitted.net
+    assert explicit.diagnostics == omitted.diagnostics
+
+
+def test_granger_time_reversed_class_leaves_the_surrogate_p_values_unchanged():
+    x, y = _signals()
+    omitted, _ = _call(jnwb.granger_time_reversed, x, y, order=2, n_surrogates=19, rng=3)
+    explicit, future = _call(jnwb.granger_time_reversed, x, y, order=2, n_surrogates=19, rng=3,
+                             signal_class=("lfp", "lfp"))
+    assert future == [], future
+    assert omitted.p_net is not None, "fixture must reach the surrogate test"
+    assert explicit.p_net == omitted.p_net
+    assert explicit.diagnostics["p_net_reversed"] == omitted.diagnostics["p_net_reversed"]
+
+
 # ---------------------------------------------------------------- granger_spectral
 
 
