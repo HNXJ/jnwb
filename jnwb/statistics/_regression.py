@@ -223,6 +223,10 @@ def cross_modal_comparison(
                 "Inf values first. A non-finite sample makes every lag's statistic NaN "
                 "and drives the permutation p-value to its floor."
             )
+    if n_permutations < 0:
+        # 0 is the run that draws no null; a negative count reached numpy as a negative size.
+        raise ValueError(
+            f"cross_modal_comparison: n_permutations must be >= 0, got {n_permutations}")
 
     if tfr_data.ndim == 3 and spike_data.ndim == 2:
         n_freq, n_time, n_trials = tfr_data.shape

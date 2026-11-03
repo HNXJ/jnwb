@@ -27,12 +27,9 @@ Defects and correctness go in 0.2.16; thinning and matching in 0.2.17. Lanes rul
 "Yes, as proposed"): claimed by the files in their items' Writes; no file is in two lanes of one batch,
 and an item that shares a file with another lane names it in Blocked by.
 
-| Lane | Items, in order | Files |
-|---|---|---|
-| K | 17-124, 17-125 | `jnwb/analyzers.py`, `jnwb/statistics/_analysis.py` |
+No lane is open. Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B, then I, E, K
+(2026-11-03), all landed. The integrator does 17-76.
 
-- Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B, then I, E (2026-11-03, landed); then K;
-  the integrator does 17-76.
 - Waiting on Hamm: 17-75, 17-77; open rows P-216-01, -05 to -08, -15, -17 to -20, -22, -24, -32. Open
   rows with no item yet: P-216-16, -21, -25, -26.
 - Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (plan only);
@@ -58,20 +55,6 @@ Release: deferred-0.2.16.
 Role: human. Skill: none. Blocked by: Hamm's word (the fact stack and the rulings are his).
 Writes: `artifacts/fact_stack.md`, `artifacts/rulings/standing.md`.
 - 17-77: from P-215-20. `standing.md:144-148` and `fact_stack.md:68,82,86` cite roadmap 17-03 to 17-08 and 17-24, which are done or in this stack; `standing.md:144` says psth keeps `(-1000, 2000)` until 0.2.15, while psth now requires `window_ms`; S13 holds `todo:12-21`, which is a roadmap row; and (audit 2026-11-02) about 20 of 40 sampled B3 Evidence `file:line` cells in `fact_stack.md:138-203` no longer land on their parameter (`_network.py:87`, `viz.py:115` are blank lines), so cells name `module.function(param)`. Check: every roadmap or todo id the two files cite resolves in `roadmap.md` or `todo_stack.md`, or is marked done with its commit.
-
-### 17-124 quality_metrics drops a spike on a window's closing edge
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: nothing.
-Writes: `jnwb/analyzers.py`, `tests/test_analyzers_coverage.py`.
-- 17-124: from P-216-35. `quality_metrics` drops the last spike on the closing edge of its 1 s windows at the ulp, in 962 of 200000 random spans. Check: the edge tolerance `_bins` documents; a test places the spike on the closing edge and counts it.
-
-### 17-125 Counts below 1 in StatisticalAnalysis
-
-Release: deferred-0.2.16.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: nothing.
-Writes: `jnwb/statistics/_analysis.py`, `tests/test_statistics_refusals.py`.
-- 17-125: from P-216-37. `n_bootstrap` and `n_permutations` in `_analysis.py` (`:157,545,603,710,800`) take 0 and negatives unchecked. Check: each refuses a count below 1 by name with `ValueError`, as 17-108's siblings do; one test per parameter.
 
 # 0.2.17
 
