@@ -181,7 +181,7 @@ def test_the_openscope_tab_is_a_tab_button_for_its_section():
     assert "hidden" in panels[0], "the panel starts hidden, as the other panels do"
 
 
-def test_the_openscope_section_holds_three_subsections_in_order():
+def test_the_openscope_section_holds_its_subsections_in_order():
     events = _events()
     begin, end = _openscope_section(events)
     markers, heading = [], None
@@ -199,6 +199,7 @@ def test_the_openscope_section_holds_three_subsections_in_order():
         "Published findings", "group:showcase-published",
         "Exploratory results", "group:showcase-exploratory",
         "Verified findings", "group:showcase-verified",
+        "Related reproductions",
     ]
 
 
@@ -503,3 +504,12 @@ def test_a_missing_asset_still_fails_on_its_404(browser, base_url, site):
         test_every_route_renders_in_light_and_dark_without_errors(faulty, base_url, site)
     assert faulty.faults >= 1, "the fixture must answer an asset request with a 404"
     assert faulty.contexts == 2 * len(_routes(site)), "a 404 must not be retried"
+
+
+def test_the_renderer_reads_the_related_section_and_links_through_the_url_check():
+    source = RENDERER.read_text(encoding="utf-8")
+    assert "lookup(data, 'related')" in source, "the OpenScope GLO tab reads the related section"
+    assert "renderRelated(data);" in source
+    body = source[source.index("function renderRelated"):source.index("// ---- overview and page")]
+    assert "setHref(anchor, link.url)" in body, "a related link goes through the URL check"
+    assert 'id="showcase-related"' in TEMPLATE.read_text(encoding="utf-8")

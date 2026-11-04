@@ -1,0 +1,13 @@
+{
+ "entries": [
+  {
+   "id": "paper2agent_glo",
+   "title": "Paper2Agent-GLO: reproduction of Westerberg, Xiong et al. 2024 (bioRxiv 2024.10.02.616378v5)",
+   "relation": "A figure-by-figure reproduction of the paper from DANDI:001838 (macaque MUAe), DANDI:000253 (mouse) and lab-provided macaque files, kept by the Bastos Lab and scored by its own scorer at two levels, strict and less strict reproduction. Its registered defaults port the authors' MATLAB to numpy and scipy. jnwb serves there as an agent harness; its two jnwb analyses (EDF 7 Granger, EDF 9 waveform shape) are reported beside the defaults as alternatives and enter no score.",
+   "links": [
+    {"label": "Macaque scorecard", "url": "https://claude.ai/artifact/JCcSnU4HAomLbAt9UdkFxu"},
+    {"label": "Mouse scorecard", "url": "https://claude.ai/artifact/LyV7gQPqLwCndvpZXG4BUU"}
+   ]
+  }
+ ]
+}

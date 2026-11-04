@@ -350,5 +350,13 @@
         "links": [{"label": "Synthetic link", "url": "https://example.invalid/link"}]
       }
     ]
-  }
+  },
+  "related": [
+    {
+      "id": "fixture_related",
+      "title": "A reproduction kept elsewhere",
+      "relation": "Scored by its own scorer; the build reads none of its values.",
+      "links": [{"label": "Synthetic scorecard", "url": "https://example.invalid/scorecard"}]
+    }
+  ]
 }

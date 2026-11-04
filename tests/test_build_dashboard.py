@@ -865,3 +865,61 @@ def test_the_schema_declares_the_deferred_section_and_the_replication_label():
     assert "deferred" in schema["properties"], "the schema must name the deferred section"
     replication = schema["$defs"]["showcase"]["properties"]["replications"]["items"]
     assert set(replication["properties"]["label"]["enum"]) == set(LABEL_OF_VERDICT.values())
+
+
+# ---- related reproductions -------------------------------------------------------------------
+
+RELATED_ENTRY = {"id": "fixture_related", "title": "A reproduction kept elsewhere",
+                 "relation": "Scored by its own scorer; the build reads none of its values.",
+                 "links": [{"label": "Scorecard", "url": "https://example.org/scorecard"}]}
+
+
+@pytest.fixture
+def related_at(tmp_path, monkeypatch):
+    """Points the builder at a related-reproductions record written to a temporary directory."""
+    builder = _builder()
+
+    def point(entries):
+        path = tmp_path / "related.json"
+        path.write_text(json.dumps({"entries": entries}), encoding="utf-8", newline="\n")
+        monkeypatch.setattr(builder, "RELATED_RECORD", path, raising=False)
+        return path
+
+    return point
+
+
+def test_related_is_the_record_as_written(data):
+    record = REPO_ROOT / "artifacts" / "showcases" / "related.json"
+    assert data["related"] == json.loads(record.read_text(encoding="utf-8"))["entries"]
+    assert data["sources"]["related"] == ["artifacts/showcases/related.json"]
+
+
+def test_related_is_null_while_no_record_exists(tmp_path, monkeypatch):
+    builder = _builder()
+    monkeypatch.setattr(builder, "RELATED_RECORD", tmp_path / "no_record.json", raising=False)
+    data = builder.build_data()
+    assert data["related"] is None and data["sources"]["related"] == []
+
+
+def test_a_built_related_record_validates_against_the_schema(related_at):
+    related_at([RELATED_ENTRY])
+    data = _builder().build_data()
+    assert data["related"] == [RELATED_ENTRY]
+    errors = list(_validator().iter_errors(data))
+    assert not errors, [f"{'/'.join(str(p) for p in e.absolute_path)}: {e.message}" for e in errors]
+
+
+@pytest.mark.parametrize("mutate, words", [
+    (lambda e: e.pop("relation"), "relation"),
+    (lambda e: e.update(links=[]), "no link"),
+    (lambda e: e["links"][0].update(url="http://example.org/"), "https"),
+    (lambda e: e["links"][0].pop("label"), "label"),
+    (lambda e: e.pop("title"), "title"),
+], ids=["no-relation", "no-links", "http", "no-label", "no-title"])
+def test_a_malformed_related_entry_is_refused(related_at, mutate, words):
+    entry = json.loads(json.dumps(RELATED_ENTRY))
+    mutate(entry)
+    related_at([entry])
+    with pytest.raises(ValueError) as info:
+        _builder().build_data()
+    assert "fixture_related" in str(info.value) and words in str(info.value)
