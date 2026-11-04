@@ -59,47 +59,24 @@ def _network_signals(n: int = 400):
     return signals
 
 
-# ---------------------------------------------------------------- granger_causality
-
-
-def test_granger_causality_explicit_class_is_silent_and_keeps_the_numbers():
-    x, y = _signals()
-    omitted, _ = _call(jnwb.granger_causality, x, y, order=2)
-    explicit, future = _call(jnwb.granger_causality, x, y, order=2, signal_class="lfp")
-    assert np.isfinite(omitted["F_2_to_1"]), "fixture must give a finite statistic"
-    assert future == [], future
-    assert explicit["F_2_to_1"] == omitted["F_2_to_1"]
-    assert explicit["F_1_to_2"] == omitted["F_1_to_2"]
-
-
-def test_granger_causality_omitted_class_warns_naming_the_keyword_and_still_runs():
-    x, y = _signals()
-    result, future = _call(jnwb.granger_causality, x, y, order=2)
-    assert len(future) == 1 and "signal_class=" in future[0], future
-    assert np.isfinite(result["F_2_to_1"]), "the call must still compute"
+# ---------------------------------------------------------------- granger
 
 
 @pytest.mark.parametrize("bad", ["spike", "LFP", None, 3])
-def test_granger_causality_refuses_a_value_outside_the_two_classes(bad):
+def test_granger_refuses_a_value_outside_the_two_classes(bad):
     x, y = _signals()
     with pytest.raises(ValueError, match="'spikes' or 'lfp'"):
-        jnwb.granger_causality(x, y, order=2, signal_class=bad)
+        jnwb.granger(x, y, order=2, signal_class=bad)
 
 
-def test_granger_causality_refuses_a_pair_that_mixes_spikes_and_lfp():
+def test_granger_accepts_an_equal_pair_with_the_single_class_numbers():
     x, y = _signals()
-    with pytest.raises(ValueError, match="never pooled") as info:
-        jnwb.granger_causality(x, y, order=2, signal_class=("spikes", "lfp"))
-    assert "granger_causality" in str(info.value)
-
-
-def test_granger_causality_accepts_an_equal_pair_with_the_single_class_numbers():
-    x, y = _signals()
-    pair, future = _call(jnwb.granger_causality, x, y, order=2, signal_class=("lfp", "lfp"))
-    single, _ = _call(jnwb.granger_causality, x, y, order=2, signal_class="lfp")
+    pair, future = _call(jnwb.granger, x, y, order=2, signal_class=("lfp", "lfp"))
+    single, _ = _call(jnwb.granger, x, y, order=2, signal_class="lfp")
+    assert np.isfinite(single.x_to_y), "fixture must give a finite statistic"
     assert future == [], future
-    assert pair["F_2_to_1"] == single["F_2_to_1"]
-    assert pair["F_1_to_2"] == single["F_1_to_2"]
+    assert pair.x_to_y == single.x_to_y
+    assert pair.y_to_x == single.y_to_x
 
 
 # ---------------------------------------------------------------- granger

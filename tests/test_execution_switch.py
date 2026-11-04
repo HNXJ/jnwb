@@ -17,8 +17,8 @@ Tolerances, stated before anything was measured:
   export that takes ``n_jobs``. Seeds are drawn before the loop, so worker count cannot change
   a number.
 
-Measured on an RTX A4000 the worst CUDA disagreement across the subset below was 1.2e-13
-(``granger_causality``). No machine here has Metal, so the JAX code path is exercised on
+Measured on an RTX A4000 the worst CUDA disagreement of ``granger`` was 1.2e-13 at the call
+below, and 2.2e-11 with conditioning and surrogates over 20 trials. No machine here has Metal, so the JAX code path is exercised on
 JAX's CPU platform and the Metal device itself is unverified.
 """
 
@@ -97,7 +97,7 @@ DEVICE_CALLS = {
     "cross_area_coherence": lambda d: jnwb.cross_area_coherence(
         X, Y, fs=FS, freq_bands="canonical", n_surrogates=5, device=d),
     "complex_tfr": lambda d: jnwb.complex_tfr(np.stack([X, Y]), FS, np.linspace(5, 80, 6), device=d),
-    "granger_causality": lambda d: jnwb.granger_causality(X[:1500], Y[:1500], order=4, device=d),
+    "granger": lambda d: jnwb.granger(X[:1500], Y[:1500], order=4, signal_class="lfp", device=d),
     "UnitAnalyzer.autocorrelogram": lambda d: jnwb.UnitAnalyzer.autocorrelogram(SPIKES, device=d),
     "PopulationAnalyzer.population_trajectory":
         lambda d: jnwb.PopulationAnalyzer.population_trajectory(POP, device=d),
@@ -129,9 +129,10 @@ CUDA_CAPABLE = sorted(set(DEVICE_CALLS) - CPU_ONLY)
 RECORD = {
     "complex_tfr": lambda r: r.device,
     "jrsa": lambda r: r.execution["device"],
+    "granger": lambda r: r.params["device_used"],
 }
 for _name in ("spectral_tilt", "harmonic_analysis", "imaginary_coherency", "wpli",
-              "cross_area_coherence", "granger_causality", "UnitAnalyzer.autocorrelogram",
+              "cross_area_coherence", "UnitAnalyzer.autocorrelogram",
               "PopulationAnalyzer.population_trajectory", "compute_population_trajectory"):
     RECORD[_name] = lambda r: r["device_used"]
 
@@ -437,6 +438,25 @@ class TestCudaAgreesWithTheCpu:
         if name in RECORD:
             assert RECORD[name](cuda) == "cuda"
 
+    def test_granger_with_trials_conditioning_and_surrogates_agrees(self):
+        """Every fit of the call on the GPU: order selection, Z in both models, the null."""
+        r = np.random.default_rng(3)
+        x = r.standard_normal((20, 400))
+        y = 0.4 * np.roll(x, 2, axis=1) + r.standard_normal((20, 400))
+        z = r.standard_normal((20, 400))
+
+        def call(device):
+            return jnwb.granger(x, y, order="auto", Z=z, n_surrogates=19, signal_class="lfp",
+                                device=device)
+
+        cpu, _ = _runtime_messages(lambda: call("cpu"))
+        cuda, messages = _runtime_messages(lambda: call("cuda"))
+        assert messages == []
+        assert cuda.params["device_used"] == "cuda"
+        assert cuda.params["order_x_to_y"] == cpu.params["order_x_to_y"]
+        assert cuda.params["order_y_to_x"] == cpu.params["order_y_to_x"]
+        assert _worst_relative_gap(cpu, cuda) <= CUDA_RTOL
+
     def test_a_granger_fit_that_fails_midway_recomputes_the_whole_call_on_the_cpu(self, monkeypatch):
         import cupy
 
@@ -448,14 +468,19 @@ class TestCudaAgreesWithTheCpu:
                 raise MemoryError("simulated")
             return real(*args, **kwargs)
 
-        cpu = jnwb.granger_causality(X[:1500], Y[:1500], order="auto", device="cpu")
+        def call(device):
+            return jnwb.granger(X[:1500], Y[:1500], order="auto", n_surrogates=9,
+                                signal_class="lfp", device=device)
+
+        cpu = call("cpu")
         monkeypatch.setattr(cupy.linalg, "lstsq", fail_on_the_third)
-        got, messages = _runtime_messages(
-            lambda: jnwb.granger_causality(X[:1500], Y[:1500], order="auto", device="cuda"))
-        assert any("GPU computation failed" in m for m in messages), messages
-        assert got["device_used"] == "cpu"
-        assert got["F_1_to_2"] == cpu["F_1_to_2"] and got["F_2_to_1"] == cpu["F_2_to_1"]
-        assert got["order_1_to_2"] == cpu["order_1_to_2"]
+        got, messages = _runtime_messages(lambda: call("cuda"))
+        assert any("granger: GPU computation failed" in m for m in messages), messages
+        assert len(calls) == 3, "the failure must come part-way, after GPU fits ran"
+        assert got.params["device_used"] == "cpu"
+        assert (got.x_to_y, got.y_to_x) == (cpu.x_to_y, cpu.y_to_x)
+        assert (got.p_x_to_y, got.p_y_to_x, got.p_net) == (cpu.p_x_to_y, cpu.p_y_to_x, cpu.p_net)
+        assert got.params["order_x_to_y"] == cpu.params["order_x_to_y"]
 
     def test_pytorch_loads_after_cupy_linalg(self):
         """After a cupy.linalg call, PyTorch still reaches CUDA wherever a fresh process says it

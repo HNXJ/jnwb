@@ -1860,7 +1860,7 @@ def rng_scan(package: Any) -> Tuple[int, List[List[str]]]:
 #: keyword-only ``signal_class`` and a declaration in ``jnwb/_declarations.py``. Keys are
 #: ``module.qualname``, as in ``DECLARATIONS``.
 I4_OPERATIONS: Tuple[str, ...] = (
-    "jnwb.connectivity._granger.granger_causality",
+    "jnwb.connectivity._granger.granger",
     "jnwb.connectivity._network.directed_network",
     "jnwb.spectral._coupling.imaginary_coherency",
 )

@@ -12,7 +12,7 @@ Measured on a live RTX A4000 by counting `cupy.asarray` / `cupy.asnumpy` calls:
     vflip(..., device='cuda')                    h2d=0  d2h=0  warnings=0
     fit_var_bivariate(..., ridge=0.0)            h2d=4  d2h=0  warnings=0
     fit_var_bivariate(..., ridge=0.1)            h2d=0  d2h=0  warnings=0
-    granger_causality(..., ridge=0.1)            h2d=0  d2h=0  warnings=0
+    Granger dict wrapper (..., ridge=0.1)        h2d=0  d2h=0  warnings=0
     rdm(..., device='cuda')                      h2d=0  d2h=0  warnings=1
 
 `laminar.py` contains no cupy or torch call anywhere, so `vflip` could never honour the
@@ -26,8 +26,8 @@ Two further defects found while reproducing, neither in the audit:
 
 * `select_optimal_lag` called `fit_var_bivariate` inside its lag loop, so each iteration
   re-resolved the device. One `select_optimal_lag(max_lag=6, device='cuda')` on a
-  machine with no GPU emitted **six** identical warnings; `granger_causality(order='auto')`
-  reaches it up to `2 * max_lag + 2` times. `_backend.py`'s own docstring says to resolve
+  machine with no GPU emitted **six** identical warnings; the Granger dict wrapper (removed
+  in 0.2.17) reached it up to `2 * max_lag + 2` times. `_backend.py`'s own docstring says to resolve
   once, before any computation.
 * Every one of those warnings named `fit_var_bivariate`, which is not exported -- a
   reader of the warning is sent to code they did not call.
@@ -42,9 +42,13 @@ import pytest
 
 import jnwb._backend as backend
 from jnwb._backend import warn_no_gpu_path
-from jnwb.connectivity import fit_var_bivariate, granger_causality, select_optimal_lag
+from jnwb.connectivity import fit_var_bivariate, granger as _granger, select_optimal_lag
 from jnwb.laminar import vflip
 from jnwb.rsa import rdm
+
+def granger(x, y, **kwargs):
+    return _granger(x, y, signal_class="lfp", **kwargs)
+
 
 requires_cuda = pytest.mark.skipif(
     not backend.torch_cuda_available(), reason="no CUDA device on this machine"
@@ -131,13 +135,31 @@ class TestEveryDeniedRequestSaysSo:
         assert "ridge" in messages[0]
         assert "pass ridge=0" in messages[0]
 
-    def test_granger_causality_says_so_too(self, pretend_gpu, signals):
+    def test_granger_says_so_too(self, pretend_gpu, signals):
         x, y = signals
-        messages = _runtime_warnings(
-            lambda: granger_causality(x, y, order=5, device="cuda", ridge=0.1))
+        result = None
+
+        def call():
+            nonlocal result
+            result = granger(x, y, order=5, device="cuda", ridge=0.1)
+
+        messages = _runtime_warnings(call)
 
         assert len(messages) == 1
-        assert messages[0].startswith("granger_causality: device='cuda'")
+        assert messages[0].startswith("granger: device='cuda'")
+        assert "pass ridge=0" in messages[0]
+        assert result.params["device_used"] == "cpu"
+
+    @pytest.mark.parametrize("ridge", [-np.inf, np.inf, np.nan])
+    def test_granger_refuses_a_nonfinite_ridge_on_either_device(self, pretend_gpu, signals,
+                                                                ridge):
+        """-inf once passed `ridge <= 0` into the GPU solver, which never checks it."""
+        x, y = signals
+        for device in ("cpu", "cuda"):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                with pytest.raises(ValueError, match="ridge must be finite"):
+                    granger(x, y, order=5, device=device, ridge=ridge)
 
     def test_select_optimal_lag_says_so_too(self, pretend_gpu, signals):
         x, y = signals
@@ -165,11 +187,10 @@ class TestTheWarningNamesTheFunctionTheCallerInvoked:
     """`fit_var_bivariate` is not in `jnwb.__all__`. A warning naming it sends the
     reader to code they did not call."""
 
-    def test_granger_causality_never_names_its_private_helper(self, pretend_gpu,
-                                                              signals):
+    def test_granger_never_names_its_private_helper(self, pretend_gpu, signals):
         x, y = signals
         messages = _runtime_warnings(
-            lambda: granger_causality(x, y, order=5, device="cuda", ridge=0.1))
+            lambda: granger(x, y, order=5, device="cuda", ridge=0.1))
 
         assert messages, "the GPU request must warn, or the check below passes on nothing"
         assert all("fit_var_bivariate" not in m for m in messages)
@@ -186,8 +207,7 @@ class TestTheWarningNamesTheFunctionTheCallerInvoked:
                                                         signals):
         """The reachable half of `context`. With `ridge=0` the GPU branch is entered,
         so a failure inside it reaches `warn_device_fallback` -- the one place the
-        threaded name survives all the way from `granger_causality` to a warning the
-        caller sees."""
+        threaded name survives all the way from `granger` to a warning the caller sees."""
         import sys
 
         class _Exploding:
@@ -198,9 +218,9 @@ class TestTheWarningNamesTheFunctionTheCallerInvoked:
         monkeypatch.setitem(sys.modules, "cupy", _Exploding)
         x, y = signals
         messages = _runtime_warnings(
-            lambda: granger_causality(x, y, order=5, device="cuda", ridge=0.0))
+            lambda: granger(x, y, order=5, device="cuda", ridge=0.0))
 
-        assert any("granger_causality: GPU computation failed" in m for m in messages)
+        assert any("granger: GPU computation failed" in m for m in messages)
         assert all("fit_var_bivariate" not in m for m in messages)
 
     def test_a_direct_call_still_names_itself(self, pretend_gpu, signals):
@@ -229,19 +249,18 @@ class TestTheDeviceIsResolvedOncePerCall:
 
         assert len(messages) == 1, f"{len(messages)} warnings for max_lag={max_lag}"
 
-    def test_granger_causality_warns_once_with_an_explicit_order(self, no_gpu, signals):
+    def test_granger_warns_once_with_an_explicit_order(self, no_gpu, signals):
         x, y = signals
 
         assert len(_runtime_warnings(
-            lambda: granger_causality(x, y, order=5, device="cuda"))) == 1
+            lambda: granger(x, y, order=5, device="cuda"))) == 1
 
-    def test_granger_causality_warns_once_even_when_it_selects_the_order(self, no_gpu,
-                                                                         signals):
-        """order='auto' reaches `fit_var_bivariate` up to 2*max_lag + 2 times."""
+    def test_granger_warns_once_even_when_it_selects_the_order(self, no_gpu, signals):
+        """order='auto' fits once per candidate order in each direction."""
         x, y = signals
 
         assert len(_runtime_warnings(
-            lambda: granger_causality(x, y, order="auto", device="cuda"))) == 1
+            lambda: granger(x, y, order="auto", device="cuda"))) == 1
 
 
 @requires_cuda
@@ -279,10 +298,10 @@ class TestARequestThatCanBeHonouredStillIs:
         assert transfers > 0
         assert messages == []
 
-    def test_granger_causality_reaches_it_too(self, signals):
+    def test_granger_reaches_it_too(self, signals):
         x, y = signals
         transfers, messages = self._count_transfers(
-            lambda: granger_causality(x, y, order=5, device="cuda", ridge=0.0))
+            lambda: granger(x, y, order=5, device="cuda", ridge=0.0))
 
         assert transfers > 0
         assert messages == []

@@ -161,21 +161,11 @@
     {
       "file": "jnwb/connectivity/_granger.py",
       "qualname": "granger",
-      "sha256": "acd0afc01562726e5db70b21901fbbcf5dbd7139936d330da4494c9881ec979a",
-      "verified_at": "af9ffbfda6e462caadc288a7549762de7c74e99f",
+      "sha256": "a8a0276e14f1241d85f97d2ecaba969e9369913d702ab06ab4bae0c9ae3dda91",
+      "verified_at": "a87ab8cea4c71f1a423d412271596b50ad534aa2",
       "killed_by": [
         "tests/test_composition_randomness.py::TestDirectedNetworkSurrogatesFollowTheCallerSeed::test_two_different_seeds_give_different_p_values[granger]",
         "tests/test_connectivity.py::TestGranger::test_x_leads_y_gives_positive_net"
-      ]
-    },
-    {
-      "file": "jnwb/connectivity/_granger.py",
-      "qualname": "granger_causality",
-      "sha256": "0f85aac5effdf21e24b229aa161215d8bbd54dc79f9f6ec576af69425e6e3fd2",
-      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
-      "killed_by": [
-        "tests/test_estimator_values_are_pinned.py::TestDeprecatedGrangerCausalityIsReportedInNats::test_each_statistic_is_the_log_of_the_variances_it_reports",
-        "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[granger_causality]"
       ]
     },
     {

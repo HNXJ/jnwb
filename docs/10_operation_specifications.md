@@ -58,7 +58,7 @@ integer base seed, which the plan returns as `seed`.
 ### 2. Device Convention
 - Functions with a `device` argument accept `device: str = "cpu"`, `"cuda"` or `"metal"`.
 - Resolution occurs through `jnwb._backend.resolve_device(device, context=...)`.
-- **GPU paths**: `"cuda"` computes on the GPU in `complex_tfr`, `cross_area_coherence`, `PopulationAnalyzer.population_trajectory`, `spectral_tilt`, `harmonic_analysis`, `imaginary_coherency`, `wpli`, `granger_causality`, `UnitAnalyzer.autocorrelogram` and `compute_population_trajectory`. `"metal"` computes on the GPU only in `complex_tfr` with `dtype=np.complex64`, and every other function warns on it and computes on the CPU; the Metal path is implemented and has not been run on Metal hardware.
+- **GPU paths**: `"cuda"` computes on the GPU in `complex_tfr`, `cross_area_coherence`, `PopulationAnalyzer.population_trajectory`, `spectral_tilt`, `harmonic_analysis`, `imaginary_coherency`, `wpli`, `granger`, `UnitAnalyzer.autocorrelogram` and `compute_population_trajectory`. `"metal"` computes on the GPU only in `complex_tfr` with `dtype=np.complex64`, and every other function warns on it and computes on the CPU; the Metal path is implemented and has not been run on Metal hardware.
 - **No GPU path**: `band_power`, `relative_power`, `rdm`, `vflip`, `vflip_from_lfp` and `jrsa` warn on `"cuda"` and compute on the CPU even with a GPU present.
 - **Fallback Observability**: When a GPU is requested but unavailable, or the GPU run raises, the call computes on the CPU and emits a `RuntimeWarning` via `jnwb._backend.warn_device_fallback(context, exc)`.
 - The result records the device that ran: `.device` on the `ComplexTFR` from `complex_tfr`, `device_used` on the other GPU-capable results.

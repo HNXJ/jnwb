@@ -140,7 +140,6 @@
     "get_all_units_metadata",
     "get_snr_analysis",
     "granger",
-    "granger_causality",
     "granger_nonparametric",
     "granger_spectral",
     "granger_time_reversed",

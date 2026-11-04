@@ -159,7 +159,6 @@ LEAF = {
     'gaze_departure_onsets': 'trial_starts',
     'get_snr_analysis': 'units_df[snr]',
     'granger': 'X',
-    'granger_causality': 'signal1',
     'granger_nonparametric': 'X',
     'granger_spectral': 'X',
     'granger_time_reversed': 'X',
@@ -620,7 +619,7 @@ def _plain_functions():
 
 def test_examined_set_covers_every_plain_function():
     names = _plain_functions()
-    assert len(names) == 164, f"expected 164 plain functions, saw {len(names)}"
+    assert len(names) == 163, f"expected 163 plain functions, saw {len(names)}"
     assert set(EXEMPT) | set(LEAF) | set(NAN_PROPAGATES) == set(names)
     assert set(LEAF) & set(EXEMPT) == set()
     assert set(LEAF) & set(NAN_PROPAGATES) == set()

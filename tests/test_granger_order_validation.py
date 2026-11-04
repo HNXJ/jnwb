@@ -3,30 +3,22 @@
 `int(order)` alone let `order=0` fit a model with no history and return zero causality in both
 directions -- a plausible "no coupling" -- truncated `2.5` to `2`, and read `True` as `1`.
 """
-import warnings
-
 import numpy as np
 import pytest
 
 import jnwb
 
 RNG = np.random.default_rng(0)
-X = RNG.normal(size=400)
-Y = np.roll(X, 2) + 0.5 * RNG.normal(size=400)
+# Drawn and discarded: the trial arrays below keep the draws they were pinned with.
+RNG.normal(size=400)
+RNG.normal(size=400)
 XT = RNG.normal(size=(4, 200))
 YT = np.roll(XT, 2, axis=1) + 0.5 * RNG.normal(size=(4, 200))
 
 BAD_ORDERS = [0, -1, 2.5, True, float("nan"), "aic"]
 
 
-def _granger_causality(order):
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        return jnwb.granger_causality(X, Y, order=order)
-
-
 CALLS = {
-    "granger_causality": _granger_causality,
     "granger": lambda order: jnwb.granger(XT, YT, order=order, n_surrogates=0),
     "granger_spectral": lambda order: jnwb.granger_spectral(XT, YT, fs=100.0, order=order),
 }
@@ -46,5 +38,5 @@ def test_an_integral_order_is_accepted_in_every_spelling(name):
 
 
 def test_order_zero_no_longer_reads_as_no_coupling():
-    fitted = _granger_causality(2)
-    assert fitted["F_1_to_2"] > 0.1
+    fitted = CALLS["granger"](2)
+    assert fitted.x_to_y > 0.1

@@ -84,8 +84,6 @@ def test_the_claim_names_no_other_version(rel: str, template: str):
 # happened in 0.1.7. Listed one by one rather than matched by a pattern, because "deprecated
 # in 0.1.7" and "this checkout is 0.1.7" are the same shape and opposite in meaning.
 HISTORICAL_MENTIONS = {
-    ("docs/08_directed_connectivity_and_information.md",
-     "`granger_causality` (dict return type) is deprecated in 0.1.7"),
     ("docs/install.md", "## Deferred imports (0.1.6+)"),
     ("docs/10_operation_specifications.md", "until 0.2.5 and named the minority"),
     ("docs/03_representational_similarity_jrsa.md", "Before 0.2.6.1 every metric used"),

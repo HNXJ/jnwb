@@ -7,8 +7,7 @@ import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from .._backend import CPU, CUDA, resolve_device, warn_device_fallback, warn_no_gpu_path
-from .._bins import refuse_nonfinite_times
-from .._spread import is_constant, zscore
+from .._spread import is_constant
 from .._layout import require_trial_length
 from .._rng import Default, RNGLike, resolve_seed_alias
 from .._units import _OMITTED, _check_signal_class
@@ -333,126 +332,6 @@ def _series_diagnostics(series: np.ndarray, residuals: np.ndarray, order: int) -
     }
 
 
-def granger_causality(
-    signal1: np.ndarray,
-    signal2: np.ndarray,
-    order: Union[int, str] = 5,
-    device: str = "cpu",
-    ridge: float = 0.0,
-    criterion: str = "aic",
-    *,
-    signal_class: Union[str, Tuple[str, str]] = _OMITTED,
-) -> Dict[str, Union[float, dict, list]]:
-    """
-    Compute bivariate Granger Causality (GC) values between two continuous signals.
-
-    F_2_to_1 is how much Signal 2's past improves the prediction of Signal 1
-    F_1_to_2 is how much Signal 1's past improves the prediction of Signal 2
-
-    Also returns residual diagnostics (lightweight ADF + Ljung–Box). Do not interpret
-    GC as biological directionality when diagnostics warn. ``device_used`` names the
-    device ('cpu' or 'cuda') that ran every fit.
-
-    ``signal_class`` names what the inputs are: ``'spikes'`` or ``'lfp'`` for both, or a
-    pair ``(class_1, class_2)``. A pair of different classes is refused, since spikes and
-    LFP are never pooled. Omitted, the call warns ``FutureWarning``; the argument becomes
-    required. It changes no number.
-
-    References:
-        Granger, C. W. J. (1969). Investigating causal relations by econometric models
-        and cross-spectral methods. Econometrica. doi:10.2307/1912791 -- Granger
-        causality: X Granger-predicts Y when the past of X improves the prediction of Y
-        beyond the past of Y, a temporal-lag asymmetry rather than a causal effect.
-    """
-    _check_signal_class("granger_causality", signal_class, 2)
-    warnings.warn(
-        "granger_causality is deprecated; use jnwb.granger, which returns DirectedResult.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    s1 = np.asarray(signal1).flatten()
-    s2 = np.asarray(signal2).flatten()
-    for _name, _s in (("signal1", s1), ("signal2", s2)):
-        refuse_nonfinite_times(_s, "granger_causality", _name)
-
-    s1 = zscore(s1.astype(float), axis=0)
-    s2 = zscore(s2.astype(float), axis=0)
-
-    # One device decision for the whole call, announced under the name the caller used.
-    # With order='auto' this function reaches `fit_var_bivariate` up to 2*max_lag + 2
-    # times; each used to resolve for itself and warn as "fit_var_bivariate".
-    resolved = resolve_device(device, context="granger_causality", prefer="cupy")
-    if resolved == CUDA and ridge > 0:
-        warn_no_gpu_path(
-            "granger_causality",
-            "the ridge-penalised solver has no GPU path (pass ridge=0 to use the GPU)")
-        resolved = CPU
-
-    def _fit_all(dev, ran_on):
-        if order == "auto":
-            o21 = select_optimal_lag(
-                s1, s2, device=dev, criterion=criterion, ridge=ridge,
-                context="granger_causality", ran_on=ran_on
-            )
-            o12 = select_optimal_lag(
-                s2, s1, device=dev, criterion=criterion, ridge=ridge,
-                context="granger_causality", ran_on=ran_on
-            )
-        else:
-            o21 = o12 = _fixed_order(order, "granger_causality")
-        fit21 = fit_var_bivariate(
-            s1, s2, o21, device=dev, ridge=ridge, return_residuals=True,
-            context="granger_causality", ran_on=ran_on
-        )
-        fit12 = fit_var_bivariate(
-            s2, s1, o12, device=dev, ridge=ridge, return_residuals=True,
-            context="granger_causality", ran_on=ran_on
-        )
-        return o21, o12, fit21, fit12
-
-    # Every fit of one call runs on one device. A fit that fell back has already warned;
-    # the fits that did run on the GPU are discarded and the whole call recomputed on the
-    # CPU, so the order selection and both F statistics come from one estimator and
-    # `device_used` names it.
-    ran_on = []
-    order_2_to_1, order_1_to_2, fit21, fit12 = _fit_all(resolved, ran_on)
-    if resolved == CUDA and CPU in ran_on:
-        resolved = CPU
-        order_2_to_1, order_1_to_2, fit21, fit12 = _fit_all(CPU, None)
-    var_r1, var_u1, res_r1, res_u1 = fit21
-    var_r2, var_u2, res_r2, res_u2 = fit12
-    # A zero residual variance means the fit failed, not that the influence is zero, as in
-    # `granger`.
-    f_2_to_1 = np.log(var_r1 / var_u1) if var_u1 > 0 else float("nan")
-    f_1_to_2 = np.log(var_r2 / var_u2) if var_u2 > 0 else float("nan")
-
-    diag_2_to_1 = _series_diagnostics(s1, res_u1, order_2_to_1)
-    diag_1_to_2 = _series_diagnostics(s2, res_u2, order_1_to_2)
-    all_warnings = list(
-        dict.fromkeys(diag_2_to_1["warnings"] + diag_1_to_2["warnings"])
-    )
-
-    return {
-        "F_2_to_1": float(f_2_to_1),
-        "F_1_to_2": float(f_1_to_2),
-        "order_2_to_1": float(order_2_to_1),
-        "order_1_to_2": float(order_1_to_2),
-        "var_restricted_1": float(var_r1),
-        "var_unrestricted_1": float(var_u1),
-        "var_restricted_2": float(var_r2),
-        "var_unrestricted_2": float(var_u2),
-        "ridge": float(ridge),
-        "lag_criterion": criterion if order == "auto" else None,
-        "diagnostics": {
-            "direction_2_to_1": diag_2_to_1,
-            "direction_1_to_2": diag_1_to_2,
-            "warnings": all_warnings,
-            "ok_for_interpretation": len(all_warnings) == 0,
-        },
-        "device_used": resolved,
-    }
-
-
 # ---------------------------------------------------------------------------
 # 1. Granger causality (linear, predictive)
 # ---------------------------------------------------------------------------
@@ -495,8 +374,29 @@ def _stack_var_design(
     return design, y
 
 
-def _ols_rss(design: np.ndarray, y: np.ndarray, ridge: float) -> Tuple[float, np.ndarray]:
-    beta = _ridge_lstsq(design, y, ridge)
+class _GPUSolveFailed(Exception):
+    """A CUDA least-squares solve failed; :func:`granger` recomputes the whole call on the CPU."""
+
+
+def _lstsq_cuda(design: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """``lstsq`` on the GPU, returned to the host. Any failure is a :class:`_GPUSolveFailed`."""
+    try:
+        import cupy as cp
+
+        beta, _, _, _ = cp.linalg.lstsq(cp.asarray(design), cp.asarray(y), rcond=None)
+        return cp.asnumpy(beta)
+    except Exception as exc:
+        raise _GPUSolveFailed(exc) from exc
+
+
+def _ols_rss(design: np.ndarray, y: np.ndarray, ridge: float,
+             device: str = CPU) -> Tuple[float, np.ndarray]:
+    """RSS and residuals of one fit. With ``device='cuda'`` and ``ridge <= 0`` only the
+    coefficients are solved on the GPU; residuals and their sum stay on the CPU."""
+    if device == CUDA and np.isfinite(ridge) and ridge <= 0:
+        beta = _lstsq_cuda(design, y)
+    else:
+        beta = _ridge_lstsq(design, y, ridge)
     resid = y - design @ beta
     return _sum_of_products(resid, resid), resid
 
@@ -519,6 +419,7 @@ def _granger_order_criteria(
     max_order: int,
     ridge: float,
     criterion: str,
+    device: str = CPU,
 ) -> np.ndarray:
     """Information criterion of the unrestricted model for each order 1..``max_order``.
 
@@ -535,7 +436,7 @@ def _granger_order_criteria(
         cols = [0] + [1 + s * max_order + j for s in range(len(sources)) for j in range(p)]
         if n_obs <= len(cols):
             break
-        rss, _ = _ols_rss(design[:, cols], yy, ridge)
+        rss, _ = _ols_rss(design[:, cols], yy, ridge, device)
         scores[p - 1] = _info_criterion(n_obs, rss / n_obs, len(cols), criterion)
     return scores
 
@@ -570,6 +471,7 @@ def granger(
     *,
     signal_class: Union[str, Tuple[str, str]] = _OMITTED,
     seed: Any = Default(0),
+    device: str = "cpu",
 ) -> DirectedResult:
     """
     Bivariate or conditional Granger causality between two arbitrary signals.
@@ -608,6 +510,11 @@ def granger(
         signal_class: ``'spikes'`` or ``'lfp'`` for both inputs, or a pair ``(class_1, class_2)``.
             A pair of different classes is refused. Omitted, the call warns ``FutureWarning``.
             It changes no number.
+        device: ``'cpu'`` (default) or ``'cuda'``. CUDA solves every least-squares fit
+            on the GPU through CuPy and agrees with the CPU to rounding; ``ridge > 0`` has no
+            GPU path and computes on the CPU with a warning. A GPU failure part-way discards
+            the GPU work and recomputes the whole call on the CPU.
+            ``params['device_used']`` names the device that produced every value
 
     Returns:
         DirectedResult with ``unit='log variance ratio'``. ``p_*`` are analytic
@@ -646,6 +553,11 @@ def granger(
         raise ValueError(f"criterion must be aic|bic|hqic; got {criterion!r}")
     if max_lag < 1:
         raise ValueError(f"max_lag must be >= 1; got {max_lag!r}")
+    solve_on = resolve_device(device, context="granger", prefer="cupy")
+    if solve_on == CUDA and ridge > 0:
+        warn_no_gpu_path(
+            "granger", "the ridge-penalised solver has no GPU path (pass ridge=0 to use the GPU)")
+        solve_on = CPU
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
     # Checked on the resolved trial shape, before detrending: a transposed array read as many
@@ -688,8 +600,8 @@ def granger(
                 f"order={p} leaves {n_obs} observations for {d_u.shape[1]} parameters; "
                 "lower the order or supply more trials/samples"
             )
-        rss_r, res_r = _ols_rss(d_r, yy, ridge)
-        rss_u, res_u = _ols_rss(d_u, yy, ridge)
+        rss_r, res_r = _ols_rss(d_r, yy, ridge, solve_on)
+        rss_u, res_u = _ols_rss(d_u, yy, ridge, solve_on)
         df_u = n_obs - d_u.shape[1]
         df_extra = d_u.shape[1] - d_r.shape[1]
         # Maximum-likelihood residual variance, RSS / N, as in `_residual_variance`
@@ -721,17 +633,36 @@ def granger(
         }
 
     def _select_order(src: np.ndarray, tgt: np.ndarray) -> int:
-        scores = _granger_order_criteria(src, tgt, z_list, order_cap, ridge, criterion)
+        scores = _granger_order_criteria(src, tgt, z_list, order_cap, ridge, criterion,
+                                         solve_on)
         return int(np.argmin(scores)) + 1
 
-    if order == "auto":
-        order_xy = _select_order(x, y)
-        order_yx = _select_order(y, x)
-    else:
-        order_xy = order_yx = _fixed_order(order, "granger")
+    def _fit_all(sur_rng: np.random.Generator):
+        """Every fit of the call: order selection, both directions and the surrogates."""
+        if order == "auto":
+            o_xy, o_yx = _select_order(x, y), _select_order(y, x)
+        else:
+            o_xy = o_yx = _fixed_order(order, "granger")
+        f_xy = _one_direction(x, y, o_xy)  # X -> Y
+        f_yx = _one_direction(y, x, o_yx)  # Y -> X
+        # np.empty refuses a float count, as the loop this replaced did.
+        n_xy = np.empty(n_surrogates if n_surrogates > 0 else 0)
+        n_yx = np.empty_like(n_xy)
+        for i in range(n_xy.size):
+            n_xy[i] = _one_direction(_surrogate_source(x, sur_rng), y, o_xy)["gc"]
+            n_yx[i] = _one_direction(_surrogate_source(y, sur_rng), x, o_yx)["gc"]
+        return o_xy, o_yx, f_xy, f_yx, n_xy, n_yx
 
-    fit_xy = _one_direction(x, y, order_xy)  # X -> Y
-    fit_yx = _one_direction(y, x, order_yx)  # Y -> X
+    # One device for every fit. A GPU failure part-way discards the GPU fits and recomputes
+    # the call on the CPU, with the surrogate generator rebuilt from its recorded entropy so
+    # the null draws are the ones a CPU call makes.
+    try:
+        order_xy, order_yx, fit_xy, fit_yx, null_xy, null_yx = _fit_all(surrogate_rng)
+    except _GPUSolveFailed as failure:
+        warn_device_fallback("granger", failure.__cause__)
+        solve_on = CPU
+        surrogate_rng, _ = _surrogate_rng(seed_entropy, "granger")
+        order_xy, order_yx, fit_xy, fit_yx, null_xy, null_yx = _fit_all(surrogate_rng)
 
     p_xy: Optional[float] = fit_xy["p_f"]
     p_yx: Optional[float] = fit_yx["p_f"]
@@ -740,13 +671,6 @@ def granger(
 
     if n_surrogates > 0:
         obs_net = fit_xy["gc"] - fit_yx["gc"]
-        null_xy = np.empty(n_surrogates)
-        null_yx = np.empty(n_surrogates)
-        for i in range(int(n_surrogates)):
-            x_s = _surrogate_source(x, surrogate_rng)
-            null_xy[i] = _one_direction(x_s, y, order_xy)["gc"]
-            y_s = _surrogate_source(y, surrogate_rng)
-            null_yx[i] = _one_direction(y_s, x, order_yx)["gc"]
         # GC is log(var_r / var_f): its rounding is that of the ratio, not of GC's own size.
         p_xy = _surrogate_p(null_xy, fit_xy["gc"], "greater", scale=1.0)
         p_yx = _surrogate_p(null_yx, fit_yx["gc"], "greater", scale=1.0)
@@ -803,6 +727,7 @@ def granger(
             "seed": None if isinstance(seed, np.random.Generator) else seed,
             "surrogate_seed_entropy": seed_entropy if n_surrogates > 0 else None,
             "surrogate_scheme": _surrogate_scheme(n_trials) if n_surrogates > 0 else None,
+            "device_used": solve_on,
         },
         diagnostics={
             "direction_x_to_y": {k: v for k, v in diag_xy.items()},

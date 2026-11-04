@@ -181,8 +181,6 @@ contradicts a written claim it appears in section 6.
 | `directed_network[n_signals]` | n_signals | 4, 8, 16, 28, 40 | 19.0, 87.6, 346.2, 1040, 2240 | +2.05 | 1.000 | 118x | O(n^2) | Omega(n^2) irreducible; about T(n^2*N log N + n^2*p^2) | derived | agree |
 | `granger[model_order]` | model_order | 2, 6, 18, 40, 70 | 13.9, 28.4, 84.7, 269.1, 619.5 | +1.07 | 0.974 | 45x | O(n) | T(N*p + p^2) at d=2 | derived | ORDER |
 | `granger[n_samples]` | n_samples | 10000, 40000, 120000, 300000, 600000 | 11.8, 51.7, 168.6, 469.1, 985.3 | +1.08 | 1.000 | 84x | O(n) | T(N*d^2*p) | derived | agree |
-| `granger_causality[model_order]` | model_order | 2, 6, 18, 40, 70 | 11.9, 27.3, 81.4, 281.1, 591.6 | +1.11 | 0.981 | 50x | O(n) | T(N*p + p^2) | derived | ORDER |
-| `granger_causality[n_samples]` | n_samples | 10000, 40000, 120000, 300000, 600000 | 11.0, 48.8, 164.6, 470.2, 1010 | +1.11 | 1.000 | 92x | O(n) | T(N*d^2*p) | derived | agree |
 | `granger_nonparametric[n_times]` | n_times | 10000, 100000, 1000000, 4000000 | 56.68, 475, 4372, 1.636e+04 | +0.95 | 1.000 | 289x | O(n) | T(R*N*log F + I*F*log F), linear in N | derived | agree |
 | `granger_nonparametric[n_trials]` | n_trials | 4, 40, 400, 4000 | 20.64, 122.7, 1111, 1.115e+04 | +0.92 | 0.997 | 540x | O(n) | T(R*N*log F + I*F*log F), linear in R | derived | agree |
 | `granger_nonparametric[n_freqs]` | n_freqs | 128, 512, 2048, 8192, 16384 | 8819, 3334, 2670, 2906, 2512 | -0.22 | 0.696 | 4x | CONSTANT | T(R*N*log F + I*F*log F), F log F from the factorization | derived | NOT REACHED (top-two slope -0.21) |

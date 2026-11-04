@@ -1685,14 +1685,6 @@ def test_the_continuous_keys_the_skill_lists_are_the_live_ones():
     assert set(CONTINUOUS_KEYS) <= set(entry), sorted(set(CONTINUOUS_KEYS) - set(entry))
 
 
-def _deprecated_granger_causality():
-    rng = np.random.default_rng(11)
-    x = rng.normal(size=200)
-    y = np.r_[0.0, 0.5 * x[:-1]] + 0.5 * rng.normal(size=200)
-    with pytest.deprecated_call():
-        return jnwb.granger_causality(x, y, order=2)
-
-
 def _folds_frame(cycles):
     n = len(cycles)
     return pd.DataFrame({"session": ["s"] * n, "analysis": ["a"] * n, "slot_key": ["k"] * n,
@@ -1735,8 +1727,6 @@ class TestRowsAgainstTheLiveCall:
         ("jnwb-population", "assign_outer_folds",
          lambda: jnwb.assign_outer_folds(_folds_frame([0, 0, 1, 1])),
          ["outer_fold", "outer_group", "outer_fold_status"]),
-        ("jnwb-connectivity", "granger_causality", _deprecated_granger_causality,
-         ["F_1_to_2", "F_2_to_1"]),
     ])
     def test_the_keys_a_row_names_are_returned(self, skill, symbol, call, keys):
         """Both directions: the row names each key, and the call returns each key."""

@@ -16,7 +16,6 @@ import jnwb
 
 from jnwb.connectivity import (
     spike_mutual_information,
-    granger_causality,
     network_topology,
     DirectedResult,
     as_trials,
@@ -44,28 +43,6 @@ class TestSpikeMutualInformation:
         for estimator in ("binary_occupancy", "spike_count"):
             mi = spike_mutual_information(s1, s2, time_window=(0.0, 5.0), estimator=estimator)
             assert np.isfinite(mi) and mi >= 0.0
-
-
-class TestGrangerCausality:
-    def test_x_drives_y_shows_asymmetric_causality(self):
-        rng = np.random.default_rng(2)
-        n = 2000
-        x = rng.standard_normal(n)
-        y = np.zeros(n)
-        for t in range(2, n):
-            y[t] = 0.6 * x[t - 1] + 0.1 * rng.standard_normal()
-        result = granger_causality(y, x, order=3)
-        assert "F_2_to_1" in result
-        assert "F_1_to_2" in result
-
-    def test_a_constant_target_gives_nan_not_zero_influence(self):
-        """A zero residual variance means the fit failed, as `granger` reports it."""
-        noise = np.random.default_rng(3).standard_normal(500)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            result = granger_causality(np.ones(500), noise, order=2)
-        assert np.isnan(result["F_2_to_1"]), result["F_2_to_1"]
-        assert np.isfinite(result["F_1_to_2"]), result["F_1_to_2"]
 
 
 class TestNetworkTopology:
@@ -1168,9 +1145,6 @@ class TestGrangerNotTestedIsNotPassed:
             _adf_pvalue(np.arange(5.0))
         with pytest.raises(ImportError):
             granger(a, b, order=3)
-        with warnings.catch_warnings(), pytest.raises(ImportError):
-            warnings.simplefilter("ignore", DeprecationWarning)
-            granger_causality(a, b, order=3)
 
     @pytest.mark.parametrize("failure", [np.linalg.LinAlgError("SVD did not converge"),
                                          ValueError("Invalid input, x is constant")])

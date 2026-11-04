@@ -1,0 +1,1 @@
+- `granger_causality`, deprecated since 0.1.7, is removed; use `granger` (`jnwb/connectivity/_granger.py`).

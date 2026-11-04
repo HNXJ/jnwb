@@ -252,7 +252,6 @@ from .spectral import (
 # Functional connectivity: mutual information, Granger causality, phase slope index, transfer entropy.
 from .connectivity import (
     spike_mutual_information,
-    granger_causality,
     network_topology,
     DirectedResult,
     as_trials,
@@ -508,7 +507,6 @@ __all__ = [
 
     # Functional connectivity
     'spike_mutual_information',
-    'granger_causality',
     'network_topology',
     'DirectedResult',
     'as_trials',
