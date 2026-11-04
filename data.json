@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "a5345f79784ebd587f95462d910cd55bf5390e6f",
-    "date": "2026-11-03T08:15:47Z"
+    "commit": "954916054ce462a00196821d7ce060f6b538f18f",
+    "date": "2026-11-04T04:09:03Z"
   },
   "sources": {
     "generated": [
@@ -1395,7 +1395,7 @@
     ]
   },
   "api": {
-    "total": 231,
+    "total": 229,
     "groups": [
       {
         "module": "jnwb",
@@ -1520,8 +1520,6 @@
           "morlet_wavelet",
           "ComplexTFR",
           "spike_mutual_information",
-          "binary_occupancy_mutual_information",
-          "spike_count_mutual_information",
           "granger_causality",
           "network_topology",
           "DirectedResult",
@@ -1846,7 +1844,8 @@
         "qualname": "granger",
         "verified_at": "af9ffbfda6e462caadc288a7549762de7c74e99f",
         "tests": [
-          "tests/test_composition_randomness.py::TestDirectedNetworkSurrogatesFollowTheCallerSeed::test_two_different_seeds_give_different_p_values[granger]"
+          "tests/test_composition_randomness.py::TestDirectedNetworkSurrogatesFollowTheCallerSeed::test_two_different_seeds_give_different_p_values[granger]",
+          "tests/test_connectivity.py::TestGranger::test_x_leads_y_gives_positive_net"
         ]
       },
       {
@@ -2546,12 +2545,6 @@
       "module": "jnwb.connectivity"
     },
     {
-      "export": "binary_occupancy_mutual_information[n_spikes]",
-      "order": "O(n)",
-      "evidence": "n_spikes: exponent +1.03, admissible T(n_spikes + n_bins)",
-      "module": "jnwb.connectivity"
-    },
-    {
       "export": "directed_connectivity[n_samples]",
       "order": "O(n)",
       "evidence": "n_samples: exponent +1.13, admissible the dispatched estimator's",
@@ -2657,12 +2650,6 @@
       "export": "phase_slope_index[n_samples_jackknife]",
       "order": "O(n)",
       "evidence": "n_samples: exponent +1.05, admissible T(S*L)",
-      "module": "jnwb.connectivity"
-    },
-    {
-      "export": "spike_count_mutual_information[n_spikes]",
-      "order": "O(n)",
-      "evidence": "n_spikes: exponent +1.01, admissible T(n_spikes + n_bins)",
       "module": "jnwb.connectivity"
     },
     {
@@ -5070,8 +5057,8 @@
       "section": "frozen",
       "title": "Independently verified functions",
       "path": "artifacts/process/frozen_validated.json",
-      "commit": "aa0d84658230a9c00a2cb72b9ad9bc1696e389f0",
-      "sha256": "7463aa8b12794be206adb7d074923c89b306baadaefa01db520a357ba0828c5c",
+      "commit": "2a17d56a90d61694d4970b2d1af5b7a1b4cc7e54",
+      "sha256": "54d3a71f17bcb96ccf273649e18499b56cd973cf232455a0c50880b3f0cb34c1",
       "fields": {
         "functions": 27
       },
@@ -5082,8 +5069,8 @@
       "section": "studies",
       "title": "Fleiss, J. L. (1971). Measuring nominal scale agreement among many raters. *Psychological Bulletin* 76(5), 378-382. [doi:10.1037/h0031619](https://doi.org/10.1037/h0031619)",
       "path": "docs/references.md",
-      "commit": "aff440698a95e0db8a054bbe0c957959f2d6b6df",
-      "sha256": "71d4fbd2dd5650df48498f902770ff686bc931c683a7beb33aff2edf3b86b412",
+      "commit": "572da17502d60e0d01500a98c46996745ba7466c",
+      "sha256": "a809dd9af1250053fef9cbe6b50db1241a7ceba5929d7cea32b35d86b56d64c4",
       "fields": {
         "result": "**Partially replicated.** Overall kappa, .430 for 30 patients rated by six raters into five categories. The table is transcribed in the test from the R packages irr and lagree, not read from the paper; only the overall kappa is checked, to three decimals",
         "tests": [
@@ -5097,8 +5084,8 @@
       "section": "studies",
       "title": "Hill, D. N., Mehta, S. B., & Kleinfeld, D. (2011). Quality metrics to accompany spike sorting of extracellular signals. *Journal of Neuroscience* 31(24), 8699-8705. [doi:10.1523/JNEUROSCI.0971-11.2011](https://doi.org/10.1523/JNEUROSCI.0971-11.2011)",
       "path": "docs/references.md",
-      "commit": "aff440698a95e0db8a054bbe0c957959f2d6b6df",
-      "sha256": "71d4fbd2dd5650df48498f902770ff686bc931c683a7beb33aff2edf3b86b412",
+      "commit": "572da17502d60e0d01500a98c46996745ba7466c",
+      "sha256": "a809dd9af1250053fef9cbe6b50db1241a7ceba5929d7cea32b35d86b56d64c4",
       "fields": {
         "result": "**Replicated.** The worked example: $N/T$ = 10 Hz, $\\tau_R$ = 3 ms, $\\tau_C$ = 1 ms and $T$ = 1000 s with 20 violations give $f$ = 0.05, and the estimate equals the smaller root of the closed form at relative 1e-12. The paper gives no recording; the test builds the spike train that yields the violations",
         "tests": [
@@ -5112,8 +5099,8 @@
       "section": "studies",
       "title": "Major, A. J., et al. (2025). A. J. Major et al. reply. *Nature Neuroscience* 29(2), 284-286. [doi:10.1038/s41593-025-02168-x](https://doi.org/10.1038/s41593-025-02168-x). Code: Mendoza-Halliday, D., et al. (2023). vFLIP2.m, version 8 (2025-11-04). Dryad dataset. [doi:10.5061/dryad.9w0vt4bnp](https://doi.org/10.5061/dryad.9w0vt4bnp)",
       "path": "docs/references.md",
-      "commit": "aff440698a95e0db8a054bbe0c957959f2d6b6df",
-      "sha256": "71d4fbd2dd5650df48498f902770ff686bc931c683a7beb33aff2edf3b86b412",
+      "commit": "572da17502d60e0d01500a98c46996745ba7466c",
+      "sha256": "a809dd9af1250053fef9cbe6b50db1241a7ceba5929d7cea32b35d86b56d64c4",
       "fields": {
         "result": "**Replicated.** The outputs of the published code vFLIP2.m (omega, goodness, bands and channels) for the three synthetic cases and the power example that have a window, and the empty result for the five cases without one, at relative 1e-9; the PSD and result from raw, trial-cut and cell LFP at the same tolerance. The check is the code's output, not a figure in the paper",
         "tests": [
@@ -5131,8 +5118,8 @@
       "section": "studies",
       "title": "Siegle, J. H., et al. (2021). Survey of spiking in the mouse visual system reveals functional hierarchy. *Nature* 592(7852), 86-92. [doi:10.1038/s41586-020-03171-x](https://doi.org/10.1038/s41586-020-03171-x). Jia, X., et al. (2019). High-density extracellular probes reveal dendritic backpropagation and facilitate neuron classification. *Journal of Neurophysiology* 121(5), 1831-1847. [doi:10.1152/jn.00680.2018](https://doi.org/10.1152/jn.00680.2018)",
       "path": "docs/references.md",
-      "commit": "aff440698a95e0db8a054bbe0c957959f2d6b6df",
-      "sha256": "71d4fbd2dd5650df48498f902770ff686bc931c683a7beb33aff2edf3b86b412",
+      "commit": "572da17502d60e0d01500a98c46996745ba7466c",
+      "sha256": "a809dd9af1250053fef9cbe6b50db1241a7ceba5929d7cea32b35d86b56d64c4",
       "fields": {
         "result": "**Partially replicated.** The waveform half-width, repolarization slope and spread (Jia et al.), and the amplitude cutoff, on fixed cases, as AllenInstitute `ecephys_spike_sorting` at commit 919992748a53 computes them. The check is that code's output, not a figure in either paper; the duration, SNR and presence ratio of Siegle et al. are not checked",
         "tests": [
