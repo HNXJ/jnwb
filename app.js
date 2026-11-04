@@ -1364,6 +1364,35 @@
     });
   }
 
+  // One panel per related reproduction: its title, its relation to jnwb and its links, as recorded.
+  function renderRelated(data) {
+    var entries = lookup(data, 'related');
+    var box = document.getElementById('showcase-related');
+    box.textContent = '';
+    if (!Array.isArray(entries) || !entries.length) {
+      box.appendChild(emptyNote(NONE_RECORDED));
+      return;
+    }
+    entries.forEach(function (entry) {
+      var card = make('article', 'panel');
+      var title = make('h5');
+      setText(title, entry.title);
+      card.appendChild(title);
+      card.appendChild(make('p', '', isBlank(entry.relation) ? NOT_RECORDED : String(entry.relation)));
+      var list = make('ul');
+      (Array.isArray(entry.links) ? entry.links : []).forEach(function (link) {
+        var item = make('li');
+        var anchor = make('a', '', String(link.label));
+        setHref(anchor, link.url);
+        anchor.rel = 'noopener';
+        item.appendChild(anchor);
+        list.appendChild(item);
+      });
+      card.appendChild(list);
+      box.appendChild(card);
+    });
+  }
+
   // ---- overview and page --------------------------------------------------
 
   // ---- validations: an index, and one page per validation -----------------
@@ -1588,6 +1617,7 @@
     renderApi(data);
     renderFigures(data);
     renderShowcases(data);
+    renderRelated(data);
     renderValidationIndex(data);
     renderValidationPages(data);
     refreshValidationRoute();
