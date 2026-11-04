@@ -633,7 +633,6 @@ Three verdicts need reading carefully:
 | `exact_sign_flip[n_samples_exact]` | n_samples | - | - | +2.47 [POOR FIT] | see note (predicted after this group's sweep had run). EXPONENTIAL in N, not polynomial: a power-law exponent is not the right summary. The raw times, which should roughly double per added sample, are the evidence. | Exhaustive enumeration of all 2^N sign vectors, T(2^N*N): an exponential-exponent gap against the best known algorithm. | O(2^(N/2)*N) known; true lower bound unknown |
 | `phase_slope_index[n_samples_jackknife]` | n_samples | +2.00 | +1.00 | +2.14 | **gap confirmed**, then closed: +1.05 after the change (section 6.2). | Before the change: a Python loop of S iterations, each taking a fancy-index COPY fx[keep] of an (S-1, L/2+1) complex array and recomputing three full-frequency means from scratch: T(S^2*L) = T(N^2/L). This is the DEFAULT path (jackknife=True at jnwb/connectivity.py:1604). | T(S*L) |
 | `granger_spectral[model_order]` | model_order | +2.00 | +1.00 | +1.19 | **no gap** -- measurement matches the admissible order. | Same. | T(N*p + p^2 + F log F) |
-| `granger_causality[model_order]` | model_order | +2.00 | +1.00 | +1.11 | **no gap** -- measurement matches the admissible order. | Same SVD least-squares route. | T(N*p + p^2) |
 | `granger[model_order]` | model_order | +2.00 | +1.00 | +1.07 | **no gap** -- measurement matches the admissible order. | A design matrix of (N-p) x (1+2p) is materialised and solved by SVD least squares (LAPACK gelsd), giving T(N p^2 + p^3): a factor p in the data term and p in the solve above the recursion. | T(N*p + p^2) at d=2 |
 | `spike_count_mutual_information[n_spikes]` | n_spikes | +1.30 | +1.00 | +1.01 | **no gap** -- measurement matches the admissible order. | The alphabet is the set of distinct per-bin counts, which grows with n_spikes/n_bins, so the dense Python double loop over the alphabet product grows too. | T(n_spikes + n_bins) |
 | `jrsa[n_lags]` | n_lags | +1.00 | +0.00 | +0.99 | **gap confirmed**. | A Python loop over lags, each doing a full metric call: T(L*n log n). | T(1) in L; T(n log n) total for all lags |
@@ -788,8 +787,6 @@ other does not follow fails the suite.
 |  |  |  | `phase_slope_index[n_samples_jackknife]` | +1.00 | +1.05 | within bound; re-measured after the change in section 6.2 |
 | INV-06 | `artifacts/benchmarks/performance/complexity_inventory.md` | granger: O(T . P^2 + P^3) | `granger[model_order]` | +3.00 | +1.07 | within bound |
 |  |  |  | `granger[n_samples]` | +1.00 | +1.08 | within bound |
-|  |  |  | `granger_causality[model_order]` | +3.00 | +1.11 | within bound |
-|  |  |  | `granger_causality[n_samples]` | +1.00 | +1.11 | within bound |
 | INV-07 | `artifacts/benchmarks/performance/complexity_inventory.md` | transfer_entropy: O(S . T) | `transfer_entropy[n_samples]` | +1.00 | +1.13 | within bound |
 | INV-08 | `artifacts/benchmarks/performance/complexity_inventory.md` | vflip: O(C . F) | `vflip[n_channels]` | +1.00 | +1.07 | within bound |
 |  |  |  | `vflip[n_freqs]` | +1.00 | +0.62 | within bound |

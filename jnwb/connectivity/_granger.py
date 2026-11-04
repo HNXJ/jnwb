@@ -378,8 +378,9 @@ class _GPUSolveFailed(Exception):
     """A CUDA least-squares solve failed; :func:`granger` recomputes the whole call on the CPU."""
 
 
-def _lstsq_cuda(design: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """``lstsq`` on the GPU, returned to the host. Any failure is a :class:`_GPUSolveFailed`."""
+def _lstsq_gpu(design: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """``lstsq`` on the GPU, returned to the host; called only after :func:`granger` resolved
+    CUDA. Any failure is a :class:`_GPUSolveFailed`."""
     try:
         import cupy as cp
 
@@ -394,7 +395,7 @@ def _ols_rss(design: np.ndarray, y: np.ndarray, ridge: float,
     """RSS and residuals of one fit. With ``device='cuda'`` and ``ridge <= 0`` only the
     coefficients are solved on the GPU; residuals and their sum stay on the CPU."""
     if device == CUDA and np.isfinite(ridge) and ridge <= 0:
-        beta = _lstsq_cuda(design, y)
+        beta = _lstsq_gpu(design, y)
     else:
         beta = _ridge_lstsq(design, y, ridge)
     resid = y - design @ beta
