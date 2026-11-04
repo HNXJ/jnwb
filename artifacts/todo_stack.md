@@ -145,3 +145,10 @@ Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/build_fact_graph.py`, `jnwb/__init__.py`.
 - 17-104: `scripts/build_fact_graph.py` is one 3,410-line file of parsing, unit factors and graph; `jnwb/__init__.py` imports submodules eagerly beside `_lazy_exports` (inferred: measure import time first). Check: the script splits into a module and a driver with the harness gate unchanged; the import receipt (`scripts/benchmark_import.py`) records the change.
+
+### 17-127 The fact graph build takes four minutes
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: 17-104 (shares `scripts/build_fact_graph.py`).
+Writes: `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`.
+- 17-127: one `build_fact_graph.py` run took 264 s at `2e069118` and 217 s at `a5345f79` on the Windows host (one sample each; the 17-84 call-site rule landed between); under a full suite it passed the test's 300 s cap twice, now 900 s. Check: a profile names the phases; the build runs under 60 s with the graph byte-identical.

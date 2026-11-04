@@ -173,7 +173,9 @@ def test_run_that_outlives_the_bounds_fails_by_name_and_counts_every_cell(tmp_pa
     # 1 start + 3 cells of 1 + 1 shutdown
     with pytest.raises(pytest.fail.Exception, match="stalled.ipynb: kernel did not finish within 5 s"):
         _execute(path, tmp_path, monkeypatch)
-    assert time.monotonic() - began < 5 + 15
+    # The stalled cell sleeps 60 s, so any bound below that shows the run stopped on its own
+    # bounds; 40 s of slack covers a kernel spawn and teardown on a loaded host (28 to 32 s here).
+    assert time.monotonic() - began < 5 + 40
 
 
 def test_run_that_outlives_the_bounds_kills_its_kernel(tmp_path, monkeypatch):

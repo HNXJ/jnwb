@@ -77,8 +77,10 @@ def test_two_builds_in_separate_processes_are_byte_identical(tmp_path):
         # The builder run by path imports this checkout, whichever copy the suite is testing.
         env = {k: v for k, v in os.environ.items() if k != "JNWB_EXPECTED_PACKAGE_ROOT"}
         env["PYTHONHASHSEED"] = seed
+        # One build takes 217 to 264 s alone on the Windows host and more under a full suite;
+        # the timeout guards a hang, not the speed.
         done = subprocess.run([sys.executable, str(BUILDER), "--out", str(out)], cwd=REPO_ROOT,
-                              env=env, capture_output=True, text=True, timeout=300)
+                              env=env, capture_output=True, text=True, timeout=900)
         assert done.returncode == 0, done.stderr
         digests.append(hashlib.sha256(out.read_bytes()).hexdigest())
     assert digests[0] == digests[1]
