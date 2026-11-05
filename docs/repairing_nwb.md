@@ -110,8 +110,7 @@ difference a per-file read does not show.
 
 ## 4. Continuous data dtype
 
-`float64` takes twice the bytes of `float32`. `jnwb.compress_fp32(src, select=[...])` casts
-exactly the named datasets and verifies the result. A cast is irreversible and changes
+`float64` takes twice the bytes of `float32`. [`compress_fp32`](coherence_and_tfr.md#streaming-tfr-accumulation-tfraccumulator-nwb-fp32-compression-compress_fp32) makes the cast and verifies it. A cast is irreversible and changes
 `data_dtype` in `jnwb.inspect`; record it with the file.
 
 ## 5. Validate the result

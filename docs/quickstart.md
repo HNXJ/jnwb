@@ -17,9 +17,7 @@ Run locally: `python examples/tutorials/00_your_own_file.py` (add your own file 
 
 ## Install & Import
 
-```bash
-pip install jnwb
-```
+Install jnwb as on [Installation](install.md).
 
 ```python
 import jnwb

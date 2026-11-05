@@ -6,12 +6,9 @@ plots arrays you supply; the two exceptions are named in the panel table.
 
 ## 1. Install
 
-```bash
-pip install "jnwb[vis]"
-```
-
-The extra adds `plotly` and `kaleido`; kaleido writes the SVG and PNG. Without it, `import jnwb`
-and every other export work, and two things raise `ImportError` naming `pip install jnwb[vis]`:
+Install it as on [Installation](install.md#extras). The extra adds `plotly` and `kaleido`;
+kaleido writes the SVG and PNG. Without it, `import jnwb` and every other export work,
+and two things raise `ImportError` naming `pip install jnwb[vis]`:
 
 | Call | Why |
 |---|---|
