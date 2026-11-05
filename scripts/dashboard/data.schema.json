@@ -195,6 +195,24 @@
         "entries": {"type": "array", "items": {"$ref": "#/$defs/showcase"}}
       }
     },
+    "roadmap": {
+      "type": ["array", "null"],
+      "description": "artifacts/process/release_plan.json releases, as recorded: one row per release later than the declared version, in ascending order. Null while no plan exists.",
+      "items": {
+        "type": "object",
+        "required": ["version", "status", "theme", "goal", "scope", "needs", "items"],
+        "additionalProperties": false,
+        "properties": {
+          "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+          "status": {"enum": ["in progress", "planned", "tbd"]},
+          "theme": {"type": "string"},
+          "goal": {"type": "string"},
+          "scope": {"type": "array", "items": {"type": "string"}},
+          "needs": {"type": "array", "items": {"type": "string"}},
+          "items": {"type": "array", "items": {"type": "string"}, "description": "stack and roadmap ids the release carries"}
+        }
+      }
+    },
     "related": {
       "type": ["array", "null"],
       "description": "artifacts/showcases/related.json entries, as recorded: reproductions kept outside this repository, each with its relation to jnwb and its links. The build reads no value from the linked pages. Null while no record exists.",

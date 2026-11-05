@@ -63,6 +63,11 @@ ORDER_RECORD = REPO_ROOT / "artifacts" / "evidence" / "0.2.6" / "computational_o
 SHOWCASE_RECORD = REPO_ROOT / "artifacts" / "showcases" / "openscope_glo.json"
 RELATED_RECORD = REPO_ROOT / "artifacts" / "showcases" / "related.json"
 ROADMAP = REPO_ROOT / "artifacts" / "roadmap.md"
+RELEASE_PLAN = REPO_ROOT / "artifacts" / "process" / "release_plan.json"
+#: The files a release-plan item id must appear in.
+PLAN_ITEM_SOURCES = (REPO_ROOT / "artifacts" / "todo_stack.md", ROADMAP,
+                     REPO_ROOT / "artifacts" / "open_stack.md")
+PLAN_STATUSES = ("in progress", "planned", "tbd")
 CALIBRATION = BENCHMARKS / "calibration"
 #: The calibration receipts a card reads. Their raw records are not read, so they get no card.
 CALIBRATION_RECEIPTS = (CALIBRATION / "xflip_calibration_0.2.5.md",
@@ -77,7 +82,8 @@ from scripts.release_gate import (RECEIPT_PATH as CLOSURE_RECEIPT_PATH,  # noqa:
 CLOSURE_RECEIPT = REPO_ROOT / CLOSURE_RECEIPT_PATH
 VALIDATION_HTML = ASSETS / "validations"
 SECTIONS =("generated", "release", "releases", "ci", "api", "verified", "performance",
-            "order", "references", "figures", "showcases", "related", "validations", "deferred")
+            "order", "references", "figures", "showcases", "related", "validations", "deferred",
+            "roadmap")
 
 _VERSION_LINE = re.compile(r"^## \[(?P<version>[^\]]+)\](?: - (?P<date>\S+))?$")
 _INIT_VERSION = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
@@ -628,6 +634,44 @@ def deferred_section() -> list[dict] | None:
     return rows
 
 
+def _version_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
+def roadmap_section(declared: str) -> list[dict] | None:
+    """The release plan's rows, as recorded; null while no plan exists.
+
+    Refuses, naming the row: a version that is not X.Y.Z or not later than the declared
+    version, versions out of ascending order, a status outside the plan's set, a row without a
+    theme or goal, and an item id that none of the stacks or the roadmap contains.
+    """
+    if not RELEASE_PLAN.is_file():
+        return None
+    where = RELEASE_PLAN.name
+    rows = json.loads(_read(RELEASE_PLAN))["releases"]
+    stacks = "\n".join(_read(path) for path in PLAN_ITEM_SOURCES if path.is_file())
+    previous: tuple[int, ...] | None = None
+    for row in rows:
+        version = str(row.get("version", ""))
+        if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+            raise ValueError(f"{where}: {version!r} is not a version X.Y.Z")
+        key = _version_key(version)
+        if key <= _version_key(declared):
+            raise ValueError(f"{where}: {version} is not later than the declared {declared}")
+        if previous is not None and key <= previous:
+            raise ValueError(f"{where}: {version} is out of ascending order")
+        previous = key
+        if row.get("status") not in PLAN_STATUSES:
+            raise ValueError(f"{where}: {version} has status {row.get('status')!r}, not one of "
+                             f"{PLAN_STATUSES}")
+        if not row.get("theme") or not row.get("goal"):
+            raise ValueError(f"{where}: {version} has no theme or no goal")
+        for item in row.get("items", []):
+            if not re.search(rf"(?<![\w-]){re.escape(item)}(?![\w-])", stacks):
+                raise ValueError(f"{where}: {version} names {item}, which no stack contains")
+    return rows
+
+
 def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -854,6 +898,7 @@ def build_data() -> dict:
     related = related_section()
     validations = validations_section()
     deferred = deferred_section()
+    roadmap = roadmap_section(release_section(releases)["version"])
     pages = sorted({_rel(page) for figure in figures
                     if (page := _explaining_page(Path(figure["light"]).name))})
     sources = {
@@ -871,6 +916,7 @@ def build_data() -> dict:
         "related": _present(RELATED_RECORD) if related is not None else [],
         "validations": list(dict.fromkeys(card["path"] for card in validations)),
         "deferred": _present(ROADMAP) if deferred is not None else [],
+        "roadmap": _present(RELEASE_PLAN) if roadmap is not None else [],
     }
     return {
         "generated": generated_section(),
@@ -888,6 +934,7 @@ def build_data() -> dict:
         "related": related,
         "validations": validations,
         "deferred": deferred,
+        "roadmap": roadmap,
     }
 
 
@@ -944,7 +991,7 @@ def _size(name: str, value) -> str:
         return f"{len(value)} entries"
     if name == "validations":
         return f"{len(value)} cards"
-    if name == "deferred":
+    if name in ("deferred", "roadmap"):
         return f"{len(value)} rows"
     return "present"
 

@@ -358,5 +358,25 @@
       "relation": "Scored by its own scorer; the build reads none of its values.",
       "links": [{"label": "Synthetic scorecard", "url": "https://example.invalid/scorecard"}]
     }
+  ],
+  "roadmap": [
+    {
+      "version": "9.9.1",
+      "status": "planned",
+      "theme": "Synthetic theme",
+      "goal": "Synthetic goal.",
+      "scope": ["Synthetic scope line"],
+      "needs": ["Synthetic need"],
+      "items": []
+    },
+    {
+      "version": "9.10.0",
+      "status": "tbd",
+      "theme": "To be decided",
+      "goal": "Synthetic scope ruling.",
+      "scope": [],
+      "needs": [],
+      "items": []
+    }
   ]
 }

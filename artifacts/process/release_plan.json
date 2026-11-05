@@ -1,0 +1,124 @@
+{
+  "note": "Release plan from 0.2.16 to the end of the 0.2.x series, then 0.3.0. Proposed 2026-11-05; each row's scope becomes that cycle's goals and checklist when the cycle opens. Items name rows of artifacts/todo_stack.md, artifacts/roadmap.md or artifacts/open_stack.md.",
+  "releases": [
+    {
+      "version": "0.2.16",
+      "status": "in progress",
+      "theme": "Defects and correctness",
+      "goal": "Every defect the November audits and the GitHub issues found is fixed with a failing test first.",
+      "scope": [
+        "Audit findings repaired, each with a test that fails on the old code",
+        "GitHub issues #35 to #39 fixed; a file without /units raises TableNotFoundError",
+        "granger solves on the GPU with a parity test; granger_causality removed",
+        "UnitAnalyzer.psth bins right-open [a, b), as bin_spikes does (results change)",
+        "Validations on external ground truth: vflip2 on the Bastos lab simulation, delay and direction from a broadband jaxfne field, real-data cards with independent receipts"
+      ],
+      "needs": [
+        "the Bastos lab simulation code and a broadband jaxfne field",
+        "a ruling on the jnwb.lab proposal (#40)"
+      ],
+      "items": ["17-70", "15-11", "12-21", "16-12", "17-75", "17-76", "17-77", "P-216-06"]
+    },
+    {
+      "version": "0.2.17",
+      "status": "planned",
+      "theme": "Thinning and matching",
+      "goal": "Less code and prose for the same behaviour: one home per helper, lower complexity, consistent style.",
+      "scope": [
+        "The largest functions (xflip, jrsa, zflip, vflip, phase_slope_index) split below a stated complexity",
+        "One home per helper in jnwb, scripts and tests; dead code and unused constants removed",
+        "Tests named by subject, not by the event that produced them",
+        "Docs and examples thinned; one home per invariant across the rule and doc files",
+        "Code and prose matched to the style standards; the fact graph build made faster"
+      ],
+      "needs": [
+        "decisions on public names that dead-code removal touches"
+      ],
+      "items": ["17-79", "17-94", "17-95", "17-96", "17-97", "17-98", "17-99", "17-100", "17-101", "17-102", "17-103", "17-104", "17-127", "P-216-25", "P-216-26"]
+    },
+    {
+      "version": "0.2.18",
+      "status": "planned",
+      "theme": "Estimand and parameter decisions",
+      "goal": "Every estimand choice a function makes silently is named, decided and tested.",
+      "scope": [
+        "Response z-score standard deviation (ddof), trial-cycle gap threshold, reference row order: one decision each, then code",
+        "gaussian_smooth_rate NaN handling",
+        "Time and frequency parameters carry unit suffixes; one name per concept (window, bin, sampling rate)"
+      ],
+      "needs": [
+        "a decision on each estimand choice and on the public parameter names"
+      ],
+      "items": ["P-216-32", "P-216-24", "P-216-25"]
+    },
+    {
+      "version": "0.2.19",
+      "status": "planned",
+      "theme": "CI reach",
+      "goal": "Every test runs on some CI leg, or is declared as not run there with its reason.",
+      "scope": [
+        "Tests that skip on every leg (validate extra, torch and jax, the Dryad parity data, Chromium, GPU) run on one leg or are declared",
+        "Tiered CI: fast checks on every push, the full matrix where it qualifies a release",
+        "Python 3.15 on Windows once h5py publishes cp315 wheels"
+      ],
+      "needs": [
+        "approval of the tiered CI plan",
+        "h5py cp315 wheels for Windows"
+      ],
+      "items": ["P-216-08"]
+    },
+    {
+      "version": "0.2.20",
+      "status": "planned",
+      "theme": "External reproductions on the dashboard",
+      "goal": "Reproductions kept outside jnwb show their figures and results on the dashboard, read from committed records.",
+      "scope": [
+        "Paper2Agent-GLO (Bastos lab): figures and per-figure scores in the OpenScope GLO tab",
+        "Showcase and calibration files reduced to the receipts of record"
+      ],
+      "needs": [
+        "the GLO figures and results from the Bastos lab"
+      ],
+      "items": ["17-102"]
+    },
+    {
+      "version": "0.2.21",
+      "status": "planned",
+      "theme": "Repository form",
+      "goal": "One rule per concern and one name per concept; the repository continues from the remote alone.",
+      "scope": [
+        "Rule pairs that disagree reconciled, one ruling each",
+        "Stack form matched to the shared template; no tracked file depends on a local one",
+        "One name per concept in rules and tooling; every flow step has a performer and a check"
+      ],
+      "needs": [
+        "rulings on the rule pairs and the stack form"
+      ],
+      "items": ["P-216-15", "P-216-16", "P-216-17", "P-216-18", "P-216-19", "P-216-20", "P-216-21", "P-216-22"]
+    },
+    {
+      "version": "0.2.22",
+      "status": "planned",
+      "theme": "Close of the 0.2 series",
+      "goal": "The last 0.2 release: no new features; the surface is reviewed and the 0.3.0 changes are listed.",
+      "scope": [
+        "Every public symbol reviewed for name, signature and documentation; deprecations completed",
+        "The independently verified set extended to the functions settled in 0.2.16 to 0.2.21",
+        "The breaking changes collected during 0.2.x listed as the 0.3.0 candidates"
+      ],
+      "needs": [],
+      "items": []
+    },
+    {
+      "version": "0.3.0",
+      "status": "tbd",
+      "theme": "To be decided",
+      "goal": "Scope set by ruling at the close of 0.2.22, from the candidates collected during the 0.2 series.",
+      "scope": [],
+      "needs": [
+        "the 0.3.0 scope ruling"
+      ],
+      "items": []
+    }
+  ]
+}

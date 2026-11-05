@@ -513,3 +513,12 @@ def test_the_renderer_reads_the_related_section_and_links_through_the_url_check(
     body = source[source.index("function renderRelated"):source.index("// ---- overview and page")]
     assert "setHref(anchor, link.url)" in body, "a related link goes through the URL check"
     assert 'id="showcase-related"' in TEMPLATE.read_text(encoding="utf-8")
+
+
+def test_the_roadmap_tab_renders_the_plan_rows():
+    source = RENDERER.read_text(encoding="utf-8")
+    assert "lookup(data, 'roadmap')" in source and "renderRoadmap(data);" in source
+    template = TEMPLATE.read_text(encoding="utf-8")
+    assert 'aria-controls="roadmap"' in template and 'id="roadmap-table"' in template
+    rows = json.loads(FIXTURE.read_text(encoding="utf-8"))["roadmap"]
+    assert len(rows) >= 2, "the fixture must carry a planned and an undecided release"
