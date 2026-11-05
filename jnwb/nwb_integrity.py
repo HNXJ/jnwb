@@ -49,6 +49,20 @@ class RaggedIndexRepairRefused(ValueError):
     """``repair_ragged_index`` found a condition under which it must not write."""
 
 
+class TableNotFoundError(KeyError):
+    """The file has no table group at the requested path, e.g. an NWB without ``/units``.
+
+    A ``KeyError``, so ``except KeyError`` still catches it; ``table`` holds the path.
+    """
+
+    def __init__(self, table: str):
+        super().__init__(table)
+        self.table = table
+
+    def __str__(self) -> str:
+        return f"no table group {self.table!r} in the file"
+
+
 @dataclass(frozen=True)
 class RaggedIndexCheck:
     """Status of one ``<column>_index`` array. Every flag is a plain observation.
@@ -164,7 +178,7 @@ def _classify(old: np.ndarray, data_len: int, starts: np.ndarray | None):
 
 def _group(f: h5py.File, table: str) -> h5py.Group:
     if table not in f or not isinstance(f[table], h5py.Group):
-        raise KeyError(f"no table group {table!r} in the file")
+        raise TableNotFoundError(table)
     return f[table]
 
 
@@ -229,6 +243,16 @@ def check_ragged_indices(path: str | Path, *, table: str = "units",
         One ``RaggedIndexCheck`` per ragged column, in file order. Without a segmentation
         ``offset_bug`` is ``"not_tested"``. A single probe cannot show the defect, so with one
         segment a non-correct index is ``"inconsistent"``.
+
+    Raises
+    ------
+    TableNotFoundError
+        The file has no group at ``table``.
+    KeyError
+        ``probe_column`` is not a column of the table.
+    ValueError
+        Both segmentations given; ``probe_starts`` not increasing from 0; ``probe_column``
+        not one value per row.
 
     Notes
     -----
@@ -504,8 +528,10 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
 
     Raises
     ------
+    TableNotFoundError
+        The file has no group at ``table``.
     KeyError
-        The table, ``waveform_mean``, or ``amplitude`` is absent.
+        ``waveform_mean`` or ``amplitude`` is absent.
     ValueError
         ``rtol`` or ``atol`` is NaN, infinite or negative; ``amplitude_scale`` is NaN,
         infinite, zero or negative; ``amplitude`` is not a

@@ -176,7 +176,7 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 |--------|---------------------|------------------------------------------|
 | `paths` | Data root discovery & volume remap management | `paths` |
 | `nwb_inspect` | NWB file discovery: acquisitions, units, electrodes and interval tables | `inspect`, `unit_spike_times`, `acquisition_channel`, `resolve_acquisition` |
-| `nwb_integrity` | Read-only ragged-index and waveform-block checks of an NWB table and one guarded index repair | `check_ragged_indices`, `repair_ragged_index`, `RaggedIndexReport`, `RaggedIndexRepair`, `RaggedIndexRepairRefused`, `check_waveform_blocks`, `WaveformBlockReport` |
+| `nwb_integrity` | Read-only ragged-index and waveform-block checks of an NWB table and one guarded index repair | `check_ragged_indices`, `repair_ragged_index`, `RaggedIndexReport`, `RaggedIndexRepair`, `RaggedIndexRepairRefused`, `TableNotFoundError`, `check_waveform_blocks`, `WaveformBlockReport` |
 | `nwb_validate` | Layered NWB validation: read, pynwb schema (cached and installed core), integrity, NWB Inspector, DANDI | `validate_nwb`, `NWBValidationReport` |
 | `nwb_write` | Writing, transforming, repairing and verifying one NWB file, each reporting a `MutationReport` | `write_nwb`, `transform_nwb`, `repair_nwb`, `verify_nwb` |
 | `nwb_events` | Event codes and onsets from a named interval table | `events`, `event_onsets`, `resolve_interval_table`, `EventTable` |

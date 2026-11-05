@@ -30,7 +30,6 @@ Each issue's own repro was run on `dev` at `9fa0833a` (jnwb 0.2.15 from the chec
 
 | Id | Open item | Evidence | Owner | Next step |
 |---|---|---|---|---|
-| P-216-05 | hnxj/jnwb#39: on a file with no `/units`, `unit_census_report` fails inside pandas and the integrity checks raise `KeyError` | repro: `ValueError Cannot describe a DataFrame without columns`, `KeyError "no table group 'units'"` twice | keeper, Hamm | `unit_census_report` is a bug; the checks' documented `KeyError` is Hamm's API call |
 | P-216-06 | hnxj/jnwb#40: proposal, a profile-driven `jnwb.lab` certification framework with lab profiles outside jnwb | the draft branch `lab-validate-bastoslab` is local only; no ruling or roadmap row names it | Hamm | Hamm rules scope (AGENTS.md §4.3: no corpus convention in jnwb) |
 
 ## Open at 0.2.16 (audit of 2026-11-02, eight Haiku 5.5 auditors at `9fd2b4bd`)

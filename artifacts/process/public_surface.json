@@ -50,6 +50,7 @@
     "StatisticalAnalysis",
     "TFRAccumulator",
     "TFRAnalyzer",
+    "TableNotFoundError",
     "TickClock",
     "UndeclaredUnitError",
     "UnidentifiableRepairError",

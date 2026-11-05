@@ -1,0 +1,1 @@
+- `TableNotFoundError(KeyError)`: the integrity checks' error for a file with no `table` (#39; `nwb_integrity.py`).

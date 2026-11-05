@@ -30,7 +30,7 @@ and an item that shares a file with another lane names it in Blocked by.
 No lane is open. Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B, then I, E, K
 (2026-11-03), all landed. The integrator does 17-76.
 
-- Waiting on Hamm: 17-75, 17-77; open rows P-216-05, -06, -08, -15, -17 to -20, -22, -24, -32. Open
+- Waiting on Hamm: 17-75, 17-77; open rows P-216-06, -08, -15, -17 to -20, -22, -24, -32. Open
   rows with no item yet: P-216-16, -21, -25, -26.
 - Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (plan only);
   approved, a 0.2.16 item changes `workflow.yml`.

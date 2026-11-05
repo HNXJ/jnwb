@@ -562,6 +562,28 @@ def _w27_write(path, order=(0, 1, 2, 3), amps=_W27_AMPS, rows=_W27_ROWS):
     return path
 
 
+@pytest.mark.parametrize("check", ["check_ragged_indices", "check_waveform_blocks"])
+def test_a_file_without_a_units_table_raises_table_not_found(tmp_path, check):
+    """hnxj/jnwb#39: an LFP-only NWB has no /units; both checks raise one typed error that
+    names the table, and existing ``except KeyError`` callers still catch it."""
+    from datetime import datetime, timezone
+
+    import pynwb
+
+    path = tmp_path / "no_units.nwb"
+    nwb = pynwb.NWBFile(session_description="no units", identifier="j39",
+                        session_start_time=datetime(2024, 1, 1, tzinfo=timezone.utc))
+    with pynwb.NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    with h5py.File(path, "r") as handle:
+        assert "units" not in handle, "fixture must lack the units table"
+    kwargs = {"rtol": 1e-6} if check == "check_waveform_blocks" else {}
+    with pytest.raises(jnwb.TableNotFoundError, match="no table group 'units'") as info:
+        getattr(jnwb, check)(path, **kwargs)
+    assert isinstance(info.value, KeyError)
+    assert info.value.table == "units"
+
+
 def test_pynwb_index_read_returns_another_units_block_without_warning(tmp_path):
     """On a file whose blocks are stored out of unit order, the indexed read returns the
     stored bytes and warns nothing. `_w27_write(order=(1, 0, 2, 3))` stores unit 1's block

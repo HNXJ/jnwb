@@ -23,6 +23,7 @@ The messages below are real, taken from a file written with plain pynwb.
 | `InvalidOnsetValueError` | `events`, `event_onsets`, `epoch_continuous` | Drop or repair the row the message names |
 | `MissingRequiredNWBFieldError` | any read | Repair the file, or waive the field with `read_nwb(path, allow_missing=(exc.field_name,))` |
 | `RaggedIndexRepairRefused` | `repair_ragged_index` | Nothing is written or replaced. Act on the message; see [Repairing a ragged index](#repairing-a-ragged-index-raggedindexrepairrefused) |
+| `TableNotFoundError` | `check_ragged_indices`, `check_waveform_blocks`, `repair_ragged_index` | `table=` the table's HDF5 path; a file without `/units` (LFP only, unsorted) has nothing to check. A `KeyError`; `exc.table` names the path |
 
 `NWBInspectError` and `NWBEventError` are the two base classes; they are never raised
 directly. The rest of this page says why each refusal exists.
@@ -246,7 +247,7 @@ copy or backup behind. The first five also come from `check_ragged_indices`.
 
 | Message contains | Type | The fix |
 |---|---|---|
-| `no table group` | `KeyError` | `table=` the table's HDF5 path |
+| `no table group` | `TableNotFoundError` | `table=` the table's HDF5 path |
 | `is not a column of the table` | `KeyError` | `probe_column=` a column of it |
 | `values for N rows` | `ValueError` | One `probe_column` value per row |
 | `beginning at 0` | `ValueError` | Increasing `probe_starts` from 0 |
