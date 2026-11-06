@@ -9,12 +9,12 @@ writers that share no file.
 
 Scope: the 0.2.16 row of `artifacts/process/release_plan.json` (ruled 2026-11-05). Weights sum to 100: packages
 70, exit gates 30. A row earns its weight only when its "Done when" check holds; partial credit is the share of
-its named checks that hold. Score 2026-11-05 at bb068aec: **33.3/100** (packages 29.3 of 70, gates 4 of 30).
+its named checks that hold. Score 2026-11-05 at 0182d9f1: **34.9/100** (packages 30.9 of 70, gates 4 of 30; 33.3 before #39 closed).
 
 | Id | Weight | Package | Done when | Evidence 2026-11-05 | Score |
 |---|---|---|---|---|---|
 | 16A Audit defects | 15 | 17-83 to 17-127 of the 0.2.16 lanes | every 0.2.16 lane item landed with its failing-first test | all batches landed (2026-11-02 to -03); no 0.2.16 lane item left in this stack | 15 |
-| 16B GitHub issues | 8 | hnxj/jnwb#35 to #39 | each closed on GitHub with its repro | #35 to #38 closed; #39 fixed in a9fccc01, not on `dev` until the suite at bb068aec passes | 6.4 |
+| 16B GitHub issues | 8 | hnxj/jnwb#35 to #39 | each closed on GitHub with its repro | #35 to #39 closed; #39 by a9fccc01, CI/CD green on bb068aec | 8 |
 | 16C GPU Granger | 7 | `granger(device=)`, `granger_causality` removed | parity test within its stated tolerance; CI green on `dev` | c594ae51, CI/CD run 41920337297 success | 7 |
 | 16D psth bin edges | 6 | 17-70 | `UnitAnalyzer.psth` right-open, with a `[results change]` entry | not started | 0 |
 | 16E External ground truth | 15 | 15-11, 12-21, 16-12 | each recovery table or receipt committed | waits on the Bastos lab simulation code, a broadband jaxfne field and independent receipts | 0 |
