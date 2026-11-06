@@ -25,21 +25,21 @@ class TestPsthBinEdges(unittest.TestCase):
         assert_allclose(out["psth"][hit], [100.0], rtol=1e-12, atol=0)  # 1 spike / 10 ms
 
     def test_a_spike_on_an_interior_edge_starts_the_bin_there(self):
-        # Onset 0; window (-100, 100) in 50 ms bins: [-100, -50), [-50, 0), [0, 50), [50, 100].
-        # Each bin is right-open, the last closed on the right, so 0.05 starts the last bin and
-        # 0.1 is in it too. Counts [1, 1, 1, 2] give 20, 20, 20, 40 spikes/s.
+        # Onset 0; window (-100, 100) in 50 ms bins: [-100, -50), [-50, 0), [0, 50), [50, 100).
+        # Every bin is right-open, the last too (17-70), so 0.05 starts the last bin and 0.1 is
+        # outside. Counts [1, 1, 1, 1] give 20 spikes/s each.
         spikes = np.array([-0.1, -0.05, 0.0, 0.05, 0.1])
         out = UnitAnalyzer.psth(spikes, np.array([0.0]), 50,
                                 window_ms=(-100, 100), label="center")
-        assert_allclose(out["psth"], [20.0, 20.0, 20.0, 40.0], rtol=1e-12, atol=0)
+        assert_allclose(out["psth"], [20.0, 20.0, 20.0, 20.0], rtol=1e-12, atol=0)
         assert_allclose(out["bin_centers_ms"], [-75.0, -25.0, 25.0, 75.0], rtol=1e-12, atol=0)
 
     def test_an_exact_window_keeps_its_counts_with_a_spike_on_every_edge(self):
-        # (0, 100) in 10 ms bins has edges that were already exact, so every count is unchanged:
-        # eleven spikes at 0, 10, ..., 100 ms give nine bins of one spike and the last of two.
+        # (0, 100) in 10 ms bins has exact edges: eleven spikes at 0, 10, ..., 100 ms give ten
+        # bins of one spike; the spike at 100 ms is on the open end and not counted (17-70).
         spikes = np.arange(0, 101, 10) / 1000.0
         out = UnitAnalyzer.psth(spikes, np.array([0.0]), 10, window_ms=(0, 100), label="center")
-        assert_allclose(out["psth"], [100.0] * 9 + [200.0], rtol=1e-12, atol=0)
+        assert_allclose(out["psth"], [100.0] * 10, rtol=1e-12, atol=0)
 
     def test_spikes_off_the_edges_in_an_inexact_window_keep_their_bins(self):
         # (-100, 100) in 50 ms bins has one interior edge a float off, so only a spike on an

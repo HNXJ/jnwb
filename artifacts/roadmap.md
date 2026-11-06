@@ -36,7 +36,6 @@ Each needs Hamm's ruling before code.
 
 | ID | Theme | Defect | Waits | Release |
 |---|---|---|---|---|
-| 17-70 | Bin edges | `UnitAnalyzer.psth` counts a spike on the window end (`jnwb/analyzers.py:414-415`, `onset_locked_counts(..., right_closed=True)`; line 346 selects the same way) and `build_time_resolved_matrix` does not (`jnwb/trajectory.py:98`, right-open as `bin_spikes`); the same labelled window gives 1 / bin width against 0 for one spike at `stop` | Ruled 2026-10-31: right-open `[a, b)` as `bin_spikes`; psth changes, with a `[results change]` entry. Waits for the 0.2.16 cycle | deferred-0.2.16 |
 
 ## NWB reading edges
 

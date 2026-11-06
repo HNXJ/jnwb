@@ -350,8 +350,8 @@ class UnitAnalyzer:
 
         Distinct from :func:`jnwb.viz.raster_psth`, which is not a redundant duplicate but a
         different contract: that function uses ``ddof=1`` SEM vs. this method's bootstrap CI,
-        right-open ms bins (``<``) there vs. inclusive ms bins (``<=``) here, and a plain-tuple
-        return there vs. this method's dict contract. Prefer this method when you want a
+        and a plain-tuple return there vs. this method's dict contract. Under ``"center"``
+        both select spike - onset in ``[pre, post)``, as ``bin_spikes`` does. Prefer this method when you want a
         bootstrap CI or the dict contract (e.g. alongside :meth:`UnitAnalyzer.raster`); prefer
         ``jnwb.viz.raster_psth`` for a quick trial-averaged rate curve as a plain tuple. Both
         are retained deliberately.
@@ -392,15 +392,15 @@ class UnitAnalyzer:
         # in seconds put an interior edge a float off, so a spike on that edge fell in the bin before.
         edges_s = bin_edges(window_ms[0], bin_size_ms, n_bins) / 1000
 
-        # spike - onset in [pre, post], both edges inclusive, and every selected spike is
-        # counted (`onset_locked_counts`). "right" selects (pre, post] for bins (t - w, t].
+        # spike - onset in [pre, post), as `bin_spikes`, and every selected spike is counted
+        # (`onset_locked_counts`). "right" selects (pre, post] for bins (t - w, t].
         if label == "right":
             trial_counts = onset_locked_counts_right(spike_times, trial_onsets, win_sec[0],
                                                      win_sec[1], edges_s, 1.0)
             bin_centers_ms = edges_s[1:] * 1000
         else:
             trial_counts = onset_locked_counts(spike_times, trial_onsets, win_sec[0], win_sec[1],
-                                               edges_s, 1.0, right_closed=True)
+                                               edges_s, 1.0, right_closed=False)
             bin_centers_ms = (edges_s[:-1] + edges_s[1:]) / 2 * 1000
         trial_psths = trial_counts / bin_sec
         mean_psth = np.mean(trial_psths, axis=0)
