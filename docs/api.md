@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 229 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 231 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -11,6 +11,7 @@ All 229 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.CANONICAL_BANDS | constant | dict |
 | jnwb.DB_AGGREGATIONS | constant | tuple |
 | jnwb.DETECTION_TAILS | constant | tuple |
+| jnwb.LAYERS | constant | tuple |
 | jnwb.RELATIVE_POWER_MODELS | constant | tuple |
 | jnwb.SKILLS_URL | constant | str |
 | jnwb.io | module | *Streaming array slice reader for NPZ archives without full-file RAM allocation.* |
@@ -231,6 +232,7 @@ All 229 core functions, classes, and constants exported in the top-level jnwb na
 | Symbol | Type | Signature / Description |
 |---|---|---|
 | jnwb.NWBValidationReport | class | *All layers of one file, plus the versions that produced them.* |
+| jnwb.ValidationLayer | class | *Outcome of one layer. ``messages`` holds at most ``max_messages`` strings; the counts are complete. ``n_warnings`` counts findings that do not fail the layer. ``detail`` states why a layer was skipped, or what it ran.* |
 | jnwb.validate_nwb | function | `(path: 'str | Path', *, layers: 'Sequence[str] | None' = None, dandi_ignore: 'Sequence[str]' = ('DANDI.NO_DANDISET_FOUND',), max_messages: 'int' = 50) -> 'NWBValidationReport'`<br>*Validate one NWB file and report every layer. Read-only; nothing is written.* |
 
 ## Module: jnwb.nwb_write

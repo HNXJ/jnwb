@@ -101,7 +101,7 @@ from .nwb_integrity import (
     check_waveform_blocks,
     repair_ragged_index,
 )
-from .nwb_validate import NWBValidationReport, validate_nwb
+from .nwb_validate import LAYERS, NWBValidationReport, ValidationLayer, validate_nwb
 from .continuous import (
     EffectiveRate,
     TickClock,
@@ -350,6 +350,8 @@ __all__ = [
     'WaveformBlockReport',
     'validate_nwb',
     'NWBValidationReport',
+    'LAYERS',
+    'ValidationLayer',
     'verify_nwb',
     'write_nwb',
     'transform_nwb',

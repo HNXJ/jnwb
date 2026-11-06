@@ -1,0 +1,1 @@
+- `jnwb/__init__.py`: `LAYERS` and `ValidationLayer` from `jnwb.nwb_validate` are public (hnxj/jnwb#40).
