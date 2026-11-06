@@ -900,6 +900,8 @@ algorithm column still describes the replaced code for both rows.
 | `RaggedIndexRepairRefused` | exception class | ValueError subclass; construction is O(1) in every input dimension. |
 | `TableNotFoundError` | exception class | KeyError subclass binding one table path; construction is O(1) in every input dimension. |
 | `NWBValidationReport` | result container | frozen dataclass, no __post_init__; binds references only. |
+| `ValidationLayer` | result container | frozen dataclass, no __post_init__; binds references only. |
+| `LAYERS` | constant | A 6-element tuple of str literals (jnwb/nwb_validate.py:41). |
 | `NWBVerificationError` | exception class | Subclass with no `__init__`; inherits `NWBMutationError` field binding: O(1). |
 | `PopulationAnalyzer` | stateful class | PopulationAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
 | `Preflight` | result container | frozen dataclass; __post_init__ validates the outcome, the reason and each name in `missing`, which a caller's plan bounds, not any data size. |
