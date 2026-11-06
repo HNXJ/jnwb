@@ -9,7 +9,7 @@ writers that share no file.
 
 Scope: the 0.2.16 row of `artifacts/process/release_plan.json` (ruled 2026-11-05). Weights sum to 100: packages
 70, exit gates 30. A row earns its weight only when its "Done when" check holds; partial credit is the share of
-its named checks that hold. Score 2026-11-06: **44.4/100** (packages 40.4 of 70, gates 4 of 30; 43.4 before P-216-06 moved, 34.9 before 17-70 and 17-76, 33.3 before #39 closed).
+its named checks that hold. Score 2026-11-06: **44.4/100** (packages 40.4 of 70, gates 4 of 30; 43.4 before P-216-06 closed, 34.9 before 17-70 and 17-76, 33.3 before #39 closed).
 
 | Id | Weight | Package | Done when | Evidence 2026-11-05 | Score |
 |---|---|---|---|---|---|
@@ -19,7 +19,7 @@ its named checks that hold. Score 2026-11-06: **44.4/100** (packages 40.4 of 70,
 | 16D psth bin edges | 6 | 17-70 | `UnitAnalyzer.psth` right-open, with a `[results change]` entry | landed 2026-11-06 with failing-first tests and the entry; independent review ACCEPT, the old code fails 4 tests | 6 |
 | 16E External ground truth | 15 | 15-11, 12-21, 16-12 | each recovery table or receipt committed | waits on the Bastos lab simulation code, a broadband jaxfne field and independent receipts | 0 |
 | 16F Workspace and pointers | 5 | 17-75, 17-76, 17-77 | each item's check holds | 17-75: every origin branch but `main`, `dev`, `gh-pages` is gone, the `site-overview-326890` worktree remains (1 of 2 checks); 17-76 done (agy answered, ruling of 2026-10-28); 17-77 open | 2.5 |
-| 16G Open rows | 14 | the open stack's 0.2.16 rows | each repaired, shown false or moved with its release | P-216-05 repaired; P-216-06 moved to 0.2.17 (ruling of 2026-11-06); 13 rows open, each assigned a release | 1.9 |
+| 16G Open rows | 14 | the open stack's 0.2.16 rows | each repaired, shown false or moved with its release | P-216-05 repaired; P-216-06 repaired (#40 item 4, ruling of 2026-11-06); 13 rows open, each assigned a release | 1.9 |
 | Gate 1 packages closed or moved | 6 | — | 16A to 16G closed, or moved by ruling | 4 of 7 closed (16A to 16D) | 0 |
 | Gate 2 gates, suite, CI | 8 | — | harness gates and full suite pass at the release SHA; CI green on `dev` there | no release SHA yet; at bb068aec all three held | 4 |
 | Gate 3 release gate | 6 | — | `python scripts/release_gate.py` passes | not run | 0 |
@@ -51,7 +51,7 @@ and an item that shares a file with another lane names it in Blocked by.
 No lane is open. Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B, then I, E, K
 (2026-11-03), all landed.
 
-- Waiting on Hamm: 17-75, 17-77; open rows P-216-06 (0.2.17), -08, -15, -17 to -20, -22, -24, -32. Open
+- Waiting on Hamm: 17-75, 17-77; open rows P-216-08, -15, -17 to -20, -22, -24, -32. Open
   rows with no item yet: P-216-16, -21, -25, -26.
 - Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (plan only);
   approved, a 0.2.16 item changes `workflow.yml`.

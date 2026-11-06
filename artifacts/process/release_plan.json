@@ -9,6 +9,7 @@
       "scope": [
         "Audit findings repaired, each with a test that fails on the old code",
         "GitHub issues #35 to #39 fixed; a file without /units raises TableNotFoundError",
+        "#40 closed: LAYERS and ValidationLayer exported; the certification runner stays downstream",
         "granger solves on the GPU with a parity test; granger_causality removed",
         "UnitAnalyzer.psth bins right-open [a, b), as bin_spikes does (results change)",
         "Validations on external ground truth: vflip2 on the Bastos lab simulation, delay and direction from a broadband jaxfne field, real-data cards with independent receipts"
@@ -28,14 +29,12 @@
         "One home per helper in jnwb, scripts and tests; dead code and unused constants removed",
         "Tests named by subject, not by the event that produced them",
         "Docs and examples thinned; one home per invariant across the rule and doc files",
-        "Code and prose matched to the style standards; the fact graph build made faster",
-        "The jnwb.lab proposal (#40): lab certification profiles kept outside jnwb, scope ruled when the cycle opens"
+        "Code and prose matched to the style standards; the fact graph build made faster"
       ],
       "needs": [
-        "decisions on public names that dead-code removal touches",
-        "a scope ruling on jnwb.lab (#40)"
+        "decisions on public names that dead-code removal touches"
       ],
-      "items": ["P-216-06", "17-79", "17-94", "17-95", "17-96", "17-97", "17-98", "17-99", "17-100", "17-101", "17-102", "17-103", "17-104", "17-127", "P-216-25", "P-216-26"]
+      "items": ["17-79", "17-94", "17-95", "17-96", "17-97", "17-98", "17-99", "17-100", "17-101", "17-102", "17-103", "17-104", "17-127", "P-216-25", "P-216-26"]
     },
     {
       "version": "0.2.18",

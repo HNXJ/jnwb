@@ -25,16 +25,8 @@ Verified closed, not open: the v0.2.14 tag re-cut (`refs/tags/v0.2.14` peels to 
 Audit of 2026-11-02 (seven models at `7ca5b9a6`): no open row; its findings went to the todo stack as 17-83 to 17-105.
 
 Release of each open row, by the release plan (ruled 2026-11-05, `artifacts/process/release_plan.json`):
-0.2.17 P-216-06 (ruled 2026-11-06), P-216-25 (docstrings, constants), -26; 0.2.18 P-216-24, -25 (names), -32; 0.2.19
+0.2.17 P-216-25 (docstrings, constants), -26; 0.2.18 P-216-24, -25 (names), -32; 0.2.19
 P-216-08; 0.2.21 P-216-15 to -22.
-
-## Open at 0.2.16 (GitHub issues, 2026-11-02)
-
-Each issue's own repro was run on `dev` at `9fa0833a` (jnwb 0.2.15 from the checkout). #34 reproduced fixed (dae675a9, v0.2.15) and was closed on GitHub.
-
-| Id | Open item | Evidence | Owner | Next step |
-|---|---|---|---|---|
-| P-216-06 | hnxj/jnwb#40: proposal, a profile-driven `jnwb.lab` certification framework with lab profiles outside jnwb | the draft branch `lab-validate-bastoslab` is local only; scheduled in 0.2.17 (ruling of 2026-11-06) | Hamm | Hamm rules scope when 0.2.17 opens (AGENTS.md §4.3: no corpus convention in jnwb) |
 
 ## Open at 0.2.16 (audit of 2026-11-02, eight Haiku 5.5 auditors at `9fd2b4bd`)
 
