@@ -1393,6 +1393,53 @@
     });
   }
 
+  // The release plan: one row per release, its status, theme and goal, scope and what it waits on.
+  var ROADMAP_COLUMNS = ['Release', 'Status', 'Theme', 'Scope', 'Needs'];
+
+  function listCell(values) {
+    var cell = make('td');
+    if (!Array.isArray(values) || !values.length) {
+      cell.appendChild(make('span', 'empty', '—'));
+      return cell;
+    }
+    var list = make('ul');
+    values.forEach(function (value) { list.appendChild(make('li', '', String(value))); });
+    cell.appendChild(list);
+    return cell;
+  }
+
+  function renderRoadmap(data) {
+    var rows = lookup(data, 'roadmap');
+    var box = document.getElementById('roadmap-table');
+    box.textContent = '';
+    if (!Array.isArray(rows) || !rows.length) {
+      box.appendChild(emptyNote(NONE_RECORDED));
+      return;
+    }
+    var wrap = make('div', 'panel table-wrap');
+    var table = make('table');
+    var header = make('tr');
+    ROADMAP_COLUMNS.forEach(function (label) { header.appendChild(make('th', '', label)); });
+    table.appendChild(header);
+    rows.forEach(function (row) {
+      var tr = make('tr');
+      tr.appendChild(make('td', '', String(row.version)));
+      var status = make('td');
+      var slug = row.status === 'in progress' ? 'in-progress' : 'not-started';
+      status.appendChild(make('span', 'chip chip-' + slug, String(row.status)));
+      tr.appendChild(status);
+      var theme = make('td');
+      theme.appendChild(make('strong', '', String(row.theme)));
+      theme.appendChild(make('p', '', isBlank(row.goal) ? NOT_RECORDED : String(row.goal)));
+      tr.appendChild(theme);
+      tr.appendChild(listCell(row.scope));
+      tr.appendChild(listCell(row.needs));
+      table.appendChild(tr);
+    });
+    wrap.appendChild(table);
+    box.appendChild(wrap);
+  }
+
   // ---- overview and page --------------------------------------------------
 
   // ---- validations: an index, and one page per validation -----------------
@@ -1618,6 +1665,7 @@
     renderFigures(data);
     renderShowcases(data);
     renderRelated(data);
+    renderRoadmap(data);
     renderValidationIndex(data);
     renderValidationPages(data);
     refreshValidationRoute();
