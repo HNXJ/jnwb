@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "70943493ae710a1874a99c5b2171a0a2441ef3e3",
-    "date": "2026-11-06T01:50:20Z"
+    "commit": "914ae07e7cf616a82773ac90db5f7c6ecc339c61",
+    "date": "2026-11-06T15:58:07Z"
   },
   "sources": {
     "generated": [
@@ -5185,8 +5185,7 @@
         "Validations on external ground truth: vflip2 on the Bastos lab simulation, delay and direction from a broadband jaxfne field, real-data cards with independent receipts"
       ],
       "needs": [
-        "the Bastos lab simulation code and a broadband jaxfne field",
-        "a ruling on the jnwb.lab proposal (#40)"
+        "the Bastos lab simulation code and a broadband jaxfne field"
       ],
       "items": [
         "17-70",
@@ -5195,8 +5194,7 @@
         "16-12",
         "17-75",
         "17-76",
-        "17-77",
-        "P-216-06"
+        "17-77"
       ]
     },
     {
@@ -5209,12 +5207,15 @@
         "One home per helper in jnwb, scripts and tests; dead code and unused constants removed",
         "Tests named by subject, not by the event that produced them",
         "Docs and examples thinned; one home per invariant across the rule and doc files",
-        "Code and prose matched to the style standards; the fact graph build made faster"
+        "Code and prose matched to the style standards; the fact graph build made faster",
+        "The jnwb.lab proposal (#40): lab certification profiles kept outside jnwb, scope ruled when the cycle opens"
       ],
       "needs": [
-        "decisions on public names that dead-code removal touches"
+        "decisions on public names that dead-code removal touches",
+        "a scope ruling on jnwb.lab (#40)"
       ],
       "items": [
+        "P-216-06",
         "17-79",
         "17-94",
         "17-95",
