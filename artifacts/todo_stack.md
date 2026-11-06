@@ -5,6 +5,27 @@ closed on 2026-11-02 (tag `v0.2.15`, `5822c3e9`; PyPI, GitHub release, omission 
 `artifacts/rulings/2026-11-01.md`). Items run fastest first; the lanes below split them into parallel
 writers that share no file.
 
+## 0.2.16 checklist and score
+
+Scope: the 0.2.16 row of `artifacts/process/release_plan.json` (ruled 2026-11-05). Weights sum to 100: packages
+70, exit gates 30. A row earns its weight only when its "Done when" check holds; partial credit is the share of
+its named checks that hold. Score 2026-11-05 at bb068aec: **33.3/100** (packages 29.3 of 70, gates 4 of 30).
+
+| Id | Weight | Package | Done when | Evidence 2026-11-05 | Score |
+|---|---|---|---|---|---|
+| 16A Audit defects | 15 | 17-83 to 17-127 of the 0.2.16 lanes | every 0.2.16 lane item landed with its failing-first test | all batches landed (2026-11-02 to -03); no 0.2.16 lane item left in this stack | 15 |
+| 16B GitHub issues | 8 | hnxj/jnwb#35 to #39 | each closed on GitHub with its repro | #35 to #38 closed; #39 fixed in a9fccc01, not on `dev` until the suite at bb068aec passes | 6.4 |
+| 16C GPU Granger | 7 | `granger(device=)`, `granger_causality` removed | parity test within its stated tolerance; CI green on `dev` | c594ae51, CI/CD run 41920337297 success | 7 |
+| 16D psth bin edges | 6 | 17-70 | `UnitAnalyzer.psth` right-open, with a `[results change]` entry | not started | 0 |
+| 16E External ground truth | 15 | 15-11, 12-21, 16-12 | each recovery table or receipt committed | waits on the Bastos lab simulation code, a broadband jaxfne field and independent receipts | 0 |
+| 16F Workspace and pointers | 5 | 17-75, 17-76, 17-77 | each item's check holds | 17-75: the `_temp_` branches are gone, `proposal/spike-qc-pt-skill` and the `site-overview-326890` worktree remain (0 of 2 checks); 17-76, 17-77 open | 0 |
+| 16G Open rows | 14 | the open stack's 0.2.16 rows | each repaired, shown false or moved with its release | P-216-05 repaired; 14 rows open, each assigned a release | 0.9 |
+| Gate 1 packages closed or moved | 6 | — | 16A to 16G closed, or moved by ruling | 2 of 7 closed | 0 |
+| Gate 2 gates, suite, CI | 8 | — | harness gates and full suite pass at the release SHA; CI green on `dev` there | 22 of 22 gates at bb068aec; suite queued; CI green at c594ae51 only | 4 |
+| Gate 3 release gate | 6 | — | `python scripts/release_gate.py` passes | not run | 0 |
+| Gate 4 closure pass | 5 | — | an independent blocker-focused pass finds no new blocker (`AGENTS.md` §11) | not run | 0 |
+| Gate 5 tag, main, PyPI | 5 | — | v0.2.16 on PyPI from the tagged SHA | not started | 0 |
+
 ## How this stack is executed
 
 | Rule | Why |
