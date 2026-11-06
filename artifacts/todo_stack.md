@@ -9,19 +9,19 @@ writers that share no file.
 
 Scope: the 0.2.16 row of `artifacts/process/release_plan.json` (ruled 2026-11-05). Weights sum to 100: packages
 70, exit gates 30. A row earns its weight only when its "Done when" check holds; partial credit is the share of
-its named checks that hold. Score 2026-11-05 at 0182d9f1: **34.9/100** (packages 30.9 of 70, gates 4 of 30; 33.3 before #39 closed).
+its named checks that hold. Score 2026-11-06: **43.4/100** (packages 39.4 of 70, gates 4 of 30; 34.9 before 17-70 and 17-76, 33.3 before #39 closed).
 
 | Id | Weight | Package | Done when | Evidence 2026-11-05 | Score |
 |---|---|---|---|---|---|
 | 16A Audit defects | 15 | 17-83 to 17-127 of the 0.2.16 lanes | every 0.2.16 lane item landed with its failing-first test | all batches landed (2026-11-02 to -03); no 0.2.16 lane item left in this stack | 15 |
 | 16B GitHub issues | 8 | hnxj/jnwb#35 to #39 | each closed on GitHub with its repro | #35 to #39 closed; #39 by a9fccc01, CI/CD green on bb068aec | 8 |
 | 16C GPU Granger | 7 | `granger(device=)`, `granger_causality` removed | parity test within its stated tolerance; CI green on `dev` | c594ae51, CI/CD run 41920337297 success | 7 |
-| 16D psth bin edges | 6 | 17-70 | `UnitAnalyzer.psth` right-open, with a `[results change]` entry | not started | 0 |
+| 16D psth bin edges | 6 | 17-70 | `UnitAnalyzer.psth` right-open, with a `[results change]` entry | landed 2026-11-06 with failing-first tests and the entry; independent review ACCEPT, the old code fails 4 tests | 6 |
 | 16E External ground truth | 15 | 15-11, 12-21, 16-12 | each recovery table or receipt committed | waits on the Bastos lab simulation code, a broadband jaxfne field and independent receipts | 0 |
-| 16F Workspace and pointers | 5 | 17-75, 17-76, 17-77 | each item's check holds | 17-75: the `_temp_` branches are gone, `proposal/spike-qc-pt-skill` and the `site-overview-326890` worktree remain (0 of 2 checks); 17-76, 17-77 open | 0 |
+| 16F Workspace and pointers | 5 | 17-75, 17-76, 17-77 | each item's check holds | 17-75: every origin branch but `main`, `dev`, `gh-pages` is gone, the `site-overview-326890` worktree remains (1 of 2 checks); 17-76 done (agy answered, ruling of 2026-10-28); 17-77 open | 2.5 |
 | 16G Open rows | 14 | the open stack's 0.2.16 rows | each repaired, shown false or moved with its release | P-216-05 repaired; 14 rows open, each assigned a release | 0.9 |
-| Gate 1 packages closed or moved | 6 | — | 16A to 16G closed, or moved by ruling | 2 of 7 closed | 0 |
-| Gate 2 gates, suite, CI | 8 | — | harness gates and full suite pass at the release SHA; CI green on `dev` there | 22 of 22 gates at bb068aec; suite queued; CI green at c594ae51 only | 4 |
+| Gate 1 packages closed or moved | 6 | — | 16A to 16G closed, or moved by ruling | 4 of 7 closed (16A to 16D) | 0 |
+| Gate 2 gates, suite, CI | 8 | — | harness gates and full suite pass at the release SHA; CI green on `dev` there | no release SHA yet; at bb068aec all three held | 4 |
 | Gate 3 release gate | 6 | — | `python scripts/release_gate.py` passes | not run | 0 |
 | Gate 4 closure pass | 5 | — | an independent blocker-focused pass finds no new blocker (`AGENTS.md` §11) | not run | 0 |
 | Gate 5 tag, main, PyPI | 5 | — | v0.2.16 on PyPI from the tagged SHA | not started | 0 |
@@ -49,7 +49,7 @@ Defects and correctness go in 0.2.16; thinning and matching in 0.2.17. Lanes rul
 and an item that shares a file with another lane names it in Blocked by.
 
 No lane is open. Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B, then I, E, K
-(2026-11-03), all landed. The integrator does 17-76.
+(2026-11-03), all landed.
 
 - Waiting on Hamm: 17-75, 17-77; open rows P-216-06, -08, -15, -17 to -20, -22, -24, -32. Open
   rows with no item yet: P-216-16, -21, -25, -26.
@@ -61,14 +61,7 @@ No lane is open. Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D
 Release: deferred-0.2.16.
 Role: human. Skill: none. Blocked by: the agent may not delete these (classifier and push guard).
 Writes: `artifacts/open_stack.md`.
-- 17-75: from P-215-05 and P-215-15. Hamm deletes the origin branches `proposal/spike-qc-pt-skill` and `skill/spectrolaminar-work-bastos` (kept as `_temp_spike-qc-pt-skill`, `_temp_spectrolaminar-work-bastos`), the folder `.claude/worktrees/site-overview-326890` then `git worktree prune`, `C:/workspace/_temp_lane_*` (8 clones, each clean and contained in dev, checked 2026-10-31), `C:/workspace/_temp_oc` and the scratchpad `lanes/`. Check: `git ls-remote origin` lists neither old name and `git worktree list` shows one entry.
-
-### 17-76 agy retry
-
-Release: deferred-0.2.16.
-Role: actor. Skill: none. Blocked by: nothing.
-Writes: `artifacts/rulings/2026-10-28.md`.
-- 17-76: from P-215-06. The 2026-10-28 work-routing ruling waits on a packet that needs no file reads; agy returned empty before. Check: one no-read packet run through `delegate-cli --backend agy` returns a non-empty answer, recorded under the routing ruling.
+- 17-75: from P-215-05 and P-215-15. The origin branches are gone (deleted 2026-11-05 on Hamm's word). Hamm deletes the folder `.claude/worktrees/site-overview-326890` then `git worktree prune`, `C:/workspace/_temp_lane_*` (8 clones, each clean and contained in dev, checked 2026-10-31), `C:/workspace/_temp_oc` and the scratchpad `lanes/`. The worktree holds only 9b52c5e7, the `isi_cv` sentence roadmap 16-12 tracks. Check: `git worktree list` shows one entry.
 
 ### 17-77 Stale pointers in the fact stack and standing rulings
 
