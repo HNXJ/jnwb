@@ -74,7 +74,7 @@ Writes: `jnwb/laminar/_xflip.py`, `jnwb/laminar/_zflip.py`, `jnwb/laminar/_vflip
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: 17-79.
 Writes: `jnwb/**/*.py`.
-- 17-94: the `fs` positive check is hand-written at about 20 sites (`filtering.py:31`, `continuous.py:136`, `tfr.py:251`, ...) beside `spectral/_common._require_positive_fs`; `jnwb/spectral` has 9 `_require_*` variants; `_bins.py:86,112` hold two onset loops differing in edge closure; three dB paths (`_decibels.py:15,24,457`); `nwb_write._sha256` equals `paths.sha256_file`; `_window_rows` twice (`_xflip.py:96`, `_zflip.py:178`). Check: one definition each, the grep returns one site, the suite passes.
+- 17-94: `fs=nan` passes the `fs <= 0` guard at `filtering.py:31`, `:76`, `continuous.py:136` and `tfr.py:251`; at 2a5ef1b7 `bandpass_filter` then raises scipy's "Wn[0] must be less than Wn[1]" and `notch_filter` a `LinAlgError`, neither naming `fs` (match pass 2026-11-07). The shared check refuses NaN and Inf by name. The `fs` positive check is hand-written at about 20 sites (`filtering.py:31`, `continuous.py:136`, `tfr.py:251`, ...) beside `spectral/_common._require_positive_fs`; `jnwb/spectral` has 9 `_require_*` variants; `_bins.py:86,112` hold two onset loops differing in edge closure; three dB paths (`_decibels.py:15,24,457`); `nwb_write._sha256` equals `paths.sha256_file`; `_window_rows` twice (`_xflip.py:96`, `_zflip.py:178`). Check: one definition each, the grep returns one site, the suite passes.
 
 ### 17-95 One home per helper in scripts and tests
 
@@ -160,9 +160,16 @@ Role: jnwb-developer. Skill: none. Blocked by: 17-94 (shares `jnwb/**/*.py`).
 Writes: `jnwb/**/*.py`.
 - 17-128: from P-216-25 (the names went to roadmap 17-130). 17 public functions raise without a Raises section; filtering docstrings lack units and Args (`filtering.py`); unnamed band constants in `_vflip2.py`; 98 uncited float defaults and 43 tolerance literals (`_psd.py:216` `fundamental_freq * 0.1`). Check: each public raise site has a Raises entry, each float default and tolerance is a named constant with its source, the suite passes.
 
+### 17-142 Unused names, stale pointers and two duplicate helpers
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: 17-94 and 17-95 (shared files).
+Writes: `jnwb/jrsa/__init__.py`, `jnwb/statistics/_regression.py`, `jnwb/statistics/__init__.py`, `jnwb/connectivity/_granger.py`, `jnwb/jrsa/_backends.py`, `scripts/gates/boundary.py`, `scripts/gates/vocabulary.py`, `scripts/mutation_harness.py`, `scripts/learning_gate.py`.
+- 17-142: match pass 2026-11-07 at 2a5ef1b7, each confirmed by `ruff check --select F401,F811,F821,F841`: `p_parametric` assigned and never read (`jrsa/__init__.py:667`); `resolve_rng` (`statistics/_regression.py:8`) and `MIN_COHERENCE_NPERSEG` (`connectivity/_granger.py:16`) imported and unused; `RNGLike` imported twice (`statistics/__init__.py:33`); `Union` undefined in an annotation (`scripts/gates/boundary.py:421`). Comments name functions that no longer exist: `_autodetect_backend` (`jrsa/_backends.py:40`), `_read_journal` (`scripts/mutation_harness.py:592`); `scripts/gates/vocabulary.py:80` cites "batch jobs" at `docs/02:11`, which now sits in `docs/reading_nwb.md:33`. `_mean_over` is defined twice in `_granger.py` (:1082, :1325); `_cells` in `scripts/learning_gate.py:52` equals `scripts/build_fact_graph.py:224`. Re-exports in `__init__` files are out of scope. Check: ruff F811, F821 and F841 report zero over `jnwb/` and `scripts/`, F401 reports no name outside a re-exporting `__init__.py`, each named pointer resolves, each helper has one definition; the suite passes.
+
 ### 17-129 Prose against the writing style
 
 Release: deferred-0.2.17.
 Role: docs-harness. Skill: none. Blocked by: 17-99 and 17-100 (shared files); Hamm's word for `skills/`, `AGENTS.md` and the spelling.
 Writes: `.github/CONTRIBUTING.md`, `README.md`, `docs/quickstart.md`.
-- 17-129: from P-216-26. Sentences over 40 words in 12 skills, `AGENTS.md` (:5, :51, :85, :93, :105), `CONTRIBUTING.md` (:72-88, :107-127, :417-428; em dashes on 15 lines), README and quickstart; "behaviour" and "behavior" both occur. Check: no sentence over 40 words in the listed files and one spelling, by grep.
+- 17-129: from P-216-26. The 2026-11-07 match pass adds: `docs/agents.md:79-94` repeats `skills/jnwb/SKILL.md:13-25`; `CONTRIBUTING.md:39` repeats `:36` and `:64`. Sentences over 40 words in 12 skills, `AGENTS.md` (:5, :51, :85, :93, :105), `CONTRIBUTING.md` (:72-88, :107-127, :417-428; em dashes on 15 lines), README and quickstart; "behaviour" and "behavior" both occur. Check: no sentence over 40 words in the listed files and one spelling, by grep.
