@@ -11,13 +11,10 @@
         "GitHub issues #35 to #39 fixed; a file without /units raises TableNotFoundError",
         "#40 closed: LAYERS and ValidationLayer exported; the certification runner stays downstream",
         "granger solves on the GPU with a parity test; granger_causality removed",
-        "UnitAnalyzer.psth bins right-open [a, b), as bin_spikes does (results change)",
-        "Validations on external ground truth: vflip2 on the Bastos lab simulation, delay and direction from a broadband jaxfne field, real-data cards with independent receipts"
+        "UnitAnalyzer.psth bins right-open [a, b), as bin_spikes does (results change)"
       ],
-      "needs": [
-        "the Bastos lab simulation code and a broadband jaxfne field"
-      ],
-      "items": ["17-70", "15-11", "12-21", "16-12", "17-75", "17-76", "17-77"]
+      "needs": [],
+      "items": ["17-70", "17-75", "17-76", "17-77"]
     },
     {
       "version": "0.2.17",
@@ -29,12 +26,14 @@
         "One home per helper in jnwb, scripts and tests; dead code and unused constants removed",
         "Tests named by subject, not by the event that produced them",
         "Docs and examples thinned; one home per invariant across the rule and doc files",
-        "Code and prose matched to the style standards; the fact graph build made faster"
+        "Code and prose matched to the style standards; the fact graph build made faster",
+        "Validations on external ground truth, deferred from 0.2.16 (ruled 2026-11-06): vflip2 on the Bastos lab simulation, delay and direction from a broadband jaxfne field, real-data cards with independent receipts"
       ],
       "needs": [
-        "decisions on public names that dead-code removal touches"
+        "decisions on public names that dead-code removal touches",
+        "the Bastos lab simulation code and a broadband jaxfne field"
       ],
-      "items": ["17-79", "17-94", "17-95", "17-96", "17-97", "17-98", "17-99", "17-100", "17-101", "17-102", "17-103", "17-104", "17-127", "17-128", "17-129"]
+      "items": ["15-11", "12-21", "16-12", "17-79", "17-94", "17-95", "17-96", "17-97", "17-98", "17-99", "17-100", "17-101", "17-102", "17-103", "17-104", "17-127", "17-128", "17-129"]
     },
     {
       "version": "0.2.18",
