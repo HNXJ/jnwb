@@ -9,7 +9,7 @@ writers that share no file.
 
 Scope: the 0.2.16 row of `artifacts/process/release_plan.json` (ruled 2026-11-05). Weights sum to 100: packages
 70, exit gates 30. A row earns its weight only when its "Done when" check holds; partial credit is the share of
-its named checks that hold. A package moved out of the cycle by ruling earns its weight, as a moved open row does in 16G. Score 2026-11-06: **72.3/100** (packages 68.3 of 70, gates 4 of 30; 71.5 before 17-75 closed, 56.5 before 16E moved, 44.4 before the open rows moved, 43.4 before P-216-06 closed, 34.9 before 17-70 and 17-76, 33.3 before #39 closed).
+its named checks that hold. A package moved out of the cycle by ruling earns its weight, as a moved open row does in 16G. Score 2026-11-06: **80/100** (packages 70 of 70, gates 10 of 30; 72.3 before 17-77 closed, 71.5 before 17-75 closed, 56.5 before 16E moved, 44.4 before the open rows moved, 43.4 before P-216-06 closed, 34.9 before 17-70 and 17-76, 33.3 before #39 closed).
 
 | Id | Weight | Package | Done when | Evidence 2026-11-05 | Score |
 |---|---|---|---|---|---|
@@ -18,9 +18,9 @@ its named checks that hold. A package moved out of the cycle by ruling earns its
 | 16C GPU Granger | 7 | `granger(device=)`, `granger_causality` removed | parity test within its stated tolerance; CI green on `dev` | c594ae51, CI/CD run 41920337297 success | 7 |
 | 16D psth bin edges | 6 | 17-70 | `UnitAnalyzer.psth` right-open, with a `[results change]` entry | landed 2026-11-06 with failing-first tests and the entry; independent review ACCEPT, the old code fails 4 tests | 6 |
 | 16E External ground truth | 15 | 15-11, 12-21, 16-12 | each recovery table or receipt committed | moved to 0.2.17 (ruling of 2026-11-06, "Defer 16E, release"); handed to jaxfne-orchestrator to plan, a Haiku 5.5 subagent executes once the plan is agreed | 15 |
-| 16F Workspace and pointers | 5 | 17-75, 17-76, 17-77 | each item's check holds | 17-75 done 2026-11-06 (worktree removed, its commit archived as a patch on `E:`; `git worktree list` shows one entry; 36 stale clones and `_temp_oc` deleted); 17-76 done (agy answered, ruling of 2026-10-28); 17-77 open | 3.3 |
+| 16F Workspace and pointers | 5 | 17-75, 17-76, 17-77 | each item's check holds | 17-75 done 2026-11-06 (worktree removed, its commit archived as a patch on `E:`; `git worktree list` shows one entry; 36 stale clones and `_temp_oc` deleted); 17-76 done (agy answered, ruling of 2026-10-28); 17-77 done 2026-11-06 (ebbd8ecb; S13's `todo:12-21` stays, the fact gate reads roadmap ids as live) | 5 |
 | 16G Open rows | 14 | the open stack's 0.2.16 rows | each repaired, shown false or moved with its release | P-216-05 repaired; P-216-06 repaired (#40 item 4, ruling of 2026-11-06); the other 13 moved 2026-11-06 by the release plan to 17-128, 17-129 and roadmap 17-130 to 17-141; the open stack is empty | 14 |
-| Gate 1 packages closed or moved | 6 | — | 16A to 16G closed, or moved by ruling | 6 of 7 closed or moved (16A to 16E, 16G); 16F waits on 17-77 | 0 |
+| Gate 1 packages closed or moved | 6 | — | 16A to 16G closed, or moved by ruling | 7 of 7 closed or moved | 6 |
 | Gate 2 gates, suite, CI | 8 | — | harness gates and full suite pass at the release SHA; CI green on `dev` there | no release SHA yet; at 3fb5f94b all three held | 4 |
 | Gate 3 release gate | 6 | — | `python scripts/release_gate.py` passes | not run | 0 |
 | Gate 4 closure pass | 5 | — | an independent blocker-focused pass finds no new blocker (`AGENTS.md` §11) | not run | 0 |
@@ -51,17 +51,10 @@ and an item that shares a file with another lane names it in Blocked by.
 No lane is open. Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B, then I, E, K
 (2026-11-03), all landed.
 
-- Blocking the 0.2.16 tag: 17-77 (Hamm handed it to the keeper, 2026-11-06). The open stack is empty: its 13 rows moved on 2026-11-06 to
+- No item blocks the 0.2.16 tag; the release steps remain (Gates 2 to 5). The open stack is empty: its 13 rows moved on 2026-11-06 to
   17-128 and 17-129 here and to roadmap 17-130 to 17-141, by the release plan.
 - Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (plan only);
   approved, a 0.2.16 item changes `workflow.yml`.
-
-### 17-77 Stale pointers in the fact stack and standing rulings
-
-Release: deferred-0.2.16.
-Role: human. Skill: none. Blocked by: Hamm's word (the fact stack and the rulings are his).
-Writes: `artifacts/fact_stack.md`, `artifacts/rulings/standing.md`.
-- 17-77: from P-215-20. `standing.md:144-148` and `fact_stack.md:68,82,86` cite roadmap 17-03 to 17-08 and 17-24, which are done or in this stack; `standing.md:144` says psth keeps `(-1000, 2000)` until 0.2.15, while psth now requires `window_ms`; S13 holds `todo:12-21`, which is a roadmap row; and (audit 2026-11-02) about 20 of 40 sampled B3 Evidence `file:line` cells in `fact_stack.md:138-203` no longer land on their parameter (`_network.py:87`, `viz.py:115` are blank lines), so cells name `module.function(param)`. Check: every roadmap or todo id the two files cite resolves in `roadmap.md` or `todo_stack.md`, or is marked done with its commit.
 
 # 0.2.17
 
