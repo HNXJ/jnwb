@@ -9,19 +9,19 @@ writers that share no file.
 
 Scope: the 0.2.16 row of `artifacts/process/release_plan.json` (ruled 2026-11-05). Weights sum to 100: packages
 70, exit gates 30. A row earns its weight only when its "Done when" check holds; partial credit is the share of
-its named checks that hold. Score 2026-11-06: **44.4/100** (packages 40.4 of 70, gates 4 of 30; 43.4 before P-216-06 closed, 34.9 before 17-70 and 17-76, 33.3 before #39 closed).
+its named checks that hold. Score 2026-11-06: **56.5/100** (packages 52.5 of 70, gates 4 of 30; 44.4 before the open rows moved, 43.4 before P-216-06 closed, 34.9 before 17-70 and 17-76, 33.3 before #39 closed).
 
 | Id | Weight | Package | Done when | Evidence 2026-11-05 | Score |
 |---|---|---|---|---|---|
 | 16A Audit defects | 15 | 17-83 to 17-127 of the 0.2.16 lanes | every 0.2.16 lane item landed with its failing-first test | all batches landed (2026-11-02 to -03); no 0.2.16 lane item left in this stack | 15 |
-| 16B GitHub issues | 8 | hnxj/jnwb#35 to #39 | each closed on GitHub with its repro | #35 to #39 closed; #39 by a9fccc01, CI/CD green on bb068aec | 8 |
+| 16B GitHub issues | 8 | hnxj/jnwb#35 to #39 | each closed on GitHub with its repro | #35 to #39 closed; #39 by a9fccc01, CI/CD green on bb068aec; #40 closed 2026-11-06 (item 4, 674aa0d8); 0 issues and 0 pull requests open | 8 |
 | 16C GPU Granger | 7 | `granger(device=)`, `granger_causality` removed | parity test within its stated tolerance; CI green on `dev` | c594ae51, CI/CD run 41920337297 success | 7 |
 | 16D psth bin edges | 6 | 17-70 | `UnitAnalyzer.psth` right-open, with a `[results change]` entry | landed 2026-11-06 with failing-first tests and the entry; independent review ACCEPT, the old code fails 4 tests | 6 |
 | 16E External ground truth | 15 | 15-11, 12-21, 16-12 | each recovery table or receipt committed | waits on the Bastos lab simulation code, a broadband jaxfne field and independent receipts | 0 |
 | 16F Workspace and pointers | 5 | 17-75, 17-76, 17-77 | each item's check holds | 17-75: every origin branch but `main`, `dev`, `gh-pages` is gone, the `site-overview-326890` worktree remains (1 of 2 checks); 17-76 done (agy answered, ruling of 2026-10-28); 17-77 open | 2.5 |
-| 16G Open rows | 14 | the open stack's 0.2.16 rows | each repaired, shown false or moved with its release | P-216-05 repaired; P-216-06 repaired (#40 item 4, ruling of 2026-11-06); 13 rows open, each assigned a release | 1.9 |
-| Gate 1 packages closed or moved | 6 | — | 16A to 16G closed, or moved by ruling | 4 of 7 closed (16A to 16D) | 0 |
-| Gate 2 gates, suite, CI | 8 | — | harness gates and full suite pass at the release SHA; CI green on `dev` there | no release SHA yet; at bb068aec all three held | 4 |
+| 16G Open rows | 14 | the open stack's 0.2.16 rows | each repaired, shown false or moved with its release | P-216-05 repaired; P-216-06 repaired (#40 item 4, ruling of 2026-11-06); the other 13 moved 2026-11-06 by the release plan to 17-128, 17-129 and roadmap 17-130 to 17-141; the open stack is empty | 14 |
+| Gate 1 packages closed or moved | 6 | — | 16A to 16G closed, or moved by ruling | 5 of 7 closed (16A to 16D, 16G) | 0 |
+| Gate 2 gates, suite, CI | 8 | — | harness gates and full suite pass at the release SHA; CI green on `dev` there | no release SHA yet; at 3fb5f94b all three held | 4 |
 | Gate 3 release gate | 6 | — | `python scripts/release_gate.py` passes | not run | 0 |
 | Gate 4 closure pass | 5 | — | an independent blocker-focused pass finds no new blocker (`AGENTS.md` §11) | not run | 0 |
 | Gate 5 tag, main, PyPI | 5 | — | v0.2.16 on PyPI from the tagged SHA | not started | 0 |
@@ -51,8 +51,8 @@ and an item that shares a file with another lane names it in Blocked by.
 No lane is open. Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B, then I, E, K
 (2026-11-03), all landed.
 
-- Waiting on Hamm: 17-75, 17-77; open rows P-216-08, -15, -17 to -20, -22, -24, -32. Open
-  rows with no item yet: P-216-16, -21, -25, -26.
+- Waiting on Hamm: 17-75, 17-77. The open stack is empty: its 13 rows moved on 2026-11-06 to
+  17-128 and 17-129 here and to roadmap 17-130 to 17-141, by the release plan.
 - Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (plan only);
   approved, a 0.2.16 item changes `workflow.yml`.
 
@@ -61,7 +61,7 @@ No lane is open. Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D
 Release: deferred-0.2.16.
 Role: human. Skill: none. Blocked by: the agent may not delete these (classifier and push guard).
 Writes: `artifacts/open_stack.md`.
-- 17-75: from P-215-05 and P-215-15. The origin branches are gone (deleted 2026-11-05 on Hamm's word). Hamm deletes the folder `.claude/worktrees/site-overview-326890` then `git worktree prune`, `C:/workspace/_temp_lane_*` (8 clones, each clean and contained in dev, checked 2026-10-31), `C:/workspace/_temp_oc` and the scratchpad `lanes/`. The worktree holds only 9b52c5e7, the `isi_cv` sentence roadmap 16-12 tracks. Check: `git worktree list` shows one entry.
+- 17-75: from P-215-05 and P-215-15. The origin branches are gone (deleted 2026-11-05 on Hamm's word); 36 stale jnwb clones, the `_temp_lane_*` among them, were deleted 2026-11-06 on Hamm's word, each checked contained in dev. Hamm deletes the folder `.claude/worktrees/site-overview-326890` then `git worktree prune`, and `C:/workspace/_temp_oc` (worker run folders, not a clone). The worktree holds only 9b52c5e7, the `isi_cv` sentence roadmap 16-12 tracks. Check: `git worktree list` shows one entry.
 
 ### 17-77 Stale pointers in the fact stack and standing rulings
 
@@ -166,3 +166,17 @@ Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: 17-104 (shares `scripts/build_fact_graph.py`).
 Writes: `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`.
 - 17-127: one `build_fact_graph.py` run took 264 s at `2e069118` and 217 s at `a5345f79` on the Windows host (one sample each; the 17-84 call-site rule landed between); under a full suite it passed the test's 300 s cap twice, now 900 s. Check: a profile names the phases; the build runs under 60 s with the graph byte-identical.
+
+### 17-128 Docstrings and constants against the code style
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: 17-94 (shares `jnwb/**/*.py`).
+Writes: `jnwb/**/*.py`.
+- 17-128: from P-216-25 (the names went to roadmap 17-130). 17 public functions raise without a Raises section; filtering docstrings lack units and Args (`filtering.py`); unnamed band constants in `_vflip2.py`; 98 uncited float defaults and 43 tolerance literals (`_psd.py:216` `fundamental_freq * 0.1`). Check: each public raise site has a Raises entry, each float default and tolerance is a named constant with its source, the suite passes.
+
+### 17-129 Prose against the writing style
+
+Release: deferred-0.2.17.
+Role: docs-harness. Skill: none. Blocked by: 17-99 and 17-100 (shared files); Hamm's word for `skills/`, `AGENTS.md` and the spelling.
+Writes: `.github/CONTRIBUTING.md`, `README.md`, `docs/quickstart.md`.
+- 17-129: from P-216-26. Sentences over 40 words in 12 skills, `AGENTS.md` (:5, :51, :85, :93, :105), `CONTRIBUTING.md` (:72-88, :107-127, :417-428; em dashes on 15 lines), README and quickstart; "behaviour" and "behavior" both occur. Check: no sentence over 40 words in the listed files and one spelling, by grep.
