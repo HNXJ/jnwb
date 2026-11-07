@@ -9,7 +9,7 @@ writers that share no file.
 
 Scope: the 0.2.16 row of `artifacts/process/release_plan.json` (ruled 2026-11-05). Weights sum to 100: packages
 70, exit gates 30. A row earns its weight only when its "Done when" check holds; partial credit is the share of
-its named checks that hold. A package moved out of the cycle by ruling earns its weight, as a moved open row does in 16G. Score 2026-11-06: **71.5/100** (packages 67.5 of 70, gates 4 of 30; 56.5 before 16E moved, 44.4 before the open rows moved, 43.4 before P-216-06 closed, 34.9 before 17-70 and 17-76, 33.3 before #39 closed).
+its named checks that hold. A package moved out of the cycle by ruling earns its weight, as a moved open row does in 16G. Score 2026-11-06: **72.3/100** (packages 68.3 of 70, gates 4 of 30; 71.5 before 17-75 closed, 56.5 before 16E moved, 44.4 before the open rows moved, 43.4 before P-216-06 closed, 34.9 before 17-70 and 17-76, 33.3 before #39 closed).
 
 | Id | Weight | Package | Done when | Evidence 2026-11-05 | Score |
 |---|---|---|---|---|---|
@@ -18,9 +18,9 @@ its named checks that hold. A package moved out of the cycle by ruling earns its
 | 16C GPU Granger | 7 | `granger(device=)`, `granger_causality` removed | parity test within its stated tolerance; CI green on `dev` | c594ae51, CI/CD run 41920337297 success | 7 |
 | 16D psth bin edges | 6 | 17-70 | `UnitAnalyzer.psth` right-open, with a `[results change]` entry | landed 2026-11-06 with failing-first tests and the entry; independent review ACCEPT, the old code fails 4 tests | 6 |
 | 16E External ground truth | 15 | 15-11, 12-21, 16-12 | each recovery table or receipt committed | moved to 0.2.17 (ruling of 2026-11-06, "Defer 16E, release"); handed to jaxfne-orchestrator to plan, a Haiku 5.5 subagent executes once the plan is agreed | 15 |
-| 16F Workspace and pointers | 5 | 17-75, 17-76, 17-77 | each item's check holds | 17-75: every origin branch but `main`, `dev`, `gh-pages` is gone, the `site-overview-326890` worktree remains (1 of 2 checks); 17-76 done (agy answered, ruling of 2026-10-28); 17-77 open | 2.5 |
+| 16F Workspace and pointers | 5 | 17-75, 17-76, 17-77 | each item's check holds | 17-75 done 2026-11-06 (worktree removed, its commit archived as a patch on `E:`; `git worktree list` shows one entry; 36 stale clones and `_temp_oc` deleted); 17-76 done (agy answered, ruling of 2026-10-28); 17-77 open | 3.3 |
 | 16G Open rows | 14 | the open stack's 0.2.16 rows | each repaired, shown false or moved with its release | P-216-05 repaired; P-216-06 repaired (#40 item 4, ruling of 2026-11-06); the other 13 moved 2026-11-06 by the release plan to 17-128, 17-129 and roadmap 17-130 to 17-141; the open stack is empty | 14 |
-| Gate 1 packages closed or moved | 6 | — | 16A to 16G closed, or moved by ruling | 6 of 7 closed or moved (16A to 16E, 16G); 16F waits on Hamm (17-75, 17-77) | 0 |
+| Gate 1 packages closed or moved | 6 | — | 16A to 16G closed, or moved by ruling | 6 of 7 closed or moved (16A to 16E, 16G); 16F waits on 17-77 | 0 |
 | Gate 2 gates, suite, CI | 8 | — | harness gates and full suite pass at the release SHA; CI green on `dev` there | no release SHA yet; at 3fb5f94b all three held | 4 |
 | Gate 3 release gate | 6 | — | `python scripts/release_gate.py` passes | not run | 0 |
 | Gate 4 closure pass | 5 | — | an independent blocker-focused pass finds no new blocker (`AGENTS.md` §11) | not run | 0 |
@@ -51,17 +51,10 @@ and an item that shares a file with another lane names it in Blocked by.
 No lane is open. Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B, then I, E, K
 (2026-11-03), all landed.
 
-- Waiting on Hamm before the 0.2.16 release: 17-75, 17-77. The open stack is empty: its 13 rows moved on 2026-11-06 to
+- Blocking the 0.2.16 tag: 17-77 (Hamm handed it to the keeper, 2026-11-06). The open stack is empty: its 13 rows moved on 2026-11-06 to
   17-128 and 17-129 here and to roadmap 17-130 to 17-141, by the release plan.
 - Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (plan only);
   approved, a 0.2.16 item changes `workflow.yml`.
-
-### 17-75 Workspace cleanup
-
-Release: deferred-0.2.16.
-Role: human. Skill: none. Blocked by: the agent may not delete these (classifier and push guard).
-Writes: `artifacts/open_stack.md`.
-- 17-75: from P-215-05 and P-215-15. The origin branches are gone (deleted 2026-11-05 on Hamm's word); 36 stale jnwb clones, the `_temp_lane_*` among them, were deleted 2026-11-06 on Hamm's word, each checked contained in dev. Hamm deletes the folder `.claude/worktrees/site-overview-326890` then `git worktree prune`, and `C:/workspace/_temp_oc` (worker run folders, not a clone). The worktree holds only 9b52c5e7, the `isi_cv` sentence roadmap 16-12 tracks. Check: `git worktree list` shows one entry.
 
 ### 17-77 Stale pointers in the fact stack and standing rulings
 
