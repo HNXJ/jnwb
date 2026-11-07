@@ -65,7 +65,7 @@ not re-run: its verdict is the harness's or the suite's, which run it themselves
 | I1 | public operations with a parameter that takes spikes or LFP by name | each declares input signal class, estimator, output estimand, unit, and frame or index base; no call from one to another, directly or through private helpers, reaches an operation of a wider input class | `computed:signature_types` | fact stack; Q11 2026-09-29; narrowed to what the scan checks 2026-10-24 |
 | I4 | numeric public operations outside I1's domain, return-only spike or LFP operations included | each declares input signal class, estimator, output estimand, unit, and frame or index base; none of the five is silently substituted across a `jnwb` boundary, and composition edges type-check | `computed:signal_class` | split from I1 2026-10-24 |
 | I2 | public operations | a unit change, or a wrapper or default that changes the estimand, is a named parameter or fails | `computed:unit_conversions`, `computed:wrapper_defaults` | fact stack; Q11 2026-09-29 |
-| I3 | a call between `jnwb` functions | a value whose name carries a unit or base suffix reaches a parameter with the same suffix, or is converted on the way; an intentional break is stated at the change site | `computed:boundary_units` | `AGENTS.md` §4.4; moved 2026-09-29 (Q3); narrowed to named units, frames, rates and unsuffixed bases to roadmap 17-08, Hamm 2026-10-25 |
+| I3 | a call between `jnwb` functions | a value whose name carries a unit or base suffix reaches a parameter with the same suffix, or is converted on the way; an intentional break is stated at the change site | `computed:boundary_units` | `AGENTS.md` §4.4; moved 2026-09-29 (Q3); narrowed to named units, frames, rates and unsuffixed bases to 17-08 (done, 7a6f201c), Hamm 2026-10-25 |
 
 ## Science
 
@@ -79,7 +79,7 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 | S6 | `device` and `n_jobs` | device and worker count never change a number | `gate:21`, `test:tests/test_execution_switch.py`, `test:tests/test_parallel.py` | `AGENTS.md` §4.6; Q13 2026-09-29 |
 | S7 | docs generators, examples, skills | a caller uses the library function instead of retyping its rule | `computed:owned_rules` | `AGENTS.md` §4.7; Q13 2026-09-29 |
 | S8 | a figure label or a returned unit naming a magnitude or direction estimand | it uses no vocabulary of a higher class of `claim classes` than the estimand declares | `computed:claim_class_labels` | `AGENTS.md` §4.8; Q12 2026-09-29; narrowed to labels and units, Hamm 2026-10-25 |
-| S9 | exception handlers on data inputs | missing data fails loudly: no handler swallows it | `computed:silent_handlers` | `AGENTS.md` §4.1; moved 2026-09-29 (Q3); scope named, non-finite inputs to roadmap 17-24, Hamm 2026-10-25 |
+| S9 | exception handlers on data inputs | missing data fails loudly: no handler swallows it | `computed:silent_handlers` | `AGENTS.md` §4.1; moved 2026-09-29 (Q3); scope named, non-finite inputs to 17-24 (done, d84f3343), Hamm 2026-10-25 |
 | S10 | label permutation | a permutation null names its exchangeability scheme | `computed:permutation_schemes` | `AGENTS.md` §4.5; moved 2026-09-29 (Q3) |
 | S11 | randomness consumers | a result reports the `rng` it used | `computed:rng_reports` | `AGENTS.md` §4.5; moved 2026-09-29 (Q3) |
 | S12 | GPU results | a result computed on GPU records that it was | `test:tests/test_execution_switch.py::TestTheResultRecordsTheDevice::test_every_export_with_a_cuda_path_records_its_device`, `test:tests/test_execution_switch.py::TestCudaAgreesWithTheCpu::test_within_tolerance_and_recorded` | `AGENTS.md` §4.6; moved 2026-09-29 (Q3) |
@@ -125,7 +125,7 @@ The values the predicates read. A gate reads them from here and holds no copy.
 | `immunity vocabulary` | `immunity`, `immune`, `complete suppression` | `AGENTS.md` §4.8; Q12 2026-09-29 |
 | `k` | `3` | Q14 2026-09-29 |
 | `dB log forms` | `log10`, `10*log10`, `20*log10`, `*_db` (a call to a function whose name ends in _db) | S2 dB lexicon 2026-10-10; transcribed 2026-10-11 at Hamm's ruling |
-| `B3 choice names` | `window`, `window_ms`, `window_s`, `time_window`, `time_window_s`, `time_window_ms`, `response_window`, `response_window_s`, `sink_window_ms`, `exclude_window_ms`, `reward_window_ms`, `baseline`, `baseline_window`, `baseline_window_s`, `baseline_window_ms`, `band`, `bands`, `band_defs`, `bins`, `n_bins`, `bin_ms`, `bin_size_ms`, `bin_size`, `segments`, `segment`, `n_surrogates`, `n_permutations`, `n_shuffles`, `n_shuffle`, `method`, `null_method` (a `window` whose default is a string names a taper, not a time span, and is outside the lexicon) | Hamm 2026-10-24 (11-06: time windows only; `time_window_ms` added); Hamm 2026-10-31 (17-05: all groups) |
+| `B3 choice names` | `window`, `window_ms`, `window_s`, `time_window`, `time_window_s`, `time_window_ms`, `response_window`, `response_window_s`, `sink_window_ms`, `exclude_window_ms`, `reward_window_ms`, `baseline`, `baseline_window`, `baseline_window_s`, `baseline_window_ms`, `band`, `bands`, `band_defs`, `bins`, `n_bins`, `bin_ms`, `bin_size_ms`, `bin_size`, `segments`, `segment`, `n_surrogates`, `n_permutations`, `n_shuffles`, `n_shuffle`, `method`, `null_method` (a `window` whose default is a string names a taper, not a time span, and is outside the lexicon) | Hamm 2026-10-24 (11-06: time windows only; `time_window_ms` added); Hamm 2026-10-31 (17-05 (done, 9ae80f34): all groups) |
 | `dB averaging forms` | `mean`, `nanmean`, `average`, `sum / count` (a sum divided by a count); a median of dB values is not flagged | S2 dB lexicon 2026-10-10; transcribed 2026-10-11 at Hamm's ruling |
 
 ## B3 exceptions
@@ -148,50 +148,50 @@ evidence and a critic's sign-off.
 | `jnwb.statistics._firing.fires_in_window` | `window_ms` | `_REQUIRED` | as above | as above |
 | `jnwb.statistics._firing.fire_indicator` | `window_ms` | `_REQUIRED` | as above | as above |
 | `jnwb.statistics._firing.rate_in_window` | `window_ms` | `_REQUIRED` | as above | as above |
-| `jnwb.analyzers.TFRAnalyzer.correlate_areas` | `band` | `'alpha'` | the default band name looked up in `TFRAnalyzer.BANDS` | `jnwb/analyzers.py:274`; `BANDS` at `:46` |
-| `jnwb.analyzers.TFRAnalyzer.correlate_areas` | `band_defs` | `None` | None uses `TFRAnalyzer.BANDS`; an empty dict is refused | `jnwb/analyzers.py:280`; resolved in `extract_band` at `:93` |
-| `jnwb.analyzers.TFRAnalyzer.extract_band` | `band_defs` | `None` | None uses `TFRAnalyzer.BANDS`; an empty dict raises | `jnwb/analyzers.py:69`; `:91-93` |
-| `jnwb.connectivity._granger.granger_spectral` | `bands` | `None` | None is the whole spectrum, so the frequency average matches the time-domain value | `jnwb/connectivity/_granger.py:1021`; `:1054` |
-| `jnwb.connectivity._psi.phase_slope_index` | `bands` | `None` | one estimate over the whole spectrum except DC (`df`..`fs/2`); PSI needs power spread across a band | `jnwb/connectivity/_psi.py:148`; `:207-209`, `:197-202` |
-| `jnwb.onset_fitting.fit_exponential_onset` | `baseline_window` | `None` | alias of `baseline_window_ms`; None uses the first 10% of samples as the baseline-rate initial guess (the fit still frees baseline) | `jnwb/onset_fitting.py:154`; `:185-186`, `:235-240` |
+| `jnwb.analyzers.TFRAnalyzer.correlate_areas` | `band` | `'alpha'` | the default band name looked up in `TFRAnalyzer.BANDS` | `jnwb.analyzers.TFRAnalyzer.correlate_areas(band)` |
+| `jnwb.analyzers.TFRAnalyzer.correlate_areas` | `band_defs` | `None` | None uses `TFRAnalyzer.BANDS`; an empty dict is refused | `jnwb/analyzers.py:280`; resolved in `jnwb.analyzers.TFRAnalyzer.extract_band(band_defs)` |
+| `jnwb.analyzers.TFRAnalyzer.extract_band` | `band_defs` | `None` | None uses `TFRAnalyzer.BANDS`; an empty dict raises | `jnwb.analyzers.TFRAnalyzer.extract_band(band_defs)` |
+| `jnwb.connectivity._granger.granger_spectral` | `bands` | `None` | None is the whole spectrum, so the frequency average matches the time-domain value | `jnwb.connectivity._granger.granger_spectral(bands)` |
+| `jnwb.connectivity._psi.phase_slope_index` | `bands` | `None` | one estimate over the whole spectrum except DC (`df`..`fs/2`); PSI needs power spread across a band | `jnwb.connectivity._psi.phase_slope_index(bands)` |
+| `jnwb.onset_fitting.fit_exponential_onset` | `baseline_window` | `None` | alias of `baseline_window_ms`; None uses the first 10% of samples as the baseline-rate initial guess (the fit still frees baseline) | `jnwb.onset_fitting.fit_exponential_onset(baseline_window)` |
 | `jnwb.onset_fitting.fit_exponential_onset` | `baseline_window_ms` | `None` | as above | as above |
-| `jnwb.spectral._decibels.band_power` | `baseline` | `None` | no baseline trace; with the default `normalize=True` the call raises, so a dB value needs one | `jnwb/spectral/_decibels.py:364`; `:414-417` |
+| `jnwb.spectral._decibels.band_power` | `baseline` | `None` | no baseline trace; with the default `normalize=True` the call raises, so a dB value needs one | `jnwb.spectral._decibels.band_power(baseline)` |
 | `jnwb.spiking.compute_response_metrics` | `baseline_window` | `None` | alias of `baseline_window_s`; omitted, the body uses `(-0.250, -0.050)` s | `jnwb/spiking.py:29`; `:81-85` |
 | `jnwb.spiking.compute_response_metrics` | `baseline_window_s` | `None` | omitted, the body uses `(-0.250, -0.050)` s | `jnwb/spiking.py:25`; `:81-85` |
 | `jnwb.spiking.compute_response_metrics` | `response_window` | `None` | alias of `response_window_s`; omitted, the body uses `(0.0, 0.150)` s | `jnwb/spiking.py:30`; `:86-90` |
 | `jnwb.spiking.compute_response_metrics` | `response_window_s` | `None` | omitted, the body uses `(0.0, 0.150)` s | `jnwb/spiking.py:26`; `:86-90` |
 | `jnwb.tfr_accumulator.TFRAccumulator.add_trial` | `baseline` | `None` | no baseline: power is accumulated, not per-trial ratios; every trial must agree on carrying one | `jnwb/tfr_accumulator.py:298`; `:360-372` |
-| `jnwb.artifact_repair.repair_lfp_trials` | `exclude_window_ms` | `None` | None disables the repair-exclusion interval | `jnwb/artifact_repair.py:146`; `:163-165` |
-| `jnwb.artifact_repair.repair_lfp_trials` | `reward_window_ms` | `None` | deprecated alias of `exclude_window_ms`; None disables | `jnwb/artifact_repair.py:147`; `:166-167` |
-| `jnwb.laminar_curation.evoked_csd_sink` | `sink_window_ms` | `(40.0, 150.0)` | search window (ms) of the strongest-sink contact; the CSD itself is Mitzdorf 1985 | `jnwb/laminar_curation.py:278`; `:309`, `:326-328` |
-| `jnwb.analyzers.UnitAnalyzer.autocorrelogram` | `bin_size_ms` | `1` | 1 ms bins centred on multiples of the width | `jnwb/analyzers.py:433`; `:437-440` |
-| `jnwb.analyzers.UnitAnalyzer.psth` | `bin_size_ms` | `10` | 10 ms PSTH bins; the window span must be a whole number of them | `jnwb/analyzers.py:362`; `:380-381` |
-| `jnwb.connectivity._information.spike_mutual_information` | `bin_size_ms` | `10.0` | 10 ms bins of the binned trains the MI is computed on, with no bias correction (Shannon 1948 is cited for the MI, not the width) | `jnwb/connectivity/_information.py:42`; `:48-69` |
-| `jnwb.connectivity._trials.bin_spikes` | `bin_size_ms` | `10.0` | 10 ms bin width; the count K must be whole | `jnwb/connectivity/_trials.py:133`; `:143-145` |
-| `jnwb.connectivity._transfer_entropy.transfer_entropy` | `bins` | `4` | 4 states for the quantile/uniform estimators; the null calibration in the docstring is measured at bins 4 | `jnwb/connectivity/_transfer_entropy.py:188`; `:249`, `:223-228` |
-| `jnwb.spiking.phase_locking_index` | `n_bins` | `18` | 18 phase bins (20° each); the Rayleigh test on them is Berens 2009 | `jnwb/spiking.py:359`; `:376`, `:406-412` |
-| `jnwb.statistics._regression.cross_modal_comparison` | `bin_ms` | `None` | None skips the lag sweep and keeps the zero-lag-only behavior; a sweep needs the series' bin width | `jnwb/statistics/_regression.py:147`; `:160-167` |
+| `jnwb.artifact_repair.repair_lfp_trials` | `exclude_window_ms` | `None` | None disables the repair-exclusion interval | `jnwb.artifact_repair.repair_lfp_trials(exclude_window_ms)` |
+| `jnwb.artifact_repair.repair_lfp_trials` | `reward_window_ms` | `None` | deprecated alias of `exclude_window_ms`; None disables | `jnwb.artifact_repair.repair_lfp_trials(reward_window_ms)` |
+| `jnwb.laminar_curation.evoked_csd_sink` | `sink_window_ms` | `(40.0, 150.0)` | search window (ms) of the strongest-sink contact; the CSD itself is Mitzdorf 1985 | `jnwb.laminar_curation.evoked_csd_sink(sink_window_ms)` |
+| `jnwb.analyzers.UnitAnalyzer.autocorrelogram` | `bin_size_ms` | `1` | 1 ms bins centred on multiples of the width | `jnwb.analyzers.UnitAnalyzer.autocorrelogram(bin_size_ms)` |
+| `jnwb.analyzers.UnitAnalyzer.psth` | `bin_size_ms` | `10` | 10 ms PSTH bins; the window span must be a whole number of them | `jnwb/analyzers.py:362`; `jnwb.analyzers.UnitAnalyzer.psth(bin_size_ms)` |
+| `jnwb.connectivity._information.spike_mutual_information` | `bin_size_ms` | `10.0` | 10 ms bins of the binned trains the MI is computed on, with no bias correction (Shannon 1948 is cited for the MI, not the width) | `jnwb.connectivity._information.spike_mutual_information(bin_size_ms)` |
+| `jnwb.connectivity._trials.bin_spikes` | `bin_size_ms` | `10.0` | 10 ms bin width; the count K must be whole | `jnwb.connectivity._trials.bin_spikes(bin_size_ms)` |
+| `jnwb.connectivity._transfer_entropy.transfer_entropy` | `bins` | `4` | 4 states for the quantile/uniform estimators; the null calibration in the docstring is measured at bins 4 | `jnwb.connectivity._transfer_entropy.transfer_entropy(bins)` |
+| `jnwb.spiking.phase_locking_index` | `n_bins` | `18` | 18 phase bins (20° each); the Rayleigh test on them is Berens 2009 | `jnwb.spiking.phase_locking_index(n_bins)` |
+| `jnwb.statistics._regression.cross_modal_comparison` | `bin_ms` | `None` | None skips the lag sweep and keeps the zero-lag-only behavior; a sweep needs the series' bin width | `jnwb.statistics._regression.cross_modal_comparison(bin_ms)` |
 | `jnwb.trajectory.build_time_resolved_matrix` | `bin_size_ms` | `20.0` | 20 ms bins; the window span must be a whole number of them | `jnwb/trajectory.py:28`; `:40-43` |
 | `jnwb.trajectory.compute_population_trajectory` | `bin_size_ms` | `20.0` | 20 ms bins of the population matrix | `jnwb/trajectory.py:109` |
-| `jnwb.viz.raster_psth` | `bin_ms` | `10.0` | 10 ms right-open bins; the PSTH contract follows Gerstein & Kiang 1960 | `jnwb/viz.py:115`; `:132-134`, `:145-150` |
-| `jnwb.connectivity._granger.granger` | `n_surrogates` | `0` | the analytic F-test is the null by default; surrogates run only when residuals are not white | `jnwb/connectivity/_granger.py:564`; `:594-599` |
-| `jnwb.connectivity._granger.granger_nonparametric` | `n_surrogates` | `0` | 0 draws no null and the surrogate p stays None; each draw destroys the X-then-Y alignment | `jnwb/connectivity/_granger.py:1278`; null drawn only `if n_surrogates > 0` |
-| `jnwb.connectivity._granger.granger_spectral` | `n_surrogates` | `0` | there is no analytic null here, and 0 draws no surrogate one | `jnwb/connectivity/_granger.py:1024`; `:1057` |
-| `jnwb.connectivity._granger.granger_time_reversed` | `n_surrogates` | `0` | default 0, no p-values | `jnwb/connectivity/_granger.py:1544`; `:1565` |
-| `jnwb.connectivity._psi.phase_slope_index` | `n_surrogates` | `0` | no coupling-surrogate test; the lead test is the jackknife | `jnwb/connectivity/_psi.py:154`; `:175-180`, `:222-224` |
-| `jnwb.connectivity._transfer_entropy.transfer_entropy` | `n_surrogates` | `200` | 200 draws form the null the p-value and the bias correction use; 0 only when calibrating elsewhere | `jnwb/connectivity/_transfer_entropy.py:191`; `:255-256` |
+| `jnwb.viz.raster_psth` | `bin_ms` | `10.0` | 10 ms right-open bins; the PSTH contract follows Gerstein & Kiang 1960 | `jnwb.viz.raster_psth(bin_ms)` |
+| `jnwb.connectivity._granger.granger` | `n_surrogates` | `0` | the analytic F-test is the null by default; surrogates run only when residuals are not white | `jnwb.connectivity._granger.granger(n_surrogates)` |
+| `jnwb.connectivity._granger.granger_nonparametric` | `n_surrogates` | `0` | 0 draws no null and the surrogate p stays None; each draw destroys the X-then-Y alignment | `jnwb.connectivity._granger.granger_nonparametric(n_surrogates)`; null drawn only `if n_surrogates > 0` |
+| `jnwb.connectivity._granger.granger_spectral` | `n_surrogates` | `0` | there is no analytic null here, and 0 draws no surrogate one | `jnwb.connectivity._granger.granger_spectral(n_surrogates)` |
+| `jnwb.connectivity._granger.granger_time_reversed` | `n_surrogates` | `0` | default 0, no p-values | `jnwb.connectivity._granger.granger_time_reversed(n_surrogates)` |
+| `jnwb.connectivity._psi.phase_slope_index` | `n_surrogates` | `0` | no coupling-surrogate test; the lead test is the jackknife | `jnwb.connectivity._psi.phase_slope_index(n_surrogates)` |
+| `jnwb.connectivity._transfer_entropy.transfer_entropy` | `n_surrogates` | `200` | 200 draws form the null the p-value and the bias correction use; 0 only when calibrating elsewhere | `jnwb.connectivity._transfer_entropy.transfer_entropy(n_surrogates)` |
 | `jnwb.laminar._xflip.xflip` | `n_surrogates` | `200` | 200 Monte Carlo draws; with 0 no p is computed (NaN) and the result is never accepted | `jnwb/laminar/_xflip.py:524`; `:607-609` |
 | `jnwb.laminar._zflip.zflip` | `n_surrogates` | `50` | per-pair phase-randomised draws, p = (1 + k) / (1 + 50); with 0 no pair is identifiable | `jnwb/laminar/_zflip.py:220`; `:256-263` |
 | `jnwb.spectral._coupling.cross_area_coherence` | `n_surrogates` | `50` | 50 circular-shift surrogates per band; the smallest attainable p is 1/51 | `jnwb/spectral/_coupling.py:250`; `:300-304` |
 | `jnwb.spectral._coupling.partial_coherence` | `n_surrogates` | `50` | as above; below 1 is refused | `jnwb/spectral/_coupling.py:608`; `:636-637`, `:673-674` |
-| `jnwb.statistics._analysis.StatisticalAnalysis.permutation_test` | `n_permutations` | `5000` | 5000 flat-shuffle draws of the mean-difference null | `jnwb/statistics/_analysis.py:601`; `:604-617` |
+| `jnwb.statistics._analysis.StatisticalAnalysis.permutation_test` | `n_permutations` | `5000` | 5000 flat-shuffle draws of the mean-difference null | `jnwb.statistics._analysis.StatisticalAnalysis.permutation_test(n_permutations)` |
 | `jnwb.statistics._cluster.cluster_permutation_test` | `n_permutations` | `1000` | 1000 permutation draws; p = (1 + k) / (B + 1) (Maris & Oostenveld 2007) | `jnwb/statistics/_cluster.py:22`; `:66`, `:96-99` |
-| `jnwb.statistics._regression.cross_modal_comparison` | `n_permutations` | `1000` | 1000 circular shifts in the lag-corrected null | `jnwb/statistics/_regression.py:148`; `:188` |
-| `jnwb.statistics._regression.shuffle_r2_ci` | `n_shuffle` | `200` | 200 label shuffles form the null CI and p | `jnwb/statistics/_regression.py:18`; `:37` |
-| `jnwb.connectivity._network.directed_connectivity` | `method` | `'granger'` | the default of the three estimators (`granger`/`psi`/`te`) | `jnwb/connectivity/_network.py:87`; `:92-94` |
-| `jnwb.connectivity._network.directed_network` | `method` | `'granger'` | as above | `jnwb/connectivity/_network.py:111`; `:134` |
+| `jnwb.statistics._regression.cross_modal_comparison` | `n_permutations` | `1000` | 1000 circular shifts in the lag-corrected null | `jnwb/statistics/_regression.py:148`; `jnwb.statistics._regression.cross_modal_comparison(n_permutations)` |
+| `jnwb.statistics._regression.shuffle_r2_ci` | `n_shuffle` | `200` | 200 label shuffles form the null CI and p | `jnwb.statistics._regression.shuffle_r2_ci(n_shuffle)` |
+| `jnwb.connectivity._network.directed_connectivity` | `method` | `'granger'` | the default of the three estimators (`granger`/`psi`/`te`) | `jnwb.connectivity._network.directed_connectivity(method)` |
+| `jnwb.connectivity._network.directed_network` | `method` | `'granger'` | as above | `jnwb/connectivity/_network.py:111`; `jnwb.connectivity._network.directed_network(method)` |
 | `jnwb.laminar._xflip.xflip` | `method` | `'pearson'` | the default correlation for raw time series | `jnwb/laminar/_xflip.py:520`; `:585-586` |
-| `jnwb.statistics._analysis.StatisticalAnalysis.correlate` | `method` | `'both'` | both Pearson and Spearman run; naming one computes one and spends one test | `jnwb/statistics/_analysis.py:473`; `:482-486` |
-| `jnwb.statistics._analysis.StatisticalAnalysis.exploratory_correlate` | `method` | `'both'` | dual Pearson + Spearman report; every p raw | `jnwb/statistics/_analysis.py:751`; `:753-759` |
-| `jnwb.statistics._analysis.StatisticalAnalysis.fdr_correct` | `method` | `'bh'` | the Benjamini-Hochberg step-up (Benjamini & Hochberg 1995) | `jnwb/statistics/_analysis.py:87`; `:100-103` |
-| `jnwb.statistics._analysis.fdr_correct` | `method` | `'bh'` | delegates to the class method; as above | `jnwb/statistics/_analysis.py:17`; `:34-39` |
+| `jnwb.statistics._analysis.StatisticalAnalysis.correlate` | `method` | `'both'` | both Pearson and Spearman run; naming one computes one and spends one test | `jnwb.statistics._analysis.StatisticalAnalysis.correlate(method)` |
+| `jnwb.statistics._analysis.StatisticalAnalysis.exploratory_correlate` | `method` | `'both'` | dual Pearson + Spearman report; every p raw | `jnwb.statistics._analysis.StatisticalAnalysis.exploratory_correlate(method)` |
+| `jnwb.statistics._analysis.StatisticalAnalysis.fdr_correct` | `method` | `'bh'` | the Benjamini-Hochberg step-up (Benjamini & Hochberg 1995) | `jnwb.statistics._analysis.StatisticalAnalysis.fdr_correct(method)` |
+| `jnwb.statistics._analysis.fdr_correct` | `method` | `'bh'` | delegates to the class method; as above | `jnwb.statistics._analysis.fdr_correct(method)` |
