@@ -1,1 +1,0 @@
-- `jnwb/statistics/_tests.py`: `mann_whitney_p_floor` returns a float at n1 = n2 = 520 instead of `OverflowError`.

@@ -1,1 +1,0 @@
-- `jnwb/statistics/_regression.py`: `cross_modal_comparison` refuses a negative `n_permutations`.

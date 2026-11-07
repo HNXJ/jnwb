@@ -70,7 +70,7 @@ against the API it is holding:
 ```python
 import jnwb
 
-jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.15/skills'
+jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.16/skills'
 ```
 
 The sdist leaves out `docs/`, so a skill's repository-relative links resolve

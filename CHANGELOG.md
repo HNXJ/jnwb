@@ -8,6 +8,63 @@ Releases 0.2.10, 0.2.9, 0.2.8, 0.2.7, 0.2.6.1, 0.2.6, 0.2.5, 0.2.4, 0.1.8 and 0.
 
 ## [Unreleased]
 
+## [0.2.16] - 2026-11-07
+
+### Breaking
+
+- `compare_conditions` drops the `n_significant` key; use `n_significant_uncorrected` (`jnwb/analyzers.py`).
+- `compare_conditions` drops `fraction_significant`; use `fraction_significant_uncorrected` (`jnwb/analyzers.py`).
+- `compare_conditions` returns a plain dict; `RenamedKeyDict` is removed (`jnwb/_dictlike.py`).
+- `StatisticalAnalysis.clopper_pearson_ci` is removed; use `clopper_pearson` (`jnwb/statistics/_analysis.py`).
+- `binary_occupancy_mutual_information` -> `spike_mutual_information(estimator="binary_occupancy")` (`_information.py`).
+- `spike_count_mutual_information` -> `spike_mutual_information(estimator="spike_count")` (`_information.py`).
+- `granger_causality`, deprecated since 0.1.7, is removed; use `granger` (`jnwb/connectivity/_granger.py`).
+
+### Added
+
+- `compare_criteria` takes a keyword-only `rng` for its bootstrap; a bare call is unchanged (`jnwb/analyzers.py`).
+- The dashboard's OpenScope GLO tab lists related reproductions from `artifacts/showcases/related.json`.
+- Dashboard Roadmap tab: releases to 0.2.22, then 0.3.0, from `artifacts/process/release_plan.json`.
+- `jnwb/nwb_integrity.py`: `check_waveform_blocks(..., amplitude_scale=1.0)` declares the amplitude's scale.
+- `TableNotFoundError(KeyError)`: the integrity checks' error for a file with no `table` (#39; `nwb_integrity.py`).
+- `granger(..., device="cuda")` solves its fits on the GPU; `params['device_used']` (`_granger.py`).
+- `jnwb/__init__.py`: `LAYERS` and `ValidationLayer` from `jnwb.nwb_validate` are public (hnxj/jnwb#40).
+- `UnitAnalyzer.psth` takes `rng` for its bootstrap interval; a bare call is unchanged (`jnwb/analyzers.py`).
+- `jnwb/connectivity/_granger.py`: `granger` and `granger_spectral` take a keyword-only `signal_class`.
+- `jnwb/connectivity/_psi.py`: `phase_slope_index` takes a keyword-only `signal_class`.
+- `jnwb/connectivity/_transfer_entropy.py`: `transfer_entropy` takes a keyword-only `signal_class`.
+- `jnwb/connectivity/_network.py`: `directed_connectivity` and `directed_network` pass `signal_class` on.
+- `tests/test_signal_class.py`: each of the four warns `FutureWarning` when `signal_class` is omitted.
+
+### Changed
+
+- `jnwb/connectivity/_granger.py`: `granger_time_reversed` takes a keyword-only `signal_class`; omitted, it warns once.
+- [results change] `jnwb/analyzers.py`: `UnitAnalyzer.psth` counts `[pre, post)`, as `bin_spikes` (deterministic).
+
+### Fixed
+
+- `jnwb/statistics/_regression.py`: `lag_corrected_pvalue` is NaN, not 1.0, at `n_permutations=0`.
+- `jnwb/spiking.py`: a missing `response_zscore` classifies 'undefined' with a UserWarning, not as z = 0.
+- `jnwb/nwb_inspect.py`: `inspect` lists a processing module's `TimeIntervals` in `interval_tables`, with its `module`.
+- `jnwb/nwb_events.py`: `events` and `event_onsets` read it as `table="processing/<module>/<name>"`.
+- `jnwb/nwb_validate.py`: `versions["jnwb"]` is the running `jnwb.__version__`, not the installed version.
+- `jnwb/nwb_validate.py`: the `read` layer counts the warnings `read_nwb` emits in `n_warnings`.
+- `jnwb/metadata.py`: `electrode_inventory` gives the group's name in `group`, not the container's repr.
+- `jnwb/metadata.py`: `unit_census_report` returns an empty report with the usual columns for a file with no units.
+- `jnwb/connectivity/_network.py`: `directed_network` with no `signal_class` warns once at any `n_jobs`.
+- `jnwb/analyzers.py`: `quality_metrics` counts a last spike an ulp past a whole-second span.
+- `jnwb/statistics/_analysis.py`: `n_bootstrap` and `n_permutations` below 1 raise `ValueError` by name.
+- `jnwb/statistics/_firing.py`: `paired_fire_prob_test` raises `ValueError` for `n_shuffles` or `n_bootstrap` below 1.
+- `jnwb/statistics/_tests.py`: shuffle p-values reject a bad `alternative` with fewer than two values.
+- `jnwb/statistics/_regression.py`: `cross_modal_comparison` refuses a negative `n_permutations`.
+- `jnwb/nwb_events.py`: `edges_near_events` thresholds physical values, not stored counts.
+- `jnwb/statistics/_firing.py`: `fires_in_window` and `rate_in_window` no longer drop a spike on the start edge.
+- `jnwb/statistics/_tests.py`: `mann_whitney_p_floor` returns a float at n1 = n2 = 520 instead of `OverflowError`.
+- `jnwb/spiking.py`: `phase_locking_index` raises `ValueError` naming the first non-finite `lfp_timestamps` entry.
+- `jnwb/analyzers.py`: a spike on a `UnitAnalyzer.psth` bin edge counts in the bin that starts there.
+- `jnwb/analyzers.py`: a span just under whole seconds keeps its last `quality_metrics` window (was NaN).
+- `jnwb/statistics/_trials.py`: `assign_subblock_quartiles` raises `ValueError` for `n_quantiles` < 1 and non-integers.
+
 ## [0.2.15] - 2026-10-31
 
 ### Breaking

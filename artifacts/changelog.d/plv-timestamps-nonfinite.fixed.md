@@ -1,1 +1,0 @@
-- `jnwb/spiking.py`: `phase_locking_index` raises `ValueError` naming the first non-finite `lfp_timestamps` entry.

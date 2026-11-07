@@ -1,1 +1,0 @@
-- `jnwb/nwb_integrity.py`: `check_waveform_blocks(..., amplitude_scale=1.0)` declares the amplitude's scale.

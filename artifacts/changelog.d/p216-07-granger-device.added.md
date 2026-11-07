@@ -1,1 +1,0 @@
-- `granger(..., device="cuda")` solves its fits on the GPU; `params['device_used']` (`_granger.py`).
