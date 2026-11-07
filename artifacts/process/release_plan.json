@@ -1,21 +1,6 @@
 {
-  "note": "Release plan from 0.2.16 to the end of the 0.2.x series, then 0.3.0. Proposed 2026-11-05; each row's scope becomes that cycle's goals and checklist when the cycle opens. Items name rows of artifacts/todo_stack.md, artifacts/roadmap.md or artifacts/open_stack.md.",
+  "note": "Release plan from 0.2.17 to the end of the 0.2.x series, then 0.3.0. Proposed 2026-11-05; each row's scope becomes that cycle's goals and checklist when the cycle opens; a released row leaves the plan (0.2.16 left on its version bump, 2026-11-07). Items name rows of artifacts/todo_stack.md, artifacts/roadmap.md or artifacts/open_stack.md.",
   "releases": [
-    {
-      "version": "0.2.16",
-      "status": "in progress",
-      "theme": "Defects and correctness",
-      "goal": "Every defect the November audits and the GitHub issues found is fixed with a failing test first.",
-      "scope": [
-        "Audit findings repaired, each with a test that fails on the old code",
-        "GitHub issues #35 to #39 fixed; a file without /units raises TableNotFoundError",
-        "#40 closed: LAYERS and ValidationLayer exported; the certification runner stays downstream",
-        "granger solves on the GPU with a parity test; granger_causality removed",
-        "UnitAnalyzer.psth bins right-open [a, b), as bin_spikes does (results change)"
-      ],
-      "needs": [],
-      "items": ["17-70", "17-75", "17-76", "17-77"]
-    },
     {
       "version": "0.2.17",
       "status": "planned",
