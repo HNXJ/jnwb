@@ -1099,7 +1099,8 @@ class TestPandas3LegIsNonBlocking:
 
 #: The release gate's required jobs at baseline 0d6b9d63, read from that commit's
 #: workflow.yml by `required_ci_jobs(workflow=...)`. Ten names, before the pandas 3 leg existed;
-#: the lookup job has read `main` runs since 0.2.14.
+#: the lookup job has read `main` runs since 0.2.14. The floors leg moved to ubuntu-24.04 on
+#: 2026-11-08 (no Python 3.12.0 on Ubuntu 26.04), which renamed it; no other job moved.
 BASELINE_REQUIRED_JOBS = sorted([
     "Build & Validate Distribution",
     "Find a passed main run of this commit",
@@ -1110,7 +1111,7 @@ BASELINE_REQUIRED_JOBS = sorted([
     "Test (Python 3.14 on ubuntu-latest)",
     "Test (Python 3.14 on windows-latest)",
     "Test (Python 3.15 on ubuntu-latest)",
-    "Test (dependency floors, Python 3.12.0 on ubuntu-latest)",
+    "Test (dependency floors, Python 3.12.0 on ubuntu-24.04)",
 ])
 
 
