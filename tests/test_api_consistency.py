@@ -314,8 +314,9 @@ class TestBinLabelNamesItsEdge:
                                   window_ms=(-250, 250), label="right")
         np.testing.assert_allclose(right["bin_centers_ms"], [0, 250])
         np.testing.assert_allclose(right["psth"], [0.0, 4.0])
+        # Under "center" the window is [start, end), as bin_spikes (17-70): the end is out.
         centre = UnitAnalyzer.psth(spikes, onsets, bin_size_ms=250, window_ms=(-250, 250))
-        np.testing.assert_allclose(centre["psth"], [4.0, 4.0])
+        np.testing.assert_allclose(centre["psth"], [4.0, 0.0])
 
     def test_an_unknown_label_is_refused(self):
         with pytest.raises(ValueError, match="label"):

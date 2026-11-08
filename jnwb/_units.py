@@ -114,6 +114,10 @@ class _Omitted:
     def __repr__(self) -> str:
         return "_OMITTED"
 
+    def __reduce__(self) -> str:
+        # Pickled as a reference to the module attribute, so a worker process gets this object back.
+        return "_OMITTED"
+
 
 _OMITTED = _Omitted()
 

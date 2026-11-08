@@ -14,9 +14,10 @@ import logging
 from typing import Literal, Optional, Dict, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
-from ._bins import (bins_within, check_bin_label, onset_locked_counts, onset_locked_counts_right,
+from ._bins import (_count_tolerance, bin_edges, bins_within, check_bin_label, onset_locked_counts,
+                    onset_locked_counts_right,
                     onset_window, refuse_nonfinite_times, whole_bin_count)
-from ._dictlike import RenamedKeyDict
+from ._rng import DEFAULT_SEED, RNGLike
 from .trajectory import _kept_components
 import pandas as pd
 from scipy import stats
@@ -33,13 +34,6 @@ log = logging.getLogger(__name__)
 class TFRAnalyzer:
     """
     Time-Frequency Representation Analysis.
-
-    Methods:
-    - trial_average(tfr_data, epochs) → TFR averaged by condition
-    - compare_conditions(tfr1, tfr2) → Compare two conditions with stats
-    - extract_band(tfr_data, band, freqs, freq_axis=1) → Extract frequency band
-    - by_layer(tfr_data, layer_bounds) → Spectrolaminar analysis
-    - correlate_areas(tfr1, tfr2, freqs, band) → Inter-area correlation
     """
 
     # Authoritative band table: CANONICAL_BANDS consolidated with delta and broadband.
@@ -207,8 +201,6 @@ class TFRAnalyzer:
             Dict with ``n_tests``, ``n_significant_uncorrected``,
             ``fraction_significant_uncorrected``, ``n_significant_fdr``, ``mean_diff``,
             ``p_values``, ``q_values`` (NaN where p is NaN), ``t_statistics`` and ``summary``.
-            ``n_significant`` and ``fraction_significant`` still read, as the uncorrected
-            values, with a ``DeprecationWarning``; they are removed in the next release.
         """
         if tfr1.shape[:-1] != tfr2.shape[:-1]:
             raise ValueError("TFR spatial shapes must match (ch × freq × time)")
@@ -229,7 +221,7 @@ class TFRAnalyzer:
         q_val[tested] = StatisticalAnalysis.fdr_correct(p_val[tested])
         n_fdr = int((q_val < 0.05).sum())
 
-        return RenamedKeyDict({
+        return {
             'n_tests':             n_total,
             'n_significant_uncorrected': n_sig,
             'fraction_significant_uncorrected': n_sig / n_total if n_total > 0 else float('nan'),
@@ -240,10 +232,7 @@ class TFRAnalyzer:
             't_statistics':        t_stat,
             'summary': (f"{n_sig} / {n_total} locations p < 0.05 uncorrected; "
                         f"{n_fdr} with Benjamini-Hochberg q < 0.05"),
-        }, aliases={
-            'n_significant': 'n_significant_uncorrected',
-            'fraction_significant': 'fraction_significant_uncorrected',
-        })
+        }
 
     @staticmethod
     def by_layer(tfr_data: np.ndarray, layer_bounds: Dict) -> Dict:
@@ -309,13 +298,6 @@ class TFRAnalyzer:
 class UnitAnalyzer:
     """
     Single-Unit Spike Analysis.
-
-    Methods:
-    - raster(spike_times, epochs) → Raster plot data
-    - psth(spike_times, epochs, bin_size) → PSTH with CI
-    - autocorrelogram(spike_times, max_lag) → ACG
-    - quality_metrics(spike_times, waveform_duration_us, firing_rate) → Quality scores
-    - firing_rate(spike_times, window) → FR over time
     """
 
     @staticmethod
@@ -361,14 +343,15 @@ class UnitAnalyzer:
     def psth(spike_times: np.ndarray, trial_onsets: np.ndarray,
              bin_size_ms: float = 10, *,
              window_ms: Tuple[float, float],
-             label: Literal["center", "right"] = "center") -> Dict:
+             label: Literal["center", "right"] = "center",
+             rng: RNGLike = DEFAULT_SEED) -> Dict:
         """
         Peristimulus time histogram with bootstrap CI.
 
         Distinct from :func:`jnwb.viz.raster_psth`, which is not a redundant duplicate but a
         different contract: that function uses ``ddof=1`` SEM vs. this method's bootstrap CI,
-        right-open ms bins (``<``) there vs. inclusive ms bins (``<=``) here, and a plain-tuple
-        return there vs. this method's dict contract. Prefer this method when you want a
+        and a plain-tuple return there vs. this method's dict contract. Under ``"center"``
+        both select spike - onset in ``[pre, post)``, as ``bin_spikes`` does. Prefer this method when you want a
         bootstrap CI or the dict contract (e.g. alongside :meth:`UnitAnalyzer.raster`); prefer
         ``jnwb.viz.raster_psth`` for a quick trial-averaged rate curve as a plain tuple. Both
         are retained deliberately.
@@ -382,6 +365,9 @@ class UnitAnalyzer:
             label: ``"center"`` labels each bin at its midpoint. ``"right"`` counts a spike in
                 (t - bin, t] and labels that bin at t, so a spike on the onset lands in the bin
                 labelled 0.
+            rng: An int seed, a ``numpy.random.Generator``, or ``None`` for fresh OS entropy,
+                for the bootstrap interval. The default is the seed the interval always used,
+                so a call without ``rng`` returns the same interval as before.
 
         Returns:
             Dict with PSTH, CI, statistics, and ``label``, the convention used.
@@ -402,18 +388,20 @@ class UnitAnalyzer:
                                    width_param="bin_size_ms")
         win_sec  = (window_ms[0] / 1000, window_ms[1] / 1000)
         bin_sec  = bin_size_ms / 1000
-        bin_edges = np.linspace(win_sec[0], win_sec[1], n_bins + 1)
+        # start + k * bin in ms, then to seconds, as jnwb.viz.raster_psth builds them. A linspace
+        # in seconds put an interior edge a float off, so a spike on that edge fell in the bin before.
+        edges_s = bin_edges(window_ms[0], bin_size_ms, n_bins) / 1000
 
-        # spike - onset in [pre, post], both edges inclusive, and every selected spike is
-        # counted (`onset_locked_counts`). "right" selects (pre, post] for bins (t - w, t].
+        # spike - onset in [pre, post), as `bin_spikes`, and every selected spike is counted
+        # (`onset_locked_counts`). "right" selects (pre, post] for bins (t - w, t].
         if label == "right":
             trial_counts = onset_locked_counts_right(spike_times, trial_onsets, win_sec[0],
-                                                     win_sec[1], bin_edges, 1.0)
-            bin_centers_ms = bin_edges[1:] * 1000
+                                                     win_sec[1], edges_s, 1.0)
+            bin_centers_ms = edges_s[1:] * 1000
         else:
             trial_counts = onset_locked_counts(spike_times, trial_onsets, win_sec[0], win_sec[1],
-                                               bin_edges, 1.0, right_closed=True)
-            bin_centers_ms = (bin_edges[:-1] + bin_edges[1:]) / 2 * 1000
+                                               edges_s, 1.0, right_closed=False)
+            bin_centers_ms = (edges_s[:-1] + edges_s[1:]) / 2 * 1000
         trial_psths = trial_counts / bin_sec
         mean_psth = np.mean(trial_psths, axis=0)
         sem_psth  = stats.sem(trial_psths, axis=0)
@@ -425,7 +413,8 @@ class UnitAnalyzer:
             'label':         label,
             'bin_size_ms':   bin_size_ms,
             'n_trials':      len(trial_onsets),
-            'bootstrap_ci':  StatisticalAnalysis.bootstrap_ci(np.mean(trial_psths, axis=1)),
+            'bootstrap_ci':  StatisticalAnalysis.bootstrap_ci(np.mean(trial_psths, axis=1),
+                                                             rng=rng),
         }
 
     @staticmethod
@@ -674,10 +663,14 @@ class UnitAnalyzer:
         if len(spike_times) > 1:
             t_start, t_end = spike_times[0], spike_times[-1]
             duration = t_end - t_start
-            if duration >= 2.0:
-                n_windows  = int(duration)          # 1-s windows
-                bin_edges  = np.linspace(t_start, t_start + n_windows, n_windows + 1)
-                counts, _  = np.histogram(spike_times, bins=bin_edges)
+            n_windows = bins_within(duration, 1.0)      # whole 1-s windows, rounding-tolerant
+            if n_windows >= 2:
+                edges = bin_edges(t_start, 1.0, n_windows)
+                # A span of whole seconds up to rounding closes on its last spike, which the
+                # edge t_start + n_windows can miss by an ulp.
+                if 0.0 < t_end - edges[-1] <= _count_tolerance(t_start, t_end, 1.0):
+                    edges[-1] = t_end
+                counts, _  = np.histogram(spike_times, bins=edges)
                 # The first window holds the first spike, so the mean is positive.
                 fano_factor = float(_count_fano(counts[None, :])[0])
             else:
@@ -709,19 +702,15 @@ class UnitAnalyzer:
 class PopulationAnalyzer:
     """
     Population-Level Statistics.
-
-    Methods:
-    - compare_criteria(units1, units2) → Population comparison with stats
-    - distribution_by_area(units) → Population distribution
-    - pie_chart_data(units, criteria) → Pie chart generation
-    - network_connectivity(correlations, threshold) → Network analysis
     """
 
     @staticmethod
     def compare_criteria(units1: pd.DataFrame, units2: pd.DataFrame,
-                         metric: str = 'firing_rate') -> Dict:
+                         metric: str = 'firing_rate', *, rng: RNGLike = DEFAULT_SEED) -> Dict:
         """
         Compare two unit populations on a metric (t-test + Mann-Whitney U + Cohen's d).
+
+        ``rng`` seeds the bootstrap interval of the mean difference, as in ``exploratory_compare``.
         """
         data1 = pd.to_numeric(units1[metric], errors='coerce').dropna().values
         data2 = pd.to_numeric(units2[metric], errors='coerce').dropna().values
@@ -734,7 +723,7 @@ class PopulationAnalyzer:
             'group2_n_valid':  len(data2),
             'group1_mean':     float(np.mean(data1)) if len(data1) > 0 else np.nan,
             'group2_mean':     float(np.mean(data2)) if len(data2) > 0 else np.nan,
-            'statistics':      StatisticalAnalysis.exploratory_compare(data1, data2),
+            'statistics':      StatisticalAnalysis.exploratory_compare(data1, data2, rng=rng),
         }
 
     @staticmethod

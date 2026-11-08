@@ -34,6 +34,7 @@ from scripts.harness_gate import (
     check_no_process_identifiers_in_library,
     check_logarithm_last_in_package,
     check_logarithm_last_rule,
+    count_declared_raw_power_estimands,
     check_api_md_member_types,
     check_stack_form_consistency,
     check_stack_pointers_resolve,
@@ -1685,8 +1686,11 @@ class TestGate15DeclaredWriteSetsAreComparable:
         assert "`tests/`" in found[0] and "todo_stack.md:6" in found[0], found
 
     def test_a_glob_is_not_a_bare_directory(self, tmp_path: Path):
-        """`docs/*.md` conflicts honestly with `docs/api.md`; `docs/` conflicts with everything."""
-        seeded = CLEAN_TODO_STACK.replace("`tests/test_one.py`", "`docs/*.md`")
+        """`tests/test_*.py` conflicts honestly with `tests/test_one.py`; `tests/` conflicts with everything.
+
+        The glob covers no integration path: `docs/*.md` would, and is reported by its own test.
+        """
+        seeded = CLEAN_TODO_STACK.replace("`tests/test_one.py`", "`tests/test_*.py`")
         assert check_stack_form_consistency(_stack_tree(tmp_path, seeded, CLEAN_OPEN_STACK)) == []
 
     def test_a_directory_named_in_prose_is_not_reported(self, tmp_path: Path):
@@ -2512,3 +2516,71 @@ def test_gate_21_runs_the_estimand_rule_on_the_jnwb_modules(tmp_path: Path, monk
 def test_gate_21_pass_line_names_the_estimand_rule():
     pass_line = {number: line for number, _, line in harness_gate.GATES}[21]
     assert "raw-power estimand" in pass_line()
+
+
+MEAN_FIRST = '''
+import numpy as np
+
+def site_power(raw_power):
+    """estimand: raw_power_average"""
+    return to_db(np.mean(raw_power))
+'''
+
+NO_DECLARATION = '''
+import numpy as np
+
+def site_power(x):
+    return np.mean(x)
+'''
+
+
+def test_a_declared_mean_first_estimand_in_jnwb_passes_and_is_counted(tmp_path: Path):
+    root = _jnwb_with(tmp_path, MEAN_FIRST)
+    assert check_logarithm_last_in_package(root) == []
+    assert count_declared_raw_power_estimands(root) == 1
+
+
+def test_a_jnwb_with_no_declaration_fails_because_it_examines_zero_estimands(tmp_path: Path):
+    """Zero examined is not a pass: the rule checked nothing, and a pass would read as clean."""
+    root = _jnwb_with(tmp_path, NO_DECLARATION)
+    assert count_declared_raw_power_estimands(root) == 0
+    found = check_logarithm_last_in_package(root)
+    assert len(found) == 1 and "NO_ESTIMAND" in found[0], found
+
+
+def test_gate_21_pass_line_prints_the_declared_estimand_it_passes(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(harness_gate, "REPO_ROOT", _jnwb_with(tmp_path, MEAN_FIRST))
+    monkeypatch.setattr(harness_gate, "check_computational_contract", lambda: [])
+    gate = {number: run for number, run, _ in harness_gate.GATES}[21]
+    assert gate() == []
+    pass_line = {number: line for number, _, line in harness_gate.GATES}[21]
+    assert "examined: 1 declared raw-power estimand)" in pass_line()
+
+
+def test_gate_21_fails_when_no_estimand_is_declared(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(harness_gate, "REPO_ROOT", _jnwb_with(tmp_path, NO_DECLARATION))
+    monkeypatch.setattr(harness_gate, "check_computational_contract", lambda: [])
+    gate = {number: run for number, run, _ in harness_gate.GATES}[21]
+    [(header, violations)] = gate()
+    assert "raw-power estimand" in header
+    assert "NO_ESTIMAND" in violations[0]
+
+
+def test_the_live_tree_examines_declared_estimands_and_passes_the_rule():
+    """The live gate passes with at least one declaration examined, never with none."""
+    examined = count_declared_raw_power_estimands(REPO_ROOT)
+    assert examined > 0, "the live tree declares no raw-power estimand, so the rule examines nothing"
+    assert check_logarithm_last_in_package(REPO_ROOT) == []
+
+
+@pytest.mark.parametrize("name", ["aggregate_to_db", "band_power"])
+def test_each_function_that_averages_power_before_db_declares_the_estimand(name):
+    """Each jnwb function that averages power across an axis and then takes dB declares the estimand."""
+    from scripts.gates.boundary import RAW_POWER_DECLARATION
+
+    source = (REPO_ROOT / "jnwb" / "spectral" / "_decibels.py").read_text(encoding="utf-8")
+    [node] = [n for n in ast.parse(source).body
+              if isinstance(n, ast.FunctionDef) and n.name == name]
+    assert RAW_POWER_DECLARATION.search(ast.get_docstring(node) or ""), (
+        f"{name} averages power before its decibel conversion and declares no raw-power estimand"
+    )

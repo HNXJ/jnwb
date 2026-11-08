@@ -168,6 +168,9 @@ def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt
         record.write_text(_record(recorded, {}), encoding="utf-8")
     else:
         record.unlink(missing_ok=True)
+    (tmp_path / "scripts" / "figures").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "scripts" / "figures" / "figure_registry.toml").write_text(
+        f'[fig01]\njnwb_version = "{RELEASE_CYCLE}"\n', encoding="utf-8")
     (tmp_path / "artifacts" / "open_stack.md").write_text(
         _OPEN.format(rows="\n".join(rows)) + tail, encoding="utf-8")
     (tmp_path / "artifacts" / "todo_stack.md").write_text(

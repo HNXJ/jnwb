@@ -40,7 +40,7 @@ Operations whose signature takes `device` accept `device='cuda'` and `device='me
 
 | Operations | With `device='cuda'` |
 |---|---|
-| `complex_tfr`, `cross_area_coherence`, `PopulationAnalyzer.population_trajectory`, `spectral_tilt`, `harmonic_analysis`, `imaginary_coherency`, `wpli`, `granger_causality`, `UnitAnalyzer.autocorrelogram`, `compute_population_trajectory` | Compute on the GPU when one is present and record the device that ran: `device` on `complex_tfr`'s result, `device_used` on the others. `granger_causality` recomputes the whole call on the CPU if any fit falls back. |
+| `complex_tfr`, `cross_area_coherence`, `PopulationAnalyzer.population_trajectory`, `spectral_tilt`, `harmonic_analysis`, `imaginary_coherency`, `wpli`, `granger`, `UnitAnalyzer.autocorrelogram`, `compute_population_trajectory` | Compute on the GPU when one is present and record the device that ran: `device` on `complex_tfr`'s result, `params['device_used']` on `granger`'s, `device_used` on the others. `granger` recomputes the whole call on the CPU if any fit falls back. |
 | `band_power`, `relative_power`, `rdm`, `vflip`, `vflip_from_lfp` (whose warning names `vflip`) | Warn and run on the CPU even with a GPU present. |
 | `jrsa` | Computes every metric in NumPy on the CPU whatever its `backend` or `device`; an accelerator `backend` or `device='cuda'` warns and records `execution['device'] == 'cpu'`. |
 

@@ -4,8 +4,15 @@ from __future__ import annotations
 
 import pytest
 
+from datetime import datetime
+
 import h5py
 import numpy as np
+import pynwb
+from dateutil.tz import tzutc
+from pynwb import NWBHDF5IO
+from pynwb.epoch import TimeIntervals
+
 import jnwb
 from jnwb.nwb_inspect import (
     AcquisitionNotFoundError,
@@ -1160,3 +1167,44 @@ class TestPackagingLabelIsTheWrappedOne:
         path = _written(tmp_path / "mixed.nwb", _mixed())
         assert labels(inspect(path)) == expected
         assert labels(inspect(_mixed())) == expected
+
+
+def _processing_intervals_nwb() -> pynwb.NWBFile:
+    nwb = pynwb.NWBFile(
+        session_description="processing intervals",
+        identifier="PROCESSING_INTERVALS",
+        session_start_time=datetime(2020, 1, 1, tzinfo=tzutc()),
+    )
+    table = TimeIntervals(name="events", description="digital event codes")
+    table.add_column(name="value", description="event code")
+    for onset, code in [(0.5, 10), (1.0, 20), (1.5, 30)]:
+        table.add_row(start_time=onset, stop_time=onset, value=code)
+    nwb.create_processing_module(name="behavior", description="behavior").add(table)
+    return nwb
+
+
+class TestTimeIntervalsInProcessingModule:
+    """A TimeIntervals stored in a processing module is listed under its slash path (hnxj/jnwb#37)."""
+
+    @staticmethod
+    def _entries(info):
+        return [t for t in info["interval_tables"] if t["path"] == "/processing/behavior/events"]
+
+    def test_listed_under_its_slash_path_from_a_file(self, tmp_path):
+        path = tmp_path / "processing_intervals.nwb"
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(_processing_intervals_nwb())
+        entries = self._entries(inspect(path))
+        assert len(entries) == 1, "fixture must list one processing table"
+        assert entries[0]["name"] == "events", "the bare table name, as processing_continuous has"
+        assert entries[0]["module"] == "behavior"
+        assert entries[0]["n_rows"] == 3
+        assert "value" in {c["name"] for c in entries[0]["columns"]}
+
+    def test_listed_under_its_slash_path_in_memory(self):
+        entries = self._entries(inspect(_processing_intervals_nwb()))
+        assert len(entries) == 1, "fixture must list one processing table"
+        assert entries[0]["name"] == "events", "the bare table name, as processing_continuous has"
+        assert entries[0]["module"] == "behavior"
+        assert entries[0]["n_rows"] == 3
+        assert "value" in {c["name"] for c in entries[0]["columns"]}

@@ -12,7 +12,6 @@ the outcomes a skill can end a task in.
 | The library | yes | Every symbol in `jnwb.__all__`, with docstrings |
 | MCP server | yes (needs the `mcp` extra) | File inspection only: three tools, listed below |
 | Skills | **no** | The routing and scientific safeguards |
-| `AGENTS.md` | **no** (source checkout only) | Repository map and working rules; the recipes are on [Recipes](recipes.md) |
 
 An agent given only the installed package can discover the API from docstrings and
 [the public API page](api.md). What it will not discover is the part that stops it producing
@@ -71,10 +70,10 @@ against the API it is holding:
 ```python
 import jnwb
 
-jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.15/skills'
+jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.16/skills'
 ```
 
-The sdist leaves out `docs/` and `AGENTS.md`, so a skill's repository-relative links resolve
+The sdist leaves out `docs/`, so a skill's repository-relative links resolve
 only in a checkout.
 
 The entry point is the router skill, `jnwb`. Its routing table, copied here, sends each task to

@@ -23,10 +23,17 @@ rather than an error:
   the provisioning did not. Three lanes had not yet written, one caught the intrusion and began
   investigating it, and one stopped of its own accord.
 
+Once the baseline holds, the lane's ``artifacts/state.md`` is checked with
+``reconstruct_state.py --check``; a stale file is regenerated and checked again.
+
 Usage::
 
     python scripts/verify_lane.py --baseline <commit>
     python scripts/verify_lane.py --baseline <commit> --allow-main-tree
+    python scripts/verify_lane.py --push-item <id> --target <ref>
+
+``--push-item`` refuses a push whose diff against ``<ref>`` leaves the ``Writes:`` of the
+todo item ``<id>``, read from ``<ref>``'s ``artifacts/todo_stack.md``.
 
 Exits 0 only when every check passes. On failure it prints both SHAs, because a message that
 says "mismatch" without them cannot be acted on without a second command.
@@ -149,13 +156,169 @@ def check(baseline: str, *, allow_main_tree: bool = False,
     return problems
 
 
+def state_check(cwd: Path | None = None) -> tuple[str, str]:
+    """Run ``reconstruct_state.py --check`` in the tree; on failure regenerate, then check again.
+
+    Returns ``("current", "")``, ``("regenerated", "")`` or ``("failed", message)``.
+    """
+    code, root = _git("rev-parse", "--show-toplevel", cwd=cwd)
+    if code != 0:
+        return "failed", f"cannot find the repository root: {root}"
+    script = Path(root) / "scripts" / "reconstruct_state.py"
+    if not script.is_file():
+        return "failed", f"{script} is missing, so artifacts/state.md cannot be checked"
+
+    def run(*extra: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(script), *extra], cwd=root, capture_output=True,
+            text=True, encoding="utf-8", errors="replace",
+        )
+
+    if run("--check").returncode == 0:
+        return "current", ""
+    regen = run()
+    second = run("--check")
+    if second.returncode == 0:
+        return "regenerated", ""
+    said = (second.stdout + second.stderr).strip()[-300:]
+    return "failed", (
+        f"artifacts/state.md fails --check after regeneration (regeneration exit "
+        f"{regen.returncode}). Run python scripts/reconstruct_state.py and read its output. "
+        f"The check says: {said}"
+    )
+
+
+#: Paths any push may carry beside an item's Writes: the stacks, changelog fragments and the
+#: files every change regenerates. Each is a glob, read the same way as a Writes entry.
+ALWAYS_WRITABLE: tuple[str, ...] = (
+    "artifacts/todo_stack.md",
+    "artifacts/open_stack.md",
+    "artifacts/changelog.d/*",
+    "CHANGELOG.md",
+    "docs/api.md",
+    "artifacts/process/frozen_validated.json",
+    "artifacts/memory.md",
+)
+
+_ITEM_ID = re.compile(r"^\d+-\d+$")
+_HEADING_ID = re.compile(r"^###\s+(\S+)")
+_BACKTICKED = re.compile(r"`([^`]+)`")
+
+
+def glob_to_regex(pattern: str) -> re.Pattern[str]:
+    """A Writes entry as a regex over repository paths: ``**/`` spans directories, ``*`` one name."""
+    parts: list[str] = []
+    i = 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            parts.append("(?:.*/)?")
+            i += 3
+        elif pattern.startswith("**", i):
+            parts.append(".*")
+            i += 2
+        elif pattern[i] == "*":
+            parts.append("[^/]*")
+            i += 1
+        elif pattern[i] == "?":
+            parts.append("[^/]")
+            i += 1
+        else:
+            parts.append(re.escape(pattern[i]))
+            i += 1
+    return re.compile("".join(parts))
+
+
+def item_writes(todo_text: str, item: str) -> list[str]:
+    """The backticked paths on an item's ``Writes:`` line, read from the item's own section.
+
+    Raises ValueError, naming the item, when it is absent, repeated, or has no Writes line.
+    """
+    sections: list[list[str]] = []
+    body: list[str] | None = None
+    for line in todo_text.splitlines():
+        if line.startswith("#"):
+            heading = _HEADING_ID.match(line)
+            body = [] if heading and heading.group(1) == item else None
+            if body is not None:
+                sections.append(body)
+            continue
+        if body is not None:
+            body.append(line)
+    if not sections:
+        raise ValueError(f"item {item} is not in artifacts/todo_stack.md")
+    if len(sections) > 1:
+        raise ValueError(f"item {item} heads {len(sections)} sections of artifacts/todo_stack.md")
+    for line in sections[0]:
+        if line.startswith("Writes:"):
+            return _BACKTICKED.findall(line)
+    raise ValueError(f"item {item} has no Writes: line in artifacts/todo_stack.md")
+
+
+def push_check(item: str, target: str, *, cwd: Path | None = None) -> tuple[list[str], int]:
+    """Refuse a push whose diff against ``target`` leaves the Writes of the todo item ``item``.
+
+    ``item`` may list several ids separated by commas (a batch push); their Writes are joined.
+    The items are read from ``target``'s ``artifacts/todo_stack.md``, not HEAD's: the push itself
+    removes finished items. Returns ``(problems, changed paths inside the Writes)``; empty
+    problems means the push may proceed.
+    """
+    items = [i.strip() for i in item.split(",")]
+    bad = [i for i in items if not _ITEM_ID.match(i)]
+    if bad:
+        return [f"{', '.join(map(repr, bad))} does not have the form NN-NNN. Nothing is pushed."], 0
+    code, todo = _git("show", f"{target}:artifacts/todo_stack.md", cwd=cwd)
+    if code != 0:
+        return [f"cannot read artifacts/todo_stack.md at {target}: {todo}. Nothing is pushed."], 0
+    writes: list[str] = []
+    for one in items:
+        try:
+            writes += item_writes(todo, one)
+        except ValueError as exc:
+            return [f"{exc} at {target}. Nothing is pushed."], 0
+    diff = subprocess.run(
+        ["git", "diff", "--name-only", f"{target}...HEAD"],
+        cwd=str(cwd) if cwd else None, capture_output=True, text=True,
+    )
+    if diff.returncode != 0:
+        return [f"git diff {target}...HEAD failed: {diff.stderr.strip()}. Nothing is pushed."], 0
+    paths = [line for line in diff.stdout.splitlines() if line.strip()]
+    allowed = [glob_to_regex(pattern) for pattern in (*ALWAYS_WRITABLE, *writes)]
+    outside = [p for p in paths if not any(rx.fullmatch(p) for rx in allowed)]
+    if outside:
+        listing = "".join(f"\n  {p}" for p in outside)
+        return [
+            f"the push leaves the Writes of {item}; {len(outside)} path(s) outside:{listing}\n"
+            "Nothing is pushed."
+        ], 0
+    return [], len(paths)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--baseline", required=True,
+    parser.add_argument("--baseline",
                         help="the commit the packet names (an object name, never a distance)")
     parser.add_argument("--allow-main-tree", action="store_true",
                         help="permit the main checkout, for a deliberate single writer")
+    parser.add_argument("--push-item", metavar="ID",
+                        help="check a push: refuse when its diff leaves the Writes of todo item NN-NNN")
+    parser.add_argument("--target", metavar="REF",
+                        help="the push target read for --push-item, e.g. origin/dev")
     args = parser.parse_args(argv)
+
+    if args.push_item is not None:
+        if args.target is None:
+            parser.error("--push-item needs --target")
+        problems, count = push_check(args.push_item, args.target)
+        if problems:
+            for problem in problems:
+                print(f"PUSH REFUSED: {problem}")
+            return 1
+        print(f"WRITES OK: {count} changed path(s) inside the Writes of {args.push_item}, "
+              "or always writable.")
+        return 0
+
+    if args.baseline is None:
+        parser.error("the following arguments are required: --baseline")
 
     problems = check(args.baseline, allow_main_tree=args.allow_main_tree)
     if problems:
@@ -163,9 +326,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"LANE: {problem}")
         return 1
 
+    state, message = state_check()
+    if state == "failed":
+        print(f"LANE: {message}")
+        return 1
+
     _, head = _git("rev-parse", "HEAD")
     where = "linked worktree" if in_linked_worktree() else "main checkout (permitted)"
     print(f"LANE OK: {where}, HEAD {head} matches the named baseline.")
+    print(f"state: {state}")
     return 0
 
 

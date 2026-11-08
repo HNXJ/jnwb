@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import re
+import shutil
 import sys
 import types
 from pathlib import Path
@@ -24,6 +25,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts import docs_build  # noqa: E402
 from scripts import docs_form_gate as gate  # noqa: E402
+from scripts.gates.docs import check_nwb_onboarding_alignment  # noqa: E402
 
 CONTRACT = """# Documentation form
 
@@ -33,6 +35,7 @@ CONTRACT = """# Documentation form
 |---|---|---|
 | A rendered color | `color`, `colors` | `colour`, `colours` |
 | Scaling to a common range | `normalize`, `normalized` | `normalise`, `normalised` |
+| An exported function | `operation`, `operations` | `primitive`, `primitives` |
 
 ## Slop lexicon
 
@@ -42,6 +45,10 @@ CONTRACT = """# Documentation form
 | Filler phrases | `it is worth noting` |
 
 ## Length
+
+| Kind | Ceiling | Why this number |
+|---|---|---|
+| Concept (`02`–`09`, `architecture`, `reading_nwb`, `repairing_nwb`, `coherence_and_tfr`, `laminar`, `vis`) | 1200 words | fixture |
 
 Prose after the table.
 """
@@ -72,9 +79,12 @@ The file is unlocked after `delve` returns, and delve-rs is a crate name.
 
 ```python
 #### a comment, not a heading
+# depth 40 um, in a code block
 
 `alpha` is one, `beta` is two, `gamma` is three.
 ```
+
+The contact depth is stored as `depth_um`, in micrometers, and `pitch_um` is its spacing.
 
 ![A figure](assets/figures/fig.png#only-light)
 ![A figure](assets/figures/fig.dark.png#only-dark)
@@ -87,6 +97,36 @@ The file is unlocked after `delve` returns, and delve-rs is a crate name.
 graph TD
   A --> B
 ```
+"""
+
+#: The fourteen concept pages of the contract's Length table, the Concept row, by file name.
+CONCEPT_NAMES = (
+    "02_paths_addressing_metadata.md", "03_representational_similarity_jrsa.md",
+    "04_spectral_analysis_and_tfr.md", "05_artifact_detection_and_repair.md",
+    "06_spikes_psth_and_onset_dynamics.md", "07_statistical_inference_and_nulls.md",
+    "08_directed_connectivity_and_information.md", "09_decoding_and_visual_qc.md",
+    "architecture.md", "reading_nwb.md", "repairing_nwb.md", "coherence_and_tfr.md",
+    "laminar.md", "vis.md",
+)
+
+CONCEPT = """# Concept
+
+## 1. Section (`jnwb.connectivity`)
+
+A paragraph.
+
+### Operation (`granger`)
+
+Text.
+"""
+
+CITED = """# Cited
+
+The method follows Lee et al. (2021).
+
+## References
+
+- Lee et al. (2021)
 """
 
 GENERATOR = """THEMES = {"light": {"fg": "#000000"}, "dark": {"fg": "#ffffff"}}
@@ -120,6 +160,9 @@ def tree(tmp_path: Path) -> Path:
     for name in ("b", "c", "d"):
         _write(tmp_path / "docs" / f"{name}.md", f"# Page {name.upper()}\n\nA short page.\n")
     _write(tmp_path / "docs" / "tutorials" / "t1.md", "# Tutorial\n\nA short tutorial.\n")
+    _write(tmp_path / "docs" / "cited.md", CITED)
+    for name in CONCEPT_NAMES:
+        _write(tmp_path / "docs" / name, CONCEPT)
     _write(tmp_path / "README.md", "# Fixture\n\nA readme.\n")
     for asset in ("figures/fig.png", "figures/fig.dark.png", "jnwb-logo.png"):
         (tmp_path / "docs" / "assets" / asset).parent.mkdir(parents=True, exist_ok=True)
@@ -172,6 +215,7 @@ def _unsuffixed_image(rel: str) -> Callable[[Path], None]:
 NAV = "mkdocs.yml"
 PAGE_A = "docs/a.md"
 TUTORIAL = "docs/tutorials/t1.md"
+QUICKSTART = "examples/quickstart_jnwb.py"
 
 SEEDS = {
     "superseded form": ("vocabulary", _append(PAGE_A, "\nThe trace colour is fixed.\n"),
@@ -251,10 +295,49 @@ SEEDS = {
         lambda root: _write(root / "skills/demo/SKILL.md",
                             "# Demo\n\nIt is worth noting that the rate is in Hz.\n"),
         "skills/demo/SKILL.md: 'it is worth noting'"),
+    "superseded form in the quickstart": (
+        "vocabulary", _append(QUICKSTART, "\n# Six primitives from the library.\n"),
+        "examples/quickstart_jnwb.py: 'primitives'"),
+    "slop term in the quickstart": ("slop lexicon", _append(QUICKSTART, "\n# We delve in.\n"),
+                                    "examples/quickstart_jnwb.py: 'delve'"),
     "slop lexicon missing": ("slop lexicon",
                              _replace("docs/documentation_form.md", "## Slop lexicon",
                                       "## Removed"),
                              "no slop lexicon parsed"),
+    "concept H2 unnumbered": ("concept headings",
+                              _replace("docs/architecture.md", "## 1. Section", "## Section"),
+                              "architecture.md:3: H2 'Section"),
+    "concept H3 numbered": ("concept headings",
+                            _replace("docs/vis.md", "### Operation", "### 1. Operation"),
+                            "vis.md:7: H3 '1. Operation (`granger`)' is numbered"),
+    "concept H2 names a function": ("module headings",
+                                    _replace("docs/laminar.md", "(`jnwb.connectivity`)",
+                                             "(`granger`)"),
+                                    "laminar.md:3: H2 '1. Section (`granger`)' names "
+                                    "the function"),
+    "table row repeated across two tables": (
+        "repeated table rows",
+        _append(PAGE_A, "\n| Refusal | Error |\n|---|---|\n"
+                        "| `dst` exists | `FileExistsError` |\n"
+                        "\n| Refusal | Error |\n|---|---|\n"
+                        "| `dst` exists | `FileExistsError` |\n"),
+        "a.md: the row '| `dst` exists | `FileExistsError` |' is in 2 tables"),
+    "cited source without a References section": (
+        "references", _append(PAGE_A, "\nThe method follows Lee et al. (2021).\n"),
+        "a.md: cites 'Lee et al. (2021' and has no ## References section"),
+    "References section on a page that cites none": (
+        "references", _append(PAGE_A, "\n## References\n\nNone is cited on this page.\n"),
+        "has a ## References section and cites no source"),
+    "References section that is not the last": (
+        "references",
+        _append(PAGE_A, "\nThe method follows Lee et al. (2021).\n\n## References\n\n- Lee et al. (2021)\n"
+                        "\n## Notes\n\nText.\n"),
+        "## References is not the last section"),
+    "micrometre unit in prose": ("micrometers", _append(PAGE_A, "\nThe probe is 40 um deep.\n"),
+                                 "um is a unit in prose"),
+    "micrometre symbol in math in prose": (
+        "micrometers", _append(PAGE_A, "\nThe depth is $\\mu\\text{m}$ here.\n"),
+        "\\mu\\text{m} is a unit in prose"),
 }
 
 
@@ -325,11 +408,54 @@ def test_a_check_that_raises_is_reported_and_the_others_still_run(tree):
 
 def test_the_command_line_exit_code_follows_the_checks(tree, capsys):
     assert gate.main(tree) == 0
-    assert "ALL DOCUMENTATION FORM CHECKS PASSED. 7 of 7" in capsys.readouterr().out
+    n = len(gate.CHECKS)
+    assert f"ALL DOCUMENTATION FORM CHECKS PASSED. {n} of {n} checks executed" in \
+        capsys.readouterr().out
     SEEDS["three parallel facts in a paragraph"][1](tree)
     assert gate.main(tree) == 1
     out = capsys.readouterr().out
     assert "FAIL: parallel facts:" in out and "OVERALL: FAIL" in out
+
+
+def test_the_corpus_reads_the_quickstart_and_every_tutorial_script(tree):
+    """Bypass: the corpus reads only the tutorial folder, so a superseded form in the quickstart
+    passed the vocabulary and slop checks."""
+    _write(tree / "examples/tutorials/07_extra.py", "# A tutorial.\n")
+    names = {name for name, _ in gate.corpus(tree)}
+    assert {QUICKSTART, "examples/tutorials/07_extra.py"} <= names, sorted(names)
+
+
+# --------------------------------------------------------------------- tutorial scripts (gate 18)
+
+
+def _nwb_tree(tmp_path: Path) -> Path:
+    """A copy of what the tutorial gate reads: the scripts, their pages, the skills, the readme
+    and the nav."""
+    root = tmp_path / "tree"
+    for rel in ("examples/tutorials", "docs/tutorials", "skills"):
+        shutil.copytree(REPO_ROOT / rel, root / rel)
+    for rel in ("README.md", "mkdocs.yml"):
+        shutil.copy(REPO_ROOT / rel, root / rel)
+    return root
+
+
+def test_the_tutorial_gate_checks_a_script_added_to_the_folder(tmp_path):
+    """Bypass: the gate's list is fixed at 00 to 08, so a script added to the folder is not read."""
+    root = _nwb_tree(tmp_path)
+    _write(root / "examples/tutorials/11_extra.py", "def run():\n    pass\n")
+    violations = check_nwb_onboarding_alignment(root)
+    assert any("11_extra.py defines no main()" in v for v in violations), violations
+
+
+def test_the_tutorial_gate_checks_the_open_data_and_wavemap_scripts(tmp_path):
+    """Bypass: 09 and 10 are outside the gate's list, so a module-level raise or a missing main()
+    in either passes."""
+    root = _nwb_tree(tmp_path)
+    _write(root / "examples/tutorials/09_open_data.py", "raise SystemExit('nope')\n")
+    _replace("examples/tutorials/10_wavemap.py", "def main() -> None:", "def run() -> None:")(root)
+    violations = check_nwb_onboarding_alignment(root)
+    assert any("09_open_data.py raises at module level" in v for v in violations), violations
+    assert any("10_wavemap.py defines no main()" in v for v in violations), violations
 
 
 # ----------------------------------------------------------------------------- live tree
@@ -357,6 +483,38 @@ def test_the_live_tree():
     assert count(r"paragraphs in (\d+) pages") >= 28
     assert count(r"none of (\d+) terms") >= 40
     assert count(r"terms in (\d+) pages") >= 28
+
+
+def test_the_concept_pages_are_the_fourteen_of_the_length_table():
+    """Bypass: a concept page missing from the gate's list is not numbered-checked; the list is
+    read from the live Length table's Concept row and pinned here."""
+    names = gate.concept_page_names(REPO_ROOT)
+    assert sorted(names) == sorted(CONCEPT_NAMES)
+    assert all((REPO_ROOT / "docs" / name).is_file() for name in names)
+
+
+def test_a_page_added_to_the_concept_row_is_checked(tree: Path):
+    """Bypass: a hard-coded page list misses a new concept page. One added to the row is read."""
+    contract = tree / "docs" / "documentation_form.md"
+    contract.write_text(contract.read_text(encoding="utf-8").replace("`vis`)", "`vis`, `extra`)"),
+                        encoding="utf-8")
+    _write(tree / "docs" / "extra.md", "# Extra\n\n## Unnumbered\n\nText.\n")
+    violations, _ = gate.check_concept_numbering(tree)
+    assert any("extra.md" in v and "not numbered" in v for v in violations), violations
+
+
+def test_a_contract_with_no_concept_row_reads_no_page_and_fails(tree: Path):
+    _write(tree / "docs" / "documentation_form.md", CONTRACT.split("| Kind | Ceiling")[0])
+    violations, _ = gate.check_concept_numbering(tree)
+    assert any("nothing to check" in v for v in violations), violations
+
+
+def test_the_live_concept_pages_are_read_and_their_h2_counted():
+    """The F10 and F11 reads of the live tree, as counts: a silent empty read shows here."""
+    pages, missing = gate.concept_pages(REPO_ROOT)
+    assert not missing and len(pages) == len(CONCEPT_NAMES)
+    h2 = sum(1 for _, text in pages for _, level, _ in gate.headings(text) if level == 2)
+    assert h2 > 0, "no H2 read from the concept pages; the reader is wrong"
 
 
 def test_the_prose_detector_sees_clauses_in_live_prose():
@@ -407,3 +565,45 @@ def test_the_docs_build_writes_outside_the_tree(monkeypatch, tmp_path):
     assert docs_build.main(["--keep", str(kept)]) == 0
     assert calls[1][0] == kept.resolve() and (kept / "index.html").is_file()
     assert docs_build.main(["--bogus"]) == 2
+
+
+# ------------------------------------------------------------ references and micrometers (F13, F14)
+
+
+def test_a_citation_in_code_or_in_the_list_is_not_a_citation():
+    """Bypass: a cite read from code, or from the References section, makes a page that cites none
+    look like one that does. A bare link to the list is a pointer, not a citation."""
+    assert gate.citation("Use `Lee et al. (2021)` as the key.\n\n```\nLee et al. (2021)\n```\n") is None
+    assert gate.citation("## References\n\n- Lee et al. (2021)\n") is None
+    assert gate.citation("The methods are in [References](references.md).\n") is None
+    assert gate.citation("See [unit quality](references.md#unit-quality).\n") == \
+        "references.md#unit-quality"
+
+
+def test_each_author_year_form_the_pages_use_is_a_citation():
+    """Bypass: a form the reader misses, such as two-author, initial-led or multi-line names, lets
+    a page cite without its section."""
+    for text in ("Maris & Oostenveld (2007).\n", "Schreiber (2000).\n",
+                 "Nejat and Hajipour Sardouie (2021) normalize.\n",
+                 "Westerberg, J., Durand, S., Cabasco, H., et al. (2024).\n",
+                 "Friston\net al. 2014.\n", "Winkler et al., 2016.\n"):
+        assert gate.citation(text) is not None, text
+
+
+def test_a_unit_in_an_identifier_a_code_span_or_a_block_is_not_prose():
+    """Bypass: a reader that matches `um` inside `depth_um`, a code span, a link target or a code
+    block fails every page that names a column. A unit in prose is read."""
+    assert gate.micrometre_units("The column `depth_um` and `um` are code; depth_um is a name.\n") == []
+    assert gate.micrometre_units("A word like umbrella, and ![x](assets/um/plot.png).\n") == []
+    assert gate.micrometre_units("```\n# 40 um\n```\n") == []
+    assert gate.micrometre_units("Depth is 40 um.\n") == [(1, "um")]
+    assert gate.micrometre_units("Depth is 40 µm.\n") == [(1, "µm")]
+    assert gate.micrometre_units("Depth is $\\mu\\text{m}$.\n") == [(1, "\\mu\\text{m}")]
+
+
+def test_the_references_and_micrometre_readers_reach_the_live_pages():
+    """Bypass: a reader that sees no page passes every page. The citation reader reads the pages
+    that cite; the micrometre reader reads every page under docs/."""
+    citing = dict(gate.citing_pages(REPO_ROOT))
+    assert "laminar.md" in citing and "06_spikes_psth_and_onset_dynamics.md" in citing, sorted(citing)
+    assert len(gate.documents(REPO_ROOT)) >= 28

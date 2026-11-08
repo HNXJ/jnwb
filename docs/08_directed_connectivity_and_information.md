@@ -24,14 +24,11 @@ Granger causality, PSI, and TE establish statistical predictability / lag asymme
 
 ---
 
-## 2. Granger Causality & Spectral Granger (`granger`, `granger_spectral`)
-
-> **Deprecation:** `granger_causality` (dict return type) is deprecated in 0.1.7. Use
-> `jnwb.granger`, which returns `DirectedResult`.
+## 2. Granger Causality & Spectral Granger (`jnwb.connectivity`)
 
 Every directed estimator returns a `DirectedResult` with `x_to_y`, `y_to_x`, `net`, and optional `p_x_to_y` / `p_y_to_x` / `p_net` fields (not `statistic` / `pvalue`).
 
-### Bivariate time-domain Granger
+### Bivariate time-domain Granger (`granger`)
 
 ```python
 import numpy as np
@@ -55,9 +52,10 @@ print(f"Y -> X: {result.y_to_x:.4f} (p={result.p_y_to_x:.4f})")
 print(f"Net: {result.net:.4f}")
 ```
 
-`order` is `"auto"` or a fixed integer >= 1. `granger`, `granger_spectral` and
-`granger_causality` raise `ValueError` on `0`, a fraction or a bool rather than fitting a model
-with no history, which would read as no coupling.
+`order` is `"auto"` or a fixed integer >= 1. `granger` and `granger_spectral` raise
+`ValueError` on `0`, a fraction or a bool rather than fitting a model with no history, which
+would read as no coupling. `device="cuda"` runs `granger`'s fits on the GPU
+([install](install.md#gpu-and-parallel-execution)).
 
 `granger_time_reversed(X, Y, order=...)` fits `granger` on the forward trials and on the trials
 reversed in time, at the same fixed integer order; an "auto" order raises. The net direction
@@ -99,7 +97,9 @@ The figure is synthetic: X is an AR(2) process resonating at 22 Hz, and Y carrie
 
 ---
 
-## 3. Phase Slope Index (`phase_slope_index`)
+## 3. Phase Slope Index (`jnwb.connectivity`)
+
+### Phase slope index (`phase_slope_index`)
 
 PSI estimates lag asymmetry from the slope of cross-spectral phase across frequency bins. Positive `net` (and `x_to_y` for PSI) indicates X leads Y under the PSI convention.
 
@@ -142,7 +142,9 @@ The figure is synthetic: one seeded pair of 2000 samples at 1 kHz, with Y equal 
 
 ---
 
-## 4. Transfer Entropy (`transfer_entropy`)
+## 4. Transfer Entropy (`jnwb.connectivity`)
+
+### Transfer entropy (`transfer_entropy`)
 
 Information-theoretic directed coupling with explicit discretization strategy:
 
@@ -182,7 +184,9 @@ rejected.
 
 ---
 
-## 5. Spike Mutual Information (`spike_mutual_information`)
+## 5. Spike Mutual Information (`jnwb.connectivity`)
+
+### Spike mutual information (`spike_mutual_information`)
 
 ```python
 spike_times1 = np.array([0.01, 0.05, 0.12, 0.2])

@@ -12,6 +12,7 @@ import h5py
 import numpy as np
 from hdmf.container import Container, Data
 from pynwb import NWBHDF5IO, NWBFile, get_type_map
+from pynwb.epoch import TimeIntervals
 
 from jnwb.nwb_io import (
     ContainerTypeContradictionWarning,
@@ -146,37 +147,55 @@ def _series_members(group: h5py.Group) -> list[tuple[str | None, str, h5py.Datas
     return members
 
 
+def _interval_table_h5py(grp: h5py.Group, name: str, path: str) -> dict[str, Any]:
+    """One interval table (a `TimeIntervals` group), from the file."""
+    columns: list[dict[str, Any]] = []
+    n_rows = None
+    if "start_time" in grp and isinstance(grp["start_time"], h5py.Dataset):
+        n_rows = int(grp["start_time"].shape[0])
+    for col_name in sorted(grp.keys()):
+        ds = grp[col_name]
+        if not isinstance(ds, h5py.Dataset):
+            continue
+        columns.append(
+            {
+                "name": col_name,
+                "dtype": str(ds.dtype),
+                "shape": list(ds.shape),
+                "sample_values": _sample_column(ds),
+                "description": _stored_description(ds),
+            }
+        )
+    return {"name": name, "path": path, "n_rows": n_rows, "columns": columns}
+
+
 def _inspect_intervals_h5py(intervals: h5py.Group) -> list[dict[str, Any]]:
     tables: list[dict[str, Any]] = []
     for name in sorted(intervals.keys()):
         grp = intervals[name]
         if not isinstance(grp, h5py.Group):
             continue
-        columns: list[dict[str, Any]] = []
-        n_rows = None
-        if "start_time" in grp and isinstance(grp["start_time"], h5py.Dataset):
-            n_rows = int(grp["start_time"].shape[0])
-        for col_name in sorted(grp.keys()):
-            ds = grp[col_name]
-            if not isinstance(ds, h5py.Dataset):
+        tables.append(_interval_table_h5py(grp, name, f"/intervals/{name}"))
+    return tables
+
+
+def _inspect_processing_intervals_h5py(handle: h5py.File) -> list[dict[str, Any]]:
+    """The `TimeIntervals` in processing modules, listed as interval tables with their module."""
+    if "processing" not in handle:
+        return []
+    processing = handle["processing"]
+    tables: list[dict[str, Any]] = []
+    for mod_name in sorted(processing.keys()):
+        mod = processing[mod_name]
+        if not isinstance(mod, h5py.Group):
+            continue
+        for cname in sorted(mod.keys()):
+            obj = mod[cname]
+            if not isinstance(obj, h5py.Group) or _ndt(obj) != "TimeIntervals":
                 continue
-            columns.append(
-                {
-                    "name": col_name,
-                    "dtype": str(ds.dtype),
-                    "shape": list(ds.shape),
-                    "sample_values": _sample_column(ds),
-                    "description": _stored_description(ds),
-                }
-            )
-        tables.append(
-            {
-                "name": name,
-                "path": f"/intervals/{name}",
-                "n_rows": n_rows,
-                "columns": columns,
-            }
-        )
+            entry = _interval_table_h5py(obj, cname, f"/processing/{mod_name}/{cname}")
+            entry["module"] = mod_name
+            tables.append(entry)
     return tables
 
 
@@ -880,6 +899,42 @@ def _warn_if_declared_unit_contradicts_storage(series: Any, acq_name: str, chann
     )
 
 
+def _to_physical(
+    series: Any, data: np.ndarray, channel: int, n_channels: int, name: str
+) -> np.ndarray:
+    """Scale one channel's stored samples: ``conversion``, then ``channel_conversion``, then ``offset``.
+
+    ``channel`` indexes the series' ``channel_conversion`` and must be below ``n_channels``, the
+    channel count the factors must match. A NaN ``conversion`` or ``offset`` is skipped; a factor
+    of 1.0 (or an offset of 0.0) leaves the data as it is. A ``channel_conversion`` whose length
+    is not ``n_channels`` raises ``ValueError``.
+    """
+    conversion = getattr(series, "conversion", None)
+    if conversion is not None and not (isinstance(conversion, float) and np.isnan(conversion)):
+        c_val = float(conversion)
+        if c_val != 1.0:
+            data = data * c_val
+    # `channel_conversion` is the per-channel factor of an ElectricalSeries, applied after
+    # `conversion` and before `offset`; indexed on the channel axis, like `channel`.
+    channel_conversion = getattr(series, "channel_conversion", None)
+    if channel_conversion is not None:
+        factors = np.asarray(channel_conversion[:], dtype=np.float64).ravel()
+        if factors.size != n_channels:
+            raise ValueError(
+                f"Series '{name}' stores {factors.size} channel_conversion factors "
+                f"for {n_channels} channels; the physical value of channel {channel} "
+                f"cannot be computed"
+            )
+        if factors[channel] != 1.0:
+            data = data * factors[channel]
+    offset = getattr(series, "offset", None)
+    if offset is not None and not (isinstance(offset, float) and np.isnan(offset)):
+        o_val = float(offset)
+        if o_val != 0.0:
+            data = data + o_val
+    return data
+
+
 def acquisition_channel(
     path_or_nwb: InspectInput,
     name: str | None = None,
@@ -991,30 +1046,7 @@ def acquisition_channel(
                 f"Unsupported series data shape {shape} for '{acq_name}' (expected 1D or 2D)"
             )
 
-        conversion = getattr(series, "conversion", None)
-        offset = getattr(series, "offset", None)
-        if conversion is not None and not (isinstance(conversion, float) and np.isnan(conversion)):
-            c_val = float(conversion)
-            if c_val != 1.0:
-                data = data * c_val
-        # `channel_conversion` is the per-channel factor of an ElectricalSeries, applied after
-        # `conversion` and before `offset`; indexed on the channel axis, like `channel`.
-        channel_conversion = getattr(series, "channel_conversion", None)
-        if channel_conversion is not None:
-            factors = np.asarray(channel_conversion[:], dtype=np.float64).ravel()
-            n_expected = 1 if len(shape) == 1 else n
-            if factors.size != n_expected:
-                raise ValueError(
-                    f"Series '{acq_name}' stores {factors.size} channel_conversion factors "
-                    f"for {n_expected} channels; the physical value of channel {channel} "
-                    f"cannot be computed"
-                )
-            if factors[channel] != 1.0:
-                data = data * factors[channel]
-        if offset is not None and not (isinstance(offset, float) and np.isnan(offset)):
-            o_val = float(offset)
-            if o_val != 0.0:
-                data = data + o_val
+        data = _to_physical(series, data, channel, 1 if len(shape) == 1 else n, acq_name)
 
         rate = getattr(series, "rate", None)
         if rate is None:
@@ -1162,6 +1194,16 @@ def _inspect_object(nwb: NWBFile) -> dict[str, Any]:
             "n_rows": len(table),
             "columns": _table_columns_pynwb(table, with_shape=True, with_samples=True),
         })
+    for mod_name, mod in sorted((nwb.processing or {}).items()):
+        for cname, obj in sorted(getattr(mod, "data_interfaces", {}).items()):
+            if isinstance(obj, TimeIntervals):
+                interval_tables.append({
+                    "name": cname,
+                    "path": f"/processing/{mod_name}/{cname}",
+                    "n_rows": len(obj),
+                    "columns": _table_columns_pynwb(obj, with_shape=True, with_samples=True),
+                    "module": mod_name,
+                })
 
     acquisitions = [
         _continuous_entry_pynwb(obj, name, f"/acquisition/{name}")
@@ -1240,7 +1282,7 @@ def _inspect_file(path: Path, nwb: NWBFile | None = None) -> dict[str, Any]:
         )
         interval_tables = (
             _inspect_intervals_h5py(handle["intervals"]) if "intervals" in handle else []
-        )
+        ) + _inspect_processing_intervals_h5py(handle)
 
     return {
         "session": session,

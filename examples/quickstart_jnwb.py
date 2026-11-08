@@ -3,7 +3,7 @@
     python examples/quickstart_jnwb.py
 
 WHAT THIS IS
-    Six primitives from the library, each run on a SIMULATED signal whose ground truth is known,
+    Six operations from the library, each run on a SIMULATED signal whose ground truth is known,
     so every panel can show what the function recovered NEXT TO what it should have recovered.
     That makes it a smoke test as well as documentation: if a panel stops matching its ground
     truth, something in the library moved.
@@ -58,7 +58,7 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
 SVG_SALT = "jnwb-quickstart"
 
 #: Ink per theme. The figure is drawn on a transparent background twice: the light theme writes
-#: jnwb_quickstart.{svg,png} and the dark theme jnwb_quickstart.dark.png. Series colours are not
+#: jnwb_quickstart.{svg,png} and the dark theme jnwb_quickstart.dark.png. Series colors are not
 #: here: they come from `scripts/figures/figure_style.py`, one palette for both themes.
 THEMES = {
     "light": {"FG": "#2d2d2d", "FG2": "#555555", "FG3": "#2d2d2d", "FAINT": "#8a8a8a",
@@ -66,8 +66,8 @@ THEMES = {
     "dark": {"FG": "#e0e0e0", "FG2": "#bbbbbb", "FG3": "#cccccc", "FAINT": "#707070",
              "stem": "jnwb_quickstart.dark", "formats": ("png",)},
 }
-COLOURS = ("FG", "FG2", "FG3", "FAINT")
-FG, FG2, FG3, FAINT = (THEMES["light"][k] for k in COLOURS)
+INKS = ("FG", "FG2", "FG3", "FAINT")
+FG, FG2, FG3, FAINT = (THEMES["light"][k] for k in INKS)
 
 
 def _signed(value: float) -> str:
@@ -274,7 +274,7 @@ def main() -> None:
     os.makedirs(OUT, exist_ok=True)
     global FG, FG2, FG3, FAINT
     for theme in THEMES.values():
-        FG, FG2, FG3, FAINT = (theme[k] for k in COLOURS)
+        FG, FG2, FG3, FAINT = (theme[k] for k in INKS)
         style.apply()
         plt.rcParams.update({"svg.fonttype": "none", "svg.hashsalt": SVG_SALT,
                              "text.color": FG, "axes.labelcolor": FG, "axes.titlecolor": FG,

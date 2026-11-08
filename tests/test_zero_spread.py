@@ -109,14 +109,6 @@ def test_per_trial_zscore_takes_a_constant_trial_to_zero():
     np.testing.assert_allclose(z[0], (a[0] - a[0].mean()) / a[0].std(), rtol=1e-12)
 
 
-def test_deprecated_granger_causality_treats_constants_alike():
-    from jnwb.connectivity import granger_causality
-
-    s2 = np.random.default_rng(5).normal(size=400)
-    out = {c: granger_causality(np.full(400, c), s2, order=3) for c in (0.5, 0.3)}
-    np.testing.assert_equal(out[0.3], out[0.5])
-
-
 def test_ljung_box_has_no_p_for_constant_residuals():
     from jnwb.connectivity import _ljung_box_pvalue
 

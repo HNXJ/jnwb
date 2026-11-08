@@ -865,3 +865,116 @@ def test_the_schema_declares_the_deferred_section_and_the_replication_label():
     assert "deferred" in schema["properties"], "the schema must name the deferred section"
     replication = schema["$defs"]["showcase"]["properties"]["replications"]["items"]
     assert set(replication["properties"]["label"]["enum"]) == set(LABEL_OF_VERDICT.values())
+
+
+# ---- related reproductions -------------------------------------------------------------------
+
+RELATED_ENTRY = {"id": "fixture_related", "title": "A reproduction kept elsewhere",
+                 "relation": "Scored by its own scorer; the build reads none of its values.",
+                 "links": [{"label": "Scorecard", "url": "https://example.org/scorecard"}]}
+
+
+@pytest.fixture
+def related_at(tmp_path, monkeypatch):
+    """Points the builder at a related-reproductions record written to a temporary directory."""
+    builder = _builder()
+
+    def point(entries):
+        path = tmp_path / "related.json"
+        path.write_text(json.dumps({"entries": entries}), encoding="utf-8", newline="\n")
+        monkeypatch.setattr(builder, "RELATED_RECORD", path, raising=False)
+        return path
+
+    return point
+
+
+def test_related_is_the_record_as_written(data):
+    record = REPO_ROOT / "artifacts" / "showcases" / "related.json"
+    assert data["related"] == json.loads(record.read_text(encoding="utf-8"))["entries"]
+    assert data["sources"]["related"] == ["artifacts/showcases/related.json"]
+
+
+def test_related_is_null_while_no_record_exists(tmp_path, monkeypatch):
+    builder = _builder()
+    monkeypatch.setattr(builder, "RELATED_RECORD", tmp_path / "no_record.json", raising=False)
+    data = builder.build_data()
+    assert data["related"] is None and data["sources"]["related"] == []
+
+
+def test_a_built_related_record_validates_against_the_schema(related_at):
+    related_at([RELATED_ENTRY])
+    data = _builder().build_data()
+    assert data["related"] == [RELATED_ENTRY]
+    errors = list(_validator().iter_errors(data))
+    assert not errors, [f"{'/'.join(str(p) for p in e.absolute_path)}: {e.message}" for e in errors]
+
+
+@pytest.mark.parametrize("mutate, words", [
+    (lambda e: e.pop("relation"), "relation"),
+    (lambda e: e.update(links=[]), "no link"),
+    (lambda e: e["links"][0].update(url="http://example.org/"), "https"),
+    (lambda e: e["links"][0].pop("label"), "label"),
+    (lambda e: e.pop("title"), "title"),
+], ids=["no-relation", "no-links", "http", "no-label", "no-title"])
+def test_a_malformed_related_entry_is_refused(related_at, mutate, words):
+    entry = json.loads(json.dumps(RELATED_ENTRY))
+    mutate(entry)
+    related_at([entry])
+    with pytest.raises(ValueError) as info:
+        _builder().build_data()
+    assert "fixture_related" in str(info.value) and words in str(info.value)
+
+
+# ---- release plan ---------------------------------------------------------------------------
+
+PLAN_ROW = {"version": "9.9.1", "status": "planned", "theme": "Synthetic theme",
+            "goal": "Synthetic goal.", "scope": ["a"], "needs": [], "items": []}
+
+
+@pytest.fixture
+def plan_at(tmp_path, monkeypatch):
+    """Points the builder at a release plan written to a temporary directory."""
+    builder = _builder()
+
+    def point(rows):
+        path = tmp_path / "release_plan.json"
+        path.write_text(json.dumps({"releases": rows}), encoding="utf-8", newline="\n")
+        monkeypatch.setattr(builder, "RELEASE_PLAN", path, raising=False)
+        return path
+
+    return point
+
+
+def test_roadmap_is_the_plan_as_written(data):
+    plan = REPO_ROOT / "artifacts" / "process" / "release_plan.json"
+    assert data["roadmap"] == json.loads(plan.read_text(encoding="utf-8"))["releases"]
+    assert data["sources"]["roadmap"] == ["artifacts/process/release_plan.json"]
+
+
+def test_roadmap_is_null_while_no_plan_exists(tmp_path, monkeypatch):
+    builder = _builder()
+    monkeypatch.setattr(builder, "RELEASE_PLAN", tmp_path / "no_plan.json", raising=False)
+    data = builder.build_data()
+    assert data["roadmap"] is None and data["sources"]["roadmap"] == []
+
+
+def test_a_built_plan_validates_against_the_schema(plan_at):
+    plan_at([PLAN_ROW])
+    data = _builder().build_data()
+    assert data["roadmap"] == [PLAN_ROW]
+    errors = list(_validator().iter_errors(data))
+    assert not errors, [f"{'/'.join(str(p) for p in e.absolute_path)}: {e.message}" for e in errors]
+
+
+@pytest.mark.parametrize("rows, words", [
+    ([dict(PLAN_ROW, version="0.0.1")], "not later than the declared"),
+    ([dict(PLAN_ROW, version="9.9")], "is not a version"),
+    ([dict(PLAN_ROW, version="9.9.2"), PLAN_ROW], "out of ascending order"),
+    ([dict(PLAN_ROW, status="done")], "has status"),
+    ([dict(PLAN_ROW, goal="")], "no theme or no goal"),
+    ([dict(PLAN_ROW, items=["99-999"])], "which no stack contains"),
+], ids=["released", "not-xyz", "order", "status", "no-goal", "unknown-item"])
+def test_a_malformed_plan_row_is_refused(plan_at, rows, words):
+    plan_at(rows)
+    with pytest.raises(ValueError, match=words):
+        _builder().build_data()

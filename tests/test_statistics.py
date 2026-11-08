@@ -359,8 +359,7 @@ class TestClopperPearson:
     def test_statistical_analysis_method_equivalence(self):
         res1 = clopper_pearson(3, 10, alpha=0.10)
         res2 = StatisticalAnalysis.clopper_pearson(3, 10, alpha=0.10)
-        res3 = StatisticalAnalysis.clopper_pearson_ci(3, 10, alpha=0.10)
-        assert res1 == res2 == res3
+        assert res1 == res2
 
     def test_invalid_inputs_raise_value_error(self):
         with pytest.raises(ValueError, match="n must be >= 1"):

@@ -15,8 +15,12 @@ driven through the pure function the step calls.
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
+import subprocess
 import sys
+import tarfile
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -192,3 +196,263 @@ def test_this_tree_would_be_refused_a_release_at_its_declared_version() -> None:
     assert refusal, f"a rebuild at the already-published {version} would be allowed"
     if pending:
         assert f"{len(pending)} non-empty lines" in refusal[0]
+
+
+# --- Post-publication mode: a version the index serves is accepted only as the same files. ---
+
+WHEEL = "jnwb-0.2.15-py3-none-any.whl"
+SDIST = "jnwb-0.2.15.tar.gz"
+DIGEST_A = "a" * 64
+DIGEST_B = "b" * 64
+
+
+def _gate():
+    import scripts.release_gate as gate
+
+    return gate
+
+
+def _index(version: str, files: dict) -> dict:
+    """The index's JSON shape: per-file entries carrying ``digests.sha256``."""
+    return {
+        "releases": {
+            version: [
+                {"filename": name, "digests": ({"sha256": sha} if sha is not None else {})}
+                for name, sha in files.items()
+            ]
+        }
+    }
+
+
+def _built(files: dict):
+    """A build stub that returns ``(digests, problems)`` as ``build_tag_digests`` does."""
+    return lambda: (dict(files), [])
+
+
+@pytest.fixture(autouse=True)
+def _no_download(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A served file's content digest stands in as its index sha256: no test downloads."""
+    gate = _gate()
+    monkeypatch.setattr(gate, "fetch_served_content_digest",
+                        lambda entry: (entry["digests"]["sha256"], None))
+
+
+def _wheel(path: Path, members: dict) -> Path:
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, (data, stamp) in members.items():
+            archive.writestr(zipfile.ZipInfo(name, date_time=stamp), data)
+    return path
+
+
+STAMP_1 = (2026, 10, 31, 12, 0, 0)
+STAMP_2 = (2026, 11, 3, 8, 30, 0)
+
+
+def test_two_builds_differing_in_timestamps_and_line_endings_share_a_content_digest(
+    tmp_path: Path,
+) -> None:
+    gate = _gate()
+    a = _wheel(tmp_path / "a.whl", {"jnwb/x.py": (b"X = 1\n", STAMP_1),
+                                    "jnwb-1.dist-info/METADATA": (b"Name: jnwb\n", STAMP_1),
+                                    "jnwb-1.dist-info/RECORD": (b"jnwb/x.py,sha256=aa\n", STAMP_1)})
+    b = _wheel(tmp_path / "b.whl", {"jnwb/x.py": (b"X = 1\n", STAMP_2),
+                                    "jnwb-1.dist-info/METADATA": (b"Name: jnwb\r\n", STAMP_2),
+                                    "jnwb-1.dist-info/RECORD": (b"jnwb/x.py,sha256=bb\n", STAMP_2)})
+    assert a.read_bytes() != b.read_bytes(), "fixture must differ in bytes"
+    assert gate.archive_content_digest(a) == gate.archive_content_digest(b)
+
+
+def test_a_changed_member_changes_the_content_digest(tmp_path: Path) -> None:
+    gate = _gate()
+    a = _wheel(tmp_path / "a.whl", {"jnwb/x.py": (b"X = 1\n", STAMP_1)})
+    b = _wheel(tmp_path / "b.whl", {"jnwb/x.py": (b"X = 2\n", STAMP_1)})
+    c = _wheel(tmp_path / "c.whl", {"jnwb/x.py": (b"X = 1\n", STAMP_1), "jnwb/y.py": (b"", STAMP_1)})
+    digests = {gate.archive_content_digest(p) for p in (a, b, c)}
+    assert len(digests) == 3
+
+
+def test_an_sdist_is_read_by_member(tmp_path: Path) -> None:
+    gate = _gate()
+    paths = []
+    for name, data in (("a.tar.gz", b"X = 1\n"), ("b.tar.gz", b"X = 1\r\n"), ("c.tar.gz", b"X = 2\n")):
+        source = tmp_path / name.replace(".tar.gz", ".py")
+        source.write_bytes(data)
+        with tarfile.open(tmp_path / name, "w:gz") as archive:
+            archive.add(source, arcname="jnwb-1/x.py")
+        paths.append(tmp_path / name)
+    a, b, c = (gate.archive_content_digest(p) for p in paths)
+    assert a == b and a != c
+
+
+def test_a_served_download_that_is_not_the_indexed_file_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = _gate()
+    monkeypatch.undo()
+    served = _wheel(tmp_path / WHEEL, {"jnwb/x.py": (b"X = 1\n", STAMP_1)})
+    entry = {"filename": WHEEL, "url": served.as_uri(), "digests": {"sha256": DIGEST_A}}
+    content, why = gate.fetch_served_content_digest(entry)
+    assert content is None and "is not the index's" in why
+    entry["digests"]["sha256"] = hashlib.sha256(served.read_bytes()).hexdigest()
+    content, why = gate.fetch_served_content_digest(entry)
+    assert why is None and content == gate.archive_content_digest(served)
+
+
+def test_the_flag_is_named_and_read_by_main() -> None:
+    gate = _gate()
+    assert gate.POST_PUBLICATION_FLAG == "--published"
+    main = _main_function()
+    names = {node.id for node in ast.walk(main) if isinstance(node, ast.Name)}
+    assert "POST_PUBLICATION_FLAG" in names, "main() does not read the post-publication flag"
+    assert "check_index_matches_tag_build" in names, "main() never runs the flag's check"
+
+
+def test_post_publication_an_unpublished_version_passes_without_a_build() -> None:
+    gate = _gate()
+
+    def never_built():
+        raise AssertionError("an unpublished version was built")
+
+    assert gate.check_index_matches_tag_build("0.2.16", _index("0.2.15", {WHEEL: DIGEST_A}),
+                                              never_built) == []
+
+
+def test_post_publication_a_matching_published_version_passes() -> None:
+    gate = _gate()
+    files = {WHEEL: DIGEST_A, SDIST: DIGEST_B}
+    assert gate.check_index_matches_tag_build("0.2.15", _index("0.2.15", files), _built(files)) == []
+
+
+def test_post_publication_a_mismatched_file_fails_by_name() -> None:
+    gate = _gate()
+    problems = gate.check_index_matches_tag_build(
+        "0.2.15",
+        _index("0.2.15", {WHEEL: DIGEST_A, SDIST: DIGEST_B}),
+        _built({WHEEL: DIGEST_B, SDIST: DIGEST_B}),
+    )
+    assert len(problems) == 1, problems
+    assert WHEEL in problems[0] and "differ from" in problems[0]
+    assert DIGEST_A in problems[0] and DIGEST_B in problems[0]
+
+
+def test_post_publication_a_file_the_build_lacks_fails_by_name() -> None:
+    gate = _gate()
+    problems = gate.check_index_matches_tag_build(
+        "0.2.15", _index("0.2.15", {WHEEL: DIGEST_A, SDIST: DIGEST_B}), _built({WHEEL: DIGEST_A})
+    )
+    assert any(SDIST in p and "does not produce" in p for p in problems), problems
+
+
+def test_post_publication_a_file_the_index_lacks_fails_by_name() -> None:
+    gate = _gate()
+    problems = gate.check_index_matches_tag_build(
+        "0.2.15", _index("0.2.15", {WHEEL: DIGEST_A}), _built({WHEEL: DIGEST_A, SDIST: DIGEST_B})
+    )
+    assert any(SDIST in p and "does not serve" in p for p in problems), problems
+
+
+def test_post_publication_an_index_file_without_a_sha256_fails_by_name() -> None:
+    gate = _gate()
+    problems = gate.check_index_matches_tag_build(
+        "0.2.15", _index("0.2.15", {WHEEL: None}), _built({WHEEL: DIGEST_A})
+    )
+    assert any(WHEEL in p and "no sha256" in p for p in problems), problems
+
+
+def test_post_publication_a_build_that_was_refused_fails() -> None:
+    gate = _gate()
+    refused = lambda: (None, ["HEAD abc is not the commit v0.2.15 names"])  # noqa: E731
+    problems = gate.check_index_matches_tag_build(
+        "0.2.15", _index("0.2.15", {WHEEL: DIGEST_A}), refused
+    )
+    assert problems == ["HEAD abc is not the commit v0.2.15 names"]
+
+
+def test_post_publication_an_empty_build_cannot_match_anything() -> None:
+    gate = _gate()
+    problems = gate.check_index_matches_tag_build(
+        "0.2.15", _index("0.2.15", {WHEEL: DIGEST_A}), _built({})
+    )
+    assert problems, "an empty build was read as a match"
+
+
+def test_post_publication_an_unreachable_index_is_unverified_not_clear(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gate = _gate()
+    monkeypatch.delenv(SKIP_INDEX_ENV, raising=False)
+    problems = gate.check_index_matches_tag_build("0.2.15", None, _built({WHEEL: DIGEST_A}))
+    assert problems and "could not be reached" in problems[0]
+
+
+def test_post_publication_an_offline_run_records_a_skip(monkeypatch: pytest.MonkeyPatch) -> None:
+    gate = _gate()
+    monkeypatch.setenv(SKIP_INDEX_ENV, "1")
+    monkeypatch.setattr(gate, "SKIPPED_CHECKS", [])
+    assert gate.check_index_matches_tag_build("0.2.15", None, _built({WHEEL: DIGEST_A})) == []
+    assert gate.SKIPPED_CHECKS == [gate.INDEX_SKIPPED]
+
+
+class _Git:
+    """A subprocess stub for ``build_tag_digests``: git answers, and the build writes files."""
+
+    def __init__(self, head, tagged, files=None, build_rc=0):
+        self.head, self.tagged, self.files, self.build_rc = head, tagged, files or {}, build_rc
+        self.commands = []
+
+    def __call__(self, cmd, **kwargs):
+        self.commands.append(list(cmd))
+        if cmd[1:2] == ["rev-parse"]:
+            value = self.head if cmd[-1] == "HEAD" else self.tagged
+            if value is None:
+                return subprocess.CompletedProcess(cmd, 1, "", "unknown revision")
+            return subprocess.CompletedProcess(cmd, 0, value + "\n", "")
+        if cmd[1:3] == ["-m", "build"]:
+            outdir = Path(cmd[cmd.index("--outdir") + 1])
+            for name, data in self.files.items():
+                (outdir / name).write_bytes(data)
+            return subprocess.CompletedProcess(cmd, self.build_rc, "", "")
+        raise AssertionError(f"unexpected command {cmd}")
+
+
+def test_the_tag_build_refuses_a_head_that_is_not_the_tag(tmp_path: Path) -> None:
+    gate = _gate()
+    git = _Git(head="a" * 40, tagged="b" * 40)
+    digests, problems = gate.build_tag_digests("0.2.15", root=tmp_path, runner=git)
+    assert digests is None
+    assert "v0.2.15" in problems[0] and "not the commit" in problems[0]
+    assert not any(cmd[1:3] == ["-m", "build"] for cmd in git.commands), (
+        "a build of HEAD ran although HEAD is not the tag"
+    )
+
+
+def test_the_tag_build_refuses_an_unresolvable_tag(tmp_path: Path) -> None:
+    gate = _gate()
+    digests, problems = gate.build_tag_digests(
+        "0.2.15", root=tmp_path, runner=_Git(head="a" * 40, tagged=None)
+    )
+    assert digests is None and "v0.2.15" in problems[0] and "does not resolve" in problems[0]
+
+
+def test_the_tag_build_digests_each_file_it_produces(tmp_path: Path) -> None:
+    gate = _gate()
+    wheel = _wheel(tmp_path / "w.whl", {"jnwb/x.py": (b"X = 1\n", STAMP_1)})
+    git = _Git(head="a" * 40, tagged="a" * 40, files={WHEEL: wheel.read_bytes()})
+    digests, problems = gate.build_tag_digests("0.2.15", root=tmp_path, runner=git)
+    assert problems == []
+    assert digests == {WHEEL: gate.archive_content_digest(wheel)}
+
+
+def test_the_tag_build_refuses_an_unreadable_distribution(tmp_path: Path) -> None:
+    gate = _gate()
+    git = _Git(head="a" * 40, tagged="a" * 40, files={WHEEL: b"not a zip"})
+    digests, problems = gate.build_tag_digests("0.2.15", root=tmp_path, runner=git)
+    assert digests is None and "unreadable distribution" in problems[0]
+
+
+def test_the_tag_build_reports_a_failed_build(tmp_path: Path) -> None:
+    gate = _gate()
+    digests, problems = gate.build_tag_digests(
+        "0.2.15", root=tmp_path, runner=_Git(head="a" * 40, tagged="a" * 40, build_rc=1)
+    )
+    assert digests is None and "building v0.2.15 failed" in problems[0]

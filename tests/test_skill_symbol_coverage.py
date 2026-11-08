@@ -54,6 +54,7 @@ ERRORS = [
     "NWBVerificationError",
     "RaggedIndexRepairRefused",
     "SqueezedAttributeWarning",
+    "TableNotFoundError",
     "UnidentifiableRepairError",
     "UnitNotFoundError",
 ]

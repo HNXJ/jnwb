@@ -298,18 +298,13 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
                     f"as showing a reader how to use it"
                 )
 
-    expected_scripts = [
-        "00_your_own_file.py",
-        "01_nwb_basics.py",
-        "02_addressing_and_metadata.py",
-        "03_spiking.py",
-        "04_lfp_and_spectral.py",
-        "05_statistics.py",
-        "06_laminar.py",
-        "07_ensembles.py",
-        "08_end_to_end_pipeline.py",
-    ]
+    # Every tutorial script in the folder, read by name: a script added there is checked without
+    # an edit here, and an empty folder is a violation rather than an empty pass.
     tutorial_dir = root / "examples" / "tutorials"
+    expected_scripts = (sorted(p.name for p in tutorial_dir.glob("*.py"))
+                        if tutorial_dir.is_dir() else [])
+    if not expected_scripts:
+        violations.append("NWB_ONBOARDING: no tutorial script under examples/tutorials/")
     for name in expected_scripts:
         script = tutorial_dir / name
         if not script.exists():

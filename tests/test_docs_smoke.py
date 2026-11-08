@@ -77,7 +77,8 @@ class TestDocsSmokeFixtures:
         X = rng.normal(size=(8, 20, 30))  # 8 conditions, 20 units, 30 timepoints
         res = jnwb.jrsa(X, X, metric="rsa", stats=False)
         assert isinstance(res, jnwb.JRSAResult)
-        assert res.value is not None
+        # The RDM of X against itself: the two distance vectors are identical, so Spearman rho is 1.
+        np.testing.assert_allclose(res.value, 1.0, rtol=1e-12)
 
     def test_doc04_spectral_and_analyzers(self, rng):
         sig = rng.normal(size=1000)
@@ -179,13 +180,17 @@ class TestDocsSmokeFixtures:
 
         g_res = jnwb.granger(X, Y, order=2, n_surrogates=10, seed=0)
         assert isinstance(g_res, jnwb.DirectedResult)
-        assert g_res.p_x_to_y is not None
+        # p = (1 + k) / (B + 1), B = 10 surrogates. The 0.6 coupling puts the observed X -> Y gain
+        # above every surrogate (k = 0), so p is at its floor, 1 / 11.
+        np.testing.assert_allclose(g_res.p_x_to_y, 1 / 11, rtol=1e-12)
         assert hasattr(g_res, "x_to_y") and hasattr(g_res, "net")
 
         spectral_res = jnwb.granger_spectral(
             X, Y, fs=1000.0, bands=jnwb.CANONICAL_BANDS, n_surrogates=10, seed=0,
         )
-        assert spectral_res.spectrum is not None
+        # Uniform frequency grid from 0 Hz to the Nyquist frequency fs / 2 = 500 Hz.
+        grid = spectral_res.spectrum["freqs"]
+        np.testing.assert_allclose(grid, np.linspace(0.0, 500.0, grid.size), rtol=1e-12)
 
         x_long = rng.normal(size=4000)
         y_long = np.zeros(4000)
@@ -196,12 +201,16 @@ class TestDocsSmokeFixtures:
             nperseg=250, jackknife=True, n_surrogates=20, rng=0,
         )
         assert isinstance(psi_res, jnwb.DirectedResult)
-        assert psi_res.spectrum is not None
+        # nperseg 250 at 1 kHz: the 4 Hz grid from 0 to 500 Hz.
+        np.testing.assert_allclose(
+            psi_res.spectrum["freqs"], np.fft.rfftfreq(250, d=1 / 1000.0), rtol=1e-12
+        )
         assert "psi_per_freq" in psi_res.spectrum
         # The page prints two p values and says which question each answers.
         assert psi_res.diagnostics["p_source"] == "jackknife_z"
         assert psi_res.p_net == psi_res.p_x_to_y == psi_res.p_y_to_x
-        assert psi_res.diagnostics["p_coupling_surrogate"] is not None
+        # Two-sided, B = 20 surrogates: 2 * (1 + 0) / (20 + 1). The coupling exceeds every surrogate.
+        np.testing.assert_allclose(psi_res.diagnostics["p_coupling_surrogate"], 2 / 21, rtol=1e-12)
         assert psi_res.params["n_segments"] == 31, "the page states 31 segments"
 
         te_res = jnwb.transfer_entropy(
@@ -298,5 +307,6 @@ class TestDocsSmokeFixtures:
         assert psi.params["n_segments"] == 19, "the page's comment states 19 segments"
 
         jrsa_res = namespace["jrsa_res"]
-        assert jrsa_res.p is not None
+        # Two-sided, B = 100 permutations: 2 * (1 + 0) / (100 + 1). The observed alignment is the largest.
+        np.testing.assert_allclose(float(jrsa_res.p), 2 / 101, rtol=1e-12)
         assert jrsa_res.parameters["permutations"] == 100

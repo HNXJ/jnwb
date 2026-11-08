@@ -59,6 +59,8 @@ def aggregate_to_db(
 ):
     """Form a power ratio, aggregate on the RATIO scale, and take ``10*log10`` exactly once.
 
+    estimand: raw_power
+
     This is the enforcing form of :func:`to_db`. ``to_db`` is a bare conversion: it cannot stop
     a caller who already holds decibels from averaging them. Averaging decibels is a Jensen
     error -- ``mean(log x) != log(mean x)`` -- and it biases every unit by its own noisiness,
@@ -369,6 +371,8 @@ def band_power(
 ) -> float:
     """
     Mean power spectral density over a frequency band.
+
+    estimand: raw_power
 
     The estimand is ``mean(PSD[f0 <= f <= f1])`` over the Welch bins inside the band --
     a spectral *density*, in input-units^2/Hz, not an integrated power in

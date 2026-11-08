@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from .._layout import require_trial_length
 from .._rng import Default, RNGLike, resolve_seed_alias
+from .._units import _OMITTED, _check_signal_class
 from ._common import DirectedResult, _surrogate_p, _surrogate_rng, _surrogate_scheme, _surrogate_source
 from ._trials import _detrend_trials, _pair_trials
 
@@ -193,6 +194,7 @@ def transfer_entropy(
     detrend: Optional[str] = None,
     time_axis: int = -1,
     *,
+    signal_class: Union[str, Tuple[str, str]] = _OMITTED,
     seed: Any = Default(0),
 ) -> DirectedResult:
     """
@@ -259,6 +261,8 @@ def transfer_entropy(
             fresh OS entropy; a float is refused. Passing
             ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the
             p-values (``seed`` is the old spelling and still works)
+        signal_class: as in :func:`granger`: ``'spikes'`` or ``'lfp'``, or a pair; a mixed pair is
+            refused, and omitted the call warns ``FutureWarning``. It changes no number.
         detrend: usually ``None``; TE is invariant to monotone rescaling under
             the quantile estimator, so z-scoring buys nothing
 
@@ -277,6 +281,7 @@ def transfer_entropy(
         trials (7 or more) or circularly shift the source (fewer), which keeps its
         autocorrelation; ``params['surrogate_scheme']`` records which.
     """
+    _check_signal_class("transfer_entropy", signal_class, 2)
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='transfer_entropy')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "transfer_entropy")
     if estimator == "symbolic":

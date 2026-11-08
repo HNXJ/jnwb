@@ -26,9 +26,14 @@ the checker already believes (a fixture must build the case it is named after).
 """
 from __future__ import annotations
 
+import contextlib
+import json
+import os
 import pathlib
 import subprocess
 import sys
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
@@ -178,3 +183,309 @@ def test_this_checkout_is_classified_without_raising():
     """
     assert in_linked_worktree(REPO_ROOT) in (True, False)
     assert in_linked_worktree(pathlib.Path(__file__).parent) in (True, False)
+
+
+# --------------------------------------------------------------------------------------
+# The lane's state basis is current before the lane reads it.
+# --------------------------------------------------------------------------------------
+
+VERIFY = REPO_ROOT / "scripts" / "verify_lane.py"
+PUSH = REPO_ROOT / "scripts" / "jnwb_push.sh"
+
+#: Stands in for scripts/reconstruct_state.py where a test must regenerate: the real script runs
+#: the harness and reads the network. Its --check reads the HEAD row the same way the real one does.
+STATE_STUB = '''\
+import os, pathlib, re, subprocess, sys
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+STATE = ROOT / "artifacts" / "state.md"
+ROW = re.compile(r"^\\| HEAD \\| `([0-9a-f]{40})` \\|$", re.MULTILINE)
+
+
+def head():
+    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
+                          text=True, check=True).stdout.strip()
+
+
+if "--check" in sys.argv:
+    match = ROW.search(STATE.read_text(encoding="utf-8")) if STATE.exists() else None
+    if match is None or match.group(1) != head():
+        print("ERROR: artifacts/state.md is stale")
+        sys.exit(1)
+    print("PASS")
+    sys.exit(0)
+if os.environ.get("STUB_REGENERATION") == "fail":
+    print("ERROR: regeneration failed")
+    sys.exit(1)
+STATE.parent.mkdir(parents=True, exist_ok=True)
+STATE.write_text("| HEAD | `" + head() + "` |\\n", encoding="utf-8")
+print("wrote artifacts/state.md")
+'''
+
+
+def _state_lane(tmp_path, state_script=None):
+    """A committed repository holding scripts/reconstruct_state.py: the real script unless a stand-in is given."""
+    repo = tmp_path / "lane"
+    (repo / "scripts").mkdir(parents=True)
+    text = state_script
+    if text is None:
+        text = (REPO_ROOT / "scripts" / "reconstruct_state.py").read_text(encoding="utf-8")
+    (repo / "scripts" / "reconstruct_state.py").write_text(text, encoding="utf-8")
+    (repo / "a.txt").write_text("one\n", encoding="utf-8")
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.email", "t@example.com")
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "add", "a.txt", "scripts/reconstruct_state.py")
+    _git(repo, "commit", "-q", "-m", "fixture")
+    return repo
+
+
+def _plant_state(repo, sha):
+    """artifacts/state.md recording `sha` as its HEAD: the one row the check reads."""
+    (repo / "artifacts").mkdir(exist_ok=True)
+    (repo / "artifacts" / "state.md").write_text(f"| HEAD | `{sha}` |\n", encoding="utf-8")
+
+
+def _run_verify(repo, *args, extra_env=None):
+    env = dict(os.environ, **(extra_env or {}))
+    return subprocess.run(
+        [sys.executable, VERIFY.as_posix(), *args], cwd=str(repo), env=env,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
+    )
+
+
+def test_a_current_state_is_reported_current(tmp_path):
+    repo = _state_lane(tmp_path)
+    head = _git(repo, "rev-parse", "HEAD")
+    _plant_state(repo, head)
+    proc = _run_verify(repo, "--baseline", head, "--allow-main-tree")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "LANE OK" in proc.stdout and "state: current" in proc.stdout, proc.stdout
+
+
+def test_a_stale_state_is_regenerated_then_checked_again(tmp_path):
+    repo = _state_lane(tmp_path, STATE_STUB)
+    head = _git(repo, "rev-parse", "HEAD")
+    _plant_state(repo, "1" * 40)  # a planted HEAD that is not the tree's HEAD
+    assert "1" * 40 != head
+    proc = _run_verify(repo, "--baseline", head, "--allow-main-tree")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "state: regenerated" in proc.stdout, proc.stdout
+    assert head in (repo / "artifacts" / "state.md").read_text(encoding="utf-8")
+
+
+def test_a_missing_state_is_regenerated(tmp_path):
+    """The state file is gitignored, so a fresh lane has none: the case every lane starts in."""
+    repo = _state_lane(tmp_path, STATE_STUB)
+    head = _git(repo, "rev-parse", "HEAD")
+    assert not (repo / "artifacts" / "state.md").exists()
+    proc = _run_verify(repo, "--baseline", head, "--allow-main-tree")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "state: regenerated" in proc.stdout, proc.stdout
+
+
+def test_a_state_still_stale_after_regeneration_fails_by_name(tmp_path):
+    repo = _state_lane(tmp_path, STATE_STUB)
+    head = _git(repo, "rev-parse", "HEAD")
+    _plant_state(repo, "1" * 40)
+    proc = _run_verify(repo, "--baseline", head, "--allow-main-tree",
+                       extra_env={"STUB_REGENERATION": "fail"})
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "LANE:" in proc.stdout and "after regeneration" in proc.stdout, proc.stdout
+    assert "LANE OK" not in proc.stdout, "a lane whose state is stale may not report OK"
+
+
+# --------------------------------------------------------------------------------------
+# A push for a named todo item may carry only that item's Writes (and the always-writable paths).
+# --------------------------------------------------------------------------------------
+
+ITEM = "18-901"
+ORIGIN_TODO = """\
+# 0.2.16
+
+### 18-901 Fixture item
+
+Writes: `scripts/a.py`, `tests/**/*.py`.
+- Fixture body.
+
+### 18-902 Fixture neighbour
+
+Writes: `scripts/b.py`.
+- Fixture body.
+"""
+#: The local commit deletes the finished item, as a real push does: the Writes must still be read
+#: from the target, where the item still stands.
+FINISHED_TODO = """\
+# 0.2.16
+
+### 18-902 Fixture neighbour
+
+Writes: `scripts/b.py`.
+- Fixture body.
+"""
+
+
+def _bash():
+    """Git for Windows bash; a bare `bash` can resolve to the WSL launcher."""
+    if sys.platform != "win32":
+        return "bash"
+    git_bash = pathlib.Path("C:/Program Files/Git/usr/bin/bash.exe")
+    if not git_bash.exists():
+        pytest.skip("Git for Windows bash not found")
+    return git_bash.as_posix()
+
+
+def _push_lane(tmp_path, change):
+    """A bare origin at dev holding ORIGIN_TODO, and a clone one local commit past it.
+
+    `change(repo)` edits the clone and returns the paths it changed. A passing suite stamp is planted
+    at the local HEAD, so the only gate left to decide is the item's Writes. The remote is a local
+    bare repository: nothing contacts GitHub, and the CI helpers are stubs in a fake HOME.
+    """
+    bare = tmp_path / "origin.git"
+    _git(tmp_path, "init", "-q", "--bare", bare.as_posix())
+    repo = tmp_path / "clone"
+    (repo / "artifacts").mkdir(parents=True)
+    (repo / "scripts").mkdir()
+    (repo / "artifacts" / "todo_stack.md").write_text(ORIGIN_TODO, encoding="utf-8")
+    (repo / "scripts" / "a.py").write_text("A = 1\n", encoding="utf-8")
+    (repo / "scripts" / "b.py").write_text("B = 1\n", encoding="utf-8")
+    # The push runs the checker the repository carries, so the clone carries the real one.
+    (repo / "scripts" / "verify_lane.py").write_text(VERIFY.read_text(encoding="utf-8"),
+                                                     encoding="utf-8")
+    _git(repo, "init", "-q")
+    _git(repo, "symbolic-ref", "HEAD", "refs/heads/dev")
+    _git(repo, "config", "user.email", "t@example.com")
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "add", "artifacts/todo_stack.md", "scripts/a.py", "scripts/b.py",
+         "scripts/verify_lane.py")
+    _git(repo, "commit", "-q", "-m", "origin state")
+    _git(repo, "remote", "add", "origin", bare.as_posix())
+    _git(repo, "push", "-q", "origin", "dev")
+    origin_sha = _git(repo, "rev-parse", "HEAD")
+    changed = change(repo)
+    _git(repo, "add", "--", *changed)
+    _git(repo, "commit", "-q", "-m", "local change")
+    head = _git(repo, "rev-parse", "HEAD")
+    (repo / ".git" / "jnwb_suite_ok").write_text(head, encoding="utf-8")
+    bindir = tmp_path / "home" / ".claude" / "bin"
+    bindir.mkdir(parents=True)
+    (bindir / "ci_inflight.py").write_text("print(0)\n", encoding="utf-8")
+    return repo, bare, origin_sha, head
+
+
+@contextlib.contextmanager
+def _green_ci():
+    """A local stand-in for the Actions API that lists one successful run, so the wrapper's CI
+    check passes without reading the live repository."""
+    body = json.dumps({"workflow_runs": [
+        {"name": "CI/CD", "head_sha": "0" * 40, "conclusion": "success"}]}).encode("utf-8")
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def _run_push(tmp_path, repo, *args):
+    env = dict(os.environ)
+    env["HOME"] = (tmp_path / "home").as_posix()
+    env["PATH"] = os.pathsep.join([str(pathlib.Path(sys.executable).parent), env.get("PATH", "")])
+    env.pop("JNWB_PUSH_OVER_RED", None)
+    with _green_ci() as api:
+        env["JNWB_CI_API"] = api
+        return subprocess.run(
+            [_bash(), PUSH.as_posix(), repo.as_posix(), "dev", *args], cwd=str(repo), env=env,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            stdin=subprocess.DEVNULL, timeout=300,
+        )
+
+
+def test_a_push_for_an_item_refuses_a_path_outside_its_writes(tmp_path):
+    def change(repo):
+        (repo / "scripts" / "a.py").write_text("A = 2\n", encoding="utf-8")
+        (repo / "scripts" / "other.py").write_text("O = 1\n", encoding="utf-8")
+        (repo / "scripts" / "b.py").write_text("B = 2\n", encoding="utf-8")
+        return ["scripts/a.py", "scripts/other.py", "scripts/b.py"]
+
+    repo, bare, origin_sha, _head = _push_lane(tmp_path, change)
+    proc = _run_push(tmp_path, repo, "--item", ITEM)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    listed = [line.strip() for line in proc.stdout.splitlines()]
+    assert "scripts/other.py" in listed and "scripts/b.py" in listed, out
+    assert "scripts/a.py" not in listed, "a path inside the Writes was named as outside"
+    assert _git(bare, "rev-parse", "refs/heads/dev") == origin_sha, "a refused push reached the remote"
+
+
+def test_a_push_for_an_item_passes_a_diff_inside_its_writes(tmp_path):
+    def change(repo):
+        (repo / "scripts" / "a.py").write_text("A = 2\n", encoding="utf-8")
+        (repo / "tests" / "sub").mkdir(parents=True)
+        (repo / "tests" / "sub" / "test_c.py").write_text(
+            "def test_c():\n    assert True\n", encoding="utf-8")
+        (repo / "artifacts" / "changelog.d").mkdir(parents=True)
+        (repo / "artifacts" / "changelog.d" / "fixture.fixed.md").write_text(
+            "- Fixture.\n", encoding="utf-8")
+        (repo / "artifacts" / "todo_stack.md").write_text(FINISHED_TODO, encoding="utf-8")
+        return ["scripts/a.py", "tests/sub/test_c.py",
+                "artifacts/changelog.d/fixture.fixed.md", "artifacts/todo_stack.md"]
+
+    repo, bare, _origin_sha, head = _push_lane(tmp_path, change)
+    proc = _run_push(tmp_path, repo, "--item", ITEM)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode == 0, out
+    assert f"Writes of {ITEM}" in proc.stdout, "the check ran but named nothing it examined: " + out
+    assert _git(bare, "rev-parse", "refs/heads/dev") == head, out
+
+
+def test_a_push_for_several_items_joins_their_writes(tmp_path):
+    def change(repo):
+        (repo / "scripts" / "a.py").write_text("A = 2\n", encoding="utf-8")
+        (repo / "scripts" / "b.py").write_text("B = 2\n", encoding="utf-8")
+        return ["scripts/a.py", "scripts/b.py"]
+
+    repo, bare, _origin_sha, head = _push_lane(tmp_path, change)
+    proc = _run_push(tmp_path, repo, "--item", f"{ITEM},18-902")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode == 0, out
+    assert _git(bare, "rev-parse", "refs/heads/dev") == head, out
+
+
+def test_a_push_for_an_unknown_item_is_refused_by_name(tmp_path):
+    def change(repo):
+        (repo / "scripts" / "a.py").write_text("A = 2\n", encoding="utf-8")
+        return ["scripts/a.py"]
+
+    repo, bare, origin_sha, _head = _push_lane(tmp_path, change)
+    proc = _run_push(tmp_path, repo, "--item", "18-999")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert "18-999" in proc.stdout, out
+    assert _git(bare, "rev-parse", "refs/heads/dev") == origin_sha, "a refused push reached the remote"
+
+
+def test_a_push_without_an_item_is_unchanged(tmp_path):
+    """No --item: the Writes check is off, so a path outside any item's Writes still pushes."""
+    def change(repo):
+        (repo / "scripts" / "a.py").write_text("A = 2\n", encoding="utf-8")
+        (repo / "scripts" / "other.py").write_text("O = 1\n", encoding="utf-8")
+        return ["scripts/a.py", "scripts/other.py"]
+
+    repo, bare, _origin_sha, head = _push_lane(tmp_path, change)
+    proc = _run_push(tmp_path, repo)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode == 0, out
+    assert _git(bare, "rev-parse", "refs/heads/dev") == head, out

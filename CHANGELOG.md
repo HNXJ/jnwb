@@ -8,6 +8,63 @@ Releases 0.2.10, 0.2.9, 0.2.8, 0.2.7, 0.2.6.1, 0.2.6, 0.2.5, 0.2.4, 0.1.8 and 0.
 
 ## [Unreleased]
 
+## [0.2.16] - 2026-11-07
+
+### Breaking
+
+- `compare_conditions` drops the `n_significant` key; use `n_significant_uncorrected` (`jnwb/analyzers.py`).
+- `compare_conditions` drops `fraction_significant`; use `fraction_significant_uncorrected` (`jnwb/analyzers.py`).
+- `compare_conditions` returns a plain dict; `RenamedKeyDict` is removed (`jnwb/_dictlike.py`).
+- `StatisticalAnalysis.clopper_pearson_ci` is removed; use `clopper_pearson` (`jnwb/statistics/_analysis.py`).
+- `binary_occupancy_mutual_information` -> `spike_mutual_information(estimator="binary_occupancy")` (`_information.py`).
+- `spike_count_mutual_information` -> `spike_mutual_information(estimator="spike_count")` (`_information.py`).
+- `granger_causality`, deprecated since 0.1.7, is removed; use `granger` (`jnwb/connectivity/_granger.py`).
+
+### Added
+
+- `compare_criteria` takes a keyword-only `rng` for its bootstrap; a bare call is unchanged (`jnwb/analyzers.py`).
+- The dashboard's OpenScope GLO tab lists related reproductions from `artifacts/showcases/related.json`.
+- Dashboard Roadmap tab: releases to 0.2.22, then 0.3.0, from `artifacts/process/release_plan.json`.
+- `jnwb/nwb_integrity.py`: `check_waveform_blocks(..., amplitude_scale=1.0)` declares the amplitude's scale.
+- `TableNotFoundError(KeyError)`: the integrity checks' error for a file with no `table` (#39; `nwb_integrity.py`).
+- `granger(..., device="cuda")` solves its fits on the GPU; `params['device_used']` (`_granger.py`).
+- `jnwb/__init__.py`: `LAYERS` and `ValidationLayer` from `jnwb.nwb_validate` are public (hnxj/jnwb#40).
+- `UnitAnalyzer.psth` takes `rng` for its bootstrap interval; a bare call is unchanged (`jnwb/analyzers.py`).
+- `jnwb/connectivity/_granger.py`: `granger` and `granger_spectral` take a keyword-only `signal_class`.
+- `jnwb/connectivity/_psi.py`: `phase_slope_index` takes a keyword-only `signal_class`.
+- `jnwb/connectivity/_transfer_entropy.py`: `transfer_entropy` takes a keyword-only `signal_class`.
+- `jnwb/connectivity/_network.py`: `directed_connectivity` and `directed_network` pass `signal_class` on.
+- `tests/test_signal_class.py`: each of the four warns `FutureWarning` when `signal_class` is omitted.
+
+### Changed
+
+- `jnwb/connectivity/_granger.py`: `granger_time_reversed` takes a keyword-only `signal_class`; omitted, it warns once.
+- [results change] `jnwb/analyzers.py`: `UnitAnalyzer.psth` counts `[pre, post)`, as `bin_spikes` (deterministic).
+
+### Fixed
+
+- `jnwb/statistics/_regression.py`: `lag_corrected_pvalue` is NaN, not 1.0, at `n_permutations=0`.
+- `jnwb/spiking.py`: a missing `response_zscore` classifies 'undefined' with a UserWarning, not as z = 0.
+- `jnwb/nwb_inspect.py`: `inspect` lists a processing module's `TimeIntervals` in `interval_tables`, with its `module`.
+- `jnwb/nwb_events.py`: `events` and `event_onsets` read it as `table="processing/<module>/<name>"`.
+- `jnwb/nwb_validate.py`: `versions["jnwb"]` is the running `jnwb.__version__`, not the installed version.
+- `jnwb/nwb_validate.py`: the `read` layer counts the warnings `read_nwb` emits in `n_warnings`.
+- `jnwb/metadata.py`: `electrode_inventory` gives the group's name in `group`, not the container's repr.
+- `jnwb/metadata.py`: `unit_census_report` returns an empty report with the usual columns for a file with no units.
+- `jnwb/connectivity/_network.py`: `directed_network` with no `signal_class` warns once at any `n_jobs`.
+- `jnwb/analyzers.py`: `quality_metrics` counts a last spike an ulp past a whole-second span.
+- `jnwb/statistics/_analysis.py`: `n_bootstrap` and `n_permutations` below 1 raise `ValueError` by name.
+- `jnwb/statistics/_firing.py`: `paired_fire_prob_test` raises `ValueError` for `n_shuffles` or `n_bootstrap` below 1.
+- `jnwb/statistics/_tests.py`: shuffle p-values reject a bad `alternative` with fewer than two values.
+- `jnwb/statistics/_regression.py`: `cross_modal_comparison` refuses a negative `n_permutations`.
+- `jnwb/nwb_events.py`: `edges_near_events` thresholds physical values, not stored counts.
+- `jnwb/statistics/_firing.py`: `fires_in_window` and `rate_in_window` no longer drop a spike on the start edge.
+- `jnwb/statistics/_tests.py`: `mann_whitney_p_floor` returns a float at n1 = n2 = 520 instead of `OverflowError`.
+- `jnwb/spiking.py`: `phase_locking_index` raises `ValueError` naming the first non-finite `lfp_timestamps` entry.
+- `jnwb/analyzers.py`: a spike on a `UnitAnalyzer.psth` bin edge counts in the bin that starts there.
+- `jnwb/analyzers.py`: a span just under whole seconds keeps its last `quality_metrics` window (was NaN).
+- `jnwb/statistics/_trials.py`: `assign_subblock_quartiles` raises `ValueError` for `n_quantiles` < 1 and non-integers.
+
 ## [0.2.15] - 2026-10-31
 
 ### Breaking
@@ -18,7 +75,7 @@ Releases 0.2.10, 0.2.9, 0.2.8, 0.2.7, 0.2.6.1, 0.2.6, 0.2.5, 0.2.4, 0.1.8 and 0.
 ### Added
 
 - `jnwb/analyzers.py`, `jnwb/trajectory.py`: `label="right"` labels a bin (t - w, t] at t.
-- Distance-binned coherence normalization (`docs/common_mistakes.md` 13, `tests/test_connectivity_pitfalls.py`).
+- `docs/common_mistakes.md` 13: distance-binned coherence normalization is the caller's; no function computes it.
 - `jnwb.edges_near_events` (`jnwb/nwb_events.py`): nearest rising and falling edge to each event, with lags.
 - `effective_rate`: exact-repeat fraction, repeat runs and power above rate/4 of a stream (`jnwb/continuous.py`).
 - `gaze_departure_onsets`: per-trial gaze departure from a percentile envelope (`jnwb/continuous.py`).
@@ -347,40 +404,3 @@ Releases 0.2.10, 0.2.9, 0.2.8, 0.2.7, 0.2.6.1, 0.2.6, 0.2.5, 0.2.4, 0.1.8 and 0.
 - jnwb/onset_fitting.py, jnwb/laminar_curation.py: a 2-D rate and an array-like electrode id raise their own ValueError
 - skills/jnwb-statistics/SKILL.md states Mann-Whitney's `statistic` as the first group's U.
 - Under `value_unit="z"` a colorbar may say "z-score"; tests/test_vis_shared_rules.py
-
-## [0.2.11] - 2026-10-11
-
-### Added
-
-- `jnwb.get_all_units_metadata` takes an open `NWBFile` as well as paths, and an `allow_missing=` waiver with `read_nwb`'s semantics for files missing a required field. The waivers a read used are recorded in the frame's `attrs["jnwb_waived_requirements"]`, keyed by input name; nothing is recorded when nothing was waived (GitHub issue #29).
-- `jnwb.vis.plot_wavemap(result, waveforms)` draws a `WaveMAPResult`: the 2-d embedding colored by cluster beside each cluster's mean normalized waveform; `layout` and `height_mm` are keyword-only. Each cluster gets its own color, from the smallest palette that holds them all, up to 24. It refuses more clusters than that, an empty result, and labels, waveforms or an embedding of different lengths with `ValueError`. Tutorial 10 runs it on the DANDI 000253 excerpt, which now carries the source's mean waveforms; the source labels them volts, and the values read as microvolts.
-- Four published unit measures, each in the form AllenInstitute `ecephys_spike_sorting` implements (at `919992748a53`): `jnwb.waveform_halfwidth`, `jnwb.repolarization_slope` and `jnwb.waveform_spread` from its waveform metrics (Jia et al. 2019), and `jnwb.amplitude_cutoff` from its quality metrics, after Hill et al. (2011). Each agrees with Allen's function on synthetic units to 1e-12 relative or better, Allen's time scaling and its exclusion of channel 0 from the spread included; jnwb takes the peak channel from the mean waveform where Allen takes it from the Kilosort template, and refuses a flat or NaN waveform where Allen returns NaN.
-- `jnwb.check_waveform_blocks` reports, per unit, whether its index-sliced `waveform_mean` block is owned, unowned, or unknown against the stored `amplitude`, so blocks stored out of unit order are detected instead of read silently wrong. It repairs and reassigns nothing (GitHub issue #27).
-- `jnwb.check_waveform_blocks` also reads the dense layout: a `waveform_mean` of shape `(units, samples, channels)` with no `waveform_mean_index`, in NWB schema order. Each unit gets the same owned, unowned or unknown verdict against its `amplitude`; ragged files give the same results as before.
-- `wavemap_resolution_sweep` takes `metric=`, the UMAP input metric `wavemap` takes, default `"euclidean"`; the sweep built every graph with the euclidean metric, so a resolution chosen by the sweep did not apply to a `wavemap` call with another metric. Default calls are unchanged.
-- `wavemap_resolution_sweep` returns `units`, the rows each run drew, and `umap_seed` and `louvain_seed` per run, so a sweep run with `rng=None` can be repeated; the scores are unchanged.
-- `jnwb.wavemap`, `jnwb.wavemap_resolution_sweep`, `jnwb.align_waveforms`, `jnwb.normalize_waveforms` and `jnwb.WaveMAPResult`: WaveMAP (Lee et al. 2021, eLife 10:e67490) clustering of mean waveforms with Louvain on the UMAP nearest-neighbor graph, with the resolution in the published Markov-time convention (networkx is passed `1 / resolution`). The sweep reports the smallest cluster of each run, so the published rule for choosing the resolution can be applied. The two clustering functions need the new `wavemap` extra (umap-learn, networkx), which CI now installs.
-
-### Changed
-
-- Python 3.15 is supported: it joins the classifiers and the blocking CI matrix on Ubuntu, where h5py builds from source. The Windows 3.15 leg waits for an h5py CPython 3.15 wheel.
-- `jrsa(align_mode=...)` is deprecated: it never had an effect, and passing it now emits a `DeprecationWarning`. It will be removed in 0.2.13; alignment is set by `align`. Results are unchanged.
-- `phase_slope_index` reads a jackknife spread at or below `4 * n_seg * eps * n_pairs * sqrt(U - 1)`, with `U` the jackknife units (trials or segments), as rounding and reports `sd` and `z` as NaN and the lead p as None; before 0.2.10 the bound was `8 * n_seg * eps * n_pairs`, which left out the jackknife's `sqrt(U - 1)`. The bound is lower for 3 or 4 units, unchanged for 5, and higher from 6, so `sd`, `z` and p change only for a spread between the two bounds, at rounding level. The change shipped in 0.2.10 and its section did not list it.
-
-### Fixed
-
-- `StatisticalAnalysis.exploratory_compare` reads `pval` NaN for the Mann-Whitney test of two unpaired groups that share one constant value, on every supported scipy: scipy 1.17, the declared floor, returned 1.0 and 1.18 returns NaN. The statistic is unchanged.
-- `normalize_waveforms` returns NaN for every row whose samples are all equal, as its docstring said; the mean subtraction left rounding residue that was scaled to a row of +-1, for 604 of 1001 constant 82-sample rows drawn from [-5, 5]. With `subtract_mean=False` only a row of zeros reads NaN, as before.
-- `jnwb.inspect` no longer raises `TypeError` on an interval table holding a non-float column: a compound row, a string and any other scalar dtype are sampled as stored, while a float NaN still reads as `None`. A nonnumeric column used to make the whole file unreadable (GitHub issue #28).
-- `plot_unit_waveforms(channels="peak")` draws the peak channel that `waveform_features` reports, the channel of largest maximum minus minimum. It drew the channel of largest absolute deflection, so on a template where the two rules differ, the drawn and the reported peak channel could differ. The reported features are unchanged.
-- `PlotlyPublicationCanvas.save_and_seal` validates the argument object before anything renders, renders the SVG and PNG in one kaleido session and writes the argument sidecar last, so a failed export raises and seals nothing; files from an earlier call at the same paths are removed first, and each export must read as its format (PNG signature, `<svg`, `<html`). A browser shutdown that times out after both images are written emits a `RuntimeWarning` and keeps them.
-- `plot_sorted_heatmap` refuses a `colorbar_title` that is blank or names `value_unit`, as `jnwb.vis.plot_csd` already does. Before, a title that named the unit doubled it on the colorbar, and a blank title was accepted. Pass the quantity alone, for example `colorbar_title="Rate"`; `None`, the default, still labels the colorbar with `value_unit` alone.
-- `plot_sorted_heatmap` raises `ValueError` when `category_labels` is given, naming the argument. Before, the labels were accepted and never drawn. Pass `None`, the default, to draw as before.
-- `visual_qc.plot_unit_quality_distribution` raises `ValueError`, naming the column, when its stability flag (`stable_plus`, else `is_stable`) holds a value that is not a boolean. It used to coerce with `astype(bool)`, so a text flag such as `"no"` drew every unit as Stable. Real booleans (numpy, Python or pandas `boolean`) plot as before. Numeric flags raise too, including 0.0/1.0 floats such as a flag column read from CSV with missing values; convert them with `.astype("boolean")` first.
-- `apply_tight_auto_axis` floors the y lower limit at 0 only when every plotted value is non-negative. Before, a line with a minimum of -5 was drawn below the axes; the lower limit now sits one margin below the minimum. Non-negative data keeps the floor at 0.
-- `apply_tight_auto_axis` accepts a line whose y data was set from a list with `set_ydata`; it raised `TypeError` before.
-- `jnwb.vis.plot_csd` refuses a `colorbar_title` that names `value_unit` (the colorbar read "CSD (A/m³) (A/m³)"). Pass the quantity alone, for example `colorbar_title="CSD"`. A blank title, including `""`, now raises too; `None` still labels the colorbar with `value_unit` alone.
-- `jnwb.vis.plot_csd` depth hover names `depth_unit` after the depth value.
-- `jnwb.vis.plot_spectrolaminar_map` refuses `+inf` and `-inf` in `rel_power`, which were drawn as gaps. NaN is still drawn as a gap.
-- `jnwb.vis.plot_spectrolaminar_map` raises a `ValueError` naming `rel_power` when it is empty; with the default `log_freq=True` numpy raised a reduction error.
-- `jnwb.check_waveform_blocks` raises `ValueError` naming a unit mismatch when the median ratio of stored `amplitude` to largest block peak-to-peak is 1000 or more, or 1/1000 or less; it used to report every unit unowned in that case. A 2-D dense `waveform_mean` is still refused, now with a message that names the electrodes axis. Files whose units agree keep their results.

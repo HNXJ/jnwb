@@ -196,6 +196,4 @@ beta_lfp = jnwb.bandpass_filter(lfp_trace, fs=1000.0, low_cut=14.0, high_cut=30.
 clean_lfp = jnwb.notch_filter(lfp_trace, fs=1000.0, freq=60.0, q=30.0, zero_phase=True)
 ```
 
-## References
-
 The methods on this page are cited in [References](references.md).

@@ -562,6 +562,28 @@ def _w27_write(path, order=(0, 1, 2, 3), amps=_W27_AMPS, rows=_W27_ROWS):
     return path
 
 
+@pytest.mark.parametrize("check", ["check_ragged_indices", "check_waveform_blocks"])
+def test_a_file_without_a_units_table_raises_table_not_found(tmp_path, check):
+    """hnxj/jnwb#39: an LFP-only NWB has no /units; both checks raise one typed error that
+    names the table, and existing ``except KeyError`` callers still catch it."""
+    from datetime import datetime, timezone
+
+    import pynwb
+
+    path = tmp_path / "no_units.nwb"
+    nwb = pynwb.NWBFile(session_description="no units", identifier="j39",
+                        session_start_time=datetime(2024, 1, 1, tzinfo=timezone.utc))
+    with pynwb.NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    with h5py.File(path, "r") as handle:
+        assert "units" not in handle, "fixture must lack the units table"
+    kwargs = {"rtol": 1e-6} if check == "check_waveform_blocks" else {}
+    with pytest.raises(jnwb.TableNotFoundError, match="no table group 'units'") as info:
+        getattr(jnwb, check)(path, **kwargs)
+    assert isinstance(info.value, KeyError)
+    assert info.value.table == "units"
+
+
 def test_pynwb_index_read_returns_another_units_block_without_warning(tmp_path):
     """On a file whose blocks are stored out of unit order, the indexed read returns the
     stored bytes and warns nothing. `_w27_write(order=(1, 0, 2, 3))` stores unit 1's block
@@ -959,6 +981,50 @@ class TestCheckWaveformBlocksUnits:
         np.testing.assert_allclose(amps / _largest_ptp(path), factor, rtol=1e-9)
         with pytest.raises(ValueError, match="unit mismatch"):
             check_waveform_blocks(path, rtol=1e-9)
+
+    @pytest.mark.parametrize("factor", [1e6, 1e-6], ids=["times-1e6", "times-1e-6"])
+    def test_a_declared_amplitude_scale_owns_dense_blocks_in_another_unit(self, tmp_path, factor):
+        """hnxj/jnwb#35: the caller declares the scale; the stored values are reported as stored."""
+        from jnwb import check_waveform_blocks
+
+        path = _dense_write(tmp_path / "dense.nwb", _dense_stack(),
+                            amps=tuple(a * factor for a in _DENSE_AMPS))
+        with h5py.File(path, "r") as handle:
+            amps = handle["units/amplitude"][()]
+        np.testing.assert_allclose(amps / _largest_ptp(path), factor, rtol=1e-9)
+        rep = check_waveform_blocks(path, rtol=1e-9, amplitude_scale=1 / factor)
+        assert [u.status for u in rep.units] == ["owned"] * 4
+        assert rep.amplitude_scale == 1 / factor
+        np.testing.assert_array_equal([u.stored_amplitude for u in rep.units], amps)
+
+    def test_a_declared_amplitude_scale_owns_ragged_blocks_in_another_unit(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        path = _w27_write(tmp_path / "ragged.nwb")
+        baseline = check_waveform_blocks(path, rtol=1e-9)
+        with h5py.File(path, "a") as handle:
+            handle["units/amplitude"][...] = np.asarray(_W27_AMPS) * 1e6
+        rep = check_waveform_blocks(path, rtol=1e-9, amplitude_scale=1e-6)
+        assert [u.status for u in rep.units] == [u.status for u in baseline.units]
+        assert "owned" in [u.status for u in rep.units], "fixture must own a unit"
+
+    def test_the_default_scale_keeps_every_result(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        path = _dense_write(tmp_path / "dense.nwb", _dense_stack())
+        assert check_waveform_blocks(path, rtol=1e-9) == check_waveform_blocks(
+            path, rtol=1e-9, amplitude_scale=1.0)
+
+    @pytest.mark.parametrize("scale, error", [
+        (0.0, ValueError), (-1e-6, ValueError), (float("nan"), ValueError),
+        (float("inf"), ValueError), (True, TypeError), (None, TypeError)])
+    def test_an_amplitude_scale_that_is_not_finite_and_positive_is_refused(self, tmp_path,
+                                                                          scale, error):
+        from jnwb import check_waveform_blocks
+
+        path = _dense_write(tmp_path / "dense.nwb", _dense_stack())
+        with pytest.raises(error, match="check_waveform_blocks: amplitude_scale"):
+            check_waveform_blocks(path, rtol=1e-9, amplitude_scale=scale)
 
     @pytest.mark.parametrize("factor", [999.0, 1 / 999], ids=["times-999", "times-1-over-999"])
     def test_a_ratio_inside_the_bound_is_not_refused(self, tmp_path, factor):

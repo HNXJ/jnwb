@@ -489,3 +489,179 @@ class TestEdgesNearEvents:
         with pytest.raises(TypeError):
             edges_near_events(path, "acquisition/photodiode", [1.0], window_s=(0.1, 0.1))
 
+
+EDGE_STEP_SAMPLE = 2000  # the step is at 2.0 s on the 1 kHz clock
+
+
+def _write_counts_step(
+    path: Path, baseline: int, high: int, *, conversion: float, offset: float = 0.0
+) -> None:
+    """An int16 photodiode TimeSeries that steps from ``baseline`` to ``high`` counts at 2.0 s."""
+    nwb = pynwb.NWBFile(
+        session_description="conversion test",
+        identifier="CONVERSION_TEST",
+        session_start_time=datetime(2020, 1, 1, tzinfo=tzutc()),
+    )
+    counts = np.full(4000, baseline, dtype=np.int16)
+    counts[EDGE_STEP_SAMPLE:] = high
+    assert np.count_nonzero(np.diff(counts)) == 1, "fixture must plant one step"
+    series = pynwb.TimeSeries(
+        name="photodiode",
+        data=counts,
+        unit="volts",
+        rate=EDGE_RATE_HZ,
+        conversion=conversion,
+        offset=offset,
+    )
+    nwb.add_acquisition(series)
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+
+
+def _write_electrical_step(path: Path, baseline: int, high: int, *, channel_factor: float) -> None:
+    """A one-channel, one-dimensional ElectricalSeries of int16 counts, stepping at 2.0 s."""
+    from pynwb.ecephys import ElectricalSeries
+
+    nwb = pynwb.NWBFile(
+        session_description="channel test",
+        identifier="CHANNEL_TEST",
+        session_start_time=datetime(2020, 1, 1, tzinfo=tzutc()),
+    )
+    device = nwb.create_device(name="probe")
+    group = nwb.create_electrode_group(name="group", description="group", location="x", device=device)
+    nwb.add_electrode(group=group, location="x")
+    region = nwb.create_electrode_table_region([0], "all")
+    counts = np.full(4000, baseline, dtype=np.int16)
+    counts[EDGE_STEP_SAMPLE:] = high
+    assert np.count_nonzero(np.diff(counts)) == 1, "fixture must plant one step"
+    nwb.add_acquisition(
+        ElectricalSeries(
+            name="photodiode",
+            data=counts,
+            electrodes=region,
+            rate=EDGE_RATE_HZ,
+            channel_conversion=[channel_factor],
+        )
+    )
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+
+
+class TestEdgesNearEventsReadsPhysicalValues:
+    """The threshold is in the series' unit: stored counts are scaled by conversion, then offset."""
+
+    def test_zero_to_three_volts_is_found_at_1p5_volts(self, tmp_path):
+        path = tmp_path / "step.nwb"
+        _write_counts_step(path, 0, 3000, conversion=1e-3)
+        df = edges_near_events(
+            path, "acquisition/photodiode", [1.9], threshold=1.5, window_s=(0.2, 0.2)
+        )
+        np.testing.assert_allclose(df["rising_edge_s"], [2.0], atol=1.0 / EDGE_RATE_HZ)
+        assert np.isnan(df["falling_edge_s"].iloc[0])
+
+    def test_half_a_volt_to_three_volts_is_found_at_1p5_volts(self, tmp_path):
+        path = tmp_path / "step.nwb"
+        baseline, high = 500, 3000
+        assert baseline * 1e-3 < 1.5 <= high * 1e-3, "fixture must cross 1.5 V once"
+        _write_counts_step(path, baseline, high, conversion=1e-3)
+        df = edges_near_events(
+            path, "acquisition/photodiode", [1.9], threshold=1.5, window_s=(0.2, 0.2)
+        )
+        np.testing.assert_allclose(df["rising_edge_s"], [2.0], atol=1.0 / EDGE_RATE_HZ)
+
+    def test_offset_is_applied_after_conversion(self, tmp_path):
+        # Stored 2000 and 4000 counts both sit above 1.5 raw; conversion 1e-3 then offset -1.0 V
+        # puts the step at 1.0 V -> 3.0 V, which crosses 1.5 V once.
+        path = tmp_path / "offset.nwb"
+        baseline, high = 2000, 4000
+        assert (baseline * 1e-3 - 1.0) < 1.5 <= (high * 1e-3 - 1.0), "fixture must cross 1.5 V"
+        _write_counts_step(path, baseline, high, conversion=1e-3, offset=-1.0)
+        df = edges_near_events(
+            path, "acquisition/photodiode", [1.9], threshold=1.5, window_s=(0.2, 0.2)
+        )
+        np.testing.assert_allclose(df["rising_edge_s"], [2.0], atol=1.0 / EDGE_RATE_HZ)
+
+    def test_unit_conversion_and_zero_offset_read_stored_values(self, tmp_path):
+        path = tmp_path / "unit.nwb"
+        _write_counts_step(path, 0, 3, conversion=1.0, offset=0.0)
+        df = edges_near_events(
+            path, "acquisition/photodiode", [1.9], threshold=1.5, window_s=(0.2, 0.2)
+        )
+        np.testing.assert_allclose(df["rising_edge_s"], [2.0], atol=1.0 / EDGE_RATE_HZ)
+        assert np.isnan(df["falling_edge_s"].iloc[0])
+
+    def test_threshold_doc_names_the_unit_after_conversion(self):
+        threshold_doc = edges_near_events.__doc__.split("threshold:", 1)[1].split(
+            "window_s:", 1
+        )[0]
+        assert "conversion" in threshold_doc, threshold_doc
+        assert "offset" in threshold_doc, threshold_doc
+        assert "channel_conversion" in threshold_doc, threshold_doc
+
+    def test_channel_conversion_scales_the_thresholded_values(self, tmp_path):
+        path = tmp_path / "channel.nwb"
+        baseline, high, factor = 0, 1, 2.0
+        assert baseline * factor < 1.5 <= high * factor, "fixture must cross 1.5 V once"
+        _write_electrical_step(path, baseline, high, channel_factor=factor)
+        df = edges_near_events(
+            path, "acquisition/photodiode", [1.9], threshold=1.5, window_s=(0.2, 0.2)
+        )
+        np.testing.assert_allclose(df["rising_edge_s"], [2.0], atol=1.0 / EDGE_RATE_HZ)
+
+
+class TestTimeIntervalsInProcessingModule:
+    """A TimeIntervals stored in a processing module is read by its slash path (hnxj/jnwb#37)."""
+
+    @pytest.fixture
+    def processing_path(self, tmp_path):
+        path = tmp_path / "processing_intervals.nwb"
+        nwb = pynwb.NWBFile(
+            session_description="processing intervals",
+            identifier="PROCESSING_INTERVALS",
+            session_start_time=datetime(2020, 1, 1, tzinfo=tzutc()),
+        )
+        table = TimeIntervals(name="events", description="digital event codes")
+        table.add_column(name="value", description="event code")
+        for onset, code in [(0.5, 10), (1.0, 20), (1.5, 30)]:
+            table.add_row(start_time=onset, stop_time=onset, value=code)
+        nwb.create_processing_module(name="behavior", description="behavior").add(table)
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        return path
+
+    def test_events_reads_the_table_by_its_slash_path(self, processing_path):
+        with NWBHDF5IO(str(processing_path), "r") as io:
+            assert len(io.read().processing["behavior"]["events"]) == 3, "fixture must hold 3 rows"
+        out = events(processing_path, table="processing/behavior/events", code_column="value")
+        assert tuple(out.codes) == (10, 20, 30)
+        np.testing.assert_allclose(out.onsets, [0.5, 1.0, 1.5])
+
+    def test_event_onsets_selects_by_code_from_the_slash_path(self, processing_path):
+        onsets = event_onsets(
+            processing_path, table="processing/behavior/events", codes=[20], code_column="value"
+        )
+        np.testing.assert_allclose(onsets, [1.0])
+
+    def test_a_bare_name_still_reads_the_intervals_table_when_both_exist(self, tmp_path):
+        path = tmp_path / "both_tables.nwb"
+        nwb = pynwb.NWBFile(
+            session_description="both tables",
+            identifier="BOTH_TABLES",
+            session_start_time=datetime(2020, 1, 1, tzinfo=tzutc()),
+        )
+        top = TimeIntervals(name="events", description="top-level event codes")
+        top.add_column(name="value", description="event code")
+        top.add_row(start_time=2.0, stop_time=2.0, value=99)
+        nwb.add_time_intervals(top)
+        processing = TimeIntervals(name="events", description="digital event codes")
+        processing.add_column(name="value", description="event code")
+        for onset, code in [(0.5, 10), (1.0, 20), (1.5, 30)]:
+            processing.add_row(start_time=onset, stop_time=onset, value=code)
+        nwb.create_processing_module(name="behavior", description="behavior").add(processing)
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        bare = events(path, table="events", code_column="value")
+        assert bare.path == "/intervals/events", "fixture must resolve the top-level table"
+        assert tuple(bare.codes) == (99,)
+        slash = events(path, table="processing/behavior/events", code_column="value")
+        assert tuple(slash.codes) == (10, 20, 30)

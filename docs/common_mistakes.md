@@ -462,6 +462,14 @@ et al. 2014, Barnett and Seth 2011). A pitfall with no guard in `jnwb` is the ca
 | Common input | An unrecorded source drives both signals and leaves a Granger or phase-slope direction between them | No estimator removes it; a recorded source is conditioned on as [stated here](08_directed_connectivity_and_information.md#pairwise-and-network-level-coupling), and for coherence `partial_coherence` conditions on it |
 | Bivariate against conditional Granger | A bivariate fit credits X with influence routed through a third recorded signal | [Stated here](08_directed_connectivity_and_information.md#pairwise-and-network-level-coupling). `granger` takes `Z`; `directed_network(conditional=True)` conditions on all other nodes; `granger_spectral` has no `Z` |
 | Sample-size bias | Coherence sits near 1/K for K segments under no coupling | PLV bias and PPC are [stated here](06_spikes_psth_and_onset_dynamics.md#pairwise-phase-consistency-pairwise_phase_consistency); `wpli` returns `wpli_debiased_sq`; `cross_area_coherence` returns `n_segments_used`, and `coherence_bias_floor` gives the trial-level floor. Caller: compare conditions at equal K |
-| Phase slope as direction | A phase slope gives a lag asymmetry in the statistics, not an anatomical direction. An unrecorded common input with unequal delays to x and y also reads as a lead | `phase_slope_index` tests the lead (`p_net`) apart from coupling; see [its page](08_directed_connectivity_and_information.md#3-phase-slope-index-phase_slope_index) |
+| Phase slope as direction | A phase slope gives a lag asymmetry in the statistics, not an anatomical direction. An unrecorded common input with unequal delays to x and y also reads as a lead | `phase_slope_index` tests the lead (`p_net`) apart from coupling; see [its page](08_directed_connectivity_and_information.md#phase-slope-index-phase_slope_index) |
 | Filtering before Granger | The Granger causality of the process is invariant under an invertible filter (Barnett and Seth 2011), so band-passing cannot isolate a band; the estimate from a finite filtered sample does change, and the fitted order often rises | Caller: do not filter first; read `per_band` of `granger_spectral`. No estimator detects a filtered input |
 | Non-stationarity | A slowly decaying or drifting mode makes a finite-order VAR fail | `granger_spectral` records a warning in `diagnostics` and sets `diagnostics['stationary']` false when the fitted VAR's spectral radius reaches 1. That key is a fitted-VAR stability check, not a stationarity test: a slowly decaying mode passes it. `granger` has no such check, only `detrend='linear'` on request |
+
+## References
+
+- Nejat and Hajipour Sardouie (2021)
+- Bastos and Schoffelen (2016)
+- Vezoli et al. (2021)
+- Friston et al. (2014)
+- Barnett and Seth (2011)

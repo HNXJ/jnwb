@@ -4,7 +4,7 @@ jnwb is a Python toolbox for analyzing Neurodata Without Borders (NWB) datasets,
 called directly by researchers and composed by AI agents. This page covers the two entry paths,
 the package boundary, the scientific invariants every operation keeps, and the module map.
 
-## Two entry paths
+## 1. Two entry paths
 
 Researchers and agents reach the same operations by parallel paths, and both end in the same
 verification:
@@ -22,7 +22,7 @@ A researcher never passes through the agent layer: the package is complete witho
 researcher starts at the [Quickstart](quickstart.md); an agent starts at
 [Analyzing with an Agent](agents.md).
 
-## Core and skills
+## 2. Core and skills
 
 The core is the operations, their documentation and the tests that verify them; `pip install
 jnwb` installs the operations, and the documentation and tests live in the source repository.
@@ -41,7 +41,7 @@ sit outside that relation and act on it. A skill names an operation and quotes i
 signature; the documentation defines it, and a test checks every quoted signature against the
 code, so a skill carries no second copy of the operation's scientific interface.
 
-## Routing outcomes
+## 3. Routing outcomes
 
 Every task a skill receives ends in one of four outcomes:
 
@@ -69,7 +69,7 @@ and `missing` a script can score. The caller declares an unsupported inference
 are `signals`, `signal_units`, `contrast` and `inference_unit`. Given `input_path`, the outcome
 names that file by `input_sha256` and `input_path`.
 
-## From NWB file to result
+## 4. From NWB file to result
 
 `jnwb.inspect` reports what a session holds. The loaders read the chosen series, events and
 units; continuous data is cut into trials around the event onsets before an operation runs.
@@ -93,7 +93,7 @@ graph LR
     O --> V[Verification]
 ```
 
-## What belongs in jnwb
+## 5. What belongs in jnwb
 
 jnwb owns generic, testable operations. Study-specific conditions, hypotheses and interpretation
 stay in the project that uses jnwb. `jnwb` keeps two things apart:
@@ -125,7 +125,7 @@ hold:
 A question that existing operations answer in composition gets a composition, and new code is
 written only for a missing generic capability.
 
-## Scientific invariants
+## 6. Scientific invariants
 
 ### Signal class independence
 * **Physical Classes**: Spikes (SUA/MUA), Multi-unit activity envelopes (MUAe), Local Field Potentials (LFP), and behavioral covariates are distinct observables.
@@ -170,14 +170,14 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 * A null finding ($p \ge \alpha$) is an observation, not an error. Parameters, frequency bands and windows are never retrofitted to reach significance.
 * Synthetic signals exist for verification, in `jnwb.testing`, and are never presented as measurements.
 
-## Module Map
+## 7. Module Map
 
 | Module | Core Responsibility | Primary Public Symbols in `jnwb.__all__` |
 |--------|---------------------|------------------------------------------|
 | `paths` | Data root discovery & volume remap management | `paths` |
 | `nwb_inspect` | NWB file discovery: acquisitions, units, electrodes and interval tables | `inspect`, `unit_spike_times`, `acquisition_channel`, `resolve_acquisition` |
-| `nwb_integrity` | Read-only ragged-index and waveform-block checks of an NWB table and one guarded index repair | `check_ragged_indices`, `repair_ragged_index`, `RaggedIndexReport`, `RaggedIndexRepair`, `RaggedIndexRepairRefused`, `check_waveform_blocks`, `WaveformBlockReport` |
-| `nwb_validate` | Layered NWB validation: read, pynwb schema (cached and installed core), integrity, NWB Inspector, DANDI | `validate_nwb`, `NWBValidationReport` |
+| `nwb_integrity` | Read-only ragged-index and waveform-block checks of an NWB table and one guarded index repair | `check_ragged_indices`, `repair_ragged_index`, `RaggedIndexReport`, `RaggedIndexRepair`, `RaggedIndexRepairRefused`, `TableNotFoundError`, `check_waveform_blocks`, `WaveformBlockReport` |
+| `nwb_validate` | Layered NWB validation: read, pynwb schema (cached and installed core), integrity, NWB Inspector, DANDI | `validate_nwb`, `NWBValidationReport`, `LAYERS`, `ValidationLayer` |
 | `nwb_write` | Writing, transforming, repairing and verifying one NWB file, each reporting a `MutationReport` | `write_nwb`, `transform_nwb`, `repair_nwb`, `verify_nwb` |
 | `nwb_events` | Event codes and onsets from a named interval table | `events`, `event_onsets`, `resolve_interval_table`, `EventTable` |
 | `nwb_io` | NWB reads with scoped builder repairs; a missing required field is refused unless named in `allow_missing` | `read_nwb`, `nwb_read_io`, `MissingRequiredNWBFieldError`, `SqueezedAttributeWarning`, `ContainerTypeContradictionWarning` |
@@ -198,7 +198,7 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 | `tfr_accumulator` | Streaming trial-wise TFR accumulation | `TFRAccumulator`, `assert_mergeable` |
 | `compression` | NWB on-disk fp32 conversion (`compress_fp32` path I/O) | `compress_fp32` |
 | `analyzers` | High-level session analyzers | `TFRAnalyzer`, `UnitAnalyzer`, `PopulationAnalyzer` |
-| `connectivity` | Directed connectivity, Granger, PSI, Transfer Entropy, MI | `granger`, `granger_spectral`, `granger_causality`, `phase_slope_index`, `transfer_entropy`, `directed_connectivity`, `directed_network`, `network_topology`, `spike_mutual_information`, `spike_count_mutual_information`, `binary_occupancy_mutual_information`, `bin_spikes`, `as_trials`, `DirectedResult` |
+| `connectivity` | Directed connectivity, Granger, PSI, Transfer Entropy, MI | `granger`, `granger_spectral`, `phase_slope_index`, `transfer_entropy`, `directed_connectivity`, `directed_network`, `network_topology`, `spike_mutual_information`, `bin_spikes`, `as_trials`, `DirectedResult` |
 | `artifact_detection` | Channel and trial correlation matrix artifact detection | `channel_correlation_matrix`, `bad_channels_from_correlation`, `trial_correlation_matrix`, `bad_trials_single_channel`, `consensus_bad_trials` |
 | `artifact_repair` | Cross-channel synchrony & cross-trial median repair | `repair_lfp_trials`, `repair_band_artifacts` |
 | `spiking` | Spike metrics, significance testing, phase locking & PPC | `compute_response_metrics`, `classify_response_significance`, `phase_locking_index`, `pairwise_phase_consistency`, `gaussian_smooth_rate` |

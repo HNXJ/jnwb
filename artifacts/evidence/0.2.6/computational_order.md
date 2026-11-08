@@ -176,14 +176,11 @@ contradicts a written claim it appears in section 6.
 | `as_trials[n_samples]` | n_samples | 1000000, 3000000, 8000000, 20000000, 40000000 | 8.02, 24.7, 59.6, 148.7, 285.3 | +0.96 | 1.000 | 36x | O(n) | T(N) | derived | agree |
 | `bin_spikes[n_bins]` | n_bins | 500000, 1500000, 4000000, 10000000, 20000000 | 15.9, 49.5, 141.1, 332.7, 674.8 | +1.01 | 1.000 | 42x | O(n) | T(n_spikes + n_bins) | derived | ORDER |
 | `bin_spikes[n_spikes]` | n_spikes | 400000, 1500000, 5000000, 12000000, 20000000 | 8.05, 30.3, 99.3, 239.7, 392.9 | +0.99 | 1.000 | 49x | O(n) | T(n_spikes + n_bins) | derived | ORDER |
-| `binary_occupancy_mutual_information[n_spikes]` | n_spikes | 100000, 500000, 2000000, 5000000, 10000000 | 9.36, 50.6, 205.4, 529.1, 1092 | +1.03 | 1.000 | 117x | O(n) | T(n_spikes + n_bins) | derived | ORDER |
 | `directed_connectivity[n_samples]` | n_samples | 10000, 40000, 120000, 300000, 600000 | 11.0, 51.7, 174.2, 516.6, 1145 | +1.13 | 1.000 | 104x | O(n) | the dispatched estimator's | derived | agree |
 | `directed_network[n_samples]` | n_samples | 1000, 4000, 16000, 64000, 128000 | 21.4, 33.0, 72.2, 298.2, 663.6 | +0.71 | 0.948 | 31x | sub-linear | T(n^2*N) | derived | agree |
 | `directed_network[n_signals]` | n_signals | 4, 8, 16, 28, 40 | 19.0, 87.6, 346.2, 1040, 2240 | +2.05 | 1.000 | 118x | O(n^2) | Omega(n^2) irreducible; about T(n^2*N log N + n^2*p^2) | derived | agree |
 | `granger[model_order]` | model_order | 2, 6, 18, 40, 70 | 13.9, 28.4, 84.7, 269.1, 619.5 | +1.07 | 0.974 | 45x | O(n) | T(N*p + p^2) at d=2 | derived | ORDER |
 | `granger[n_samples]` | n_samples | 10000, 40000, 120000, 300000, 600000 | 11.8, 51.7, 168.6, 469.1, 985.3 | +1.08 | 1.000 | 84x | O(n) | T(N*d^2*p) | derived | agree |
-| `granger_causality[model_order]` | model_order | 2, 6, 18, 40, 70 | 11.9, 27.3, 81.4, 281.1, 591.6 | +1.11 | 0.981 | 50x | O(n) | T(N*p + p^2) | derived | ORDER |
-| `granger_causality[n_samples]` | n_samples | 10000, 40000, 120000, 300000, 600000 | 11.0, 48.8, 164.6, 470.2, 1010 | +1.11 | 1.000 | 92x | O(n) | T(N*d^2*p) | derived | agree |
 | `granger_nonparametric[n_times]` | n_times | 10000, 100000, 1000000, 4000000 | 56.68, 475, 4372, 1.636e+04 | +0.95 | 1.000 | 289x | O(n) | T(R*N*log F + I*F*log F), linear in N | derived | agree |
 | `granger_nonparametric[n_trials]` | n_trials | 4, 40, 400, 4000 | 20.64, 122.7, 1111, 1.115e+04 | +0.92 | 0.997 | 540x | O(n) | T(R*N*log F + I*F*log F), linear in R | derived | agree |
 | `granger_nonparametric[n_freqs]` | n_freqs | 128, 512, 2048, 8192, 16384 | 8819, 3334, 2670, 2906, 2512 | -0.22 | 0.696 | 4x | CONSTANT | T(R*N*log F + I*F*log F), F log F from the factorization | derived | NOT REACHED (top-two slope -0.21) |
@@ -195,7 +192,6 @@ contradicts a written claim it appears in section 6.
 | `network_topology[n_nodes]` | n_nodes | 800, 1600, 3000, 5000, 8000 | 8.45, 33.2, 115.7, 320.2, 814.8 | +1.98 | 1.000 | 96x | O(n^2) | T(n^2) | derived | agree |
 | `phase_slope_index[n_samples]` | n_samples | 60000, 200000, 700000, 2000000, 4000000 | 8.69, 39.9, 123.6, 334.0, 692.1 | +1.02 | 0.996 | 80x | O(n) | T(N log L) | derived | agree |
 | `phase_slope_index[n_samples_jackknife]` | n_samples | 60000, 200000, 700000, 2000000, 4000000 | 13.06, 59.15, 197.2, 555.3, 1151 | +1.05 | 0.997 | 88x | O(n) | T(S*L) | derived | agree |
-| `spike_count_mutual_information[n_spikes]` | n_spikes | 100000, 500000, 2000000, 5000000, 10000000 | 11.0, 55.3, 228.2, 562.6, 1138 | +1.01 | 1.000 | 104x | O(n) | T(n_spikes + n_bins) | derived | ORDER |
 | `spike_mutual_information[n_bins]` | n_bins | 10000, 50000, 200000, 800000, 2000000 | 23.1, 31.5, 78.3, 289.1, 800.8 | +0.68 | 0.933 | 35x | sub-linear | T(n_spikes + n_bins) | derived | ORDER |
 | `spike_mutual_information[n_spikes]` | n_spikes | 100000, 500000, 2000000, 5000000, 10000000 | 9.72, 49.9, 208.7, 534.8, 1066 | +1.02 | 1.000 | 110x | O(n) | T(n_spikes + n_bins) | derived | ORDER |
 | `transfer_entropy[n_samples]` | n_samples | 1500, 6000, 25000, 80000, 150000 | 13.0, 51.4, 278.1, 1079, 2184 | +1.13 | 0.999 | 169x | O(n) | T(N*(k+l)) expected | derived | ORDER |
@@ -637,7 +633,6 @@ Three verdicts need reading carefully:
 | `exact_sign_flip[n_samples_exact]` | n_samples | - | - | +2.47 [POOR FIT] | see note (predicted after this group's sweep had run). EXPONENTIAL in N, not polynomial: a power-law exponent is not the right summary. The raw times, which should roughly double per added sample, are the evidence. | Exhaustive enumeration of all 2^N sign vectors, T(2^N*N): an exponential-exponent gap against the best known algorithm. | O(2^(N/2)*N) known; true lower bound unknown |
 | `phase_slope_index[n_samples_jackknife]` | n_samples | +2.00 | +1.00 | +2.14 | **gap confirmed**, then closed: +1.05 after the change (section 6.2). | Before the change: a Python loop of S iterations, each taking a fancy-index COPY fx[keep] of an (S-1, L/2+1) complex array and recomputing three full-frequency means from scratch: T(S^2*L) = T(N^2/L). This is the DEFAULT path (jackknife=True at jnwb/connectivity.py:1604). | T(S*L) |
 | `granger_spectral[model_order]` | model_order | +2.00 | +1.00 | +1.19 | **no gap** -- measurement matches the admissible order. | Same. | T(N*p + p^2 + F log F) |
-| `granger_causality[model_order]` | model_order | +2.00 | +1.00 | +1.11 | **no gap** -- measurement matches the admissible order. | Same SVD least-squares route. | T(N*p + p^2) |
 | `granger[model_order]` | model_order | +2.00 | +1.00 | +1.07 | **no gap** -- measurement matches the admissible order. | A design matrix of (N-p) x (1+2p) is materialised and solved by SVD least squares (LAPACK gelsd), giving T(N p^2 + p^3): a factor p in the data term and p in the solve above the recursion. | T(N*p + p^2) at d=2 |
 | `spike_count_mutual_information[n_spikes]` | n_spikes | +1.30 | +1.00 | +1.01 | **no gap** -- measurement matches the admissible order. | The alphabet is the set of distinct per-bin counts, which grows with n_spikes/n_bins, so the dense Python double loop over the alphabet product grows too. | T(n_spikes + n_bins) |
 | `jrsa[n_lags]` | n_lags | +1.00 | +0.00 | +0.99 | **gap confirmed**. | A Python loop over lags, each doing a full metric call: T(L*n log n). | T(1) in L; T(n log n) total for all lags |
@@ -792,8 +787,6 @@ other does not follow fails the suite.
 |  |  |  | `phase_slope_index[n_samples_jackknife]` | +1.00 | +1.05 | within bound; re-measured after the change in section 6.2 |
 | INV-06 | `artifacts/benchmarks/performance/complexity_inventory.md` | granger: O(T . P^2 + P^3) | `granger[model_order]` | +3.00 | +1.07 | within bound |
 |  |  |  | `granger[n_samples]` | +1.00 | +1.08 | within bound |
-|  |  |  | `granger_causality[model_order]` | +3.00 | +1.11 | within bound |
-|  |  |  | `granger_causality[n_samples]` | +1.00 | +1.11 | within bound |
 | INV-07 | `artifacts/benchmarks/performance/complexity_inventory.md` | transfer_entropy: O(S . T) | `transfer_entropy[n_samples]` | +1.00 | +1.13 | within bound |
 | INV-08 | `artifacts/benchmarks/performance/complexity_inventory.md` | vflip: O(C . F) | `vflip[n_channels]` | +1.00 | +1.07 | within bound |
 |  |  |  | `vflip[n_freqs]` | +1.00 | +0.62 | within bound |
@@ -905,7 +898,10 @@ algorithm column still describes the replaced code for both rows.
 | `RaggedIndexReport` | result container | frozen dataclass, no __post_init__; binds references only. |
 | `WaveformBlockReport` | result container | frozen dataclass, no __post_init__; binds references only. |
 | `RaggedIndexRepairRefused` | exception class | ValueError subclass; construction is O(1) in every input dimension. |
+| `TableNotFoundError` | exception class | KeyError subclass binding one table path; construction is O(1) in every input dimension. |
 | `NWBValidationReport` | result container | frozen dataclass, no __post_init__; binds references only. |
+| `ValidationLayer` | result container | frozen dataclass, no __post_init__; binds references only. |
+| `LAYERS` | constant | A 6-element tuple of str literals (jnwb/nwb_validate.py:41). |
 | `NWBVerificationError` | exception class | Subclass with no `__init__`; inherits `NWBMutationError` field binding: O(1). |
 | `PopulationAnalyzer` | stateful class | PopulationAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
 | `Preflight` | result container | frozen dataclass; __post_init__ validates the outcome, the reason and each name in `missing`, which a caller's plan bounds, not any data size. |

@@ -46,7 +46,7 @@ hdmf 4.3.1 caps pandas below 3. For pandas 3, install it after jnwb: `pip instal
 Functions with a `device=` argument (see [Public API](api.md)) accept `'cpu'` (the default, except `jrsa`, whose
 default is `'auto'`), `'cuda'` and `'metal'`. `'cuda'` runs on an NVIDIA GPU in `complex_tfr`,
 `cross_area_coherence`, `PopulationAnalyzer.population_trajectory`, `spectral_tilt`,
-`harmonic_analysis`, `imaginary_coherency`, `wpli`, `granger_causality`,
+`harmonic_analysis`, `imaginary_coherency`, `wpli`, `granger`,
 `UnitAnalyzer.autocorrelogram` and `compute_population_trajectory`, mostly through
 [CuPy](https://docs.cupy.dev/en/stable/), installed by the `gpu` extra (CUDA 12.x);
 `compute_population_trajectory` uses PyTorch, installed by the `torch` extra. `band_power`,

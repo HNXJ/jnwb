@@ -201,22 +201,6 @@ DECLARATIONS: Dict[str, Declaration] = {
         unit="s",
         base="seconds",
     ),
-    # Two spike trains in seconds; discrete MI of binned occupancy, no bias correction.
-    "jnwb.connectivity._information.binary_occupancy_mutual_information": Declaration(
-        input_class=frozenset({"spikes"}),
-        estimator="plug-in discrete mutual information on binned occupancy",
-        estimand="mutual information between binned trains",
-        unit="bits",
-        base="seconds",
-    ),
-    # Two spike trains in seconds; discrete MI of per-bin counts, no bias correction.
-    "jnwb.connectivity._information.spike_count_mutual_information": Declaration(
-        input_class=frozenset({"spikes"}),
-        estimator="plug-in discrete mutual information on per-bin counts",
-        estimand="mutual information between binned trains",
-        unit="bits",
-        base="seconds",
-    ),
     # Spike times in seconds and acquisition ticks; returns the tick-to-seconds map.
     "jnwb.continuous.derive_tick_clock": Declaration(
         input_class=frozenset({"spikes"}),
@@ -313,11 +297,11 @@ DECLARATIONS: Dict[str, Declaration] = {
         unit="unitless r and p",
         base="samples, 0-based",
     ),
-    # Bivariate Granger causality; the statistic is a log variance ratio; no rate parameter.
-    "jnwb.connectivity._granger.granger_causality": Declaration(
+    # Bivariate or conditional Granger causality; a log variance ratio; no rate parameter.
+    "jnwb.connectivity._granger.granger": Declaration(
         input_class=frozenset({"spikes", "lfp"}),
-        estimator="bivariate VAR log variance ratio (Granger 1969)",
-        estimand="Granger statistic in each direction",
+        estimator="VAR log variance ratio, conditional on Z when given (Granger 1969; Geweke 1982)",
+        estimand="Granger statistic in each direction and their difference",
         unit="log variance ratio",
         base="samples, 0-based",
     ),

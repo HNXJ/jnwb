@@ -88,7 +88,7 @@ DIRECTED_METHODS = {
 
 def directed_connectivity(X, Y, method: str = "granger", **kwargs) -> DirectedResult:
     """
-    One entry point for all three directed estimators.
+    One entry point for every estimator in ``DIRECTED_METHODS``.
 
     Args:
         X, Y: any signal accepted by :func:`as_trials`
@@ -117,7 +117,7 @@ def directed_network(
     n_jobs: int = 1,
     *,
     conditional: bool = False,
-    signal_class: Union[str, Tuple[str, str]] = _OMITTED,
+    signal_class: str = _OMITTED,
     **kwargs,
 ) -> Dict[str, Any]:
     """
@@ -144,8 +144,8 @@ def directed_network(
             only; ``Z`` must not be passed as well). Every pair then fits a VAR with
             ``n_nodes`` series, so it needs proportionally more samples.
         signal_class: ``'spikes'`` or ``'lfp'``, the class of every node; one class only, since
-            spikes and LFP are never pooled. Omitted, the call warns ``FutureWarning``. It is
-            not passed to the pairwise estimator and changes no number.
+            spikes and LFP are never pooled. Omitted, the call warns ``FutureWarning``, here and
+            from each pairwise estimator. It changes no number.
         **kwargs: forwarded to the estimator. ``rng`` (or ``seed``) gives every pair its own
             child seed, drawn in pair order before any worker starts: from
             ``default_rng(rng)`` for an int (the estimators' default 0 included), from the
@@ -232,15 +232,25 @@ def directed_network(
     base = {k: v for k, v in kwargs.items() if k not in ("rng", "seed")}
     pair_kwargs = []
     for (i, j), s in zip(pairs, pair_seeds):
-        kw = {**base, "rng": s}
+        kw = {**base, "rng": s, "signal_class": signal_class}
         if conditional:
             others = [series[k] for k in range(n) if k not in (i, j)]
             kw["Z"] = others or None
         pair_kwargs.append(kw)
+    def run_pair(job):
+        with warnings.catch_warnings():
+            if signal_class is _OMITTED:
+                # directed_network warned once above; each pair's estimator would warn again,
+                # in the parent at n_jobs=1 and unseen in a worker otherwise.
+                warnings.filterwarnings(
+                    "ignore", message=r"\w+: pass signal_class=", category=FutureWarning
+                )
+            return directed_connectivity(
+                series[job[0][0]], series[job[0][1]], method=method, **job[1]
+            )
+
     pair_results = parallel_map(
-        lambda job: directed_connectivity(
-            series[job[0][0]], series[job[0][1]], method=method, **job[1]
-        ),
+        run_pair,
         list(zip(pairs, pair_kwargs)),
         n_jobs=n_jobs,
     )

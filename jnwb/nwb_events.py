@@ -11,7 +11,9 @@ import warnings
 import numpy as np
 import pandas as pd
 from pynwb import NWBFile, TimeSeries
+from pynwb.epoch import TimeIntervals
 
+from jnwb.nwb_inspect import _to_physical
 from jnwb.nwb_io import NWBInput, _with_nwb
 CodeValue = Union[str, int, float]
 CodeSequence = Union[CodeValue, Sequence[CodeValue]]
@@ -69,7 +71,29 @@ def _normalize_table_name(table: str) -> str:
         return clean[len("/intervals/"):]
     if clean.startswith("intervals/"):
         return clean.split("/", 1)[-1]
+    if clean.startswith("/processing/"):
+        return clean[1:]
     return clean
+
+
+def _processing_table(nwb: NWBFile, name: str) -> TimeIntervals | None:
+    """The `TimeIntervals` that ``processing/<module>/<name>`` names, else None."""
+    parts = name.split("/")
+    if len(parts) != 3 or parts[0] != "processing":
+        return None
+    module = (nwb.processing or {}).get(parts[1])
+    table = module.data_interfaces.get(parts[2]) if module is not None else None
+    return table if isinstance(table, TimeIntervals) else None
+
+
+def _processing_names(nwb: NWBFile) -> list[str]:
+    """``processing/<module>/<name>`` for each `TimeIntervals` in a processing module."""
+    return [
+        f"processing/{mod_name}/{name}"
+        for mod_name, mod in sorted((nwb.processing or {}).items())
+        for name, obj in sorted(mod.data_interfaces.items())
+        if isinstance(obj, TimeIntervals)
+    ]
 
 
 def resolve_interval_table(path_or_nwb: NWBInput, table: str | None = None) -> str:
@@ -97,15 +121,18 @@ def resolve_interval_table(path_or_nwb: NWBInput, table: str | None = None) -> s
 
 def _resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
     names = sorted(nwb.intervals.keys()) if nwb.intervals else []
-    if not names:
+    processing = _processing_names(nwb)
+    if not names and not processing:
         raise IntervalTableNotFoundError("No interval tables found in NWB file")
     if table is not None:
         name = _normalize_table_name(table)
-        if name not in nwb.intervals:
-            raise IntervalTableNotFoundError(
-                f"Interval table '{name}' not found. Available: {names}"
-            )
-        return name
+        if name in names or _processing_table(nwb, name) is not None:
+            return name
+        raise IntervalTableNotFoundError(
+            f"Interval table '{name}' not found. Available: {names + processing}"
+        )
+    if not names:
+        raise IntervalTableNotFoundError("No interval tables found in NWB file")
     if "trials" in names:
         return "trials"
     if len(names) == 1:
@@ -116,9 +143,20 @@ def _resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
     )
 
 
+def _interval_table_object(nwb: NWBFile, name: str) -> TimeIntervals:
+    """The table `_resolve_interval_table` returned: a bare intervals name, or a processing path."""
+    if name in (nwb.intervals or {}):
+        return nwb.intervals[name]
+    return _processing_table(nwb, name)
+
+
+def _table_path(name: str) -> str:
+    return f"/{name}" if name.startswith("processing/") else f"/intervals/{name}"
+
+
 def _read_interval_dataframe(nwb: NWBFile, table: str) -> pd.DataFrame:
     name = _resolve_interval_table(nwb, table)
-    return name, nwb.intervals[name].to_dataframe()
+    return name, _interval_table_object(nwb, name).to_dataframe()
 
 
 def _refuse_code_type(code: Any) -> None:
@@ -265,8 +303,9 @@ def events(
     path_or_nwb:
         Path to an ``.nwb`` file or an in-memory :class:`pynwb.NWBFile`.
     table:
-        Interval table name (e.g. ``test_synth_task``) or path
-        (``/intervals/test_synth_task``). When omitted, :func:`resolve_interval_table`
+        Interval table name (e.g. ``test_synth_task``), path
+        (``/intervals/test_synth_task``), or a ``TimeIntervals`` in a processing module
+        (``processing/behavior/events``). When omitted, :func:`resolve_interval_table`
         applies the ``trials`` → sole-table → ambiguity rules.
     code_column:
         Column holding event codes. Defaults to ``codes``, which is a jnwb
@@ -314,7 +353,7 @@ def events(
         )
         return EventTable(
             table=name,
-            path=f"/intervals/{name}",
+            path=_table_path(name),
             code_column=active_code_col,
             onset_column=onset_column,
             time_unit="seconds",
@@ -392,6 +431,8 @@ def _series_samples(series: TimeSeries) -> tuple[np.ndarray, np.ndarray]:
 
     A series with a ``rate`` has sample ``i`` at ``starting_time + i / rate``, as
     :func:`jnwb.nwb_inspect.acquisition_channel` reads it; one with ``timestamps`` has those.
+    Values are physical: scaled by ``conversion``, ``channel_conversion`` and ``offset`` as
+    ``acquisition_channel`` scales them.
     """
     values = np.asarray(series.data[:], dtype=np.float64)
     if values.ndim != 1:
@@ -399,6 +440,7 @@ def _series_samples(series: TimeSeries) -> tuple[np.ndarray, np.ndarray]:
             f"edges_near_events: series '{series.name}' has shape {values.shape}; "
             "one-dimensional data is required"
         )
+    values = _to_physical(series, values, 0, 1, series.name)
     if series.rate is not None:
         rate = float(series.rate)
         if not (np.isfinite(rate) and rate > 0):
@@ -492,9 +534,10 @@ def edges_near_events(
     events:
         Event times in seconds, on the session clock.
     threshold:
-        A sample at or above ``threshold`` is high. A rising edge is the first high sample after
-        a low one; a falling edge the first low sample after a high one. Each edge is stamped with
-        its sample's time.
+        In the series' unit after its ``channel_conversion``, ``conversion`` and ``offset`` (its
+        ``unit`` attribute, e.g. volts). A sample at or above ``threshold`` is high. A rising edge
+        is the first high sample after a low one; a falling edge the first low sample after a high
+        one. Each edge is stamped with its sample's time.
     window_s:
         ``(before_s, after_s)``: edges within ``before_s`` before and ``after_s`` after each event
         are candidates. Both must be finite and non-negative.

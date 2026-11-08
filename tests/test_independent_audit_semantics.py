@@ -216,13 +216,6 @@ class TestFinalAuditRecurrence:
         res = jnwb.granger(x[None, :], y[None, :], order=6, n_surrogates=0, detrend=None)
         assert res.params["order_x_to_y"] == 6
 
-    def test_granger_causality_undersampled_raises(self):
-        x = np.random.default_rng(0).normal(size=8)
-        y = np.random.default_rng(1).normal(size=8)
-        with pytest.warns(DeprecationWarning):
-            with pytest.raises(ValueError, match="fit_var_bivariate"):
-                jnwb.granger_causality(x, y, order=5)
-
     def test_psth_bins_match_bin_spikes(self):
         from jnwb.analyzers import UnitAnalyzer
         from jnwb.connectivity import bin_spikes
@@ -263,15 +256,6 @@ class TestJrsaDtwAlignContract:
         y = rng.normal(size=(3, 40))
         with pytest.raises((ImportError, NotImplementedError), match="dtw"):
             jnwb.jrsa(x, y, metric="pearson", align="dtw", stats=False)
-
-
-class TestGrangerCausalityDeprecation:
-    def test_granger_causality_emits_deprecation_warning(self):
-        rng = np.random.default_rng(0)
-        x = rng.normal(size=200)
-        y = rng.normal(size=200)
-        with pytest.warns(DeprecationWarning, match="granger_causality"):
-            jnwb.granger_causality(x, y, order=2)
 
 
 class TestSchemeNamedInResult:

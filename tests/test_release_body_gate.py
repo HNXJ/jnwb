@@ -454,3 +454,128 @@ class TestAgainstTheLiveRelease:
         if outcome.status == BODY_SKIPPED:
             pytest.skip(f"live release not reachable: {outcome.detail}")
         assert outcome.violations == [], outcome.violations
+
+
+def _gate():
+    import scripts.release_gate as gate
+
+    return gate
+
+
+def _git(cwd: pathlib.Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=str(cwd), check=True, capture_output=True, text=True)
+
+
+def _remote_runner(answers: dict):
+    """A ``git remote get-url origin`` stub keyed on the checkout it is run in.
+
+    ``answers`` maps a directory to ``(returncode, stdout)``; any other directory fails.
+    """
+    def run(cmd, **kwargs):
+        cwd = pathlib.Path(kwargs["cwd"]).resolve()
+        code, out = answers.get(cwd, (2, ""))
+        return subprocess.CompletedProcess(cmd, code, out, "" if code == 0 else "no such remote")
+
+    return run
+
+
+class TestRepositoryForTheLiveCheck:
+    """Step 0d names the repository, so a shared clone with a local-path origin is not skipped."""
+
+    @pytest.mark.parametrize(
+        "remote",
+        [
+            "git@github.com:HNXJ/jnwb.git",
+            "https://github.com/HNXJ/jnwb",
+            "ssh://git@github.com/HNXJ/jnwb.git",
+            "https://user:token@github.com/HNXJ/jnwb.git",
+        ],
+    )
+    def test_github_remote_forms_name_the_repository(self, remote: str) -> None:
+        assert _gate().github_repository(remote) == "HNXJ/jnwb"
+
+    @pytest.mark.parametrize(
+        "remote",
+        [
+            "https://gitlab.com/HNXJ/jnwb.git",
+            "git@github.com.example:HNXJ/jnwb.git",
+            "https://github.com/HNXJ",
+            "D:/clones/project",
+        ],
+    )
+    def test_other_remotes_name_no_repository(self, remote: str) -> None:
+        assert _gate().github_repository(remote) is None
+
+    def test_a_github_origin_is_the_repository(self, tmp_path: pathlib.Path) -> None:
+        run = _remote_runner({tmp_path.resolve(): (0, "git@github.com:HNXJ/jnwb.git\n")})
+        repo, how = _gate().resolve_github_repository(root=tmp_path, runner=run)
+        assert repo == "HNXJ/jnwb", how
+        assert "github.com" not in how, "the origin URL was printed"
+
+    def test_a_local_path_origin_resolves_through_its_own_origin(self, tmp_path: pathlib.Path) -> None:
+        """Real git, no network: the shape the release gate meets in a ``git clone --shared``."""
+        upstream = tmp_path / "upstream"
+        lane = tmp_path / "lane"
+        upstream.mkdir()
+        _git(upstream, "init", "-q")
+        _git(upstream, "remote", "add", "origin", "git@github.com:HNXJ/jnwb.git")
+        _git(tmp_path, "clone", "-q", "--shared", str(upstream), str(lane))
+        repo, how = _gate().resolve_github_repository(root=lane)
+        assert repo == "HNXJ/jnwb", how
+
+    def test_a_local_origin_without_an_origin_fails_by_name(self, tmp_path: pathlib.Path) -> None:
+        lane, upstream = tmp_path / "lane", tmp_path / "upstream"
+        lane.mkdir()
+        upstream.mkdir()
+        run = _remote_runner({lane.resolve(): (0, str(upstream) + "\n")})
+        repo, how = _gate().resolve_github_repository(root=lane, runner=run)
+        assert repo is None
+        assert str(upstream) in how and "no origin remote" in how
+
+    def test_a_local_origin_is_followed_one_hop_only(self, tmp_path: pathlib.Path) -> None:
+        lane, upstream, deeper = tmp_path / "lane", tmp_path / "upstream", tmp_path / "deeper"
+        for path in (lane, upstream, deeper):
+            path.mkdir()
+        run = _remote_runner({
+            lane.resolve(): (0, str(upstream) + "\n"),
+            upstream.resolve(): (0, str(deeper) + "\n"),
+        })
+        repo, how = _gate().resolve_github_repository(root=lane, runner=run)
+        assert repo is None and "not a GitHub remote" in how
+
+    def test_an_origin_that_is_neither_github_nor_a_path_fails_without_printing_it(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        run = _remote_runner({tmp_path.resolve(): (0, "https://tok3n@gitlab.example/HNXJ/jnwb.git\n")})
+        repo, how = _gate().resolve_github_repository(root=tmp_path, runner=run)
+        assert repo is None and "not a GitHub remote" in how
+        assert "tok3n" not in how and "gitlab" not in how
+
+    def test_a_checkout_with_no_origin_fails_by_name(self, tmp_path: pathlib.Path) -> None:
+        repo, how = _gate().resolve_github_repository(root=tmp_path, runner=_remote_runner({}))
+        assert repo is None and "no origin remote" in how
+
+    def test_the_repository_is_passed_to_gh_explicitly(self) -> None:
+        seen: list = []
+
+        def runner(cmd, **kwargs):
+            seen.append(list(cmd))
+            return subprocess.CompletedProcess(cmd, 0, '{"body": "", "tagName": "v7.1.0"}', "")
+
+        check_live_release_body(OTHER, runner=runner, repo="HNXJ/jnwb")
+        check_live_release_body(OTHER, runner=runner)
+        with_repo, without = seen
+        assert with_repo[-2:] == ["--repo", "HNXJ/jnwb"], with_repo
+        assert "--repo" not in without, without
+
+    def test_step_0d_fails_rather_than_skips_when_no_repository_is_named(self) -> None:
+        source = (REPO_ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
+        main = next(
+            n for n in ast.parse(source).body if isinstance(n, ast.FunctionDef) and n.name == "main"
+        )
+        step = (ast.get_source_segment(source, main) or "").partition("STEP 0d")[2]
+        step = step.partition("STEP 0e")[0]
+        resolve_at = step.find("resolve_github_repository(")
+        check_at = step.find("check_live_release_body(")
+        assert 0 <= resolve_at < check_at, "STEP 0d reads the release before naming its repository"
+        assert "sys.exit(1)" in step[:check_at], "an unnamed repository does not stop the gate"

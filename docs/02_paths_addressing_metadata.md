@@ -65,7 +65,7 @@ channel is not on the labelled shaft is `"na"` too.
 
 `curate_and_label` runs bad-contact detection, short-run interpolation and a graded spectrolaminar
 anchor on epoched LFP, then labels every contact. Widths are in micrometers, so it needs the
-pitch; the defaults are working values from 25 and 40 um probes, and each is a parameter; vFLIP keeps its own bands.
+pitch; the defaults are working values from 25 and 40 micrometer probes, and each is a parameter; vFLIP keeps its own bands.
 
 ```python
 # lfp: (n_channels, n_epochs, n_samples) in recording order; erp: (n_channels, n_times)
@@ -151,7 +151,7 @@ association-to-causality step that [Architecture](architecture.md#causal-and-dir
 On a synthetic electrodes table, panel A of that figure is `jnwb.map_peak_channel_to_area`
 partitioning 24 contacts of one probe
 across V1, V2 and V3; panel B is `jnwb.classify_layer_from_depth` on the same contacts at
-`threshold=1000` um, classes keyed, threshold drawn. Both are spatial
+`threshold=1000` micrometers, classes keyed, threshold drawn. Both are spatial
 assignments and neither carries a causal direction.
 
 ---

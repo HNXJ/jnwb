@@ -13,6 +13,10 @@ keyed by ``spec`` and ``parameter`` and are not read.
 it, its SHA-256 and the fields it states. ``verify_validations`` checks a built site against the
 repository.
 
+``related`` has one card per entry of the related-reproductions record: a reproduction kept
+outside this repository, shown as its title, its stated relation to jnwb and its links. The build
+computes and checks none of its values.
+
 ``deferred`` has one row per roadmap row that is a validation, each read as not started. Each
 replication in ``showcases`` carries a ``label``: the dashboard's name for the record's verdict.
 Each also carries ``paper``, ``library`` and ``methods``: the relation to the paper, the frozen-register
@@ -57,7 +61,13 @@ FIGURES = ASSETS / "figures"
 DOCS = REPO_ROOT / "docs"
 ORDER_RECORD = REPO_ROOT / "artifacts" / "evidence" / "0.2.6" / "computational_order.md"
 SHOWCASE_RECORD = REPO_ROOT / "artifacts" / "showcases" / "openscope_glo.json"
+RELATED_RECORD = REPO_ROOT / "artifacts" / "showcases" / "related.json"
 ROADMAP = REPO_ROOT / "artifacts" / "roadmap.md"
+RELEASE_PLAN = REPO_ROOT / "artifacts" / "process" / "release_plan.json"
+#: The files a release-plan item id must appear in.
+PLAN_ITEM_SOURCES = (REPO_ROOT / "artifacts" / "todo_stack.md", ROADMAP,
+                     REPO_ROOT / "artifacts" / "open_stack.md")
+PLAN_STATUSES = ("in progress", "planned", "tbd")
 CALIBRATION = BENCHMARKS / "calibration"
 #: The calibration receipts a card reads. Their raw records are not read, so they get no card.
 CALIBRATION_RECEIPTS = (CALIBRATION / "xflip_calibration_0.2.5.md",
@@ -72,7 +82,8 @@ from scripts.release_gate import (RECEIPT_PATH as CLOSURE_RECEIPT_PATH,  # noqa:
 CLOSURE_RECEIPT = REPO_ROOT / CLOSURE_RECEIPT_PATH
 VALIDATION_HTML = ASSETS / "validations"
 SECTIONS =("generated", "release", "releases", "ci", "api", "verified", "performance",
-            "order", "references", "figures", "showcases", "validations", "deferred")
+            "order", "references", "figures", "showcases", "related", "validations", "deferred",
+            "roadmap")
 
 _VERSION_LINE = re.compile(r"^## \[(?P<version>[^\]]+)\](?: - (?P<date>\S+))?$")
 _INIT_VERSION = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
@@ -574,6 +585,32 @@ def showcases_section() -> dict | None:
     return record
 
 
+def related_section() -> list[dict] | None:
+    """The related-reproductions record's entries, as recorded; null while no record exists.
+
+    Refuses, naming the entry: a missing id or title, an entry stating no relation to jnwb, an
+    entry with no link, a link without a label or whose URL is not https. The record's words and
+    links are passed through; the build reads no value from the linked pages.
+    """
+    if not RELATED_RECORD.is_file():
+        return None
+    where = RELATED_RECORD.name
+    entries = json.loads(_read(RELATED_RECORD))["entries"]
+    for entry in entries:
+        ident = entry.get("id")
+        if not ident or not entry.get("title"):
+            raise ValueError(f"{where}: an entry has no id or no title ({ident!r})")
+        if not entry.get("relation"):
+            raise ValueError(f"{where}: entry {ident!r} states no relation to jnwb")
+        if not entry.get("links"):
+            raise ValueError(f"{where}: entry {ident!r} has no link")
+        for link in entry["links"]:
+            if not link.get("label") or not str(link.get("url", "")).startswith("https://"):
+                raise ValueError(f"{where}: entry {ident!r} has a link without a label or an "
+                                 f"https URL ({link.get('url')!r})")
+    return entries
+
+
 def deferred_section() -> list[dict] | None:
     """The roadmap rows that are validations, each read as not started. A row is one when its
     theme cell ends with the validation tag, and the tag is left off the theme returned; a deferred
@@ -594,6 +631,44 @@ def deferred_section() -> list[dict] | None:
         theme = cells[1][:-len(VALIDATION_TAG)].rstrip()
         rows.append({"id": cells[0], "theme": theme, "defect": cells[2], "waits": cells[3],
                      "release": cells[4], "label": "not started"})
+    return rows
+
+
+def _version_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
+def roadmap_section(declared: str) -> list[dict] | None:
+    """The release plan's rows, as recorded; null while no plan exists.
+
+    Refuses, naming the row: a version that is not X.Y.Z or not later than the declared
+    version, versions out of ascending order, a status outside the plan's set, a row without a
+    theme or goal, and an item id that none of the stacks or the roadmap contains.
+    """
+    if not RELEASE_PLAN.is_file():
+        return None
+    where = RELEASE_PLAN.name
+    rows = json.loads(_read(RELEASE_PLAN))["releases"]
+    stacks = "\n".join(_read(path) for path in PLAN_ITEM_SOURCES if path.is_file())
+    previous: tuple[int, ...] | None = None
+    for row in rows:
+        version = str(row.get("version", ""))
+        if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+            raise ValueError(f"{where}: {version!r} is not a version X.Y.Z")
+        key = _version_key(version)
+        if key <= _version_key(declared):
+            raise ValueError(f"{where}: {version} is not later than the declared {declared}")
+        if previous is not None and key <= previous:
+            raise ValueError(f"{where}: {version} is out of ascending order")
+        previous = key
+        if row.get("status") not in PLAN_STATUSES:
+            raise ValueError(f"{where}: {version} has status {row.get('status')!r}, not one of "
+                             f"{PLAN_STATUSES}")
+        if not row.get("theme") or not row.get("goal"):
+            raise ValueError(f"{where}: {version} has no theme or no goal")
+        for item in row.get("items", []):
+            if not re.search(rf"(?<![\w-]){re.escape(item)}(?![\w-])", stacks):
+                raise ValueError(f"{where}: {version} names {item}, which no stack contains")
     return rows
 
 
@@ -820,8 +895,10 @@ def build_data() -> dict:
     order = order_section()
     figures = figures_section()
     showcases = showcases_section()
+    related = related_section()
     validations = validations_section()
     deferred = deferred_section()
+    roadmap = roadmap_section(release_section(releases)["version"])
     pages = sorted({_rel(page) for figure in figures
                     if (page := _explaining_page(Path(figure["light"]).name))})
     sources = {
@@ -836,8 +913,10 @@ def build_data() -> dict:
         "references": _present(REFERENCES) if references is not None else [],
         "figures": [_rel(FIGURES), *pages],
         "showcases": _present(SHOWCASE_RECORD) if showcases else [],
+        "related": _present(RELATED_RECORD) if related is not None else [],
         "validations": list(dict.fromkeys(card["path"] for card in validations)),
         "deferred": _present(ROADMAP) if deferred is not None else [],
+        "roadmap": _present(RELEASE_PLAN) if roadmap is not None else [],
     }
     return {
         "generated": generated_section(),
@@ -852,8 +931,10 @@ def build_data() -> dict:
         "references": references,
         "figures": figures,
         "showcases": showcases,
+        "related": related,
         "validations": validations,
         "deferred": deferred,
+        "roadmap": roadmap,
     }
 
 
@@ -906,9 +987,11 @@ def _size(name: str, value) -> str:
         return f"{len(value)} rows"
     if name == "showcases":
         return f"{len(value['entries'])} entries"
+    if name == "related":
+        return f"{len(value)} entries"
     if name == "validations":
         return f"{len(value)} cards"
-    if name == "deferred":
+    if name in ("deferred", "roadmap"):
         return f"{len(value)} rows"
     return "present"
 

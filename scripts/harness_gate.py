@@ -90,6 +90,7 @@ from scripts.gates.boundary import (
     check_no_shadow_packages,
     check_logarithm_last_in_package,
     check_logarithm_last_rule,
+    count_declared_raw_power_estimands,
     _convention,
     _wholesale_conversions,
     check_line_ending_consistency,
@@ -271,8 +272,20 @@ def _computational_contract_checks() -> List[Tuple[str, List[str]]]:
     estimands = check_logarithm_last_in_package(REPO_ROOT)
     if estimands:
         found.append(
-            ("FAIL: A declared raw-power estimand takes its log before its mean:", estimands))
+            ("FAIL: A declared raw-power estimand takes its log before its mean, or none is "
+             "declared:", estimands))
     return found
+
+
+def _computational_pass_line() -> str:
+    """The computational contract's and the log-last scan's PASS line, naming the declarations
+    the scan examined. Zero never reaches it: zero fails the scan."""
+    declared = count_declared_raw_power_estimands(REPO_ROOT)
+    return ("PASS: Computational contract holds (every device, backend and n_jobs argument "
+            "reaches its deciding mechanism, every precision request is honoured or refused, "
+            "and every export has a recorded computational order), and no declared raw-power "
+            "estimand takes its log before its mean (the log-last rule over jnwb/; "
+            f"examined: {declared} declared raw-power estimand{'' if declared == 1 else 's'}).")
 
 
 def _internal_vocabulary_checks() -> List[Tuple[str, List[str]]]:
@@ -417,11 +430,7 @@ GATES: List[Tuple[int, Any, Any]] = [
      lambda: "PASS: artifacts/state.md is absent or records the live HEAD and carries its "
              "generated worktree, branch and open-defect rows (read only; the generator runs "
              "this harness, so this gate never regenerates the file)."),
-    (21, _computational_contract_checks,
-     lambda: "PASS: Computational contract holds (every device, backend and n_jobs argument "
-             "reaches its deciding mechanism, every precision request is honoured or refused, "
-             "and every export has a recorded computational order), and no declared raw-power "
-             "estimand takes its log before its mean (the log-last rule over jnwb/)."),
+    (21, _computational_contract_checks, _computational_pass_line),
     (22, _one(check_fact_predicates, "FAIL: A typed fact is VIOLATED on the generated fact graph:"),
      _fact_pass_line),
 ]

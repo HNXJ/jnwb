@@ -161,20 +161,11 @@
     {
       "file": "jnwb/connectivity/_granger.py",
       "qualname": "granger",
-      "sha256": "7722b6138096fa7da6e64f06512d25ca33c30f925820aa0a5b06a8eaafb3c8d5",
-      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "sha256": "a8a0276e14f1241d85f97d2ecaba969e9369913d702ab06ab4bae0c9ae3dda91",
+      "verified_at": "a87ab8cea4c71f1a423d412271596b50ad534aa2",
       "killed_by": [
-        "tests/test_composition_randomness.py::TestDirectedNetworkSurrogatesFollowTheCallerSeed::test_two_different_seeds_give_different_p_values[granger]"
-      ]
-    },
-    {
-      "file": "jnwb/connectivity/_granger.py",
-      "qualname": "granger_causality",
-      "sha256": "0f85aac5effdf21e24b229aa161215d8bbd54dc79f9f6ec576af69425e6e3fd2",
-      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
-      "killed_by": [
-        "tests/test_estimator_values_are_pinned.py::TestDeprecatedGrangerCausalityIsReportedInNats::test_each_statistic_is_the_log_of_the_variances_it_reports",
-        "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[granger_causality]"
+        "tests/test_composition_randomness.py::TestDirectedNetworkSurrogatesFollowTheCallerSeed::test_two_different_seeds_give_different_p_values[granger]",
+        "tests/test_connectivity.py::TestGranger::test_x_leads_y_gives_positive_net"
       ]
     },
     {
@@ -236,15 +227,14 @@
         "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[clopper_pearson]"
       ],
       "serves": [
-        "StatisticalAnalysis.clopper_pearson",
-        "StatisticalAnalysis.clopper_pearson_ci"
+        "StatisticalAnalysis.clopper_pearson"
       ]
     },
     {
       "file": "jnwb/statistics/_tests.py",
       "qualname": "mann_whitney_p_floor",
-      "sha256": "6224d9942be694fa093a5dfee5c4aee78ceaeacd25fdda91e21b3129ccd8e5a0",
-      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
+      "sha256": "1d99358ff13d1907bd1b74b6c8ec2525b9e6ab78ebf5cdec9c32c99398c9359d",
+      "verified_at": "af9ffbfda6e462caadc288a7549762de7c74e99f",
       "killed_by": [
         "tests/test_statistics.py::TestMannWhitneyPFloor::test_known_floors",
         "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[mann_whitney_p_floor]"

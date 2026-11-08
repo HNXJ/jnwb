@@ -112,7 +112,6 @@ LEAF = {
     'band_power': 'baseline',
     'bandpass_filter': 'data',
     'bin_spikes': 'window_s',
-    'binary_occupancy_mutual_information': 'time_window_s',
     'bipolar_reference': 'channel_data',
     'build_inner_validation_partitions': 'outer_trials[outer_fold]',
     'build_permutation_plan': 'rng',
@@ -160,7 +159,6 @@ LEAF = {
     'gaze_departure_onsets': 'trial_starts',
     'get_snr_analysis': 'units_df[snr]',
     'granger': 'X',
-    'granger_causality': 'signal1',
     'granger_nonparametric': 'X',
     'granger_spectral': 'X',
     'granger_time_reversed': 'X',
@@ -201,7 +199,6 @@ LEAF = {
     'spatial_derivative_sharpness': 'channel_positions',
     'spectral_tilt': 'lfp_trace',
     'spike_count_correlation': 'window_s',
-    'spike_count_mutual_information': 'time_window_s',
     'spike_mutual_information': 'time_window_s',
     'transfer_entropy': 'X',
     'unit_census_report': 'units_df[firing_rate]',
@@ -553,10 +550,8 @@ def build(name, tmp_path):
     over = _overrides(rng)
     if name in over:
         kwargs.update(over[name])
-    if name in ("binary_occupancy_mutual_information",
-                "spike_count_mutual_information", "spike_mutual_information"):
-        # The build passes the canonical spelling only: with both spellings present,
-        # removing one leaves the other and no removal changes the result.
+    if name == "spike_mutual_information":
+        # The build passes the canonical spelling only.
         kwargs.pop("time_window", None)
     if name == "build_permutation_plan":
         kwargs.pop("seed", None)
@@ -624,7 +619,7 @@ def _plain_functions():
 
 def test_examined_set_covers_every_plain_function():
     names = _plain_functions()
-    assert len(names) == 166, f"expected 166 plain functions, saw {len(names)}"
+    assert len(names) == 163, f"expected 163 plain functions, saw {len(names)}"
     assert set(EXEMPT) | set(LEAF) | set(NAN_PROPAGATES) == set(names)
     assert set(LEAF) & set(EXEMPT) == set()
     assert set(LEAF) & set(NAN_PROPAGATES) == set()

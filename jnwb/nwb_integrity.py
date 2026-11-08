@@ -49,6 +49,20 @@ class RaggedIndexRepairRefused(ValueError):
     """``repair_ragged_index`` found a condition under which it must not write."""
 
 
+class TableNotFoundError(KeyError):
+    """The file has no table group at the requested path, e.g. an NWB without ``/units``.
+
+    A ``KeyError``, so ``except KeyError`` still catches it; ``table`` holds the path.
+    """
+
+    def __init__(self, table: str):
+        super().__init__(table)
+        self.table = table
+
+    def __str__(self) -> str:
+        return f"no table group {self.table!r} in the file"
+
+
 @dataclass(frozen=True)
 class RaggedIndexCheck:
     """Status of one ``<column>_index`` array. Every flag is a plain observation.
@@ -164,7 +178,7 @@ def _classify(old: np.ndarray, data_len: int, starts: np.ndarray | None):
 
 def _group(f: h5py.File, table: str) -> h5py.Group:
     if table not in f or not isinstance(f[table], h5py.Group):
-        raise KeyError(f"no table group {table!r} in the file")
+        raise TableNotFoundError(table)
     return f[table]
 
 
@@ -229,6 +243,16 @@ def check_ragged_indices(path: str | Path, *, table: str = "units",
         One ``RaggedIndexCheck`` per ragged column, in file order. Without a segmentation
         ``offset_bug`` is ``"not_tested"``. A single probe cannot show the defect, so with one
         segment a non-correct index is ``"inconsistent"``.
+
+    Raises
+    ------
+    TableNotFoundError
+        The file has no group at ``table``.
+    KeyError
+        ``probe_column`` is not a column of the table.
+    ValueError
+        Both segmentations given; ``probe_starts`` not increasing from 0; ``probe_column``
+        not one value per row.
 
     Notes
     -----
@@ -422,7 +446,8 @@ class WaveformBlockCheck:
 class WaveformBlockReport:
     """Every unit's waveform block of one table. ``ok`` is every unit ``"owned"``: an
     ``"unknown"`` is explicit uncertainty, not a pass. ``rtol``/``atol`` echo the
-    tolerances the verdicts were computed with."""
+    tolerances the verdicts were computed with, and ``amplitude_scale`` the factor applied to
+    each stored amplitude."""
 
     file: str
     table: str
@@ -430,6 +455,7 @@ class WaveformBlockReport:
     rtol: float
     atol: float
     units: tuple[WaveformBlockCheck, ...]
+    amplitude_scale: float = 1.0
 
     @property
     def ok(self) -> bool:
@@ -449,7 +475,8 @@ class WaveformBlockReport:
 
 
 def check_waveform_blocks(path: str | Path, *, table: str = "units",
-                          rtol: float, atol: float = 0.0) -> WaveformBlockReport:
+                          rtol: float, atol: float = 0.0,
+                          amplitude_scale: float = 1.0) -> WaveformBlockReport:
     """Check every unit's ``waveform_mean`` block against its stored ``amplitude``.
 
     A ragged ``waveform_mean`` is sliced by ``waveform_mean_index`` as pynwb slices it, so
@@ -486,6 +513,12 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
     atol : float
         Absolute term of the same match; 0.0 disables it. Pass a small voltage when
         amplitudes approach zero, where a relative tolerance decides nothing.
+    amplitude_scale : float
+        Factor that converts the stored ``amplitude`` into the units of ``waveform_mean``,
+        applied before the match and the unit-mismatch check: ``1e-6`` for an amplitude in
+        microvolts against blocks in volts. Finite and positive; the default 1.0 reads both
+        in one unit. ``stored_amplitude`` in the report stays as stored, and ``best_dev`` is
+        in the units of ``waveform_mean``.
 
     Returns
     -------
@@ -495,10 +528,13 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
 
     Raises
     ------
+    TableNotFoundError
+        The file has no group at ``table``.
     KeyError
-        The table, ``waveform_mean``, or ``amplitude`` is absent.
+        ``waveform_mean`` or ``amplitude`` is absent.
     ValueError
-        ``rtol`` or ``atol`` is NaN, infinite or negative; ``amplitude`` is not a
+        ``rtol`` or ``atol`` is NaN, infinite or negative; ``amplitude_scale`` is NaN,
+        infinite, zero or negative; ``amplitude`` is not a
         numeric column; a column's length is not one value per unit. With a
         ``waveform_mean_index``, the index is not an integer array slicing ``waveform_mean``
         (non-integer, negative, decreasing, or out of bounds), or ``waveform_mean`` is not a
@@ -507,9 +543,10 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
         which is the length of ``amplitude``. The median, over the units whose amplitude is
         finite and nonzero and whose block is finite with a nonzero peak-to-peak, of the
         amplitude over the block's largest channel peak-to-peak is 1000 or more, or 1/1000
-        or less: the amplitude and the blocks are in different units, and no unit is judged.
+        or less: the amplitude and the blocks are in different units, and no unit is judged;
+        pass ``amplitude_scale`` when the scale is known.
     TypeError
-        ``rtol`` or ``atol`` is ``None``, a boolean or not a real number.
+        ``rtol``, ``atol`` or ``amplitude_scale`` is ``None``, a boolean or not a real number.
 
     Notes
     -----
@@ -529,6 +566,11 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
     if not atol >= 0:
         raise ValueError(
             f"check_waveform_blocks: atol must be >= 0, not {atol!r}")
+    amplitude_scale = _finite_cutoff(amplitude_scale, "amplitude_scale", "check_waveform_blocks")
+    if not amplitude_scale > 0:
+        raise ValueError(
+            f"check_waveform_blocks: amplitude_scale must be > 0, not {amplitude_scale!r}")
+    scale = float(amplitude_scale)
     path = Path(path)
     with h5py.File(path, "r") as f:
         g = _group(f, table)
@@ -589,14 +631,15 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
         for i in range(n):
             # Rows are channels in both layouts: a dense (sample, channel) block is transposed.
             block = wm[i].T if dense else wm[starts[i]:idx[i]]
-            a = float(amp[i])
+            stored = float(amp[i])
+            a = stored * scale  # in the units of waveform_mean
             n_rows = int(block.shape[0])
             prow = None if pc is None else (
                 pc[i].item() if isinstance(pc[i], np.generic) else pc[i])
             uid = ids[i].item() if isinstance(ids[i], np.generic) else ids[i]
             if n_rows == 0 or not np.isfinite(a) or (dense and block.shape[1] == 0):
                 units.append(WaveformBlockCheck(
-                    i, int(uid), "unknown", None, None, 0, a, None, prow))
+                    i, int(uid), "unknown", None, None, 0, stored, None, prow))
                 continue
             ptp = block.max(axis=1) - block.min(axis=1)
             if a != 0 and np.isfinite(block).all() and ptp.max() > 0:
@@ -610,7 +653,7 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
             best = float(dev[finite].min()) if finite.any() else float(dev.min())
             units.append(WaveformBlockCheck(
                 i, int(uid), "owned" if matched is not None else "unowned", matched,
-                largest, n_rows, a, best, prow))
+                largest, n_rows, stored, best, prow))
         if ratios:
             median = float(np.median(ratios))
             if median >= 1000 or median <= 1 / 1000:
@@ -618,5 +661,6 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
                     "the median ratio of stored amplitude to largest block peak-to-peak is "
                     f"{median:.3g} over {len(ratios)} usable units, outside 1/1000 to 1000: "
                     "a unit mismatch between amplitude and waveform_mean, for example "
-                    "microvolts against volts. No unit was judged.")
-    return WaveformBlockReport(path.name, table, n, rtol, atol, tuple(units))
+                    "microvolts against volts. No unit was judged; pass amplitude_scale "
+                    "when the scale is known.")
+    return WaveformBlockReport(path.name, table, n, rtol, atol, tuple(units), amplitude_scale)

@@ -11,8 +11,8 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.2.15'
-__release_date__ = '2026-10-31'
+__version__ = '0.2.16'
+__release_date__ = '2026-11-07'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
@@ -95,12 +95,13 @@ from .nwb_integrity import (
     RaggedIndexRepair,
     RaggedIndexReport,
     RaggedIndexRepairRefused,
+    TableNotFoundError,
     WaveformBlockReport,
     check_ragged_indices,
     check_waveform_blocks,
     repair_ragged_index,
 )
-from .nwb_validate import NWBValidationReport, validate_nwb
+from .nwb_validate import LAYERS, NWBValidationReport, ValidationLayer, validate_nwb
 from .continuous import (
     EffectiveRate,
     TickClock,
@@ -252,9 +253,6 @@ from .spectral import (
 # Functional connectivity: mutual information, Granger causality, phase slope index, transfer entropy.
 from .connectivity import (
     spike_mutual_information,
-    binary_occupancy_mutual_information,
-    spike_count_mutual_information,
-    granger_causality,
     network_topology,
     DirectedResult,
     as_trials,
@@ -348,9 +346,12 @@ __all__ = [
     'RaggedIndexReport',
     'RaggedIndexRepair',
     'RaggedIndexRepairRefused',
+    'TableNotFoundError',
     'WaveformBlockReport',
     'validate_nwb',
     'NWBValidationReport',
+    'LAYERS',
+    'ValidationLayer',
     'verify_nwb',
     'write_nwb',
     'transform_nwb',
@@ -510,9 +511,6 @@ __all__ = [
 
     # Functional connectivity
     'spike_mutual_information',
-    'binary_occupancy_mutual_information',
-    'spike_count_mutual_information',
-    'granger_causality',
     'network_topology',
     'DirectedResult',
     'as_trials',

@@ -729,8 +729,6 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("_backend.py", "jax_metal_available",
      "(ImportError, OSError, RuntimeError, AttributeError)", (), True, 1):
         "Returns False when JAX exposes no Metal device. A declared absence.",
-    ("_dictlike.py", "RenamedKeyDict.get", "KeyError", (), True, 1):
-        "dict-like .get returns the caller's own default. The caller named the fallback.",
     ("_dictlike.py", "DictAccessMixin.get", "KeyError", (), True, 1):
         "Attribute-backed .get returns the caller's own default when the key names no "
         "attribute. The caller named the fallback.",
@@ -755,6 +753,12 @@ ACCEPTED_HANDLER_RECOVERY = {
         "Returns float('nan') for a fit that could not run on the series (LinAlgError, "
         "ValueError); _series_diagnostics reports it as stationarity_not_tested. Absence. A "
         "missing statsmodels is imported outside the handler and raises.",
+    ("connectivity/_granger.py", "granger", "_GPUSolveFailed",
+     ("fit_xy", "fit_yx", "null_xy", "null_yx", "order_xy", "order_yx"), False, 1):
+        "A GPU solve that failed part-way: the handler warns through warn_device_fallback, "
+        "discards every GPU fit and recomputes all six on the CPU from a rebuilt surrogate "
+        "generator, and params['device_used'] records 'cpu'. The values are the CPU estimator's, "
+        "recorded as such.",
     ("io.py", "_stored_seek_is_reliable", "Exception", (), True, 1):
         "Returns False when its zipfile probe raises, so a stored entry is read forward, the "
         "path that needs no seek. Same bytes either way; only time differs.",

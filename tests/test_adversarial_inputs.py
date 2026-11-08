@@ -155,6 +155,13 @@ class TestSpikeWindows:
     def test_rate_counts_sorted_spikes(self):
         assert jnwb.rate_in_window(self.SPIKES, 1.0, (0.0, 100.0)) == pytest.approx(30.0)
 
+    def test_spike_on_window_start_within_an_ulp_is_counted(self):
+        # 0.3 - 0.03 is exactly 0.27 s after the onset, but 0.03 + 0.27 rounds above 0.3.
+        spikes, onset = np.array([0.3]), 0.03
+        assert onset + 0.27 > 0.3, "fixture must place the spike on the ulp edge"
+        assert jnwb.fires_in_window(spikes, onset, window_ms=(270.0, 300.0)) is True
+        assert jnwb.rate_in_window(spikes, onset, window_ms=(270.0, 300.0)) == pytest.approx(1 / 0.03)
+
 
 class TestShufflePvalues:
     A = np.random.default_rng(2).normal(size=30)

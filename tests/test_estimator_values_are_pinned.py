@@ -26,7 +26,6 @@ from jnwb.artifact_repair import detect_band_outliers, repair_lfp_trials
 from jnwb.connectivity import (
     _entropy_bits,
     granger,
-    granger_causality,
     granger_spectral,
     network_topology,
     spike_mutual_information,
@@ -404,25 +403,6 @@ class TestGrangerIsReportedInNats:
         out = granger(x, y, order=2, detrend=None)
 
         assert out.y_to_x == pytest.approx(_ar_gc(y, x, 2), rel=1e-6)
-
-
-class TestDeprecatedGrangerCausalityIsReportedInNats:
-    def test_each_statistic_is_the_log_of_the_variances_it_reports(self):
-        """This function returns its own restricted and unrestricted variances, so the
-        oracle is in the result: F must be their natural log ratio. Base 2 breaks the
-        identity between the number and the two numbers beside it.
-        """
-        x, y = _driven_pair()
-
-        # This function is deprecated and still shipped, so the call is made inside the
-        # warning it is contracted to raise rather than leaking one into the suite's output.
-        with pytest.warns(DeprecationWarning):
-            out = granger_causality(x, y, order=2)
-
-        assert out["F_1_to_2"] == pytest.approx(
-            float(np.log(out["var_restricted_2"] / out["var_unrestricted_2"])), rel=1e-9)
-        assert out["F_2_to_1"] == pytest.approx(
-            float(np.log(out["var_restricted_1"] / out["var_unrestricted_1"])), rel=1e-9)
 
 
 class TestSpectralGrangerIntegratesToTheTimeDomainValue:

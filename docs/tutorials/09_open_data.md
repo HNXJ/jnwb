@@ -124,3 +124,7 @@ The page below is included from the tutorial script; edit the script, not this b
 ```python
 --8<-- "examples/tutorials/09_open_data.py"
 ```
+
+## References
+
+- Westerberg et al. (2024), DANDI 000253, cited in [The data](#the-data).

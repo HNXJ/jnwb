@@ -181,7 +181,7 @@ def test_the_openscope_tab_is_a_tab_button_for_its_section():
     assert "hidden" in panels[0], "the panel starts hidden, as the other panels do"
 
 
-def test_the_openscope_section_holds_three_subsections_in_order():
+def test_the_openscope_section_holds_its_subsections_in_order():
     events = _events()
     begin, end = _openscope_section(events)
     markers, heading = [], None
@@ -199,6 +199,7 @@ def test_the_openscope_section_holds_three_subsections_in_order():
         "Published findings", "group:showcase-published",
         "Exploratory results", "group:showcase-exploratory",
         "Verified findings", "group:showcase-verified",
+        "Related reproductions",
     ]
 
 
@@ -385,7 +386,7 @@ def _collect(page, problems):
 
     def on_failed(request):
         if not request.url.startswith(PLOTLY_URL):
-            problems.append(f"request failed: {request.url}")
+            problems.append(f"request failed: {request.url} ({request.failure})")
 
     page.on("console", on_console)
     page.on("requestfailed", on_failed)
@@ -404,28 +405,49 @@ def test_the_replication_table_shows_the_three_verdicts_beside_the_record_verdic
         "the lede must say each replication shows the three verdicts"
 
 
-def test_every_route_renders_in_light_and_dark_without_errors(browser, base_url, site):
+TRANSIENT = (
+    re.compile(r"request failed: \S+ \(net::ERR_[A-Z_]+\)"),
+    re.compile(r"console error: Failed to load resource: net::ERR_[A-Z_]+ \(\S+\)"),
+)
+
+
+def _is_transient(problem):
+    """A load that failed with a net::ERR_* error: the request failure, or the console line Chromium
+    writes for it. An HTTP status is not transient."""
+    return any(pattern.fullmatch(problem) for pattern in TRANSIENT)
+
+
+def _render_route(browser, base_url, route, heading, scheme):
+    """Loads one route in one colour scheme. Returns its problems and the body background."""
     sync_api = pytest.importorskip("playwright.sync_api")
+    found = []
+    context = browser.new_context(color_scheme=scheme)
+    try:
+        page = context.new_page()
+        _collect(page, found)
+        try:
+            page.goto(f"{base_url}/index.html#{route}", wait_until="networkidle")
+            page.locator(heading).first.wait_for(state="visible", timeout=10000)
+        except sync_api.Error as exc:
+            found.append(f"{heading!r} is not visible: {str(exc).splitlines()[0]}")
+        background = page.evaluate("getComputedStyle(document.body).backgroundColor")
+    finally:
+        context.close()
+    return found, background
+
+
+def test_every_route_renders_in_light_and_dark_without_errors(browser, base_url, site):
     routes = _routes(site)
     checked, problems = [], []
     for route, heading in routes:
         backgrounds = {}
         for scheme in ("light", "dark"):
             label = f"#{route} ({scheme})"
-            found = []
-            context = browser.new_context(color_scheme=scheme)
-            try:
-                page = context.new_page()
-                _collect(page, found)
-                try:
-                    page.goto(f"{base_url}/index.html#{route}", wait_until="networkidle")
-                    page.locator(heading).first.wait_for(state="visible", timeout=10000)
-                except sync_api.Error as exc:
-                    found.append(f"{heading!r} is not visible: {str(exc).splitlines()[0]}")
-                backgrounds[scheme] = page.evaluate(
-                    "getComputedStyle(document.body).backgroundColor")
-            finally:
-                context.close()
+            found, backgrounds[scheme] = _render_route(browser, base_url, route, heading, scheme)
+            if found and all(_is_transient(problem) for problem in found):
+                # A load that failed with net::ERR_* is rendered once more; an HTTP status is not.
+                retry = _render_route(browser, base_url, route, heading, scheme)
+                found, backgrounds[scheme] = retry
             problems.extend(f"{label}: {problem}" for problem in found)
             checked.append(label)
         if backgrounds["light"] == backgrounds["dark"]:
@@ -433,3 +455,70 @@ def test_every_route_renders_in_light_and_dark_without_errors(browser, base_url,
                             "light and dark")
     assert len(checked) == 2 * len(routes), checked
     assert not problems, "\n".join(problems)
+
+
+#: An image every route requests on load. The figures load lazily, so whether a figure is requested
+#: before a route's check ends depends on the viewport and the timing.
+LOGO = "jnwb-logo.png"
+
+
+class _FaultyBrowser:
+    """The browser fixture with the logo's requests answered by a fault. "abort" fails the first
+    request for LOGO with net::ERR_CONNECTION_RESET and lets the later ones through; "404" answers
+    every request for it with HTTP 404. Counts the contexts opened, so a retry shows."""
+
+    def __init__(self, browser, fault):
+        self._browser = browser
+        self._fault = fault
+        self.contexts = 0
+        self.faults = 0
+
+    def new_context(self, **kwargs):
+        context = self._browser.new_context(**kwargs)
+        self.contexts += 1
+
+        def answer(route):
+            if self._fault == "404":
+                self.faults += 1
+                route.fulfill(status=404, body="")
+            elif self.faults == 0:
+                self.faults += 1
+                route.abort("connectionreset")
+            else:
+                route.continue_()
+
+        context.route(f"**/assets/{LOGO}", answer)
+        return context
+
+
+def test_a_transient_asset_abort_is_retried_once(browser, base_url, site):
+    faulty = _FaultyBrowser(browser, "abort")
+    test_every_route_renders_in_light_and_dark_without_errors(faulty, base_url, site)
+    assert faulty.faults == 1, "the fixture must abort one asset request"
+    assert faulty.contexts == 2 * len(_routes(site)) + 1, "the aborted load must be retried once"
+
+
+def test_a_missing_asset_still_fails_on_its_404(browser, base_url, site):
+    faulty = _FaultyBrowser(browser, "404")
+    with pytest.raises(AssertionError, match=r"status of 404 .*assets/" + re.escape(LOGO)):
+        test_every_route_renders_in_light_and_dark_without_errors(faulty, base_url, site)
+    assert faulty.faults >= 1, "the fixture must answer an asset request with a 404"
+    assert faulty.contexts == 2 * len(_routes(site)), "a 404 must not be retried"
+
+
+def test_the_renderer_reads_the_related_section_and_links_through_the_url_check():
+    source = RENDERER.read_text(encoding="utf-8")
+    assert "lookup(data, 'related')" in source, "the OpenScope GLO tab reads the related section"
+    assert "renderRelated(data);" in source
+    body = source[source.index("function renderRelated"):source.index("// ---- overview and page")]
+    assert "setHref(anchor, link.url)" in body, "a related link goes through the URL check"
+    assert 'id="showcase-related"' in TEMPLATE.read_text(encoding="utf-8")
+
+
+def test_the_roadmap_tab_renders_the_plan_rows():
+    source = RENDERER.read_text(encoding="utf-8")
+    assert "lookup(data, 'roadmap')" in source and "renderRoadmap(data);" in source
+    template = TEMPLATE.read_text(encoding="utf-8")
+    assert 'aria-controls="roadmap"' in template and 'id="roadmap-table"' in template
+    rows = json.loads(FIXTURE.read_text(encoding="utf-8"))["roadmap"]
+    assert len(rows) >= 2, "the fixture must carry a planned and an undecided release"

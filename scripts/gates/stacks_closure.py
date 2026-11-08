@@ -1,9 +1,11 @@
 """Gate 15 (stack form): the generation closure and the consistency check."""
 from __future__ import annotations
 
+import fnmatch
+import posixpath
 import re
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 from scripts.gates.stacks_form import (
@@ -55,6 +57,39 @@ GENERATED_FROM = (
     },
 )
 
+#: Paths the integration step writes, which no item's `Writes:` field may name. An item that names
+#: one serializes against every other item that touches it, and the stack cannot say so. A span
+#: matches by name after normalization, or, when it holds a glob character, by `fnmatch` (see
+#: `integration_path_writes`). The frozen validated file is not listed, because an item that changes
+#: a frozen function's body writes it.
+INTEGRATION_PATHS = ("docs/api.md", "CHANGELOG.md")
+
+
+def _is_glob(path: str) -> bool:
+    return any(char in path for char in "*?[")
+
+
+def integration_path_writes(text: str) -> List[Tuple[int, str]]:
+    """Each `Writes:` span that names a path in INTEGRATION_PATHS, or is a glob that matches one,
+    as (line number, span).
+
+    A glob matches by `fnmatchcase`, where `*` also crosses `/`, so `docs/*.md` covers `docs/api.md`
+    and `*.md` covers `CHANGELOG.md`. A glob is reported when it might cover an integration path,
+    which errs toward reporting. The parser reads every backticked span of a field, so an exclusion
+    written as a second span is itself reported: name the files an item writes instead.
+    """
+    hits: List[Tuple[int, str]] = []
+    for lineno, field in _writes_fields(text):
+        for span in re.findall(r"`([^`\n]*)`", field):
+            path = posixpath.normpath(span.strip())
+            if _is_glob(path):
+                covered = any(fnmatch.fnmatchcase(target, path) for target in INTEGRATION_PATHS)
+            else:
+                covered = path in INTEGRATION_PATHS
+            if covered:
+                hits.append((lineno, path))
+    return hits
+
 
 def _row_delimiters(line: str) -> int:
     return _ESCAPED_PIPE.sub("", line).count("|")
@@ -79,6 +114,10 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
     four columns each but not the same four. Prose is not checked, and an open stack with no
     table passes: a release needs it to hold no table row, which STEP 0a decides. A missing
     open stack is a violation, because the sweep would otherwise read nothing.
+
+    **Integration paths stay out of write sets.** `docs/api.md` and `CHANGELOG.md` are written at
+    integration, so a `Writes:` field that names either one, or a glob that matches one (`docs/*.md`
+    covers `docs/api.md`), is reported.
     """
     root = repo_root or REPO_ROOT
     violations: List[str] = []
@@ -141,6 +180,14 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
                         "touches the tree. Name the files, or a glob if the item genuinely "
                         "spans them."
                     )
+        for lineno, path in integration_path_writes(stack_text):
+            violations.append(
+                f"STACK_FORM: {TODO_STACK}:{lineno} declares `{path}` in its 'Writes:' field. "
+                "That path, or a path the glob matches, is written at integration, not by an item, "
+                "and an item that names it serializes against every other item that touches it. "
+                "Remove it from the field, and name the files the item writes instead of a glob "
+                "that covers it."
+            )
 
     open_path = root / OPEN_STACK
     if not open_path.is_file():

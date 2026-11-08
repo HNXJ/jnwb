@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Documentation form gate: the rules of ``docs/documentation_form.md`` a machine can settle.
 
-Seven checks, each run against a repository root (the live tree from the command line, a seeded
+Twelve checks, each run against a repository root (the live tree from the command line, a seeded
 fixture tree from the suite):
 
   1. Vocabulary (F5). No superseded surface form from the contract's vocabulary table survives
@@ -29,6 +29,15 @@ fixture tree from the suite):
      case, in the prose of the documentation corpus, the skills included.
   7. Validation detail (F9). No page under ``docs/`` but ``references.md`` names a path under
      the evidence or benchmarks folders of ``artifacts/``.
+  8. Concept headings (F10). On each concept page, every H2 but ``References`` is numbered and
+     no H3 is.
+  9. Module headings (F11). On each concept page, an H2 names a module (``jnwb.x`` or
+     ``jnwb/x.py``) or a class, never a function: a function is named in an H3.
+  10. Repeated table rows (F12). No data row of an authored page appears in two of its tables.
+  11. References (F13). A page under ``docs/`` that cites a source ends with a ``## References``
+      section, and a page that cites none has none. ``references.md``, the list itself, is not read.
+  12. Micrometers (F14). No micrometre unit (the abbreviation, the micro sign or the LaTeX symbol)
+      in the prose of a page. Code spans, code blocks, identifiers and link targets are not prose.
 
 **What check 5 does not see.** It is a detector for one shape, tuned to report nothing on the
 live tree, and F2 stays a review item beyond it:
@@ -192,6 +201,7 @@ def corpus(root: Path) -> List[Tuple[str, str]]:
     | `docs/api.md` | readers of the reference | the generator or a docstring |
     | `skills/*/SKILL.md` and `skills/*/references/*.md` | agents routing to the library | the skill file |
     | `examples/tutorials/*.py` | readers of the tutorials | the script |
+    | `examples/*.py` | readers who run the quickstart | the script |
 
     A tutorial page is its own prose around a ``--8<--`` include of the script; the include is
     stripped from the prose and the script is scanned as its own surface. The generated
@@ -216,8 +226,11 @@ def corpus(root: Path) -> List[Tuple[str, str]]:
     for ref in sorted((root / "skills").glob("*/references/*.md")):
         pages.append((f"skills/{ref.parent.parent.name}/references/{ref.name}",
                       ref.read_text(encoding="utf-8")))
-    for script in sorted((root / "examples" / "tutorials").glob("*.py")):
-        pages.append((f"examples/tutorials/{script.name}", script.read_text(encoding="utf-8")))
+    # Every example script a reader runs or copies: the tutorials and each top-level example
+    # module (the quickstart). Read from the folders, so a new script is read without an edit.
+    examples = root / "examples"
+    for script in sorted([*examples.glob("*.py"), *(examples / "tutorials").glob("*.py")]):
+        pages.append((script.relative_to(root).as_posix(), script.read_text(encoding="utf-8")))
     return pages
 
 
@@ -749,6 +762,279 @@ def check_evidence_paths(root: Path) -> Result:
         f"artifacts/benchmarks/ outside references.md, {len(pages)} pages read.")
 
 
+# ------------------------------------------------------------------ 8. concept headings
+
+
+_HEADING = re.compile(r"^(#{2,3})\s+(.*\S)\s*$")
+_NUMBERED = re.compile(r"^\d+\.\s")
+REFERENCES = "References"
+_CONCEPT_ROW = re.compile(r"^\| Concept \((.+?)\) \|", re.M)
+_PAGE_RANGE = re.compile(r"`(\d\d)`–`(\d\d)`")
+
+
+def concept_page_names(root: Path) -> List[str]:
+    """The concept pages the contract's Length table names in its Concept row, by file name under
+    ``docs/``: a ``NN``–``NN`` range expands to the numbered pages present, a backticked name is
+    one page. Read from the contract, so a page added to the row is checked without an edit here."""
+    contract = root / CONTRACT
+    if not contract.is_file():
+        return []
+    section = contract.read_text(encoding="utf-8").split("\n## Length\n", 1)
+    row = _CONCEPT_ROW.search(section[1]) if len(section) == 2 else None
+    if row is None:
+        return []
+    cell = row.group(1)
+    names = [page.name for lo, hi in _PAGE_RANGE.findall(cell) for n in range(int(lo), int(hi) + 1)
+             for page in sorted((root / "docs").glob(f"{n:02d}_*.md"))]
+    names += [f"{name}.md" for name in re.findall(r"`([^`]+)`", _PAGE_RANGE.sub("", cell))]
+    return names
+
+
+def concept_pages(root: Path) -> Tuple[List[Tuple[str, str]], List[str]]:
+    """(name, text) for each concept page under ``docs/`` present, and the names of the missing."""
+    docs = root / "docs"
+    names = concept_page_names(root)
+    present = [(name, (docs / name).read_text(encoding="utf-8"))
+               for name in names if (docs / name).is_file()]
+    return present, [name for name in names if not (docs / name).is_file()]
+
+
+def headings(text: str) -> Iterator[Tuple[int, int, str]]:
+    """(line number, level, title) of every H2 and H3 outside fenced code."""
+    for number, line in unfenced_lines(text):
+        match = _HEADING.match(line)
+        if match:
+            yield number, len(match.group(1)), match.group(2)
+
+
+def check_concept_numbering(root: Path) -> Result:
+    pages, missing = concept_pages(root)
+    violations = [f"docs/{name}: concept page is missing" for name in missing]
+    read = 0
+    for name, text in pages:
+        for number, level, title in headings(text):
+            if level == 2 and title == REFERENCES:
+                continue
+            read += 1
+            numbered = _NUMBERED.match(title) is not None
+            if level == 2 and not numbered:
+                violations.append(f"{name}:{number}: H2 '{title}' is not numbered")
+            if level == 3 and numbered:
+                violations.append(f"{name}:{number}: H3 '{title}' is numbered")
+    if not read:
+        violations.append("no heading read from the concept pages; F10 has nothing to check")
+    return violations, (
+        f"PASS: concept headings (F10): H2 numbered and H3 unnumbered on {len(pages)} concept "
+        f"pages, {read} headings read.")
+
+
+# ------------------------------------------------------------------ 9. module headings
+
+
+_BACKTICKED_NAME = re.compile(r"`([^`\n]+)`")
+_MODULE_PATH = re.compile(r"^jnwb[./]")
+
+
+def function_names(title: str) -> List[str]:
+    """The backticked names in a heading that are functions: lower case and not a module path.
+
+    A class is capitalised and is allowed; a module path is `jnwb.` or `jnwb/`, and it stays
+    allowed even where its last part is a function (the check reads the prefix, not the API).
+    """
+    return [name for name in _BACKTICKED_NAME.findall(title)
+            if not _MODULE_PATH.match(name) and not name[:1].isupper()]
+
+
+def check_module_headings(root: Path) -> Result:
+    pages, _ = concept_pages(root)
+    violations: List[str] = []
+    read = 0
+    for name, text in pages:
+        for number, level, title in headings(text):
+            if level != 2 or title == REFERENCES:
+                continue
+            read += 1
+            for function in function_names(title):
+                violations.append(f"{name}:{number}: H2 '{title}' names the function {function}; "
+                                  "a function is named in an H3")
+    if not read:
+        violations.append("no H2 read from the concept pages; F11 has nothing to check")
+    return violations, (
+        f"PASS: module headings (F11): no H2 of {len(pages)} concept pages names a function, "
+        f"{read} H2s read.")
+
+
+# ------------------------------------------------------------------ 10. repeated table rows
+
+
+_SEPARATOR = re.compile(r"\|[\s|:-]+\|")
+
+
+def table_rows(text: str) -> List[List[Tuple[int, str]]]:
+    """Each table of the unfenced text, as (line number, stripped line) rows, header included."""
+    tables: List[List[Tuple[int, str]]] = []
+    current: List[Tuple[int, str]] = []
+    for number, line in [*unfenced_lines(text), (0, "")]:
+        if line.lstrip().startswith("|"):
+            current.append((number, line.strip()))
+        elif current:
+            tables.append(current)
+            current = []
+    return tables
+
+
+def repeated_rows(text: str) -> List[Tuple[str, List[int], int]]:
+    """Each data row found in two or more tables of one page: (row, line numbers, table count).
+
+    A table's first row is its header and the separator line is not data, so a header that
+    repeats across tables is not reported.
+    """
+    where: Dict[str, List[Tuple[int, int]]] = {}
+    for index, table in enumerate(table_rows(text)):
+        for number, row in table[1:]:
+            if not _SEPARATOR.fullmatch(row):
+                where.setdefault(row, []).append((index, number))
+    found = []
+    for row, hits in where.items():
+        tables = {index for index, _ in hits}
+        if len(tables) > 1:
+            found.append((row, [number for _, number in hits], len(tables)))
+    return found
+
+
+def check_repeated_rows(root: Path) -> Result:
+    pages = f2_pages(root)
+    violations = [f"{name}: the row {row!r} is in {count} tables (lines {lines}); the table "
+                  "whose subject owns it keeps it"
+                  for name, text in pages
+                  for row, lines, count in repeated_rows(text)]
+    return violations, (
+        f"PASS: repeated table rows (F12): no data row repeats across the tables of a page, "
+        f"{len(pages)} pages read.")
+
+
+# ------------------------------------------------------------------ 11. references (F13)
+
+
+#: The reference list itself. It is the list the rule points to, so it carries no ``## References``
+#: section of its own; F9 exempts it from the evidence-path rule for the same reason.
+REFERENCE_LIST = "references.md"
+
+#: A source named in prose: a DOI, a link to an entry of the reference list (``references.md#entry``)
+#: or an author-year form the pages use ("Lee et al. (2021)", "Maris & Oostenveld (2007)",
+#: "Schreiber (2000)"). A bare link to the reference list is a pointer to it, not a citation.
+_DOI = re.compile(r"\b10\.\d{4,9}/[^\s\])<>]+")
+_NAMED_ENTRY = re.compile(r"references\.md#[\w-]+")
+_NAME = r"[A-Z][\w'’-]*(?:\s+[A-Z][\w'’-]*)?"
+_AUTHOR_YEAR = re.compile(
+    rf"\b{_NAME}(?:(?:[.,]*\s+et al\.?|[ ,]+(?:and|&)\s+{_NAME}),?\s*\(?|\s*\()"
+    r"(?:19|20)\d{2}[a-z]?\b")
+
+
+def documents(root: Path) -> List[Tuple[str, str]]:
+    """Every page under ``docs/`` as (name, text), the generated reference included."""
+    docs = root / "docs"
+    return [(_page_name(docs, page), page.read_text(encoding="utf-8"))
+            for page in sorted(docs.rglob("*.md"))]
+
+
+def cited_text(text: str) -> str:
+    """The prose a citation can sit in: unfenced, outside code spans, and outside the
+    ``## References`` section, which lists the sources rather than citing them in the text."""
+    kept: List[str] = []
+    in_references = False
+    for _, line in unfenced_lines(text):
+        match = _HEADING.match(line)
+        if match and len(match.group(1)) == 2:
+            in_references = match.group(2).strip() == REFERENCES
+        if not in_references:
+            kept.append(line)
+    return _INLINE_CODE.sub(" ", "\n".join(kept))
+
+
+def citation(text: str) -> Optional[str]:
+    """The first source the page cites in its prose, as written, or None."""
+    body = cited_text(text)
+    for pattern in (_DOI, _NAMED_ENTRY, _AUTHOR_YEAR):
+        match = pattern.search(body)
+        if match:
+            return match.group(0)
+    return None
+
+
+def citing_pages(root: Path) -> List[Tuple[str, str]]:
+    """(name, first citation) for each page the rule reads that cites a source."""
+    found = [(name, citation(text)) for name, text in documents(root)
+             if name not in (REFERENCE_LIST, GENERATED)]
+    return [(name, source) for name, source in found if source is not None]
+
+
+def check_references(root: Path) -> Result:
+    # The generated reference is skipped: each entry's sources are in the docstring it is built from.
+    pages = [(name, text) for name, text in documents(root)
+             if name not in (REFERENCE_LIST, GENERATED)]
+    violations: List[str] = []
+    cited = 0
+    for name, text in pages:
+        found = citation(text)
+        sections = [(number, title) for number, level, title in headings(text) if level == 2]
+        references = [number for number, title in sections if title == REFERENCES]
+        if found is not None:
+            cited += 1
+        if found is not None and not references:
+            violations.append(f"{name}: cites {found!r} and has no ## References section (F13)")
+        if references and found is None:
+            violations.append(f"{name}:{references[0]}: has a ## References section and cites "
+                              "no source (F13)")
+        if len(references) > 1:
+            violations.append(f"{name}: {len(references)} ## References sections; a page has one "
+                              "(F13)")
+        if references and sections[-1][1] != REFERENCES:
+            violations.append(f"{name}:{references[0]}: ## References is not the last section "
+                              "(F13)")
+    if not pages:
+        violations.append("no page read; F13 has nothing to check")
+    return violations, (
+        f"PASS: references (F13): {cited} pages cite a source and end with ## References; "
+        f"{len(pages) - cited} cite none and have none; {len(pages)} pages read.")
+
+
+# ------------------------------------------------------------------ 12. micrometers (F14)
+
+
+#: A micrometre written as a unit: ``um``, the micro sign or Greek mu before ``m``, or the LaTeX
+#: symbol. A letter or an underscore beside the match makes it part of a word (``depth_um``,
+#: ``umbrella``), so it is not a unit; a digit or a space beside it leaves it one.
+_MICROMETRE = re.compile(
+    r"(?<![A-Za-z_])(?:um|µm|μm)(?![A-Za-z_])"
+    r"|\$\\mu\$m(?![A-Za-z_])"
+    r"|\\mu\s*\\(?:text|mathrm)\{m\}")
+
+
+def _prose_units(line: str) -> str:
+    """A line as a reader sees its units: code spans, HTML tags, snippet includes and link targets
+    removed. Math stays, since a micrometre is often typed as math."""
+    line = _SNIPPET.sub(" ", line)
+    line = _INLINE_CODE.sub(" ", line)
+    line = _HTML.sub(" ", line)
+    return _LINK_TARGET.sub("]", line)
+
+
+def micrometre_units(text: str) -> List[Tuple[int, str]]:
+    """(line number, unit) for each micrometre unit in the prose of ``text``; fences are not read."""
+    return [(number, match.group(0))
+            for number, line in unfenced_lines(text)
+            for match in _MICROMETRE.finditer(_prose_units(line))]
+
+
+def check_micrometres(root: Path) -> Result:
+    pages = documents(root)
+    violations = [f"{name}:{number}: {unit} is a unit in prose; write micrometers (F14)"
+                  for name, text in pages for number, unit in micrometre_units(text)]
+    return violations, (
+        f"PASS: micrometers (F14): no micrometre unit in the prose of {len(pages)} pages.")
+
+
 # ---------------------------------------------------------------------------------- runner
 
 
@@ -760,6 +1046,11 @@ CHECKS: Sequence[Tuple[str, Callable[[Path], Result]]] = (
     ("parallel facts", check_parallel_facts),
     ("slop lexicon", check_slop),
     ("validation detail", check_evidence_paths),
+    ("concept headings", check_concept_numbering),
+    ("module headings", check_module_headings),
+    ("repeated table rows", check_repeated_rows),
+    ("references", check_references),
+    ("micrometers", check_micrometres),
 )
 
 

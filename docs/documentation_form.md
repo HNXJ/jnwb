@@ -14,13 +14,13 @@ Five kinds of page, with different rules, because a tutorial and an API page fai
 
 | Kind | Pages | Authored where |
 |---|---|---|
-| Authored | `index`, `install`, `quickstart`, `recipes`, `agents`, `errors`, `common_mistakes`, `references`, `architecture`, `glossary`, `vis`, `reading_nwb`, `coherence_and_tfr`, `laminar`, `unit_quality_example`, `repairing_nwb`, and `02`–`10` (25 pages) | the Markdown page itself |
+| Authored | `index`, `install`, `quickstart`, `recipes`, `agents`, `errors`, `common_mistakes`, `references`, `architecture`, `glossary`, `vis`, `reading_nwb`, `writing_nwb`, `coherence_and_tfr`, `laminar`, `unit_quality_example`, `repairing_nwb`, `execution`, and `02`–`10` (27 pages) | the Markdown page itself |
 | Generated | `api.md` | `scripts/generate_api_md.py` |
 | Included | the 11 `tutorials/*.md` | `examples/tutorials/*.py`, pulled in by a snippet include |
 | Contract | this page | the Markdown page itself; F1 and F5 bind it like any other, and it has no length ceiling. It is kept off the published site and the nav |
 | Redirect | `01_architecture_and_philosophy`, merged into `architecture` | the Markdown page itself: a title, a refresh to the new URL and a link to the new page, listed under `not_in_nav` in `mkdocs.yml` so the old URL keeps working |
 
-The first three rows cover all 37 pages in the nav.
+The first three rows cover all 39 pages in the nav.
 
 **Generated and included pages are governed through their source, never by editing the page.**
 An edit to one of those eleven pages is discarded by the next build, silently. A change that
@@ -40,13 +40,18 @@ page violates a rule, the fix goes to the generator or the script it includes.
 | F7 | No page states a fact that a gate or a test does not enforce and no command in the page demonstrates. | review |
 | F8 | No term from the [slop lexicon](#slop-lexicon) appears in prose. | machine-checked against the lexicon below, across `docs/`, `README.md`, `skills/` and the tutorial scripts |
 | F9 | No page but `references.md` names a path under the evidence or benchmarks folders of `artifacts/`; validation detail goes on the dashboard. | machine-checked across `docs/` |
+| F10 | Concept pages number their H2 headings and leave H3 unnumbered. | machine-checked: `concept headings`, over the fourteen concept pages of the Length table |
+| F11 | An H2 on a concept page names a module (`jnwb.x`) or a class, never a function; a function is named in an H3. | machine-checked: `module headings`, over the same pages |
+| F12 | No data row appears in two tables of one page; a row that several tables need is kept in the table whose subject owns it. | machine-checked: `repeated table rows`, over every authored page |
+| F13 | A page under `docs/` that cites a source ends with a `## References` section; a page that cites none has none. | machine-checked: `references`, over every page under `docs/` except `references.md`, the list itself, and the generated `api.md`, whose entries cite in the docstrings it is built from. A source is cited by a DOI, a link to an entry of `references.md`, or an author-year form such as `Lee et al. (2021)`; a bare link to `references.md` is a pointer, not a citation |
+| F14 | Prose writes `micrometers`; `um`, `µm` and `$\mu$m` as a unit in prose fail. Code spans, code blocks, identifiers such as `depth_um` and figure files are not prose. | machine-checked: `micrometers`, over every page under `docs/` |
 
 **F7 and a rewrite.** A rewrite never leaves a fact that was present before absent after, so that
 rule outranks F7. F7 binds the facts a change adds: a new fact is enforced by a gate or a test,
 demonstrated by a command in the page, or left out. A true fact already on a page stays when
 nothing enforces it, because deleting it to satisfy a form rule loses information.
 
-`scripts/docs_form_gate.py` runs F1, F5, F8, F9, the navigation rules N1, N2, N3 and N5, figure rule
+`scripts/docs_form_gate.py` runs F1, F5, F8, F9, F10, F11, F12, F13, F14, the navigation rules N1, N2, N3 and N5, figure rule
 G2, and the F2 detector, and prints one PASS or FAIL line for each. The rows whose column reads
 review are checked by a reader: F3, F4, F6, F7, N4 and G3.
 
@@ -130,7 +135,7 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Kind | Ceiling | Why this number |
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
-| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `quickstart` at 844 and `recipes` at 348 sit under it |
+| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `quickstart` at 836 and `recipes` at 348 sit under it |
 | Concept (`02`–`09`, `architecture`, `reading_nwb`, `repairing_nwb`, `coherence_and_tfr`, `laminar`, `vis`) | 1200 words | seven of the fourteen sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
@@ -141,17 +146,17 @@ Eleven pages sit over their ceiling, and each owes the one sentence the rule ask
 
 | Page | Words | Why the excess stands |
 |---|---|---|
-| `common_mistakes` | 3373 | thirteen failure modes, each with a wrong form, a correct form and the reason, and the nine-row table of coupling and direction pitfalls; cutting one removes a failure mode rather than words; the causal-step and narrowband-PSI figures and their captions add 154 words |
+| `common_mistakes` | 3401 | thirteen failure modes, each with a wrong form, a correct form and the reason, and the nine-row table of coupling and direction pitfalls; cutting one removes a failure mode rather than words; the causal-step and narrowband-PSI figures and their captions add 154 words |
 | `02_paths_addressing_metadata` | 1971 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls, and the curated-labels section states what a grade licenses and the one-sheet limit |
 | `03_representational_similarity_jrsa` | 1490 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, the standalone RDM section says its p is not a relatedness test, and the save paragraph says what each file format holds; the RDM and jRSA-trace figure and its caption add 75 words |
-| `04_spectral_analysis_and_tfr` | 1398 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number; the spectra and band-profile figures and their captions add 161 words |
-| `06_spikes_psth_and_onset_dynamics` | 1708 | PSTH and response tests, phase locking, onset fitting, trajectories, unit quality measures and WaveMAP share a page, and the page sat at 1199 words before the unit quality table; the phase-locking and causal-step figures and their captions add 170 words |
+| `04_spectral_analysis_and_tfr` | 1396 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number; the spectra and band-profile figures and their captions add 161 words |
+| `06_spikes_psth_and_onset_dynamics` | 1730 | PSTH and response tests, phase locking, onset fitting, trajectories, unit quality measures and WaveMAP share a page, and the page sat at 1199 words before the unit quality table; the phase-locking and causal-step figures and their captions add 170 words |
 | `07_statistical_inference_and_nulls` | 1313 | the cluster-permutation figure and its caption add 114 words; the section's limit on what a significant cluster licenses applies to the cluster the figure outlines |
-| `08_directed_connectivity_and_information` | 1473 | the spectral Granger and phase-slope figures and their captions add 150 words, each showing one directional estimate on a synthetic pair |
-| `architecture` | 1959 | two pages merged: the module map is a 673-word reference table, and the prose states the boundary, the invariants and the claim table once each |
+| `08_directed_connectivity_and_information` | 1478 | the spectral Granger and phase-slope figures and their captions add 150 words, each showing one directional estimate on a synthetic pair |
+| `architecture` | 1966 | two pages merged: the module map is a 673-word reference table, and the prose states the boundary, the invariants and the claim table once each |
 | `install` | 938 | the pandas 3 override is the one install step hdmf's cap makes necessary, and the page sat at 889 words before it |
 | `index` | 419 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
-| `errors` | 2229 | twelve error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, the sixteen ragged-index check and repair messages, and the table of the two write errors, the repair refusal, and the two reserved subclasses. The messages are pinned to the source, so they are not paraphrasable |
+| `errors` | 2259 | thirteen error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, the sixteen ragged-index check and repair messages, and the table of the two write errors, the repair refusal, and the two reserved subclasses. The messages are pinned to the source, so they are not paraphrasable |
 
 ## Navigation
 

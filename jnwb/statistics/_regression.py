@@ -223,6 +223,10 @@ def cross_modal_comparison(
                 "Inf values first. A non-finite sample makes every lag's statistic NaN "
                 "and drives the permutation p-value to its floor."
             )
+    if n_permutations < 0:
+        # 0 is the run that draws no null; a negative count reached numpy as a negative size.
+        raise ValueError(
+            f"cross_modal_comparison: n_permutations must be >= 0, got {n_permutations}")
 
     if tfr_data.ndim == 3 and spike_data.ndim == 2:
         n_freq, n_time, n_trials = tfr_data.shape
@@ -334,10 +338,14 @@ def cross_modal_comparison(
     for b in range(int(n_permutations)):
         y_null = np.roll(y, int(gen.integers(1, n_pts)))
         null_max[b] = max(_abs_pearson(*_lag_align(x, y_null, sh)) for sh in shifts)
-    lag_corrected_p = float(
-        (1 + _count_at_least_as_extreme(null_max, best_abs_r, "greater"))
-        / (int(n_permutations) + 1)
-    )
+    # Zero permutations draw no null, so there is no corrected p: NaN, not the floor 1/(0+1).
+    if int(n_permutations) > 0:
+        lag_corrected_p = float(
+            (1 + _count_at_least_as_extreme(null_max, best_abs_r, "greater"))
+            / (int(n_permutations) + 1)
+        )
+    else:
+        lag_corrected_p = float('nan')
 
     # How small a corrected p this configuration can even produce. A circular shift lands a
     # genuine peak back inside the searched window with probability about

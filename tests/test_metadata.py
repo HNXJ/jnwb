@@ -318,6 +318,25 @@ class TestUnitCensusReport:
         assert "area" in census.columns
         assert "nonexistent_col" not in census.columns
 
+    def test_a_file_with_no_units_table_gives_an_empty_census_of_the_usual_shape(self, tmp_path):
+        """A file with no `/units` reads as a frame with no columns. Its census has the columns
+        and stat dtypes of a census of units, with zero rows. The proxy to avoid: the call
+        returning at all (it raised ValueError from pandas `describe`).
+        """
+        import warnings
+
+        path = _write_minimal_nwb(tmp_path / "ses-01_nounits.nwb", with_units=False)
+        units = get_all_units_metadata(path)
+        assert len(units.columns) == 0, "fixture must read as a frame with no columns"
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)  # the absent default columns
+            census = unit_census_report(units)
+        populated = unit_census_report(_synthetic_units())
+        assert census.empty
+        assert list(census.columns) == list(populated.columns)
+        stats = [c for c in populated.columns if c not in ("session_id", "area", "depth_class")]
+        assert census[stats].dtypes.equals(populated[stats].dtypes)
+
 
 class TestGetSnrAnalysis:
     def test_basic_stats(self):
@@ -365,8 +384,8 @@ class TestAssignQualityTier:
         assert tier.iloc[0] == "unstable"
 
 
-def _write_minimal_nwb(path):
-    """Four electrodes and two units, enough for both readers."""
+def _write_minimal_nwb(path, *, with_units=True):
+    """Four electrodes and, unless ``with_units`` is False, two units, enough for both readers."""
     from datetime import datetime, timezone
 
     import pynwb
@@ -383,9 +402,10 @@ def _write_minimal_nwb(path):
         nwb.add_electrode(
             x=0.0, y=0.0, z=float(z), location="V1", group=group, group_name="probeA"
         )
-    nwb.add_unit_column(name="peak_channel_id", description="peak channel")
-    nwb.add_unit(spike_times=[0.1, 0.2], peak_channel_id=0.0)
-    nwb.add_unit(spike_times=[0.3], peak_channel_id=1.0)
+    if with_units:
+        nwb.add_unit_column(name="peak_channel_id", description="peak channel")
+        nwb.add_unit(spike_times=[0.1, 0.2], peak_channel_id=0.0)
+        nwb.add_unit(spike_times=[0.3], peak_channel_id=1.0)
     with pynwb.NWBHDF5IO(str(path), "w") as io:
         io.write(nwb)
     return path
@@ -427,6 +447,15 @@ class TestSessionIdFromFilename:
         bad.write_bytes(b"not an hdf5 file")
         assert len(electrode_inventory([good, bad])) == 4
         assert len(get_all_units_metadata([good, bad])) == 2
+
+
+class TestElectrodeInventoryCells:
+    def test_group_column_holds_the_group_name_and_no_cell_is_a_container_repr(self, tmp_path):
+        elecs = electrode_inventory(_write_minimal_nwb(tmp_path / "ses-260724_ecephys.nwb"))
+        assert len(elecs) == 4, "fixture must yield electrodes"
+        assert elecs["group"].tolist() == ["probeA"] * 4
+        reprs = [str(v) for col in elecs.columns for v in elecs[col]]
+        assert not [c for c in reprs if " at 0x" in c], [c for c in reprs if " at 0x" in c][:3]
 
 
 class TestUndefinedQualityInput:

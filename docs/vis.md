@@ -4,21 +4,18 @@
 interactive HTML, sealed with a JSON sidecar that states what the figure licenses. It
 plots arrays you supply; the two exceptions are named in the panel table.
 
-## Install
+## 1. Install
 
-```bash
-pip install "jnwb[vis]"
-```
-
-The extra adds `plotly` and `kaleido`; kaleido writes the SVG and PNG. Without it, `import jnwb`
-and every other export work, and two things raise `ImportError` naming `pip install jnwb[vis]`:
+Install it as on [Installation](install.md#extras). The extra adds `plotly` and `kaleido`;
+kaleido writes the SVG and PNG. Without it, `import jnwb` and every other export work,
+and two things raise `ImportError` naming `pip install jnwb[vis]`:
 
 | Call | Why |
 |---|---|
 | `jnwb.vis` or `from jnwb import vis` | the module needs Plotly |
 | `from jnwb import *` | `vis` is in `jnwb.__all__`, and a star import resolves every name |
 
-## One canvas from supplied arrays
+## 2. One canvas from supplied arrays
 
 ```python
 import numpy as np
@@ -60,7 +57,7 @@ without saying what it rests on.
 The theme is light only: every figure has an opaque white background and near-black text,
 with no dark variant, so on a dark page it shows as a white panel.
 
-## Panels
+## 3. Panels
 
 Each function draws into one `(row, col)` of a canvas.
 
@@ -81,7 +78,7 @@ Every other interval, null and correction is an input: compute it with the jnwb 
 that estimates it and pass the result in. Signatures live in the functions' docstrings
 (e.g. `help(jnwb.vis.plot_csd)`).
 
-## WaveMAP display
+## 4. WaveMAP display
 
 `plot_wavemap` draws one `WaveMAPResult` from `jnwb.wavemap`: the 2-d UMAP embedding, one trace
 per cluster (panel A), and each cluster's mean of the normalized waveforms in the same color

@@ -8,7 +8,8 @@ cheaper check that can refuse the release runs before it.
       roadmap row is readable and deferred past this cycle, and the
       blocker-focused closure receipt reports zero for this commit
   0. Required release/test tooling is present in the active environment
-  0b. The declared version is not one the package index already serves
+  0b. The declared version is not one the package index already serves (with --published,
+      a served version is accepted only when its files are the files its tag builds)
   0c. Every declared dependency floor installs on the declared interpreter
   0d. The release body's version, Python support and install command match package metadata
   0e. CI concluded success, per required leg, for the exact commit being qualified, on main
@@ -27,6 +28,7 @@ cheaper check that can refuse the release runs before it.
 Exits 0 on complete verified success; non-zero otherwise.
 """
 
+import hashlib
 import json
 import os
 import sys
@@ -38,10 +40,11 @@ import urllib.request
 import zipfile
 import tarfile
 import time
+import tomllib
 import subprocess
 import logging
 import re
-from typing import Iterable, List, NamedTuple, Optional, Set, Tuple
+from typing import Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("release_gate")
@@ -180,6 +183,161 @@ def check_version_is_not_already_published(
         f"jnwb/__init__.py and move [Unreleased] under a new heading before building a "
         f"release."
     ]
+
+
+#: Post-publication mode, for the gate run after the tag is published: the version is then on the
+#: index by design, and the index's files must hold what this tag builds.
+POST_PUBLICATION_FLAG = "--published"
+
+
+def archive_content_digest(path: pathlib.Path) -> str:
+    """A sha256 over a wheel's or sdist's members, by name and content, not over its bytes.
+
+    Two setuptools builds of one commit differ in archive bytes (member timestamps) and, from a
+    Windows checkout, in line endings carried into the metadata; so each member's content is read
+    with CRLF as LF, and a wheel's ``RECORD``, which hashes the other members, is left out.
+    """
+    entries: List[Tuple[str, str]] = []
+    name = path.name
+    if name.endswith(".whl"):
+        with zipfile.ZipFile(path) as archive:
+            for info in archive.infolist():
+                if not info.is_dir() and not info.filename.endswith(".dist-info/RECORD"):
+                    data = archive.read(info).replace(b"\r\n", b"\n")
+                    entries.append((info.filename, hashlib.sha256(data).hexdigest()))
+    elif name.endswith((".tar.gz", ".tgz")):
+        with tarfile.open(path) as archive:
+            for member in archive.getmembers():
+                if member.isfile():
+                    data = archive.extractfile(member).read().replace(b"\r\n", b"\n")
+                    entries.append((member.name, hashlib.sha256(data).hexdigest()))
+    else:
+        raise ValueError(f"{name} is neither a wheel nor an sdist")
+    listing = "".join(f"{member}\0{sha}\n" for member, sha in sorted(entries))
+    return hashlib.sha256(listing.encode("utf-8")).hexdigest()
+
+
+def fetch_served_content_digest(entry: dict) -> Tuple[Optional[str], Optional[str]]:
+    """``(content digest, None)`` for one file the index serves, or ``(None, reason)``.
+
+    The file is downloaded, checked against the sha256 the index records for it, and read with
+    :func:`archive_content_digest`.
+    """
+    name = str(entry.get("filename") or "")
+    url = entry.get("url")
+    recorded = (entry.get("digests") or {}).get("sha256")
+    if not url:
+        return None, f"{name}: the index gives no URL for it"
+    workdir = pathlib.Path(tempfile.mkdtemp(prefix="jnwb-served-"))
+    try:
+        target = workdir / name
+        try:
+            with urllib.request.urlopen(url, timeout=120) as response:
+                target.write_bytes(response.read())
+        except (urllib.error.URLError, OSError) as exc:
+            return None, f"{name}: download failed ({type(exc).__name__})"
+        actual = hashlib.sha256(target.read_bytes()).hexdigest()
+        if actual != recorded:
+            return None, f"{name}: the download's sha256 {actual} is not the index's {recorded}"
+        return archive_content_digest(target), None
+    finally:
+        _remove_tree(workdir)
+
+
+def check_index_matches_tag_build(
+    version: str,
+    payload: Optional[dict],
+    build: Callable[[], Tuple[Optional[Dict[str, str]], List[str]]],
+    fetch: Optional[Callable[[dict], Tuple[Optional[str], Optional[str]]]] = None,
+) -> List[str]:
+    """Post-publication 0b: a version the index serves is accepted only as the same contents.
+
+    ``payload`` is the index's JSON (:func:`package_releases`), ``None`` when unreachable. ``build``
+    runs only for a version the index serves, and returns ``(digests, problems)`` as
+    :func:`build_tag_digests` does: archive content digests by file name. ``fetch`` (default
+    :func:`fetch_served_content_digest`) gives the same digest for a served file. An unpublished
+    version is not a collision and is not built.
+    """
+    fetch = fetch if fetch is not None else fetch_served_content_digest
+    if payload is None:
+        if os.environ.get(SKIP_INDEX_ENV) == "1":
+            _record_skip(INDEX_SKIPPED)
+            return []
+        return [
+            f"the package index could not be reached, so the files it serves for {version} are "
+            f"unverified. Set {SKIP_INDEX_ENV}=1 to proceed without them."
+        ]
+    releases = payload.get("releases") or {}
+    if version not in releases:
+        return []
+    digests, problems = build()
+    if digests is None:
+        return problems or [f"no distribution was built for {version}"]
+    if not digests:
+        return [f"the build of {version} produced no distribution, so nothing can be matched"]
+    served = {str(entry.get("filename") or ""): entry for entry in releases[version] or []}
+    problems = []
+    for name in sorted(set(served) | set(digests)):
+        if name not in digests:
+            problems.append(
+                f"{name}: the index serves it for {version}, but the tag's build does not produce it")
+        elif name not in served:
+            problems.append(
+                f"{name}: the tag's build produces it, but the index does not serve it for {version}")
+        elif not (served[name].get("digests") or {}).get("sha256"):
+            problems.append(f"{name}: the index records no sha256 for it")
+        else:
+            content, why = fetch(served[name])
+            if content is None:
+                problems.append(why or f"{name}: the served file could not be read")
+            elif content != digests[name]:
+                problems.append(
+                    f"{name}: the served contents {content} differ from the tag's build {digests[name]}")
+    return problems
+
+
+def build_tag_digests(
+    version: str,
+    root: Optional[pathlib.Path] = None,
+    runner=None,
+) -> Tuple[Optional[Dict[str, str]], List[str]]:
+    """``(filename -> archive content digest, [])`` for the distributions built from tag
+    ``v<version>``, or ``(None, reasons)``.
+
+    The build reads the working tree, so it is the tag's build only when HEAD is the commit the
+    tag names. Any other HEAD is refused rather than built.
+    """
+    run = runner if runner is not None else subprocess.run
+    tree = pathlib.Path(root or REPO_ROOT)
+    tag = f"v{version}"
+
+    def resolve(spec: str) -> Optional[str]:
+        result = run(["git", "rev-parse", "--verify", "--quiet", spec], cwd=str(tree),
+                     capture_output=True, text=True, timeout=60)
+        return result.stdout.strip() if result.returncode == 0 else None
+
+    head = resolve("HEAD")
+    tagged = resolve(f"{tag}^{{commit}}")
+    if tagged is None:
+        return None, [f"tag {tag} does not resolve, so the index files cannot be matched to it; "
+                      f"fetch the tag and re-run"]
+    if head is None or head.lower() != tagged.lower():
+        return None, [f"HEAD {(head or 'unresolved')[:12]} is not the commit {tag} names "
+                      f"({tagged[:12]}); run the gate at the tag"]
+    outdir = pathlib.Path(tempfile.mkdtemp(prefix="jnwb-tag-build-"))
+    try:
+        result = run([sys.executable, "-m", "build", "--outdir", str(outdir), str(tree)],
+                     cwd=str(tree), capture_output=True, text=True)
+        if result.returncode != 0:
+            return None, [f"building {tag} failed (exit {result.returncode})"]
+        try:
+            digests = {path.name: archive_content_digest(path)
+                       for path in sorted(outdir.iterdir()) if path.is_file()}
+        except (ValueError, zipfile.BadZipFile, tarfile.TarError) as exc:
+            return None, [f"the build of {tag} produced an unreadable distribution: {exc}"]
+        return digests, []
+    finally:
+        _remove_tree(outdir)
 
 
 #: Directory names that must not appear as a path component anywhere in a distribution.
@@ -603,23 +761,80 @@ class LiveBodyOutcome(NamedTuple):
     violations: List[str]
 
 
+#: A GitHub remote: scp-like, ssh, git or https, with optional credentials. The owner and the
+#: repository are read; credentials and ports are not, and a lookalike host does not match.
+_GITHUB_REMOTE_RE = re.compile(
+    r"^(?:(?:ssh|git|https?)://)?(?:[^@/\s]+@)?github\.com[:/]"
+    r"(?P<owner>[^/\s]+)/(?P<repo>[^/\s]+?)(?:\.git)?/?$"
+)
+
+
+def github_repository(remote: str) -> Optional[str]:
+    """``OWNER/REPO`` when ``remote`` is a GitHub remote, else ``None``."""
+    match = _GITHUB_REMOTE_RE.match(remote.strip())
+    return f"{match.group('owner')}/{match.group('repo')}" if match else None
+
+
+def _origin_of(checkout: pathlib.Path, run) -> Optional[str]:
+    try:
+        result = run(["git", "remote", "get-url", "origin"], cwd=str(checkout),
+                     capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def resolve_github_repository(root=None, runner=None) -> Tuple[Optional[str], str]:
+    """``(OWNER/REPO, how)``, or ``(None, why)`` when no GitHub repository can be named.
+
+    ``gh release view`` finds the repository from the checkout's remotes, and a ``git clone
+    --shared`` has a local path as its origin, which gh cannot resolve. A local origin is followed
+    once, to its own origin. The names are printed, never the URLs: a URL may carry credentials.
+    """
+    run = runner if runner is not None else subprocess.run
+    start = pathlib.Path(root or REPO_ROOT)
+    origin = _origin_of(start, run)
+    if origin is None:
+        return None, f"{start} has no origin remote"
+    repo = github_repository(origin)
+    if repo is not None:
+        return repo, "origin is a GitHub remote"
+    local = pathlib.Path(origin) if os.path.isabs(origin) else start / origin
+    if not local.is_dir():
+        return None, f"origin of {start} is not a GitHub remote or a local clone"
+    upstream = _origin_of(local, run)
+    if upstream is None:
+        return None, f"origin {local} has no origin remote, so no GitHub repository can be named"
+    repo = github_repository(upstream)
+    if repo is None:
+        return None, f"origin {local} is not a GitHub remote, so no repository can be named"
+    return repo, f"origin is the local clone {local}, whose origin is a GitHub remote"
+
+
 def check_live_release_body(
     metadata: ReleaseMetadata,
     runner=None,
     timeout: float = 30.0,
+    repo: Optional[str] = None,
 ) -> LiveBodyOutcome:
     """Check the published release body for this version, or say why it was not checked.
 
     Every way of not reaching the release -- no ``gh``, no token, no network, no release
     published for this version yet -- returns ``BODY_SKIPPED`` with the reason. None of them
     fails the gate: before the tag exists there is no body to read, which is the normal
-    pre-tag state rather than a defect. None of them passes it either.
+    pre-tag state rather than a defect. None of them passes it either. ``repo`` (``OWNER/REPO``)
+    is passed to ``gh`` explicitly when given.
     """
     run = runner if runner is not None else subprocess.run
     tag = f"v{metadata.version}"
+    command = ["gh", "release", "view", tag, "--json", "body,tagName,isDraft,isPrerelease"]
+    if repo is not None:
+        command += ["--repo", repo]
     try:
         result = run(
-            ["gh", "release", "view", tag, "--json", "body,tagName,isDraft,isPrerelease"],
+            command,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -1361,6 +1576,34 @@ def peak_memory_record_violation(root: pathlib.Path, rev: str = "HEAD") -> Optio
     return None
 
 
+#: The figure registry; each entry names the jnwb version its figure was rendered with.
+FIGURE_REGISTRY_PATH = "scripts/figures/figure_registry.toml"
+
+
+def figure_registry_violation(root: pathlib.Path, rev: str = "HEAD") -> Optional[str]:
+    """Why the figures committed at ``rev`` were not rendered by the version ``rev`` declares, or
+    ``None``. Between releases an entry keeps the version that rendered it; a release regenerates
+    every figure, so each entry names the released version."""
+    registry, init = _text_at(root, rev, FIGURE_REGISTRY_PATH), _text_at(root, rev, VERSION_PATH)
+    declared = _VERSION_RE.search(init) if init is not None else None
+    if declared is None:
+        return (f"{VERSION_PATH} declares no __version__ at {rev}, so whether the figures in "
+                f"{FIGURE_REGISTRY_PATH} are this version's is unknown")
+    try:
+        entries = tomllib.loads(registry) if registry is not None else {}
+    except tomllib.TOMLDecodeError:
+        entries = {}
+    if not entries:
+        return f"{FIGURE_REGISTRY_PATH} is missing, unreadable or empty at {rev}"
+    stale = sorted(name for name, entry in entries.items()
+                   if entry.get("jnwb_version") != declared.group(1))
+    if stale:
+        return (f"{len(stale)} figure(s) in {FIGURE_REGISTRY_PATH} were rendered by another jnwb than "
+                f"{declared.group(1)}: {', '.join(stale[:8])}" + (" ..." if len(stale) > 8 else "")
+                + "; run `python scripts/figures/generate_figures.py --write-registry` and commit it")
+    return None
+
+
 #: An operation's added MiB may grow by more than this fraction of the previous release's value, and
 #: by at least the floor, only with a reason in the declared version's CHANGELOG.md section.
 PEAK_MEMORY_GROWTH_FRACTION = 0.20
@@ -1761,6 +2004,9 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
         violations.append(stale_record)
     else:
         violations.extend(peak_memory_growth_violations(root))
+    stale_figures = figure_registry_violation(root)
+    if stale_figures:
+        violations.append(stale_figures)
 
     # 5. every changelog fragment has been assembled into CHANGELOG.md
     leftover = unassembled_fragments(root)
@@ -1995,13 +2241,22 @@ def main() -> None:
 
     log.info("=== STEP 0b: Checking the declared version against the package index ===")
     version = jnwb_source_version()
-    collisions = check_version_is_not_already_published(version, published_versions())
+    post_publication = POST_PUBLICATION_FLAG in sys.argv[1:]
+    if post_publication:
+        collisions = check_index_matches_tag_build(
+            version, package_releases("jnwb"), lambda: build_tag_digests(version))
+    else:
+        collisions = check_version_is_not_already_published(version, published_versions())
     if collisions:
         for problem in collisions:
             log.error("%s", problem)
         sys.exit(1)
-    log.info(
-        "PASS: %s is not a version the index already serves.", version)
+    if post_publication:
+        log.info(
+            "PASS: %s is unpublished, or the index serves exactly the files its tag builds.", version)
+    else:
+        log.info(
+            "PASS: %s is not a version the index already serves.", version)
 
     log.info("=== STEP 0c: Checking every declared dependency floor is installable ===")
     tag = interpreter_floor_tag()
@@ -2021,7 +2276,15 @@ def main() -> None:
 
     log.info("=== STEP 0d: Checking the release body against package metadata ===")
     metadata = release_metadata()
-    body_outcome = check_live_release_body(metadata)
+    repository, how = resolve_github_repository()
+    if repository is None:
+        # Not a skip: a release body that cannot be read for want of a repository is unchecked.
+        log.error("release body: cannot name the GitHub repository for `gh release view`: %s", how)
+        log.error("Point the checkout's origin at its GitHub remote, or run from a clone whose "
+                  "origin is one, and re-run.")
+        sys.exit(1)
+    log.info("release body: repository %s (%s)", repository, how)
+    body_outcome = check_live_release_body(metadata, repo=repository)
     if body_outcome.violations:
         for problem in body_outcome.violations:
             log.error("release body: %s", problem)

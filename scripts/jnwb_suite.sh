@@ -5,6 +5,8 @@
 # the harness's subprocess pytest calls (a PYTEST_ADDOPTS env var would). On this machine
 # a basetemp outside the repo on the repo's own drive is required: `git clone --local`
 # across drives fails with "Improper link" (jnwb#27-era machine note, 2026-10-02).
+# pytest runs through the machine suite lock when $JNWB_SUITE_LOCK (default $HOME/.claude/bin/suite_lock.py)
+# exists, `python <lock> --label jnwb -- <pytest command>`; otherwise directly. Either way it prints which.
 # Prints the HEAD it ran on, the state check, and the summary/FAILED lines.
 # On a pass over a clean tracked tree whose HEAD did not move, writes the full sha to
 # <git-dir>/jnwb_suite_ok, which jnwb_push.sh requires.
@@ -17,10 +19,15 @@ stamp="$(git rev-parse --git-dir)/jnwb_suite_ok"
 rm -f "$stamp"
 python scripts/reconstruct_state.py >/dev/null || { echo "reconstruct failed"; exit 2; }
 python scripts/reconstruct_state.py --check >/dev/null || { echo "state check failed"; exit 2; }
-if [ -n "$basetemp" ]; then
-  python -m pytest tests/ -q -n 12 -p no:cacheprovider -rf --basetemp "$basetemp" > "$log" 2>&1
+pytest_cmd=(python -m pytest tests/ -q -n 12 -p no:cacheprovider -rf)
+[ -n "$basetemp" ] && pytest_cmd+=(--basetemp "$basetemp")
+lock="${JNWB_SUITE_LOCK:-$HOME/.claude/bin/suite_lock.py}"
+if [ -f "$lock" ]; then
+  echo "suite lock: $lock"
+  python "$lock" --label jnwb -- "${pytest_cmd[@]}" > "$log" 2>&1
 else
-  python -m pytest tests/ -q -n 12 -p no:cacheprovider -rf > "$log" 2>&1
+  echo "suite lock: none ($lock not found)"
+  "${pytest_cmd[@]}" > "$log" 2>&1
 fi
 rc=$?
 echo "head=${head:0:8} suite_rc=$rc"

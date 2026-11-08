@@ -5,8 +5,8 @@ Every estimator is modality-agnostic (LFP traces, binned spike counts, MUAe enve
 band-power time courses -- any regularly sampled series). ``CANONICAL_BANDS`` is imported from
 ``jnwb.spectral``.
 
-Provides methods to compute directional functional connectivity metrics (bivariate Granger Causality),
-Shannon Mutual Information between spike trains, and network graph analysis.
+Provides directed connectivity estimators (Granger causality, phase slope index, transfer
+entropy), Shannon mutual information between spike trains, and network graph analysis.
 
 MI estimators:
 - ``binary_occupancy`` — MI of per-bin spike presence (0/1); discards count/rate structure
@@ -87,8 +87,6 @@ from ._trials import (
 from ._information import (
     _discrete_mi_from_labels,
     spike_mutual_information,
-    binary_occupancy_mutual_information,
-    spike_count_mutual_information,
 )
 from ._granger import (
     _residual_variance,
@@ -100,7 +98,6 @@ from ._granger import (
     _adf_pvalue,
     _ljung_box_pvalue,
     _series_diagnostics,
-    granger_causality,
     _stack_var_design,
     _ols_rss,
     _sum_of_products,

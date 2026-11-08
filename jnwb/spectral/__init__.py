@@ -15,7 +15,7 @@ import numpy as np
 from scipy import optimize, signal, stats
 import pandas as pd
 
-from .._dictlike import DictAccessMixin, RenamedKeyDict
+from .._dictlike import DictAccessMixin
 from .._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from .._layout import require_channel_major
 from .._parallel import parallel_map

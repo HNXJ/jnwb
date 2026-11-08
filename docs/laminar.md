@@ -15,7 +15,7 @@ longer synthetic session.
 | `xflip` | channels-by-time data or a correlation matrix | contiguous blocks of correlated contacts, tested against surrogates |
 | `zflip` | channels-by-time LFP in depth order | the phase-delay gradient across contacts, and an apparent velocity |
 
-## One call each
+## 1. One call each
 
 ```python
 import numpy as np
@@ -57,7 +57,9 @@ assert delay.accepted and delay.directionality == "superficial_to_deep"
 
 Synthetic: the example's seeded motif probe. A: the band profiles of `jnwb.vflip` and the layers of `jnwb.label_layers`, with the crossover near the motif's contact 11.5. B: `jnwb.xflip` on two blocks of 8 and 16 contacts. C: `jnwb.zflip` on a wave that reaches each deeper contact 5 ms later.
 
-## `vflip` is not the published vFLIP
+## 2. vFLIP and vFLIP2 (`jnwb.laminar`)
+
+### `vflip` is not the published vFLIP
 
 `vflip` tests for the spectrolaminar motif of Mendoza-Halliday et al. (2024) and shares its
 name with that paper's FLIP and frequency-variable vFLIP, not their procedure. The paper
@@ -70,7 +72,7 @@ as two different estimators.
 
 A fit with no support at all scores `-inf`, so no finite `min_support_score` accepts it.
 
-## `vflip2`, the published vFLIP2
+### `vflip2`, the published vFLIP2
 
 `vflip2` ports vFLIP2.m of Major et al. (2025) step by step; its docstring lists the steps
 with their MATLAB lines and the known differences from the vFLIP2 description, which the port
@@ -81,7 +83,7 @@ omega exceeds `omega_cut`, 6 by default; a rejected window keeps its values so t
 read. The cut matches vFLIP2.m; on noise-only synthetic probes it accepts 18 of 100, and
 24 of 100 (95% CI 0.16 to 0.34) at matched SNR 0, so an accepted fit is not by itself evidence
 of a crossover. At matched SNR 0 it accepts, by contact spacing, 0 of 100 at 25 and
-50 um, 24 at 100 um, 37 at 150 um and 39 at 200 um. Omega counts frequency bins, so it changes with the bin width and
+50 micrometers, 24 at 100 micrometers, 37 at 150 micrometers and 39 at 200 micrometers. Omega counts frequency bins, so it changes with the bin width and
 frequency range of the PSD.
 
 Rows are 0-based PSD rows in shaft order. `orientation` is `"upright"` when the deep group,
@@ -127,7 +129,7 @@ assert delay2.directionality == "superficial_to_deep"
 block to the layer-4 thickness in contacts. A rejected `VFlip2Result`, or one with no window,
 raises `ValueError` in both.
 
-## Declaring the shallow end
+## 3. Declaring the shallow end
 
 Without a declaration, depth runs from the first row of the probe's shaft order, which can be
 the deep end. `depth_axis` and `shallow_end` anchor it at the shallow contact, and
@@ -135,8 +137,13 @@ the deep end. `depth_axis` and `shallow_end` anchor it at the shallow contact, a
 shaft: on a staggered shaft the lateral column alternates between the two columns of contacts,
 and declaring it raises `ValueError`.
 
-## Reproducing a surrogate test
+## 4. Reproducing a surrogate test
 
 `xflip` and `zflip` record the seed of their surrogates as `surrogate_seed_entropy`; passing
 it back as `rng` reproduces the p-values. For a NumPy `Generator` the seed is one child draw
 from it, so the caller's stream advances by one draw.
+
+## References
+
+- Mendoza-Halliday et al. (2024)
+- Major et al. (2025)

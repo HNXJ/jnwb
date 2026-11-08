@@ -79,9 +79,9 @@ gallery_src/
 !examples/data/*.provenance.json
 !artifacts/process/frozen_validated.json
 !artifacts/process/public_surface.json
+!artifacts/process/release_plan.json
 !artifacts/evidence/0.2.13/vflip2_oracle.json
 !artifacts/evidence/0.2.13/vflip2_recovery.json
-!artifacts/evidence/0.2.13/compress_scaling.json
 !artifacts/evidence/0.2.13/vflip2_nuisance.json
 !artifacts/evidence/0.2.13/xflip_nuisance.json
 # The dashboard's template and data contract; its built data.json stays out.
@@ -97,8 +97,9 @@ gallery_src/
 !tests/fixtures/vflip2_matlab_reference.json
 # vFLIP2.m's PSD and outputs on stored LFP, which tests/test_vflip2_from_lfp.py compares against.
 !tests/fixtures/vflip2_from_lfp_matlab_reference.json
-# The OpenScope GLO showcase record and its figures, which the dashboard build reads.
+# The OpenScope GLO showcase record, its figures and the related-reproductions record, which the dashboard build reads.
 !artifacts/showcases/openscope_glo.json
+!artifacts/showcases/related.json
 !artifacts/showcases/openscope_glo/figures/*.png
 # Its receipts and results, which the showcase README and the dashboard cite.
 !artifacts/showcases/openscope_glo/receipts/**/*.json

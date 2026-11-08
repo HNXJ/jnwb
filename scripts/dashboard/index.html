@@ -70,6 +70,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 #validation-table th:first-child, #validation-table td:first-child,
 #validation-table th:last-child, #validation-table td:last-child { white-space: nowrap; }
 #validation-table td:nth-child(3) { max-width: 32em; }
+#roadmap-table td:nth-child(-n+2), #roadmap-table th:nth-child(-n+2) { white-space: nowrap; }
+#roadmap-table td { vertical-align: top; }
+#roadmap-table ul { margin: 0; padding-left: 1.2em; }
 .chart { width: 100%; min-height: 320px; }
 .tag { display: inline-block; padding: 0 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); font-size: 12px; }
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); }
@@ -110,6 +113,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 24px
   <button role="tab" aria-controls="api">API</button>
   <button role="tab" aria-controls="figures">Figures</button>
   <button role="tab" aria-controls="openscope-glo">OpenScope GLO</button>
+  <button role="tab" aria-controls="roadmap">Roadmap</button>
 </nav>
 
 <main>
@@ -202,6 +206,16 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 24px
     <div id="showcase-exploratory" class="showcase-group"></div>
     <h3>Verified findings</h3>
     <div id="showcase-verified" class="showcase-group"></div>
+    <h3>Related reproductions</h3>
+    <p class="lede">Reproductions kept outside this repository, with their relation to jnwb as their records state it. The dashboard links them and computes none of their values.</p>
+    <div id="showcase-related"></div>
+  </section>
+
+  <!-- Roadmap: the release plan, one row per release after the declared version. -->
+  <section id="roadmap" role="tabpanel" hidden>
+    <h2>Roadmap</h2>
+    <p class="lede">Planned releases to the end of the 0.2 series, then 0.3.0. Each row's scope becomes that release's checklist when its cycle opens; released work is under Releases.</p>
+    <div id="roadmap-table"></div>
   </section>
 </main>
 

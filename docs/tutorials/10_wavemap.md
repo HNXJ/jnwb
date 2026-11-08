@@ -41,3 +41,15 @@ The script prints the ids of each cluster's units, so a cluster traces back to t
 A cluster is a group of units whose normalized waveforms share a shape at this resolution. It is
 not a cell type: the excerpt holds no ground truth for one, and the classifier and SHAP
 interpretation of Lee et al. (2021) are not part of this tutorial.
+
+## Source
+
+The page below is included from the tutorial script; edit the script, not this block.
+
+```python
+--8<-- "examples/tutorials/10_wavemap.py"
+```
+
+## References
+
+- Lee et al. (2021), in [References](../references.md).

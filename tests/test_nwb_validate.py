@@ -4,6 +4,7 @@ integrity, NWB Inspector, DANDI) on small files written with pynwb."""
 from __future__ import annotations
 
 import sys
+import warnings
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -172,3 +173,38 @@ def test_summary_names_every_layer(tmp_path):
     _make_nwb(p)
     s = validate_nwb(p, layers=("read", "integrity")).summary()
     assert "read" in s and "integrity" in s and "dandi_ready=False" in s
+
+
+def test_report_version_is_the_source_version_not_the_installed_one(tmp_path, monkeypatch):
+    p = tmp_path / "ok.nwb"
+    _make_nwb(p)
+    real = jnwb.nwb_validate._version
+    monkeypatch.setattr(jnwb.nwb_validate, "_version",
+                        lambda dist: "0.0.1" if dist == "jnwb" else real(dist))
+    assert validate_nwb(p, layers=("read",)).versions["jnwb"] == jnwb.__version__
+
+
+def test_read_layer_counts_the_warnings_the_read_emits(tmp_path):
+    p = tmp_path / "squeezed.nwb"
+    _make_nwb(p)
+    with h5py.File(p, "r+") as f:
+        f.attrs["probe_attr"] = np.array([b"x"])     # one length-1 array attribute: one warning per read
+        del f["general/devices/probe_dev"].attrs["manufacturer"]   # else hdmf's own DeprecationWarning adds one
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        jnwb.read_nwb(p)
+    assert len(caught) == 1, [str(w.message) for w in caught]   # the fixture must emit one warning
+    lay = validate_nwb(p, layers=("read",)).layer("read")
+    assert lay.status == "pass" and lay.n_warnings == 1, lay.messages
+
+
+def test_layers_and_validation_layer_are_public(tmp_path):
+    p = tmp_path / "ok.nwb"
+    _make_nwb(p)
+    assert jnwb.LAYERS is jnwb.nwb_validate.LAYERS
+    assert jnwb.ValidationLayer is jnwb.nwb_validate.ValidationLayer
+    assert "LAYERS" in jnwb.__all__ and "ValidationLayer" in jnwb.__all__
+    rep = validate_nwb(p)
+    assert rep.layers, "the fixture report carries no layers"
+    for lay in rep.layers:
+        assert isinstance(lay, jnwb.ValidationLayer) and lay.name in jnwb.LAYERS

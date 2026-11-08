@@ -255,7 +255,8 @@ def classify_response_significance(
         - confidence: 'high', 'medium', 'none', 'low' (fewer than `min_spike_count`
           response spikes), or 'undefined' when `response_zscore` is NaN because the
           baseline had no across-trial variance, when a count is NaN, or when `metrics`
-          lacks the per-trial counts or window lengths (a `UserWarning` says so).
+          lacks `response_zscore`, the per-trial counts or window lengths (a `UserWarning`
+          says so).
           `is_significant` is False under 'undefined' whatever the p, because the
           effect-size cutoff cannot be evaluated.
 
@@ -296,7 +297,17 @@ def classify_response_significance(
         result['pvalue'] = float('nan')
         return result
 
-    zscore = abs(metrics.get('response_zscore', 0.0))
+    if 'response_zscore' not in metrics:
+        warnings.warn(
+            "classify_response_significance: metrics has no 'response_zscore', so the effect "
+            "size cannot be evaluated; pass the dict compute_response_metrics returns. "
+            "Classified 'undefined'.",
+            UserWarning,
+            stacklevel=2,
+        )
+        zscore = float('nan')
+    else:
+        zscore = abs(metrics['response_zscore'])
 
     response_counts = np.asarray(metrics['response_counts'], dtype=float)
     baseline_counts = np.asarray(metrics['baseline_counts'], dtype=float)
@@ -392,7 +403,8 @@ def phase_locking_index(
         ``rayleigh_pvalue`` are NaN.
 
     Raises:
-        ValueError: ``lfp_timestamps`` that are not strictly increasing; or a non-finite LFP
+        ValueError: ``lfp_timestamps`` that are non-finite (the message names the first) or
+            not strictly increasing; or a non-finite LFP
             phase value at a spike's sample, or in the sample beside one that the
             interpolation reaches (the message names how many spike phases came out
             non-finite -- such a spike used to take a NaN phase, which made ``rayleigh_z``
@@ -425,6 +437,8 @@ def phase_locking_index(
     }
 
     lfp_timestamps = np.asarray(lfp_timestamps, dtype=float)
+    # A NaN step compares False to 0, so a NaN timestamp passed the ordering check below.
+    refuse_nonfinite_times(lfp_timestamps, "phase_locking_index", "lfp_timestamps")
     steps = np.diff(lfp_timestamps)
     if np.any(steps <= 0):
         # Descending timestamps made the window t_lo > t_hi, so every spike was excluded and
@@ -648,9 +662,6 @@ def gaussian_smooth_rate(
     # Measured on the output rather than predicted from sigma: the kernel's reach is truncated
     # at an array edge, so a boundary NaN spreads less far than an interior one and a computed
     # radius would overstate the loss at exactly the position where the loss actually occurs.
-    # No `nan_policy` argument is offered here on purpose -- whether an additive public API
-    # change requires a CHANGELOG entry and a deprecation path is not yet decided, and
-    # warning needs no new parameter.
     n_bad_in = int(np.count_nonzero(~np.isfinite(arr)))
     if n_bad_in:
         n_bad_out = int(np.count_nonzero(~np.isfinite(out)))

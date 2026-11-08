@@ -415,10 +415,12 @@ class TestGate13ChecksBehaviourNotPresence:
 
     def test_tutorials_that_refuse_to_run_are_rejected(self, tmp_path: Path):
         root = self._tree(tmp_path)
-        for script in (root / "examples" / "tutorials").glob("*.py"):
+        scripts = list((root / "examples" / "tutorials").glob("*.py"))
+        assert len(scripts) >= 11, "fixture must copy every tutorial"
+        for script in scripts:
             script.write_text("raise SystemExit('nope')\n", encoding="utf-8")
         violations = check_nwb_onboarding_alignment(root)
-        assert len([v for v in violations if "raises at module level" in v]) == 9, violations
+        assert len([v for v in violations if "raises at module level" in v]) == len(scripts), violations
 
     def test_a_tutorial_that_does_not_parse_is_rejected(self, tmp_path: Path):
         root = self._tree(tmp_path)

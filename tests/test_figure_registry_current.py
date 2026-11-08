@@ -3,11 +3,13 @@
 Each entry carries the hash of the code and the jnwb version of the run that wrote it, and the
 panels the interactive converter cannot draw. This test draws every figure and holds each of those
 to the live code, so a stale registry, or a panel the converter cannot draw that is not listed,
-fails.
+fails. The version is the one that rendered the figure: a version bump leaves it, and the release
+gate requires the released version.
 """
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -36,11 +38,25 @@ def test_the_registry_has_one_entry_per_figure():
     assert sorted(ENTRIES) == sorted(generator.FIGURES), "registry and FIGURES disagree"
 
 
-def test_the_registry_is_current_with_the_code_and_the_jnwb_version():
+def _release(version: str) -> tuple:
+    match = re.match(r"(\d+)\.(\d+)\.(\d+)", version)
+    assert match, f"{version!r} has no release number"
+    return tuple(int(part) for part in match.groups())
+
+
+def test_the_registry_is_current_with_the_code_and_not_ahead_of_the_jnwb_version():
     assert ENTRIES, "the registry is empty"
     for name, entry in ENTRIES.items():
         assert entry["code_sha256"] == registry.code_sha256(), f"{name} is stale: rerun the generator"
-        assert entry["jnwb_version"] == jnwb.__version__, f"{name} was written by another jnwb"
+        assert _release(entry["jnwb_version"]) <= _release(jnwb.__version__), (
+            f"{name} names jnwb {entry['jnwb_version']}, later than the live {jnwb.__version__}")
+
+
+@pytest.mark.parametrize("rendered, live, accepted", [
+    ("0.2.15", "0.2.16", True), ("0.2.16", "0.2.16", True), ("0.2.17", "0.2.16", False),
+    ("0.2.9", "0.2.10", True), ("0.10.0", "0.9.9", False)])
+def test_a_rendered_version_is_accepted_up_to_the_live_one(rendered, live, accepted):
+    assert (_release(rendered) <= _release(live)) is accepted
 
 
 @pytest.mark.parametrize("name", sorted(ENTRIES))
