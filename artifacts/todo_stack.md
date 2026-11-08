@@ -1,30 +1,12 @@
-# 0.2.16
+# 0.2.17
 
-Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. 0.2.15
-closed on 2026-11-02 (tag `v0.2.15`, `5822c3e9`; PyPI, GitHub release, omission told,
-`artifacts/rulings/2026-11-01.md`). Items run fastest first; the lanes below split them into parallel
-writers that share no file.
+Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. 0.2.16
+closed on 2026-11-08 (tag `v0.2.16`, `0aa220ba`; tag CI/CD run 42513450995 success, TestPyPI and PyPI
+verified, GitHub release body checked by `release_gate.py` STEP 0d). Items run fastest first.
 
-## 0.2.16 checklist and score
-
-Scope: the 0.2.16 row of `artifacts/process/release_plan.json` (ruled 2026-11-05). Weights sum to 100: packages
-70, exit gates 30. A row earns its weight only when its "Done when" check holds; partial credit is the share of
-its named checks that hold. A package moved out of the cycle by ruling earns its weight, as a moved open row does in 16G. Score 2026-11-06: **80/100** (packages 70 of 70, gates 10 of 30; 72.3 before 17-77 closed, 71.5 before 17-75 closed, 56.5 before 16E moved, 44.4 before the open rows moved, 43.4 before P-216-06 closed, 34.9 before 17-70 and 17-76, 33.3 before #39 closed).
-
-| Id | Weight | Package | Done when | Evidence 2026-11-05 | Score |
-|---|---|---|---|---|---|
-| 16A Audit defects | 15 | 17-83 to 17-127 of the 0.2.16 lanes | every 0.2.16 lane item landed with its failing-first test | all batches landed (2026-11-02 to -03); no 0.2.16 lane item left in this stack | 15 |
-| 16B GitHub issues | 8 | hnxj/jnwb#35 to #39 | each closed on GitHub with its repro | #35 to #39 closed; #39 by a9fccc01, CI/CD green on bb068aec; #40 closed 2026-11-06 (item 4, 674aa0d8); 0 issues and 0 pull requests open | 8 |
-| 16C GPU Granger | 7 | `granger(device=)`, `granger_causality` removed | parity test within its stated tolerance; CI green on `dev` | c594ae51, CI/CD run 41920337297 success | 7 |
-| 16D psth bin edges | 6 | 17-70 | `UnitAnalyzer.psth` right-open, with a `[results change]` entry | landed 2026-11-06 with failing-first tests and the entry; independent review ACCEPT, the old code fails 4 tests | 6 |
-| 16E External ground truth | 15 | 15-11, 12-21, 16-12 | each recovery table or receipt committed | moved to 0.2.17 (ruling of 2026-11-06, "Defer 16E, release"); handed to jaxfne-orchestrator to plan, a Haiku 5.5 subagent executes once the plan is agreed | 15 |
-| 16F Workspace and pointers | 5 | 17-75, 17-76, 17-77 | each item's check holds | 17-75 done 2026-11-06 (worktree removed, its commit archived as a patch on `E:`; `git worktree list` shows one entry; 36 stale clones and `_temp_oc` deleted); 17-76 done (agy answered, ruling of 2026-10-28); 17-77 done 2026-11-06 (ebbd8ecb; S13's `todo:12-21` stays, the fact gate reads roadmap ids as live) | 5 |
-| 16G Open rows | 14 | the open stack's 0.2.16 rows | each repaired, shown false or moved with its release | P-216-05 repaired; P-216-06 repaired (#40 item 4, ruling of 2026-11-06); the other 13 moved 2026-11-06 by the release plan to 17-128, 17-129 and roadmap 17-130 to 17-141; the open stack is empty | 14 |
-| Gate 1 packages closed or moved | 6 | — | 16A to 16G closed, or moved by ruling | 7 of 7 closed or moved | 6 |
-| Gate 2 gates, suite, CI | 8 | — | harness gates and full suite pass at the release SHA; CI green on `dev` there | no release SHA yet; at 3fb5f94b all three held | 4 |
-| Gate 3 release gate | 6 | — | `python scripts/release_gate.py` passes | not run | 0 |
-| Gate 4 closure pass | 5 | — | an independent blocker-focused pass finds no new blocker (`AGENTS.md` §11) | not run | 0 |
-| Gate 5 tag, main, PyPI | 5 | — | v0.2.16 on PyPI from the tagged SHA | not started | 0 |
+Thinning and matching from the 2026-11-02 audit. Lanes form at 0.2.16's close; 17-94 waits on 17-79,
+which rewrites `_xflip.py` and `_zflip.py`. Each item applies the jarness standards: `match-cleanup` for
+removals, `match-code-style` for code, `match-writing-style` for prose, `match-visual-style` for figures.
 
 ## How this stack is executed
 
@@ -40,27 +22,24 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
-## Lanes
+### 17-143 A tag push through the push wrapper
 
-Sources: the seven-model audit of `7ca5b9a6` (17-83 to 17-105) and the eight-auditor audit of
-`9fd2b4bd` (17-106 to 17-117; open rows P-216-08 to -32), each finding re-checked by the integrator.
-Defects and correctness go in 0.2.16; thinning and matching in 0.2.17. Lanes ruled 2026-11-02 (Hamm,
-"Yes, as proposed"): claimed by the files in their items' Writes; no file is in two lanes of one batch,
-and an item that shares a file with another lane names it in Blocked by.
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/jnwb_push.sh`, `scripts/push_guard.py`, `tests/test_push_guard.py`.
+- 17-143: on 2026-11-08 `scripts/push_guard.py` denied `git push origin refs/tags/v0.2.16` from the release
+  clone, and `jnwb_push.sh` pushes only a branch (`:52`), so Hamm pushed the tag by hand. Check: `jnwb_push.sh
+  <dir> --tag vX.Y.Z` pushes a `v*` tag only when it points at `origin/main`'s tip and a main CI/CD run of
+  that SHA succeeded, and refuses otherwise; a guard test covers both.
 
-No lane is open. Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B, then I, E, K
-(2026-11-03), all landed.
+### 17-144 The jaxfne isi_cv commits
 
-- No item blocks the 0.2.16 tag; the release steps remain (Gates 2 to 5). The open stack is empty: its 13 rows moved on 2026-11-06 to
-  17-128 and 17-129 here and to roadmap 17-130 to 17-141, by the release plan.
-- Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (plan only);
-  approved, a 0.2.16 item changes `workflow.yml`.
-
-# 0.2.17
-
-Thinning and matching from the 2026-11-02 audit. Lanes form at 0.2.16's close; 17-94 waits on 17-79,
-which rewrites `_xflip.py` and `_zflip.py`. Each item applies the jarness standards: `match-cleanup` for
-removals, `match-code-style` for code, `match-writing-style` for prose, `match-visual-style` for figures.
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `artifacts/benchmarks/realdata/isi_cv_recompute.py`, `artifacts/benchmarks/realdata/isi_cv_recompute_receipt.json`, `artifacts/benchmarks/realdata/build_isi_cv_fixture.py`, `tests/fixtures/isi_cv_realdata_subsample.json`, `tests/test_isi_cv_realdata.py`.
+- 17-144: three 16-12 commits on `E:/cl-jnwb16e` (0e06993c, 9980f58d, 5fa63dd3), promised to
+  jaxfne-orchestrator for 0.2.17. Check: each is on `dev` (picked in that order, one per command), the suite
+  passes, and jaxfne-orchestrator is told the SHAs; then `E:/cl-jnwb16e` may go.
 
 ### 17-79 Complexity of the largest functions
 
