@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "5bfee7b0cf163328365383a68a9f03ada12fe712",
-    "date": "2026-11-08T21:40:48Z"
+    "commit": "a17faafcc13d8918d74b293c55e3008916f0f1e7",
+    "date": "2026-11-08T22:37:49Z"
   },
   "sources": {
     "generated": [
@@ -1463,7 +1463,7 @@
         "note": "figures: compared"
       },
       {
-        "os": "ubuntu-latest",
+        "os": "ubuntu-24.04",
         "python": "3.12.0",
         "note": "dependency floors"
       }
