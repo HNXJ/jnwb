@@ -307,7 +307,8 @@ def cross_area_coherence(
                 surrogates take more than about a second in total, since the process
                 pool costs a few seconds to start.
         nperseg: Welch segment length in samples. Default ``min(max(N // 8, 8), 4096)``,
-                 which yields 15 segments for any N up to 32768 and more beyond it.
+                 which yields ``1 + (N - nperseg) // (nperseg - noverlap)`` segments: 14 or 15
+                 for 1024 <= N <= 32768.
                  INTENTIONAL BREAK (0.2.4): the previous default ``min(N, 4096)`` put
                  every input up to ~8192 samples into a single segment, where
                  magnitude-squared coherence is identically 1.0 for ANY two signals --
@@ -457,14 +458,13 @@ def cross_area_coherence(
 
     n_segments = welch_segment_count(n_samples, nperseg, noverlap)
     if n_segments < MIN_IDENTIFIABLE_SEGMENTS:
-        step = nperseg - noverlap
         raise ValueError(
             f"coherence is not identifiable from {n_segments} Welch segment(s): "
             f"{n_samples} samples with nperseg={nperseg}, noverlap={noverlap}. "
             "With a single segment the cross-spectrum is the exact geometric mean of "
             "the auto-spectra, so magnitude-squared coherence is identically 1.0 at "
             "every frequency for ANY two signals, coupled or independent. Supply a "
-            f"smaller nperseg (<= {max(2, (n_samples + step) // 2)} keeps at least "
+            f"smaller nperseg (<= {max(2, (n_samples + noverlap) // 2)} keeps at least "
             f"{MIN_IDENTIFIABLE_SEGMENTS} segments here), a smaller noverlap, or a "
             "longer recording."
         )

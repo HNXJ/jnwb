@@ -303,7 +303,8 @@ def spectral_tilt(
         -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "spectral_tilt")
-    lfp_trace = _flat_as_zero(_require_finite_nonempty_trace(lfp_trace, "spectral_tilt"))
+    lfp_trace = _flat_as_zero(_require_two_samples(
+        _require_finite_nonempty_trace(lfp_trace, "spectral_tilt"), "spectral_tilt"))
     # NaN marks a slope the spectrum cannot support. These fields reported 0.0, which reads as
     # a measured flat spectrum.
     # INTENTIONAL BREAK (0.2.10): the `exponent` key, deprecated in 0.2.7 for `slope`, is gone.
@@ -467,7 +468,7 @@ def aperiodic_fit(
     Args:
         freqs: 1D array of strictly increasing, finite frequency coordinates in Hz, shape `(n_freqs,)`.
         psd: Power spectral density array in (U_in)^2/Hz, shape `(n_freqs,)` or `(..., n_freqs)`.
-            Must be strictly non-negative and finite.
+            Must be strictly positive and finite.
         freq_range: Tuple `(f_min, f_max)` in Hz defining the fitting range (inclusive).
             Must satisfy `0 < f_min < f_max`.
         mode: Model type, either `'fixed'` (k = 0) or `'knee'` (k > 0). Default is `'fixed'`.
@@ -486,7 +487,7 @@ def aperiodic_fit(
 
     Raises:
         ValueError: If frequencies are non-monotonic, non-positive, or non-finite;
-            if PSD contains negative, NaN, or infinite values; if `freq_range` is invalid;
+            if PSD contains zero, negative, NaN, or infinite values; if `freq_range` is invalid;
             if `mode` is unrecognized; or if fewer than 4 frequency bins fall in `freq_range`.
 
     References:

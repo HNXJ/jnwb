@@ -337,6 +337,8 @@ def nested_cv_linear_svm(
             f"nested_cv_linear_svm: labels has {len(classes)} classes "
             f"({classes.tolist()}); it decodes two."
         )
+    if n_splits < 2:
+        raise ValueError(f"nested_cv_linear_svm: n_splits must be at least 2, got {n_splits}.")
 
     # The partition was fixed at `random_state=42` in four places with no way to
     # vary it, so partition sensitivity could not be assessed at all. An int `rng` is

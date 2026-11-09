@@ -20,7 +20,7 @@ def fdr_correct(
     """Benjamini-Hochberg (or compatible) FDR across a hypothesis family.
 
     This one forwards the other way: `StatisticalAnalysis.fdr_correct` holds the
-    implementation and this module-level name delegates to it. The other four
+    implementation and this module-level name delegates to it. The other three
     module/class pairs in this file run class -> module.
 
     Args:

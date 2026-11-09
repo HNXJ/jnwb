@@ -137,6 +137,10 @@ def morlet_wavelet(
         raise ValueError(f"n_cycles must be finite, got {n_cycles}")
     if n_cycles <= 0:
         raise ValueError(f"n_cycles must be positive, got {n_cycles}")
+    if not np.isfinite(cutoff_sigma):
+        raise ValueError(f"cutoff_sigma must be finite, got {cutoff_sigma}")
+    if cutoff_sigma < 0:
+        raise ValueError(f"cutoff_sigma must be non-negative, got {cutoff_sigma}")
 
     sigma_t = n_cycles / (2.0 * np.pi * f0)
     K = int(np.ceil(cutoff_sigma * sigma_t * fs))
@@ -250,6 +254,8 @@ def complex_tfr(
         raise ValueError("data contains NaN or Inf values")
     if fs <= 0:
         raise ValueError(f"fs must be positive, got {fs}")
+    if coi_sigma is not None and coi_sigma < 0:
+        raise ValueError(f"complex_tfr: coi_sigma must be non-negative, got {coi_sigma}")
     if not np.issubdtype(np.dtype(dtype), np.complexfloating):
         raise ValueError(
             f"complex_tfr: dtype must be a complex dtype (np.complex128 or np.complex64), "

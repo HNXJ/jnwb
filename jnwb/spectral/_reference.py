@@ -68,6 +68,8 @@ def bipolar_reference(channel_data: np.ndarray, channel_order: Optional[np.ndarr
     refuse_nonfinite_times(channel_data, "bipolar_reference", "channel_data")
     if channel_data.ndim != 2:
         raise ValueError(f"channel_data must be 2D (n_channels, n_samples), got shape {channel_data.shape}")
+    if channel_data.shape[0] < 2:
+        raise ValueError(f"bipolar_reference needs at least 2 channels, got {channel_data.shape[0]}")
     order = (
         np.arange(channel_data.shape[0])
         if channel_order is None
