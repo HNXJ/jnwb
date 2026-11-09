@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "07fde8f5fb64a2bf74af9150ffacf2b02c18741f",
-    "date": "2026-11-09T00:12:34Z"
+    "commit": "4a890e82551549410294ca85763c1baa623be8d2",
+    "date": "2026-11-09T01:51:28Z"
   },
   "sources": {
     "generated": [
@@ -1911,9 +1911,10 @@
       {
         "file": "jnwb/spectral/_coupling.py",
         "qualname": "cross_area_coherence",
-        "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+        "verified_at": "b7c2951fe06080a0832a1000aa193bc06265141d",
         "tests": [
-          "tests/test_spectral.py::TestCrossAreaCoherence::test_identical_signals_have_high_coherence"
+          "tests/test_spectral.py::TestCrossAreaCoherence::test_identical_signals_have_high_coherence",
+          "tests/test_audit_2026_11_08_spectral.py::test_too_short_advice_gives_two_segments_with_an_explicit_noverlap"
         ]
       },
       {
@@ -1928,10 +1929,11 @@
       {
         "file": "jnwb/spectral/_reference.py",
         "qualname": "bipolar_reference",
-        "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
+        "verified_at": "b7c2951fe06080a0832a1000aa193bc06265141d",
         "tests": [
           "tests/test_estimator_discrimination.py::TestBipolarReferenceHasAPinnedSign::test_subtracts_the_shallower_channel_from_the_deeper",
-          "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[bipolar_reference]"
+          "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[bipolar_reference]",
+          "tests/test_audit_2026_11_08_spectral.py::test_bipolar_reference_refuses_one_channel_by_name"
         ]
       },
       {
@@ -5130,8 +5132,8 @@
       "section": "frozen",
       "title": "Independently verified functions",
       "path": "artifacts/process/frozen_validated.json",
-      "commit": "a7c30c0e0efad943fc2652a4d0391ff4d776f7a6",
-      "sha256": "3668aefcee79a2594197a6db3974fc24fbc84b9354f733d8703159a7a637dc1a",
+      "commit": "8551241773dc29178cea0cb975de1b5a2b57618a",
+      "sha256": "227482cb25b140c20cb4c67be6fe3b6f4f4f7dac3b80329c66e4db173e44e306",
       "fields": {
         "functions": 26
       },
@@ -5278,7 +5280,14 @@
         "17-104",
         "17-127",
         "17-128",
-        "17-129"
+        "17-129",
+        "17-142",
+        "17-143",
+        "17-144",
+        "17-145",
+        "17-146",
+        "17-147",
+        "17-148"
       ]
     },
     {
@@ -5330,9 +5339,7 @@
       "needs": [
         "the GLO figures and results from the Bastos lab"
       ],
-      "items": [
-        "17-102"
-      ]
+      "items": []
     },
     {
       "version": "0.2.21",
