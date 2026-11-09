@@ -25,7 +25,8 @@ Ground truth for vflip2, xflip's null and the curation path.
 
 ## Rulings, form and CI reach
 
-The open rows of the 2026-11-02 audit, moved here by the release plan (ruled 2026-11-05) on
+The open rows of the 2026-11-02 audit (eight auditors at `9fd2b4bd`, per
+`artifacts/open_stack.md:35`), moved here by the release plan (ruled 2026-11-05) on
 2026-11-06. Each row's full text: `git log -S '| P-216-NN |' -- artifacts/open_stack.md`, with the
 number in the Theme cell.
 

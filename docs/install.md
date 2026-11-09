@@ -105,11 +105,11 @@ time. The `visual_qc` and `vis` submodules are likewise deferred. This keeps `sc
 `matplotlib` and `joblib` out of the import while preserving the full public API in
 `jnwb.__all__`, which the suite verifies symbol by symbol.
 
-The import still takes about 1.9 s, and about 1.8 s of that is
-`scipy`, `pandas` and `pynwb`, which the eager surface needs: roughly 1.1 s for the first `scipy`
-submodule imported, then 0.3 s each for `pandas` and `pynwb`, on top of 0.1 s for `numpy`. jnwb's
-own module bodies are about 0.05 s of it. Deferring any single module does not change this.
-`scipy` alone is imported at module scope by seven eagerly imported modules, so whichever one
+The import takes 11.8 s warm (median of 10 fresh processes) and 70.1 s cold (empty bytecode cache)
+on jnwb 0.2.16, Python 3.14.3, Windows 11 (`artifacts/benchmarks/performance/import_profile.txt`).
+The importtime attribution in `artifacts/benchmarks/performance/import_breakdown.json` puts 10.9 s
+under `jnwb`, with `pandas` at 2.07 s and `pynwb` at 1.17 s cumulative.
+`scipy` is imported at module scope by several eagerly imported modules, so whichever one
 runs first is charged the shared cost and the rest are free. Import the package once at process
 start rather than per task.
 

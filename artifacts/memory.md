@@ -5,7 +5,7 @@ Verified lessons the code and git do not show. This project only. No state, secr
 - trigger: a full suite fails with "The paging file is too small" import errors or joblib `BrokenProcessPool`, and every failing test passes alone
   cause: two full suites ran at once on this machine and exhausted commit space (about 48 GB free virtual memory against 104 GB free RAM)
   repair: run full suites through `C:/Users/nejath/.claude/bin/suite_lock.py`, one at a time across repositories
-  evidence: `C:/workspace/pytest_temp/main_merge_suite.log` (7 failed), the same 7 alone (7 passed), then `main_merge_suite2.log` (7586 passed, 0 failed), 2026-10-12
+  evidence: 2026-10-12 logs `C:/workspace/pytest_temp/main_merge_suite.log` (7 failed), the same 7 alone (7 passed), then `main_merge_suite2.log` (7586 passed, 0 failed); both logs are absent on 2026-11-08 (`test -e`), so the counts are unverifiable from this workspace
   scope: any full suite on this workstation
 
 - trigger: `suite_lock.py -- bash <script>` exits 127 with "No such file or directory"
