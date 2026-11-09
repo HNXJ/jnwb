@@ -106,9 +106,9 @@ time. The `visual_qc` and `vis` submodules are likewise deferred. This keeps `sc
 `jnwb.__all__`, which the suite verifies symbol by symbol.
 
 The import takes 11.8 s warm (median of 10 fresh processes) and 70.1 s cold (empty bytecode cache)
-on jnwb 0.2.16, Python 3.14.3, Windows 11 (`artifacts/benchmarks/performance/import_profile.txt`).
-The importtime attribution in `artifacts/benchmarks/performance/import_breakdown.json` puts 10.9 s
-under `jnwb`, with `pandas` at 2.07 s and `pynwb` at 1.17 s cumulative.
+on jnwb 0.2.16, Python 3.14.3, Windows 11. The importtime attribution puts 10.9 s under `jnwb`,
+with `pandas` at 2.07 s and `pynwb` at 1.17 s cumulative; the dashboard's "Import cost" card holds
+the measurement.
 `scipy` is imported at module scope by several eagerly imported modules, so whichever one
 runs first is charged the shared cost and the rest are free. Import the package once at process
 start rather than per task.

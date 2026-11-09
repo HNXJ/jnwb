@@ -154,7 +154,7 @@ Eleven pages sit over their ceiling, and each owes the one sentence the rule ask
 | `07_statistical_inference_and_nulls` | 1313 | the cluster-permutation figure and its caption add 114 words; the section's limit on what a significant cluster licenses applies to the cluster the figure outlines |
 | `08_directed_connectivity_and_information` | 1478 | the spectral Granger and phase-slope figures and their captions add 150 words, each showing one directional estimate on a synthetic pair |
 | `architecture` | 1966 | two pages merged: the module map is a 673-word reference table, and the prose states the boundary, the invariants and the claim table once each |
-| `install` | 938 | the pandas 3 override is the one install step hdmf's cap makes necessary, and the page sat at 889 words before it |
+| `install` | 924 | the pandas 3 override is the one install step hdmf's cap makes necessary, and the page sat at 889 words before it |
 | `index` | 419 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
 | `errors` | 2259 | thirteen error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, the sixteen ragged-index check and repair messages, and the table of the two write errors, the repair refusal, and the two reserved subclasses. The messages are pinned to the source, so they are not paraphrasable |
 
