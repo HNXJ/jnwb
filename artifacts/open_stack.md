@@ -1,6 +1,6 @@
 # Open stack (jnwb, 2026-11-08)
 
-Open rows: five, from the audit of 2026-11-08 at `5bfee7b0` (`artifacts/evidence/0.2.17/audit_2026-11-08.md`), each waiting on Hamm. A row leaves by being repaired, shown false, or moved into the todo stack (`AGENTS.md` §11); `git log -- artifacts/open_stack.md` holds the rows of earlier dates.
+Open rows: seven, from the audit of 2026-11-08 at `5bfee7b0` (`artifacts/evidence/0.2.17/audit_2026-11-08.md`), each waiting on Hamm. A row leaves by being repaired, shown false, or moved into the todo stack (`AGENTS.md` §11); `git log -- artifacts/open_stack.md` holds the rows of earlier dates.
 
 | Id | Open item | Evidence | Owner | Next step |
 |---|---|---|---|---|
@@ -9,6 +9,8 @@ Open rows: five, from the audit of 2026-11-08 at `5bfee7b0` (`artifacts/evidence
 | P-217-03 | Goal row 12 lists 3.12 to 3.14 while 3.15 is supported (state-2) | `goal.md:26`; `pyproject.toml:26`, `README.md:43` | Hamm | proposed text: 3.12, 3.13, 3.14 and 3.15 (3.15 excluded on Windows until h5py ships cp315) |
 | P-217-04 | Goal row 1 says `README.md` links `artifacts/agents.md`; it does not (state-3) | `goal.md:15`; no such link in `README.md` | Hamm | add the link to `README.md`, or reword the goal's check |
 | P-217-05 | Fact S15 reads HELD while its holder checks only the exclusion list (state-5) | `fact_stack.md:88`; `scripts/fact_gate.py:497-500` | Hamm | narrow S15's predicate, or add a holder for method citations |
+| P-217-06 | `StatisticalAnalysis.ALPHA_FDR` is a public alias nothing reads (stats-3) | `statistics/_analysis.py:89`; `git grep ALPHA_FDR` finds only that line | Hamm | remove it (public API: a changelog `removed` entry), or keep it |
+| P-217-07 | README's `granger` examples pass no `signal_class`, which now warns (docs-2) | `README.md:151` | Hamm | name the class of the synthetic arrays (proposed: `lfp`); then the examples pass it |
 
 Cleared 2026-10-25, the 40 rows of the audit of ac8736ff (`git show e00e8664:artifacts/open_stack.md`):
 

@@ -1,0 +1,2 @@
+- `validate_nwb(layers=[])`, `bipolar_reference` on one channel, `spectral_tilt` on one sample, `morlet_wavelet` with a non-finite or negative `cutoff_sigma`, `complex_tfr` with a negative `coi_sigma`, `nested_cv_linear_svm` with `n_splits < 2`, and a non-finite threshold in `edges_near_events` now raise `ValueError` naming the argument; each returned an empty or misleading result before.
+- `cross_area_coherence`'s too-few-segments error now advises an `nperseg` that gives two segments; the previous bound could still give one.

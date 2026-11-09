@@ -26,29 +26,29 @@ At most eight lines per item.
 
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/nwb_validate.py`, `jnwb/nwb_inspect.py`, `jnwb/nwb_integrity.py`, `jnwb/nwb_events.py`, `jnwb/nwb_io.py`, `jnwb/nwb_write.py`, `jnwb/_units.py`, `jnwb/io.py`, `tests/test_nwb_validate.py`, `tests/test_nwb_integrity.py`, `tests/test_minimal_units_table.py`.
-- 17-145: findings io-1, io-3 to io-15 of `artifacts/evidence/0.2.17/audit_2026-11-08.md` (io-2 is P-217-01). Each site and fix is in that table. Check: a failing-first test for each logic defect (io-1, io-3, io-6, io-7, io-8, io-15), each pointer resolves, the suite passes.
+Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`.
+- 17-145: io-13 of `artifacts/evidence/0.2.17/audit_2026-11-08.md` is left (the rest landed 2026-11-08; io-6 shown false by `tests/test_acquisition_layout.py:220`; io-2 is P-217-01): the spec-catalog lookups at `nwb_write.py:1174` catch every exception. Narrow the caught types and name the cause in the refusal. Check: a failing-first test where a broken lookup's error reaches the message.
 
 ### 17-146 Audit 2026-11-08: spectral and statistics defects
 
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/spectral/_coupling.py`, `jnwb/spectral/_psd.py`, `jnwb/spectral/_reference.py`, `jnwb/spectral/_decibels.py`, `jnwb/tfr.py`, `jnwb/statistics/_analysis.py`, `jnwb/statistics/_tests.py`, `jnwb/jrsa/__init__.py`, `jnwb/analyzers.py`, `jnwb/decoding.py`.
-- 17-146: findings spectral-1 to -10 and stats-2 to -8 (stats-1 is P-217-02). Check: spectral-1 to -3 docstrings match the code by a test, a failing-first test per added refusal (spectral-6, -8, -10, stats-8), the suite passes.
+Writes: `jnwb/spectral/_psd.py`, `jnwb/statistics/__init__.py`.
+- 17-146: left of the audit (the rest landed 2026-11-08): spectral-4, `_psd.py:132,277` cite "invariant 6", which no public document defines: state the rule (device and worker count change no number); stats-6, unused imports at `statistics/__init__.py:25-29,35-36`. spectral-5 and spectral-9 and the dead `laplacian_reference` branch (`_reference.py:136`) go with 17-94; stats-3 is P-217-06. Check: `ruff check jnwb/statistics/__init__.py --select F401` clean except re-exports, no "invariant 6" in `jnwb/`.
 
 ### 17-147 Audit 2026-11-08: scripts and tests that cannot fail
 
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: 17-143 (shared `scripts/push_guard.py`).
-Writes: `scripts/push_guard.py`, `scripts/harness_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/calibrate_xflip.py`, `scripts/jnwb_suite.sh`, `tests/test_push_guard.py`, `tests/test_workflow_release_policy.py`, `tests/test_composition_axis.py`, `tests/test_jrsa_no_fabricated_failures.py`, `tests/test_ci_conclusion_gate.py`, `tests/test_complex_tfr.py`, `tests/test_laminar.py`, `tests/test_collection_order_stability.py`, `tests/test_generated_figures_are_maintained.py`.
-- 17-147: findings scripts-1, -2, -4 to -9 and tests-1 to -9 (scripts-3 is in 17-141). Check: the guard denies `git --no-pager push` and `git.exe push` by test, gate 15 fails on zero mapping tables, each repaired test fails on a planted defect, the suite passes.
+Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/measure_agents_md_duplication.py`, `scripts/vflip2_recovery.py`, `scripts/figures/generate_figures.py`, `tests/test_*.py`.
+- 17-147: left of the audit (the rest landed 2026-11-08): scripts-2 (gate 15 passes on zero tables; `tests/test_learning_gate.py:212` pins that), -5 (move), -6, -7, -8 (`measure_agents_md_duplication.py:149,158`, `vflip2_recovery.py:978`), tests-2 (`match=`), -4, -5, -6, -9; push spellings the guard still allows: `git --namespace foo push`, a quoted `git.exe` path, `GIT`/`git.EXE`, `GIT_DIR=<jnwb>` from another cwd. Check: each by a failing-first test; `ruff check tests --select F401,F541,F821,F841` clean.
 
 ### 17-148 Audit 2026-11-08: docs and state pointers
 
 Release: deferred-0.2.17.
 Role: docs-harness. Skill: none. Blocked by: none.
-Writes: `docs/install.md`, `docs/laminar.md`, `README.md`, `artifacts/process/release_plan.json`, `artifacts/process/defect_classes.md`, `artifacts/roadmap.md`, `artifacts/memory.md`.
-- 17-148: findings docs-1 to -5 and state-1, -4, -6 to -11 (state-2, -3, -5 are P-217-03 to -05). docs-1: the import times come from `python scripts/benchmark_import.py --write`; docs-3 (`CHANGELOG.md:5`) lands at integration. Check: every number cites its receipt, README examples pass `signal_class`, each pointer resolves, the stack tests pass.
+Writes: `tests/test_readme_smoke.py`, `artifacts/process/defect_classes.md`, `artifacts/roadmap.md`.
+- 17-148: left of the audit (the rest landed 2026-11-08; docs-2 is P-217-07): docs-5, assert README's printed values in `test_readme_smoke.py` at a stated tolerance or delete them; state-4, an item for the AST scan; state-6, -7, the two classes seen twice need a check, a rule or a recorded reason; state-8, verify `roadmap.md:24`'s 21c99f96 (jaxfne generator) against 166d6c87 (test added); state-10, todo intro names its audit by SHA. Check: each pointer resolves, the stack tests pass.
 
 ### 17-143 A tag push through the push wrapper
 
