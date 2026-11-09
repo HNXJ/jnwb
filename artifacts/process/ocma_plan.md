@@ -1,6 +1,6 @@
 # Ontology-constrained multi-agent analysis (OCMA): plan
 
-Status: draft 2026-11-08, for Hamm's ruling (decisions at the end). Executor: `jnwb-critic` on the host with the raw
+Status: ruled 2026-11-09 (decisions at the end). Executor: `jnwb-critic` on the host with the raw
 omission corpus; this session plans and verifies. Source method: Nejat et al., Sci Rep 2026,
 doi:10.1038/s41598-026-77038-y; code `HNXJ/mllm-public` (glossary `src/ontology/glossary/HPC/hpc-36-reference.md`,
 prompt `src/ontology/instructions/hpc_eval_prompt.md`). Execution pattern: jaxfne's replication programme
@@ -96,9 +96,10 @@ pooled; a logarithm before the mean; a receipt not committed.
 | 15-11 vflip2 planted crossover | synthetic | Andre Bastos's simulation code |
 | 12-21 planted delay and direction | jaxfne broadband field | the field |
 
-## Decisions for Hamm
+## Decisions (ruled 2026-11-09, `artifacts/rulings/2026-11-09.md`)
 
-1. Rubric weights as above, or others.
-2. Omission and WaveMAP results on the public dashboard (gh-pages is public), or receipts only in the repo until publication.
-3. Scorers Haiku-only, or mixed model families as in the paper (recommended: mixed, so agreement is not one model agreeing with itself).
-4. Adjudication thresholds (IQR > 20, median < 60) and the stop rule.
+1. Work rounds are scored by W8 (`method/work_ontology.md` in ocma), shared with `ocma-jaxfne`.
+2. Omission and WaveMAP cards and receipts stay in the repository until publication; the public dashboard shows public data only.
+3. Rounds are 8 to 16 Haiku 5.5 agents; a small panel from another model family re-scores a sample, and the cross-family disagreement is reported.
+4. Adjudication at IQR > 20 or median < 60, one feedback round; after round 1 the count each threshold flagged is reported before any change.
+5. Card specs (estimand, null, n and units, figure) are drafted by the keeper and ruled by Hamm one at a time before code.

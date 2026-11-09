@@ -50,12 +50,19 @@ Role: docs-harness. Skill: none. Blocked by: none.
 Writes: `tests/test_readme_smoke.py`, `artifacts/process/defect_classes.md`, `artifacts/roadmap.md`, `README.md`.
 - 17-148: left of the audit (the rest landed 2026-11-08). Ruled 2026-11-09: docs-2, the `granger` examples at `README.md:151` pass `signal_class="lfp"` and the smoke test asserts no warning; state-3, `README.md` links `artifacts/agents.md` for agents (goal row 1). docs-5, assert README's printed values in `test_readme_smoke.py` at a stated tolerance or delete them; state-4, an item for the AST scan; state-6, -7, the two classes seen twice need a check, a rule or a recorded reason; state-8, verify `roadmap.md:24`'s 21c99f96 (jaxfne generator) against 166d6c87 (test added); state-10, todo intro names its audit by SHA. Check: each pointer resolves, the stack tests pass.
 
+### 17-149 Fast checks first: doc form in the suite, generated state named
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/jnwb_suite.sh`, `scripts/reconstruct_state.py`, `tests/test_jnwb_suite_lock.py`, `tests/test_state_reconstruction.py`.
+- 17-149 (ruled 2026-11-09): the doc-form failures surfaced after a 40-minute suite three times; `jnwb_suite.sh` runs `test_changelog_fragments`, `test_docs_form_gate` and `test_documentation_form` first and stops on a failure. The jarness workspace check reads the uncommitted `state.md` as stale; `reconstruct_state.py` writes `Generated: scripts/reconstruct_state.py`. Check: a planted bad fragment fails the suite before the full run starts; `artifacts_check.py` reports no stale stamp for jnwb.
+
 ### 17-143 A tag push through the push wrapper
 
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/jnwb_push.sh`, `scripts/push_guard.py`, `tests/test_push_guard.py`.
-- 17-143: `push_guard.py` denied the v0.2.16 tag push (2026-11-08) and `jnwb_push.sh` pushes only a branch (`:52`), so Hamm pushed it by hand. Check: `jnwb_push.sh <dir> --tag vX.Y.Z` pushes a `v*` tag only at `origin/main`'s tip with a successful main CI/CD run of that SHA, else refuses; a guard test covers both.
+- 17-143: `push_guard.py` denied the v0.2.16 tag push (2026-11-08) and `jnwb_push.sh` pushes only a branch (`:52`), so Hamm pushed it by hand. Ruled 2026-11-09: an artifacts-only push first runs gate 15 and `tests/test_stack_item_length.py`. Check: `jnwb_push.sh <dir> --tag vX.Y.Z` pushes a `v*` tag only at `origin/main`'s tip with a successful main CI/CD run of that SHA, else refuses; an artifacts-only push with a bare directory in `Writes:` is refused; guard tests cover each.
 
 ### 17-144 The jaxfne isi_cv commits
 
@@ -83,7 +90,7 @@ Writes: `jnwb/**/*.py`.
 ### 17-95 One home per helper in scripts and tests
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Role: jnwb-developer. Skill: none. Blocked by: 17-149 (shared `scripts/reconstruct_state.py`, tests).
 Writes: `scripts/stack_parse.py`, `scripts/release_gate.py`, `scripts/build_fact_graph.py`, `scripts/learning_gate.py`, `scripts/build_dashboard.py`, `scripts/docs_form_gate.py`, `scripts/reconstruct_state.py`, `scripts/measure_peak_memory.py`, `scripts/mutation_harness.py`, `scripts/verify_lane.py`, `scripts/gates/boundary.py`, `tests/conftest.py`, `tests/test_*.py`.
 - 17-95: the markdown table cell splitter is written 8 times in `scripts/` and only `build_dashboard.py:342` honours escaped pipes; 13 `_git` wrappers across tests and scripts. Check: one `cells()` and one `git()` each, `harness_gate.py` 22 of 22 and the named tests pass.
 
@@ -104,7 +111,7 @@ Writes: `tests/test_*.py`.
 ### 17-98 Process vocabulary in tests, scripts and jnwb comments
 
 Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: nothing.
+Role: docs-harness. Skill: none. Blocked by: 17-149 (shared scripts and tests).
 Writes: `tests/*.py`, `scripts/**/*.py`, `jnwb/__init__.py`, `jnwb/_backend.py`, `jnwb/_declarations.py`.
 - 17-98: 130 hits of "ruled", "ruling" or "Hamm" in 36 files under `tests/` and `scripts/` (AGENTS.md top paragraph); "harness" in `jnwb/__init__.py:20` and `_backend.py:31`; "the fact stack's" in `_declarations.py:36`; five "Important" labels in `jnwb/`. Check: the grep, minus machine literals and the tests that read the stacks, returns 0.
 
