@@ -28,6 +28,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+from pynwb import NWBFile
 
 from jnwb.nwb_io import MissingRequiredNWBFieldError
 from jnwb.ontology import Lineage, Provenance
@@ -613,7 +614,6 @@ def write_nwb(nwbfile: NWBFile, *, dst: str | Path,
         -- the NWB format this operation writes.
     """
     import jnwb
-    from pynwb import NWBFile
 
     if not isinstance(nwbfile, NWBFile):
         raise TypeError(f"nwbfile must be a pynwb.NWBFile, got {type(nwbfile).__name__}")

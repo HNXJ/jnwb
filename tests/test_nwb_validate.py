@@ -150,6 +150,26 @@ def test_repeated_electrode_row_in_a_region_is_allowed(tmp_path):
     assert validate_nwb(p, layers=("integrity",)).layer("integrity").status == "pass"
 
 
+def test_units_electrode_region_outside_table_fails_the_integrity_layer(tmp_path):
+    # the layer documents every electrode region, and units is where most of them sit
+    p = tmp_path / "bad_units_region.nwb"
+    _make_nwb(p)
+    with h5py.File(p, "r+") as f:
+        assert "electrodes" not in f["units"]  # the fixture builds no units region
+        ds = f["units"].create_dataset("electrodes", data=np.array([0, 1, 9], dtype="i8"))
+        ds.attrs["neurodata_type"] = "DynamicTableRegion"
+    lay = validate_nwb(p, layers=("integrity",)).layer("integrity")
+    assert lay.status == "fail"
+    assert "/units/electrodes: rows 0..9 outside electrodes table of 4 rows" in lay.messages
+
+
+def test_an_empty_layer_selection_is_refused_not_read_as_clean(tmp_path):
+    p = tmp_path / "ok.nwb"
+    _make_nwb(p)
+    with pytest.raises(ValueError, match="empty"):
+        validate_nwb(p, layers=())
+
+
 def test_unreadable_file_fails_read_without_raising(tmp_path):
     p = tmp_path / "junk.nwb"
     p.write_bytes(b"not an hdf5 file")

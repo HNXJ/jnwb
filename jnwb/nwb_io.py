@@ -1,9 +1,10 @@
 """NWB file I/O with scoped HDMF builder repairs for malformed files.
 
-The module is not exported. Four of its names are, because a caller meets them without asking:
+The module is not exported. Five of its names are, because a caller meets them without asking:
 ``MissingRequiredNWBFieldError``, which a read raises; ``read_nwb`` and ``nwb_read_io``, whose
-``allow_missing`` waives that refusal; and ``SqueezedAttributeWarning``, which a read of a
-repaired file emits. Each is reachable as ``jnwb.<name>`` with nothing but ``import jnwb``.
+``allow_missing`` waives that refusal; ``SqueezedAttributeWarning``, which a read of a
+repaired file emits; and ``ContainerTypeContradictionWarning``, which ``inspect`` emits on a
+contradicted type. Each is reachable as ``jnwb.<name>`` with nothing but ``import jnwb``.
 
 Repairs apply only while a jnwb-owned read is active. ``import jnwb`` does not alter
 HDMF global state.
@@ -37,7 +38,7 @@ _saved_construct: Any = None
 #: per-read state cannot ride on a parameter: a ContextVar keeps it scoped to the calling context
 #: and out of the way of another thread reading a different file through the same patched method.
 _ALLOW_MISSING: ContextVar[frozenset] = ContextVar("_ALLOW_MISSING", default=frozenset())
-_SQUEEZED: ContextVar[list] = ContextVar("_SQUEEZED", default=[])
+_SQUEEZED: ContextVar[Union[list, None]] = ContextVar("_SQUEEZED", default=None)  # None outside a read
 
 #: Attribute recording which required fields a read actually waived, as opposed to the fields the
 #: caller offered to waive. Set on the ``NWBFile`` when the root builder is constructed, which is
@@ -116,7 +117,14 @@ def _is_nwbfile_root(builder: Any) -> bool:
     return hasattr(builder, "attributes") and builder.attributes.get("neurodata_type") == "NWBFile"
 
 
-def _repair_builder(builder: Any, orig_construct: Any) -> Tuple[str, ...]:
+def _note_squeezed(name: str) -> None:
+    """Record one squeezed attribute for the active read. Outside a read there is none to record."""
+    squeezed = _SQUEEZED.get()
+    if squeezed is not None:
+        squeezed.append(name)
+
+
+def _repair_builder(builder: Any) -> Tuple[str, ...]:
     """Repair ``builder`` in place and return the required fields a waiver filled on it."""
     b_name = getattr(builder, "name", None)
     waived: Tuple[str, ...] = ()
@@ -129,10 +137,10 @@ def _repair_builder(builder: Any, orig_construct: Any) -> Tuple[str, ...]:
                 element = value[0]
                 if isinstance(element, bytes):
                     builder.attributes[key] = element.decode("utf-8", errors="replace")
-                    _SQUEEZED.get().append(f"{b_name or '?'}.{key}")
+                    _note_squeezed(f"{b_name or '?'}.{key}")
                 elif isinstance(element, str):
                     builder.attributes[key] = str(element)
-                    _SQUEEZED.get().append(f"{b_name or '?'}.{key}")
+                    _note_squeezed(f"{b_name or '?'}.{key}")
 
     if (
         _is_nwbfile_root(builder)
@@ -221,7 +229,7 @@ def _make_patched_construct(orig_construct: Any) -> Any:
             builder = kwargs.get("builder")
         waived: Tuple[str, ...] = ()
         if builder is not None:
-            waived = _repair_builder(builder, orig_construct)
+            waived = _repair_builder(builder)
         container = orig_construct(self, *args, **kwargs)
         if builder is not None and _is_nwbfile_root(builder):
             _record_waived(container, waived)

@@ -910,7 +910,7 @@ def _to_physical(
     is not ``n_channels`` raises ``ValueError``.
     """
     conversion = getattr(series, "conversion", None)
-    if conversion is not None and not (isinstance(conversion, float) and np.isnan(conversion)):
+    if conversion is not None and not np.isnan(float(conversion)):
         c_val = float(conversion)
         if c_val != 1.0:
             data = data * c_val
@@ -928,7 +928,7 @@ def _to_physical(
         if factors[channel] != 1.0:
             data = data * factors[channel]
     offset = getattr(series, "offset", None)
-    if offset is not None and not (isinstance(offset, float) and np.isnan(offset)):
+    if offset is not None and not np.isnan(float(offset)):
         o_val = float(offset)
         if o_val != 0.0:
             data = data + o_val

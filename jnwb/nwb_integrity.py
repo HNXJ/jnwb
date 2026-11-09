@@ -637,7 +637,7 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
             prow = None if pc is None else (
                 pc[i].item() if isinstance(pc[i], np.generic) else pc[i])
             uid = ids[i].item() if isinstance(ids[i], np.generic) else ids[i]
-            if n_rows == 0 or not np.isfinite(a) or (dense and block.shape[1] == 0):
+            if n_rows == 0 or not np.isfinite(a) or block.shape[1] == 0:
                 units.append(WaveformBlockCheck(
                     i, int(uid), "unknown", None, None, 0, stored, None, prow))
                 continue

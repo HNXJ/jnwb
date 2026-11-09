@@ -154,7 +154,7 @@ def _table_path(name: str) -> str:
     return f"/{name}" if name.startswith("processing/") else f"/intervals/{name}"
 
 
-def _read_interval_dataframe(nwb: NWBFile, table: str) -> pd.DataFrame:
+def _read_interval_dataframe(nwb: NWBFile, table: str) -> tuple[str, pd.DataFrame]:
     name = _resolve_interval_table(nwb, table)
     return name, _interval_table_object(nwb, name).to_dataframe()
 
@@ -537,7 +537,7 @@ def edges_near_events(
         In the series' unit after its ``channel_conversion``, ``conversion`` and ``offset`` (its
         ``unit`` attribute, e.g. volts). A sample at or above ``threshold`` is high. A rising edge
         is the first high sample after a low one; a falling edge the first low sample after a high
-        one. Each edge is stamped with its sample's time.
+        one. Each edge is stamped with its sample's time. Must be finite.
     window_s:
         ``(before_s, after_s)``: edges within ``before_s`` before and ``after_s`` after each event
         are candidates. Both must be finite and non-negative.
@@ -551,6 +551,8 @@ def edges_near_events(
         means the edge came first. NaN where the window holds no edge of that kind.
     """
     before_s, after_s = _window_bounds(window_s)
+    if not np.isfinite(float(threshold)):
+        raise ValueError(f"edges_near_events: threshold must be finite; got {threshold!r}")
     centers = np.asarray(events, dtype=np.float64).ravel()
 
     def _build(nwb: NWBFile) -> pd.DataFrame:

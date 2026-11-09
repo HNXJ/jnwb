@@ -480,6 +480,21 @@ class TestEdgesNearEvents:
         with pytest.raises(ValueError, match="window"):
             edges_near_events(path, "acquisition/photodiode", [1.0], threshold=0.5, window_s=window)
 
+    @pytest.mark.parametrize("threshold", [float("nan"), float("inf"), float("-inf")])
+    def test_a_non_finite_threshold_is_refused_by_name(self, tmp_path, threshold):
+        """NaN made every comparison false and an infinite threshold made every sample low, so
+        each lag came back NaN with no error."""
+        path = tmp_path / "square.nwb"
+        _write_square_wave(path, rate=True)
+        finite = edges_near_events(
+            path, "acquisition/photodiode", [0.9], threshold=0.5, window_s=(0.2, 0.5)
+        )
+        assert np.isfinite(finite["rising_lag_s"].iloc[0]), "fixture must have an edge to find"
+        with pytest.raises(ValueError, match="threshold must be finite"):
+            edges_near_events(
+                path, "acquisition/photodiode", [0.9], threshold=threshold, window_s=(0.2, 0.5)
+            )
+
     def test_threshold_series_and_window_have_no_default(self, tmp_path):
         params = inspect.signature(edges_near_events).parameters
         for name in ("series_path", "threshold", "window_s"):

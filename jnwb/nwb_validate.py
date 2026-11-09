@@ -141,8 +141,7 @@ def _electrode_region_problems(f: h5py.File) -> list[str]:
 
     def visit(name: str, obj) -> None:
         if (isinstance(obj, h5py.Dataset) and name.rsplit("/", 1)[-1] == "electrodes"
-                and obj.attrs.get("neurodata_type") in (b"DynamicTableRegion", "DynamicTableRegion")
-                and name.startswith(("acquisition", "processing"))):
+                and obj.attrs.get("neurodata_type") in (b"DynamicTableRegion", "DynamicTableRegion")):
             rows = obj[:].astype(np.int64)
             if n_elec is not None and len(rows) and (rows.min() < 0 or rows.max() >= n_elec):
                 out.append(f"/{name}: rows {int(rows.min())}..{int(rows.max())} outside electrodes table of {n_elec} rows")
@@ -250,7 +249,7 @@ def validate_nwb(path: str | Path, *, layers: Sequence[str] | None = None,
     FileNotFoundError
         ``path`` does not exist.
     ValueError
-        ``layers`` names something not in ``LAYERS``.
+        ``layers`` is empty or names something not in ``LAYERS``.
     """
     path = Path(path)
     if not path.is_file():
@@ -259,6 +258,8 @@ def validate_nwb(path: str | Path, *, layers: Sequence[str] | None = None,
     unknown = [x for x in want if x not in LAYERS]
     if unknown:
         raise ValueError(f"unknown layers {unknown}; choose from {list(LAYERS)}")
+    if not want:
+        raise ValueError(f"layers is empty; choose one or more from {list(LAYERS)}")
     want = tuple(x for x in LAYERS if x in want)
     runners = {
         "read": lambda: _layer_read(path, max_messages),

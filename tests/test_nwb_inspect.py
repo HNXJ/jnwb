@@ -1208,3 +1208,21 @@ class TestTimeIntervalsInProcessingModule:
         assert entries[0]["module"] == "behavior"
         assert entries[0]["n_rows"] == 3
         assert "value" in {c["name"] for c in entries[0]["columns"]}
+
+
+class TestAFloat32NanFactorIsSkipped:
+    """_to_physical skips a NaN conversion or offset. A float32 NaN is not a Python float, so the
+    isinstance test let it through and every sample came back NaN."""
+
+    @pytest.mark.parametrize("factor", ["conversion", "offset"])
+    @pytest.mark.parametrize("make_nan", [float, np.float32], ids=["python_float", "float32"])
+    def test_a_nan_factor_leaves_the_data_unchanged(self, factor, make_nan):
+        from types import SimpleNamespace
+
+        from jnwb.nwb_inspect import _to_physical
+
+        series = SimpleNamespace(conversion=1.0, offset=0.0)
+        setattr(series, factor, make_nan("nan"))
+        assert type(getattr(series, factor)) is make_nan, "fixture must hold the named type"
+        data = np.array([1.0, 2.0, 3.0])
+        np.testing.assert_array_equal(_to_physical(series, data, 0, 1, "series"), data)
