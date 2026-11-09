@@ -215,7 +215,6 @@ def test_every_leg_that_runs_the_suite_installs_the_figure_font_first():
         steps = job.get("steps", [])
         runs = [i for i, s in enumerate(steps) if "pytest" in str(s.get("run", ""))
                 and "tests" in str(s.get("run", ""))]
-        on = str(job.get("runs-on", ""))
         if not runs:
             continue
         checked.append(name)
@@ -228,4 +227,3 @@ def test_every_leg_that_runs_the_suite_installs_the_figure_font_first():
         assert "tar xzf" in install
         assert re.search(rf"{FONT_DIR_ENV}=\S+\s*>>\s*\"?\$GITHUB_ENV", install), f"job {name} does not export the font directory"
     assert {"test", "test-floors", "build"} <= set(checked), checked
-    assert len({FONT_URL, FONT_SHA256}) == 2

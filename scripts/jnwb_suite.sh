@@ -4,7 +4,7 @@
 # The optional basetemp goes to pytest as an explicit argument, so it never leaks into
 # the harness's subprocess pytest calls (a PYTEST_ADDOPTS env var would). On this machine
 # a basetemp outside the repo on the repo's own drive is required: `git clone --local`
-# across drives fails with "Improper link" (jnwb#27-era machine note, 2026-10-02).
+# across drives fails with "Improper link".
 # pytest runs through the machine suite lock when $JNWB_SUITE_LOCK (default $HOME/.claude/bin/suite_lock.py)
 # exists, `python <lock> --label jnwb -- <pytest command>`; otherwise directly. Either way it prints which.
 # Prints the HEAD it ran on, the state check, and the summary/FAILED lines.

@@ -140,3 +140,40 @@ def test_pushes_elsewhere_and_other_git_commands_pass(tmp_path):
     assert decide("git push origin dev", other) == "allow"
     assert decide(f'git -C "{other.as_posix()}" push', clone) == "allow"
     assert decide("git status", clone) == "allow"
+
+
+@pytest.mark.parametrize("command", [
+    "git --no-pager push origin dev",
+    "git -P push origin dev",
+    "git -p push origin dev",
+    "git --no-optional-locks push origin dev",
+    "git --no-pager --no-optional-locks push origin dev",
+    "git.exe push origin dev",
+    "git.exe --no-pager push origin dev",
+])
+def test_a_push_with_another_global_option_or_git_exe_is_denied_in_a_jnwb_checkout(tmp_path, command):
+    clone = make_checkout(tmp_path / "_temp_spellings")
+    assert decide(command, clone) == "deny", command
+
+
+@pytest.mark.parametrize("command", [
+    'git --no-pager -C "{clone}" push origin dev',
+    'git.exe -C "{clone}" push origin dev',
+    'git -P --git-dir="{clone}/.git" push origin dev',
+])
+def test_a_push_with_another_global_option_or_git_exe_naming_a_jnwb_checkout_is_denied(tmp_path, command):
+    clone = make_checkout(tmp_path / "_temp_spellings_dir")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    command = command.format(clone=clone.as_posix())
+    assert decide(command, elsewhere) == "deny", command
+
+
+def test_a_push_with_another_global_option_or_git_exe_that_is_temp_only_or_elsewhere_passes(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_spellings_allow")
+    other = make_checkout(tmp_path / "other", jnwb=False)
+    assert decide("git --no-pager push origin _temp_a", clone) == "allow"
+    assert decide("git.exe push origin _temp_a _temp_b", clone) == "allow"
+    assert decide("git --no-pager push origin dev", other) == "allow"
+    assert decide("git.exe push origin dev", other) == "allow"
+    assert decide("git --no-pager status", clone) == "allow"
+    assert decide("git.exe status", clone) == "allow"

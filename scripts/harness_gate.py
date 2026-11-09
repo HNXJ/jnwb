@@ -43,14 +43,11 @@ Returns exit code 0 on PASS, 1 on FAIL.
 """
 from __future__ import annotations
 
-import ast
-import itertools
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Union
+from typing import Any, List, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 # Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
@@ -68,20 +65,13 @@ OMISSION_DIR = REPO_ROOT / "omission"
 from scripts.gates.boundary import (
     AUTHORIZED_JNWB_EXCEPTIONS,
     check_frozen_boundary,
-    _is_inside_nested_checkout,
-    _GIT_DISCOVERY_ENV,
-    GitUnavailable,
     _canonical,
     _run_git,
-    _registered_worktrees,
     _git_identity,
     _is_checkout_of,
-    _skill_frontmatter_name,
     check_skill_tree_uniqueness,
     check_no_hardcoded_test_paths,
-    OWNED_ROOT_PACKAGES,
     INTERNAL_ROOT_PACKAGES,
-    SOURCE_ROOT_DIRS,
     EPHEMERAL_ROOT_DIRS,
     TOOL_ROOT_DIRS,
     ALLOWED_ROOT_DIRS,
@@ -97,7 +87,6 @@ from scripts.gates.boundary import (
 )
 
 from scripts.gates.versions import (
-    _test_job_matrix,
     PYTHON_FLOOR,
     PYTHON_SUPPORTED,
     PYTHON_CI_REQUIRED,
@@ -118,7 +107,6 @@ from scripts.gates.docs import (
 )
 
 from scripts.gates.vocabulary import (
-    PROJECT_IDENTIFIERS,
     check_no_project_identifiers_in_code,
     INTERNAL_PROCESS_TERMS,
     _internal_term_pattern,
@@ -126,25 +114,9 @@ from scripts.gates.vocabulary import (
     CHANGELOG_KINDS,
     CHANGELOG_RELEASES_KEPT,
     CHANGELOG_ENTRY_LIMIT,
-    CHANGELOG_PROCESS_TERMS,
-    CHANGELOG_NAME,
-    CHANGELOG_SEED_KINDS,
-    CHANGELOG_TEMPLATE_FROM,
-    CHANGELOG_CASE_SENSITIVE,
-    CHANGELOG_PACKAGE_SCOPED,
-    CHANGELOG_PACKAGE_CONTENT,
-    _held_to_template,
-    _changelog_term_pattern,
     _changelog_entry_violations,
-    _bullet_scopes,
     check_changelog_form,
     PROCESS_IDENTIFIER,
-    SNIPPET_INLINE,
-    SNIPPET_BLOCK,
-    _snippet_base_paths,
-    _snippet_names,
-    _resolve_snippet,
-    _included_sources,
     _rel,
     check_no_process_identifiers_in_library,
 )
@@ -155,7 +127,6 @@ from scripts.gates.stacks_form import (
     _code_span_mask,
     _writes_fields,
     _writes_field_spans,
-    _CONTINUES_AS_PATHS,
     _suspected_truncated_writes,
     _BLOCK_ASSERTIONS,
     _ANY_BLOCK_ASSERTION,
@@ -164,35 +135,17 @@ from scripts.gates.stacks_form import (
     _unwrapped_spans,
     _stop_clause_spans,
     _unwrapped_sentences,
-    _excise_blocked_by,
     _blocked_by_none_contradictions,
-    _ITEM_COUNT,
-    _COUNT_VALUE,
-    _CLAUSE_BREAK,
-    _summary_regions,
     _miscounted_summaries,
-    _NUMERAL_ITEMS,
-    _TOTAL_BEFORE,
-    _TOTAL_AFTER,
-    _inside_quotation,
     _stale_item_totals,
 )
 
 from scripts.gates.stacks_closure import (
-    _ESCAPED_PIPE,
     GENERATED_FROM,
-    _row_delimiters,
     check_stack_form_consistency,
 )
 
-from scripts.gates.stacks_pointers import (
-    SKILL_PLACEHOLDERS,
-    ROLE_PLACEHOLDERS,
-    _RESOLVED_FIELDS,
-    _field_value,
-    _declared_name,
-    check_stack_pointers_resolve,
-)
+from scripts.gates.stacks_pointers import check_stack_pointers_resolve
 
 from scripts.gates.api_types import (
     API_MD_ROW,
@@ -202,9 +155,7 @@ from scripts.gates.api_types import (
 )
 
 from scripts.gates.frozen import (
-    FROZEN_REGISTER,
     _canonical_ast,
-    _strip_docstrings,
     frozen_body_hash,
     check_frozen_validated,
 )

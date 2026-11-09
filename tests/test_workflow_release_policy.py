@@ -78,18 +78,15 @@ class TestWorkflowReleasePolicy:
             assert bool(matched) <= (not Version(version).is_prerelease), version
             if "!" not in version:
                 assert bool(matched) == (not Version(version).is_prerelease), version
-        # The same pattern as bash reads it, off Windows, where `bash` can be the WSL launcher.
-        import sys
-
-        if sys.platform == "win32":
-            return
-        try:
-            out = subprocess.run(
-                ["bash", "-c",
-                 f'for v in "$@"; do if [[ "$v" =~ {pattern} ]]; then echo "$v"; fi; done',
-                 "_", *cases], capture_output=True, text=True, timeout=30)
-        except (FileNotFoundError, OSError):
-            return
+        # The same pattern as bash reads it. `_bash` finds Git's bash, so a WSL launcher in System32
+        # cannot stand in for it; with no Git bash the half is skipped with a record, not passed.
+        bash = self._bash()
+        if bash is None:
+            pytest.skip("no Git bash on this machine")
+        out = subprocess.run(
+            [bash, "-c",
+             f'for v in "$@"; do if [[ "$v" =~ {pattern} ]]; then echo "$v"; fi; done',
+             "_", *cases], capture_output=True, text=True, timeout=30)
         assert out.returncode == 0, out.stderr
         assert out.stdout.split() == ["0.2.9", "1.0", "10.20.30", "0.2.9.post1"], out.stdout
 

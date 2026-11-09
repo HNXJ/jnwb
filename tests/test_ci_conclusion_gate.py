@@ -394,9 +394,11 @@ def test_this_repository_requires_every_matrix_leg_and_the_build_job():
 
 
 def test_an_unreadable_workflow_is_unresolved_rather_than_an_empty_requirement(tmp_path):
+    import yaml
+
     (tmp_path / ".github" / "workflows").mkdir(parents=True)
     (tmp_path / CI_WORKFLOW_PATH).write_text("jobs: [ this is not a mapping", encoding="utf-8")
-    with pytest.raises(Exception):
+    with pytest.raises(yaml.parser.ParserError):
         required_ci_jobs(root=tmp_path)
 
 
