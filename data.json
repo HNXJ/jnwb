@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "4454c4bc88ff660646458bb90b99bae2f3453f5b",
-    "date": "2026-11-09T06:37:50Z"
+    "commit": "92d118ea4156a43930a11d394c163218b47f7332",
+    "date": "2026-11-09T13:53:05Z"
   },
   "sources": {
     "generated": [
@@ -5239,7 +5239,7 @@
       "id": "12-21",
       "theme": "jnwb recovers a planted delay and a planted direction from a jaxfne field",
       "defect": "The spectrum half landed (`tests/test_jaxfne_ground_truth.py`: `compute_psd` recovers the planted 10.0 Hz of jaxfne's protocol_c planar field, commit 21c99f96); a single-frequency field has no phase-slope delay and no direction, so delay (`phase_slope_index`) and direction (`granger`) wait for a broadband jaxfne field",
-      "waits": "A broadband jaxfne field with a stated delay or coupling; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-23: the spectrum test closes the item for 0.2.14); then 0.2.16 (ruled 2026-10-31), then 0.2.17 (ruled 2026-11-06).",
+      "waits": "A broadband jaxfne field with a stated delay or coupling; nothing shipped changes. Moved to 0.2.15 (ruled 2026-10-23: the spectrum test closes the item for 0.2.14); then 0.2.16 (ruled 2026-10-31), then 0.2.17 (ruled 2026-11-06). Requested from jaxfne 2026-11-09 (ruled that day).",
       "release": "deferred-0.2.17",
       "label": "not started"
     }
@@ -5287,7 +5287,8 @@
         "17-145",
         "17-146",
         "17-147",
-        "17-148"
+        "17-148",
+        "17-149"
       ]
     },
     {
