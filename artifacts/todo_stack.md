@@ -22,6 +22,34 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
+### 17-145 Audit 2026-11-08: NWB I/O defects
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `jnwb/nwb_validate.py`, `jnwb/nwb_inspect.py`, `jnwb/nwb_integrity.py`, `jnwb/nwb_events.py`, `jnwb/nwb_io.py`, `jnwb/nwb_write.py`, `jnwb/_units.py`, `jnwb/io.py`, `tests/test_nwb_validate.py`, `tests/test_nwb_integrity.py`, `tests/test_minimal_units_table.py`.
+- 17-145: findings io-1, io-3 to io-15 of `artifacts/evidence/0.2.17/audit_2026-11-08.md` (io-2 is P-217-01). Each site and fix is in that table. Check: a failing-first test for each logic defect (io-1, io-3, io-6, io-7, io-8, io-15), each pointer resolves, the suite passes.
+
+### 17-146 Audit 2026-11-08: spectral and statistics defects
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `jnwb/spectral/_coupling.py`, `jnwb/spectral/_psd.py`, `jnwb/spectral/_reference.py`, `jnwb/spectral/_decibels.py`, `jnwb/tfr.py`, `jnwb/statistics/_analysis.py`, `jnwb/statistics/_tests.py`, `jnwb/jrsa/__init__.py`, `jnwb/analyzers.py`, `jnwb/decoding.py`.
+- 17-146: findings spectral-1 to -10 and stats-2 to -8 (stats-1 is P-217-02). Check: spectral-1 to -3 docstrings match the code by a test, a failing-first test per added refusal (spectral-6, -8, -10, stats-8), the suite passes.
+
+### 17-147 Audit 2026-11-08: scripts and tests that cannot fail
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: 17-143 (shared `scripts/push_guard.py`).
+Writes: `scripts/push_guard.py`, `scripts/harness_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/calibrate_xflip.py`, `scripts/jnwb_suite.sh`, `tests/test_push_guard.py`, `tests/test_workflow_release_policy.py`, `tests/test_composition_axis.py`, `tests/test_jrsa_no_fabricated_failures.py`, `tests/test_ci_conclusion_gate.py`, `tests/test_complex_tfr.py`, `tests/test_laminar.py`, `tests/test_collection_order_stability.py`, `tests/test_generated_figures_are_maintained.py`.
+- 17-147: findings scripts-1, -2, -4 to -9 and tests-1 to -9 (scripts-3 is in 17-141). Check: the guard denies `git --no-pager push` and `git.exe push` by test, gate 15 fails on zero mapping tables, each repaired test fails on a planted defect, the suite passes.
+
+### 17-148 Audit 2026-11-08: docs and state pointers
+
+Release: deferred-0.2.17.
+Role: docs-harness. Skill: none. Blocked by: none.
+Writes: `docs/install.md`, `docs/laminar.md`, `README.md`, `artifacts/process/release_plan.json`, `artifacts/process/defect_classes.md`, `artifacts/roadmap.md`, `artifacts/memory.md`.
+- 17-148: findings docs-1 to -5 and state-1, -4, -6 to -11 (state-2, -3, -5 are P-217-03 to -05). docs-1: the import times come from `python scripts/benchmark_import.py --write`; docs-3 (`CHANGELOG.md:5`) lands at integration. Check: every number cites its receipt, README examples pass `signal_class`, each pointer resolves, the stack tests pass.
+
 ### 17-143 A tag push through the push wrapper
 
 Release: deferred-0.2.17.
@@ -48,7 +76,7 @@ Writes: `jnwb/laminar/_xflip.py`, `jnwb/laminar/_zflip.py`, `jnwb/laminar/_vflip
 ### 17-94 One home per helper in jnwb
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-79.
+Role: jnwb-developer. Skill: none. Blocked by: 17-79, 17-145 and 17-146 (shared files).
 Writes: `jnwb/**/*.py`.
 - 17-94: `fs=nan` passes the `fs <= 0` guard at `filtering.py:31`, `:76`, `continuous.py:136` and `tfr.py:251`; at 2a5ef1b7 `bandpass_filter` then raises scipy's "Wn[0] must be less than Wn[1]" and `notch_filter` a `LinAlgError`, neither naming `fs` (match pass 2026-11-07). The shared check refuses NaN and Inf by name. The `fs` positive check is hand-written at about 20 sites (`filtering.py:31`, `continuous.py:136`, `tfr.py:251`, ...) beside `spectral/_common._require_positive_fs`; `jnwb/spectral` has 9 `_require_*` variants; `_bins.py:86,112` hold two onset loops differing in edge closure; three dB paths (`_decibels.py:15,24,457`); `nwb_write._sha256` equals `paths.sha256_file`; `_window_rows` twice (`_xflip.py:96`, `_zflip.py:178`). Check: one definition each, the grep returns one site, the suite passes.
 
@@ -146,6 +174,6 @@ Writes: `jnwb/jrsa/__init__.py`, `jnwb/statistics/_regression.py`, `jnwb/statist
 ### 17-129 Prose against the writing style
 
 Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: 17-99 and 17-100 (shared files); Hamm's word for `skills/`, `AGENTS.md` and the spelling.
+Role: docs-harness. Skill: none. Blocked by: 17-99, 17-100 and 17-148 (shared files); Hamm's word for `skills/`, `AGENTS.md` and the spelling.
 Writes: `.github/CONTRIBUTING.md`, `README.md`, `docs/quickstart.md`.
 - 17-129: from P-216-26. The 2026-11-07 match pass adds: `docs/agents.md:79-94` repeats `skills/jnwb/SKILL.md:13-25`; `CONTRIBUTING.md:39` repeats `:36` and `:64`. Sentences over 40 words in 12 skills, `AGENTS.md` (:5, :51, :85, :93, :105), `CONTRIBUTING.md` (:72-88, :107-127, :417-428; em dashes on 15 lines), README and quickstart; "behaviour" and "behavior" both occur. Check: no sentence over 40 words in the listed files and one spelling, by grep.
