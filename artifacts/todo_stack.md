@@ -26,15 +26,15 @@ At most eight lines per item.
 
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`.
-- 17-145: io-13 of `artifacts/evidence/0.2.17/audit_2026-11-08.md` is left (the rest landed 2026-11-08; io-6 shown false by `tests/test_acquisition_layout.py:220`; io-2 is P-217-01): the spec-catalog lookups at `nwb_write.py:1174` catch every exception. Narrow the caught types and name the cause in the refusal. Check: a failing-first test where a broken lookup's error reaches the message.
+Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`, `jnwb/nwb_events.py`, `tests/test_nwb_events.py`.
+- 17-145: io-13 of `artifacts/evidence/0.2.17/audit_2026-11-08.md` is left (the rest landed 2026-11-08; io-6 shown false by `tests/test_acquisition_layout.py:220`): the spec-catalog lookups at `nwb_write.py:1174` catch every exception. Narrow the caught types and name the cause in the refusal. io-2 (ruled 2026-11-09): `events(path)` without `table` on a processing-only file raises "No interval tables found"; the error names the processing tables found and says to pass `table=`, reading nothing new. Check: failing-first tests, a broken lookup's error reaches the message, and the processing table's name appears in the `events` error.
 
 ### 17-146 Audit 2026-11-08: spectral and statistics defects
 
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/spectral/_psd.py`, `jnwb/statistics/__init__.py`.
-- 17-146: left of the audit (the rest landed 2026-11-08): spectral-4, `_psd.py:132,277` cite "invariant 6", which no public document defines: state the rule (device and worker count change no number); stats-6, unused imports at `statistics/__init__.py:25-29,35-36`. spectral-5 and spectral-9 and the dead `laplacian_reference` branch (`_reference.py:136`) go with 17-94; stats-3 is P-217-06. Check: `ruff check jnwb/statistics/__init__.py --select F401` clean except re-exports, no "invariant 6" in `jnwb/`.
+Writes: `jnwb/spectral/_psd.py`, `jnwb/statistics/__init__.py`, `jnwb/statistics/_autocorrelation.py`, `jnwb/statistics/_analysis.py`, `docs/references.md`, `artifacts/changelog.d/alpha-fdr.deprecated.md`, `tests/test_audit_2026_11_08_stats.py`.
+- 17-146: left of the audit (the rest landed 2026-11-08): spectral-4, `_psd.py:132,277` cite "invariant 6", which no public document defines: state the rule (device and worker count change no number); stats-6, unused imports at `statistics/__init__.py:25-29,35-36`. spectral-5 and spectral-9 and the dead `laplacian_reference` branch (`_reference.py:136`) go with 17-94. Ruled 2026-11-09: stats-1, `_autocorrelation.py:17` and `references.md:94` stop crediting Geyer (1992) and state the single-lag rule and its AR(2) overestimate, values unchanged; stats-3, `StatisticalAnalysis.ALPHA_FDR` warns `DeprecationWarning` on access, changelog `deprecated`. Check: `ruff check jnwb/statistics/__init__.py --select F401` clean except re-exports; no "invariant 6" in `jnwb/`, no "Geyer" in `_autocorrelation.py`; a test reads `ALPHA_FDR` under `pytest.warns(DeprecationWarning)`.
 
 ### 17-147 Audit 2026-11-08: scripts and tests that cannot fail
 
@@ -47,8 +47,8 @@ Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/stat
 
 Release: deferred-0.2.17.
 Role: docs-harness. Skill: none. Blocked by: none.
-Writes: `tests/test_readme_smoke.py`, `artifacts/process/defect_classes.md`, `artifacts/roadmap.md`.
-- 17-148: left of the audit (the rest landed 2026-11-08; docs-2 is P-217-07): docs-5, assert README's printed values in `test_readme_smoke.py` at a stated tolerance or delete them; state-4, an item for the AST scan; state-6, -7, the two classes seen twice need a check, a rule or a recorded reason; state-8, verify `roadmap.md:24`'s 21c99f96 (jaxfne generator) against 166d6c87 (test added); state-10, todo intro names its audit by SHA. Check: each pointer resolves, the stack tests pass.
+Writes: `tests/test_readme_smoke.py`, `artifacts/process/defect_classes.md`, `artifacts/roadmap.md`, `README.md`.
+- 17-148: left of the audit (the rest landed 2026-11-08). Ruled 2026-11-09: docs-2, the `granger` examples at `README.md:151` pass `signal_class="lfp"` and the smoke test asserts no warning; state-3, `README.md` links `artifacts/agents.md` for agents (goal row 1). docs-5, assert README's printed values in `test_readme_smoke.py` at a stated tolerance or delete them; state-4, an item for the AST scan; state-6, -7, the two classes seen twice need a check, a rule or a recorded reason; state-8, verify `roadmap.md:24`'s 21c99f96 (jaxfne generator) against 166d6c87 (test added); state-10, todo intro names its audit by SHA. Check: each pointer resolves, the stack tests pass.
 
 ### 17-143 A tag push through the push wrapper
 
@@ -111,14 +111,14 @@ Writes: `tests/*.py`, `scripts/**/*.py`, `jnwb/__init__.py`, `jnwb/_backend.py`,
 ### 17-99 One home per invariant across rule and doc files
 
 Release: deferred-0.2.17.
-Role: human. Skill: none. Blocked by: `AGENTS.md`, `CONTRIBUTING.md` and the fact stack need Hamm's word.
+Role: human. Skill: none. Blocked by: `AGENTS.md`, `CONTRIBUTING.md` and the fact stack need Hamm's word; 17-148 (shared `README.md`).
 Writes: `.github/CONTRIBUTING.md`, `docs/architecture.md`, `README.md`, `docs/index.md`, `docs/glossary.md`, `artifacts/agents.md`.
 - 17-99: `CONTRIBUTING.md:359-370` and `docs/architecture.md:128-171` restate the invariants AGENTS.md §4 keeps in the fact stack; the spikes-and-LFP rule is in five files and no fact row; "four outcomes" in three; "toolbox, not a pipeline" on four surfaces; the Python matrix on three pages. Check: each fact has one home and the others link to it.
 
 ### 17-100 Docs and examples thinning
 
 Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: nothing.
+Role: docs-harness. Skill: none. Blocked by: 17-146 and 17-148 (shared `docs/references.md`, `README.md`).
 Writes: `docs/01_architecture_and_philosophy.md`, `docs/02_paths_addressing_metadata.md`, `docs/03_representational_similarity_jrsa.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/09_decoding_and_visual_qc.md`, `docs/10_operation_specifications.md`, `docs/agents.md`, `docs/architecture.md`, `docs/coherence_and_tfr.md`, `docs/common_mistakes.md`, `docs/documentation_form.md`, `docs/errors.md`, `docs/execution.md`, `docs/glossary.md`, `docs/index.md`, `docs/install.md`, `docs/laminar.md`, `docs/quickstart.md`, `docs/reading_nwb.md`, `docs/recipes.md`, `docs/references.md`, `docs/repairing_nwb.md`, `docs/unit_quality_example.md`, `docs/vis.md`, `docs/writing_nwb.md`, `docs/assets/**`, `README.md`, `examples/**/*.py`, `mkdocs.yml`.
 - 17-100: figures fig14 and fig18 repeated in `common_mistakes.md` and pages 06 and 08; the README quickstart repeats `docs/quickstart.md:38-60`; the redirect stub `docs/01_architecture_and_philosophy.md`; `docs/vis.md:51` alone under `assets/vis/`; the 10-line `sys.path` guard in 11 example scripts; the check log in `references.md:5-11`; "labelled" 37 times beside "labeled" 12; `CHANGELOG.md` path forms mixed (the integrator's file); figure ids skip fig22 and fig23. Check: `docs_build.py` strict passes and each listed grep returns its one form.
 
