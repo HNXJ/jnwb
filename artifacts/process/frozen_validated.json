@@ -152,10 +152,11 @@
     {
       "file": "jnwb/spectral/_coupling.py",
       "qualname": "cross_area_coherence",
-      "sha256": "cdb7366c6a86814a07dd9baa879a3abe7ab2669bb8d0cdc05e95e3c4f102d1b9",
-      "verified_at": "34e9768e5033249d372127e7d3add1c18c98ab26",
+      "sha256": "12aad7afce2a2eca8c5da2ae536e4afb1d77c1373e3b68e2bdd64e12fb641a83",
+      "verified_at": "b7c2951fe06080a0832a1000aa193bc06265141d",
       "killed_by": [
-        "tests/test_spectral.py::TestCrossAreaCoherence::test_identical_signals_have_high_coherence"
+        "tests/test_spectral.py::TestCrossAreaCoherence::test_identical_signals_have_high_coherence",
+        "tests/test_audit_2026_11_08_spectral.py::test_too_short_advice_gives_two_segments_with_an_explicit_noverlap"
       ]
     },
     {
@@ -171,11 +172,12 @@
     {
       "file": "jnwb/spectral/_reference.py",
       "qualname": "bipolar_reference",
-      "sha256": "fcee2fcd8f2924e5d9d48a37d2e3b9a74cdd32495c5e140d4e8b166f80a255c9",
-      "verified_at": "896d6159ff57a4457fa2738af23489ea44c98101",
+      "sha256": "19a8b27474a499cba9946752d270d37082753743ebbf186dcb2d6c3d392e5dbe",
+      "verified_at": "b7c2951fe06080a0832a1000aa193bc06265141d",
       "killed_by": [
         "tests/test_estimator_discrimination.py::TestBipolarReferenceHasAPinnedSign::test_subtracts_the_shallower_channel_from_the_deeper",
-        "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[bipolar_reference]"
+        "tests/test_nonfinite_inputs.py::test_nan_and_inf_in_poisoned_leaf_are_refused_by_name[bipolar_reference]",
+        "tests/test_audit_2026_11_08_spectral.py::test_bipolar_reference_refuses_one_channel_by_name"
       ]
     },
     {
