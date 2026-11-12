@@ -60,10 +60,11 @@ Writes: `scripts/jnwb_push.sh`, `scripts/push_guard.py`, `tests/test_push_guard.
 ### 17-144 The jaxfne isi_cv commits
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
+Role: jnwb-developer. Skill: none. Blocked by: 17-144-src (open stack; `E:/cl-jnwb16e` gone, SHAs not on origin).
 Writes: `artifacts/benchmarks/realdata/isi_cv_recompute.py`, `artifacts/benchmarks/realdata/isi_cv_recompute_receipt.json`, `artifacts/benchmarks/realdata/build_isi_cv_fixture.py`, `tests/fixtures/isi_cv_realdata_subsample.json`, `tests/test_isi_cv_realdata.py`.
-- 17-144: three 16-12 commits on `E:/cl-jnwb16e` (0e06993c, 9980f58d, 5fa63dd3), promised to
-  jaxfne-orchestrator for 0.2.17. Check: each is on `dev` (picked in that order, one per command), the suite
+- 17-144: three 16-12 commits were named on `E:/cl-jnwb16e` (0e06993c, 9980f58d, 5fa63dd3), promised to
+  jaxfne-orchestrator for 0.2.17. Observed 2026-11-12: that path is missing and the three SHAs are not in
+  this clone or on `origin`. Check: each is on `dev` (picked in that order, one per command), the suite
   passes, and jaxfne-orchestrator is told the SHAs; then `E:/cl-jnwb16e` may go.
 
 ### 17-79 Complexity of the largest functions
