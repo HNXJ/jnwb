@@ -36,13 +36,6 @@ Role: jnwb-developer. Skill: none. Blocked by: 17-143 (shared `scripts/push_guar
 Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/measure_agents_md_duplication.py`, `scripts/vflip2_recovery.py`, `scripts/figures/generate_figures.py`, `tests/test_*.py`.
 - 17-147: left of the audit (the rest landed 2026-11-08): scripts-2 (gate 15 passes on zero tables; `tests/test_learning_gate.py:212` pins that), -5 (move), -6, -7, -8 (`measure_agents_md_duplication.py:149,158`, `vflip2_recovery.py:978`), tests-2 (`match=`), -4, -5, -6, -9; push spellings the guard still allows: `git --namespace foo push`, a quoted `git.exe` path, `GIT`/`git.EXE`, `GIT_DIR=<jnwb>` from another cwd. Check: each by a failing-first test; `ruff check tests --select F401,F541,F821,F841` clean.
 
-### 17-149 Fast checks first: doc form in the suite, generated state named
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/jnwb_suite.sh`, `scripts/reconstruct_state.py`, `tests/test_jnwb_suite_lock.py`, `tests/test_state_reconstruction.py`.
-- 17-149 (ruled 2026-11-09): the doc-form failures surfaced after a 40-minute suite three times; `jnwb_suite.sh` runs `test_changelog_fragments`, `test_docs_form_gate` and `test_documentation_form` first and stops on a failure. The jarness workspace check reads the uncommitted `state.md` as stale; `reconstruct_state.py` writes `Generated: scripts/reconstruct_state.py`. Check: a planted bad fragment fails the suite before the full run starts; `artifacts_check.py` reports no stale stamp for jnwb.
-
 ### 17-143 A tag push through the push wrapper
 
 Release: deferred-0.2.17.
@@ -77,7 +70,7 @@ Writes: `jnwb/**/*.py`.
 ### 17-95 One home per helper in scripts and tests
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-149 (shared `scripts/reconstruct_state.py`, tests).
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/stack_parse.py`, `scripts/release_gate.py`, `scripts/build_fact_graph.py`, `scripts/learning_gate.py`, `scripts/build_dashboard.py`, `scripts/docs_form_gate.py`, `scripts/reconstruct_state.py`, `scripts/measure_peak_memory.py`, `scripts/mutation_harness.py`, `scripts/verify_lane.py`, `scripts/gates/boundary.py`, `tests/conftest.py`, `tests/test_*.py`.
 - 17-95: the markdown table cell splitter is written 8 times in `scripts/` and only `build_dashboard.py:342` honours escaped pipes; 13 `_git` wrappers across tests and scripts. Check: one `cells()` and one `git()` each, `harness_gate.py` 22 of 22 and the named tests pass.
 
@@ -98,7 +91,7 @@ Writes: `tests/test_*.py`.
 ### 17-98 Process vocabulary in tests, scripts and jnwb comments
 
 Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: 17-149 (shared scripts and tests).
+Role: docs-harness. Skill: none. Blocked by: none.
 Writes: `tests/*.py`, `scripts/**/*.py`, `jnwb/__init__.py`, `jnwb/_backend.py`, `jnwb/_declarations.py`.
 - 17-98: 130 hits of "ruled", "ruling" or "Hamm" in 36 files under `tests/` and `scripts/` (AGENTS.md top paragraph); "harness" in `jnwb/__init__.py:20` and `_backend.py:31`; "the fact stack's" in `_declarations.py:36`; five "Important" labels in `jnwb/`. Check: the grep, minus machine literals and the tests that read the stacks, returns 0.
 

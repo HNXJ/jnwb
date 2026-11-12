@@ -61,10 +61,22 @@ def _offline():
                              side_effect=urllib.error.URLError("tests do not reach the network"))
 
 
+#: The harness verdict a held build renders. The live verdict is not held here: gate 20 compares the
+#: state file with the worktrees and branches other agents on this machine add and remove, so a build
+#: can read FAILED for a reason no change to this tree made.
+_HELD_VERDICT = ("", "ALL HARNESS GATES PASSED")
+
+
+def _held_build() -> str:
+    import scripts.reconstruct_state as reconstruct_state
+
+    with _offline(), mock.patch.object(reconstruct_state, "harness_verdict", return_value=_HELD_VERDICT):
+        return build()
+
+
 @pytest.fixture(scope="module")
 def generated() -> str:
-    with _offline():
-        return build()
+    return _held_build()
 
 
 def test_package_facts_survive_an_absent_optional_extra(tmp_path, monkeypatch):
@@ -96,10 +108,11 @@ def test_the_state_file_is_not_committed():
     assert ignored.returncode == 0, "artifacts/state.md is neither tracked nor ignored"
 
 
-def test_generation_is_deterministic_apart_from_its_timestamp(generated: str):
-    with _offline():
-        again = build()
-    assert _without_timestamp(generated) == _without_timestamp(again)
+def test_generation_is_deterministic_apart_from_its_timestamp():
+    """Two builds of one tree render the same text, apart from the timestamp."""
+    first = _held_build()
+    again = _held_build()
+    assert _without_timestamp(first) == _without_timestamp(again)
 
 
 def test_a_harness_that_times_out_is_unresolved_not_failed(monkeypatch: pytest.MonkeyPatch):
@@ -159,6 +172,7 @@ def test_an_unresolved_row_says_why(generated: str):
 @pytest.mark.requires_git_checkout
 def test_it_reports_the_slots_a_packet_needs(generated: str):
     for expected in (
+        "Generated: scripts/reconstruct_state.py",
         "| Branch |",
         "| HEAD |",
         "| Upstream |",
