@@ -14,7 +14,7 @@ def effective_sample_size(x: np.ndarray) -> float:
     lag 0. A channel with no variance is skipped; constancy is decided exactly, as `jnwb`
     decides it elsewhere, since a constant channel's mean is not its value in floating point.
     The lag-k autocorrelation is averaged over the channels, and lags are summed from k = 1 until
-    that mean first falls to 0 or below (lag-by-lag truncation; ruled 2026-10-19). The count is
+    that mean first falls to 0 or below (lag-by-lag truncation). The count is
     ``n / (1 + 2 sum)``, clipped to ``[2, n]``. On an AR(2) series the lag-1 mean can go
     non-positive while later lags stay positive, so this rule overestimates the ESS relative to a
     pair-sum truncation; values are unchanged by this documentation fix.

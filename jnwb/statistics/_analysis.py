@@ -87,7 +87,7 @@ class StatisticalAnalysis:
     ALPHA = 0.05
 
     class _AlphaFdr:
-        """Deprecated alias of ``ALPHA``; warn on every access (ruled 2026-11-09)."""
+        """Deprecated alias of ``ALPHA``; warn on every access."""
 
         def __get__(self, obj, owner=None):
             warnings.warn(
