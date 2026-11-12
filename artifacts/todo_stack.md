@@ -4,7 +4,7 @@ Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts 
 closed on 2026-11-08 (tag `v0.2.16`, `0aa220ba`; tag CI/CD run 42513450995 success, TestPyPI and PyPI
 verified, GitHub release body checked by `release_gate.py` STEP 0d). Items run fastest first.
 
-Thinning and matching from the 2026-11-02 audit. Lanes form at 0.2.16's close; 17-94 waits on 17-79,
+Thinning and matching from the 2026-11-02 audits, each named by SHA: seven models at `7ca5b9a6` (17-83 to 17-105) and eight auditors at `9fd2b4bd` (P-216 rows, 17-128, 17-129). Lanes form at 0.2.16's close; 17-94 waits on 17-79,
 which rewrites `_xflip.py` and `_zflip.py`. Each item applies the jarness standards: `match-cleanup` for
 removals, `match-code-style` for code, `match-writing-style` for prose, `match-visual-style` for figures.
 
@@ -22,6 +22,13 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
+### 17-150 AST scan for NaN-passing sign guards
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: 17-147 (shared `scripts/learning_gate.py`).
+Writes: `scripts/learning_gate.py`, `tests/test_nan_passes_sign_guard_scan.py`.
+- 17-150: state-4 of the 2026-11-08 audit: `nan-passes-sign-guard` in `artifacts/process/defect_classes.md` still proposes an AST scan for a bare `<= 0` / `< 0` guard with no finiteness test. Check: a gate or test fails when such a guard is planted, and the eight listed sites stay covered.
+
 ### 17-145 Audit 2026-11-08: NWB I/O defects
 
 Release: deferred-0.2.17.
@@ -35,13 +42,6 @@ Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: 17-143 (shared `scripts/push_guard.py`).
 Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/measure_agents_md_duplication.py`, `scripts/vflip2_recovery.py`, `scripts/figures/generate_figures.py`, `tests/test_*.py`.
 - 17-147: left of the audit (the rest landed 2026-11-08): scripts-2 (gate 15 passes on zero tables; `tests/test_learning_gate.py:212` pins that), -5 (move), -6, -7, -8 (`measure_agents_md_duplication.py:149,158`, `vflip2_recovery.py:978`), tests-2 (`match=`), -4, -5, -6, -9; push spellings the guard still allows: `git --namespace foo push`, a quoted `git.exe` path, `GIT`/`git.EXE`, `GIT_DIR=<jnwb>` from another cwd. Check: each by a failing-first test; `ruff check tests --select F401,F541,F821,F841` clean.
-
-### 17-148 Audit 2026-11-08: docs and state pointers
-
-Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: none.
-Writes: `tests/test_readme_smoke.py`, `artifacts/process/defect_classes.md`, `artifacts/roadmap.md`, `README.md`.
-- 17-148: left of the audit (the rest landed 2026-11-08). Ruled 2026-11-09: docs-2, the `granger` examples at `README.md:151` pass `signal_class="lfp"` and the smoke test asserts no warning; state-3, `README.md` links `artifacts/agents.md` for agents (goal row 1). docs-5, assert README's printed values in `test_readme_smoke.py` at a stated tolerance or delete them; state-4, an item for the AST scan; state-6, -7, the two classes seen twice need a check, a rule or a recorded reason; state-8, verify `roadmap.md:24`'s 21c99f96 (jaxfne generator) against 166d6c87 (test added); state-10, todo intro names its audit by SHA. Check: each pointer resolves, the stack tests pass.
 
 ### 17-149 Fast checks first: doc form in the suite, generated state named
 
@@ -112,14 +112,14 @@ Writes: `tests/*.py`, `scripts/**/*.py`, `jnwb/__init__.py`, `jnwb/_backend.py`,
 ### 17-99 One home per invariant across rule and doc files
 
 Release: deferred-0.2.17.
-Role: human. Skill: none. Blocked by: `AGENTS.md`, `CONTRIBUTING.md` and the fact stack need Hamm's word; 17-148 (shared `README.md`).
+Role: human. Skill: none. Blocked by: `AGENTS.md`, `CONTRIBUTING.md` and the fact stack need Hamm's word (shared `README.md`).
 Writes: `.github/CONTRIBUTING.md`, `docs/architecture.md`, `README.md`, `docs/index.md`, `docs/glossary.md`, `artifacts/agents.md`.
 - 17-99: `CONTRIBUTING.md:359-370` and `docs/architecture.md:128-171` restate the invariants AGENTS.md §4 keeps in the fact stack; the spikes-and-LFP rule is in five files and no fact row; "four outcomes" in three; "toolbox, not a pipeline" on four surfaces; the Python matrix on three pages. Check: each fact has one home and the others link to it.
 
 ### 17-100 Docs and examples thinning
 
 Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: 17-148 (shared `docs/references.md`, `README.md`).
+Role: docs-harness. Skill: none. Blocked by: none (shared `docs/references.md`, `README.md` with 17-129).
 Writes: `docs/01_architecture_and_philosophy.md`, `docs/02_paths_addressing_metadata.md`, `docs/03_representational_similarity_jrsa.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/09_decoding_and_visual_qc.md`, `docs/10_operation_specifications.md`, `docs/agents.md`, `docs/architecture.md`, `docs/coherence_and_tfr.md`, `docs/common_mistakes.md`, `docs/documentation_form.md`, `docs/errors.md`, `docs/execution.md`, `docs/glossary.md`, `docs/index.md`, `docs/install.md`, `docs/laminar.md`, `docs/quickstart.md`, `docs/reading_nwb.md`, `docs/recipes.md`, `docs/references.md`, `docs/repairing_nwb.md`, `docs/unit_quality_example.md`, `docs/vis.md`, `docs/writing_nwb.md`, `docs/assets/**`, `README.md`, `examples/**/*.py`, `mkdocs.yml`.
 - 17-100: figures fig14 and fig18 repeated in `common_mistakes.md` and pages 06 and 08; the README quickstart repeats `docs/quickstart.md:38-60`; the redirect stub `docs/01_architecture_and_philosophy.md`; `docs/vis.md:51` alone under `assets/vis/`; the 10-line `sys.path` guard in 11 example scripts; the check log in `references.md:5-11`; "labelled" 37 times beside "labeled" 12; `CHANGELOG.md` path forms mixed (the integrator's file); figure ids skip fig22 and fig23. Check: `docs_build.py` strict passes and each listed grep returns its one form.
 
@@ -175,6 +175,6 @@ Writes: `jnwb/jrsa/__init__.py`, `jnwb/statistics/_regression.py`, `jnwb/statist
 ### 17-129 Prose against the writing style
 
 Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: 17-99, 17-100 and 17-148 (shared files); Hamm's word for `skills/`, `AGENTS.md` and the spelling.
+Role: docs-harness. Skill: none. Blocked by: 17-99 and 17-100 (shared files); Hamm's word for `skills/`, `AGENTS.md` and the spelling.
 Writes: `.github/CONTRIBUTING.md`, `README.md`, `docs/quickstart.md`.
 - 17-129: from P-216-26. The 2026-11-07 match pass adds: `docs/agents.md:79-94` repeats `skills/jnwb/SKILL.md:13-25`; `CONTRIBUTING.md:39` repeats `:36` and `:64`. Sentences over 40 words in 12 skills, `AGENTS.md` (:5, :51, :85, :93, :105), `CONTRIBUTING.md` (:72-88, :107-127, :417-428; em dashes on 15 lines), README and quickstart; "behaviour" and "behavior" both occur. Check: no sentence over 40 words in the listed files and one spelling, by grep.
