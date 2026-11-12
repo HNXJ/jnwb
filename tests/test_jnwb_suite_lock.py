@@ -143,15 +143,19 @@ def test_failing_tests_pass_through_the_lock_and_a_doc_form_failure_stops_before
     stamp = repo / _git(repo, "rev-parse", "--git-dir") / "jnwb_suite_ok"
     assert not stamp.exists(), "a failing run must not write the push stamp"
 
-    # A planted bad changelog fragment fails the doc-form stage, so the full suite never starts.
-    planted_dir = tmp_path / "planted"
-    planted_dir.mkdir()
-    planted = _fixture_repo(planted_dir, passes=True, doc_form_failing="test_changelog_fragments.py")
-    proc, _, record = _run(planted_dir, planted, lock_file.as_posix())
-    assert proc.returncode == 1, proc.stdout + proc.stderr
-    assert "doc-form tests failed; the full suite did not run" in proc.stdout, proc.stdout
-    assert record is None, "the full suite started after a doc-form failure"
-    assert not (planted / ".git" / "jnwb_suite_ok").exists(), "a failed doc-form run must not stamp"
+    # Each of the three doc-form files, failing alone, stops the run before the lock.
+    script = SCRIPT.read_text(encoding="utf-8")
+    for name in DOC_FORM_TESTS:
+        assert f"tests/{name}" in script, f"jnwb_suite.sh must name tests/{name}"
+    for name in DOC_FORM_TESTS:
+        planted_dir = tmp_path / f"planted_{name}"
+        planted_dir.mkdir()
+        planted = _fixture_repo(planted_dir, passes=True, doc_form_failing=name)
+        proc, _, record = _run(planted_dir, planted, lock_file.as_posix())
+        assert proc.returncode == 1, (name, proc.stdout + proc.stderr)
+        assert "doc-form tests failed; the full suite did not run" in proc.stdout, (name, proc.stdout)
+        assert record is None, f"the full suite started after a {name} failure"
+        assert not (planted / ".git" / "jnwb_suite_ok").exists(), f"{name} failure must not stamp"
 
 
 def test_default_lock_is_the_home_lock_when_the_variable_is_unset(tmp_path):
