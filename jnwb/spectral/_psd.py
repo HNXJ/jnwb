@@ -129,8 +129,8 @@ def harmonic_analysis(
             16384 samples, crosses 1.0 near 22500, and reaches 0.07 at 4.2 M. The
             crossover is documented rather than applied automatically: the CPU and CUDA
             Welch paths do not agree bit for bit, so routing on input length would make
-            the answer depend on how long the trace is. The estimate must not
-            depend on trace length.
+            the answer depend on how long the trace is. Device and worker count must
+            change no number; length-based routing would break that.
 
     Returns:
         Dict with:
@@ -275,8 +275,8 @@ def spectral_tilt(
             16384 samples, crosses 1.0 near 22500, and reaches 0.07 at 4.2 M. The
             crossover is documented rather than applied automatically: the CPU and CUDA
             Welch paths do not agree bit for bit, so routing on input length would make
-            the answer depend on how long the trace is. The estimate must not
-            depend on trace length.
+            the answer depend on how long the trace is. Device and worker count must
+            change no number; length-based routing would break that.
 
     Returns:
         Dict with:

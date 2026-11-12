@@ -1,0 +1,1 @@
+- `jnwb/statistics/_analysis.py`: `StatisticalAnalysis.ALPHA_FDR` warns on access; use `ALPHA`.

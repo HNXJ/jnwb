@@ -21,11 +21,8 @@ API Layers
 
 from __future__ import annotations
 
-import logging
-
-from scipy import stats
-
-log = logging.getLogger(__name__)
+# Re-exported for tests that monkeypatch ``jnwb.statistics.stats`` (scipy).
+from scipy import stats as stats
 
 from ._tests import (
     clopper_pearson,

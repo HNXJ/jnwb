@@ -1,4 +1,4 @@
-"""``effective_sample_size``: the initial positive sequence count, on the cases its rule fixes.
+"""``effective_sample_size``: lag-by-lag autocorrelation truncation, on the cases its rule fixes.
 
 White noise keeps its length, and an AR(1) of coefficient phi keeps n (1 - phi) / (1 + phi). A
 channel that is constant only up to round-off is skipped, not averaged in. Each refusal is a

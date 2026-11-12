@@ -55,3 +55,10 @@ def test_nested_cv_refuses_fewer_than_two_splits_by_name(n_splits):
 def test_nested_cv_two_splits_still_runs():
     X, labels = _trials()
     assert nested_cv_linear_svm(X, labels, n_splits=2)["status"] == "success"
+
+
+def test_alpha_fdr_warns_on_access():
+    from jnwb.statistics._analysis import StatisticalAnalysis
+
+    with pytest.warns(DeprecationWarning, match="ALPHA_FDR"):
+        assert StatisticalAnalysis.ALPHA_FDR == StatisticalAnalysis.ALPHA

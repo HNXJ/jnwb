@@ -29,13 +29,6 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`, `jnwb/nwb_events.py`, `tests/test_nwb_events.py`.
 - 17-145: io-13 of `artifacts/evidence/0.2.17/audit_2026-11-08.md` is left (the rest landed 2026-11-08; io-6 shown false by `tests/test_acquisition_layout.py:220`): the spec-catalog lookups at `nwb_write.py:1174` catch every exception. Narrow the caught types and name the cause in the refusal. io-2 (ruled 2026-11-09): `events(path)` without `table` on a processing-only file raises "No interval tables found"; the error names the processing tables found and says to pass `table=`, reading nothing new. Check: failing-first tests, a broken lookup's error reaches the message, and the processing table's name appears in the `events` error.
 
-### 17-146 Audit 2026-11-08: spectral and statistics defects
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/spectral/_psd.py`, `jnwb/statistics/__init__.py`, `jnwb/statistics/_autocorrelation.py`, `jnwb/statistics/_analysis.py`, `docs/references.md`, `artifacts/changelog.d/alpha-fdr.deprecated.md`, `tests/test_audit_2026_11_08_stats.py`.
-- 17-146: left of the audit (the rest landed 2026-11-08): spectral-4, `_psd.py:132,277` cite "invariant 6", which no public document defines: state the rule (device and worker count change no number); stats-6, unused imports at `statistics/__init__.py:25-29,35-36`. spectral-5 and spectral-9 and the dead `laplacian_reference` branch (`_reference.py:136`) go with 17-94. Ruled 2026-11-09: stats-1, `_autocorrelation.py:17` and `references.md:94` stop crediting Geyer (1992) and state the single-lag rule and its AR(2) overestimate, values unchanged; stats-3, `StatisticalAnalysis.ALPHA_FDR` warns `DeprecationWarning` on access, changelog `deprecated`. Check: `ruff check jnwb/statistics/__init__.py --select F401` clean except re-exports; no "invariant 6" in `jnwb/`, no "Geyer" in `_autocorrelation.py`; a test reads `ALPHA_FDR` under `pytest.warns(DeprecationWarning)`.
-
 ### 17-147 Audit 2026-11-08: scripts and tests that cannot fail
 
 Release: deferred-0.2.17.
@@ -83,7 +76,7 @@ Writes: `jnwb/laminar/_xflip.py`, `jnwb/laminar/_zflip.py`, `jnwb/laminar/_vflip
 ### 17-94 One home per helper in jnwb
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-79, 17-145 and 17-146 (shared files).
+Role: jnwb-developer. Skill: none. Blocked by: 17-79 and 17-145 (shared files).
 Writes: `jnwb/**/*.py`.
 - 17-94: `fs=nan` passes the `fs <= 0` guard at `filtering.py:31`, `:76`, `continuous.py:136` and `tfr.py:251`; at 2a5ef1b7 `bandpass_filter` then raises scipy's "Wn[0] must be less than Wn[1]" and `notch_filter` a `LinAlgError`, neither naming `fs` (match pass 2026-11-07). The shared check refuses NaN and Inf by name. The `fs` positive check is hand-written at about 20 sites (`filtering.py:31`, `continuous.py:136`, `tfr.py:251`, ...) beside `spectral/_common._require_positive_fs`; `jnwb/spectral` has 9 `_require_*` variants; `_bins.py:86,112` hold two onset loops differing in edge closure; three dB paths (`_decibels.py:15,24,457`); `nwb_write._sha256` equals `paths.sha256_file`; `_window_rows` twice (`_xflip.py:96`, `_zflip.py:178`). Check: one definition each, the grep returns one site, the suite passes.
 

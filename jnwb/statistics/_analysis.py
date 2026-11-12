@@ -85,8 +85,20 @@ class StatisticalAnalysis:
     """
 
     ALPHA = 0.05
-    # Back-compat alias
-    ALPHA_FDR = 0.05
+
+    class _AlphaFdr:
+        """Deprecated alias of ``ALPHA``; warn on every access (ruled 2026-11-09)."""
+
+        def __get__(self, obj, owner=None):
+            warnings.warn(
+                "StatisticalAnalysis.ALPHA_FDR is deprecated and will be removed in the next "
+                "version; use StatisticalAnalysis.ALPHA",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return 0.05
+
+    ALPHA_FDR = _AlphaFdr()
 
     @staticmethod
     def fdr_correct(
