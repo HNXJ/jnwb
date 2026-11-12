@@ -1,6 +1,10 @@
-# Open stack (jnwb, 2026-11-09)
+# Open stack (jnwb, 2026-11-12)
 
-No row is open. A row leaves by being repaired, shown false, or moved into the todo stack (`AGENTS.md` §11); `git log -- artifacts/open_stack.md` holds the rows of earlier dates.
+Open rows: one, from the OCMA card-spec drafts of 2026-11-12 (`artifacts/process/ocma_plan.md`, decision 5), waiting on Hamm. A row leaves by being repaired, shown false, or moved into the todo stack (`AGENTS.md` §11); `git log -- artifacts/open_stack.md` holds the rows of earlier dates.
+
+| Id | Open item | Evidence | Owner | Next step |
+|---|---|---|---|---|
+| OCMA-5 | Four cardless-receipt OCMA card specs await Hamm's ruling, one at a time, before any card code (ocma plan decision 5) | Drafts, each `STATUS: draft-awaiting-Hamm` with receipt sha256 and flags: `artifacts/process/ocma_card_specs/curation_calibration_0.2.14.md`, `artifacts/process/ocma_card_specs/vflip2_separation_0.2.14.md`, `artifacts/process/ocma_card_specs/gpu_launch_overhead_0.2.5.md`, `artifacts/process/ocma_card_specs/complexity_inventory.md` | Hamm | rule each draft (release version, claim class, signal split, section and the flags it lists); no card code until ruled |
 
 Cleared 2026-11-09, the seven rows of the audit of 2026-11-08 at `5bfee7b0` (`artifacts/rulings/2026-11-09.md`): repaired P-217-03 (goal row 12) and P-217-05 (fact S15 narrowed); moved to the todo stack P-217-01 (17-145), P-217-02 and -06 (17-146), P-217-04 and -07 (17-148).
 
