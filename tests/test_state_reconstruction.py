@@ -213,9 +213,13 @@ def test_it_reports_the_slots_a_packet_needs(generated: str):
         "table rows",
     ):
         assert expected in generated, f"state.md no longer reports {expected!r}"
-    assert re.search(r"ALL HARNESS GATES PASSED|FAILED \(exit |UNRESOLVED \(", generated), (
-        "state.md must report a harness verdict"
+    # Match the harness row only: Upstream/Ahead rows also contain UNRESOLVED ( in a worktree.
+    harness_row = next(
+        line for line in generated.splitlines() if line.startswith("| `scripts/harness_gate.py` |")
     )
+    assert re.search(
+        r"ALL HARNESS GATES PASSED|FAILED \(exit -?\d+\)|UNRESOLVED \(", harness_row
+    ), harness_row
 
 
 @pytest.mark.requires_git_checkout
