@@ -132,7 +132,10 @@ def _resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
             f"Interval table '{name}' not found. Available: {names + processing}"
         )
     if not names:
-        raise IntervalTableNotFoundError("No interval tables found in NWB file")
+        raise IntervalTableNotFoundError(
+            "No interval tables found in NWB file; "
+            f"processing tables found: {processing}. Pass table=<name>."
+        )
     if "trials" in names:
         return "trials"
     if len(names) == 1:

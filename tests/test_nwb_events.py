@@ -651,6 +651,18 @@ class TestTimeIntervalsInProcessingModule:
         assert tuple(out.codes) == (10, 20, 30)
         np.testing.assert_allclose(out.onsets, [0.5, 1.0, 1.5])
 
+    def test_omitted_table_on_processing_only_file_names_tables_and_table(self, processing_path):
+        with NWBHDF5IO(str(processing_path), "r") as io:
+            nwb = io.read()
+            assert not nwb.intervals, "fixture must hold no top-level interval tables"
+            assert "behavior" in nwb.processing and "events" in nwb.processing["behavior"].data_interfaces
+        with pytest.raises(IntervalTableNotFoundError) as caught:
+            events(processing_path)
+        message = str(caught.value)
+        assert "processing/behavior/events" in message, \
+            "the refusal must name the processing table it found"
+        assert "table=" in message, "the refusal must say to pass table="
+
     def test_event_onsets_selects_by_code_from_the_slash_path(self, processing_path):
         onsets = event_onsets(
             processing_path, table="processing/behavior/events", codes=[20], code_column="value"

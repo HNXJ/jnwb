@@ -1166,20 +1166,32 @@ def _stored_ndt(obj) -> str | None:
     return str(raw)
 
 
+def _schema_lookup_refusal(exc: Exception) -> UnidentifiableRepairError:
+    """Refusal for a catalog failure that is not a missing-spec miss."""
+    return UnidentifiableRepairError(
+        f"repair_nwb: squeeze_scalar_attributes schema lookup failed: "
+        f"{type(exc).__name__}: {exc}; nothing written"
+    )
+
+
 def _spec_chain(catalog, ndt: str) -> list:
     """The spec for ``ndt`` plus every type it extends, core namespace first."""
     for namespace in ("core", "hdmf-common"):
         try:
             spec = catalog.get_namespace(namespace).get_spec(ndt)
-        except Exception:
+        except (KeyError, ValueError):
             continue
+        except Exception as exc:
+            raise _schema_lookup_refusal(exc) from exc
         chain = [spec]
         node = spec
         while isinstance(getattr(node, "data_type_inc", None), str):
             try:
                 node = catalog.get_namespace(namespace).get_spec(node.data_type_inc)
-            except Exception:
+            except (KeyError, ValueError):
                 break
+            except Exception as exc:
+                raise _schema_lookup_refusal(exc) from exc
             chain.append(node)
         return chain
     return []
@@ -1200,8 +1212,10 @@ def _declared_scalar(catalog, ndt: str, obj_is_dataset: bool, obj_name: str,
                 found = entry.get_attribute(attr) if entry is not None else None
             else:
                 found = node.get_attribute(attr)
-        except Exception:
+        except (KeyError, ValueError):
             continue
+        except Exception as exc:
+            raise _schema_lookup_refusal(exc) from exc
         if found is None:
             continue
         return found.shape is None and found.dims is None
