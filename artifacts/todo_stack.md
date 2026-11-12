@@ -29,13 +29,6 @@ Role: jnwb-developer. Skill: none. Blocked by: 17-147 (shared `scripts/learning_
 Writes: `scripts/learning_gate.py`, `tests/test_nan_passes_sign_guard_scan.py`.
 - 17-150: state-4 of the 2026-11-08 audit: `nan-passes-sign-guard` in `artifacts/process/defect_classes.md` still proposes an AST scan for a bare `<= 0` / `< 0` guard with no finiteness test. Check: a gate or test fails when such a guard is planted, and the eight listed sites stay covered.
 
-### 17-145 Audit 2026-11-08: NWB I/O defects
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`, `jnwb/nwb_events.py`, `tests/test_nwb_events.py`.
-- 17-145: io-13 of `artifacts/evidence/0.2.17/audit_2026-11-08.md` is left (the rest landed 2026-11-08; io-6 shown false by `tests/test_acquisition_layout.py:220`): the spec-catalog lookups at `nwb_write.py:1174` catch every exception. Narrow the caught types and name the cause in the refusal. io-2 (ruled 2026-11-09): `events(path)` without `table` on a processing-only file raises "No interval tables found"; the error names the processing tables found and says to pass `table=`, reading nothing new. Check: failing-first tests, a broken lookup's error reaches the message, and the processing table's name appears in the `events` error.
-
 ### 17-147 Audit 2026-11-08: scripts and tests that cannot fail
 
 Release: deferred-0.2.17.
@@ -77,7 +70,7 @@ Writes: `jnwb/laminar/_xflip.py`, `jnwb/laminar/_zflip.py`, `jnwb/laminar/_vflip
 ### 17-94 One home per helper in jnwb
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-79 and 17-145 (shared files).
+Role: jnwb-developer. Skill: none. Blocked by: 17-79 (shared files).
 Writes: `jnwb/**/*.py`.
 - 17-94: `fs=nan` passes the `fs <= 0` guard at `filtering.py:31`, `:76`, `continuous.py:136` and `tfr.py:251`; at 2a5ef1b7 `bandpass_filter` then raises scipy's "Wn[0] must be less than Wn[1]" and `notch_filter` a `LinAlgError`, neither naming `fs` (match pass 2026-11-07). The shared check refuses NaN and Inf by name. The `fs` positive check is hand-written at about 20 sites (`filtering.py:31`, `continuous.py:136`, `tfr.py:251`, ...) beside `spectral/_common._require_positive_fs`; `jnwb/spectral` has 9 `_require_*` variants; `_bins.py:86,112` hold two onset loops differing in edge closure; three dB paths (`_decibels.py:15,24,457`); `nwb_write._sha256` equals `paths.sha256_file`; `_window_rows` twice (`_xflip.py:96`, `_zflip.py:178`). Check: one definition each, the grep returns one site, the suite passes.
 
