@@ -1,4 +1,4 @@
-# Open stack (jnwb, 2026-11-12)
+# Open stack (jnwb, 2026-11-13)\n\nContext audit: live GitHub dev@9252d0cd has successful inspected CI; two open rows remain unresolved. See `artifacts/ref/context_audit_2026-11-13.md` for dependencies and evidence limits. This note closes no row.
 
 Open rows: two (2026-11-12). A row leaves by being repaired, shown false, or moved into the todo stack (`AGENTS.md` §11); `git log -- artifacts/open_stack.md` holds the rows of earlier dates.
 
