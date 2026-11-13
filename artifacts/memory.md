@@ -25,3 +25,15 @@ Verified lessons the code and git do not show. This project only. No state, secr
   repair: ask Hamm in chat which stands, then record the answer as a ruling that names what it replaces
   evidence: `artifacts/rulings/2026-10-12.md`, the row on `AGENTS.md` duplicates of the global rules
   scope: rulings and stack edits
+
+- trigger: `jnwb_suite.sh` fixture tests print `git could not resolve HEAD` under Git bash; `shutil.which("git")` lands on `Git\bin\git.exe`
+  cause: a non-login Git bash inherits Windows PATH; `Git\bin` maps to `/bin` under MSYS and holds no working `git`
+  repair: put `mingw64\bin` and `cmd` ahead of `bin` on PATH for the bash subprocess (as in `tests/test_jnwb_suite_lock.py`)
+  evidence: 17-149 Accept 2026-11-12: 4 failed until mingw64/cmd first; then 27–28 passed
+  scope: any bash-invoked git on this Windows host from a pytest subprocess
+
+- trigger: `git clone --local D:\repos\jnwb …` fails with `detected dubious ownership` (Administrators vs current user)
+  cause: `.git` is owned by `BUILTIN/Administrators`; the suite's semantic-mutation clones then exit 128
+  repair: for the suite process only, point `GIT_CONFIG_GLOBAL` at a temp config with `safe.directory = *` (do not write the user's gitconfig); pass a same-drive `--basetemp`
+  evidence: suite at `d898cd17` 2026-11-12: mutation test failed without it; 10864 passed with it and `D:/pytest_temp/jnwb_bt_suite`
+  scope: full `jnwb_suite.sh` on this workstation when `.git` ownership differs from the user
