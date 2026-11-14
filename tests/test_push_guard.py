@@ -188,3 +188,255 @@ def test_a_push_with_another_global_option_or_git_exe_that_is_temp_only_or_elsew
 def test_namespace_and_case_spellings_cannot_bypass_guard(tmp_path, command):
     clone = make_checkout(tmp_path / "_temp_namespace")
     assert decide(command, clone) == "deny", command
+
+
+# ---- 17-143: `jnwb_push.sh <dir> --tag vX.Y.Z` and the artifacts-only stack checks ---------------
+#
+# CI reads go to the local stand-in server of test_jnwb_push.py (`ci_api`); the remote is a local bare
+# repository. The scaffold commit holds the real verify_lane.py and two stand-ins for the stack checks
+# (gate 15 and the item-length test), so each refusal below is caused by the case under test.
+
+from tests.test_jnwb_push import OLDER_SHA, _body, _git, _run, ci_api  # noqa: F401  (fixture)
+
+PUSH_SH = Path(__file__).resolve().parents[1] / "scripts" / "jnwb_push.sh"
+VERIFY_LANE = Path(__file__).resolve().parents[1] / "scripts" / "verify_lane.py"
+TODO_WITH_ITEM = """# 0.2.17
+
+### 17-900 A demo item
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: {writes}
+- 17-900: demo.
+"""
+PASS_STUB = "import sys\nsys.exit(0)\n"
+FAIL_STUB = "import sys\nprint('stub gate failed')\nsys.exit(1)\n"
+ITEM_TEST_PASS = "def test_ok():\n    assert True\n"
+ITEM_TEST_FAIL = "def test_ok():\n    assert False\n"
+
+
+def _bash_path() -> str:
+    if sys.platform != "win32":
+        return "bash"
+    git_bash = Path("C:/Program Files/Git/usr/bin/bash.exe")
+    if not git_bash.exists():
+        pytest.skip("Git for Windows bash not found")
+    return git_bash.as_posix()
+
+
+def _remote_ref(bare: Path, ref: str):
+    proc = subprocess.run(["git", "rev-parse", "-q", "--verify", ref], cwd=str(bare),
+                          capture_output=True, text=True)
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+def _scaffold(tmp_path: Path, *, writes: str = "`artifacts/todo_stack.md`",
+              gate_stub: str = PASS_STUB, item_test: str = ITEM_TEST_PASS):
+    """A clone whose origin dev and main both hold the scaffold; returns (repo, bare, home)."""
+    home = tmp_path / "home"
+    (home / ".claude" / "bin").mkdir(parents=True)
+    (home / ".claude" / "bin" / "ci_inflight.py").write_text("print(0)\n", encoding="utf-8")
+    bare = tmp_path / "origin.git"
+    _git(tmp_path, "init", "-q", "--bare", bare.as_posix())
+    repo = tmp_path / "_temp_stack"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    _git(repo, "symbolic-ref", "HEAD", "refs/heads/dev")
+    _git(repo, "config", "user.email", "t@example.com")
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "remote", "add", "origin", bare.as_posix())
+    (repo / "scripts").mkdir()
+    (repo / "scripts" / "verify_lane.py").write_bytes(VERIFY_LANE.read_bytes())
+    (repo / "scripts" / "harness_gate.py").write_text(gate_stub, encoding="utf-8")
+    (repo / "tests").mkdir()
+    (repo / "tests" / "test_stack_item_length.py").write_text(item_test, encoding="utf-8")
+    (repo / "artifacts").mkdir()
+    (repo / "artifacts" / "todo_stack.md").write_text(TODO_WITH_ITEM.format(writes=writes),
+                                                      encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "scaffold")
+    head = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "push", "-q", bare.as_posix(), "HEAD:refs/heads/dev", "HEAD:refs/heads/main")
+    _git(repo, "update-ref", "refs/remotes/origin/dev", head)
+    _git(repo, "update-ref", "refs/remotes/origin/main", head)
+    return repo, bare, home
+
+
+def _wrapper(repo: Path, home: Path, api_url: str, *args: str, extra_env: dict | None = None):
+    env = dict(os.environ)
+    env["HOME"] = home.as_posix()
+    env["PATH"] = os.pathsep.join([str(Path(sys.executable).parent), env.get("PATH", "")])
+    env["JNWB_CI_API"] = api_url
+    env["NO_PROXY"] = env["no_proxy"] = "127.0.0.1,localhost"
+    env.pop("JNWB_PUSH_OVER_RED", None)
+    env.update(extra_env or {})
+    return subprocess.run([_bash_path(), PUSH_SH.as_posix(), repo.as_posix(), *args],
+                          cwd=str(repo), env=env, capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=600)
+
+
+def _commit_artifacts_only(repo: Path, text: str = "\n- note 17-900\n") -> None:
+    todo = repo / "artifacts" / "todo_stack.md"
+    todo.write_text(todo.read_text(encoding="utf-8") + text, encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "stack edit")
+
+
+def test_tag_push_refuses_when_the_newest_main_run_is_not_at_the_tip(tmp_path, ci_api):
+    state, url = ci_api
+    repo, bare, home = _scaffold(tmp_path)
+    state["body"] = _body([_run("CI/CD", OLDER_SHA, "success")])
+    proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert "refusing" in out and "tip" in out, out
+    assert _remote_ref(bare, "refs/tags/v0.2.17") is None, "a tag reached the remote without a run at its tip"
+
+
+def test_tag_push_refuses_when_a_main_run_at_the_tip_failed(tmp_path, ci_api):
+    state, url = ci_api
+    repo, bare, home = _scaffold(tmp_path)
+    tip = _git(repo, "rev-parse", "origin/main")
+    state["body"] = _body([_run("CI/CD", tip, "failure")])
+    proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert "refusing" in out, out
+    assert _remote_ref(bare, "refs/tags/v0.2.17") is None
+
+
+def test_tag_push_refuses_an_unreadable_main_answer(tmp_path, ci_api):
+    state, url = ci_api
+    state["status"], state["body"] = 403, b'{"message": "API rate limit exceeded"}'
+    repo, bare, home = _scaffold(tmp_path)
+    proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert "unreadable" in out, out
+    assert _remote_ref(bare, "refs/tags/v0.2.17") is None
+
+
+@pytest.mark.parametrize("name", ["0.2.17", "v0.2", "v0.2.17-rc1", "release-1"])
+def test_tag_name_must_be_vX_Y_Z(tmp_path, ci_api, name):
+    state, url = ci_api
+    repo, bare, home = _scaffold(tmp_path)
+    tip = _git(repo, "rev-parse", "origin/main")
+    state["body"] = _body([_run("CI/CD", tip, "success")])
+    proc = _wrapper(repo, home, url, "--tag", name)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert "vX.Y.Z" in out, out
+    assert _remote_ref(bare, "refs/tags/" + name) is None
+
+
+def test_tag_push_pushes_the_tag_at_main_tip_when_the_tip_runs_succeeded(tmp_path, ci_api):
+    state, url = ci_api
+    repo, bare, home = _scaffold(tmp_path)
+    tip = _git(repo, "rev-parse", "origin/main")
+    state["body"] = _body([_run("CI/CD", tip, "success"), _run("dashboard", tip, "success")])
+    proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _remote_ref(bare, "refs/tags/v0.2.17") == tip
+
+
+def test_tag_push_refuses_to_move_an_existing_tag(tmp_path, ci_api):
+    state, url = ci_api
+    repo, bare, home = _scaffold(tmp_path)
+    old_tip = _git(repo, "rev-parse", "origin/main")
+    _git(repo, "push", "-q", bare.as_posix(), f"{old_tip}:refs/tags/v0.2.17")
+    _commit_artifacts_only(repo, "\n- main moved\n")
+    new_tip = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "push", "-q", bare.as_posix(), "HEAD:refs/heads/main")
+    _git(repo, "update-ref", "refs/remotes/origin/main", new_tip)
+    state["body"] = _body([_run("CI/CD", new_tip, "success")])
+    proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert "already exists" in out, out
+    assert _remote_ref(bare, "refs/tags/v0.2.17") == old_tip, "an existing tag was moved"
+
+
+def test_artifacts_only_push_refuses_a_bare_directory_in_writes(tmp_path, ci_api):
+    state, url = ci_api
+    repo, bare, home = _scaffold(tmp_path, writes="`artifacts`")
+    _commit_artifacts_only(repo)
+    head = _git(repo, "rev-parse", "HEAD")
+    state["body"] = _body([_run("CI/CD", head, "success")])
+    proc = _wrapper(repo, home, url, "dev", "--item", "17-900")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert "bare directory" in out, out
+    assert _remote_ref(bare, "refs/heads/dev") != head, "a refused artifacts-only push reached the remote"
+
+
+def test_artifacts_only_push_with_a_file_in_writes_passes(tmp_path, ci_api):
+    state, url = ci_api
+    repo, bare, home = _scaffold(tmp_path)
+    _commit_artifacts_only(repo)
+    head = _git(repo, "rev-parse", "HEAD")
+    state["body"] = _body([_run("CI/CD", head, "success")])
+    proc = _wrapper(repo, home, url, "dev", "--item", "17-900")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _remote_ref(bare, "refs/heads/dev") == head
+
+
+def test_artifacts_only_push_refuses_when_the_stack_gate_fails(tmp_path, ci_api):
+    state, url = ci_api
+    repo, bare, home = _scaffold(tmp_path, gate_stub=FAIL_STUB)
+    _commit_artifacts_only(repo)
+    head = _git(repo, "rev-parse", "HEAD")
+    state["body"] = _body([_run("CI/CD", head, "success")])
+    proc = _wrapper(repo, home, url, "dev", "--item", "17-900")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert "stack gate" in out, out
+    assert _remote_ref(bare, "refs/heads/dev") != head
+
+
+def test_tag_push_refuses_when_the_tip_has_no_successful_CI_CD_run(tmp_path, ci_api):
+    state, url = ci_api
+    repo, bare, home = _scaffold(tmp_path)
+    tip = _git(repo, "rev-parse", "origin/main")
+    state["body"] = _body([_run("dashboard", tip, "success")])
+    proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert "CI/CD" in out, out
+    assert _remote_ref(bare, "refs/tags/v0.2.17") is None, "a tag reached the remote without a CI/CD run"
+
+
+def test_the_override_does_not_reach_a_tag_push(tmp_path, ci_api):
+    state, url = ci_api
+    repo, bare, home = _scaffold(tmp_path)
+    tip = _git(repo, "rev-parse", "origin/main")
+    state["body"] = _body([_run("CI/CD", tip, "failure"), _run("dashboard", tip, "success")])
+    proc = _wrapper(repo, home, url, "--tag", "v0.2.17", extra_env={"JNWB_PUSH_OVER_RED": "1"})
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert "pushing anyway" not in out, out
+    assert _remote_ref(bare, "refs/tags/v0.2.17") is None, "the override pushed a tag"
+
+
+def test_a_push_whose_diff_cannot_be_read_is_refused(tmp_path, ci_api):
+    state, url = ci_api
+    repo, bare, home = _scaffold(tmp_path)
+    _commit_artifacts_only(repo)
+    _git(repo, "update-ref", "-d", "refs/remotes/origin/dev")
+    head = _git(repo, "rev-parse", "HEAD")
+    state["body"] = _body([_run("CI/CD", head, "success")])
+    proc = _wrapper(repo, home, url, "dev")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert "git diff" in out, out
+    assert _remote_ref(bare, "refs/heads/dev") != head
+
+
+def test_artifacts_only_push_refuses_when_the_item_length_test_fails(tmp_path, ci_api):
+    state, url = ci_api
+    repo, bare, home = _scaffold(tmp_path, item_test=ITEM_TEST_FAIL)
+    _commit_artifacts_only(repo)
+    head = _git(repo, "rev-parse", "HEAD")
+    state["body"] = _body([_run("CI/CD", head, "success")])
+    proc = _wrapper(repo, home, url, "dev", "--item", "17-900")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert _remote_ref(bare, "refs/heads/dev") != head

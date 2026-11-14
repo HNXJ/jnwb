@@ -254,6 +254,17 @@ def item_writes(todo_text: str, item: str) -> list[str]:
     raise ValueError(f"item {item} has no Writes: line in artifacts/todo_stack.md")
 
 
+def _bare_directory(entry: str, target: str, cwd: Path | None = None) -> bool:
+    """True when a Writes entry names a directory: a trailing slash, or a glob-free path that is a
+    tree at ``target``. A file entry, or a glob, is not a bare directory."""
+    if entry.endswith("/"):
+        return True
+    if any(ch in entry for ch in "*?["):
+        return False
+    code, kind = _git("cat-file", "-t", f"{target}:{entry}", cwd=cwd)
+    return code == 0 and kind.strip() == "tree"
+
+
 def push_check(item: str, target: str, *, cwd: Path | None = None) -> tuple[list[str], int]:
     """Refuse a push whose diff against ``target`` leaves the Writes of the todo item ``item``.
 
@@ -282,6 +293,13 @@ def push_check(item: str, target: str, *, cwd: Path | None = None) -> tuple[list
     if diff.returncode != 0:
         return [f"git diff {target}...HEAD failed: {diff.stderr.strip()}. Nothing is pushed."], 0
     paths = [line for line in diff.stdout.splitlines() if line.strip()]
+    if paths and all(p.startswith("artifacts/") for p in paths):
+        bare = [w for w in writes if _bare_directory(w, target, cwd)]
+        if bare:
+            return [
+                f"the Writes of {item} name a bare directory ({', '.join(bare)}); an artifacts-only "
+                "push needs file paths or globs. Nothing is pushed."
+            ], 0
     allowed = [glob_to_regex(pattern) for pattern in (*ALWAYS_WRITABLE, *writes)]
     outside = [p for p in paths if not any(rx.fullmatch(p) for rx in allowed)]
     if outside:
