@@ -17,7 +17,7 @@ __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
 #: Where the agent skills live. They are not in the wheel and are not importable: a skill
-#: is read by a harness that is pointed at a directory, and `site-packages` is the worst
+#: is read by a loader that is pointed at a directory, and `site-packages` is the worst
 #: place to put something that has to be pointed at. Copying the tree under `jnwb/` would
 #: also create a second copy of the skills, free to drift from the first. The sdist carries them
 #: at its root, which reaches whoever unpacks the tarball and nobody who runs

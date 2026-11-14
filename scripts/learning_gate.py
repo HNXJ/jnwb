@@ -4,7 +4,7 @@ Checks, each run by a harness gate (`scripts/harness_gate.py`):
 
 * The defect-class ledger (`artifacts/process/defect_classes.md`): each row's Seen count equals
   its number of ';'-separated instances.
-* Every "Ruled <date>" citation under `artifacts/`, frozen receipts excepted, names a date that a
+* Every dated citation (CITATION) under `artifacts/`, frozen receipts excepted, names a date that a
   dated file under `artifacts/rulings/` records, or a date before the first dated file that
   `history.md` holds.
 * A mapping table (a table with "Old location" and "Where now" columns) keeps the obligation
@@ -87,7 +87,7 @@ def _artifact_texts(root: Path) -> Dict[str, str]:
 
 
 def citations(root: Path = REPO_ROOT) -> List[Tuple[str, str]]:
-    """(file, date) for each "Ruled <date>" citation in the artifacts that are not frozen."""
+    """(file, date) for each CITATION match in the artifacts that are not frozen."""
     found = {(name, date) for name, text in _artifact_texts(root).items()
              for date in CITATION.findall(text)}
     return sorted(found)

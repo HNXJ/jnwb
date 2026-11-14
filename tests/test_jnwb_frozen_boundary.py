@@ -60,7 +60,7 @@ class TestJnwbFrozenBoundary:
         violations = check_frozen_boundary(JNWB_DIR)
         assert not violations, (
             "jnwb/ imports from omission/ (see AUTHORIZED_JNWB_EXCEPTIONS in "
-            "scripts/harness_gate.py). Either this is a new coupling that needs Hamm's explicit "
+            "scripts/harness_gate.py). Either this is a new coupling that needs the owner's explicit "
             "authorization before it can land, or a listed exception is no longer lazy:\n"
             + "\n".join(violations)
         )

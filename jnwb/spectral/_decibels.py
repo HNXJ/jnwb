@@ -238,7 +238,7 @@ def relative_power(
           Computes :math:`10 \\log_{10}(P / B)` elementwise in decibels (dB).
           Preserves the log-last principle without spatial or trial aggregation.
 
-    Important Scientific Invariants:
+    Scientific Invariants:
         - The three models represent mathematically distinct estimands. They coincide only when
           baseline power is strictly identical across the aggregation axis. Under unequal baselines,
           they diverge. The requested model is returned exactly as specified; the library never

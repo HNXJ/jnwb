@@ -144,7 +144,7 @@ The facts are the only owned part; everything else is regenerated. The output is
 function of the tree: sorted keys and lists, LF endings, no timestamp, and object addresses
 stripped from signatures, so two builds at one commit are byte-identical.
 
-The fact stack must hold exactly the six fact tables ruled on 2026-09-29, each once, with no
+The fact stack must hold exactly the six fact tables set on 2026-09-29, each once, with no
 repeated fact ID; a table whose header looks like a fact table but is not exactly one is
 refused, because a skipped table would drop its facts without a word.
 
@@ -289,7 +289,7 @@ def read_facts(text: str) -> List[Dict[str, Any]]:
             if len(row) != len(FACT_HEADER):
                 raise FactSourceError(f"{table}: a fact row has {len(row)} cells, not "
                                       f"{len(FACT_HEADER)}: {row}")
-            fact_id, domain, predicate, held_by, ruled = row
+            fact_id, domain, predicate, held_by, decided = row
             fact_id = fact_id.strip("`").strip()
             if not fact_id:
                 raise FactSourceError(f"{table}: a fact row has an empty ID: {row}")
@@ -303,7 +303,7 @@ def read_facts(text: str) -> List[Dict[str, Any]]:
                 "predicate": predicate,
                 "held_by": held_by,
                 "holders": _BACKTICKED.findall(held_by),
-                "ruled": ruled,
+                "ruled": decided,
             })
     return facts
 
@@ -455,8 +455,8 @@ def read_references(text: str) -> Tuple[Dict[str, Dict[str, Any]], List[List[str
 
 
 def routed_citation_exclusions(root: Path = REPO_ROOT) -> set:
-    """The exclusion-list names: every non-blank line of the ruled list that is not its ``#``
-    header. The list is ruled in ``artifacts/rulings/2026-10-13.md`` (row "Uncited routed
+    """The exclusion-list names: every non-blank line of the list that is not its ``#``
+    header. The list is recorded in ``artifacts/rulings/2026-10-13.md`` (row "Uncited routed
     exports")."""
     path = root / "artifacts" / "evidence" / "0.2.14" / "routed_citation_exclusions.txt"
     return {line.strip() for line in path.read_text(encoding="utf-8").splitlines()
@@ -490,7 +490,7 @@ RNG_PARAMETER = "rng"
 RNG_LIKE_PARAMETER = "random_state"
 SEED_SEQUENCE_ANNOTATION = "SeedSequence"
 #: The trees whose functions take an ``rng`` parameter when they draw from a random module.
-#: ``scripts/`` is outside the rule (ruled 2026-10-20).
+#: ``scripts/`` is outside the rule (decided 2026-10-20).
 SCANNED_FOR_RNG = ("jnwb/",)
 #: The package whose averages of dB values the dB rule reads.
 DB_PACKAGE = "jnwb/"
@@ -654,7 +654,7 @@ def _traces_to_caller(call: ast.Call, children: set) -> bool:
 
 def _workers_of_an_rng(tree: ast.AST) -> set:
     """The ids of the functions defined inside a function that takes ``rng``: workers whose own
-    parameters carry seeds drawn from the caller's rng (ruled 2026-10-26)."""
+    parameters carry seeds drawn from the caller's rng (decided 2026-10-26)."""
     found = set()
     for outer in ast.walk(tree):
         if (isinstance(outer, (ast.FunctionDef, ast.AsyncFunctionDef))

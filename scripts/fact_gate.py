@@ -290,7 +290,7 @@ def partition(graph: Graph, constants: Constants) -> List[str]:
 
 # Planned skills (K5 and K1). The reviewer records each planned skill's K1 and K5 verdicts here,
 # with a reason. The gate checks that a reviewer recorded K1 and K5 as HELD; it does not check
-# that K5 is true. Empty: no planned skill ships in 0.2.15 (ruled 2026-10-25).
+# that K5 is true. Empty: no planned skill ships in 0.2.15 (decided 2026-10-25).
 PLANNED_SKILLS: Dict[str, Dict[str, str]] = {}
 
 
@@ -495,7 +495,7 @@ def boundary_units(graph: Graph, constants: Constants) -> List[str]:
 
 
 def routed_citations(graph: Graph, constants: Constants) -> List[str]:
-    """Each distinct routed export with no ``cites`` edge that the ruled exclusion list does
+    """Each distinct routed export with no ``cites`` edge that the exclusion list does
     not name. The check is that no routed export goes uncited unless it is on the recorded
     list; it does not check that methods cite."""
     targets = graph["entities"].get("route_target", {})

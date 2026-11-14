@@ -143,10 +143,10 @@ def _internal_term_pattern(term: str) -> Any:
 def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 14 (Internal Process Vocabulary): repository-process terms stay out of public docs.
 
-    06-02 ruled the boundary on 2026-09-19: public documentation may describe agents, skills and
+    06-02 set the boundary on 2026-09-19: public documentation may describe agents, skills and
     routing, because those are jnwb capabilities a caller uses; internal repository-agent roles,
     harness and process vocabulary, private coordination state and implementation-only
-    terminology may not appear there. The ruling says to gate the distinction mechanically *where
+    terminology may not appear there. The decision says to gate the distinction mechanically *where
     practical*, and that qualifier is load-bearing -- the rule it replaced gated the word "agent"
     and was broken by four published pages the day it was written.
 
@@ -155,7 +155,7 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
 
     `README.md` is scanned as well: it is the PyPI description, the most public page there is.
     It was held out while it linked `artifacts/todo_stack.md` from its Contributing section; the
-    2026-09-23 ruling removed the link, so the page is held to the same terms as `docs/`.
+    2026-09-23 decision removed the link, so the page is held to the same terms as `docs/`.
     `artifacts/agents.md` is the agent entry page `README.md` links to, and is held to them too.
 
     `skills/**/*.md` and `skills/**/*.yaml` are scanned too: the skills ship in the sdist and are published at

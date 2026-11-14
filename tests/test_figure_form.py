@@ -778,14 +778,14 @@ STYLE_NAMES = NAMES
 AWAITING: dict[tuple[str, str], str] = {}
 
 #: Every embed fails the mobile-width check for one reason: the shared style sets the smallest
-#: text at 8 pt in a 7.2 in figure, and a figure scaled to 343 px renders it at 5.3 px. The ruled
+#: text at 8 pt in a 7.2 in figure, and a figure scaled to 343 px renders it at 5.3 px. The style's
 #: text range tops out at 11 pt, which renders at 7.3 px there, so the range cannot reach 9 px
 #: at that width: the figure width would have to fall below 5.8 in. The embeds are listed one
 #: by one so that a new embed is judged and not waved through.
 _MOBILE_TEXT_TOO_SMALL = (
     f"smallest text renders at {_displayed_px(STYLE.SMALL, STYLE.WIDTH, MOBILE_WIDTH_PX):.1f} px "
     f"at {MOBILE_WIDTH_PX} px ({STYLE.SMALL:.0f} pt, {STYLE.WIDTH:.1f} in figure); the largest "
-    f"ruled size, {STYLE.TEXT_RANGE_PT[1]:.0f} pt, renders at "
+    f"style size, {STYLE.TEXT_RANGE_PT[1]:.0f} pt, renders at "
     f"{_displayed_px(STYLE.TEXT_RANGE_PT[1], STYLE.WIDTH, MOBILE_WIDTH_PX):.1f} px")
 AWAITING.update({("displayed size at the mobile width", embed): _MOBILE_TEXT_TOO_SMALL for embed in (
     "02_paths_addressing_metadata.md:fig01_addressing_laminar.png",
@@ -1482,7 +1482,7 @@ from matplotlib.font_manager import weight_dict  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 from matplotlib.patches import Patch  # noqa: E402
 
-#: The ruled values. `figure_style.py` is the one place a figure takes them from, and this is
+#: The style values. `figure_style.py` is the one place a figure takes them from, and this is
 #: the one place the suite spells them out.
 RULED_SERIES = ("#1565c0", "#ff9800", "#00acc1", "#e53935")
 RULED_HIGHLIGHT_DARK = "#cfb87c"
@@ -1859,7 +1859,7 @@ def test_the_open_data_script_draws_no_figure_and_its_figure_has_two_variants(dr
 
 
 def test_the_style_checks_catch_their_cases():
-    # Each departure the ruling names, built under the plain defaults, is flagged; the same
+    # Each departure the style spec names, built under the plain defaults, is flagged; the same
     # figure under the style module is not.
     with matplotlib.rc_context():
         matplotlib.rcdefaults()

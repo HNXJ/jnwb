@@ -13,7 +13,7 @@ gate instead reports when the boundary may be in the wrong place.
 
 `Blocked by:` is trusted by the scheduler. 06-31 said `none` while blocked on data-access
 authority and was dispatched into a guaranteed stop twice; another entry said `none` while its body said
-"Blocked on one ruling". The metadata is confidently wrong rather than absent,
+"Blocked on one [decision]". The metadata is confidently wrong rather than absent,
 which is why every reader believes it.
 
 The tests below drive both checks through broken states they construct, so a mutant that
@@ -356,7 +356,7 @@ class TestTheSuppressionsAreVisibleAndCorrect:
 class TestASummaryCountAgreesWithWhatItNames:
     """A canonical summary inside the stack went stale and nothing errored.
 
-    Batch 0 opened with "Six items wait on a human ruling ... <six ids>". Four waited; three of
+    Batch 0 opened with "Six items wait on a human [decision] ... <six ids>". Four waited; three of
     the six named had closed earlier the same day; and
     none of the four gated more than one item, so the sentence named a binding constraint that
     no longer bound. Every number in it is recomputable from the fields below it, so re-deriving
@@ -391,7 +391,7 @@ class TestASummaryCountAgreesWithWhatItNames:
 
     def test_a_count_with_no_ids_is_not_flagged(self):
         # A summary asserting a count without naming the items cannot be checked. Batch 0's
-        # "three items Hamm must decide" was such a claim, and was two; it was rewritten to
+        # "three items [owner] must decide" was such a claim, and was two; it was rewritten to
         # name them rather than checked by a second mechanism.
         vague = (
             "## Batch 0\n\nWhat remains is three items Hamm must decide.\n\n"

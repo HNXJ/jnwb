@@ -1,4 +1,4 @@
-"""Fourteen semantic mutation classes, exercised over the ruled composition subset.
+"""Fourteen semantic mutation classes, exercised over the composition subset.
 
 The deliverable is a **class list, not a mutation score**: each of the fourteen classes
 the item names is either demonstrated against the ten chains of
@@ -48,8 +48,8 @@ about each:
   pins the names, and every class has its own static test, so a class that stops being exercised
   fails by name rather than shrinking a total.
 * **A chain invented instead of cited.** Every case names a chain, and
-  :func:`test_every_case_names_a_chain_the_ruled_subset_declares` resolves those names against
-  the ruled subset file rather than against a list retyped here.
+  :func:`test_every_case_names_a_chain_the_subset_declares` resolves those names against
+  the subset file rather than against a list retyped here.
 
 This module is slow -- roughly five minutes -- because each case costs four ``pytest``
 subprocesses (collect and run, pristine and mutant) and there are seventeen of them. The cases
@@ -92,8 +92,8 @@ from scripts.mutation_harness import (  # noqa: E402
 
 HARNESS_SOURCE = REPO_ROOT / "scripts" / "mutation_harness.py"
 
-#: The ruled subset. Chains are read out of it rather than retyped, so a chain struck from the
-#: ruling cannot go on being cited here.
+#: The subset. Chains are read out of it rather than retyped, so a chain struck from the
+#: subset cannot go on being cited here.
 SUBSET_DOC = REPO_ROOT / "artifacts" / "evidence" / "0.2.6" / "composition_subset_0.2.6.md"
 
 #: The fourteen classes, in the order 06-27 lists them. This is the deliverable.
@@ -538,10 +538,10 @@ def test_no_class_outside_the_declared_fourteen_is_smuggled_in() -> None:
 
 
 def _declared_chains() -> tuple[str, ...]:
-    """Chain identifiers read out of the ruled subset, not retyped here.
+    """Chain identifiers read out of the subset, not retyped here.
 
-    The ruling's own table is the authority. Retyping the ten names would make this file agree
-    with itself after a chain was struck from the ruling.
+    The subset's own table is the authority. Retyping the ten names would make this file agree
+    with itself after a chain was struck from the subset.
     """
     text = SUBSET_DOC.read_text(encoding="utf-8")
     chains = tuple(dict.fromkeys(re.findall(r"^\| (H\d+[ab]?) \|", text, flags=re.MULTILINE)))
@@ -552,12 +552,12 @@ def _declared_chains() -> tuple[str, ...]:
     return chains
 
 
-def test_every_case_names_a_chain_the_ruled_subset_declares() -> None:
-    """06-27 cites chains from the ruled subset and adds none of its own."""
+def test_every_case_names_a_chain_the_subset_declares() -> None:
+    """06-27 cites chains from the subset and adds none of its own."""
     declared = set(_declared_chains())
     invented = sorted({m.chain for m in CASES} - declared)
     assert not invented, (
-        f"these cases name chains the ruling does not declare: {invented}. The subset is at "
+        f"these cases name chains the subset does not declare: {invented}. The subset is at "
         f"{SUBSET_DOC}; a chain not in it is a chain this item may not add."
     )
 

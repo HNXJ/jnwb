@@ -86,7 +86,7 @@ NAN_IS_MISSING = frozenset({
 })
 
 #: Functions that keep NaN and inf as missing (say so in the docstring) and refuse
-#: neither. Ruled 2026-10-31: their released reading of inf as missing stays.
+#: neither. Their released reading of inf as missing stays.
 NONFINITE_IS_MISSING = frozenset({
     "assign_quality_tier",
     "audit_units",

@@ -1,7 +1,7 @@
 """`jnwb.ontology` -- the exported objects, and what they actually promise.
 
 The audit reported this module as 11 public symbols with zero call sites, zero behavioural
-tests, and zero mentions outside `docs/`, and proposed removal. The 2026-09-16 ruling
+tests, and zero mentions outside `docs/`, and proposed removal. The 2026-09-16 decision
 rejected removal-by-call-site-count: a public library exists for callers a repository
 search cannot observe, so each export is judged on
 `distinct useful operation AND documented AND tested AND generic` instead.
@@ -77,7 +77,7 @@ def parts():
 
 
 class TestEveryExportIsReachableAndExercised:
-    """The ruling's criterion applied mechanically, so a future export cannot skip it."""
+    """The criterion applied mechanically, so a future export cannot skip it."""
 
     def test_the_export_list_is_what_this_file_covers(self, parts):
         assert set(EXPORTS) == set(parts), (

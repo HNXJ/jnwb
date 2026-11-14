@@ -619,7 +619,7 @@ class TestDirectedConnectivityAndNetwork:
 
     @pytest.mark.parametrize("given, parent", [({"rng": 7}, 7), ({"seed": 7}, 7), ({}, 0)])
     def test_an_int_seed_gives_each_pair_its_own_child_seed(self, given, parent):
-        """IB-45, ruled 2026-10-06: an int seed, the default 0 included, reached every pair
+        """IB-45: an int seed, the default 0 included, reached every pair
         unchanged, so every pair drew the same surrogate stream."""
         rng = np.random.default_rng(8)
         signals = {k: rng.standard_normal((3, 120)) for k in "ABC"}
@@ -641,7 +641,7 @@ class TestDirectedConnectivityAndNetwork:
 
 
 class TestConditionalDirectedNetwork:
-    """Ruled 2026-10-06: Granger conditions each pair on every other node through `Z`; the
+    """Granger conditions each pair on every other node through `Z`; the
     other methods stay pairwise."""
 
     @staticmethod
@@ -1232,7 +1232,7 @@ class TestDirectedEstimatorEdges:
         ((100,), 16, 11),         # the 16-sample floor wins over the segment count
     ])
     def test_the_default_segment_count(self, shape, nperseg, n_segments):
-        """D10(c), ruled 2026-09-29: the default leaves at least about 20 segments."""
+        """D10(c): the default leaves at least about 20 segments."""
         rng = np.random.default_rng(0)
         res = phase_slope_index(rng.normal(size=shape), rng.normal(size=shape), fs=1000.0)
         assert (res.params["nperseg"], res.params["n_segments"]) == (nperseg, n_segments)

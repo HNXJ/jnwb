@@ -325,12 +325,12 @@ def test_excluded_analyzer_methods_are_the_unrouted_ones() -> None:
         assert not routed_now, f"{cls_name} methods now have a row; unlist them: {routed_now}"
         assert sorted(listed) == live, (
             f"{cls_name} public methods are {live}; the exclusion lists {sorted(listed)}. "
-            f"A new method needs a row or a ruling, not a silent exclusion."
+            f"A new method needs a row or a decision, not a silent exclusion."
         )
-    ruling = RULINGS.read_text(encoding="utf-8")
-    row = next((ln for ln in ruling.splitlines() if ln.startswith("| D8")), "")
+    record = RULINGS.read_text(encoding="utf-8")
+    row = next((ln for ln in record.splitlines() if ln.startswith("| D8")), "")
     assert "no new routing rows for the analyzer classes" in row, (
-        f"{RULINGS.name} no longer holds the D8 ruling that the analyzer exclusion cites"
+        f"{RULINGS.name} no longer holds the D8 decision that the analyzer exclusion cites"
     )
 
 

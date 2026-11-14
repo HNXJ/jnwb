@@ -672,7 +672,7 @@ class TestHarnessResetContracts:
         text matched that literal, whatever the order meant -- and it green-lit precisely the
         five-source list that was wrong. This was the fourth instance of the same proxy failure:
         "these strings appear" was the proxy, "the skill delegates the order" is the invariant.
-        Ruled 2026-09-19 (candidate C).
+        Candidate C, chosen 2026-09-19.
         """
         skill_text = PROCESS_SKILL.read_text(
             encoding="utf-8"
@@ -768,13 +768,13 @@ class TestHarnessResetContracts:
         agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
         return agents.split("- **Prepare**", 1)[1].split("- **Review**", 1)[0]
 
-    def test_prepare_loads_the_ruling_the_goal_is_subject_to(self):
+    def test_prepare_loads_the_direction_record_the_goal_is_subject_to(self):
         """`artifacts/goal.md` declares itself subject to a file no loading order loaded.
 
-        `direction.md:3-4` calls itself a ruling of record and `goal.md:4` submits to it, but
+        `direction.md:3-4` calls itself the direction record and `goal.md:4` submits to it, but
         AGENTS.md named it nowhere -- so once §3 became the *sole* loading-order authority,
-        an agent following the sole authority never read a ruling of record. Position matters as
-        much as presence: a ruling the goal is subject to and that is read after the goal cannot
+        an agent following the sole authority never read the direction record. Position matters as
+        much as presence: a record the goal is subject to and that is read after the goal cannot
         change how the goal is read.
         """
         prepare = self._prepare_block()
@@ -783,10 +783,10 @@ class TestHarnessResetContracts:
         assert direction >= 0, (
             "AGENTS.md §3 Prepare does not load artifacts/direction.md, which artifacts/goal.md "
             "declares itself subject to. That is the gap: the sole loading-order authority omits a "
-            f"ruling of record.\n{prepare[:600]}"
+            f"direction record.\n{prepare[:600]}"
         )
         assert goal >= 0 and direction < goal, (
-            "Prepare loads artifacts/goal.md before the ruling it is subject to"
+            "Prepare loads artifacts/goal.md before the direction record it is subject to"
         )
         assert (REPO_ROOT / "artifacts" / "direction.md").is_file(), (
             "Prepare names artifacts/direction.md and the file is not there"
@@ -2137,7 +2137,7 @@ class TestStackPointersResolve:
         """The boundary of the deliberate narrowing, planted in both directions.
 
         An unblocked item records why on the line after its field -- 06-06 declares
-        `Blocked by: none.` and then "06-01 and 06-02 were both ruled 2026-09-19 and deleted as
+        `Blocked by: none.` and then "06-01 and 06-02 were both [closed] 2026-09-19 and deleted as
         complete". A span running to the next field label reads that history as the declaration.
         Measured: that version reported 12 violations on the pristine tree and all 12 were the
         parser's. So the field is its first sentence, and **what that cannot see is a dead id in

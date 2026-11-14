@@ -712,7 +712,7 @@ _MAX_DEPTH = 8
 _LITERAL_TYPES = {ast.Tuple: tuple, ast.List: list, ast.Dict: dict, ast.Set: set}
 #: PEP 484's numeric tower: an int stands for a float, and an int or a float for a complex.
 _NUMERIC_TOWER = {float: (int,), complex: (int, float)}
-#: Types of names a page passes but never assigns, read from the name (ruled 2026-10-04: annotations
+#: Types of names a page passes but never assigns, read from the name (annotations
 #: plus a small table). A name absent here and unassigned stays unchecked.
 _NAME_TYPES = {"lfp_segments": np.ndarray, "spike_trains": list, "session_qc_list": list}
 
