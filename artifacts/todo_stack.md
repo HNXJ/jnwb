@@ -1,5 +1,8 @@
 # 0.2.17
 
+Context audit (2026-11-13): current priorities and midterm dependencies are indexed in `artifacts/ref/context_audit_2026-11-13.md`; existing item IDs, write scopes, release rulings and acceptance checks remain authoritative. Open blockers: OCMA-5 and 17-144-src. No item was closed or rescored by this documentation audit.
+
+
 Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. 0.2.16
 closed on 2026-11-08 (tag `v0.2.16`, `0aa220ba`; tag CI/CD run 42513450995 success, TestPyPI and PyPI
 verified, GitHub release body checked by `release_gate.py` STEP 0d). Items run fastest first.
