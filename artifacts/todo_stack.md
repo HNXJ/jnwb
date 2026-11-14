@@ -28,7 +28,7 @@ At most eight lines per item.
 ### 17-151 Public docs state the AI-assisted and autonomous analysis direction
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-99 and 17-129 (shared `README.md`, `docs/index.md`, `docs/architecture.md`); Hamm's approval for any changed public product promise.
+Role: jnwb-developer. Skill: none. Blocked by: 17-99, 17-100 and 17-129 (shared `README.md`, `docs/index.md`, `docs/architecture.md`, `docs/agents.md`); Hamm's approval for any changed public product promise.
 Writes: `README.md`, `docs/index.md`, `docs/architecture.md`, `docs/agents.md`.
 - 17-151: public-facing language does not yet state the adopted `artifacts/direction.md`: jnwb is a dataset-agnostic, scientifically testable toolbox used directly by researchers and composed by AI agents for assisted or autonomous neural analysis and discovery. Prose follows the host `match-writing-style` rule; no new page. Explain the core and skills boundary, supported task routing, explicit scientific choices, independent verification and correct decline on unsupported or non-identifiable inference; project-specific hypotheses stay downstream; promise no capability not implemented. Check: a reviewer maps each added claim to a current export, doc, test or skill, finds no duplicate API authority and no unsupported feature claim, `python scripts/docs_build.py` and `python scripts/harness_gate.py` pass, and the researcher-first quickstart in `README.md` is unchanged.
 
