@@ -1,5 +1,13 @@
 # 0.2.17
 
+### 17-AI-DOC — Explain AI-assisted and autonomous neural analysis direction
+
+Release: proposed; schedule after the current 0.2.17 gate-critical tasks, without changing the release plan.
+Role: jnwb-developer. Skill: match-writing-style. Blocked by: owner approval for any changed public product promise.
+Writes: `README.md`, `docs/` (existing canonical overview/guide pages only), documentation link checks.
+- 17-AI-DOC: Align public-facing language with the adopted `artifacts/direction.md`: jnwb is a dataset-agnostic, scientifically testable toolbox usable directly by researchers **and** composed by AI agents for assisted/autonomous neural analysis and discovery. Explain the core + skills boundary, supported task routing, explicit scientific choices, independent verification and correct decline on unsupported/non-identifiable inference. Keep project-specific hypotheses downstream; do not promise autonomous capabilities not implemented. Check: reviewer maps each added claim to current exports/docs/tests/skills, confirms no duplicate API authority or unsupported feature claim, runs native documentation/link and harness gates, and verifies researcher-first quickstart remains intact.
+
+
 Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. 0.2.16
 closed on 2026-11-08 (tag `v0.2.16`, `0aa220ba`; tag CI/CD run 42513450995 success, TestPyPI and PyPI
 verified, GitHub release body checked by `release_gate.py` STEP 0d). Items run fastest first.
