@@ -25,6 +25,13 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
+### 17-151 Public docs state the AI-assisted and autonomous analysis direction
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: match-writing-style. Blocked by: Hamm's approval for any changed public product promise; runs after the gate-critical 0.2.17 items.
+Writes: `README.md`, `docs/` (existing overview and guide pages only).
+- 17-151: public-facing language does not yet state the adopted `artifacts/direction.md`: jnwb is a dataset-agnostic, scientifically testable toolbox used directly by researchers and composed by AI agents for assisted or autonomous neural analysis. Explain the core and skills boundary, supported task routing, explicit scientific choices, independent verification and correct decline on unsupported or non-identifiable inference; project-specific hypotheses stay downstream; promise no capability not implemented. Check: a reviewer maps each added claim to a current export, doc, test or skill, finds no duplicate API authority, `python scripts/docs_build.py` and `python scripts/harness_gate.py` pass, and the researcher-first quickstart in `README.md` is unchanged.
+
 ### 17-150 AST scan for NaN-passing sign guards
 
 Release: deferred-0.2.17.
