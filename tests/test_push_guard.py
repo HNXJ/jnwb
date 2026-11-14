@@ -177,3 +177,14 @@ def test_a_push_with_another_global_option_or_git_exe_that_is_temp_only_or_elsew
     assert decide("git.exe push origin dev", other) == "allow"
     assert decide("git --no-pager status", clone) == "allow"
     assert decide("git.exe status", clone) == "allow"
+
+
+@pytest.mark.parametrize("command", [
+    "git --namespace foo push origin dev",
+    "git --namespace=foo push origin dev",
+    "GIT push origin dev",
+    "git.EXE push origin dev",
+])
+def test_namespace_and_case_spellings_cannot_bypass_guard(tmp_path, command):
+    clone = make_checkout(tmp_path / "_temp_namespace")
+    assert decide(command, clone) == "deny", command

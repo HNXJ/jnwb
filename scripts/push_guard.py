@@ -23,8 +23,8 @@ import sys
 from pathlib import Path
 
 PATH = r"(?:\"[^\"]*\"|'[^']*'|\S+)"
-GLOBAL = rf"(?:-C\s+{PATH}|-c\s+\S+|--git-dir(?:=|\s+){PATH}|--work-tree(?:=|\s+){PATH}|--?[A-Za-z][\w-]*(?:=\S+)?)"
-PUSH = re.compile(rf"\bgit(?:\.exe)?\s+((?:{GLOBAL}\s+)*)push\b([^;&|<>\n]*)")
+GLOBAL = rf"(?:--namespace(?:=|\s+)\S+|-C\s+{PATH}|-c\s+\S+|--git-dir(?:=|\s+){PATH}|--work-tree(?:=|\s+){PATH}|--?[A-Za-z][\w-]*(?:=\S+)?)"
+PUSH = re.compile(rf"\bgit(?:\.exe)?\s+((?:{GLOBAL}\s+)*)push\b([^;&|<>\n]*)", re.IGNORECASE)
 GLOBAL_OPT = re.compile(rf"(-C|--git-dir|--work-tree)(?:=|\s+)({PATH})|-c\s+\S+")
 TEMP = re.compile(r"_temp(?:orary)?_")
 ALL_REFS = {"--all", "--mirror", "--tags"}

@@ -44,7 +44,7 @@ Writes: `scripts/learning_gate.py`, `tests/test_nan_passes_sign_guard_scan.py`.
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: 17-143 (shared `scripts/push_guard.py`).
 Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/measure_agents_md_duplication.py`, `scripts/vflip2_recovery.py`, `scripts/figures/generate_figures.py`, `tests/test_*.py`.
-- 17-147: left of the audit (the rest landed 2026-11-08): scripts-2 (gate 15 passes on zero tables; `tests/test_learning_gate.py:212` pins that), -5 (move), -6, -7, -8 (`measure_agents_md_duplication.py:149,158`, `vflip2_recovery.py:978`), tests-2 (`match=`), -4, -5, -6, -9; push spellings the guard still allows: `git --namespace foo push`, a quoted `git.exe` path, `GIT`/`git.EXE`, `GIT_DIR=<jnwb>` from another cwd. Check: each by a failing-first test; `ruff check tests --select F401,F541,F821,F841` clean.
+- 17-147: left of the audit (the rest landed 2026-11-08): scripts-2 (gate 15 passes on zero tables; `tests/test_learning_gate.py:212` pins that), -5 (move), -6, -7, -8 (`measure_agents_md_duplication.py:149,158`, `vflip2_recovery.py:978`), tests-2 (`match=`), -4, -5, -6, -9; push spellings the guard still allows: a quoted `git.exe` path, `GIT_DIR=<jnwb>` from another cwd. Check: each by a failing-first test; `ruff check tests --select F401,F541,F821,F841` clean.
 
 ### 17-143 A tag push through the push wrapper
 
