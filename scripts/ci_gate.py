@@ -53,6 +53,9 @@ def main(argv):
             return 2
         require_name = args[at + 1]
         del args[at:at + 2]
+    if not args:
+        print("usage: ci_gate.py <owner/repo> [branch] [--require-name NAME]")
+        return 2
     repo = args[0]
     branch = args[1] if len(args) > 1 else "dev"
     try:

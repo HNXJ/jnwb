@@ -300,7 +300,7 @@ def test_tag_push_refuses_when_a_main_run_at_the_tip_failed(tmp_path, ci_api):
     proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
     out = proc.stdout + proc.stderr
     assert proc.returncode != 0, out
-    assert "refusing" in out, out
+    assert "not successful" in out, out
     assert _remote_ref(bare, "refs/tags/v0.2.17") is None
 
 
@@ -428,6 +428,55 @@ def test_a_push_whose_diff_cannot_be_read_is_refused(tmp_path, ci_api):
     assert proc.returncode != 0, out
     assert "git diff" in out, out
     assert _remote_ref(bare, "refs/heads/dev") != head
+
+
+import threading as _threading  # noqa: E402
+from http.server import BaseHTTPRequestHandler as _BaseHandler  # noqa: E402
+from http.server import ThreadingHTTPServer as _Server  # noqa: E402
+
+
+@pytest.fixture
+def ci_api_with_hook():
+    """The CI stand-in of test_jnwb_push.py, with a hook that runs before each response is sent, so a
+    test can move origin/main between the CI read and the tag push."""
+    state = {"status": 200, "body": b'{"workflow_runs": []}', "before_response": None}
+
+    class Handler(_BaseHandler):
+        def do_GET(self):
+            hook, state["before_response"] = state["before_response"], None
+            if hook is not None:
+                hook()
+            self.send_response(state["status"])
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(state["body"])
+
+        def log_message(self, format, *args):
+            pass
+
+    server = _Server(("127.0.0.1", 0), Handler)
+    _threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield state, f"http://127.0.0.1:{server.server_address[1]}"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_tag_push_refuses_when_origin_main_moves_during_the_CI_read(tmp_path, ci_api_with_hook):
+    state, url = ci_api_with_hook
+    repo, bare, home = _scaffold(tmp_path)
+    tip = _git(repo, "rev-parse", "origin/main")
+    _commit_artifacts_only(repo, "\n- main moves\n")
+    moved = _git(repo, "rev-parse", "HEAD")
+    state["body"] = _body([_run("CI/CD", tip, "success")])
+    state["before_response"] = lambda: _git(repo, "push", "-q", bare.as_posix(), "HEAD:refs/heads/main")
+    proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, out
+    assert "moved" in out, out
+    assert _remote_ref(bare, "refs/tags/v0.2.17") is None, "a tag landed at a tip that had moved"
+    assert _remote_ref(bare, "refs/heads/main") == moved
 
 
 def test_artifacts_only_push_refuses_when_the_item_length_test_fails(tmp_path, ci_api):
