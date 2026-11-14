@@ -196,7 +196,10 @@ def test_namespace_and_case_spellings_cannot_bypass_guard(tmp_path, command):
 # repository. The scaffold commit holds the real verify_lane.py and two stand-ins for the stack checks
 # (gate 15 and the item-length test), so each refusal below is caused by the case under test.
 
-from tests.test_jnwb_push import OLDER_SHA, _body, _git, _run, ci_api  # noqa: F401  (fixture)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+from tests.test_jnwb_push import OLDER_SHA, _body, _git, _run, ci_api  # noqa: E402, F401  (fixture)
 
 PUSH_SH = Path(__file__).resolve().parents[1] / "scripts" / "jnwb_push.sh"
 VERIFY_LANE = Path(__file__).resolve().parents[1] / "scripts" / "verify_lane.py"
