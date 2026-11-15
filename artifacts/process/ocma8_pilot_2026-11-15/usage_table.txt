@@ -1,0 +1,11 @@
+arm,role,agent,model,runs,seconds,messages,input,cache_write,cache_read,output
+A,worker,aa846af9704616dab,claude-haiku-5-5,2,361,19,40,79880,1152074,22032
+A,reviewer,a857329a20af94d8d,claude-sonnet-5-5,2,263,6,14,38837,162108,3600
+B,helper,a6073cb14527d4dda,claude-haiku-5-5,1,35,5,10,41280,135166,4596
+B,worker-1,a73689e08c2044e83,claude-haiku-5-5,1,89,14,28,46362,561670,14421
+B,worker-2,ad6fb99d6c03ef100,claude-haiku-5-5,1,212,15,30,46851,595302,13999
+B,keeper,a9ab49cb771e06515,claude-haiku-5-5,1,213,13,26,54056,540918,15905
+B,checker,a7eb123ac70904d71,claude-haiku-5-5,1,277,16,32,80900,867593,30622
+B,critic,a6615f1f72763aa77,claude-haiku-5-5,1,270,10,22,82822,472843,30502
+B,reviewer,a76068c2f338bebed,claude-sonnet-5-5,1,140,4,10,27419,94714,2494
+eval,evaluator,a0fd6b85286b4f453,claude-sonnet-5-5,1,50,6,12,36888,176809,4913

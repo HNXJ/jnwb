@@ -1,0 +1,14 @@
+arm,role,usd,messages,messages_over_100k,write_5m,write_1h,write_unsplit
+A,worker,0.0325,19,0,79880,0,0
+A,reviewer,0.1493,6,0,38837,0,0
+B,helper,0.0088,5,0,41280,0,0
+B,worker-1,0.0186,14,0,46362,0,0
+B,worker-2,0.0188,15,0,46851,0,0
+B,keeper,0.0201,13,0,54056,0,0
+B,checker,0.0341,16,0,80900,0,0
+B,critic,0.0303,10,0,82822,0,0
+B,reviewer,0.1030,4,0,27419,0,0
+eval,evaluator,0.1591,6,0,36888,0,0
+TOTAL,A,0.1819
+TOTAL,B,0.2338
+TOTAL,eval,0.1591

@@ -1,0 +1,48 @@
+diff --git a/.github/CONTRIBUTING.md b/.github/CONTRIBUTING.md
+index e1109dbd..25b0a504 100644
+--- a/.github/CONTRIBUTING.md
++++ b/.github/CONTRIBUTING.md
+@@ -117,7 +117,7 @@ python scripts/release_gate.py
+   memory of a fixed set of operations (`scripts/measure_peak_memory.py`, failing above `PEAK_THRESHOLD_MIB`, the 0.2.7 peak plus 25%,
+   nothing written: each operation's peak resident size above its resident size before it, exact
+   on Linux, where the peak is reset first, and on Windows labelled exact or an upper bound, since
+-  its peak cannot be reset; the script's docstring tables each platform). It also resolves the **CI conclusion for the exact
++  its peak cannot be reset; the script's docstring tables each platform). `release_gate.py` also refuses an operation whose added MiB rises by more than 20% of the previous release's value (`PEAK_MEMORY_GROWTH_FRACTION`) and by at least 5 MiB (`PEAK_MEMORY_GROWTH_FLOOR_MIB`), unless the declared version's CHANGELOG.md section names it. It also resolves the **CI conclusion for the exact
+   commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
+   in aggregate, because a job with `needs:` reports `skipped` rather than `failure` when its
+   dependency fails. Run it before tagging, not before pushing: it needs network access to
+@@ -340,7 +340,7 @@ jnwb/
+ - **Source & Tests**: `jnwb/`, `tests/`, `examples/`, `docs/`, `skills/`, `scripts/`
+ - **Configuration & Metadata**: `pyproject.toml`, `README.md`, `CHANGELOG.md`, `LICENSE`, `.gitignore`, `mkdocs.yml`, `.readthedocs.yaml`, and the repository's policy files
+ 
+-The authoritative list is `ALLOWED_ROOT_DIRS` / `ALLOWED_ROOT_FILES` in `scripts/harness_gate.py`, enforced by Gate 4.
++The authoritative list is `ALLOWED_ROOT_DIRS` / `ALLOWED_ROOT_FILES` in `scripts/gates/boundary.py`, enforced by Gate 4 (`scripts/harness_gate.py`).
+ - **CI / VCS**: `.git/`, `.github/`
+ - **Repository Artifact Container**: `artifacts/`
+ 
+@@ -349,8 +349,24 @@ The `artifacts/` directory is the canonical location for non-package, repository
+ 
+ ```text
+ artifacts/
+-├── todo_stack.md    # Remaining work, grouped by the version that carries it
++├── agents/
++├── agents.md
++├── archive/
+ ├── benchmarks/      # Performance profiles, timing benchmarks, scalability receipts
++├── changelog.d/
++├── direction.md
++├── evidence/
++├── fact_stack.md
++├── goal.md
++├── memory.md
++├── open_stack.md
++├── process/
++├── ref/
++├── roadmap.md
++├── rulings/
++├── showcases/
++├── skills/
++├── todo_stack.md    # Remaining work, grouped by the version that carries it
+ └── scratch/         # Disposable developer scripts, temporary test data (gitignored)
+ ```
+ 
