@@ -40,4 +40,17 @@ writer; no cross-family review of the protocol was made.
 | "The four paired differences" names no quantity | C | reading fixed here, text unchanged: differences in `E`, in `V` and in `C`, B minus A, per task |
 | Orchestrator model id deferred | C | prerequisite 6 gates it |
 
-The two readings above were fixed after the last review and were not themselves reviewed.
+The two readings above were fixed after the last review and were not themselves reviewed: they qualify the frozen
+text and are outside review 10's scope (Hamm 2026-11-15).
+
+## Prerequisites (status 2026-11-15T18:17:15Z; execution still not authorized)
+
+| # | Prerequisite | Status |
+|---|---|---|
+| 1 | Telemetry | passed on vwin-pc: `telemetry_verification.md` (one row per run id on fresh, parallel and resumed runs; no earlier row changed) |
+| 2 | Cross-family scorer smoke | passed as defined: opencode Muse returned a parsed report (`smoke_packet.md`, `smoke_summary.txt`; 55 s, read-only, tree unchanged). It listed 0 defects and so missed the pilot's `scratch/` defect, which the pilot's Sonnet evaluator called minor and borderline |
+| 3 | Predicate scripts with controls | not started |
+| 4 | Packets and scripts frozen, reviewed | not started |
+| 5 | T1 and T4 only in experiment worktrees | holds; nothing run |
+| 6 | Orchestrator model id | `get_session` 2026-11-15: `session_context.model` and `last_served_model` `claude-fable-5-2` (configured `claude-opus-5-5`); priced by the Fable 5.2 row of `prices_2026-11-15.md`. To be re-read at the first dispatch |
+| 7 | Hamm's go | not given |

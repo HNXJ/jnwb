@@ -1,0 +1,26 @@
+EXT: backend=opencode mode=tier -> oc_delegate.py
+WARNING: `opencode models` returned no models (rc=0 stderr=''); opencode-go/muse-spark-1.3-contributor is not checked before the run
+OK exit=0 model=opencode-go/muse-spark-1.3-contributor mode=read agent=cc-review elapsed=55.0s cost=0.0043
+session=ses_e1f9ede52ffe1vsyLWjFYwM4qb run_dir=D:\tmp\claude\acfe204914b1181d\30cef652-1268-5f7a-911c-87a2f8fc2c76\scratchpad\_temp_smoke_out\20261115-120343-ocma smoke
+jchat_sub=none
+harness=in-sync guards_plugin=loaded autocompact_plugin=loaded
+context=['D:\\repos\\_work\\jnwb_pilot_rec\\artifacts\\memory.md']
+tools={'read': 18, 'glob': 1, 'grep': 1} tokens={'input': 32691, 'output': 1517, 'reasoning': 2340}
+git: head_moved=False branch_changed=False dirty_before=0 dirty_after=0
+error: tool read: File not found: D:\repos\_work\jnwb_pilot_rec\CONTRIBUTING.md
+--- final message ---
+RESULT:
+COUNT | 0
+CHANGES:
+none
+COMMANDS:
+read-only reads (no commands run; packet forbids writes): `artifacts/process/ocma8_pilot_2026-11-15/arm_B_final.diff`, `.github/CONTRIBUTING.md` (lines 100-159, 330-389; note `CONTRIBUTING.md` lives at `.github/CONTRIBUTING.md`, matching the diff header), `scripts/release_gate.py` (lines 1600-1709, 1885-2024), `scripts/harness_gate.py` (lines 60-109), directory listings of `artifacts/` and each listed subfolder. Each read succeeded.
+EVIDENCE:
+- Growth sentence verified (observed): `scripts/release_gate.py:1607-1610` defines `PEAK_MEMORY_GROWTH_FRACTION = 0.20`, `PEAK_MEMORY_GROWTH_FLOOR_MIB = 5.0`; `:1683-1688` violates only when growth exceeds the fraction AND meets the floor unless the declared CHANGELOG section names the operation (`_names_operation`, whole-token match at `:1642-1644`); `:2001-2006` calls `peak_memory_growth_violations(root)` inside `check_release_readiness` (def at `:1885`); previous-release definition at `:1614-1629,1651-1656` matches "over the previous release". Values "(20%)" and "(5 MiB)" match the constants exactly.
+- Pointer line verified (observed): `ALLOWED_ROOT_DIRS`/`ALLOWED_ROOT_FILES` are defined in `scripts/gates/boundary.py:335-336` and imported by `scripts/harness_gate.py:77-78`, so "in `scripts/gates/boundary.py`, enforced by Gate 4" is correct.
+- Tree verified (observed): on-disk `artifacts/` folders are exactly `agents archive benchmarks changelog.d evidence process ref rulings showcases skills` (10/10 named in the diff, alphabetical, `scratch/` absent so its removal is correct); `artifacts/agents/` holds `actor.md authority.md critic.md docs-harness.md jnwb-developer.md verifier.md` matching the six roles named; `archive/` holds release dirs plus `changelog_0.1.0-0.2.9.md`; `benchmarks/` holds `calibration/ performance/`; `changelog.d/` holds fragments; `evidence/` holds per-version dirs; `process/` holds docs, schemas (`ocma.schema.json`) and `frozen_validated.json`; `ref/` holds a reference doc; `rulings/` holds dated rulings; `showcases/` and `skills/` contents match their generic descriptions. Tree-drawing characters (`├──`/`└──` on `skills/`) are well-formed.
+- No changed line falsified the task's two requirements; adjacent double "also" (`also refuses ... It also resolves`) is redundant wording but changes no meaning and names no wrong value/pointer, so no finding survives under the seven classes.
+OPEN:
+none
+
+rc=0
