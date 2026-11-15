@@ -1,0 +1,52 @@
+== t4 base
+P1 FAIL artifacts/state.md 9003 bytes (cap 6000); artifacts_check rc 0; 'VERDICT: ACCEPT'
+C1 PASS examined 49 distinct tokens from baseline state.md (33 SHA, 16 ids) against 64 file(s) in tree artifacts/; missing 0: []
+C2 FAIL 0 files differ from the baseline tree: empty examined set, scope not shown
+PRIMARY 0/1 CONSTRAINTS 1/2
+== t4 pos
+P1 PASS artifacts/state.md 5911 bytes (cap 6000); artifacts_check rc 0; 'VERDICT: ACCEPT'
+C1 PASS examined 49 distinct tokens from baseline state.md (33 SHA, 16 ids) against 65 file(s) in tree artifacts/; missing 0: []
+C2 PASS 2 file(s) differ from baseline ['artifacts/state.md', 'artifacts/state_history.md']; outside artifacts/: none
+PRIMARY 1/1 CONSTRAINTS 2/2
+== t3 base
+P1 FAIL 4 file(s) match tests/**/test_rng*.py in tree ['tests/test_rng_control.py', 'tests/test_rng_convention_matches_the_signatures.py', 'tests/test_rng_parameters_by_use.py', 'tests/test_rng_spelling.py']; baseline has 4
+P2 FAIL P1 failed, so FAIL; tree 146 nodes from 4 file(s) (rc 0, last '146 tests collected in 4.65s'); baseline 146 nodes from 4 file(s) (rc 0, last '146 tests collected in 4.57s'); multiset equal True
+P3 FAIL not run: P1 failed
+C1 FAIL 0 files differ from the baseline tree: empty examined set, scope not shown
+C2 PASS tree 11005 (rc 0, last '11005 tests collected in 24.06s') vs baseline 11005 (rc 0, last '11005 tests collected in 23.47s')
+PRIMARY 0/3 CONSTRAINTS 1/2
+== t3 pos
+P1 PASS 1 file(s) match tests/**/test_rng*.py in tree ['tests/test_rng.py']; baseline has 4
+P2 PASS tree 146 nodes from 1 file(s) (rc 0, last '146 tests collected in 3.70s'); baseline 146 nodes from 4 file(s) (rc 0, last '146 tests collected in 3.83s'); multiset equal True
+P3 PASS rc 0; last '146 passed, 43 warnings in 22.63s'; passed 146, skipped 0, failed 0, errors 0; collected 146
+C1 PASS 5 file(s) differ from baseline ['tests/test_rng.py', 'tests/test_rng_control.py', 'tests/test_rng_convention_matches_the_signatures.py', 'tests/test_rng_parameters_by_use.py', 'tests/test_rng_spelling.py']; outside tests/:
+C2 PASS tree 11005 (rc 0, last '11005 tests collected in 18.50s') vs baseline 11005 (rc 0, last '11005 tests collected in 18.37s')
+PRIMARY 3/3 CONSTRAINTS 2/2
+== t2 base
+P1 FAIL definitions=5 [scripts/build_dashboard.py:353 _cells, scripts/build_fact_graph.py:224 _cells, scripts/learning_gate.py:52 _cells, scripts/release_gate.py:1289 _cells, scripts/release_gate.py:1296 _table_cells] by_name=5 by
+P2 FAIL not evaluated: P1 counted 5 splitters, need exactly 1
+P3 FAIL inline split matches outside the splitter=3 [scripts/build_fact_graph.py:399, scripts/docs_form_gate.py:285, scripts/reconstruct_state.py:224] baseline_files_still_matching=3/3
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 58 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 FAIL against ac995ddee147: 0 differing files; outside scripts/ and tests/ none; empty set is not a pass
+PRIMARY 0/3 CONSTRAINTS 3/4
+== t2 pos
+P1 PASS definitions=1 [scripts/md_cells.py:6 cells] by_name=0 by_body=1 baseline_pairs_still_defined=0/5 inline_not_counted=0 []
+P2 PASS scripts/md_cells.py:6 cells: '| a \\| b | c |' -> ['a \\| b', 'c'] (list); '| x | y |' -> ['x', 'y'] (list)
+P3 PASS inline split matches outside the splitter=0 [] baseline_files_still_matching=0/3
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 59 files; 13 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 7 differing files; outside scripts/ and tests/ none
+PRIMARY 3/3 CONSTRAINTS 4/4
+== t2 pos_inline
+P1 PASS definitions=1 [scripts/md_cells.py:6 cells] by_name=0 by_body=1 baseline_pairs_still_defined=0/5 inline_not_counted=3 [scripts/build_fact_graph.py:398, scripts/docs_form_gate.py:285, scripts/reconstruct_state.py:224]
+P2 PASS scripts/md_cells.py:6 cells: '| a \\| b | c |' -> ['a \\| b', 'c'] (list); '| x | y |' -> ['x', 'y'] (list)
+P3 FAIL inline split matches outside the splitter=3 [scripts/build_fact_graph.py:398, scripts/docs_form_gate.py:285, scripts/reconstruct_state.py:224] baseline_files_still_matching=3/3
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 59 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 5 differing files; outside scripts/ and tests/ none
+PRIMARY 2/3 CONSTRAINTS 4/4
+rc=0
