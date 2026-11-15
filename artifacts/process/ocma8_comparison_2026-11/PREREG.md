@@ -11,20 +11,31 @@ Do additional reviewers produce more independently resolved defects and more ver
 or only more defect mentions?
 
 Primary estimand, per task t and arm a: `E = V / C`.
-- `V` (verified completion) = 1 when the final tree passes the task's acceptance command, every frozen predicate
-  and constraint, and both blind evaluators establish no consequential defect; else 0. Consequential classes:
+- `V` (verified completion) = 1 when the final tree passes the task's acceptance command and every frozen
+  predicate and constraint, and carries no confirmed consequential defect; else 0. Consequential classes:
   wrong-behaviour, wrong-pointer, wrong-value, meaning-change, scope, incomplete. Style is not consequential.
-  A defect counts when the orchestrator confirms it against the tree; evaluator disagreement is reported and the
-  tree decides.
-- `C` (total cost, USD) = agents' tokens at public prices read on the analysis day + the orchestrator's tokens
-  spent on that arm of that task (see Cost).
-Reported: `E` per cell (8 cells), `sum V` and `sum C` per arm, `sum V / sum C` per arm, and the four paired
-differences. No significance test: four pairs give sign and size only.
+- Confirmed defect: one a blind evaluator raises and a command on the blind tree demonstrates (the command and its
+  output go in the record). The orchestrator, who is unblinded, runs commands and never judges: a raised defect no
+  command can settle goes to a fresh blind `reviewer` as adjudicator, whose yes or no is final. A cross-family
+  run that fails or does not parse is retried once; after that a second fresh Sonnet evaluator replaces it and the
+  cell is marked "no cross-family".
+- `C` (total cost, USD) = agents' tokens + the orchestrator's tokens spent on that arm of that task (see Cost).
+Reported: `E` per cell (8 cells), `sum V` and `sum C` per arm, `sum V / sum C` per arm, the four paired
+differences, and all of it again with agents-only cost. No significance test: four pairs give sign and size only.
 
 Secondary: confirmed defects by class; critical-path seconds (wall clock from the arm's first dispatch to its
-final tree, lane cap 3); review yield (distinct actionable defects found inside the formation, duplicates merged);
-mentions per distinct defect; closure reliability (defects resolved and then independently verified / defects
-raised); consequential defects closed.
+final tree, lane cap 3); review yield; mentions per distinct defect; false findings; closure reliability;
+consequential defects closed. Definitions:
+- Each arm's tree is saved as a diff before its review stage (the pre-review tree) and at the end.
+- A finding is one statement by an in-formation critic role or an open item in a writer's report. Two findings are
+  the same defect when they name the same file and overlapping lines, or the same symbol, and the same class.
+- The blind evaluators receive, per cell, the merged defect list without its sources and mark each one real or
+  not on the pre-review tree, and resolved or not on the final tree. Real on the pre-review tree by a command or
+  by the adjudicator: actionable. Not real: a false finding.
+- Review yield = actionable defects per cell. Closure reliability = actionable defects marked resolved by both
+  evaluators / actionable defects. Consequential defects closed = those of a consequential class.
+No defect is seeded: seeding changes the task. So yield is bounded by the defects each arm's writers happen to
+make, which differ between arms; the report states the pre-review defect count per arm beside the yield.
 
 ## Tasks (four kinds; each whole and bounded; nothing is merged by the experiment)
 
@@ -33,7 +44,7 @@ raised); consequential defects closed.
 | T1 | code fix, red test first | jarness T-82: `selfcheck.py` reports a required hook `settings.json` does not wire | jarness `dev` 3fb6fe0 | the new test fails on the baseline and passes; `harness/lint.py`, `audit.py --selftest` pass; the hooks and selfcheck tests pass |
 | T2 | refactor, behaviour kept | jnwb 17-95, the `cells()` half: one markdown cell splitter for `scripts/`, honouring escaped pipes | jnwb `dev` ac995dde | one definition (baseline: 5 found by name in 4 files; the item says 8); `harness_gate.py` 22 of 22; the tests that read those scripts pass; gate outputs byte-equal on the tracked tables |
 | T3 | test reorganization | jnwb 17-97, the `test_rng_*` group: 4 files merged by subject | jnwb `dev` ac995dde | one `test_rng*.py` file; 146 tests collected before and after, same node names after the file prefix; they pass |
-| T4 | state document | jynx `artifacts/state.md` is 9,003 B against `STATE_MAX_BYTES = 6000` | jynx `dev` bc72f27 | at most 6,000 B; `scripts/artifacts_check.py .` ACCEPT; every obligation and SHA of the baseline file still stated in a tracked file the state names |
+| T4 | state document | jynx `artifacts/state.md` is 9,003 B against `STATE_MAX_BYTES = 6000` | jynx `dev` bc72f27 | at most 6,000 B; `scripts/artifacts_check.py .` ACCEPT; every hex SHA of 7 or more characters and every `O-`, `T-`, `P-` id in the baseline file is in the final file or in a tracked file under `artifacts/`; only files under `artifacts/` change |
 
 A task leaves the set, and the set is not refilled, if its baseline moves before the freeze or its
 known-negative or known-positive control fails (prerequisite 3).
@@ -49,16 +60,23 @@ Equal by construction, each a repair of a pilot defect:
 - One TASK block per task, sent whole to every agent of both arms. Role blocks hold the role and nothing about
   the task. The helper's block names no command and no hazard.
 - Arm B's split: the two workers receive the same TASK block plus one line naming the part; parts are the item's
-  own enumerated parts. Where the item has one part (T3, T4), worker 2 drafts independently and the keeper takes
-  the tree that passes more predicates (tie: worker 1). The orchestrator writes no decision into a split.
-- Acceptance is run by the writer of the final tree and by the reviewer only; no other block mentions it.
+  own enumerated parts. Where the item has one part (T3, T4), both workers draft the whole item and the keeper
+  takes the draft that passes the acceptance command (both pass or both fail: worker 1). The orchestrator writes
+  no decision into a split. No agent of either arm sees a predicate script.
+- Acceptance is run by the writer of the final tree (arm A: the worker; arm B: the keeper, once per draft it
+  chooses between) and by the reviewer; no other block mentions it. The keeper's extra runs are part of arm B.
 - Fix round, both arms, one at most: every finding of every in-formation critic role (reviewer, and in arm B
   checker and critic) and every open item in a writer's or keeper's report goes verbatim to the writer of the
-  final tree, whatever the reviewer's verdict; then one closing review by a fresh `reviewer`. No findings, no
-  round.
+  final tree (arm A: the worker; arm B: the keeper; each resumed with its context), whatever the reviewer's
+  verdict; then one closing review by a fresh `reviewer` that receives the same findings. No findings, no round.
+  Limitation, to be stated in the report: this tests each formation under a forward-everything policy, with no
+  orchestrator triage; false findings are forwarded too and their cost is the arm's.
 - The orchestrator sends frozen packets verbatim, forwards output only into a packet's slot, and logs every other
-  action as an intervention. A finding against a packet stops that cell; the cell is reported as void, not rerun.
-- Same tools, permissions and effort per agent type; each writer in its own linked worktree at the baseline.
+  action as an intervention. No cell is voided: a finding against a packet is recorded and the cell goes on under
+  the packet as written; if an agent stops, the cell ends there and `V` is computed on the tree as it stands.
+- Same tools and permissions per agent type; effort as in the table, `checker` as its agent definition sets it
+  (Haiku 5.5, default effort). The critic's block names the two ontology files it may read outside its tree.
+  Each writer has its own linked worktree at the baseline.
 
 ## Order and blinding
 
@@ -71,19 +89,34 @@ from another model family through `delegate-cli` (opencode Muse, read-only).
 
 ## Cost
 
-- Agents: `~/.claude/subagent_runs.jsonl` once P-26 (jarness open stack) is repaired, and the transcripts by
-  `pilot_usage.py` and `pilot_cost.py`; both reported; a difference above 1% per agent is a finding.
+- Agents: `C` is filled from the transcripts by `pilot_usage.py` and `pilot_cost.py` (the pilot's method).
+  `~/.claude/subagent_runs.jsonl`, once P-26 (jarness open stack) is repaired, is the cross-check; a difference
+  above 1% per agent is a finding.
+- Prices are fixed now, USD per million tokens, read 2026-11-15 from
+  https://platform.claude.com/docs/en/about-claude/pricing: Haiku 5.5 up to 100K prompt 0.10 input, 0.125 and 0.20
+  cache write (5m, 1h), 0.01 cache read, 0.50 output; over 100K 0.50, 0.625, 1, 0.05, 2.50; Sonnet 5.5 2, 2.50,
+  4, 0.10, 10. The orchestrator's and the cross-family scorer's prices are read and added here before the freeze.
 - Orchestrator: the main session's usage rows in its own transcript between the arm's first dispatch and its
-  final tree, priced the same way, reported beside the agents' cost and inside `C`. Possible because arms do not
-  interleave. Evaluation and the record's review are outside both arms and reported apart.
-- A cell whose cost cannot be measured is reported with `C` unknown and leaves the primary estimand.
+  final tree, reported beside the agents' cost and inside `C`. Possible because arms do not interleave. Its
+  context grows through the session, so later cells cost more; the alternation spreads this over the arms and
+  the agents-only analysis is free of it. Evaluation and the record's review are outside both arms.
+- A task with a cell whose cost cannot be measured leaves the primary sums in both arms and is reported apart.
 
-## Decision rule (Hamm 2026-11-15, fixed)
+## Decision rule (Hamm's stopping rule of 2026-11-15; the thresholds below are proposed and his to confirm at go)
 
-If OCMA-8 does not improve `sum V` or consequential defects closed while its `sum C` is at least 1.25 times arm
-A's, prefer the minimal formation, unless a task kind shows a measurable advantage: on that task `V_B > V_A` or
-more consequential defects closed in B. Four tasks do not license a rate; the report says so. Failures, void cells
-and inconclusive outcomes stay in the record.
+"Improves" means `sum V_B > sum V_A`, or consequential defects closed in B exceed those in A by two or more.
+"Substantially more" means `sum C_B >= 1.25 x sum C_A`.
+
+| Outcome | Reading |
+|---|---|
+| B does not improve, B substantially more costly | prefer the minimal formation |
+| B does not improve, cost within 1.25x | no reason to adopt OCMA-8; prefer minimal for its simplicity |
+| B improves, B substantially more costly | report `sum V / sum C` of both; the trade-off is Hamm's |
+| B improves, cost within 1.25x | candidate for a larger preregistered comparison; still no rollout |
+
+Task-kind exception: a kind counts as showing an advantage only when `V_B = 1` and `V_A = 0` on it; one such cell
+of four is reported as a lead for a follow-up on that kind, never as grounds to adopt. Four tasks license no rate;
+the report says so. Failures and inconclusive outcomes stay in the record.
 
 ## Prerequisites (each a gate; none passed yet)
 
