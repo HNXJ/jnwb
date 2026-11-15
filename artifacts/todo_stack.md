@@ -50,7 +50,7 @@ Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/stat
 
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/jnwb_push.sh`, `scripts/push_guard.py`, `tests/test_push_guard.py`.
+Writes: `scripts/jnwb_push.sh`, `scripts/push_guard.py`, `tests/test_push_guard.py`, `scripts/verify_lane.py`, `scripts/ci_gate.py` (the last two added by Hamm 2026-11-15).
 - 17-143: `push_guard.py` denied the v0.2.16 tag push (2026-11-08) and `jnwb_push.sh` pushes only a branch (`:52`), so Hamm pushed it by hand. Ruled 2026-11-09: an artifacts-only push first runs gate 15 and `tests/test_stack_item_length.py`. Check: `jnwb_push.sh <dir> --tag vX.Y.Z` pushes a `v*` tag only at `origin/main`'s tip with a successful main CI/CD run of that SHA, else refuses; an artifacts-only push with a bare directory in `Writes:` is refused; guard tests cover each.
 
 ### 17-144 The jaxfne isi_cv commits
