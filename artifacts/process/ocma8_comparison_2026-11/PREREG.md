@@ -34,8 +34,17 @@ consequential defects closed. Definitions:
   by the adjudicator: actionable. Not real: a false finding.
 - Review yield = actionable defects per cell. Closure reliability = actionable defects marked resolved by both
   evaluators / actionable defects. Consequential defects closed = those of a consequential class.
+- Defect opportunity (pre-review inventory), per cell: every real defect of the pre-review tree, from three
+  sources kept apart: introduced by the arm's writers; present in the packet (a finding against the packet that a
+  command or the adjudicator confirms); and found only by the blind evaluators, which the formation missed.
+  Discovery = actionable defects the formation raised / inventory. Closure = inventory defects resolved on the
+  final tree / inventory. The two are reported apart, per source.
+- Findings ledger, per cell: every finding as raised, false ones included, with who raised it, to whom it was
+  forwarded, its adjudication, and the tokens and seconds of the fix round and closing review it caused. Nothing
+  is filtered or regrouped after results are seen; the merge rule above is applied before the evaluators' marks
+  are read.
 No defect is seeded: seeding changes the task. So yield is bounded by the defects each arm's writers happen to
-make, which differ between arms; the report states the pre-review defect count per arm beside the yield.
+make, which differ between arms; the inventory states that opportunity beside the yield.
 
 ## Tasks (four kinds; each whole and bounded; nothing is merged by the experiment)
 
@@ -102,10 +111,17 @@ from another model family through `delegate-cli` (opencode Muse, read-only).
   the agents-only analysis is free of it. Evaluation and the record's review are outside both arms.
 - A task with a cell whose cost cannot be measured leaves the primary sums in both arms and is reported apart.
 
-## Decision rule (Hamm's stopping rule of 2026-11-15; the thresholds below are proposed and his to confirm at go)
+## Decision rule (Hamm's stopping rule of 2026-11-15; thresholds approved by him the same day as exploratory criteria)
 
-"Improves" means `sum V_B > sum V_A`, or consequential defects closed in B exceed those in A by two or more.
-"Substantially more" means `sum C_B >= 1.25 x sum C_A`.
+The thresholds are operational decision boundaries, not significance tests. Three questions are answered apart:
+effectiveness (verified completions and consequential defects closed), efficiency (those per total cost), and
+adoption (the table below). A closure advantage does not by itself justify adoption at excessive cost, and equal
+verified completion does not show equal review quality: the report gives discovery and closure beside `V`.
+
+"Improves" means `sum V_B > sum V_A` as absolute counts over the same tasks (a task missing a cell in either arm
+leaves both sums), or distinct blind-adjudicated consequential defects closed in B exceed those in A by two or
+more. "Substantially more" means `sum C_B >= 1.25 x sum C_A`, all attributable agent and orchestrator cost
+included.
 
 | Outcome | Reading |
 |---|---|
