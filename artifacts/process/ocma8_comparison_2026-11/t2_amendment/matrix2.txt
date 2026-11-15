@@ -1,0 +1,102 @@
+t2beh matrix2 (2026-11-15). Model claude-haiku-5-5.
+Trees: BASE = D:/repos/_work/exp_prereq/t2/base; OLD_POS = D:/repos/_work/exp_prereq/t2/pos; pos2 = D:/repos/_work/exp_t2beh/pos2 (detached, scripts/ edited, no commit); mut = D:/repos/_work/exp_t2beh/mut (clone of BASE). All at HEAD ac995ddee147c4d6aa78ba15ecda7a998cd70a00 (step 2: BASE HEAD matched, OLD_POS HEAD matched, mut HEAD matched).
+Pytest command, cwd = tree: PYTHONDONTWRITEBYTECODE=1 python -m pytest <abs file> -q -p no:cacheprovider --basetemp=D:/pytest_temp/t2beh2_<name>; stdin closed; full logs D:/pytest_temp/t2beh2_<name>.log.
+Test files: t2_preserved_test.py 31 tests (33 minus the 2 moved); t2_corrected_test.py 6; t2_exploratory_test.py 2 (moved, bodies unchanged). Docstrings of all three: kind line plus run line.
+
+## a. BASE
+preserved (31): 31 passed in 3.85s
+corrected (6): 6 failed in 3.49s; first E per test:
+- test_build_fact_graph_fact_row_with_escaped_pipe_is_one_fact | E   build_fact_graph.FactSourceError: Boundary: a fact row has 6 cells, not 5: ['`F9`', 'boundary', 'the value \\', 'other holds', '`mod.a`', '2026-01-02']
+- test_build_fact_graph_reference_row_with_escaped_pipe_has_three_cells | E   AssertionError: a references row does not have three cells: | [Smith 2001](https://doi.org/10.1000/x1) | A \| B | `fn_a` |
+- test_learning_gate_ledger_row_with_escaped_pipe_counts_the_same_instances | E   AssertionError: assert [('cls', 2, 1)] == [('cls', 2, 2)]
+- test_release_gate_roadmap_row_with_escaped_pipe_is_one_row | E   assert ([], ["line 3... | deferre'"]) == ([('01-5', 'd...90.0.0')], [])
+- test_docs_form_gate_vocabulary_row_with_escaped_pipe_keeps_three_cells | E   AssertionError: assert [] == [('normalisat...normalised'))]
+- test_reconstruct_state_defect_row_with_escaped_pipe_in_status_is_closed | E   AssertionError: assert 'alpha (seen 3)' == 'none'
+exploratory (2): 2 passed in 0.07s
+
+## b. pos2
+preserved (31): 31 passed in 2.92s
+corrected (6): 6 passed in 2.83s
+exploratory (2): 2 passed in 0.06s (either result accepted; both pass)
+
+## c. OLD_POS (known defective; must be rejected)
+preserved: 2 failed, 29 passed in 4.17s
+- test_roadmap_malformed_lines_are_refused_or_skipped | E   AssertionError: line 3 is not a readable row '| id | theme | defect | waits | deferred-X.Y.Z |': '01-3 | Theme | defect | waits | deferred-90.0.0'
+- test_prose_with_pipes_is_not_a_table_row | E   AssertionError: assert [(1, 'Some pr...ter | table')] == [(4, '| 01 | ...(5, '| 02 |')]
+
+## d. Mutants, preserved file (mut: git apply, pytest, git checkout -- ., porcelain 0 before the next). Each E line cut at 170 characters.
+M1 (build_dashboard drops last cell): 5 failed, 26 passed in 4.29s
+- test_dashboard_deferred_row_keeps_its_last_cell | E   AssertionError: assert [] == [{'defect': '...-0.3.0', ...}]
+- test_dashboard_row_with_trailing_empty_cell_has_six_cells | E   AssertionError: assert [{'defect': '...-0.3.0', ...}] == []
+- test_dashboard_malformed_roadmap_lines_are_left_out | E   AssertionError: assert [] == ['01-4']
+- test_dashboard_escaped_pipe_does_not_split_a_cell | E   AssertionError: escaped pipe split the row: []
+- test_dashboard_references_rows_and_their_urls | E   AssertionError: assert [] == [{'text': 'Sm... 'url': None}]
+M2 (build_dashboard stops honouring escaped pipes): 1 failed, 30 passed in 3.59s
+- test_dashboard_escaped_pipe_does_not_split_a_cell | E   AssertionError: escaped pipe split the row: []
+M3 (build_fact_graph drops last cell): 5 failed, 26 passed in 4.18s
+- test_fact_row_keeps_its_last_cell | E   build_fact_graph.FactSourceError: section 'Boundary': the table header ['ID', 'Domain', 'Predicate', 'Held by'] is not the fact header ['ID', 'Domain'
+- test_constants_keep_the_values_cell | E   AssertionError: assert {} == {'N_BINS': ['8', '16']}
+- test_fact_row_with_trailing_empty_cell_has_six_cells | E   build_fact_graph.FactSourceError: section 'Boundary': the table header ['ID', 'Domain', 'Predicate', 'Held by'] is not the fact header ['ID', 'Domain'
+- test_fact_row_with_too_few_cells_is_refused | E   build_fact_graph.FactSourceError: section 'Boundary': the table header ['ID', 'Domain', 'Predicate', 'Held by'] is not the fact header ['ID', 'Domain'
+- test_fact_row_without_leading_pipe_ends_the_table_unread | E   build_fact_graph.FactSourceError: section 'Boundary': the table header ['ID', 'Domain', 'Predicate', 'Held by'] is not the fact header ['ID', 'Domain'
+M4 (learning_gate drops last cell): 2 failed, 29 passed in 3.61s
+- test_ledger_row_keeps_its_instances_cell | E   AssertionError: assert [] == [('cls', 3, 3)]
+- test_ledger_row_with_too_few_cells_and_non_numeric_seen_are_left_out | E   AssertionError: assert [] == [('cls', 3, 3)]
+M5 (release_gate _cells drops last cell): 3 failed, 28 passed in 3.48s
+- test_roadmap_row_keeps_its_release_cell | E   assert ([], ["line 1...eferred-90'"]) == ([('01-1', 'd...90.0.0')], [])
+- test_roadmap_row_with_trailing_empty_cell_is_refused | E   AssertionError: assert [('01-1', 'deferred-90.0.0')] == []
+- test_roadmap_malformed_lines_are_refused_or_skipped | E   AssertionError: ["line 1 is not a readable row '| id | theme | defect | waits | deferred-X.Y.Z |': '| ID | Theme | Defect | Waits | Re... not a readable row '| id
+  (then E   assert 3 == 2)
+M6 (release_gate _table_cells drops last cell): 2 failed, 29 passed in 3.45s
+- test_open_stack_row_keeps_a_last_cell_that_is_not_a_rule | E   AssertionError: assert [(4, '| P-1 | open |')] == [(3, '| - | n...-1 | open |')]
+- test_one_column_table_has_a_header_and_a_rule | E   AssertionError: assert [(1, '| Item ... (3, '| x |')] == [(3, '| x |')]
+M7 (build_fact_graph inline drops last cell): 4 failed, 27 passed in 4.01s
+- test_reference_row_keeps_its_functions_cell | E   AssertionError: unknown table header: | Reference | Result implemented | Functions |
+- test_reference_row_with_trailing_empty_cell_is_refused | E   AssertionError: unknown table header: | Reference | Result implemented | Functions |
+- test_reference_rows_skip_lines_that_are_not_rows | E   AssertionError: unknown table header: | Reference | Result implemented | Functions |
+- test_reference_row_with_too_few_cells_is_refused | E   AssertionError: unknown table header: | Reference | Result implemented | Functions |
+M8 (docs_form_gate inline drops last cell): 3 failed, 28 passed in 3.43s
+- test_vocabulary_row_keeps_its_superseded_cell | E   AssertionError: assert [] == [('normalisat...,), ('spk',))]
+- test_vocabulary_row_with_trailing_empty_cell_has_four_cells | E   AssertionError: assert [('spike', ('...,), ('spk',))] == []
+- test_vocabulary_malformed_rows_are_left_out | E   AssertionError: assert [] == [('normalisat...normalise',))]
+M9 (reconstruct_state inline drops last cell): 3 failed, 28 passed in 3.08s
+- test_defect_row_keeps_its_status_cell | E   AssertionError: assert 'none' == 'alpha (seen 3)'
+- test_closed_defect_row_is_left_out | E   AssertionError: assert 'none' == 'alpha (seen 3)'
+- test_defect_row_with_trailing_empty_cell_reads_that_cell_as_status | E   AssertionError: assert 'none' == 'gamma (seen 1)'
+Survivors: none. Killers per mutant (preserved file only, after the 2 moves): M1 5, M2 1, M3 5, M4 2, M5 3, M6 2, M7 4, M8 3, M9 3.
+
+## e. predicates_t2.py pos2 against BASE (log D:/pytest_temp/t2beh2_predicates.log; rc 0)
+P1 PASS definitions=1 [scripts/md_cells.py:10 split_cells] by_name=0 by_body=1 baseline_pairs_still_defined=0/5 inline_not_counted=0 []
+P2 PASS scripts/md_cells.py:10 split_cells: '| a \\| b | c |' -> ['a \\| b', 'c'] (list); '| x | y |' -> ['x', 'y'] (list)
+P3 PASS inline split matches outside the splitter=0 [] baseline_files_still_matching=0/3
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0
+C2 PASS compileall rc=0; 59 files; 0 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 7 differing files; outside scripts/ and tests/ none
+PRIMARY 3/3 CONSTRAINTS 4/4
+FAIL lines: none.
+
+## f. pos2: python scripts/harness_gate.py (rc 0; no FAIL, ERROR or NOT RUN lines)
+ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+
+## Supplement: differential of the eight readers (D:/pytest_temp/_temp_t2beh2_diff.py run in BASE and pos2; _temp_t2beh2_diffcmp.py compares; seed 20261115; 6000 generated lines per reader)
+No escaped pipe: TOTAL compared_readers=8 mismatches=0 without_escaped_pipe=0. Per reader compared=6000 mismatches=0: dashboard_row, defect_status, fact_graph_cells, fact_reference_rows, learning_cells, release_row, release_table_row, vocabulary. Non-empty results: dashboard 4215, fact cells 6000, learning cells 6000, release rows 2768, release table rows 3041, reference rows 460, vocabulary 40, defect status 6000.
+With escaped pipes: TOTAL mismatches=10649 without_escaped_pipe=0 (every mismatching input holds a backslash-pipe). Per reader: dashboard_row 0; defect_status 1; fact_graph_cells 3305; fact_reference_rows 369; learning_cells 3305; release_row 1723; release_table_row 1910; vocabulary 36.
+
+## Porcelain record (git status --porcelain; sha256 of the listing)
+BASE: before empty (e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855); after empty (same).
+OLD_POS: before 7 lines (6 M scripts/*.py, 1 ?? scripts/md_cells.py), sha256 e5096115dad81019e153c81ed0afd5319a7197f060c67d218ef2e436c9b253f3, diff sha256 a9287ec36599fb137c9779ef35cd95094f6c7b0992ec54dcf6fc1d6bbd3b5dbd; after: same listing, same sha256 for both.
+mut: porcelain 0 lines after every mutant and at the end; HEAD ac995ddee147c4d6aa78ba15ecda7a998cd70a00.
+
+## pos2 change
+Files: scripts/md_cells.py (new; git add -N for the diff and the gates), scripts/build_dashboard.py, build_fact_graph.py, docs_form_gate.py, learning_gate.py, reconstruct_state.py, release_gate.py. git diff --stat: 7 files changed, 42 insertions(+), 27 deletions(-). Diff: D:/repos/_work/exp_t2beh/pos2.diff (262 lines).
+Design: one splitter split_cells(line, keep_outer=False) in md_cells.py, pipes split by re.split(r"(?<!\\)\|"). Default strips the outer pipes (as six sites did); keep_outer=True keeps them (dashboard's [1:-1] rule). The per-site guards stay at the call sites.
+
+## Unresolved
+| item | why | who decides |
+| keep_outer flag on split_cells | the dashboard's [1:-1] reads a row with no trailing pipe or a double pipe differently from strip-all; the packet requires each site's malformed-row handling kept, and P2 requires outer stripping by default | Hamm: keep the flag, or accept the change |
+| escaped-pipe rows read differently at every site | the intended fix; observed in the differential (e.g. defect row '| cls:alpha | 3 | 2 |  | a \| b' gives none, baseline cls (seen 3)); real artifacts not checked | owner, before adopting |
+| docs_form_gate cited_works_removed splits on ' | ' | not one of the eight sites; left as is | owner |
+| wrappers renamed _row_cells, _table_row_cells; _cells aliases removed | predicate P1 counts functions named _cells or _table_cells | informational |
+
+ACCEPT: runs a-f recorded; a, b, c as stated; BASE and OLD_POS porcelain identical before and after; mut clean at the end; pos2 PRIMARY 3/3 CONSTRAINTS 4/4.

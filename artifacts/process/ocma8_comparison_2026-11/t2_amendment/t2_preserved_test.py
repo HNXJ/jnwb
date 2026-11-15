@@ -1,9 +1,5 @@
-"""PRESERVED table-row behaviour of six jnwb scripts, observed at each script's own entry point.
-
-Run with the tree under test as the working directory:
-    python -m pytest <abs path to this file> -q -p no:cacheprovider --basetemp=<dir>
-Every expected value is taken from the baseline source (jnwb ac995dd). No test names a private
-cell reader; each calls the public reader that uses one. Fixtures are written under tmp_path.
+"""PRESERVED: table-row behaviour of six jnwb scripts at baseline ac995dd, each read at its own entry point.
+Run: cwd = tree under test; python -m pytest <abs path to this file> -q -p no:cacheprovider --basetemp=<dir outside the tree>
 """
 import sys
 from pathlib import Path
@@ -173,10 +169,6 @@ def test_ledger_row_with_too_few_cells_and_non_numeric_seen_are_left_out():
     assert learning_gate.ledger_rows(text) == [("cls", 3, 3)]
 
 
-def test_ledger_row_without_leading_pipe_is_read_as_baseline_does():
-    assert learning_gate.ledger_rows(LEDGER_HEAD + "cls:delta | 1 | a\n") == [("cls", 1, 1)]
-
-
 # release_gate: the roadmap-row reader and the open-stack table reader.
 RM_ROW = "| 01-1 | Theme one | defect one | waits on one | deferred-90.0.0 |"
 
@@ -271,8 +263,3 @@ def test_defect_row_with_trailing_empty_cell_reads_that_cell_as_status(tmp_path)
 def test_defect_rows_with_too_few_cells_are_left_out(tmp_path):
     path = _defect_file(tmp_path, "| eps:R5 | 4 | a | repaired |", "| zeta:R6 | 5 | a | b | open |")
     assert reconstruct_state.open_defect_classes(path) == "none"
-
-
-def test_defect_row_without_leading_pipe_is_read_as_baseline_does(tmp_path):
-    path = _defect_file(tmp_path, "delta:R4 | 2 | a | b | c | open")
-    assert reconstruct_state.open_defect_classes(path) == "delta (seen 2)"

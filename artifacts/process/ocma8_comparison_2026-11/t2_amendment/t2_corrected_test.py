@@ -1,9 +1,5 @@
-"""CORRECTED table-row behaviour: an escaped pipe inside a cell must not change the rows or cells read.
-
-One test per legacy site, through the public entry point that calls it. The escaped cell may keep
-its backslash or not; the other cells must keep their values. Each test first asserts the reading
-of the same row with no pipe, which the baseline already gives. Expected: FAIL on the baseline at
-every site, PASS on a tree whose readers honour escaped pipes. Run as in t2_preserved_test.py.
+"""CORRECTED: an escaped pipe inside a cell must not change the rows or cells read (FAIL on baseline, PASS on a fixed tree).
+Run: cwd = tree under test; python -m pytest <abs path to this file> -q -p no:cacheprovider --basetemp=<dir outside the tree>
 """
 import sys
 from pathlib import Path

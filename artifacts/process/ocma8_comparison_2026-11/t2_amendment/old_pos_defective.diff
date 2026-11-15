@@ -1,0 +1,105 @@
+diff --git a/scripts/build_dashboard.py b/scripts/build_dashboard.py
+index 7ada896b..f918d0c0 100644
+--- a/scripts/build_dashboard.py
++++ b/scripts/build_dashboard.py
+@@ -350,8 +350,7 @@ def performance_section() -> dict | None:
+     return section or None
+ 
+ 
+-def _cells(line: str) -> list[str]:
+-    return [cell.strip() for cell in re.split(r"(?<!\\)\|", line)[1:-1]]
++from scripts.md_cells import cells as _cells  # throwaway control
+ 
+ 
+ def _first_url(text: str) -> str | None:
+diff --git a/scripts/build_fact_graph.py b/scripts/build_fact_graph.py
+index ff00e9c1..65f049a9 100644
+--- a/scripts/build_fact_graph.py
++++ b/scripts/build_fact_graph.py
+@@ -221,8 +221,7 @@ class FactSourceError(ValueError):
+ # ------------------------------------------------------------------------ owned tables
+ 
+ 
+-def _cells(line: str) -> List[str]:
+-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
++from scripts.md_cells import cells as _cells  # throwaway control
+ 
+ 
+ def _all_tables(text: str) -> List[Tuple[str, List[str], List[List[str]]]]:
+@@ -396,7 +395,7 @@ def reference_table_rows(text: str) -> List[Tuple[Tuple[str, ...], str, str, str
+         line = line.strip()
+         if not line.startswith("|") or set(line) <= set("|- "):
+             continue
+-        cells = [c.strip() for c in line.strip("|").split("|")]
++        cells = _cells(line)
+         if cells and cells[0] == "Reference":
+             header = tuple(cells)
+             assert header in (*FUNCTION_HEADERS, CORE_HEADER, REPRODUCTION_HEADER), (
+diff --git a/scripts/docs_form_gate.py b/scripts/docs_form_gate.py
+index 8d0ffea4..98a3fd22 100644
+--- a/scripts/docs_form_gate.py
++++ b/scripts/docs_form_gate.py
+@@ -282,7 +282,8 @@ def parse_vocabulary(contract_text: str) -> List[VocabularyRow]:
+         line = line.strip()
+         if not line.startswith("|") or "|---" in line:
+             continue
+-        cells = [c.strip() for c in line.strip("|").split("|")]
++        from scripts.md_cells import cells as _cells  # throwaway control
++        cells = _cells(line)
+         if len(cells) != 3 or cells[0].lower() == "concept":
+             continue
+         preferred = BACKTICKED.findall(cells[1])
+diff --git a/scripts/learning_gate.py b/scripts/learning_gate.py
+index c6b42715..191d13f4 100644
+--- a/scripts/learning_gate.py
++++ b/scripts/learning_gate.py
+@@ -49,8 +49,7 @@ FORBIDDEN = re.compile(r'Forbidden:\s*"([^"]+)"')
+ NOT_SEARCHED = ("artifacts/rulings", "artifacts/archive", "artifacts/evidence")
+ 
+ 
+-def _cells(line: str) -> List[str]:
+-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
++from scripts.md_cells import cells as _cells  # throwaway control
+ 
+ 
+ def ledger_rows(text: str) -> List[Tuple[str, int, int]]:
+diff --git a/scripts/reconstruct_state.py b/scripts/reconstruct_state.py
+index 4664cbb2..0c19b149 100644
+--- a/scripts/reconstruct_state.py
++++ b/scripts/reconstruct_state.py
+@@ -221,7 +221,8 @@ def open_defect_classes(path: pathlib.Path | None = None) -> str:
+         return "UNRESOLVED (file absent)"
+     found = []
+     for line in path.read_text(encoding="utf-8").splitlines():
+-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
++        from scripts.md_cells import cells as _cells  # throwaway control
++        cells = _cells(line.strip())
+         if len(cells) < 6 or not cells[1].isdigit() or ":" not in cells[0]:
+             continue
+         if not _CLOSED_STATUS.match(cells[-1]):
+diff --git a/scripts/release_gate.py b/scripts/release_gate.py
+index 98ef7087..37b27114 100644
+--- a/scripts/release_gate.py
++++ b/scripts/release_gate.py
+@@ -1286,19 +1286,8 @@ OPEN_STACK = "artifacts/open_stack.md"
+ _SEPARATOR_CELL = re.compile(r"^:?-+:?$")
+ 
+ 
+-def _cells(line: str) -> Optional[List[str]]:
+-    stripped = line.strip()
+-    if not stripped.startswith("|"):
+-        return None
+-    return [cell.strip() for cell in stripped.strip("|").split("|")]
+-
+-
+-def _table_cells(line: str) -> Optional[List[str]]:
+-    """The cells of a table line, blockquote markers removed; ``None`` for any other line."""
+-    body = line.lstrip(" \t>").strip()
+-    if not body.startswith("|"):
+-        return None
+-    return [cell.strip() for cell in body.strip("|").split("|")]
++from scripts.md_cells import cells as _cells  # throwaway control
++from scripts.md_cells import cells as _table_cells  # throwaway control
+ 
+ 
+ def _is_separator(cells: Optional[List[str]]) -> bool:
