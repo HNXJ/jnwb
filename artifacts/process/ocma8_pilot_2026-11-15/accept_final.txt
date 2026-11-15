@@ -1,0 +1,7 @@
+# pilot_accept.sh on the final trees, run by the orchestrator: arm A (A_final), then arm B (B_final)
+pytest-contributing-readers rc=0 s=76 :: 557 passed, 2 skipped, 6 warnings in 72.97s (0:01:12)
+harness_gate rc=0 s=39 :: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+ACCEPT_RC=0
+pytest-contributing-readers rc=0 s=74 :: 557 passed, 2 skipped, 6 warnings in 72.27s (0:01:12)
+harness_gate rc=0 s=40 :: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+ACCEPT_RC=0

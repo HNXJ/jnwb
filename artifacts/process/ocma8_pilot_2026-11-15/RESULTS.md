@@ -10,7 +10,7 @@ Inconclusive on effectiveness; arm B cost more. Both arms closed the item by eve
 five extra agents added cost and one wording edit, and left unrepaired the one non-style defect that five of its
 agents named. One sample: it names failure modes, never a rate.
 
-## Verified completion (orchestrator's runs on the final trees)
+## Verified completion (orchestrator's runs on the final trees; acceptance output in `accept_final.txt`)
 
 | Check | A, minimal | B, OCMA-8 |
 |---|---|---|
@@ -45,6 +45,7 @@ defect is in arm B.
 | Distinct actionable defects found in the formation | 1: pointer 2 left open (reviewer, round 1) | 2: the `scratch/` removal; the unclear clause "The first refusal also includes" |
 | Mentions of those defects | 1 | `scratch/`: worker 2, keeper, checker, critic, reviewer (5); the clause: keeper, checker (2) |
 | Resolved and then independently checked | 1 of 1 (fix round; reviewer round 2; P2) | 1 of 2 (the checker reworded the clause, the reviewer accepted after it; `scratch/` not repaired: the reviewer said ACCEPT, so the flow had no fix round) |
+| Other flags in the reports, not defects of the change | long line at :120 (reviewer; cosmetic) | growth check runs only when the peak record is current (checker; true at `release_gate.py:2002-2006`, a stale record is refused first); root files unlisted (keeper; out of the worker's scope) |
 | Findings the tree refutes | 0 findings; one miscount in the reviewer's prose ("7 files", the block lists 8) | 1: the checker's `STOPPED` over the 20% and 5 MiB its numbers check flagged, which the item requires |
 | Repair overhead | 280 of 624 agent seconds (fix 153 s, second review 127 s) | none in the flow; the checker's edit sits inside its 277 s |
 | Critic's W8 (advisory) | not in the formation | W = 0.6, merge true; its one deduction (Clean diff −0.6) is the `scratch/` removal; agrees with the reviewer's ACCEPT, disagrees with the blind evaluator's REVISE |
@@ -80,7 +81,12 @@ cache reads at 0.20; the live page gives 0.10 and is used.
 | Usage source | `~/.claude/subagent_runs.jsonl` holds no row after 2026-11-11 on vwin-pc; tokens come from the agents' transcripts by the hook's rule (`pilot_usage.py`), seconds from the harness's per-run `duration_ms` |
 | Worker 2's packet said "lists the folders of `artifacts/` as the tree has them" | The orchestrator's split resolved for arm B the ambiguity that arm A's worker left to the owner in its first pass; arm A's REVISE round is partly this, and arm B's missing fix round too |
 | Helper's table named "nine against ten" | Arm B's workers were handed the hazard; arm A's worker found it alone (it did, in its first pass) |
-| COMMON says run acceptance; four arm B blocks have no use for it | Worker 2, the checker and the critic ran it (about 115 s each); worker 1 did not and reported the conflict; cost on arm B only |
+| COMMON says run acceptance; four arm B blocks have no use for it | Arm A's agents ran it 4 times (worker 2, reviewer 2), arm B's 5 (worker 2, keeper, checker, critic, reviewer), about 115 s each; worker 1 did not and reported the conflict. The surplus runs (worker 2, checker) are arm B's |
+| The helper's packet names the `ls-tree` command and says "where the item's number or line differs from the tree, say so" | An instruction and a command arm A's worker did not get, beyond the role rule in COMMON |
+| Worker 2's scope is "the folders" | A design decision handed to arm B: it produced the unlisted root files and an answer different from arm A's (18 entries) |
+| Arm A's worker was resumed for its fix with its context; no arm B agent had a second pass | The flags of worker 2, the keeper and the checker were never fed back to a writer |
+| The critic's packet reads two files under `D:/repos/_work/ocma`, against COMMON's read rule; the checker's model and effort are not in PREREG's arm table (the `checker` agent definition sets them) | Packet inconsistency; no effect seen |
+| Post hoc measures were defined after arm A was final and its result known | Repair overhead and closure exist only where a fix round ran, which was arm A; they are descriptive |
 | The keeper wrote its patch files to the session scratchpad, not `{W}/..` | None on the tree |
 | Reviewers and evaluator resumed or share a model family | Arm A's second review ran in the first reviewer's context; no scorer from another family (PREREG) |
 | Blind labels | The evaluator saw the paths `jnwb_pilot_A` and `jnwb_pilot_B`: the arm letter leaked, the formation did not |
@@ -92,14 +98,20 @@ Interventions outside the frozen flow: none. Acceptance names (`A_review`, `B_ch
 
 ## What the sample shows
 
-- Effectiveness: equal verified completion. The single reviewer of arm A found and closed the one real gap.
-- Overhead: arm B spent 1.98 times the agent seconds, 1.61 times the wall-clock path and 1.29 times the money.
-- Verified work per dollar: lower in arm B (12.8 against 16.5 predicates per USD).
-- More agents produced more agreement, not more verified work: five agents named the `scratch/` removal and the
-  formation had no path that repaired it once the reviewer said ACCEPT.
-- Failure modes named: a split packet can carry the orchestrator's resolution of an ambiguity; a finding below the
-  reviewer's REVISE bar has no owner; a checker can stop on an invariant the item itself requires; a shared block
-  that fits one role costs every other role.
+- Effectiveness: equal verified completion. Arm A's worker had itself reported pointer 2 open and still said
+  PASS; its reviewer enforced the item's check, it did not discover the gap.
+- Overhead: arm B spent 1.98 times the agent seconds, 1.61 times the critical path of agent seconds (orchestrator
+  turns and lane-cap queueing excluded) and 1.29 times the money.
+- Verified work per dollar: both arms passed 3 predicates, so 12.8 against 16.5 per USD is the inverse cost ratio
+  and nothing more; orchestrator tokens are outside it.
+- More agents produced more mentions, not more verified work: five agents named the `scratch/` removal and it was
+  not repaired. The mentions are not independent (all five read the same diff), and the cause is the frozen
+  orchestrator rule "add nothing" together with the reviewer's ACCEPT, not the formation alone: arm A has the same
+  hole, and an ACCEPT from its reviewer would have left the worker's open pointer open.
+- Hypotheses the sample raises, not findings: a split packet can carry the orchestrator's resolution of an
+  ambiguity; a finding below the reviewer's REVISE bar has no owner in either flow; a checker can stop on an
+  invariant the item itself requires; a shared block that fits one role costs the others. Reviewer variance is
+  uncontrolled: two reviewers saw two trees and gave one REVISE and one ACCEPT.
 
 ## Next step (fixed in PREREG)
 

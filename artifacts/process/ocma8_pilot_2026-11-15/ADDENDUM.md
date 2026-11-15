@@ -16,7 +16,13 @@ They refine the preregistered "in-formation review yield" row. Reported as post 
 
 COMMON tells every agent to run the acceptance command once at the end; B-helper, B-worker-1, B-worker-2 and
 B-checker have no need of it, and two of those blocks say not to run it. Observed: B-worker-1 did not run it and
-reported the conflict; B-worker-2 and B-checker ran it. The cost falls on arm B only. The packets were not changed.
+reported the conflict; B-worker-2 and B-checker ran it. Those two surplus runs are arm B's (arm A's agents ran it 4 times, arm B's 5). The packets were not changed.
+
+## Independent review of this record (2026-11-15)
+
+Verdict REVISE: no numeric mismatch; comparability text and two bullets overreached. Its findings are applied in
+`RESULTS.md` ("Deviations and unequal conditions", "What the sample shows"); the report is
+`agent_reports/record_reviewer.md`. The revised text was not reviewed again.
 
 ## Design decision recorded (Hamm 2026-11-15)
 
