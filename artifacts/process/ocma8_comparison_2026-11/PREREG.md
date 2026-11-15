@@ -27,7 +27,8 @@ Secondary: confirmed defects by class; critical-path seconds (wall clock from th
 final tree, lane cap 3); review yield; mentions per distinct defect; false findings; closure reliability;
 consequential defects closed. Definitions:
 - Trees. The pre-review tree is the tree at the first report of the writer of the final tree: the worker's first
-  report in arm A, the keeper's first report in arm B. No critic role has run before it in either arm. The final
+  report in arm A, the keeper's first report in arm B. When that first run ends with "no report" (cap or error,
+  see Budget), it is the tree at that ending. No critic role has run before it in either arm. The final
   tree is the tree when the closing review's report returns; the arm's clock stops there. Both are saved as diffs.
 - Reports: every report of an in-formation critic role, and every writer's or keeper's report, the closing
   review's included, kept whole in the ledger. A script (written and frozen with the packets) replaces role and
@@ -45,9 +46,11 @@ consequential defects closed. Definitions:
   trees, the TASK block and the classes. It sees no report, no report id and no source. It builds each arm's
   defect table, one row per distinct defect, and assigns every candidate id to exactly one row; a script refuses
   a table that leaves a candidate out or uses it twice. Columns it fills: real on the pre-review tree (yes or
-  no); class; source when real there (caused by the TASK block's own text; already in the baseline and outside
-  the task's target; introduced by the arm); real on the final tree (yes or no). A row real on neither tree is a
-  false row. Baseline-source rows are reported and are in neither `V` nor the inventory.
+  no); real on the final tree (yes or no); class; and, for every row real on either tree, one source of four:
+  caused by the TASK block's own text; in the baseline and outside the task's target; in the baseline, inside the
+  task's target and left unrepaired; introduced by the arm. A row real only on the final tree is introduced by
+  the arm. A row real on neither tree is a false row. Rows "in the baseline and outside the target" are reported
+  and are in neither `V` nor the inventory; the other three sources count in both.
 - Provenance is attached by a script afterwards, never judged: candidate ids are mapped back to an evaluator or
   to a report and its role; a row is "raised by the formation" when it holds at least one report candidate;
   mentions = the number of distinct reports with a candidate in the row.
@@ -114,7 +117,9 @@ Equal by construction, each a repair of a pilot defect:
   A run ends in one of three ways, each read from the harness and none judged: its final report returns; the cap
   is reached and the orchestrator stops it at once; the harness reports an error. In the last two the report is
   recorded as "no report" and nothing is retried. Whatever the ending and whatever a report says, the flow goes
-  on to its next step on the tree as it stands, to the closing review; `V` is computed on the final tree.
+  on to its next step on the tree as it stands, to the closing review; `V` is computed on the final tree. If the
+  harness cannot resume the writer for the fix round, a fresh agent of the same type gets the writer's packet and
+  the reports in the same worktree; that is the fix round, under the same cap, and it is logged.
 - Same tools and permissions per agent type; effort as in the table, `checker` as its agent definition sets it
   (Haiku 5.5, default effort). The critic's block names the two ontology files it may read outside its tree.
   Each writer has its own linked worktree at the baseline.
@@ -170,7 +175,8 @@ adoption (the table below). A closure advantage does not by itself justify adopt
 verified completion does not show equal review quality: the report gives discovery and closure beside `V`.
 
 Outcomes are paired by task (Hamm 2026-11-15). Each task is a win for B (`V_B = 1`, `V_A = 0`), a loss
-(`V_B = 0`, `V_A = 1`) or a tie; a task missing a cell in either arm leaves the comparison. Two criteria:
+(`V_B = 0`, `V_A = 1`) or a tie; a task missing a cell in either arm, or with an unmeasurable cost in either arm
+(see Cost), leaves both criteria and the cost sums together and is reported apart. Two criteria:
 - Completion: B completes more tasks than A under the identical acceptance, wins > losses.
 - Defect closure: consequential defects closed in B exceed those in A by two or more, each a distinct inventory
   row, so adjudicated blind as present before review. The count is given per task beside the total.
@@ -208,4 +214,5 @@ stay in the record.
 4. Packets, the scrub script, the candidate script and the table check written and frozen; an independent `reviewer` reads them for any information or decision one arm gets
    and the other lacks: ACCEPT.
 5. T1 and T4 touch jarness and jynx trees only in experiment worktrees; their items stay open for those keepers.
-6. Hamm's go.
+6. The orchestrator's model id read from `get_session` and written under Cost.
+7. Hamm's go.
