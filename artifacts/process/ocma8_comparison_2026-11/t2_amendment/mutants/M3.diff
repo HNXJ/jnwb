@@ -1,0 +1,13 @@
+diff --git a/scripts/build_fact_graph.py b/scripts/build_fact_graph.py
+index ff00e9c1..dc960fa3 100644
+--- a/scripts/build_fact_graph.py
++++ b/scripts/build_fact_graph.py
+@@ -222,7 +222,7 @@ class FactSourceError(ValueError):
+ 
+ 
+ def _cells(line: str) -> List[str]:
+-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
++    return [cell.strip() for cell in line.strip().strip("|").split("|")][:-1]
+ 
+ 
+ def _all_tables(text: str) -> List[Tuple[str, List[str], List[List[str]]]]:

@@ -1,0 +1,13 @@
+diff --git a/scripts/docs_form_gate.py b/scripts/docs_form_gate.py
+index 8d0ffea4..fa9e66a5 100644
+--- a/scripts/docs_form_gate.py
++++ b/scripts/docs_form_gate.py
+@@ -282,7 +282,7 @@ def parse_vocabulary(contract_text: str) -> List[VocabularyRow]:
+         line = line.strip()
+         if not line.startswith("|") or "|---" in line:
+             continue
+-        cells = [c.strip() for c in line.strip("|").split("|")]
++        cells = [c.strip() for c in line.strip("|").split("|")][:-1]
+         if len(cells) != 3 or cells[0].lower() == "concept":
+             continue
+         preferred = BACKTICKED.findall(cells[1])

@@ -1,0 +1,13 @@
+diff --git a/scripts/release_gate.py b/scripts/release_gate.py
+index 98ef7087..da30f97a 100644
+--- a/scripts/release_gate.py
++++ b/scripts/release_gate.py
+@@ -1298,7 +1298,7 @@ def _table_cells(line: str) -> Optional[List[str]]:
+     body = line.lstrip(" \t>").strip()
+     if not body.startswith("|"):
+         return None
+-    return [cell.strip() for cell in body.strip("|").split("|")]
++    return [cell.strip() for cell in body.strip("|").split("|")][:-1]
+ 
+ 
+ def _is_separator(cells: Optional[List[str]]) -> bool:

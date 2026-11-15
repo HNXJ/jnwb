@@ -1,0 +1,13 @@
+diff --git a/scripts/release_gate.py b/scripts/release_gate.py
+index 98ef7087..c649a3b1 100644
+--- a/scripts/release_gate.py
++++ b/scripts/release_gate.py
+@@ -1290,7 +1290,7 @@ def _cells(line: str) -> Optional[List[str]]:
+     stripped = line.strip()
+     if not stripped.startswith("|"):
+         return None
+-    return [cell.strip() for cell in stripped.strip("|").split("|")]
++    return [cell.strip() for cell in stripped.strip("|").split("|")][:-1]
+ 
+ 
+ def _table_cells(line: str) -> Optional[List[str]]:

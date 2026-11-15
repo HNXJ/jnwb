@@ -1,0 +1,13 @@
+diff --git a/scripts/reconstruct_state.py b/scripts/reconstruct_state.py
+index 4664cbb2..93b12bac 100644
+--- a/scripts/reconstruct_state.py
++++ b/scripts/reconstruct_state.py
+@@ -221,7 +221,7 @@ def open_defect_classes(path: pathlib.Path | None = None) -> str:
+         return "UNRESOLVED (file absent)"
+     found = []
+     for line in path.read_text(encoding="utf-8").splitlines():
+-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
++        cells = [c.strip() for c in line.strip().strip("|").split("|")][:-1]
+         if len(cells) < 6 or not cells[1].isdigit() or ":" not in cells[0]:
+             continue
+         if not _CLOSED_STATUS.match(cells[-1]):

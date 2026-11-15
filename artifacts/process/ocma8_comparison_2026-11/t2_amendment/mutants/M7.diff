@@ -1,0 +1,13 @@
+diff --git a/scripts/build_fact_graph.py b/scripts/build_fact_graph.py
+index ff00e9c1..288c5c93 100644
+--- a/scripts/build_fact_graph.py
++++ b/scripts/build_fact_graph.py
+@@ -396,7 +396,7 @@ def reference_table_rows(text: str) -> List[Tuple[Tuple[str, ...], str, str, str
+         line = line.strip()
+         if not line.startswith("|") or set(line) <= set("|- "):
+             continue
+-        cells = [c.strip() for c in line.strip("|").split("|")]
++        cells = [c.strip() for c in line.strip("|").split("|")][:-1]
+         if cells and cells[0] == "Reference":
+             header = tuple(cells)
+             assert header in (*FUNCTION_HEADERS, CORE_HEADER, REPRODUCTION_HEADER), (
