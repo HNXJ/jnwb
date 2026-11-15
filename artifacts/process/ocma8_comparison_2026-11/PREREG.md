@@ -14,12 +14,10 @@ Primary estimand, per task t and arm a: `E = V / C`.
 - `V` (verified completion) = 1 when the final tree passes the task's acceptance command and every frozen
   predicate and constraint, and carries no confirmed consequential defect; else 0. Consequential classes:
   wrong-behaviour, wrong-pointer, wrong-value, meaning-change, scope, incomplete. Style is not consequential.
-- Confirmed defect: one both blind evaluators raise with the same class, or one that either raises and a fresh
-  blind `reviewer`, the adjudicator, confirms. Every defect not raised by both with one class goes to the
-  adjudicator, always; its yes or no and its class are final. The class is assigned by the evaluator that raises
-  the defect. The orchestrator, who is unblinded, routes by this rule and judges nothing. A cross-family run that
-  fails or does not parse is retried once; after that a second fresh Sonnet evaluator replaces it and the cell is
-  marked "no cross-family".
+- Confirmed defect: a row of the cell's defect table (below) that the adjudicator marks real on the final tree.
+  The orchestrator, who is unblinded, judges nothing. A cross-family run that fails or does not parse is retried
+  once; after that a second fresh Sonnet evaluator replaces it and the cell is marked "no cross-family": its two
+  evaluators then share a model family with the adjudicator, and the report says how many cells are so marked.
 - `C` (total cost, USD) = agents' tokens + the orchestrator's tokens spent on that arm of that task (see Cost).
 Reported: `E` per cell (8 cells), `sum V` and `sum C` per arm, `sum V / sum C` per arm, the four paired
 differences, and all of it again with agents-only cost. No significance test: four pairs give sign and size only.
@@ -27,28 +25,32 @@ differences, and all of it again with agents-only cost. No significance test: fo
 Secondary: confirmed defects by class; critical-path seconds (wall clock from the arm's first dispatch to its
 final tree, lane cap 3); review yield; mentions per distinct defect; false findings; closure reliability;
 consequential defects closed. Definitions:
-- Each arm's tree is saved as a diff before its review stage (the pre-review tree) and at the end.
-- A finding is one statement by an in-formation critic role or an open item in a writer's report, the closing
-  review's included. Two findings are the same defect when they name the same file and either overlapping lines
-  or the same named symbol; class plays no part in the merge.
-- The evaluators work in two passes on blinded trees (Order and blinding). Pass 1: each lists the defects it
-  finds on the final tree, with classes, before seeing any finding. Pass 2: each receives the cell's merged list,
-  every entry as file, lines and the finder's first sentence with role names removed, and marks each real or not
-  on the pre-review tree, with a class, and resolved or not on the final tree. An entry both mark real is
-  actionable; both not real, a false finding; a split goes to the adjudicator. A finding of the closing review
-  counts as unresolved unless both mark it resolved. Residual risk, stated: a finder's wording can reveal its
-  role, and so the arm.
-- Review yield = actionable defects per cell. Closure reliability = actionable defects marked resolved by both
-  evaluators / actionable defects. Consequential defects closed = those of a consequential class.
-- Defect opportunity (pre-review inventory), per cell: every real defect of the pre-review tree, from three
-  sources kept apart: introduced by the arm's writers; present in the packet (a finding against the packet, marked
-  real by the same pass-2 rule); and found only by the blind evaluators, which the formation missed.
-  Discovery = actionable defects the formation raised / inventory. Closure = inventory defects resolved on the
-  final tree / inventory. The two are reported apart, per source.
+- Trees. The pre-review tree is the tree at the first report of the writer of the final tree: the worker's first
+  report in arm A, the keeper's first report in arm B. No critic role has run before it in either arm. The final
+  tree is the tree after the closing review. Both are saved as diffs.
+- Finding: one statement by an in-formation critic role, or an open item in a writer's or keeper's report, the
+  closing review's included.
+- Evaluators (two per cell, blind, independent): each lists every defect it finds on the pre-review tree and on
+  the final tree, with file, lines in that tree's numbering, and a class. They see no finding.
+- Adjudicator (one fresh blind `reviewer` per cell): receives the two evaluators' lists and the cell's findings,
+  each finding as file, lines and the finder's first sentence with role names removed, and the two blinded trees.
+  It alone builds the cell's defect table, one row per distinct defect; matching entries to rows is its call, by
+  what the defect is, not by line numbers. Columns it fills: real on the pre-review tree (yes or no); class;
+  source when real there (in the TASK block's own text, or introduced by the arm); real on the final tree (yes or
+  no). An entry it judges not real on either tree is a false entry.
+- Provenance is attached by a script afterwards, never judged: a row is "raised by the formation" when at least
+  one finding was matched to it, and carries the number of findings matched (mentions).
+- Inventory = rows real on the pre-review tree, by source. Discovery = inventory rows raised by the formation /
+  inventory. Closure = inventory rows not real on the final tree / inventory. Review yield = inventory rows
+  raised by the formation. Closure reliability = rows raised by the formation and not real on the final tree /
+  rows raised by the formation. Consequential defects closed = closed inventory rows of a consequential class.
+  False findings = findings matched only to false entries. A defect real on the final tree and not on the
+  pre-review tree was introduced by the fix round and is reported as such.
 - Findings ledger, per cell: every finding as raised, false ones included, with who raised it, to whom it was
-  forwarded, its adjudication, and the tokens and seconds of the fix round and closing review it caused. Nothing
-  is filtered or regrouped after results are seen; the merge rule above is applied before the evaluators' marks
-  are read.
+  forwarded, the row it was matched to, and the tokens and seconds of the fix round and closing review. Nothing
+  is filtered or regrouped after results are seen.
+- Limits, stated: one adjudicator judges each cell, blind, with no second opinion; it is a Sonnet model, as are
+  the reviewers; a finder's wording can reveal its role and so the arm.
 No defect is seeded: seeding changes the task. So yield is bounded by the defects each arm's writers happen to
 make, which differ between arms; the inventory states that opportunity beside the yield.
 
