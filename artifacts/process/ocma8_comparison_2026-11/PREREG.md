@@ -14,11 +14,12 @@ Primary estimand, per task t and arm a: `E = V / C`.
 - `V` (verified completion) = 1 when the final tree passes the task's acceptance command and every frozen
   predicate and constraint, and carries no confirmed consequential defect; else 0. Consequential classes:
   wrong-behaviour, wrong-pointer, wrong-value, meaning-change, scope, incomplete. Style is not consequential.
-- Confirmed defect: one a blind evaluator raises and a command on the blind tree demonstrates (the command and its
-  output go in the record). The orchestrator, who is unblinded, runs commands and never judges: a raised defect no
-  command can settle goes to a fresh blind `reviewer` as adjudicator, whose yes or no is final. A cross-family
-  run that fails or does not parse is retried once; after that a second fresh Sonnet evaluator replaces it and the
-  cell is marked "no cross-family".
+- Confirmed defect: one both blind evaluators raise with the same class, or one that either raises and a fresh
+  blind `reviewer`, the adjudicator, confirms. Every defect not raised by both with one class goes to the
+  adjudicator, always; its yes or no and its class are final. The class is assigned by the evaluator that raises
+  the defect. The orchestrator, who is unblinded, routes by this rule and judges nothing. A cross-family run that
+  fails or does not parse is retried once; after that a second fresh Sonnet evaluator replaces it and the cell is
+  marked "no cross-family".
 - `C` (total cost, USD) = agents' tokens + the orchestrator's tokens spent on that arm of that task (see Cost).
 Reported: `E` per cell (8 cells), `sum V` and `sum C` per arm, `sum V / sum C` per arm, the four paired
 differences, and all of it again with agents-only cost. No significance test: four pairs give sign and size only.
@@ -27,16 +28,21 @@ Secondary: confirmed defects by class; critical-path seconds (wall clock from th
 final tree, lane cap 3); review yield; mentions per distinct defect; false findings; closure reliability;
 consequential defects closed. Definitions:
 - Each arm's tree is saved as a diff before its review stage (the pre-review tree) and at the end.
-- A finding is one statement by an in-formation critic role or an open item in a writer's report. Two findings are
-  the same defect when they name the same file and overlapping lines, or the same symbol, and the same class.
-- The blind evaluators receive, per cell, the merged defect list without its sources and mark each one real or
-  not on the pre-review tree, and resolved or not on the final tree. Real on the pre-review tree by a command or
-  by the adjudicator: actionable. Not real: a false finding.
+- A finding is one statement by an in-formation critic role or an open item in a writer's report, the closing
+  review's included. Two findings are the same defect when they name the same file and either overlapping lines
+  or the same named symbol; class plays no part in the merge.
+- The evaluators work in two passes on blinded trees (Order and blinding). Pass 1: each lists the defects it
+  finds on the final tree, with classes, before seeing any finding. Pass 2: each receives the cell's merged list,
+  every entry as file, lines and the finder's first sentence with role names removed, and marks each real or not
+  on the pre-review tree, with a class, and resolved or not on the final tree. An entry both mark real is
+  actionable; both not real, a false finding; a split goes to the adjudicator. A finding of the closing review
+  counts as unresolved unless both mark it resolved. Residual risk, stated: a finder's wording can reveal its
+  role, and so the arm.
 - Review yield = actionable defects per cell. Closure reliability = actionable defects marked resolved by both
   evaluators / actionable defects. Consequential defects closed = those of a consequential class.
 - Defect opportunity (pre-review inventory), per cell: every real defect of the pre-review tree, from three
-  sources kept apart: introduced by the arm's writers; present in the packet (a finding against the packet that a
-  command or the adjudicator confirms); and found only by the blind evaluators, which the formation missed.
+  sources kept apart: introduced by the arm's writers; present in the packet (a finding against the packet, marked
+  real by the same pass-2 rule); and found only by the blind evaluators, which the formation missed.
   Discovery = actionable defects the formation raised / inventory. Closure = inventory defects resolved on the
   final tree / inventory. The two are reported apart, per source.
 - Findings ledger, per cell: every finding as raised, false ones included, with who raised it, to whom it was
@@ -91,9 +97,12 @@ Equal by construction, each a repair of a pilot defect:
 
 Arms run one after the other within a task, never concurrently, so load and orchestrator tokens separate.
 Order: T1 A then B; T2 B then A; T3 A then B; T4 B then A (alternation fixed here).
-Evaluation: each final diff is applied to a fresh worktree at the baseline under a label drawn with
-`random.Random(2026111500 + task number)`, named `eval_t<n>_<p|q>`; evaluators see only those paths, the TASK
-block and the defect classes. Two evaluators per task, independent: `reviewer` (Sonnet 5.5, high) and a scorer
+Carry-over: one orchestrator session runs both arms of a task. It sends frozen packets only and fills a slot only
+with that arm's own output, so nothing from the first arm can reach the second through a packet; trees are
+separate worktrees. This is stated, not isolated.
+Evaluation: each arm's pre-review diff and final diff are applied to fresh worktrees at the baseline under one
+label per arm drawn with `random.Random(2026111500 + task number)`, named `eval_t<n>_<p|q>_pre` and
+`eval_t<n>_<p|q>`; evaluators and the adjudicator see only those paths, the TASK block and the defect classes. Two evaluators per task, independent: `reviewer` (Sonnet 5.5, high) and a scorer
 from another model family through `delegate-cli` (opencode Muse, read-only).
 
 ## Cost
@@ -104,12 +113,16 @@ from another model family through `delegate-cli` (opencode Muse, read-only).
 - Prices are fixed now, USD per million tokens, read 2026-11-15 from
   https://platform.claude.com/docs/en/about-claude/pricing: Haiku 5.5 up to 100K prompt 0.10 input, 0.125 and 0.20
   cache write (5m, 1h), 0.01 cache read, 0.50 output; over 100K 0.50, 0.625, 1, 0.05, 2.50; Sonnet 5.5 2, 2.50,
-  4, 0.10, 10. The orchestrator's and the cross-family scorer's prices are read and added here before the freeze.
+  4, 0.10, 10. The orchestrator is priced by the model id on each of its usage rows, from the model table of that
+  page as saved on 2026-11-15 in `prices_2026-11-15.md`; no price is read later. Evaluators, the adjudicator and
+  the cross-family scorer are outside both arms: their cost is reported apart and is no part of `C`.
 - Orchestrator: the main session's usage rows in its own transcript between the arm's first dispatch and its
   final tree, reported beside the agents' cost and inside `C`. Possible because arms do not interleave. Its
   context grows through the session, so later cells cost more; the alternation spreads this over the arms and
   the agents-only analysis is free of it. Evaluation and the record's review are outside both arms.
-- A task with a cell whose cost cannot be measured leaves the primary sums in both arms and is reported apart.
+- `C` is always the transcript-derived figure; a cross-check difference is reported and changes nothing. Only a
+  missing or unreadable transcript makes a cost unmeasurable; that task then leaves the primary sums in both arms
+  and is reported apart, whatever its `V`.
 
 ## Decision rule (Hamm's stopping rule of 2026-11-15; thresholds approved by him the same day as exploratory criteria)
 
@@ -118,9 +131,11 @@ effectiveness (verified completions and consequential defects closed), efficienc
 adoption (the table below). A closure advantage does not by itself justify adoption at excessive cost, and equal
 verified completion does not show equal review quality: the report gives discovery and closure beside `V`.
 
-"Improves" means `sum V_B > sum V_A` as absolute counts over the same tasks (a task missing a cell in either arm
-leaves both sums), or distinct blind-adjudicated consequential defects closed in B exceed those in A by two or
-more. "Substantially more" means `sum C_B >= 1.25 x sum C_A`, all attributable agent and orchestrator cost
+"Improves" means `sum V_B >= sum V_A` as absolute counts over the same tasks (a task missing a cell in either arm
+leaves both sums) and, in addition, either `sum V_B > sum V_A` or distinct blind-adjudicated consequential
+defects closed in B exceed those in A by two or more. B never improves with fewer verified completions. Closed
+defects are absolute counts; the arms' inventories differ, so each count is reported with its inventory and its
+closure fraction, and a lead that rests on the larger inventory alone is named as such. "Substantially more" means `sum C_B >= 1.25 x sum C_A`, all attributable agent and orchestrator cost
 included.
 
 | Outcome | Reading |
@@ -131,7 +146,9 @@ included.
 | B improves, cost within 1.25x | candidate for a larger preregistered comparison; still no rollout |
 
 Task-kind exception: a kind counts as showing an advantage only when `V_B = 1` and `V_A = 0` on it; one such cell
-of four is reported as a lead for a follow-up on that kind, never as grounds to adopt. Four tasks license no rate;
+of four is reported as a lead for a follow-up on that kind, never as grounds to adopt. The reverse (`V_A = 1`,
+`V_B = 0`) is reported the same way. On one-part tasks (T3, T4) arm B's keeper picks the better of two drafts:
+that is part of the OCMA-8 formation and a structural advantage on `V` there, to be named in the report. Four tasks license no rate;
 the report says so. Failures and inconclusive outcomes stay in the record.
 
 ## Prerequisites (each a gate; none passed yet)
