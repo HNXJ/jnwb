@@ -2,8 +2,9 @@ r"""Predicates for experiment task t2: one markdown table cell splitter under sc
 
 Usage: python predicates_t2.py <tree> <baseline tree>
 
-Prints one line per check (P1..P3, C1..C4), then `PRIMARY k/3 CONSTRAINTS j/4`. Exit 0 when it runs to
-the end, 2 on a usage error. Standard library only; every subprocess runs with cwd=<tree>.
+Prints one line per check (P1..P4, C1..C5), then `PRIMARY k/4 CONSTRAINTS j/5`. Exit 0 when it runs to
+the end, 2 on a usage error. Standard library only (P4 and C5 run pytest as a subprocess); every subprocess
+runs with cwd=<tree>.
 
 P1  exactly one function under scripts/**/*.py is a markdown-row cell splitter. A function counts when its
     name is in BASELINE_NAMES, or when a return statement in it matches SPLIT_RETURN (applied to the
@@ -15,7 +16,12 @@ P3  no inline markdown-row split remains: SPLIT_INLINE (the idiom `.strip("|").s
     an unescaped/escaped pipe) matches no line under scripts/**/*.py outside the counted splitter
     definitions (the single remaining one, when P1 is 1). PASS only when the count is 0; FAIL when P1
     is not exactly 1. The matches are printed; at the baseline they are BASELINE_INLINE_SITES.
-C1`python scripts/harness_gate.py` exits 0 and its last line reads `ALL HARNESS GATES PASSED. N of M gates
+P4  the corrected behaviour holds at each reader's entry point: pytest on `t2_corrected_test.py` (beside
+    this script) exits 0 with exactly CORRECTED_TESTS passed (an escaped pipe inside a cell changes neither
+    the rows nor the cells read). Independent of the refactor's structure; FAIL at the baseline.
+C5  the preserved behaviour holds: pytest on `../accept/t2_preserved_test.py` exits 0 with exactly
+    PRESERVED_TESTS passed. PASS at the baseline and on a valid refactor.
+C1  `python scripts/harness_gate.py` exits 0 and its last line reads `ALL HARNESS GATES PASSED. N of M gates
     executed.` with N == M, and no FAIL, ERROR, NOT RUN or OVERALL line.
 C2  `python -m compileall -q scripts` exits 0, and no file under scripts/ loads a BASELINE_NAMES name that
     the file neither defines nor imports (ast; scope-insensitive: any binding in the file counts).
@@ -67,6 +73,11 @@ GATE_PASS = re.compile(r"ALL HARNESS GATES PASSED\. (\d+) of (\d+) gates execute
 PROBE_TAG = "T2_PROBE_RESULT "
 GATE_TIMEOUT_S = 540
 SELF = pathlib.Path(__file__).resolve()
+#: Behavioural tests (t2 amendment): file and the exact number of tests that must pass.
+CORRECTED = (SELF.parent / "t2_corrected_test.py", 6)
+PRESERVED = (SELF.parent.parent / "accept" / "t2_preserved_test.py", 31)
+PYTEST_SUMMARY = re.compile(r"(\d+) (passed|failed|error|errors|skipped|xfailed|xpassed|deselected)\b")
+PYTEST_TIMEOUT_S = 300
 CHILD_ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
 
 
@@ -299,6 +310,21 @@ def check_c4(tree, base):
     return passed, detail
 
 
+def check_tests(tree, spec, label):
+    """pytest on one behavioural test file, cwd=tree: rc 0 and exactly the expected number passed."""
+    path, expected = spec
+    if not path.is_file():
+        raise RuntimeError(f"test file missing: {path}")
+    basetemp = f"D:/pytest_temp/exp_t2_pred_{tree.name}_{label}"
+    proc = run([sys.executable, "-m", "pytest", str(path), "-q", "-p", "no:cacheprovider",
+                f"--basetemp={basetemp}"], tree, PYTEST_TIMEOUT_S)
+    lines = [line.strip() for line in text(proc.stdout).splitlines() if line.strip()]
+    last = lines[-1] if lines else ""
+    counts = {kind: int(n) for n, kind in PYTEST_SUMMARY.findall(last)}
+    passed = proc.returncode == 0 and counts == {"passed": expected}
+    return passed, f"{path.name}: pytest rc={proc.returncode}; expected {expected} passed; last line {last!r}"
+
+
 def need_gate(gate, gate_error):
     if gate is None:
         raise RuntimeError(f"gate run failed: {gate_error}")
@@ -343,9 +369,11 @@ def main(argv):
     c2 = attempt("C2", check_c2, tree)
     c3 = attempt("C3", lambda: check_c3(need_gate(gate, gate_error)))
     c4 = attempt("C4", check_c4, tree, base)
+    p4 = attempt("P4", check_tests, tree, CORRECTED, "p4")
+    c5 = attempt("C5", check_tests, tree, PRESERVED, "c5")
 
-    primary = [p1, p2, p3]
-    constraints = [c1, c2, c3, c4]
+    primary = [p1, p2, p3, p4]
+    constraints = [c1, c2, c3, c4, c5]
     for _, line in primary + constraints:
         print(line)
     print(f"PRIMARY {sum(ok for ok, _ in primary)}/{len(primary)} "

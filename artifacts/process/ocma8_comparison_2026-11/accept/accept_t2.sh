@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Acceptance for experiment task t2 (jnwb item 17-95, the cells() half). Usage: bash accept_t2.sh <tree>
-# Runs in <tree>, one after another: the harness gate, then pytest on the test files that import or name
+# Runs in <tree>, one after another: the harness gate; pytest on the test files that import or name
 # one of the four scripts holding a baseline splitter definition (build_dashboard, build_fact_graph,
-# learning_gate, release_gate). That list was resolved once at ac995dde by an AST survey of tests/ and
-# is frozen here: 30 files. Prints each command's last output line, then ACCEPT_RC=0 when all passed.
+# learning_gate, release_gate), a list resolved once at ac995dde by an AST survey of tests/ and frozen
+# here (30 files), run on six xdist workers; pytest on t2_preserved_test.py beside this script (the
+# table-row behaviour every reader keeps). Prints each command's last output line, then ACCEPT_RC=0
+# when all passed. Amended 2026-11-15 (t2_amendment/AMENDMENT.md): `-n 6` and the third command.
 set -u
 
+here=$(cd "$(dirname "$0")" && pwd)
 tree="${1:-}"
 if [ -z "$tree" ] || ! cd "$tree"; then
     echo "usage: bash accept_t2.sh <tree>  (cannot enter: ${tree:-<none>})"
@@ -21,7 +24,7 @@ rc=$?
 echo "harness_gate rc=$rc last: $(printf '%s\n' "$out" | tail -n 1)"
 [ "$rc" -eq 0 ] || rc_all=1
 
-out=$(PYTHONDONTWRITEBYTECODE=1 python -m pytest -q -p no:cacheprovider --basetemp="D:/pytest_temp/exp_t2_accept_$tag" \
+out=$(PYTHONDONTWRITEBYTECODE=1 python -m pytest -q -p no:cacheprovider -n 6 --basetemp="D:/pytest_temp/exp_t2_accept_$tag" \
     tests/test_build_dashboard.py \
     tests/test_changelog_fragments.py \
     tests/test_ci_conclusion_gate.py \
@@ -54,6 +57,12 @@ out=$(PYTHONDONTWRITEBYTECODE=1 python -m pytest -q -p no:cacheprovider --basete
     tests/test_workflow_release_policy.py 2>&1)
 rc=$?
 echo "pytest rc=$rc last: $(printf '%s\n' "$out" | tail -n 1)"
+[ "$rc" -eq 0 ] || rc_all=1
+
+out=$(PYTHONDONTWRITEBYTECODE=1 python -m pytest -q -p no:cacheprovider --basetemp="D:/pytest_temp/exp_t2_accept_${tag}_rows" \
+    "$here/t2_preserved_test.py" 2>&1 </dev/null)
+rc=$?
+echo "table rows rc=$rc last: $(printf '%s\n' "$out" | tail -n 1)"
 [ "$rc" -eq 0 ] || rc_all=1
 
 echo "ACCEPT_RC=$rc_all"
