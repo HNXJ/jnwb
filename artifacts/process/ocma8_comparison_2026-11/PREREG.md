@@ -29,8 +29,8 @@ consequential defects closed. Definitions:
 - Trees. The pre-review tree is the tree at the first report of the writer of the final tree: the worker's first
   report in arm A, the keeper's first report in arm B. When that first run ends with "no report" (cap or error,
   see Budget), it is the tree at that ending. No critic role has run before it in either arm. The final
-  tree is the tree when the closing review's report returns; the arm's clock stops there. Both are saved as diffs.
-- Reports: every report of an in-formation critic role, and every writer's or keeper's report, the closing
+  tree is the tree when the closing review's report returns, or at that run's ending; the arm's clock stops there. Both are saved as diffs.
+- Reports: every report of every agent of the formation (helper, workers, keeper, critic roles), the closing
   review's included, kept whole in the ledger. A script (written and frozen with the packets) replaces role and
   agent names with `AGENT` and gives each report an opaque id in shuffled order. The orchestrator cuts no report.
 - Evaluators (one pair per task, blind, independent, judging both arms under their labels): each lists every
@@ -66,7 +66,8 @@ consequential defects closed. Definitions:
   their rows, and the tokens and seconds of the fix round and closing review. Nothing is filtered or regrouped
   after results are seen.
 - Limits, stated: one adjudicator judges each task, blind, with no second opinion; it is a Sonnet model, as are
-  the reviewers, so `V` is also given counting only rows that hold a candidate of the cross-family evaluator.
+  the reviewers, so `V` is also given counting only rows that hold a candidate of the cross-family evaluator (a task marked
+  "no cross-family" is left out of that figure).
   The extractor sees the reports and so the formation; it judges no truth, but a claim it omits is lost from
   mentions and false findings, which the whole reports in the ledger let a reader check. The number of
   candidates per arm can hint at the formation.
@@ -104,7 +105,7 @@ Equal by construction, each a repair of a pilot defect:
 - Acceptance is run by the writer of the final tree (arm A: the worker; arm B: the keeper, once per draft it
   chooses between) and by the reviewer; no other block mentions it. The keeper's extra runs are part of arm B.
 - Fix round, both arms, always exactly one: the whole report of every in-formation critic role (reviewer, and in
-  arm B checker and critic) and of every writer goes verbatim to the writer of the final tree (arm A: the worker;
+  arm B checker and critic), of every writer and of the helper goes verbatim to the writer of the final tree (arm A: the worker;
   arm B: the keeper; each resumed with its context), whatever the reviewer's verdict; then one closing review by
   a fresh `reviewer` that receives the same reports. No one decides whether a report holds a finding.
   Limitation, to be stated in the report: this tests each formation under a forward-everything policy, with no
@@ -119,7 +120,9 @@ Equal by construction, each a repair of a pilot defect:
   recorded as "no report" and nothing is retried. Whatever the ending and whatever a report says, the flow goes
   on to its next step on the tree as it stands, to the closing review; `V` is computed on the final tree. If the
   harness cannot resume the writer for the fix round, a fresh agent of the same type gets the writer's packet and
-  the reports in the same worktree; that is the fix round, under the same cap, and it is logged.
+  the reports in the same worktree; that is the fix round, under the same cap, and it is logged. The cap is per
+  dispatch and is no equal total budget: arm B has more dispatches. Reported: cap compliance per run, and per
+  cell the number of runs, agent seconds, tokens and cost.
 - Same tools and permissions per agent type; effort as in the table, `checker` as its agent definition sets it
   (Haiku 5.5, default effort). The critic's block names the two ontology files it may read outside its tree.
   Each writer has its own linked worktree at the baseline.
@@ -135,7 +138,9 @@ Evaluation: each arm's pre-review diff and final diff are applied to fresh workt
 label per arm drawn with `random.Random(2026111500 + task number)`, named `eval_t<n>_<p|q>_pre` and
 `eval_t<n>_<p|q>`; the diffs are applied uncommitted, so no branch, commit, author or path of an arm reaches
 them. Evaluators see only those paths, the TASK block and the defect classes; the adjudicator sees those and the
-candidates. Neither sees a report, an agent identity or a count of agents.
+candidates. Neither sees a report, an agent identity or a count of agents. The scrub script also reads each
+diff: a path or added line that holds a role or agent name is replaced with `AGENT` in the evaluation copy only,
+and logged.
 Two evaluators per task, independent: `reviewer` (Sonnet 5.5, high) and a scorer from another model family
 through `delegate-cli` (opencode Muse, read-only). No evaluation starts before all eight cells have their final
 trees, so no result of one arm is known while the other runs.
@@ -200,7 +205,8 @@ when "improves" rests on one win alone, rows 3 and 4 read as that lead and no mo
 `V_B = 0`) is reported the same way. On one-part tasks (T3, T4) arm B's keeper picks the better of two drafts:
 that is part of the OCMA-8 formation and a structural advantage on `V` there, to be named in the report. The
 four-task result is primary and the decision table is read on it. The same analysis on T1 and T2 alone is a
-sensitivity analysis fixed here, never an alternative result; a reading that changes there is reported as
+sensitivity analysis fixed here, never an alternative result (if the packets leave one multi-part task, it is
+that one pair; if none, it is not reported); a reading that changes there is reported as
 resting on the best-of-two. Four tasks license no rate; the report says so. Failures and inconclusive outcomes
 stay in the record.
 
