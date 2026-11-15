@@ -60,8 +60,8 @@ text and are outside review 10's scope (Hamm 2026-11-15).
 | Task | Untouched baseline | Throwaway solved tree | Acceptance on baseline |
 |---|---|---|---|
 | T1 | PRIMARY 0/3, CONSTRAINTS 3/3 | 3/3, 3/3 | `ACCEPT_RC=0` |
-| T2 | 0/3, 3/4 | 3/3, 4/4; 2/3 with the three inline splits left in | pending rerun |
-| T3 | 0/3, 1/2 | 3/3, 2/2 | pending rerun (`ACCEPT_RC=0` before the basetemp change) |
+| T2 | 0/3, 3/4 | 3/3, 4/4; 2/3 with the three inline splits left in | `ACCEPT_RC=0`; pytest step 943 s (15 min 43 s) under load, gate step not timed |
+| T3 | 0/3, 1/2 | 3/3, 2/2 | `ACCEPT_RC=0` (103 s and 19 s) |
 | T4 | 0/1, 1/2 | 1/1, 2/2 | `ACCEPT_RC=0` |
 
 T2 to T4 lines: `predicates/controls_t2_t3_t4.txt`; T1 rerun by the orchestrator, lines not stored. A constraint
@@ -70,6 +70,12 @@ constraint's failing perturbation was shown by the script's writer and not rerun
 on the baseline (the size is a minor finding of `artifacts_check.py`): only the predicate separates a solved T4.
 Acceptance scripts use one pytest basetemp per tree, changed after the workers' controls, so two trees can run
 them at once.
+
+T2 feasibility is not established (Hamm 2026-11-15): arm B's keeper runs acceptance once per draft in one
+dispatch, and two runs at the measured speed pass the 30-minute cap. The T2 packet is not frozen and no cell runs
+until an uncontended timing with per-test durations and the gate step exists. Narrowing the acceptance command is
+an amendment: versioned, with its coverage shown, reviewed before any run. If the whole suite is needed and does
+not fit, the conflict between cap and packet goes to Hamm; no timeout is extended silently.
 
 ## Packet review 1: disposition (Hamm's rule: every B needs one)
 
@@ -81,7 +87,7 @@ them at once.
 | B4 keeper's "do not improve" could suppress its fix round | fixed: the sentence is scoped to the transfer step |
 | B5 all acceptance scripts pass on the baseline, so the keeper's best-of-two is close to "worker 1" | accepted as the frozen rule's consequence; to be named in the report beside the structural advantage |
 | B6 no-report slot, slot order, replacement packet, closing review's reports unspecified | fixed: one line each |
-| B7 a table row must hold a candidate, so a defect nobody raised never enters `V` | open: Hamm's decision |
+| B7 a table row must hold a candidate, so a defect nobody raised never enters `V` | ruled (Hamm 2026-11-15): the adjudicator is candidate-only (verify, reject, deduplicate, classify, closure); what it notices beyond the candidates is kept as a `NOTE`, exploratory, outside the scored comparison, credited to no arm |
 | B8 TASK block gave the acceptance command to every agent | fixed: `ACCEPT-t<n>` goes only to the final-tree writer and the reviewers, as PREREG says |
 | C1 readings not in this file | listed below |
 | C2 "reported as empty" | fixed to PREREG's "not reported" |

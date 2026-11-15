@@ -127,8 +127,10 @@ all passed. It takes several minutes: run it in the foreground with a 15-minute 
 
 ```
 Acceptance command: `{ACC}`. You may read that script. It prints one line per command and ends `ACCEPT_RC=0` when
-all passed. It takes several minutes: run it in the foreground with a 15-minute timeout. On the baseline it prints:
-<ACC_BASELINE_T3>
+all passed. It takes several minutes: run it in the foreground with a 10-minute timeout. On the baseline it prints:
+  201 passed, 10804 deselected, 43 warnings in 103.20s (0:01:43)
+  11005 tests collected in 18.69s
+  ACCEPT_RC=0
 ```
 
 ### ACCEPT-t4
@@ -311,7 +313,12 @@ ROW | <p|q> | <row number> | <real on earlier: yes|no> | <real on final: yes|no>
 outside the task's target), baseline-inside (in the baseline, inside the task's target, left unrepaired), arm
 (introduced by the attempt), none (the row is real on neither snapshot). A row real only on the final snapshot has
 source arm.
+Add no row of your own. If you notice a defect that no candidate names, write it after the table, outside it:
+NOTE | <p|q> | <pre|final|both> | <file> | "<quoted line>" | <one sentence>
 ```
+
+`NOTE` lines are exploratory observations (Hamm 2026-11-15): kept whole in the ledger, in no table, in neither `V`
+nor the inventory, credited to no arm.
 
 ### GUESS (sent to each evaluator and to the adjudicator, resumed, after its output passed its script; Muse through `--session`)
 
@@ -334,7 +341,7 @@ lines and the words "Output the lines again in the required form; change no judg
 recorded and that output adds nothing. This is outside both arms and its cost is evaluation cost.
 
 Readings fixed here and not in `PREREG.md` (listed in `FREEZE.md` as qualifications): an evaluator's defect listed
-on both snapshots is one candidate; a table row holds at least one candidate (the adjudicator adds no defect of
-its own); a false row carries the source `none`; labels are `random.Random(2026111500 + n).choice("pq")` for arm
+on both snapshots is one candidate; a table row holds at least one candidate (Hamm 2026-11-15: the adjudicator is
+candidate-only; what it notices beyond them is a `NOTE` outside the scored comparison); a false row carries the source `none`; labels are `random.Random(2026111500 + n).choice("pq")` for arm
 A, the other for arm B (T1 A=q, T2 A=p, T3 A=q, T4 A=q); evaluation trees live under `D:/repos/_eval/`; the guess
 is asked in a second step, so the first packet does not say that team size differs.

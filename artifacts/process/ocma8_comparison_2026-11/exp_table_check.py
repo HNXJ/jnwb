@@ -56,15 +56,16 @@ def check(cand_path, table_path):
                 why.append(f"{tag}: candidate {c!r} is unknown or of the other attempt")
     why += [f"row number {k[0]}/{k[1]} used {v} times" for k, v in numbers.items() if v > 1]
     why += [f"candidate {c} is in {used[c]} rows" for c in cands if used[c] != 1]
-    return why, len(rows), len(cands)
+    notes = sum(ln.startswith("NOTE") for ln in lines)  # exploratory, outside the table: counted, never scored
+    return why, len(rows), len(cands), notes
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         sys.exit(__doc__)
-    reasons, n_rows, n_cands = check(*sys.argv[1:])
+    reasons, n_rows, n_cands, n_notes = check(*sys.argv[1:])
     if reasons:
         print("REFUSED")
         print("\n".join(f"  {r}" for r in reasons))
         sys.exit(1)
-    print(f"TABLE OK: {n_rows} rows hold {n_cands} candidates, each once")
+    print(f"TABLE OK: {n_rows} rows hold {n_cands} candidates, each once; {n_notes} NOTE lines outside the table")

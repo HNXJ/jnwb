@@ -104,6 +104,9 @@ def check(tmp_path, table):
 
 def test_table_check_accepts_a_valid_table(tmp_path):
     assert check(tmp_path, TABLE) == []
+    noted = TABLE + 'NOTE | p | final | a.py | "w" | Seen by the adjudicator alone.\n'
+    why, rows, cands, notes = exp_table_check.check(str(tmp_path / "c.txt"), write(tmp_path / "n.txt", noted))
+    assert (why, rows, cands, notes) == ([], 2, 3, 1), "a NOTE is counted and adds no row"
     run = subprocess.run([sys.executable, str(HERE / "exp_table_check.py"), str(tmp_path / "c.txt"), str(tmp_path / "t.txt")],
                          stdin=subprocess.DEVNULL, capture_output=True, text=True)
     assert run.returncode == 0 and run.stdout.startswith("TABLE OK: 2 rows hold 3 candidates")
