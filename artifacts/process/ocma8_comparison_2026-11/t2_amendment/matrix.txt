@@ -1,0 +1,75 @@
+t2beh matrix. Trees: BASE = D:/repos/_work/exp_prereq/t2/base (HEAD ac995ddee147c4d6aa78ba15ecda7a998cd70a00); POS = D:/repos/_work/exp_prereq/t2/pos (same HEAD); M1..M9 = D:/repos/_work/exp_t2beh/mut (clone of BASE, one patch from D:/repos/_work/exp_mut_t2/Mk.diff applied, restored after each; clean at end).
+Command, cwd = tree: PYTHONDONTWRITEBYTECODE=1 python -m pytest <abs file> -q -p no:cacheprovider --tb=short --basetemp=D:/pytest_temp/t2beh_<name>
+Entry points: build_dashboard.deferred_section and references_section (module constants ROADMAP, REFERENCES set to tmp_path files); build_fact_graph.read_facts, read_constants, reference_table_rows; learning_gate.ledger_rows; release_gate.roadmap_rows, table_data_rows; docs_form_gate.parse_vocabulary; reconstruct_state.open_defect_classes(path).
+Sites with a corrected test: 6 of 7 legacy sites. release_gate table_data_rows (private `_table_cells`) has none: escaped pipes do not change its output (scratch probe D:/pytest_temp/_temp_t2beh_probe_table_test.py, two designs, both pass on BASE).
+
+## Last line per (file, tree)
+t2_preserved_test.py | BASE | 33 passed in 3.51s
+t2_corrected_test.py | BASE | 6 failed in 3.10s
+t2_preserved_test.py | POS | 4 failed, 29 passed in 4.12s
+t2_corrected_test.py | POS | 6 passed in 2.65s
+_temp_t2beh_probe_table_test.py (scratch) | BASE | 2 passed in 0.13s
+t2_preserved_test.py | M1 | 5 failed, 28 passed in 3.87s
+t2_preserved_test.py | M2 | 1 failed, 32 passed in 3.04s
+t2_preserved_test.py | M3 | 5 failed, 28 passed in 3.44s
+t2_preserved_test.py | M4 | 3 failed, 30 passed in 3.00s
+t2_preserved_test.py | M5 | 3 failed, 30 passed in 3.14s
+t2_preserved_test.py | M6 | 2 failed, 31 passed in 3.13s
+t2_preserved_test.py | M7 | 4 failed, 29 passed in 3.64s
+t2_preserved_test.py | M8 | 3 failed, 30 passed in 3.17s
+t2_preserved_test.py | M9 | 4 failed, 29 passed in 3.16s
+
+## BASE, corrected file: first E line per test (checked 6 of 6 failing)
+test_build_fact_graph_fact_row_with_escaped_pipe_is_one_fact: E   build_fact_graph.FactSourceError: Boundary: a fact row has 6 cells, not 5: ['`F9`', 'boundary', 'the value \\', 'other holds', '`mod.a`', '2026-01-02']
+test_build_fact_graph_reference_row_with_escaped_pipe_has_three_cells: E   AssertionError: a references row does not have three cells: | [Smith 2001](https://doi.org/10.1000/x1) | A \| B | `fn_a` |
+test_learning_gate_ledger_row_with_escaped_pipe_counts_the_same_instances: E   AssertionError: assert [('cls', 2, 1)] == [('cls', 2, 2)]
+test_release_gate_roadmap_row_with_escaped_pipe_is_one_row: E   assert ([], ["line 3... | deferre'"]) == ([('01-5', 'd...90.0.0')], [])
+test_docs_form_gate_vocabulary_row_with_escaped_pipe_keeps_three_cells: E   AssertionError: assert [] == [('normalisat...normalised'))]
+test_reconstruct_state_defect_row_with_escaped_pipe_in_status_is_closed: E   AssertionError: assert 'alpha (seen 3)' == 'none'
+
+## POS, preserved file: the 4 failing tests (checked 4 of 4 failing; 29 pass)
+test_ledger_row_without_leading_pipe_is_read_as_baseline_does: E   AssertionError: assert [] == [('cls', 1, 1)]
+test_roadmap_malformed_lines_are_refused_or_skipped: E   AssertionError: line 3 is not a readable row '| id | theme | defect | waits | deferred-X.Y.Z |': '01-3 | Theme | defect | waits | deferred-90.0.0'
+test_prose_with_pipes_is_not_a_table_row: E   AssertionError: assert [(1, 'Some prose | with a pipe'), (4, '| 01 | x |'), (5, '| 02 |'), (6, 'prose after | table')] == [(4, '| 01 | x |'), (5, '| 02 |')]
+test_defect_row_without_leading_pipe_is_read_as_baseline_does: E   AssertionError: assert 'none' == 'delta (seen 2)'
+
+## Mutants: failing preserved tests and first E line (checked 9 of 9 mutants; 30 failing pairs)
+M1 (build_dashboard `_cells` drops last cell): 5 failed
+- test_dashboard_deferred_row_keeps_its_last_cell: E   AssertionError: assert [] == [{'defect': '...-0.3.0', ...}]
+- test_dashboard_row_with_trailing_empty_cell_has_six_cells: E   AssertionError: assert [{'defect': '...-0.3.0', ...}] == []
+- test_dashboard_malformed_roadmap_lines_are_left_out: E   AssertionError: assert [] == ['01-4']
+- test_dashboard_escaped_pipe_does_not_split_a_cell: E   AssertionError: escaped pipe split the row: []
+- test_dashboard_references_rows_and_their_urls: E   AssertionError: assert [] == [{'text': 'Sm... 'url': None}]
+M2 (build_dashboard stops honouring `\|`): 1 failed
+- test_dashboard_escaped_pipe_does_not_split_a_cell: E   AssertionError: escaped pipe split the row: []
+M3 (build_fact_graph `_cells` drops last cell): 5 failed
+- test_fact_row_keeps_its_last_cell: E   build_fact_graph.FactSourceError: section 'Boundary': the table header ['ID', 'Domain', 'Predicate', 'Held by'] is not the fact header ['ID', 'Domain', 'Predicate', 'Held by', 'Ruled']
+- test_constants_keep_the_values_cell: E   AssertionError: assert {} == {'N_BINS': ['8', '16']}
+- test_fact_row_with_trailing_empty_cell_has_six_cells: E   build_fact_graph.FactSourceError: section 'Boundary': the table header ['ID', 'Domain', 'Predicate', 'Held by'] is not the fact header ['ID', 'Domain', 'Predicate', 'Held by', 'Ruled'] (then pytest.raises: Regex pattern did not match)
+- test_fact_row_with_too_few_cells_is_refused: E   build_fact_graph.FactSourceError: section 'Boundary': the table header ['ID', 'Domain', 'Predicate', 'Held by'] is not the fact header ['ID', 'Domain', 'Predicate', 'Held by', 'Ruled'] (then pytest.raises: Regex pattern did not match)
+- test_fact_row_without_leading_pipe_ends_the_table_unread: E   build_fact_graph.FactSourceError: section 'Boundary': the table header ['ID', 'Domain', 'Predicate', 'Held by'] is not the fact header ['ID', 'Domain', 'Predicate', 'Held by', 'Ruled']
+M4 (learning_gate `_cells` drops last cell): 3 failed
+- test_ledger_row_keeps_its_instances_cell: E   AssertionError: assert [] == [('cls', 3, 3)]
+- test_ledger_row_with_too_few_cells_and_non_numeric_seen_are_left_out: E   AssertionError: assert [] == [('cls', 3, 3)]
+- test_ledger_row_without_leading_pipe_is_read_as_baseline_does: E   AssertionError: assert [] == [('cls', 1, 1)]
+M5 (release_gate `_cells` drops last cell): 3 failed
+- test_roadmap_row_keeps_its_release_cell: E   assert ([], ["line 1...eferred-90'"]) == ([('01-1', 'd...90.0.0')], [])
+- test_roadmap_row_with_trailing_empty_cell_is_refused: E   AssertionError: assert [('01-1', 'deferred-90.0.0')] == []
+- test_roadmap_malformed_lines_are_refused_or_skipped: E   AssertionError: ["line 1 is not a readable row '| id | theme | defect | waits | deferred-X.Y.Z |': '| ID | Theme | Defect | Waits | Re... ] (then assert 3 == 2)
+M6 (release_gate `_table_cells` drops last cell): 2 failed
+- test_open_stack_row_keeps_a_last_cell_that_is_not_a_rule: E   AssertionError: assert [(4, '| P-1 | open |')] == [(3, '| - | n...-1 | open |')]
+- test_one_column_table_has_a_header_and_a_rule: E   AssertionError: assert [(1, '| Item ... (3, '| x |')] == [(3, '| x |')]
+M7 (build_fact_graph inline drops last cell): 4 failed
+- test_reference_row_keeps_its_functions_cell: E   AssertionError: unknown table header: | Reference | Result implemented | Functions |
+- test_reference_row_with_trailing_empty_cell_is_refused: E   AssertionError: unknown table header: | Reference | Result implemented | Functions | (then Regex pattern did not match)
+- test_reference_rows_skip_lines_that_are_not_rows: E   AssertionError: unknown table header: | Reference | Result implemented | Functions |
+- test_reference_row_with_too_few_cells_is_refused: E   AssertionError: unknown table header: | Reference | Result implemented | Functions | (then Regex pattern did not match)
+M8 (docs_form_gate inline drops last cell): 3 failed
+- test_vocabulary_row_keeps_its_superseded_cell: E   AssertionError: assert [] == [('normalisat...,), ('spk',))]
+- test_vocabulary_row_with_trailing_empty_cell_has_four_cells: E   AssertionError: assert [('spike', ('...,), ('spk',))] == []
+- test_vocabulary_malformed_rows_are_left_out: E   AssertionError: assert [] == [('normalisat...normalise',))]
+M9 (reconstruct_state inline drops last cell): 4 failed
+- test_defect_row_keeps_its_status_cell: E   AssertionError: assert 'none' == 'alpha (seen 3)'
+- test_closed_defect_row_is_left_out: E   AssertionError: assert 'none' == 'alpha (seen 3)'
+- test_defect_row_with_trailing_empty_cell_reads_that_cell_as_status: E   AssertionError: assert 'none' == 'gamma (seen 1)'
+- test_defect_row_without_leading_pipe_is_read_as_baseline_does: E   AssertionError: assert 'none' == 'delta (seen 2)'
