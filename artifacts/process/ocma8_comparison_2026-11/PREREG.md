@@ -15,7 +15,7 @@ Primary estimand, per task t and arm a: `E = V / C`.
   predicate and constraint, and carries no confirmed consequential defect; else 0. Consequential classes:
   wrong-behaviour, wrong-pointer, wrong-value, meaning-change, scope, incomplete. Style is not consequential.
 - Confirmed defect: a row of the arm's defect table (below) that the adjudicator marks real on the final tree,
-  with a source other than the baseline. The orchestrator, who is unblinded, judges nothing. A cross-family run
+  whose source is not "in the baseline and outside the task's target". The orchestrator, who is unblinded, judges nothing. A cross-family run
   that fails or does not parse is retried once; after that a second fresh Sonnet evaluator replaces it and the
   task is marked "no cross-family": its two evaluators then share a model family with the adjudicator, and the
   report says how many tasks are so marked.
@@ -45,7 +45,8 @@ consequential defects closed. Definitions:
 - Adjudicator (one fresh blind `reviewer` per task, judging both arms): receives the candidates, the four blinded
   trees, the TASK block and the classes. It sees no report, no report id and no source. It builds each arm's
   defect table, one row per distinct defect, and assigns every candidate id to exactly one row; a script refuses
-  a table that leaves a candidate out or uses it twice. Columns it fills: real on the pre-review tree (yes or
+  a table that leaves a candidate out, uses it twice, or gives a row real only on the final tree a source other
+  than "introduced by the arm". Columns it fills: real on the pre-review tree (yes or
   no); real on the final tree (yes or no); class; and, for every row real on either tree, one source of four:
   caused by the TASK block's own text; in the baseline and outside the task's target; in the baseline, inside the
   task's target and left unrepaired; introduced by the arm. A row real only on the final tree is introduced by
@@ -66,8 +67,10 @@ consequential defects closed. Definitions:
   their rows, and the tokens and seconds of the fix round and closing review. Nothing is filtered or regrouped
   after results are seen.
 - Limits, stated: one adjudicator judges each task, blind, with no second opinion; it is a Sonnet model, as are
-  the reviewers, so `V` is also given counting only rows that hold a candidate of the cross-family evaluator (a task marked
-  "no cross-family" is left out of that figure).
+  the reviewers, so `V` is also given, beside it, counting only rows that hold a candidate of the cross-family evaluator (a
+  task marked "no cross-family" is left out of that figure). After its judgments each evaluator and the
+  adjudicator names the label it believes is the larger formation, or "cannot tell"; the hits are reported as a
+  check of the blinding and change nothing.
   The extractor sees the reports and so the formation; it judges no truth, but a claim it omits is lost from
   mentions and false findings, which the whole reports in the ledger let a reader check. The number of
   candidates per arm can hint at the formation.
