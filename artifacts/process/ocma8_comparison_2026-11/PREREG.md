@@ -28,29 +28,31 @@ consequential defects closed. Definitions:
 - Trees. The pre-review tree is the tree at the first report of the writer of the final tree: the worker's first
   report in arm A, the keeper's first report in arm B. No critic role has run before it in either arm. The final
   tree is the tree after the closing review. Both are saved as diffs.
-- Finding: one statement by an in-formation critic role, or an open item in a writer's or keeper's report, the
-  closing review's included.
-- Evaluators (two per cell, blind, independent): each lists every defect it finds on the pre-review tree and on
-  the final tree, with file, lines in that tree's numbering, and a class. They see no finding.
-- Adjudicator (one fresh blind `reviewer` per cell): receives the two evaluators' lists and the cell's findings,
-  each finding as file, lines and the finder's first sentence with role names removed, and the two blinded trees.
-  It alone builds the cell's defect table, one row per distinct defect; matching entries to rows is its call, by
-  what the defect is, not by line numbers. Columns it fills: real on the pre-review tree (yes or no); class;
-  source when real there (in the TASK block's own text, or introduced by the arm); real on the final tree (yes or
-  no). An entry it judges not real on either tree is a false entry.
-- Provenance is attached by a script afterwards, never judged: a row is "raised by the formation" when at least
-  one finding was matched to it, and carries the number of findings matched (mentions).
+- Reports: every report of an in-formation critic role, and every writer's or keeper's report, the closing
+  review's included, whole. A script (written and frozen with the packets) replaces role and agent names with
+  `AGENT` and gives each report an opaque id in shuffled order. No one cuts a report into findings by hand.
+- Evaluators (one pair per task, blind, independent, judging both arms under their labels): each lists every
+  defect it finds on each arm's pre-review tree and final tree, with file, a quoted line, and a class. They see no
+  report.
+- Adjudicator (one fresh blind `reviewer` per task, judging both arms): receives the two evaluators' lists, each
+  arm's scrubbed reports under the arm's label, and the four blinded trees. It alone builds each arm's defect
+  table, one row per distinct defect; what a report raises and which row it belongs to are its calls. Columns it
+  fills: real on the pre-review tree (yes or no); class; source when real there (in the TASK block's own text, or
+  introduced by the arm); real on the final tree (yes or no); the ids of the reports that name it. A row real on
+  neither tree is a false row.
+- Provenance is attached by a script afterwards, never judged: report ids are mapped back to roles; a row is
+  "raised by the formation" when at least one report names it; mentions = the number of reports that name it.
 - Inventory = rows real on the pre-review tree, by source. Discovery = inventory rows raised by the formation /
   inventory. Closure = inventory rows not real on the final tree / inventory. Review yield = inventory rows
-  raised by the formation. Closure reliability = rows raised by the formation and not real on the final tree /
-  rows raised by the formation. Consequential defects closed = closed inventory rows of a consequential class.
-  False findings = findings matched only to false entries. A defect real on the final tree and not on the
-  pre-review tree was introduced by the fix round and is reported as such.
-- Findings ledger, per cell: every finding as raised, false ones included, with who raised it, to whom it was
-  forwarded, the row it was matched to, and the tokens and seconds of the fix round and closing review. Nothing
-  is filtered or regrouped after results are seen.
-- Limits, stated: one adjudicator judges each cell, blind, with no second opinion; it is a Sonnet model, as are
-  the reviewers; a finder's wording can reveal its role and so the arm.
+  raised by the formation. Closure reliability = inventory rows raised by the formation and not real on the final
+  tree / inventory rows raised by the formation; false rows are in neither term. Consequential defects closed =
+  closed inventory rows of a consequential class. False findings = false rows that a report names. A defect real
+  on the final tree and not on the pre-review tree was introduced after the first report and is reported as such.
+- Findings ledger, per cell: every report as written, with its role, where it was forwarded, the rows it names,
+  and the tokens and seconds of the fix round and closing review. Nothing is filtered or regrouped after results
+  are seen.
+- Limits, stated: one adjudicator judges each task, blind, with no second opinion; it is a Sonnet model, as are
+  the reviewers; a report's wording can reveal its role and so the arm.
 No defect is seeded: seeding changes the task. So yield is bounded by the defects each arm's writers happen to
 make, which differ between arms; the inventory states that opportunity beside the yield.
 
@@ -82,10 +84,10 @@ Equal by construction, each a repair of a pilot defect:
   no decision into a split. No agent of either arm sees a predicate script.
 - Acceptance is run by the writer of the final tree (arm A: the worker; arm B: the keeper, once per draft it
   chooses between) and by the reviewer; no other block mentions it. The keeper's extra runs are part of arm B.
-- Fix round, both arms, one at most: every finding of every in-formation critic role (reviewer, and in arm B
-  checker and critic) and every open item in a writer's or keeper's report goes verbatim to the writer of the
-  final tree (arm A: the worker; arm B: the keeper; each resumed with its context), whatever the reviewer's
-  verdict; then one closing review by a fresh `reviewer` that receives the same findings. No findings, no round.
+- Fix round, both arms, always exactly one: the whole report of every in-formation critic role (reviewer, and in
+  arm B checker and critic) and of every writer goes verbatim to the writer of the final tree (arm A: the worker;
+  arm B: the keeper; each resumed with its context), whatever the reviewer's verdict; then one closing review by
+  a fresh `reviewer` that receives the same reports. No one decides whether a report holds a finding.
   Limitation, to be stated in the report: this tests each formation under a forward-everything policy, with no
   orchestrator triage; false findings are forwarded too and their cost is the arm's.
 - The orchestrator sends frozen packets verbatim, forwards output only into a packet's slot, and logs every other
@@ -104,8 +106,12 @@ with that arm's own output, so nothing from the first arm can reach the second t
 separate worktrees. This is stated, not isolated.
 Evaluation: each arm's pre-review diff and final diff are applied to fresh worktrees at the baseline under one
 label per arm drawn with `random.Random(2026111500 + task number)`, named `eval_t<n>_<p|q>_pre` and
-`eval_t<n>_<p|q>`; evaluators and the adjudicator see only those paths, the TASK block and the defect classes. Two evaluators per task, independent: `reviewer` (Sonnet 5.5, high) and a scorer
-from another model family through `delegate-cli` (opencode Muse, read-only).
+`eval_t<n>_<p|q>`; evaluators and the adjudicator see only those paths, the TASK block and the defect classes.
+Two evaluators per task, independent: `reviewer` (Sonnet 5.5, high) and a scorer from another model family
+through `delegate-cli` (opencode Muse, read-only). No evaluation starts before all eight cells have their final
+trees, so no result of one arm is known while the other runs.
+Arm flows, fixed: A: worker (first report) → reviewer → fix round → closing review. B: helper → worker 1 and
+worker 2 → keeper (first report) → checker → critic and reviewer together → fix round → closing review.
 
 ## Cost
 
@@ -119,7 +125,9 @@ from another model family through `delegate-cli` (opencode Muse, read-only).
   page as saved on 2026-11-15 in `prices_2026-11-15.md`; no price is read later. Evaluators, the adjudicator and
   the cross-family scorer are outside both arms: their cost is reported apart and is no part of `C`.
 - Orchestrator: the main session's usage rows in its own transcript between the arm's first dispatch and its
-  final tree, reported beside the agents' cost and inside `C`. Possible because arms do not interleave. Its
+  final tree, reported beside the agents' cost and inside `C`. Its model id is read from `get_session` and
+  written here at the freeze. Cache writes are split by lifetime from each usage row's `cache_creation` field; an
+  unsplit write is priced at the 1h rate. Possible because arms do not interleave. Its
   context grows through the session, so later cells cost more; the alternation spreads this over the arms and
   the agents-only analysis is free of it. Evaluation and the record's review are outside both arms.
 - `C` is always the transcript-derived figure; a cross-check difference is reported and changes nothing. Only a
@@ -150,7 +158,9 @@ included.
 Task-kind exception: a kind counts as showing an advantage only when `V_B = 1` and `V_A = 0` on it; one such cell
 of four is reported as a lead for a follow-up on that kind, never as grounds to adopt. The reverse (`V_A = 1`,
 `V_B = 0`) is reported the same way. On one-part tasks (T3, T4) arm B's keeper picks the better of two drafts:
-that is part of the OCMA-8 formation and a structural advantage on `V` there, to be named in the report. Four tasks license no rate;
+that is part of the OCMA-8 formation and a structural advantage on `V` there, to be named in the report. The
+whole analysis is therefore given twice: on four tasks, and on T1 and T2 alone; the decision table is read on the
+four, and a reading that changes on T1 and T2 alone is reported as resting on the best-of-two. Four tasks license no rate;
 the report says so. Failures and inconclusive outcomes stay in the record.
 
 ## Prerequisites (each a gate; none passed yet)
