@@ -120,7 +120,8 @@ Equal by construction, each a repair of a pilot defect:
   recorded as "no report" and nothing is retried. Whatever the ending and whatever a report says, the flow goes
   on to its next step on the tree as it stands, to the closing review; `V` is computed on the final tree. If the
   harness cannot resume the writer for the fix round, a fresh agent of the same type gets the writer's packet and
-  the reports in the same worktree; that is the fix round, under the same cap, and it is logged. The cap is per
+  the reports in the same worktree; that is the fix round, under the same cap, and it is logged. The original and the replacement run are both
+  recorded, and the cost of both is the formation's, inside `C`. The cap is per
   dispatch and is no equal total budget: arm B has more dispatches. Reported: cap compliance per run, and per
   cell the number of runs, agent seconds, tokens and cost.
 - Same tools and permissions per agent type; effort as in the table, `checker` as its agent definition sets it
@@ -139,8 +140,9 @@ label per arm drawn with `random.Random(2026111500 + task number)`, named `eval_
 `eval_t<n>_<p|q>`; the diffs are applied uncommitted, so no branch, commit, author or path of an arm reaches
 them. Evaluators see only those paths, the TASK block and the defect classes; the adjudicator sees those and the
 candidates. Neither sees a report, an agent identity or a count of agents. The scrub script also reads each
-diff: a path or added line that holds a role or agent name is replaced with `AGENT` in the evaluation copy only,
-and logged.
+diff: an agent id (the harness's hex id) in a path or added line is replaced, the token alone, with `AGENT` in
+the evaluation copy only, and that copy must still pass the acceptance command. Role words are left in a tree,
+because they are common identifiers; each added line that holds one is logged as a possible leak.
 Two evaluators per task, independent: `reviewer` (Sonnet 5.5, high) and a scorer from another model family
 through `delegate-cli` (opencode Muse, read-only). No evaluation starts before all eight cells have their final
 trees, so no result of one arm is known while the other runs.
@@ -181,7 +183,9 @@ verified completion does not show equal review quality: the report gives discove
 
 Outcomes are paired by task (Hamm 2026-11-15). Each task is a win for B (`V_B = 1`, `V_A = 0`), a loss
 (`V_B = 0`, `V_A = 1`) or a tie; a task missing a cell in either arm, or with an unmeasurable cost in either arm
-(see Cost), leaves both criteria and the cost sums together and is reported apart. Two criteria:
+(see Cost), leaves both criteria and the cost sums together. This is a missing-data rule fixed here; it can bias
+the comparison by selection, so such a task goes in a separate descriptive table with its observed `V` and
+defects for each arm, the arm that lost coverage and the reason. Two criteria:
 - Completion: B completes more tasks than A under the identical acceptance, wins > losses.
 - Defect closure: consequential defects closed in B exceed those in A by two or more, each a distinct inventory
   row, so adjudicated blind as present before review. The count is given per task beside the total.
@@ -202,7 +206,7 @@ kinds and the limits stated here.
 Task-kind exception: a kind counts as showing an advantage only when `V_B = 1` and `V_A = 0` on it; one such cell
 of four is reported as a lead for a follow-up on that kind, never as grounds to adopt. This governs the table:
 when "improves" rests on one win alone, rows 3 and 4 read as that lead and no more. The reverse (`V_A = 1`,
-`V_B = 0`) is reported the same way. On one-part tasks (T3, T4) arm B's keeper picks the better of two drafts:
+`V_B = 0`) is reported the same way. On one-part tasks (T3, T4 and any that joins them) arm B's keeper picks the better of two drafts:
 that is part of the OCMA-8 formation and a structural advantage on `V` there, to be named in the report. The
 four-task result is primary and the decision table is read on it. The same analysis on T1 and T2 alone is a
 sensitivity analysis fixed here, never an alternative result (if the packets leave one multi-part task, it is
