@@ -19,11 +19,11 @@ AGENT = "ade9393b0f61a8ab8"
 EVAL = ('DEFECT | p | pre | a.py | "x = 1 | 2" | wrong-value | The constant is wrong.\n'
         'DEFECT | p | final | a.py | "x = 1 | 2" | wrong-value | The constant is wrong.\n'
         'DEFECT | q | final | b.py | "y" | scope | A file outside the scope changed.\n'
-        "COUNT | 3\nGUESS | cannot tell\n")
+        "COUNT | 3\n")
 CANDS = ('CAND | p-C01 | p | a.py | "x" | One.\nCAND | p-C02 | p | a.py | "y" | Two.\n'
          'CAND | q-C01 | q | b.py | "z" | Three.\n')
 TABLE = ("ROW | p | 1 | yes | no | wrong-value | arm | p-C01, p-C02 | One defect.\n"
-         "ROW | q | 1 | no | no | style | none | q-C01 | Not real.\nGUESS | p\n")
+         "ROW | q | 1 | no | no | style | none | q-C01 | Not real.\n")
 
 
 def write(path, text):
@@ -42,11 +42,12 @@ def test_reports_are_whole_scrubbed_and_keyed(tmp_path):
     ids = write(tmp_path / "ids.txt", AGENT + "\n")
     write(tmp_path / "A" / "1_worker.md", f"The worker {AGENT} changed exp_t1_A/x.py.\nLAST LINE A")
     write(tmp_path / "B" / "1_helper.md", "Helper table.\nLAST LINE H")
-    write(tmp_path / "B" / "2_keeper.md", "The keeper took exp_t1_B1.\nLAST LINE K")
+    write(tmp_path / "B" / "2_keeper.md", "The keeper took exp_t1_B1, basetemp exp_t1_accept_exp_t1_B.\nLAST LINE K")
     exp_scrub.scrub_reports(1, tmp_path / "A", tmp_path / "B", ids, tmp_path / "out")
     text = (tmp_path / "out" / "reports_t1.txt").read_text(encoding="utf-8")
     assert all(s in text for s in ("LAST LINE A", "LAST LINE H", "LAST LINE K")), "no report is cut"
-    assert AGENT not in text and "exp_t1_" not in text
+    assert AGENT not in text and "exp_t1_A" not in text and "exp_t1_B" not in text
+    assert "exp_t1_accept_TREE" in text, "an arm name after an underscore is replaced too"
     assert not exp_scrub.ROLE.search(text.replace("AGENT", ""))
     with open(tmp_path / "out" / "key_reports_t1.csv", newline="", encoding="utf-8") as fh:
         key = list(csv.DictReader(fh))
@@ -87,7 +88,7 @@ def test_candidates_pool_without_source_and_merge_one_defect_on_two_snapshots(tm
 @pytest.mark.parametrize("ev1, ext, why", [
     (EVAL.replace("COUNT | 3", "COUNT | 2"), None, "COUNT"),
     (EVAL.replace("| scope |", "| nonsense |"), None, "class"),
-    (EVAL.replace("GUESS | cannot tell\n", ""), None, "GUESS"),
+    (EVAL.replace("| pre |", "| before |"), None, "snapshot"),
     (EVAL, "NONE | p-R01\nCOUNT | 0\n", "without a CLAIM or NONE"),
     (EVAL, 'CLAIM | p-R01 | q | a.py | "x" | Wrong.\nNONE | q-R01\nCOUNT | 1\n', "not of attempt"),
 ])
@@ -117,7 +118,7 @@ def test_table_check_accepts_a_valid_table(tmp_path):
     ("yes | no | wrong-value | arm", "yes | no | wrong-value | none", "real on a snapshot"),
     ("wrong-value", "bad-class", "class 'bad-class' unknown"),
     ("ROW | q | 1 | no | no | style | none | q-C01 | Not real.", "ROW | q | 1 | no | no | style | none |  | Not real.", "holds no candidate"),
-    ("GUESS | p\n", "", "exactly one GUESS"),
+    ("yes | no | wrong-value", "maybe | no | wrong-value", "yes/no value unknown"),
     ("ROW | q | 1", "ROW | p | 1", "row number p/1 used 2 times"),
 ])
 def test_table_check_refuses_each_broken_table(tmp_path, old, new, why):

@@ -6,7 +6,7 @@ Prints `TABLE OK ...` and exits 0, or prints every reason after `REFUSED` and ex
 is malformed; a label, yes/no, class or source is unknown; a row number repeats within a label; a row holds no
 candidate, a candidate of the other label or an unknown one; a candidate is in no row or in two; a row real on a
 snapshot has source `none` or a row real on neither has another source; a row real only on the final snapshot
-has a source other than `arm`; the GUESS line is missing or repeated.
+has a source other than `arm`.
 """
 import collections
 import sys
@@ -56,8 +56,6 @@ def check(cand_path, table_path):
                 why.append(f"{tag}: candidate {c!r} is unknown or of the other attempt")
     why += [f"row number {k[0]}/{k[1]} used {v} times" for k, v in numbers.items() if v > 1]
     why += [f"candidate {c} is in {used[c]} rows" for c in cands if used[c] != 1]
-    if sum(ln.startswith("GUESS") for ln in lines) != 1:
-        why.append("needs exactly one GUESS line")
     return why, len(rows), len(cands)
 
 

@@ -49,11 +49,51 @@ text and are outside review 10's scope (Hamm 2026-11-15).
 |---|---|---|
 | 1 | Telemetry | passed on vwin-pc: `telemetry_verification.md` (one row per run id on fresh, parallel and resumed runs; no earlier row changed) |
 | 2 | Cross-family scorer smoke | passed as defined: opencode Muse returned a parsed report (`smoke_packet.md`, `smoke_summary.txt`; 55 s, read-only, tree unchanged). It listed 0 defects and so missed the pilot's `scratch/` defect, which the pilot's Sonnet evaluator called minor and borderline |
-| 3 | Predicate scripts with controls | in work. Baselines re-read 2026-11-15: jnwb `dev` = ac995dde and jynx `dev` = bc72f27b, unmoved; jarness `dev` moved after the freeze to 1d032017 (the telemetry repair: `harness/hooks/subagent_log.py`, its test, two state files; none is T1's target), and T1 keeps its frozen baseline 3fb6fe0 |
-| 4 | Packets and scripts frozen, reviewed | not started |
+| 3 | Predicate scripts with controls | controls pass (table below); two acceptance reruns pending. Baselines re-read 2026-11-15: jnwb `dev` = ac995dde and jynx `dev` = bc72f27b, unmoved; jarness `dev` moved after the freeze to 1d032017 (the telemetry repair: `harness/hooks/subagent_log.py`, its test, two state files; none is T1's target), and T1 keeps its frozen baseline 3fb6fe0 |
+| 4 | Packets and scripts frozen, reviewed | in work, not frozen: `PACKETS.md`, `exp_scrub.py`, `exp_candidates.py`, `exp_table_check.py`, `exp_scripts_test.py` (20 controls pass). Review 1 (`review/packets_reviewer1.md`, at 4715cc78): ACCEPT, no A finding, 8 B and 5 C; the packets were then changed (table below), so a fresh review of the changed text is owed before the freeze |
 | 5 | T1 and T4 only in experiment worktrees | holds; nothing run |
 | 6 | Orchestrator model id | `get_session` 2026-11-15: `session_context.model` and `last_served_model` `claude-fable-5-2` (configured `claude-opus-5-5`); priced by the Fable 5.2 row of `prices_2026-11-15.md`. To be re-read at the first dispatch |
 | 7 | Hamm's go | not given |
+
+## Prerequisite 3: predicate controls (2026-11-15; `predicates/`, `accept/`)
+
+| Task | Untouched baseline | Throwaway solved tree | Acceptance on baseline |
+|---|---|---|---|
+| T1 | PRIMARY 0/3, CONSTRAINTS 3/3 | 3/3, 3/3 | `ACCEPT_RC=0` |
+| T2 | 0/3, 3/4 | 3/3, 4/4; 2/3 with the three inline splits left in | pending rerun |
+| T3 | 0/3, 1/2 | 3/3, 2/2 | pending rerun (`ACCEPT_RC=0` before the basetemp change) |
+| T4 | 0/1, 1/2 | 1/1, 2/2 | `ACCEPT_RC=0` |
+
+T2 to T4 lines: `predicates/controls_t2_t3_t4.txt`; T1 rerun by the orchestrator, lines not stored. A constraint
+that fails on the baseline is the "only files under ... change" check on an empty change, by design. Each
+constraint's failing perturbation was shown by the script's writer and not rerun. T4's acceptance command exits 0
+on the baseline (the size is a minor finding of `artifacts_check.py`): only the predicate separates a solved T4.
+Acceptance scripts use one pytest basetemp per tree, changed after the workers' controls, so two trees can run
+them at once.
+
+## Packet review 1: disposition (Hamm's rule: every B needs one)
+
+| Finding | Disposition |
+|---|---|
+| B1 guess question told evaluators that team size differs | fixed: the guess is a second packet, sent after the judgments pass the script |
+| B2 evaluation trees beside the arm worktrees | fixed: evaluation trees and their clone under `D:/repos/_eval/`; packets allow the four trees only |
+| B3 keeper's transfer of untracked files unspecified | fixed: three named steps |
+| B4 keeper's "do not improve" could suppress its fix round | fixed: the sentence is scoped to the transfer step |
+| B5 all acceptance scripts pass on the baseline, so the keeper's best-of-two is close to "worker 1" | accepted as the frozen rule's consequence; to be named in the report beside the structural advantage |
+| B6 no-report slot, slot order, replacement packet, closing review's reports unspecified | fixed: one line each |
+| B7 a table row must hold a candidate, so a defect nobody raised never enters `V` | open: Hamm's decision |
+| B8 TASK block gave the acceptance command to every agent | fixed: `ACCEPT-t<n>` goes only to the final-tree writer and the reviewers, as PREREG says |
+| C1 readings not in this file | listed below |
+| C2 "reported as empty" | fixed to PREREG's "not reported" |
+| C3 arm name after an underscore not scrubbed | fixed, with a control |
+| C4 guess never parsed | moot after B1: the guess is its own one-line output |
+| C5 role-word scrub rewrites quoted code in reports | accepted: PREREG orders it; only the extractor reads scrubbed reports and the ledger holds them whole |
+
+Readings fixed in `PACKETS.md`, not in the reviewed `PREREG.md` (qualifications): T1 and T2 run as one-part tasks
+(their items enumerate no parts), so by PREREG the T1 and T2 sensitivity analysis is not reported; one evaluator's
+defect on both snapshots is one candidate; a false row carries the source `none`; arm A's label is
+`random.Random(2026111500 + n).choice("pq")` (T1 q, T2 p, T3 q, T4 q); a refused evaluation output is returned
+once for its form only; experiment worktrees link to a single-branch clone so this record is unreachable by git.
 
 ## Ruling on the cross-family evaluator (Hamm 2026-11-15, after the smoke result)
 

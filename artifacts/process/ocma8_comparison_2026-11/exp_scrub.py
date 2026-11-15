@@ -24,7 +24,7 @@ SEED = 2026111500
 CLASSES = ("wrong-behaviour", "wrong-pointer", "wrong-value", "meaning-change", "scope", "incomplete", "style")
 ROLE = re.compile(r"\b(helpers?|workers?|writers?|keepers?|checkers?|critics?|reviewers?|orchestrators?|formations?|teams?)\b",
                   re.IGNORECASE)
-TREE = re.compile(r"\bexp_t\d+_(?:A|B[12]?)\b")
+TREE = re.compile(r"exp_t\d+_(?:A|B[12]?)\b")  # no leading \b: it also follows `_`, as in a basetemp name
 
 
 def labels(n):

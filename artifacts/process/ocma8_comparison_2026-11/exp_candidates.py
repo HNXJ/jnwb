@@ -42,7 +42,7 @@ def unquote(s, name):
 
 def parse_evaluator(path, name):
     """{(label, file, quoted, sentence): {"snaps": set, "class": str}} from DEFECT lines."""
-    lines = body_lines(path, {"DEFECT", "COUNT", "GUESS"})
+    lines = body_lines(path, {"DEFECT", "COUNT"})
     found = {}
     defects = [ln for ln in lines if ln.startswith("DEFECT")]
     for ln in defects:
@@ -57,8 +57,6 @@ def parse_evaluator(path, name):
         item = found.setdefault((label, file.strip(), quoted, sentence), {"snaps": set(), "class": cls})
         item["snaps"].add(snap)
     count_line(lines, len(defects), name)
-    if sum(ln.startswith("GUESS") for ln in lines) != 1:
-        raise Refused(f"{name}: needs exactly one GUESS line")
     return found
 
 
