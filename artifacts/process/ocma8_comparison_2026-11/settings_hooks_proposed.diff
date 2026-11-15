@@ -1,0 +1,29 @@
+--- settings.json (hooks, current)
++++ settings.json (hooks, proposed)
+@@ -27,4 +27,26 @@
+         ]
+       }
++    ],
++    "SubagentStop": [
++      {
++        "hooks": [
++          {
++            "type": "command",
++            "command": "python \"C:/Users/nejath/.claude/hooks/subagent_log.py\"",
++            "timeout": 30
++          }
++        ]
++      }
++    ],
++    "SubagentStart": [
++      {
++        "hooks": [
++          {
++            "type": "command",
++            "command": "python \"C:/Users/nejath/.claude/hooks/subagent_log.py\"",
++            "timeout": 30
++          }
++        ]
++      }
+     ]
+   }
