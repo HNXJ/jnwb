@@ -49,8 +49,21 @@ text and are outside review 10's scope (Hamm 2026-11-15).
 |---|---|---|
 | 1 | Telemetry | passed on vwin-pc: `telemetry_verification.md` (one row per run id on fresh, parallel and resumed runs; no earlier row changed) |
 | 2 | Cross-family scorer smoke | passed as defined: opencode Muse returned a parsed report (`smoke_packet.md`, `smoke_summary.txt`; 55 s, read-only, tree unchanged). It listed 0 defects and so missed the pilot's `scratch/` defect, which the pilot's Sonnet evaluator called minor and borderline |
-| 3 | Predicate scripts with controls | not started |
+| 3 | Predicate scripts with controls | in work. Baselines re-read 2026-11-15: jnwb `dev` = ac995dde and jynx `dev` = bc72f27b, unmoved; jarness `dev` moved after the freeze to 1d032017 (the telemetry repair: `harness/hooks/subagent_log.py`, its test, two state files; none is T1's target), and T1 keeps its frozen baseline 3fb6fe0 |
 | 4 | Packets and scripts frozen, reviewed | not started |
 | 5 | T1 and T4 only in experiment worktrees | holds; nothing run |
 | 6 | Orchestrator model id | `get_session` 2026-11-15: `session_context.model` and `last_served_model` `claude-fable-5-2` (configured `claude-opus-5-5`); priced by the Fable 5.2 row of `prices_2026-11-15.md`. To be re-read at the first dispatch |
 | 7 | Hamm's go | not given |
+
+## Ruling on the cross-family evaluator (Hamm 2026-11-15, after the smoke result)
+
+Muse stays the frozen cross-family evaluator; evaluator, thresholds and adjudication rules are unchanged. Its miss
+of the one known borderline defect is a measured sensitivity limit: one case, no detection rate. A defect's
+absence is never read from Muse's list alone; the adjudication of `PREREG.md` decides. The miss goes into the
+final analysis with its evidence (`smoke_summary.txt`; the defect in `../ocma8_pilot_2026-11-15/RESULTS.md`).
+No further scorer probe runs before the experiment.
+
+Telemetry limits accepted as scoped (same ruling): macOS unknown; the jarness install receipt is stale against
+the installed hook; whether the harness emitted a duplicate stop in the real resume is not established, because
+deduplication masks it; a resumed run's row is cumulative by design. The repair is not widened without a new
+demonstrated defect.
