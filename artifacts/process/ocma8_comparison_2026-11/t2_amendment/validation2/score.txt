@@ -1,0 +1,29 @@
+tree | expected | slot 1 (label) | slot 2 (label) | tree verdict | as expected
+m1 | FAIL | FAIL (f22bc4af) | FAIL (770bb9fd) | FAIL | True
+m2 | FAIL | FAIL (2ae10c16) | FAIL (3e350932) | FAIL | True
+m3 | FAIL | FAIL (d223b7d4) | FAIL (e4c3e4e9) | FAIL | True
+m4 | FAIL | FAIL (91489c7e) | FAIL (2544a2ee) | FAIL | True
+m5 | FAIL | FAIL (956200d3) | FAIL (19f3a269) | FAIL | True
+m6 | FAIL | FAIL (ceca93d3) | FAIL (021a6940) | FAIL | True
+m7 | FAIL | FAIL (d78a8b03) | FAIL (49032449) | FAIL | True
+n1 | PASS | PASS (0b79bb95) | PASS (d0c09a13) | PASS | True
+n2 | PASS | PASS (4b1a1322) | PASS (1aaf4bcb) | PASS | True
+n3 | PASS | PASS (9b72baeb) | PASS (6b404735) | PASS | True
+n4 | PASS | PASS (b97c8abd) | PASS (e296ba04) | PASS | True
+n5 | PASS | PASS (dac65960) | PASS (22741c6a) | PASS | True
+
+confusion, tree verdict (rows expected, columns PASS FAIL AMBIGUOUS)
+PASS [5, 0, 0]
+FAIL [0, 7, 0]
+confusion, slot 1 (rows expected, columns PASS FAIL UNRESOLVED MISSING)
+PASS [5, 0, 0, 0]
+FAIL [0, 7, 0, 0]
+confusion, slot 2 (rows expected, columns PASS FAIL UNRESOLVED MISSING)
+PASS [5, 0, 0, 0]
+FAIL [0, 7, 0, 0]
+
+slot agreement 12 of 12; Cohen's kappa 1.0
+AMBIGUOUS trees 0 of 12
+STOP 1 (expected FAIL judged PASS): none
+STOP 2 (expected PASS judged FAIL): none
+STOP 3 (more than 2 of 12 AMBIGUOUS): False

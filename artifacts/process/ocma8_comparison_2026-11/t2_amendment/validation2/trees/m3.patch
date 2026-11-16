@@ -1,0 +1,210 @@
+diff --git a/scripts/build_dashboard.py b/scripts/build_dashboard.py
+index 7ada896b..8c201d25 100644
+--- a/scripts/build_dashboard.py
++++ b/scripts/build_dashboard.py
+@@ -79,6 +79,7 @@ if str(REPO_ROOT) not in sys.path:
+ # The closure receipt is read by the release gate's own parser, which this module calls.
+ from scripts.release_gate import (RECEIPT_PATH as CLOSURE_RECEIPT_PATH,  # noqa: E402
+                                   blocker_fixpoint_receipt)
++from scripts.mdpattern import PIPE  # noqa: E402
+ CLOSURE_RECEIPT = REPO_ROOT / CLOSURE_RECEIPT_PATH
+ VALIDATION_HTML = ASSETS / "validations"
+ SECTIONS =("generated", "release", "releases", "ci", "api", "verified", "performance",
+@@ -351,7 +352,7 @@ def performance_section() -> dict | None:
+ 
+ 
+ def _cells(line: str) -> list[str]:
+-    return [cell.strip() for cell in re.split(r"(?<!\\)\|", line)[1:-1]]
++    return [cell.strip() for cell in PIPE.split(line)[1:-1]]
+ 
+ 
+ def _first_url(text: str) -> str | None:
+diff --git a/scripts/build_fact_graph.py b/scripts/build_fact_graph.py
+index ff00e9c1..86c4016f 100644
+--- a/scripts/build_fact_graph.py
++++ b/scripts/build_fact_graph.py
+@@ -183,6 +183,7 @@ from scripts.computational_contract_gate import (  # noqa: E402
+     EXECUTION_PARAMETERS,
+     _dataclass_field,
+ )
++from scripts.mdpattern import PIPE  # noqa: E402
+ # Which resolver calls make a parameter stochastic is defined once, beside the resolvers,
+ # and read by the rng-parameter walk and by this scan alike; the reachability wrapper below
+ # is shared with the S10 scan.
+@@ -222,7 +223,7 @@ class FactSourceError(ValueError):
+ 
+ 
+ def _cells(line: str) -> List[str]:
+-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
++    return [cell.strip() for cell in PIPE.split(line.strip().strip("|"))]
+ 
+ 
+ def _all_tables(text: str) -> List[Tuple[str, List[str], List[List[str]]]]:
+@@ -396,7 +397,7 @@ def reference_table_rows(text: str) -> List[Tuple[Tuple[str, ...], str, str, str
+         line = line.strip()
+         if not line.startswith("|") or set(line) <= set("|- "):
+             continue
+-        cells = [c.strip() for c in line.strip("|").split("|")]
++        cells = _cells(line)
+         if cells and cells[0] == "Reference":
+             header = tuple(cells)
+             assert header in (*FUNCTION_HEADERS, CORE_HEADER, REPRODUCTION_HEADER), (
+diff --git a/scripts/docs_form_gate.py b/scripts/docs_form_gate.py
+index 8d0ffea4..7c280dea 100644
+--- a/scripts/docs_form_gate.py
++++ b/scripts/docs_form_gate.py
+@@ -75,6 +75,9 @@ import numpy as np
+ import yaml
+ 
+ REPO_ROOT = Path(__file__).resolve().parents[1]
++if str(REPO_ROOT) not in sys.path:
++    sys.path.append(str(REPO_ROOT))
++from scripts.mdpattern import PIPE  # noqa: E402
+ 
+ CONTRACT = Path("docs") / "documentation_form.md"
+ 
+@@ -272,6 +275,10 @@ def vocabulary_section(contract_text: str) -> Optional[str]:
+     return contract_text[match.end():].split("\n## ", 1)[0]
+ 
+ 
++def _cells(line: str) -> List[str]:
++    return [cell.strip() for cell in PIPE.split(line.strip().strip("|"))]
++
++
+ def parse_vocabulary(contract_text: str) -> List[VocabularyRow]:
+     """The rows of the contract's vocabulary table: concept, accepted forms, superseded forms."""
+     section = vocabulary_section(contract_text)
+@@ -282,7 +289,7 @@ def parse_vocabulary(contract_text: str) -> List[VocabularyRow]:
+         line = line.strip()
+         if not line.startswith("|") or "|---" in line:
+             continue
+-        cells = [c.strip() for c in line.strip("|").split("|")]
++        cells = _cells(line)
+         if len(cells) != 3 or cells[0].lower() == "concept":
+             continue
+         preferred = BACKTICKED.findall(cells[1])
+diff --git a/scripts/learning_gate.py b/scripts/learning_gate.py
+index c6b42715..c70fa396 100644
+--- a/scripts/learning_gate.py
++++ b/scripts/learning_gate.py
+@@ -30,6 +30,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
+ 
+ from scripts import reconstruct_state as _state
+ from scripts.obligation_diff import WORD, clauses
++from scripts.mdpattern import PIPE
+ 
+ REPO_ROOT = Path(__file__).resolve().parents[1]
+ LEDGER = Path("artifacts/process/defect_classes.md")
+@@ -50,7 +51,7 @@ NOT_SEARCHED = ("artifacts/rulings", "artifacts/archive", "artifacts/evidence")
+ 
+ 
+ def _cells(line: str) -> List[str]:
+-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
++    return [cell.strip() for cell in PIPE.split(line.strip().strip("|"))]
+ 
+ 
+ def ledger_rows(text: str) -> List[Tuple[str, int, int]]:
+diff --git a/scripts/reconstruct_state.py b/scripts/reconstruct_state.py
+index 4664cbb2..a056e07c 100644
+--- a/scripts/reconstruct_state.py
++++ b/scripts/reconstruct_state.py
+@@ -39,6 +39,13 @@ import sys
+ import urllib.request
+ 
+ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
++# Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, for `scripts`, behind the named copy.
++if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
++    if str(REPO_ROOT) not in sys.path:
++        sys.path.append(str(REPO_ROOT))
++elif str(REPO_ROOT) not in sys.path:
++    sys.path.insert(0, str(REPO_ROOT))
++from scripts.mdpattern import PIPE  # noqa: E402
+ STATE_PATH = REPO_ROOT / "artifacts" / "state.md"
+ HEAD_ROW_RE = re.compile(r"^\| HEAD \| `([0-9a-f]{40})` \|$", re.MULTILINE)
+ 
+@@ -214,6 +221,10 @@ def newest_dev_run() -> str:
+ _CLOSED_STATUS = re.compile(r"^(repaired|check landed|gated|rule)\b")
+ 
+ 
++def _cells(line: str) -> list[str]:
++    return [cell.strip() for cell in PIPE.split(line.strip().strip("|"))]
++
++
+ def open_defect_classes(path: pathlib.Path | None = None) -> str:
+     """The ledger's classes with no landed check, each with its count; twice-seen ones first."""
+     path = path or REPO_ROOT / "artifacts" / "process" / "defect_classes.md"
+@@ -221,7 +232,7 @@ def open_defect_classes(path: pathlib.Path | None = None) -> str:
+         return "UNRESOLVED (file absent)"
+     found = []
+     for line in path.read_text(encoding="utf-8").splitlines():
+-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
++        cells = _cells(line)
+         if len(cells) < 6 or not cells[1].isdigit() or ":" not in cells[0]:
+             continue
+         if not _CLOSED_STATUS.match(cells[-1]):
+diff --git a/scripts/release_gate.py b/scripts/release_gate.py
+index 98ef7087..c5f57614 100644
+--- a/scripts/release_gate.py
++++ b/scripts/release_gate.py
+@@ -60,6 +60,7 @@ from scripts.stack_parse import (  # noqa: E402
+     parse_todo_stack as _parse_todo_stack,
+     sections as _todo_sections,
+ )
++from scripts.mdpattern import PIPE  # noqa: E402
+ 
+ 
+ #: Extras whose tooling must be present for release qualification to mean anything: every extra
+@@ -1286,19 +1287,8 @@ OPEN_STACK = "artifacts/open_stack.md"
+ _SEPARATOR_CELL = re.compile(r"^:?-+:?$")
+ 
+ 
+-def _cells(line: str) -> Optional[List[str]]:
+-    stripped = line.strip()
+-    if not stripped.startswith("|"):
+-        return None
+-    return [cell.strip() for cell in stripped.strip("|").split("|")]
+-
+-
+-def _table_cells(line: str) -> Optional[List[str]]:
+-    """The cells of a table line, blockquote markers removed; ``None`` for any other line."""
+-    body = line.lstrip(" \t>").strip()
+-    if not body.startswith("|"):
+-        return None
+-    return [cell.strip() for cell in body.strip("|").split("|")]
++def _cells(line: str) -> List[str]:
++    return [cell.strip() for cell in PIPE.split(line.strip().strip("|"))]
+ 
+ 
+ def _is_separator(cells: Optional[List[str]]) -> bool:
+@@ -1313,7 +1303,10 @@ def table_data_rows(text: str) -> List[Tuple[int, str]]:
+     the table line directly above a separator row. Prose does not count, whatever it contains.
+     """
+     lines = text.splitlines()
+-    cells = [_table_cells(line) for line in lines]
++    cells = []
++    for line in lines:
++        body = line.lstrip(" \t>").strip()
++        cells.append(_cells(body) if body.startswith("|") else None)
+     rows = []
+     for index, line in enumerate(lines):
+         if cells[index] is None or _is_separator(cells[index]):
+@@ -1432,7 +1425,7 @@ def roadmap_rows(text: str, stack_ids: Iterable[str] = ()) -> Tuple[List[Tuple[s
+     for lineno, line in enumerate(text.splitlines(), 1):
+         if _REQUIRED_MARKER.search(line) or re.search(r"(?<![\w-])required-", line, re.I):
+             refused.append(f"line {lineno} marks work required: {line.strip()[:60]!r}")
+-        cells = _cells(line)
++        cells = _cells(line) if line.strip().startswith("|") else None
+         if cells is None:
+             if _ITEM_SHAPED.match(_BULLET.sub("", line, count=1)):
+                 refused.append(f"line {lineno} is id-shaped outside the table: "
+diff --git a/scripts/mdpattern.py b/scripts/mdpattern.py
+new file mode 100644
+index 00000000..ef268f15
+--- /dev/null
++++ b/scripts/mdpattern.py
+@@ -0,0 +1,5 @@
++"""The compiled pattern that splits a markdown table row on its unescaped pipes."""
++
++import re
++
++PIPE = re.compile(r"(?<!\\)\|")

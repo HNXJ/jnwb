@@ -1,0 +1,184 @@
+diff --git a/scripts/build_dashboard.py b/scripts/build_dashboard.py
+index 7ada896b..157750ff 100644
+--- a/scripts/build_dashboard.py
++++ b/scripts/build_dashboard.py
+@@ -79,6 +79,7 @@ if str(REPO_ROOT) not in sys.path:
+ # The closure receipt is read by the release gate's own parser, which this module calls.
+ from scripts.release_gate import (RECEIPT_PATH as CLOSURE_RECEIPT_PATH,  # noqa: E402
+                                   blocker_fixpoint_receipt)
++from scripts.tableio import CellSplitter  # noqa: E402
+ CLOSURE_RECEIPT = REPO_ROOT / CLOSURE_RECEIPT_PATH
+ VALIDATION_HTML = ASSETS / "validations"
+ SECTIONS =("generated", "release", "releases", "ci", "api", "verified", "performance",
+@@ -351,7 +352,7 @@ def performance_section() -> dict | None:
+ 
+ 
+ def _cells(line: str) -> list[str]:
+-    return [cell.strip() for cell in re.split(r"(?<!\\)\|", line)[1:-1]]
++    return [cell.strip() for cell in CellSplitter.split(line)[1:-1]]
+ 
+ 
+ def _first_url(text: str) -> str | None:
+diff --git a/scripts/build_fact_graph.py b/scripts/build_fact_graph.py
+index ff00e9c1..0a093522 100644
+--- a/scripts/build_fact_graph.py
++++ b/scripts/build_fact_graph.py
+@@ -183,6 +183,7 @@ from scripts.computational_contract_gate import (  # noqa: E402
+     EXECUTION_PARAMETERS,
+     _dataclass_field,
+ )
++from scripts.tableio import CellSplitter  # noqa: E402
+ # Which resolver calls make a parameter stochastic is defined once, beside the resolvers,
+ # and read by the rng-parameter walk and by this scan alike; the reachability wrapper below
+ # is shared with the S10 scan.
+@@ -222,7 +223,7 @@ class FactSourceError(ValueError):
+ 
+ 
+ def _cells(line: str) -> List[str]:
+-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
++    return [cell.strip() for cell in CellSplitter.split(line.strip().strip("|"))]
+ 
+ 
+ def _all_tables(text: str) -> List[Tuple[str, List[str], List[List[str]]]]:
+@@ -396,7 +397,7 @@ def reference_table_rows(text: str) -> List[Tuple[Tuple[str, ...], str, str, str
+         line = line.strip()
+         if not line.startswith("|") or set(line) <= set("|- "):
+             continue
+-        cells = [c.strip() for c in line.strip("|").split("|")]
++        cells = [c.strip() for c in CellSplitter.split(line.strip("|"))]
+         if cells and cells[0] == "Reference":
+             header = tuple(cells)
+             assert header in (*FUNCTION_HEADERS, CORE_HEADER, REPRODUCTION_HEADER), (
+diff --git a/scripts/docs_form_gate.py b/scripts/docs_form_gate.py
+index 8d0ffea4..568049be 100644
+--- a/scripts/docs_form_gate.py
++++ b/scripts/docs_form_gate.py
+@@ -75,6 +75,10 @@ import numpy as np
+ import yaml
+ 
+ REPO_ROOT = Path(__file__).resolve().parents[1]
++if str(REPO_ROOT) not in sys.path:
++    sys.path.append(str(REPO_ROOT))
++
++from scripts.tableio import CellSplitter  # noqa: E402
+ 
+ CONTRACT = Path("docs") / "documentation_form.md"
+ 
+@@ -282,7 +286,7 @@ def parse_vocabulary(contract_text: str) -> List[VocabularyRow]:
+         line = line.strip()
+         if not line.startswith("|") or "|---" in line:
+             continue
+-        cells = [c.strip() for c in line.strip("|").split("|")]
++        cells = [c.strip() for c in CellSplitter.split(line.strip("|"))]
+         if len(cells) != 3 or cells[0].lower() == "concept":
+             continue
+         preferred = BACKTICKED.findall(cells[1])
+diff --git a/scripts/learning_gate.py b/scripts/learning_gate.py
+index c6b42715..781209f5 100644
+--- a/scripts/learning_gate.py
++++ b/scripts/learning_gate.py
+@@ -30,6 +30,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
+ 
+ from scripts import reconstruct_state as _state
+ from scripts.obligation_diff import WORD, clauses
++from scripts.tableio import CellSplitter
+ 
+ REPO_ROOT = Path(__file__).resolve().parents[1]
+ LEDGER = Path("artifacts/process/defect_classes.md")
+@@ -50,7 +51,7 @@ NOT_SEARCHED = ("artifacts/rulings", "artifacts/archive", "artifacts/evidence")
+ 
+ 
+ def _cells(line: str) -> List[str]:
+-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
++    return [cell.strip() for cell in CellSplitter.split(line.strip().strip("|"))]
+ 
+ 
+ def ledger_rows(text: str) -> List[Tuple[str, int, int]]:
+diff --git a/scripts/reconstruct_state.py b/scripts/reconstruct_state.py
+index 4664cbb2..c5eb55ae 100644
+--- a/scripts/reconstruct_state.py
++++ b/scripts/reconstruct_state.py
+@@ -39,6 +39,11 @@ import sys
+ import urllib.request
+ 
+ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
++if str(REPO_ROOT) not in sys.path:
++    sys.path.append(str(REPO_ROOT))
++
++from scripts.tableio import CellSplitter  # noqa: E402
++
+ STATE_PATH = REPO_ROOT / "artifacts" / "state.md"
+ HEAD_ROW_RE = re.compile(r"^\| HEAD \| `([0-9a-f]{40})` \|$", re.MULTILINE)
+ 
+@@ -221,7 +226,7 @@ def open_defect_classes(path: pathlib.Path | None = None) -> str:
+         return "UNRESOLVED (file absent)"
+     found = []
+     for line in path.read_text(encoding="utf-8").splitlines():
+-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
++        cells = [c.strip() for c in CellSplitter.split(line.strip().strip("|"))]
+         if len(cells) < 6 or not cells[1].isdigit() or ":" not in cells[0]:
+             continue
+         if not _CLOSED_STATUS.match(cells[-1]):
+diff --git a/scripts/release_gate.py b/scripts/release_gate.py
+index 98ef7087..cceedf38 100644
+--- a/scripts/release_gate.py
++++ b/scripts/release_gate.py
+@@ -60,6 +60,7 @@ from scripts.stack_parse import (  # noqa: E402
+     parse_todo_stack as _parse_todo_stack,
+     sections as _todo_sections,
+ )
++from scripts.tableio import CellSplitter  # noqa: E402
+ 
+ 
+ #: Extras whose tooling must be present for release qualification to mean anything: every extra
+@@ -1290,7 +1291,7 @@ def _cells(line: str) -> Optional[List[str]]:
+     stripped = line.strip()
+     if not stripped.startswith("|"):
+         return None
+-    return [cell.strip() for cell in stripped.strip("|").split("|")]
++    return [cell.strip() for cell in CellSplitter.split(stripped.strip("|"))]
+ 
+ 
+ def _table_cells(line: str) -> Optional[List[str]]:
+@@ -1298,7 +1299,7 @@ def _table_cells(line: str) -> Optional[List[str]]:
+     body = line.lstrip(" \t>").strip()
+     if not body.startswith("|"):
+         return None
+-    return [cell.strip() for cell in body.strip("|").split("|")]
++    return [cell.strip() for cell in CellSplitter.split(body.strip("|"))]
+ 
+ 
+ def _is_separator(cells: Optional[List[str]]) -> bool:
+diff --git a/scripts/tableio/__init__.py b/scripts/tableio/__init__.py
+new file mode 100644
+index 00000000..3363a053
+--- /dev/null
++++ b/scripts/tableio/__init__.py
+@@ -0,0 +1,5 @@
++"""Reading the cells of markdown table rows."""
++
++from .cells import CellSplitter
++
++__all__ = ["CellSplitter"]
+diff --git a/scripts/tableio/cells.py b/scripts/tableio/cells.py
+new file mode 100644
+index 00000000..3dfde4e2
+--- /dev/null
++++ b/scripts/tableio/cells.py
+@@ -0,0 +1,16 @@
++"""The cells of a markdown table row, split at the pipes that no backslash escapes."""
++
++from __future__ import annotations
++
++_ESCAPED_PIPE = "\\|"
++_SENTINEL = ""
++
++
++class CellSplitter:
++    """Splits a table row at its pipes; an escaped pipe stays inside its cell."""
++
++    @classmethod
++    def split(cls, text: str) -> list[str]:
++        """The cells of ``text``, each escaped pipe back in its cell with its backslash."""
++        protected = text.replace(_ESCAPED_PIPE, _SENTINEL)
++        return [cell.replace(_SENTINEL, _ESCAPED_PIPE) for cell in protected.split("|")]
