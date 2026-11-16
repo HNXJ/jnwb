@@ -1,10 +1,14 @@
-# T2 amendment 2 (2026-11-16, for review 3)
+# T2 amendment 2 (2026-11-16): STOPPED by the stopping rule
 
 Status: amendment 1 was reviewed twice, REVISE both times (`../review/t2_amendment_reviewer1.md`,
 `../review/t2_amendment_reviewer2.md`; sections "Review 1 and repair", "Review 2"). Amendment 2 (section
 "Amendment 2") replaces the primary predicates P1 to P3 on Hamm's ruling of 2026-11-15 (option 2, a bounded
-structural check) and his ruling of 2026-11-16 on the terminal escaped pipe. One bounded implementation, one
-independent review; not reviewed yet. Not accepted; T2 not frozen.
+structural check) and his ruling of 2026-11-16 on the terminal escaped pipe. Its one independent review, of
+d600c360, returned STOP (`../review/t2_amendment_reviewer3.md`; section "Review 3"): the structural checker
+accepts unconsolidated implementations. Instrument development is stopped and the validity problem is
+returned to Hamm. Nothing found by review 3 is repaired. Not accepted; T2 not frozen.
+
+The rows of the table below marked "shown" hold for the listed controls only; review 3's rows are appended.
 
 | Conclusion | Status |
 |---|---|
@@ -14,6 +18,9 @@ independent review; not reviewed yet. Not accepted; T2 not frozen.
 | P1 and P2 accept valid alternative implementations | shown for pos2, v1, v2, v3 (PRIMARY 4/4); a1, valid with a delegation the AST does not resolve, is AMBIGUOUS, not rejected |
 | P1 rejects unconsolidated implementations with correct behaviour | shown for u1, u2, u3 (P1 FAIL with P3, P4, C5 passing) |
 | P3 is correct at a row-final escaped pipe | spaced closing: shown at two readers, with a negative control. Open and tight closings: outside the contract; every reference fails the independent oracle there (unresolved parser-contract issue) |
+| P1 and P2 reject every unconsolidated implementation | NO (review 3): `u_disp`, `u_hidden_call`, `u_const2` score P1 PASS, P2 PASS with correct behaviour, the first two PRIMARY 4/4 |
+| P3 rejects every wrong convention | NO (review 3): `w_hdr2`, `w_maxsplit`, `w_ws` pass all four primaries; `w_bq` passes P3 and P4 |
+| P1 resolves valid refactors without adjudication | rarely: 6 of review 3's 7 valid trees are AMBIGUOUS (none rejected) |
 | Two keeper dispatches fit the 30-minute cap | UNKNOWN: two serial acceptance runs take 526 of 1800 s; two at once take 331 and 328 s each, inside the 10-minute timeout; dispatch overhead is unmeasured |
 T2 is not frozen. No experiment cell has run. `PREREG.md` is unchanged: the 30-minute cap, the evaluator, the
 thresholds and the adjudication rules stand.
@@ -305,10 +312,78 @@ so the figure includes that load. Keeper dispatch overhead is not measured.
 - P1 FAIL needs two anchors with no definition in common. A tree where every anchor reaches the shared
   definition and one also keeps its own split is AMBIGUOUS on P1; P2 then reads FAIL or AMBIGUOUS.
 - A splitter with no recognised split form (for example `str.partition` in a loop) is AMBIGUOUS.
-- Who adjudicates an AMBIGUOUS cell, and how the answer enters the ledger, is not in `PREREG.md`: Hamm's.
 - P3's corrected oracle is the baseline on a substituted row, so it inherits baseline behaviour around the
   escape; the terminal forms above are where that differs from the independent oracle.
 - One seed. The row classes are those of the ruling; 300 rows per reader and mode.
+
+### Negative-control regression (after d600c360; `matrix5.txt`)
+
+M1 to M9 (each diff applied to a clone of the baseline) and `pos_c1` to `pos_c4`, under the predicates of
+d600c360, three trees at a time under the suite lock; every tree's `git status` hash equal before and after.
+
+| Trees | PRIMARY | CONSTRAINTS | Not passing | P3 preserved / corrected mismatches |
+|---|---|---|---|---|
+| M1 | 0/4 | 4/5 | P1 to P4, C5 | 541 / 1258 |
+| M2 | 0/4 | 4/5 | P1 to P4, C5 | 0 / 1047 |
+| M3 | 0/4 | 3/5 | P1 to P4, C1, C5 | 400 / 778 |
+| M4 | 0/4 | 4/5 | P1 to P4, C5 | 351 / 962 |
+| M5 | 0/4 | 3/5 | P1 to P4, C1, C5 | 300 / 922 |
+| M6 | 0/4 | 4/5 | P1 to P4, C5 | 57 / 698 |
+| M7 | 0/4 | 3/5 | P1 to P4, C1, C5 | 177 / 716 |
+| M8 | 0/4 | 4/5 | P1 to P4, C5 | 102 / 687 |
+| M9 | 0/4 | 4/5 | P1 to P4, C5 | 86 / 708 |
+| pos_c1 (gate broken) | 0/4 | 3/5 | P1 to P4, C1, C5 | 323 / 540 |
+| pos_c2 (unresolved name) | 0/4 | 2/5 | P1 to P4, C1, C2, C5 | 843 / 1078 |
+| pos_c3 (gate writes a tracked file) | 0/4 | 1/5 | P1 to P4, C1, C3, C4, C5 | 323 / 540 |
+| pos_c4 (file outside scope) | 0/4 | 3/5 | P1 to P4, C4, C5 | 323 / 540 |
+
+All 13 are rejected; each constraint negative fails the constraint it was built to break. The constraint
+negatives carry three inline splits, so they now score PRIMARY 0/4 (2/4 under amendment 1). M2 has no
+preserved-mode mismatch: corrected mode, P4 and C5 reject it. C1 fails on M3, M5 and M7; whether it did under
+the frozen predicates was not checked.
+
+### AMBIGUOUS adjudication (Hamm 2026-11-16, adopted; recorded before any application)
+
+A governance rule adopted by Hamm, not a `PREREG.md` requirement. For one tree and one predicate:
+1. Worker: documents the unresolved AST path, the source locations and why static resolution fails.
+2. Independent reviewer: inspects the actual call path and returns `PASS`, `FAIL` or `UNRESOLVED` with evidence.
+3. Lead: approves the adjudication and appends the ledger entry with the tree SHA and the reviewer's receipt.
+4. Checker: the original automated result stands as printed. `UNRESOLVED` stays `AMBIGUOUS`; no automatic pass.
+
+The ledger keeps the automated result, the adjudicated result, the evidence, the reviewer, the lead's approval
+and the timestamp. The candidate's author does not adjudicate. Adjudication is case-specific, never a general
+exemption from P1; no automated result is altered afterwards; predicates, scored generator and acceptance are
+not changed by it. Not applied to any tree, a1 included.
+
+## Review 3 (STOP; nothing below is repaired)
+
+Review of d600c360 by a fresh reviewer (`../review/t2_amendment_reviewer3.md`; its trees as diffs and builders
+in `review3_probes/`). The orchestrator reran the structure check and P3 on `u_disp`, `u_hidden_call`,
+`u_const2` and `w_hdr2` and the seed finding at seeds 1 and 2: same results.
+
+1. Blocker, stopping rule: unconsolidated trees with correct behaviour score P1 PASS and P2 PASS.
+   `u_disp`: one shared `split_cells(site=)` that dispatches through a dict to per-site splitters, PRIMARY 4/4.
+   `u_hidden_call`: six modules keep their own splitter in a form the check does not recognise
+   (`replace`, `translate`, `split(chr(1))`) beside a real shared call whose result is returned only when the own one is empty, PRIMARY 4/4,
+   CONSTRAINTS 5/5. `u_const2`: eight sites split inline with one shared compiled pattern and their own strip
+   logic; a module-level pattern counted as one definition by design.
+2. Major: wrong conventions pass all four primaries: `w_hdr2` (a fact-table header split naively, so an escaped
+   pipe in a header cell splits it), `w_maxsplit` (splits capped at 15), `w_ws` (strips only space and tab).
+   `w_bq` (blockquote marker dropped) passes P3 and P4; C5 alone catches it. The generator emits no header
+   escapes, no `>` leads, no row over 12 cells, no other whitespace: the enumeration class of review 2 again.
+3. Major: the scored generator emits open-form rows, which the ruling makes exploratory. At the frozen seed
+   none reaches a reader that returns the cell; at seeds 1 to 8 the corrected reference shows 3, 3, 4, 2, 1, 3,
+   1, 2 corrected mismatches, all rows ending in an escaped pipe. The reference's 0 rests on the seed.
+4. Minor: no valid refactor was rejected (7 built), but 6 of 7 are P1 AMBIGUOUS; with a1, 7 of 8.
+5. Minor: at the frozen seed the baseline raises on 71% of `dashboard.studies` inputs, 40% of `fact.facts`, 41%
+   of `fact.references`, 37% of `dashboard.order`; a raise is compared by exception class name only.
+6. The record's counts, the sampled matrix rows and the terminal-form scan reproduce.
+
+Read: static reading bounded to recognised split forms cannot separate "one shared implementation" from a
+shared entry point that dispatches, or from a splitter written in an unrecognised form; widening the forms is
+the enumeration the ruling set out to avoid. P1 and P2 as built are not a valid consolidation measure. The
+behaviour predicates reject every wrong tree of the earlier sets and still miss new conventions. Under the
+stopping rule no further instrument work is done without a new ruling.
 
 ## Readings
 
@@ -324,5 +399,5 @@ so the figure includes that load. Keeper dispatch overhead is not measured.
 
 ## Owed before freeze
 
-One independent review of amendment 2 at its final SHA (the stopping rule allows one). Hamm: the adjudication
-route for an AMBIGUOUS cell; the go decision. Experiment execution stays withheld.
+A new ruling from Hamm on how T2's consolidation and behaviour are measured, or on T2's place in the pilot.
+Experiment execution and keeper dispatch stay withheld.

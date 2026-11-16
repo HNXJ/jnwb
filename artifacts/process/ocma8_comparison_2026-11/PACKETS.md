@@ -25,6 +25,15 @@ this record only: the four acceptance scripts and `t2_preserved_test.py`, which 
 The predicate scripts (`predicates/`, with `t2_corrected_test.py`, `t2_structure.py` and `t2_differential.py`) are run by the orchestrator from this record
 after a cell's final tree is saved, never before, and their output goes to the ledger only.
 
+AMBIGUOUS predicate results (Hamm 2026-11-16, adopted; a governance rule, not a `PREREG.md` requirement). For
+one tree and one predicate: a worker documents the unresolved AST path, the source locations and why static
+resolution fails; an independent reviewer inspects the call path and returns `PASS`, `FAIL` or `UNRESOLVED`
+with evidence; the lead approves and appends the ledger entry with the tree SHA and the reviewer's receipt; the
+automated result stands as printed and `UNRESOLVED` stays `AMBIGUOUS`, never a pass. The ledger keeps the
+automated result, the adjudicated result, the evidence, the reviewer, the lead's approval and the timestamp.
+The candidate's author does not adjudicate; adjudication is case-specific and changes no predicate, generator
+or acceptance criterion. T2's amended predicates are not accepted (`t2_amendment/AMENDMENT.md`, review 3 STOP).
+
 ## TASK blocks
 
 ### TASK-t1

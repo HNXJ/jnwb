@@ -1,0 +1,156 @@
+== M1
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=1258; preserved readers=13 inputs=3771 mismatches=541; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=20; mismatching inputs in D:/pytest_temp/exp_t2_pred_M1_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '6 failed in 3.06s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 58 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 1 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '12 failed, 44 passed in 3.24s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 4/5
+rc=0 wall_s=114 porcelain 47ce46292227 -> 47ce46292227
+== M2
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=1047; preserved readers=13 inputs=3771 mismatches=0; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=20; mismatching inputs in D:/pytest_temp/exp_t2_pred_M2_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '6 failed in 3.07s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 58 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 1 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '1 failed, 55 passed in 3.16s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 4/5
+rc=0 wall_s=114 porcelain 47ce46292227 -> 47ce46292227
+== M3
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=778; preserved readers=13 inputs=3771 mismatches=400; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=20; mismatching inputs in D:/pytest_temp/exp_t2_pred_M3_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '6 failed in 3.13s'
+C1 FAIL harness_gate rc=1; gates executed unparsed; PASS lines 21; bad lines 2; last line 'OVERALL: FAIL. 22 of 22 gates executed; failed: [22]; not run: none.'
+C2 PASS compileall rc=0; 58 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 1 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '7 failed, 49 passed in 3.78s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 3/5
+rc=0 wall_s=87 porcelain 46ec0b6fbe9a -> 46ec0b6fbe9a
+== M4
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=962; preserved readers=13 inputs=3771 mismatches=351; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=26; mismatching inputs in D:/pytest_temp/exp_t2_pred_M4_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '6 failed in 3.14s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 58 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 1 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '6 failed, 50 passed in 3.20s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 4/5
+rc=0 wall_s=121 porcelain 05d381420ddc -> 05d381420ddc
+== M5
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=922; preserved readers=13 inputs=3771 mismatches=300; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=20; mismatching inputs in D:/pytest_temp/exp_t2_pred_M5_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '6 failed in 3.12s'
+C1 FAIL harness_gate rc=1; gates executed unparsed; PASS lines 21; bad lines 2; last line 'OVERALL: FAIL. 22 of 22 gates executed; failed: [22]; not run: none.'
+C2 PASS compileall rc=0; 58 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 1 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '5 failed, 51 passed in 3.16s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 3/5
+rc=0 wall_s=121 porcelain 478b4046efae -> 478b4046efae
+== M6
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=698; preserved readers=13 inputs=3771 mismatches=57; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=20; mismatching inputs in D:/pytest_temp/exp_t2_pred_M6_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '6 failed in 3.36s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 58 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 1 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '2 failed, 54 passed in 3.51s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 4/5
+rc=0 wall_s=122 porcelain 478b4046efae -> 478b4046efae
+== M7
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=716; preserved readers=13 inputs=3771 mismatches=177; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=20; mismatching inputs in D:/pytest_temp/exp_t2_pred_M7_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '6 failed in 3.25s'
+C1 FAIL harness_gate rc=1; gates executed unparsed; PASS lines 21; bad lines 2; last line 'OVERALL: FAIL. 22 of 22 gates executed; failed: [22]; not run: none.'
+C2 PASS compileall rc=0; 58 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 1 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '6 failed, 50 passed in 3.94s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 3/5
+rc=0 wall_s=111 porcelain 46ec0b6fbe9a -> 46ec0b6fbe9a
+== M8
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=687; preserved readers=13 inputs=3771 mismatches=102; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=20; mismatching inputs in D:/pytest_temp/exp_t2_pred_M8_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '6 failed in 3.23s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 58 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 1 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '5 failed, 51 passed in 3.25s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 4/5
+rc=0 wall_s=111 porcelain 7308144c3b92 -> 7308144c3b92
+== M9
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=708; preserved readers=13 inputs=3771 mismatches=86; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=35; mismatching inputs in D:/pytest_temp/exp_t2_pred_M9_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '5 failed, 1 passed in 3.27s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 58 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 1 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '4 failed, 52 passed in 3.31s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 4/5
+rc=0 wall_s=120 porcelain cacf3dd970a5 -> cacf3dd970a5
+== pos_c1
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['md_cells.cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 4 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'reconstruct_state.open_defect_classes']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=540; preserved readers=13 inputs=3771 mismatches=323; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=36; mismatching inputs in D:/pytest_temp/exp_t2_pred_pos_c1_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '3 failed, 3 passed in 2.85s'
+C1 FAIL harness_gate rc=1; gates executed unparsed; PASS lines 22; bad lines 2; last line 'OVERALL: FAIL. 23 of 23 gates executed; failed: [23]; not run: none.'
+C2 PASS compileall rc=0; 59 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 6 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '8 failed, 48 passed in 3.15s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 3/5
+rc=0 wall_s=119 porcelain 430ace9ab75e -> 430ace9ab75e
+== pos_c2
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['md_cells.cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 4 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'reconstruct_state.open_defect_classes']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=1078; preserved readers=13 inputs=3771 mismatches=843; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=128; mismatching inputs in D:/pytest_temp/exp_t2_pred_pos_c2_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '4 failed, 2 passed in 2.86s'
+C1 FAIL harness_gate rc=1; gates executed unparsed; PASS lines 21; bad lines 2; last line 'OVERALL: FAIL. 22 of 22 gates executed; failed: [15]; not run: none.'
+C2 FAIL compileall rc=0; 59 files; 10 loads of ['_cells', '_table_cells']; unresolved ['scripts/learning_gate.py:58 _cells', 'scripts/learning_gate.py:138 _cells']
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 5 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '13 failed, 43 passed in 3.33s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 2/5
+rc=0 wall_s=120 porcelain de624dd3a299 -> de624dd3a299
+== pos_c3
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['md_cells.cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 4 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'reconstruct_state.open_defect_classes']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=540; preserved readers=13 inputs=3771 mismatches=323; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=36; mismatching inputs in D:/pytest_temp/exp_t2_pred_pos_c3_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '3 failed, 3 passed in 2.93s'
+C1 FAIL harness_gate rc=1; gates executed unparsed; PASS lines 21; bad lines 2; last line 'OVERALL: FAIL. 22 of 22 gates executed; failed: [16]; not run: none.'
+C2 PASS compileall rc=0; 59 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 FAIL 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed ['.gitignore']
+C4 FAIL against ac995ddee147: 7 differing files; outside scripts/ and tests/ ['.gitignore']
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '8 failed, 48 passed in 3.33s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 1/5
+rc=0 wall_s=118 porcelain b05e2f71ed5a -> b05e2f71ed5a
+== pos_c4
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['md_cells.cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 4 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'reconstruct_state.open_defect_classes']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=13 inputs=3784 mismatches=540; preserved readers=13 inputs=3771 mismatches=323; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=245 mismatches=36; mismatching inputs in D:/pytest_temp/exp_t2_pred_pos_c4_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '3 failed, 3 passed in 2.83s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 59 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 FAIL against ac995ddee147: 6 differing files; outside scripts/ and tests/ ['.gitignore']
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '8 failed, 48 passed in 3.11s'
+PRIMARY 0/4 AMBIGUOUS 0 CONSTRAINTS 3/5
+rc=0 wall_s=114 porcelain 6dbb118f3064 -> 6dbb118f3064

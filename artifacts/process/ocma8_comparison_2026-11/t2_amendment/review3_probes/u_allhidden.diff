@@ -1,0 +1,308 @@
+diff --git a/scripts/build_dashboard.py b/scripts/build_dashboard.py
+index 7ada896b..21155b1e 100644
+--- a/scripts/build_dashboard.py
++++ b/scripts/build_dashboard.py
+@@ -350,8 +350,8 @@ def performance_section() -> dict | None:
+     return section or None
+ 
+ 
+-def _cells(line: str) -> list[str]:
+-    return [cell.strip() for cell in re.split(r"(?<!\\)\|", line)[1:-1]]
++def _row_cells(line: str) -> list[str]:
++    return _part_split(line, keep_outer=True)[1:-1]
+ 
+ 
+ def _first_url(text: str) -> str | None:
+@@ -386,7 +386,7 @@ def references_section() -> list[dict] | None:
+         if not line.startswith("|"):
+             in_method_table = False
+             continue
+-        cells = _cells(line)
++        cells = _row_cells(line)
+         if cells == _METHOD_COLUMNS:
+             in_method_table = True
+         elif in_method_table and not all(_RULE_CELL.fullmatch(c) for c in cells):
+@@ -418,7 +418,7 @@ def order_section() -> list[dict] | None:
+         if not line.startswith("|"):
+             columns = None
+             continue
+-        cells = _cells(line)
++        cells = _row_cells(line)
+         if columns is None:
+             if cells == _ORDER_COLUMNS:
+                 columns = cells
+@@ -623,7 +623,7 @@ def deferred_section() -> list[dict] | None:
+         line = raw.strip()
+         if not line.startswith("|"):
+             continue
+-        cells = _cells(line)
++        cells = _row_cells(line)
+         if len(cells) != 5 or not cells[4].startswith("deferred-"):
+             continue
+         if not cells[1].endswith(VALIDATION_TAG):
+@@ -801,7 +801,7 @@ def _study_cards() -> list[dict]:
+         if not line.startswith("|"):
+             in_table = False
+             continue
+-        cells = _cells(line)
++        cells = _row_cells(line)
+         if cells == _STUDY_COLUMNS:
+             in_table = True
+         elif in_table and not all(_RULE_CELL.fullmatch(c) for c in cells):
+@@ -1010,3 +1010,14 @@ def main(argv: list[str] | None = None) -> int:
+ 
+ if __name__ == "__main__":
+     sys.exit(main())
++
++
++def _part_split(line, keep_outer=False):
++    body = line if keep_outer else line.strip().strip("|")
++    body = body.replace("\\|", "\x00")
++    out = []
++    while True:
++        head, sep, body = body.partition(chr(124))
++        out.append(head.replace("\x00", "\\|").strip())
++        if not sep:
++            return out
+diff --git a/scripts/build_fact_graph.py b/scripts/build_fact_graph.py
+index ff00e9c1..fd951433 100644
+--- a/scripts/build_fact_graph.py
++++ b/scripts/build_fact_graph.py
+@@ -214,6 +214,17 @@ _IDENTIFIER = re.compile(r"^[A-Za-z_]\w*$")
+ _PARENTHESISED = re.compile(r"\([^)]*\)")
+ 
+ 
++def _part_split(line, keep_outer=False):
++    body = line if keep_outer else line.strip().strip("|")
++    body = body.replace("\\|", "\x00")
++    out = []
++    while True:
++        head, sep, body = body.partition(chr(124))
++        out.append(head.replace("\x00", "\\|").strip())
++        if not sep:
++            return out
++
++
+ class FactSourceError(ValueError):
+     """The fact source is malformed; nothing built from it could be trusted."""
+ 
+@@ -221,10 +232,6 @@ class FactSourceError(ValueError):
+ # ------------------------------------------------------------------------ owned tables
+ 
+ 
+-def _cells(line: str) -> List[str]:
+-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+-
+-
+ def _all_tables(text: str) -> List[Tuple[str, List[str], List[List[str]]]]:
+     """Every markdown table of ``text`` as (section heading, header cells, body rows)."""
+     found = []
+@@ -236,11 +243,11 @@ def _all_tables(text: str) -> List[Tuple[str, List[str], List[List[str]]]]:
+         if line.startswith("## "):
+             heading = line[3:].strip()
+         if line.lstrip().startswith("|"):
+-            header = _cells(line)
++            header = _part_split(line)
+             rows: List[List[str]] = []
+             i += 2  # the header and its separator
+             while i < len(lines) and lines[i].lstrip().startswith("|"):
+-                rows.append(_cells(lines[i]))
++                rows.append(_part_split(lines[i]))
+                 i += 1
+             found.append((heading, header, rows))
+             continue
+@@ -396,7 +403,7 @@ def reference_table_rows(text: str) -> List[Tuple[Tuple[str, ...], str, str, str
+         line = line.strip()
+         if not line.startswith("|") or set(line) <= set("|- "):
+             continue
+-        cells = [c.strip() for c in line.strip("|").split("|")]
++        cells = _part_split(line)
+         if cells and cells[0] == "Reference":
+             header = tuple(cells)
+             assert header in (*FUNCTION_HEADERS, CORE_HEADER, REPRODUCTION_HEADER), (
+diff --git a/scripts/docs_form_gate.py b/scripts/docs_form_gate.py
+index 8d0ffea4..7dc216a9 100644
+--- a/scripts/docs_form_gate.py
++++ b/scripts/docs_form_gate.py
+@@ -75,6 +75,8 @@ import numpy as np
+ import yaml
+ 
+ REPO_ROOT = Path(__file__).resolve().parents[1]
++if str(REPO_ROOT) not in sys.path:
++    sys.path.append(str(REPO_ROOT))  # never insert(0): pyproject sets pythonpath = ["."]
+ 
+ CONTRACT = Path("docs") / "documentation_form.md"
+ 
+@@ -243,6 +245,17 @@ VOCABULARY_HEADING_LINE = re.compile(rf"^{re.escape(VOCABULARY_HEADING)}\s*$", r
+ BACKTICKED = re.compile(r"`([^`]+)`")
+ 
+ 
++def _part_split(line, keep_outer=False):
++    body = line if keep_outer else line.strip().strip("|")
++    body = body.replace("\\|", "\x00")
++    out = []
++    while True:
++        head, sep, body = body.partition(chr(124))
++        out.append(head.replace("\x00", "\\|").strip())
++        if not sep:
++            return out
++
++
+ class VocabularyRow:
+     """One concept: the surface forms to use, and the ones that are superseded.
+ 
+@@ -282,7 +295,7 @@ def parse_vocabulary(contract_text: str) -> List[VocabularyRow]:
+         line = line.strip()
+         if not line.startswith("|") or "|---" in line:
+             continue
+-        cells = [c.strip() for c in line.strip("|").split("|")]
++        cells = _part_split(line)
+         if len(cells) != 3 or cells[0].lower() == "concept":
+             continue
+         preferred = BACKTICKED.findall(cells[1])
+diff --git a/scripts/learning_gate.py b/scripts/learning_gate.py
+index c6b42715..f4a626d0 100644
+--- a/scripts/learning_gate.py
++++ b/scripts/learning_gate.py
+@@ -49,15 +49,11 @@ FORBIDDEN = re.compile(r'Forbidden:\s*"([^"]+)"')
+ NOT_SEARCHED = ("artifacts/rulings", "artifacts/archive", "artifacts/evidence")
+ 
+ 
+-def _cells(line: str) -> List[str]:
+-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+-
+-
+ def ledger_rows(text: str) -> List[Tuple[str, int, int]]:
+     """(class, Seen, instance count) for each ledger row whose Seen cell is a number."""
+     rows = []
+     for line in text.splitlines():
+-        cells = _cells(line)
++        cells = _part_split(line)
+         if len(cells) < 3 or not cells[1].isdigit():
+             continue
+         instances = [part for part in re.split(r";\s*", cells[2]) if part]
+@@ -137,7 +133,7 @@ def _git_show(rev: str, path: str) -> Optional[str]:
+ 
+ 
+ def _is_mapping_header(line: str) -> bool:
+-    return line.lstrip().startswith("|") and {"Old location", "Where now"} <= set(_cells(line))
++    return line.lstrip().startswith("|") and {"Old location", "Where now"} <= set(_part_split(line))
+ 
+ 
+ def mapping_tables(root: Path = REPO_ROOT) -> List[Tuple[str, Optional[str], Optional[str],
+@@ -261,3 +257,14 @@ def examined_counts(root: Path = REPO_ROOT) -> Tuple[int, int, int]:
+     them, so a check that read nothing does not pass as if it had checked something."""
+     tables, read, _ = mapping_check(root)
+     return tables, read, len(forbidden_sources(root))
++
++
++def _part_split(line, keep_outer=False):
++    body = line if keep_outer else line.strip().strip("|")
++    body = body.replace("\\|", "\x00")
++    out = []
++    while True:
++        head, sep, body = body.partition(chr(124))
++        out.append(head.replace("\x00", "\\|").strip())
++        if not sep:
++            return out
+diff --git a/scripts/reconstruct_state.py b/scripts/reconstruct_state.py
+index 4664cbb2..89ea5d04 100644
+--- a/scripts/reconstruct_state.py
++++ b/scripts/reconstruct_state.py
+@@ -39,6 +39,8 @@ import sys
+ import urllib.request
+ 
+ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
++if str(REPO_ROOT) not in sys.path:
++    sys.path.append(str(REPO_ROOT))  # never insert(0): pyproject sets pythonpath = ["."]
+ STATE_PATH = REPO_ROOT / "artifacts" / "state.md"
+ HEAD_ROW_RE = re.compile(r"^\| HEAD \| `([0-9a-f]{40})` \|$", re.MULTILINE)
+ 
+@@ -221,7 +223,7 @@ def open_defect_classes(path: pathlib.Path | None = None) -> str:
+         return "UNRESOLVED (file absent)"
+     found = []
+     for line in path.read_text(encoding="utf-8").splitlines():
+-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
++        cells = _part_split(line)
+         if len(cells) < 6 or not cells[1].isdigit() or ":" not in cells[0]:
+             continue
+         if not _CLOSED_STATUS.match(cells[-1]):
+@@ -420,3 +422,14 @@ def main() -> int:
+ 
+ if __name__ == "__main__":
+     raise SystemExit(main())
++
++
++def _part_split(line, keep_outer=False):
++    body = line if keep_outer else line.strip().strip("|")
++    body = body.replace("\\|", "\x00")
++    out = []
++    while True:
++        head, sep, body = body.partition(chr(124))
++        out.append(head.replace("\x00", "\\|").strip())
++        if not sep:
++            return out
+diff --git a/scripts/release_gate.py b/scripts/release_gate.py
+index 98ef7087..06f05368 100644
+--- a/scripts/release_gate.py
++++ b/scripts/release_gate.py
+@@ -551,6 +551,17 @@ def _python_excluded(requires_python: str, tag: str) -> bool:
+     return False
+ 
+ 
++def _part_split(line, keep_outer=False):
++    body = line if keep_outer else line.strip().strip("|")
++    body = body.replace("\\|", "\x00")
++    out = []
++    while True:
++        head, sep, body = body.partition(chr(124))
++        out.append(head.replace("\x00", "\\|").strip())
++        if not sep:
++            return out
++
++
+ class ReleaseMetadata(NamedTuple):
+     """What the package itself says, as the release body's claims will be judged against it."""
+ 
+@@ -1286,19 +1297,19 @@ OPEN_STACK = "artifacts/open_stack.md"
+ _SEPARATOR_CELL = re.compile(r"^:?-+:?$")
+ 
+ 
+-def _cells(line: str) -> Optional[List[str]]:
++def _row_cells(line: str) -> Optional[List[str]]:
+     stripped = line.strip()
+     if not stripped.startswith("|"):
+         return None
+-    return [cell.strip() for cell in stripped.strip("|").split("|")]
++    return _part_split(stripped)
+ 
+ 
+-def _table_cells(line: str) -> Optional[List[str]]:
++def _table_row_cells(line: str) -> Optional[List[str]]:
+     """The cells of a table line, blockquote markers removed; ``None`` for any other line."""
+     body = line.lstrip(" \t>").strip()
+     if not body.startswith("|"):
+         return None
+-    return [cell.strip() for cell in body.strip("|").split("|")]
++    return _part_split(body)
+ 
+ 
+ def _is_separator(cells: Optional[List[str]]) -> bool:
+@@ -1313,7 +1324,7 @@ def table_data_rows(text: str) -> List[Tuple[int, str]]:
+     the table line directly above a separator row. Prose does not count, whatever it contains.
+     """
+     lines = text.splitlines()
+-    cells = [_table_cells(line) for line in lines]
++    cells = [_table_row_cells(line) for line in lines]
+     rows = []
+     for index, line in enumerate(lines):
+         if cells[index] is None or _is_separator(cells[index]):
+@@ -1432,7 +1443,7 @@ def roadmap_rows(text: str, stack_ids: Iterable[str] = ()) -> Tuple[List[Tuple[s
+     for lineno, line in enumerate(text.splitlines(), 1):
+         if _REQUIRED_MARKER.search(line) or re.search(r"(?<![\w-])required-", line, re.I):
+             refused.append(f"line {lineno} marks work required: {line.strip()[:60]!r}")
+-        cells = _cells(line)
++        cells = _row_cells(line)
+         if cells is None:
+             if _ITEM_SHAPED.match(_BULLET.sub("", line, count=1)):
+                 refused.append(f"line {lineno} is id-shaped outside the table: "

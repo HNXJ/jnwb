@@ -1,0 +1,243 @@
+diff --git a/scripts/build_dashboard.py b/scripts/build_dashboard.py
+index 7ada896b..d04b257e 100644
+--- a/scripts/build_dashboard.py
++++ b/scripts/build_dashboard.py
+@@ -79,6 +79,7 @@ if str(REPO_ROOT) not in sys.path:
+ # The closure receipt is read by the release gate's own parser, which this module calls.
+ from scripts.release_gate import (RECEIPT_PATH as CLOSURE_RECEIPT_PATH,  # noqa: E402
+                                   blocker_fixpoint_receipt)
++from scripts.md_cells import split_cells  # noqa: E402
+ CLOSURE_RECEIPT = REPO_ROOT / CLOSURE_RECEIPT_PATH
+ VALIDATION_HTML = ASSETS / "validations"
+ SECTIONS =("generated", "release", "releases", "ci", "api", "verified", "performance",
+@@ -350,8 +351,8 @@ def performance_section() -> dict | None:
+     return section or None
+ 
+ 
+-def _cells(line: str) -> list[str]:
+-    return [cell.strip() for cell in re.split(r"(?<!\\)\|", line)[1:-1]]
++def _row_cells(line: str) -> list[str]:
++    return split_cells(line, keep_outer=True)[1:-1]
+ 
+ 
+ def _first_url(text: str) -> str | None:
+@@ -386,7 +387,7 @@ def references_section() -> list[dict] | None:
+         if not line.startswith("|"):
+             in_method_table = False
+             continue
+-        cells = _cells(line)
++        cells = _row_cells(line)
+         if cells == _METHOD_COLUMNS:
+             in_method_table = True
+         elif in_method_table and not all(_RULE_CELL.fullmatch(c) for c in cells):
+@@ -418,7 +419,7 @@ def order_section() -> list[dict] | None:
+         if not line.startswith("|"):
+             columns = None
+             continue
+-        cells = _cells(line)
++        cells = _row_cells(line)
+         if columns is None:
+             if cells == _ORDER_COLUMNS:
+                 columns = cells
+@@ -623,7 +624,7 @@ def deferred_section() -> list[dict] | None:
+         line = raw.strip()
+         if not line.startswith("|"):
+             continue
+-        cells = _cells(line)
++        cells = _row_cells(line)
+         if len(cells) != 5 or not cells[4].startswith("deferred-"):
+             continue
+         if not cells[1].endswith(VALIDATION_TAG):
+@@ -801,7 +802,7 @@ def _study_cards() -> list[dict]:
+         if not line.startswith("|"):
+             in_table = False
+             continue
+-        cells = _cells(line)
++        cells = _row_cells(line)
+         if cells == _STUDY_COLUMNS:
+             in_table = True
+         elif in_table and not all(_RULE_CELL.fullmatch(c) for c in cells):
+diff --git a/scripts/build_fact_graph.py b/scripts/build_fact_graph.py
+index ff00e9c1..5c4244b3 100644
+--- a/scripts/build_fact_graph.py
++++ b/scripts/build_fact_graph.py
+@@ -183,6 +183,7 @@ from scripts.computational_contract_gate import (  # noqa: E402
+     EXECUTION_PARAMETERS,
+     _dataclass_field,
+ )
++from scripts.md_cells import split_cells  # noqa: E402
+ # Which resolver calls make a parameter stochastic is defined once, beside the resolvers,
+ # and read by the rng-parameter walk and by this scan alike; the reachability wrapper below
+ # is shared with the S10 scan.
+@@ -221,10 +222,6 @@ class FactSourceError(ValueError):
+ # ------------------------------------------------------------------------ owned tables
+ 
+ 
+-def _cells(line: str) -> List[str]:
+-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+-
+-
+ def _all_tables(text: str) -> List[Tuple[str, List[str], List[List[str]]]]:
+     """Every markdown table of ``text`` as (section heading, header cells, body rows)."""
+     found = []
+@@ -236,11 +233,11 @@ def _all_tables(text: str) -> List[Tuple[str, List[str], List[List[str]]]]:
+         if line.startswith("## "):
+             heading = line[3:].strip()
+         if line.lstrip().startswith("|"):
+-            header = _cells(line)
++            header = [c.strip() for c in line.strip().strip("|").split("|")]
+             rows: List[List[str]] = []
+             i += 2  # the header and its separator
+             while i < len(lines) and lines[i].lstrip().startswith("|"):
+-                rows.append(_cells(lines[i]))
++                rows.append(split_cells(lines[i]))
+                 i += 1
+             found.append((heading, header, rows))
+             continue
+@@ -396,7 +393,7 @@ def reference_table_rows(text: str) -> List[Tuple[Tuple[str, ...], str, str, str
+         line = line.strip()
+         if not line.startswith("|") or set(line) <= set("|- "):
+             continue
+-        cells = [c.strip() for c in line.strip("|").split("|")]
++        cells = split_cells(line)
+         if cells and cells[0] == "Reference":
+             header = tuple(cells)
+             assert header in (*FUNCTION_HEADERS, CORE_HEADER, REPRODUCTION_HEADER), (
+diff --git a/scripts/docs_form_gate.py b/scripts/docs_form_gate.py
+index 8d0ffea4..a7c492a6 100644
+--- a/scripts/docs_form_gate.py
++++ b/scripts/docs_form_gate.py
+@@ -75,6 +75,9 @@ import numpy as np
+ import yaml
+ 
+ REPO_ROOT = Path(__file__).resolve().parents[1]
++if str(REPO_ROOT) not in sys.path:
++    sys.path.append(str(REPO_ROOT))  # never insert(0): pyproject sets pythonpath = ["."]
++from scripts.md_cells import split_cells  # noqa: E402
+ 
+ CONTRACT = Path("docs") / "documentation_form.md"
+ 
+@@ -282,7 +285,7 @@ def parse_vocabulary(contract_text: str) -> List[VocabularyRow]:
+         line = line.strip()
+         if not line.startswith("|") or "|---" in line:
+             continue
+-        cells = [c.strip() for c in line.strip("|").split("|")]
++        cells = split_cells(line)
+         if len(cells) != 3 or cells[0].lower() == "concept":
+             continue
+         preferred = BACKTICKED.findall(cells[1])
+diff --git a/scripts/learning_gate.py b/scripts/learning_gate.py
+index c6b42715..81947603 100644
+--- a/scripts/learning_gate.py
++++ b/scripts/learning_gate.py
+@@ -29,6 +29,7 @@ from pathlib import Path
+ from typing import Callable, Dict, Iterable, List, Optional, Tuple
+ 
+ from scripts import reconstruct_state as _state
++from scripts.md_cells import split_cells
+ from scripts.obligation_diff import WORD, clauses
+ 
+ REPO_ROOT = Path(__file__).resolve().parents[1]
+@@ -49,15 +50,11 @@ FORBIDDEN = re.compile(r'Forbidden:\s*"([^"]+)"')
+ NOT_SEARCHED = ("artifacts/rulings", "artifacts/archive", "artifacts/evidence")
+ 
+ 
+-def _cells(line: str) -> List[str]:
+-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+-
+-
+ def ledger_rows(text: str) -> List[Tuple[str, int, int]]:
+     """(class, Seen, instance count) for each ledger row whose Seen cell is a number."""
+     rows = []
+     for line in text.splitlines():
+-        cells = _cells(line)
++        cells = split_cells(line)
+         if len(cells) < 3 or not cells[1].isdigit():
+             continue
+         instances = [part for part in re.split(r";\s*", cells[2]) if part]
+@@ -137,7 +134,7 @@ def _git_show(rev: str, path: str) -> Optional[str]:
+ 
+ 
+ def _is_mapping_header(line: str) -> bool:
+-    return line.lstrip().startswith("|") and {"Old location", "Where now"} <= set(_cells(line))
++    return line.lstrip().startswith("|") and {"Old location", "Where now"} <= set(split_cells(line))
+ 
+ 
+ def mapping_tables(root: Path = REPO_ROOT) -> List[Tuple[str, Optional[str], Optional[str],
+diff --git a/scripts/reconstruct_state.py b/scripts/reconstruct_state.py
+index 4664cbb2..ec73e016 100644
+--- a/scripts/reconstruct_state.py
++++ b/scripts/reconstruct_state.py
+@@ -39,6 +39,9 @@ import sys
+ import urllib.request
+ 
+ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
++if str(REPO_ROOT) not in sys.path:
++    sys.path.append(str(REPO_ROOT))  # never insert(0): pyproject sets pythonpath = ["."]
++from scripts.md_cells import split_cells  # noqa: E402
+ STATE_PATH = REPO_ROOT / "artifacts" / "state.md"
+ HEAD_ROW_RE = re.compile(r"^\| HEAD \| `([0-9a-f]{40})` \|$", re.MULTILINE)
+ 
+@@ -221,7 +224,7 @@ def open_defect_classes(path: pathlib.Path | None = None) -> str:
+         return "UNRESOLVED (file absent)"
+     found = []
+     for line in path.read_text(encoding="utf-8").splitlines():
+-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
++        cells = split_cells(line)
+         if len(cells) < 6 or not cells[1].isdigit() or ":" not in cells[0]:
+             continue
+         if not _CLOSED_STATUS.match(cells[-1]):
+diff --git a/scripts/release_gate.py b/scripts/release_gate.py
+index 98ef7087..18513b64 100644
+--- a/scripts/release_gate.py
++++ b/scripts/release_gate.py
+@@ -60,6 +60,7 @@ from scripts.stack_parse import (  # noqa: E402
+     parse_todo_stack as _parse_todo_stack,
+     sections as _todo_sections,
+ )
++from scripts.md_cells import split_cells  # noqa: E402
+ 
+ 
+ #: Extras whose tooling must be present for release qualification to mean anything: every extra
+@@ -1286,19 +1287,19 @@ OPEN_STACK = "artifacts/open_stack.md"
+ _SEPARATOR_CELL = re.compile(r"^:?-+:?$")
+ 
+ 
+-def _cells(line: str) -> Optional[List[str]]:
++def _row_cells(line: str) -> Optional[List[str]]:
+     stripped = line.strip()
+     if not stripped.startswith("|"):
+         return None
+-    return [cell.strip() for cell in stripped.strip("|").split("|")]
++    return split_cells(stripped)
+ 
+ 
+-def _table_cells(line: str) -> Optional[List[str]]:
++def _table_row_cells(line: str) -> Optional[List[str]]:
+     """The cells of a table line, blockquote markers removed; ``None`` for any other line."""
+     body = line.lstrip(" \t>").strip()
+     if not body.startswith("|"):
+         return None
+-    return [cell.strip() for cell in body.strip("|").split("|")]
++    return split_cells(body)
+ 
+ 
+ def _is_separator(cells: Optional[List[str]]) -> bool:
+@@ -1313,7 +1314,7 @@ def table_data_rows(text: str) -> List[Tuple[int, str]]:
+     the table line directly above a separator row. Prose does not count, whatever it contains.
+     """
+     lines = text.splitlines()
+-    cells = [_table_cells(line) for line in lines]
++    cells = [_table_row_cells(line) for line in lines]
+     rows = []
+     for index, line in enumerate(lines):
+         if cells[index] is None or _is_separator(cells[index]):
+@@ -1432,7 +1433,7 @@ def roadmap_rows(text: str, stack_ids: Iterable[str] = ()) -> Tuple[List[Tuple[s
+     for lineno, line in enumerate(text.splitlines(), 1):
+         if _REQUIRED_MARKER.search(line) or re.search(r"(?<![\w-])required-", line, re.I):
+             refused.append(f"line {lineno} marks work required: {line.strip()[:60]!r}")
+-        cells = _cells(line)
++        cells = _row_cells(line)
+         if cells is None:
+             if _ITEM_SHAPED.match(_BULLET.sub("", line, count=1)):
+                 refused.append(f"line {lineno} is id-shaped outside the table: "
