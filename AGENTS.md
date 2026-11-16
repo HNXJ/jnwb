@@ -82,7 +82,7 @@ A request to encode a corpus convention in jnwb is a reason to stop.
 | `python scripts/release_gate.py` | Release readiness; run before tagging |
 | `python scripts/docs_build.py` | Strict MkDocs via `sys.executable`; never bare `mkdocs` |
 
-Agents run the suite with `bash <dir>/scripts/jnwb_suite.sh <dir> <log>`, which writes the stamp `.git/jnwb_suite_ok`, and push only with `bash <repo>/scripts/jnwb_push.sh <repo> dev </dev/null`. The push needs the stamp to equal HEAD unless it touches only `artifacts/`, no CI run in flight, and a newest completed run that did not fail; `scripts/push_guard.py`, a PreToolUse hook wired in `.claude/settings.json`, blocks a plain push. The interpreter set is fact R6.
+Agents run the suite with `bash <dir>/scripts/jnwb_suite.sh <dir> <log>`, which writes the stamp `.git/jnwb_suite_ok`, and push only with `bash <repo>/scripts/jnwb_push.sh <repo> dev </dev/null`. The push needs the stamp to equal HEAD unless it touches only `artifacts/`, no CI run in flight, and CI runs at `origin`'s tip of the branch that all completed and succeeded (a run at an earlier commit does not count); `scripts/push_guard.py`, a PreToolUse hook wired in `.claude/settings.json`, blocks a plain push. The interpreter set is fact R6.
 
 ## 7. Skills
 

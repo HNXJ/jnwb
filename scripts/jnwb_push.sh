@@ -4,8 +4,10 @@
 #     origin/<branch> touches only artifacts/ (plan/stack edits; the stack checks below are the gate),
 #   - the tracked tree is clean, and
 #   - no Actions run on the branch is in flight, and
-#   - every completed run at the newest SHA on the branch succeeded, and at least one is listed
-#     (scripts/ci_gate.py; override: JNWB_PUSH_OVER_RED=1, for the push that carries the fix).
+#   - CI ran at origin's tip of the branch, read from the remote at push time: at least one run is
+#     listed at that SHA and every run there completed and succeeded; a run at an earlier SHA does
+#     not count (scripts/ci_gate.py --tip; override: JNWB_PUSH_OVER_RED=1, for the push that carries
+#     the fix).
 # An artifacts-only push first runs the stack checks: scripts/harness_gate.py (gate 15 among them)
 # and tests/test_stack_item_length.py (ruled 2026-11-09).
 # Usage: jnwb_push.sh <dir> [branch=dev] [--item <id>]
@@ -88,7 +90,16 @@ elif [ -n "$changed" ]; then
 fi
 inflight=$(python "$bin/ci_inflight.py" hnxj/jnwb "$branch") || { echo "CI count unreadable"; exit 1; }
 [ "$inflight" = "0" ] || { echo "$inflight run(s) in flight on $branch"; exit 1; }
-gate_out=$(python "$here/ci_gate.py" hnxj/jnwb "$branch"); gate_rc=$?
+# CI must have run at the commit this push builds on, origin's tip of the branch as the remote holds
+# it now; the newest run of the branch may sit at an earlier SHA and says nothing about the tip.
+tip_out=$(git ls-remote origin "refs/heads/$branch" </dev/null) \
+  || { echo "refusing: ls-remote of origin/$branch failed"; exit 1; }
+tip=${tip_out%%$'\t'*}
+if [ -z "$tip" ]; then
+  gate_out="refuse: origin has no $branch, so no CI run can be at its tip"; gate_rc=1
+else
+  gate_out=$(python "$here/ci_gate.py" hnxj/jnwb "$branch" --tip "$tip"); gate_rc=$?
+fi
 case "$gate_rc" in
   0) ;;
   2) echo "CI conclusion unreadable: $gate_out"; exit 1 ;;

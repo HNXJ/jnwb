@@ -363,7 +363,7 @@ def test_artifacts_only_push_refuses_a_bare_directory_in_writes(tmp_path, ci_api
     repo, bare, home = _scaffold(tmp_path, writes="`artifacts`")
     _commit_artifacts_only(repo)
     head = _git(repo, "rev-parse", "HEAD")
-    state["body"] = _body([_run("CI/CD", head, "success")])
+    state["body"] = _body([_run("CI/CD", _remote_ref(bare, "refs/heads/dev"), "success")])
     proc = _wrapper(repo, home, url, "dev", "--item", "17-900")
     out = proc.stdout + proc.stderr
     assert proc.returncode != 0, out
@@ -376,7 +376,7 @@ def test_artifacts_only_push_with_a_file_in_writes_passes(tmp_path, ci_api):
     repo, bare, home = _scaffold(tmp_path)
     _commit_artifacts_only(repo)
     head = _git(repo, "rev-parse", "HEAD")
-    state["body"] = _body([_run("CI/CD", head, "success")])
+    state["body"] = _body([_run("CI/CD", _remote_ref(bare, "refs/heads/dev"), "success")])
     proc = _wrapper(repo, home, url, "dev", "--item", "17-900")
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert _remote_ref(bare, "refs/heads/dev") == head
@@ -387,7 +387,7 @@ def test_artifacts_only_push_refuses_when_the_stack_gate_fails(tmp_path, ci_api)
     repo, bare, home = _scaffold(tmp_path, gate_stub=FAIL_STUB)
     _commit_artifacts_only(repo)
     head = _git(repo, "rev-parse", "HEAD")
-    state["body"] = _body([_run("CI/CD", head, "success")])
+    state["body"] = _body([_run("CI/CD", _remote_ref(bare, "refs/heads/dev"), "success")])
     proc = _wrapper(repo, home, url, "dev", "--item", "17-900")
     out = proc.stdout + proc.stderr
     assert proc.returncode != 0, out
@@ -425,7 +425,7 @@ def test_a_push_whose_diff_cannot_be_read_is_refused(tmp_path, ci_api):
     _commit_artifacts_only(repo)
     _git(repo, "update-ref", "-d", "refs/remotes/origin/dev")
     head = _git(repo, "rev-parse", "HEAD")
-    state["body"] = _body([_run("CI/CD", head, "success")])
+    state["body"] = _body([_run("CI/CD", _remote_ref(bare, "refs/heads/dev"), "success")])
     proc = _wrapper(repo, home, url, "dev")
     out = proc.stdout + proc.stderr
     assert proc.returncode != 0, out
@@ -487,7 +487,7 @@ def test_artifacts_only_push_refuses_when_the_item_length_test_fails(tmp_path, c
     repo, bare, home = _scaffold(tmp_path, item_test=ITEM_TEST_FAIL)
     _commit_artifacts_only(repo)
     head = _git(repo, "rev-parse", "HEAD")
-    state["body"] = _body([_run("CI/CD", head, "success")])
+    state["body"] = _body([_run("CI/CD", _remote_ref(bare, "refs/heads/dev"), "success")])
     proc = _wrapper(repo, home, url, "dev", "--item", "17-900")
     out = proc.stdout + proc.stderr
     assert proc.returncode != 0, out
