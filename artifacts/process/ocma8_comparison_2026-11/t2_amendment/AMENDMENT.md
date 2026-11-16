@@ -4,9 +4,10 @@
 matrix (295/295 runs, no exclusions, errors or warnings). All 28 behavior-correct trees produced zero scored
 mismatches at every seed; all 29 behaviorally wrong trees produced at least one. The corrected reference was
 reproducible across repeated runs. This establishes discrimination on the tested controls, not completeness
-over unseen parsing implementations or validity of structural adjudication on arm-produced trees. The amended
-predicate semantics remain unverified pending the queued four-tree run. Independent freeze review has not
-started. No keeper dispatch or pilot execution is authorized.
+over unseen parsing implementations or validity of structural adjudication on arm-produced trees. Updated
+after the four-tree run (14:56Z, section "Amended predicates on four trees"): the amended predicate script
+printed the expected lines on the corrected reference, the baseline, `w_hdr2` and `u_const2`. Independent
+freeze review has not returned. No keeper dispatch or pilot execution is authorized.
 
 How it got here: amendment 3 (section "Amendment 3", Hamm's ruling after review 3's STOP) removed the
 automated consolidation predicates as primaries; consolidation is judged by two adjudicators against a rubric
@@ -25,7 +26,7 @@ Conclusions of the final cycle (Hamm 2026-11-16):
 | Public-reader coverage | All scored families except three inapplicable inner-whitespace cases | PASS, qualified |
 | `w_hdr2` detection | `routing.targets` only | Single-reader dependency |
 | Generalization to unseen errors | Not tested | UNKNOWN |
-| Automated predicate semantics | Four-tree run queued | UNKNOWN |
+| Automated predicate semantics | Four-tree run (`predicates_r3_controls.txt`): 2/2 and 5/5, 0/2 and 4/5, 1/2 and 5/5, 2/2 and 5/5 as expected; D1/D2 unscored | PASS on four trees (was UNKNOWN) |
 | Structural adjudication on arm trees | Not tested | UNKNOWN |
 | T2 freeze | Review outstanding | NOT CLEARED |
 
@@ -753,6 +754,24 @@ rejection rests on one reader and one mode: without `routing.targets` it scores 
 Corrected reference pos2: 0 scored mismatches at every seed, no reader with zero inputs or all-empty baseline
 results in a scored mode, and a second run at each seed is byte-equal to the first.
 
+#### Amended predicates on four trees (`predicates_r3_controls.txt`; under the suite lock, one at a time)
+
+`predicates_t2.py` with generator revision 3 and `DIFF_READERS = 17`, frozen seed 2026111600, all rc 0.
+
+| Tree | D1, D2 (unscored) | P3 | P4 | Constraints | Summary line |
+|---|---|---|---|---|---|
+| pos2 (corrected reference) | PASS, PASS | PASS: 17 readers, 0 of 4748 preserved, 0 of 4407 corrected | PASS, 6 passed | 5/5 | `PRIMARY automated 2/2 CONSTRAINTS 5/5 STRUCTURE adjudicated` |
+| baseline | FAIL, FAIL | FAIL: corrected 808 | FAIL, 6 failed | 4/5 (C4: empty change) | `PRIMARY automated 0/2 CONSTRAINTS 4/5 STRUCTURE adjudicated` |
+| `w_hdr2` (wrong behaviour) | PASS, PASS | FAIL: corrected 20 | PASS, 6 passed | 5/5 | `PRIMARY automated 1/2 CONSTRAINTS 5/5 STRUCTURE adjudicated` |
+| `u_const2` (correct behaviour, sites split for themselves) | PASS, PASS | PASS: 0 and 0 | PASS, 6 passed | 5/5 | `PRIMARY automated 2/2 CONSTRAINTS 5/5 STRUCTURE adjudicated` |
+
+Read: the automated primaries are P3 and P4 only (k of 2). D1 and D2 are printed and enter no count:
+`u_const2` shows D1 PASS and D2 PASS and is FAIL by the contract (table of "Final repair cycle"; anchored
+FAIL in the 23-tree set), so its structure is known only from adjudication, and its automated 2/2 does not stand for a structural pass. `w_hdr2` passes the six corrected
+tests and C5 and fails P3 alone. Every line ends `STRUCTURE adjudicated`; no structural verdict is computed.
+P3's own figures equal the matrix's at the frozen seed. Four trees: a check of the script's semantics, not a
+validation of the predicates beyond the matrix.
+
 #### Limits of this cycle, as known
 
 - The differential rejects the wrong conventions built so far. Each review built wrong conventions that the
@@ -793,8 +812,8 @@ answer). No pilot-side workaround; the harness was not modified.
 Hamm 2026-11-16; the state of each item is in brackets.
 
 1. Complete the amended predicate run on `pos2`, baseline, `w_hdr2` and `u_const2`; verify automated primary
-   scoring, diagnostic-only D1/D2, constraints, and separate structural adjudication. [queued behind the suite
-   lock; output `predicates_r3_controls.txt`]
+   scoring, diagnostic-only D1/D2, constraints, and separate structural adjudication. [done 14:56Z:
+   "Amended predicates on four trees", `predicates_r3_controls.txt`]
 2. Preserve the complete 295-run matrix receipt, generator hash, reader coverage, frozen expectations and
    negative-control margins. [stored: "Matrix 7", "Generator revision 3", "Coverage per reader"]
 3. Explicitly disclose the three readers without applicable inner-whitespace cases, the dependence of

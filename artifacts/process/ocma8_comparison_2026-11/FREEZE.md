@@ -103,9 +103,10 @@ behaviour-correct trees at 0 and 29 wrong trees above 0 at each of five seeds. L
 no arm-produced tree, slot 2 reads without running code, `w_hdr2` rejected through one reader, inner
 whitespace unbuilt at three readers. Status (Hamm 2026-11-16): T2 UNFROZEN. The matrix establishes
 discrimination on the tested controls, not completeness over unseen parsing implementations or validity of
-structural adjudication on arm-produced trees. The amended predicate semantics remain unverified pending the
-queued four-tree run. Independent freeze review has not started, and a new material REVISE there ends T2
-development for this pilot. No keeper dispatch or pilot execution is authorized.
+structural adjudication on arm-produced trees. The amended predicate script printed the expected lines on
+four trees (corrected reference 2/2 and 5/5, baseline 0/2 and 4/5, `w_hdr2` 1/2 and 5/5, `u_const2` 2/2 and
+5/5 with its structure left to adjudication). Independent freeze review has not returned, and a new material
+REVISE there ends T2 development for this pilot. No keeper dispatch or pilot execution is authorized.
 
 Baselines re-read 2026-11-16: jnwb `dev` moved to fabe3c02 (one README line); T2 and T3 keep ac995dde.
 

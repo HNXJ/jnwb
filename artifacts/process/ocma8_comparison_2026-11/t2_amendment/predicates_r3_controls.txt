@@ -1,0 +1,48 @@
+== D:/repos/_work/exp_t2beh/pos2
+D1 diagnostic, unscored: PASS all eight sites reach one definition: md_cells.split_cells [8 sites, 12 anchors]
+D2 diagnostic, unscored: PASS no baseline site function or anchor holds a split of its own
+P3 PASS differential rc=0 seed=2026111600; corrected readers=17 inputs=4407 mismatches=0; preserved readers=17 inputs=4748 mismatches=0; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=1045 mismatches=59; mismatching inputs in D:/pytest_temp/exp_t2_pred_pos2_p3_mismatches.jsonl
+P4 PASS t2_corrected_test.py: pytest rc=0; expected 6 passed; last line '6 passed in 2.70s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 59 files; 0 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 7 differing files; outside scripts/ and tests/ none
+C5 PASS t2_preserved_test.py: pytest rc=0; expected 56 passed; last line '56 passed in 3.10s'
+PRIMARY automated 2/2 CONSTRAINTS 5/5 STRUCTURE adjudicated
+rc=0
+== D:/repos/_work/exp_prereq/t2/base
+D1 diagnostic, unscored: FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+D2 diagnostic, unscored: FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=17 inputs=4407 mismatches=808; preserved readers=17 inputs=4748 mismatches=0; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=1045 mismatches=125; mismatching inputs in D:/pytest_temp/exp_t2_pred_base_p3_mismatches.jsonl
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '6 failed in 3.04s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 58 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 FAIL against ac995ddee147: 0 differing files; outside scripts/ and tests/ none; empty set is not a pass
+C5 PASS t2_preserved_test.py: pytest rc=0; expected 56 passed; last line '56 passed in 2.80s'
+PRIMARY automated 0/2 CONSTRAINTS 4/5 STRUCTURE adjudicated
+rc=0
+== D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/w_hdr2
+D1 diagnostic, unscored: PASS all eight sites reach one definition: md_cells.split_cells [8 sites, 12 anchors]
+D2 diagnostic, unscored: PASS no baseline site function or anchor holds a split of its own
+P3 FAIL differential rc=0 seed=2026111600; corrected readers=17 inputs=4407 mismatches=20; preserved readers=17 inputs=4748 mismatches=0; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=1045 mismatches=59; mismatching inputs in D:/pytest_temp/exp_t2_pred_w_hdr2_p3_mismatches.jsonl
+P4 PASS t2_corrected_test.py: pytest rc=0; expected 6 passed; last line '6 passed in 2.83s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 59 files; 0 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 7 differing files; outside scripts/ and tests/ none
+C5 PASS t2_preserved_test.py: pytest rc=0; expected 56 passed; last line '56 passed in 3.11s'
+PRIMARY automated 1/2 CONSTRAINTS 5/5 STRUCTURE adjudicated
+rc=0
+== D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/u_const2
+D1 diagnostic, unscored: PASS all eight sites reach one definition: md_cells.PIPE (module name) [8 sites, 12 anchors]
+D2 diagnostic, unscored: PASS no baseline site function or anchor holds a split of its own
+P3 PASS differential rc=0 seed=2026111600; corrected readers=17 inputs=4407 mismatches=0; preserved readers=17 inputs=4748 mismatches=0; readers with an empty examined set 0; exploratory (unscored) DIFF exploratory inputs=1045 mismatches=59; mismatching inputs in D:/pytest_temp/exp_t2_pred_u_const2_p3_mismatches.jsonl
+P4 PASS t2_corrected_test.py: pytest rc=0; expected 6 passed; last line '6 passed in 2.67s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 59 files; 0 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 7 differing files; outside scripts/ and tests/ none
+C5 PASS t2_preserved_test.py: pytest rc=0; expected 56 passed; last line '56 passed in 3.06s'
+PRIMARY automated 2/2 CONSTRAINTS 5/5 STRUCTURE adjudicated
+rc=0
