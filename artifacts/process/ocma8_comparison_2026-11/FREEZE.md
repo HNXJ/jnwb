@@ -101,8 +101,11 @@ fresh Muse session; on twelve new built trees both slots gave the expected verdi
 AMBIGUOUS. Generator revision 3 (17 readers, four new scored families, whitespace padding unscored): 28
 behaviour-correct trees at 0 and 29 wrong trees above 0 at each of five seeds. Limits: built controls only,
 no arm-produced tree, slot 2 reads without running code, `w_hdr2` rejected through one reader, inner
-whitespace unbuilt at three readers. Not reviewed; the single freeze review is owed, and a new material
-REVISE there ends T2 development for this pilot. The T2 packet is not frozen.
+whitespace unbuilt at three readers. Status (Hamm 2026-11-16): T2 UNFROZEN. The matrix establishes
+discrimination on the tested controls, not completeness over unseen parsing implementations or validity of
+structural adjudication on arm-produced trees. The amended predicate semantics remain unverified pending the
+queued four-tree run. Independent freeze review has not started, and a new material REVISE there ends T2
+development for this pilot. No keeper dispatch or pilot execution is authorized.
 
 Baselines re-read 2026-11-16: jnwb `dev` moved to fabe3c02 (one README line); T2 and T3 keep ac995dde.
 

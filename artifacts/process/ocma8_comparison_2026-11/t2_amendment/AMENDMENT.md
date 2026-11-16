@@ -1,14 +1,33 @@
 # T2 amendment 3 (2026-11-16, for the single freeze review): a material amendment of the T2 measurement
 
-Status of amendment 3 (section "Amendment 3"): Hamm's ruling of 2026-11-16 after review 3's STOP. The
-automated consolidation predicates are removed as primaries; consolidation is judged by two adjudicators
-against a rubric fixed beforehand; the behaviour predicates stay automated with a corrected generator.
-Review 4 returned REVISE (section "Review 4"). One final bounded repair cycle followed (sections "Final repair
-cycle"): the rubric was made literal on Hamm's ruling, the adjudication protocol was written and validated as
-deployed on twelve new trees, the generator was repaired and rerun on 59 trees at five seeds. Validated on
-built controls only; not reviewed; T2 not frozen; nothing executed. The next review is a terminal gate: a new
-material REVISE ends T2 development for this pilot. T2 as amended is not the measurement `PREREG.md` froze
-(section "Preregistration consequence").
+**Status — T2 UNFROZEN** (Hamm 2026-11-16). Generator revision 3 passed the 59-tree × 5-seed differential
+matrix (295/295 runs, no exclusions, errors or warnings). All 28 behavior-correct trees produced zero scored
+mismatches at every seed; all 29 behaviorally wrong trees produced at least one. The corrected reference was
+reproducible across repeated runs. This establishes discrimination on the tested controls, not completeness
+over unseen parsing implementations or validity of structural adjudication on arm-produced trees. The amended
+predicate semantics remain unverified pending the queued four-tree run. Independent freeze review has not
+started. No keeper dispatch or pilot execution is authorized.
+
+How it got here: amendment 3 (section "Amendment 3", Hamm's ruling after review 3's STOP) removed the
+automated consolidation predicates as primaries; consolidation is judged by two adjudicators against a rubric
+fixed beforehand, behaviour by the automated predicates on a corrected generator. Review 4 returned REVISE
+(section "Review 4"). One final bounded repair cycle followed (sections "Final repair cycle"): literal rubric,
+deployed adjudication protocol validated on twelve new built trees, generator revision 3. The next review is
+a terminal gate: a new material REVISE ends T2 development for this pilot. T2 as amended is not the
+measurement `PREREG.md` froze (section "Preregistration consequence").
+
+Conclusions of the final cycle (Hamm 2026-11-16):
+
+| Claim | Evidence | Disposition |
+|---|---|---|
+| Generator discriminates tested controls | 28/28 positives; 29/29 negatives × 5 seeds | PASS, bounded |
+| Reference reproducibility | Zero mismatches; byte-equal repeats | PASS |
+| Public-reader coverage | All scored families except three inapplicable inner-whitespace cases | PASS, qualified |
+| `w_hdr2` detection | `routing.targets` only | Single-reader dependency |
+| Generalization to unseen errors | Not tested | UNKNOWN |
+| Automated predicate semantics | Four-tree run queued | UNKNOWN |
+| Structural adjudication on arm trees | Not tested | UNKNOWN |
+| T2 freeze | Review outstanding | NOT CLEARED |
 
 History, amendment 2 (stopped by the stopping rule): amendment 1 was reviewed twice, REVISE both times (`../review/t2_amendment_reviewer1.md`,
 `../review/t2_amendment_reviewer2.md`; sections "Review 1 and repair", "Review 2"). Amendment 2 (section
@@ -34,7 +53,6 @@ The rows of the table below marked "shown" hold for the listed controls only; re
 | Structural adjudication separates the known controls (amendment 3) | 23 of 23 against the anchors, two adjudicators, kappa 1.0; limited independence, no arm-produced tree |
 | Revised P3 rejects wrong trees and accepts correct ones (amendment 3) | 19 correct trees 0 mismatches and 22 wrong trees more than 0 at each of 5 seeds; one wrong tree (`w_hdr2`) scores 0 (review 4: it differs at `routing_targets`, which the generator does not reach); review 4 built three more wrong trees that score 0 |
 | Deployed adjudication under the literal rubric separates new built controls (final cycle) | 12 of 12 in each slot, 0 AMBIGUOUS, kappa 1.0; clear cases, no arm-produced tree, slot 2 reads only |
-| Generator revision 3 rejects wrong trees and accepts correct ones (final cycle) | 28 correct trees 0 mismatches and 29 wrong trees more than 0 at each of 5 seeds (295 runs with the baseline and `w_ws`); `w_hdr2` through one reader; inner whitespace unbuilt at three readers; whitespace padding unscored |
 | Two keeper dispatches fit the 30-minute cap | UNKNOWN: two serial acceptance runs take 526 of 1800 s; two at once take 331 and 328 s each, inside the 10-minute timeout; dispatch overhead is unmeasured |
 T2 is not frozen. No experiment cell has run. `PREREG.md` is unchanged: the 30-minute cap, the evaluator, the
 thresholds and the adjudication rules stand.
@@ -727,8 +745,9 @@ the shared splitter and is rejected at every seed (154 to 176).
 
 #### `w_hdr2` and the corrected reference per reader (`reader_check_r3.py/.txt`, outputs in `reader_check_r3/`)
 
-Run by the orchestrator after the matrix, five at a time, not under the suite lock (held by another agent's
-run). `w_hdr2` (the fact-table header split naively): at every seed the only reader with a scored mismatch is
+Suite-lock exception: these 15 differential runs (five of `w_hdr2`, ten of pos2) were run by the orchestrator
+directly, five at a time, outside the suite lock, which another agent's run held from 13:56Z; the 295 matrix
+runs were under the lock. `w_hdr2` (the fact-table header split naively): at every seed the only reader with a scored mismatch is
 `routing.targets`, corrected mode, 20, 21, 27, 20, 23 mismatches of 253 to 270 inputs; preserved 0. Its
 rejection rests on one reader and one mode: without `routing.targets` it scores 0, as in revision 2 (F2).
 Corrected reference pos2: 0 scored mismatches at every seed, no reader with zero inputs or all-empty baseline
@@ -771,5 +790,21 @@ answer). No pilot-side workaround; the harness was not modified.
 
 ## Owed before freeze
 
-The single independent freeze review of this record (a new material REVISE ends T2 development for this
-pilot). Then Hamm's freeze and go decisions. Experiment execution and keeper dispatch stay withheld.
+Hamm 2026-11-16; the state of each item is in brackets.
+
+1. Complete the amended predicate run on `pos2`, baseline, `w_hdr2` and `u_const2`; verify automated primary
+   scoring, diagnostic-only D1/D2, constraints, and separate structural adjudication. [queued behind the suite
+   lock; output `predicates_r3_controls.txt`]
+2. Preserve the complete 295-run matrix receipt, generator hash, reader coverage, frozen expectations and
+   negative-control margins. [stored: "Matrix 7", "Generator revision 3", "Coverage per reader"]
+3. Explicitly disclose the three readers without applicable inner-whitespace cases, the dependence of
+   `w_hdr2` detection on `routing.targets`, and the absence of validation against unseen arm-produced trees.
+   [stated: "Coverage per reader", "`w_hdr2` and the corrected reference per reader", "Limits of this cycle"]
+4. Record the suite-lock exception and the 15 direct differential runs, distinguishing them from the locked
+   matrix. [stated: "`w_hdr2` and the corrected reference per reader"]
+5. Obtain the single independent freeze review. Resolve its findings under the previously adopted terminal
+   stopping rule. [packet `../review/t2_freeze_review_packet.md`; not dispatched before item 1]
+6. Preserve the unresolved harness-enforcement defect and undelivered keeper escalation. Do not treat it as
+   closed. [open: "Harness incident", "Harness incident: third piece of evidence"]
+7. Freeze only after the mandatory evidence and review gates pass. No pilot execution or keeper dispatch
+   before then.
