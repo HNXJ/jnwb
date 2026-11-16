@@ -1,0 +1,15 @@
+w_hdr2 | seed 2026111600 | rc 0 | readers 17 | preserved 0/4748 | corrected 20/4407 | exploratory 59/1045 | readers with scored mismatches (name, preserved, corrected): [('routing.targets', 0, 20)] | readers with n=0 or nonempty=0 in a scored mode: []
+w_hdr2 | seed 1 | rc 0 | readers 17 | preserved 0/4718 | corrected 21/4430 | exploratory 51/1052 | readers with scored mismatches (name, preserved, corrected): [('routing.targets', 0, 21)] | readers with n=0 or nonempty=0 in a scored mode: []
+w_hdr2 | seed 2 | rc 0 | readers 17 | preserved 0/4689 | corrected 27/4404 | exploratory 52/1107 | readers with scored mismatches (name, preserved, corrected): [('routing.targets', 0, 27)] | readers with n=0 or nonempty=0 in a scored mode: []
+w_hdr2 | seed 3 | rc 0 | readers 17 | preserved 0/4685 | corrected 20/4418 | exploratory 43/1097 | readers with scored mismatches (name, preserved, corrected): [('routing.targets', 0, 20)] | readers with n=0 or nonempty=0 in a scored mode: []
+w_hdr2 | seed 4 | rc 0 | readers 17 | preserved 0/4713 | corrected 23/4437 | exploratory 45/1050 | readers with scored mismatches (name, preserved, corrected): [('routing.targets', 0, 23)] | readers with n=0 or nonempty=0 in a scored mode: []
+pos2 | seed 2026111600 | rc 0 | readers 17 | preserved 0/4748 | corrected 0/4407 | exploratory 59/1045 | readers with scored mismatches (name, preserved, corrected): [] | readers with n=0 or nonempty=0 in a scored mode: []
+pos2 | seed 2026111600 | repeat byte-equal True | sha256 377c2ce341a7ae02
+pos2 | seed 1 | rc 0 | readers 17 | preserved 0/4718 | corrected 0/4430 | exploratory 51/1052 | readers with scored mismatches (name, preserved, corrected): [] | readers with n=0 or nonempty=0 in a scored mode: []
+pos2 | seed 1 | repeat byte-equal True | sha256 ccdbaf261d50a3f9
+pos2 | seed 2 | rc 0 | readers 17 | preserved 0/4689 | corrected 0/4404 | exploratory 52/1107 | readers with scored mismatches (name, preserved, corrected): [] | readers with n=0 or nonempty=0 in a scored mode: []
+pos2 | seed 2 | repeat byte-equal True | sha256 01c4927835b1fed6
+pos2 | seed 3 | rc 0 | readers 17 | preserved 0/4685 | corrected 0/4418 | exploratory 43/1097 | readers with scored mismatches (name, preserved, corrected): [] | readers with n=0 or nonempty=0 in a scored mode: []
+pos2 | seed 3 | repeat byte-equal True | sha256 5ad64272ad2fa195
+pos2 | seed 4 | rc 0 | readers 17 | preserved 0/4713 | corrected 0/4437 | exploratory 45/1050 | readers with scored mismatches (name, preserved, corrected): [] | readers with n=0 or nonempty=0 in a scored mode: []
+pos2 | seed 4 | repeat byte-equal True | sha256 29c6f498746c15ab

@@ -6,9 +6,9 @@ Prints one line per check (D1, D2, P3, P4, C1..C5), then `PRIMARY automated k/2 
 adjudicated`. Exit 0 when it runs to the end, 2 on a usage error. Standard library only (P3, P4 and C5 run
 subprocesses); every subprocess runs with cwd=<tree>. History: t2_amendment/AMENDMENT.md.
 
-Primary measures of t2 (amendment 3, Hamm 2026-11-16): S, structural consolidation, judged by independent
-blind adjudication against `t2_structure_rubric.md` and recorded in the ledger, never computed here; P3 and
-P4, behaviour, computed here.
+Primary measures of t2 (amendment 3, Hamm 2026-11-16): S, structural consolidation, judged by two
+adjudicators against `t2_structure_rubric_r2.md` under `t2_adjudication_protocol.md` and recorded in the
+ledger, never computed here; P3 and P4, behaviour, computed here.
 
 D1  diagnostic, unscored: what `t2_structure.py` reads from the AST about consolidation (PASS, FAIL or
 D2  AMBIGUOUS) and about removal. Review 3 showed these accept unconsolidated trees: they are an observation

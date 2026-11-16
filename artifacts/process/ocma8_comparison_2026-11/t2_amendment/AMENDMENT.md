@@ -1,11 +1,14 @@
-# T2 amendment 3 (2026-11-16, for review 4): a material amendment of the T2 measurement
+# T2 amendment 3 (2026-11-16, for the single freeze review): a material amendment of the T2 measurement
 
 Status of amendment 3 (section "Amendment 3"): Hamm's ruling of 2026-11-16 after review 3's STOP. The
-automated consolidation predicates are removed as primaries; consolidation is judged by independent blind
-adjudication against a rubric fixed beforehand; the behaviour predicates stay automated with a corrected
-generator. Validated on known controls only, by adjudicators not blind to the validation set; review 4
-returned REVISE (section "Review 4"), unrepaired; T2 not frozen; nothing executed. T2 as amended is
-not the measurement `PREREG.md` froze (section "Preregistration consequence").
+automated consolidation predicates are removed as primaries; consolidation is judged by two adjudicators
+against a rubric fixed beforehand; the behaviour predicates stay automated with a corrected generator.
+Review 4 returned REVISE (section "Review 4"). One final bounded repair cycle followed (sections "Final repair
+cycle"): the rubric was made literal on Hamm's ruling, the adjudication protocol was written and validated as
+deployed on twelve new trees, the generator was repaired and rerun on 59 trees at five seeds. Validated on
+built controls only; not reviewed; T2 not frozen; nothing executed. The next review is a terminal gate: a new
+material REVISE ends T2 development for this pilot. T2 as amended is not the measurement `PREREG.md` froze
+(section "Preregistration consequence").
 
 History, amendment 2 (stopped by the stopping rule): amendment 1 was reviewed twice, REVISE both times (`../review/t2_amendment_reviewer1.md`,
 `../review/t2_amendment_reviewer2.md`; sections "Review 1 and repair", "Review 2"). Amendment 2 (section
@@ -30,6 +33,8 @@ The rows of the table below marked "shown" hold for the listed controls only; re
 | P1 resolves valid refactors without adjudication | rarely: 6 of review 3's 7 valid trees are AMBIGUOUS (none rejected) |
 | Structural adjudication separates the known controls (amendment 3) | 23 of 23 against the anchors, two adjudicators, kappa 1.0; limited independence, no arm-produced tree |
 | Revised P3 rejects wrong trees and accepts correct ones (amendment 3) | 19 correct trees 0 mismatches and 22 wrong trees more than 0 at each of 5 seeds; one wrong tree (`w_hdr2`) scores 0 (review 4: it differs at `routing_targets`, which the generator does not reach); review 4 built three more wrong trees that score 0 |
+| Deployed adjudication under the literal rubric separates new built controls (final cycle) | 12 of 12 in each slot, 0 AMBIGUOUS, kappa 1.0; clear cases, no arm-produced tree, slot 2 reads only |
+| Generator revision 3 rejects wrong trees and accepts correct ones (final cycle) | 28 correct trees 0 mismatches and 29 wrong trees more than 0 at each of 5 seeds (295 runs with the baseline and `w_ws`); `w_hdr2` through one reader; inner whitespace unbuilt at three readers; whitespace padding unscored |
 | Two keeper dispatches fit the 30-minute cap | UNKNOWN: two serial acceptance runs take 526 of 1800 s; two at once take 331 and 328 s each, inside the 10-minute timeout; dispatch overhead is unmeasured |
 T2 is not frozen. No experiment cell has run. `PREREG.md` is unchanged: the 30-minute cap, the evaluator, the
 thresholds and the adjudication rules stand.
@@ -720,6 +725,38 @@ than 0 at every seed.
 A whitespace-collapsing error confined to one of the three readers would score 0. `w_collapse` collapses in
 the shared splitter and is rejected at every seed (154 to 176).
 
+#### `w_hdr2` and the corrected reference per reader (`reader_check_r3.py/.txt`, outputs in `reader_check_r3/`)
+
+Run by the orchestrator after the matrix, five at a time, not under the suite lock (held by another agent's
+run). `w_hdr2` (the fact-table header split naively): at every seed the only reader with a scored mismatch is
+`routing.targets`, corrected mode, 20, 21, 27, 20, 23 mismatches of 253 to 270 inputs; preserved 0. Its
+rejection rests on one reader and one mode: without `routing.targets` it scores 0, as in revision 2 (F2).
+Corrected reference pos2: 0 scored mismatches at every seed, no reader with zero inputs or all-empty baseline
+results in a scored mode, and a second run at each seed is byte-equal to the first.
+
+#### Limits of this cycle, as known
+
+- The differential rejects the wrong conventions built so far. Each review built wrong conventions that the
+  instrument of its time accepted (review 2 four, review 3 four, review 4 three); nothing shows the set is
+  now closed.
+- `w_hdr2` is rejected through one reader; inner whitespace is not exercised at three readers (above).
+- Whitespace other than space and tab as cell padding is unscored: a tree that changes it passes P3.
+- A line ending in an escaped pipe is unscored (Hamm 2026-11-16, provisional; section "Terminal escaped pipe").
+- Validation 2 used clear cases written by the orchestrator, no arm-produced tree, one family in slot 1, and
+  a slot 2 that reads only.
+- The 23-tree validation and validation 2 use different rubrics and are not pooled.
+- The control trees live outside this record (`D:/repos/_work/exp_*`, session scratch). Stored here as diffs:
+  validation 2's (`validation2/trees/`), review 2's and review 3's (`review2_probes/`, `review3_probes/`),
+  review 4's four against pos2 (`review4_probes/`, one file each, `scripts/md_cells.py`).
+- Keeper dispatch overhead against the 30-minute cap is unmeasured.
+
+#### Harness incident: third piece of evidence
+
+2026-11-16, during this cycle: the orchestrator again typed a stray `python - </dev/null` inside a compound
+shell command; the guard hook did not block it; it hung and was stopped; nothing was written. Same defect as
+in "Harness incident". Still undelivered to the harness keeper (the jchat hub and relay returned no HTTP
+answer). No pilot-side workaround; the harness was not modified.
+
 ## Readings
 
 - No corrected test covers `release_gate.table_data_rows`: an escaped pipe does not change its output.
@@ -734,5 +771,5 @@ the shared splitter and is rejected at every seed (154 to 176).
 
 ## Owed before freeze
 
-Hamm's ruling on review 4's findings (repair and re-verify, or remove T2 from the executable pilot). Then
-Hamm's freeze and go decisions. Experiment execution and keeper dispatch stay withheld.
+The single independent freeze review of this record (a new material REVISE ends T2 development for this
+pilot). Then Hamm's freeze and go decisions. Experiment execution and keeper dispatch stay withheld.

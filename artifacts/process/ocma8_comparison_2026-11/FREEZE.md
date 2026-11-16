@@ -92,8 +92,17 @@ the anchors (limited independence, no arm-produced tree); the differential leave
 rejects 22 wrong trees at each of five seeds; one wrong tree (`w_hdr2`) scores 0. T2 as amended is not the
 measurement `PREREG.md` froze. Review 4 returned REVISE (2026-11-16, `review/t2_amendment_reviewer4.md`): three
 more wrong conventions score 0, `w_hdr2` differs at an entry point the generator does not reach, the rubric
-leaves five architectures undecided, and the validation was not the deployed procedure. Unrepaired; the T2
-packet is not frozen.
+leaves five architectures undecided, and the validation was not the deployed procedure. Final repair cycle
+(Hamm 2026-11-16, one cycle, then a terminal review): the rubric is literal (`t2_structure_rubric_r2.md`:
+exactly one implementation that performs cell splitting, all eight sites on it, the others removed), which
+moves v1 and any retained uncalled splitter to FAIL without rewriting the 23-tree record; the adjudication
+protocol (`t2_adjudication_protocol.md`) isolates each tree and gives it to one fresh Claude reviewer and one
+fresh Muse session; on twelve new built trees both slots gave the expected verdict 12 of 12 with 0
+AMBIGUOUS. Generator revision 3 (17 readers, four new scored families, whitespace padding unscored): 28
+behaviour-correct trees at 0 and 29 wrong trees above 0 at each of five seeds. Limits: built controls only,
+no arm-produced tree, slot 2 reads without running code, `w_hdr2` rejected through one reader, inner
+whitespace unbuilt at three readers. Not reviewed; the single freeze review is owed, and a new material
+REVISE there ends T2 development for this pilot. The T2 packet is not frozen.
 
 Baselines re-read 2026-11-16: jnwb `dev` moved to fabe3c02 (one README line); T2 and T3 keep ac995dde.
 

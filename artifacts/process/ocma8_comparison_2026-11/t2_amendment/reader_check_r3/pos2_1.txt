@@ -1,0 +1,56 @@
+LOAD tree=D:\repos\_work\exp_t2beh\pos2 modules=6
+LOAD baseline=D:\repos\_work\exp_prereq\t2\base modules=6
+VARIATION corrected bq: '> '=116, '> > '=102, '>'=90
+VARIATION corrected cell: empty_cell=346, last_empty=388, too_few=356, too_many=346, valid=351, ws_cell=330
+VARIATION corrected escapes: 1=2116, 2=2031, 3=89, 4=90, 5=65
+VARIATION corrected fam: blockquote=308, header_escape=433, inner_ws=186, lone_backslash=316, long_row=281, multi_escape=244, multi_table=279, open_escape=129, tight_escape=147, wide_table=263, ws_pad=315
+VARIATION corrected hcell: empty_cell=32, last_empty=25, too_few=31, too_many=25, valid=30, ws_cell=28
+VARIATION corrected hlead: '  |'=40, ''=33, '\t|'=40, '|'=29, '||'=29
+VARIATION corrected htab: False=141, True=30
+VARIATION corrected htrail: ' |'=24, ''=27, '\t'=22, '|  |'=23, '| '=21, '|'=26, '||'=28
+VARIATION corrected lead: '  |'=452, ''=442, '\t|'=405, '|'=431, '||'=387
+VARIATION corrected lone: 1=85, 2=136, 3=95
+VARIATION corrected multi: blank_prose=107, blank_row=85, prose=87
+VARIATION corrected part: header=604, multi=279, row=3735, separator=219, table=263
+VARIATION corrected runs: 1=103, 2=83
+VARIATION corrected spread: cell=133, row=111
+VARIATION corrected tab: False=1697, True=420
+VARIATION corrected trail: ' |'=285, ''=330, '\t'=323, '|  |'=303, '| '=280, '|'=305, '||'=291
+VARIATION corrected ws: emsp=84, ff=76, nbsp=71, vtab=84
+VARIATION preserved bq: '> '=130, '> > '=99, '>'=108
+VARIATION preserved cell: empty_cell=456, last_empty=419, too_few=443, too_many=402, valid=405, ws_cell=419
+VARIATION preserved fam: blockquote=337, inner_ws=159, lone_backslash=304, long_row=251, multi_table=277, wide_table=265, ws_pad=296
+VARIATION preserved hcell: empty_cell=35, last_empty=44, too_few=52, too_many=57, valid=38, ws_cell=29
+VARIATION preserved hlead: '  |'=51, ''=39, '\t|'=60, '|'=42, '||'=63
+VARIATION preserved htab: False=219, True=36
+VARIATION preserved htrail: ' |'=40, ''=31, '\t'=36, '|  |'=38, '| '=30, '|'=35, '||'=45
+VARIATION preserved lead: '  |'=481, ''=507, '\t|'=513, '|'=518, '||'=525
+VARIATION preserved lone: 1=110, 2=108, 3=86
+VARIATION preserved multi: blank_prose=95, blank_row=96, prose=86
+VARIATION preserved part: header=255, multi=277, row=3554, separator=268, table=265, whole=481
+VARIATION preserved runs: 1=95, 2=64
+VARIATION preserved tab: False=2021, True=523
+VARIATION preserved trail: ' |'=354, ''=336, '\t'=366, '|  |'=355, '| '=373, '|'=350, '||'=410
+VARIATION preserved whole: blank=112, pipes=125, prose=244
+VARIATION preserved ws: emsp=75, ff=65, nbsp=80, vtab=76
+READER dashboard.deferred | preserved n=283 mismatch=0 raised=0 nonempty=44 | corrected n=258 mismatch=0 raised=0 nonempty=34 | exploratory n=59 mismatch=0 raised=0 nonempty=15
+READER dashboard.references | preserved n=282 mismatch=0 raised=0 nonempty=184 | corrected n=264 mismatch=0 raised=0 nonempty=172 | exploratory n=54 mismatch=0 raised=0 nonempty=38
+READER dashboard.order | preserved n=281 mismatch=0 raised=89 nonempty=90 | corrected n=270 mismatch=0 raised=80 nonempty=114 | exploratory n=49 mismatch=0 raised=27 nonempty=22
+READER dashboard.studies | preserved n=279 mismatch=0 raised=182 nonempty=97 | corrected n=263 mismatch=0 raised=161 nonempty=102 | exploratory n=58 mismatch=0 raised=29 nonempty=29
+READER fact.facts | preserved n=285 mismatch=0 raised=116 nonempty=103 | corrected n=254 mismatch=0 raised=108 nonempty=102 | exploratory n=61 mismatch=18 raised=25 nonempty=36
+READER fact.constants | preserved n=285 mismatch=0 raised=1 nonempty=177 | corrected n=258 mismatch=0 raised=0 nonempty=164 | exploratory n=57 mismatch=0 raised=21 nonempty=36
+READER fact.references | preserved n=278 mismatch=0 raised=96 nonempty=109 | corrected n=265 mismatch=0 raised=119 nonempty=118 | exploratory n=57 mismatch=16 raised=1 nonempty=33
+READER learning.ledger | preserved n=242 mismatch=0 raised=0 nonempty=78 | corrected n=248 mismatch=0 raised=0 nonempty=67 | exploratory n=110 mismatch=0 raised=0 nonempty=28
+READER learning.mapping | preserved n=292 mismatch=0 raised=0 nonempty=268 | corrected n=266 mismatch=0 raised=0 nonempty=200 | exploratory n=42 mismatch=0 raised=0 nonempty=41
+READER release.roadmap | preserved n=283 mismatch=0 raised=0 nonempty=243 | corrected n=265 mismatch=0 raised=0 nonempty=244 | exploratory n=52 mismatch=0 raised=0 nonempty=52
+READER release.table_data | preserved n=277 mismatch=0 raised=0 nonempty=234 | corrected n=267 mismatch=0 raised=0 nonempty=243 | exploratory n=56 mismatch=0 raised=0 nonempty=55
+READER docs.vocabulary | preserved n=287 mismatch=0 raised=0 nonempty=87 | corrected n=266 mismatch=0 raised=0 nonempty=116 | exploratory n=47 mismatch=0 raised=0 nonempty=33
+READER state.defect | preserved n=233 mismatch=0 raised=0 nonempty=233 | corrected n=239 mismatch=0 raised=0 nonempty=239 | exploratory n=128 mismatch=0 raised=0 nonempty=128
+READER fact.b3_exceptions | preserved n=283 mismatch=0 raised=150 nonempty=97 | corrected n=263 mismatch=0 raised=136 nonempty=106 | exploratory n=54 mismatch=17 raised=18 nonempty=36
+READER fact.claim_estimators | preserved n=279 mismatch=0 raised=147 nonempty=132 | corrected n=259 mismatch=0 raised=184 nonempty=75 | exploratory n=62 mismatch=0 raised=34 nonempty=28
+READER fact.require_tables | preserved n=285 mismatch=0 raised=59 nonempty=226 | corrected n=272 mismatch=0 raised=70 nonempty=202 | exploratory n=43 mismatch=0 raised=0 nonempty=43
+READER routing.targets | preserved n=284 mismatch=0 raised=0 nonempty=119 | corrected n=253 mismatch=0 raised=0 nonempty=108 | exploratory n=63 mismatch=0 raised=0 nonempty=43
+DIFF preserved readers=17 inputs=4718 mismatches=0
+DIFF corrected readers=17 inputs=4430 mismatches=0
+DIFF exploratory inputs=1052 mismatches=51
+DIFF seed=1
