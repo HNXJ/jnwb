@@ -263,3 +263,210 @@ def test_defect_row_with_trailing_empty_cell_reads_that_cell_as_status(tmp_path)
 def test_defect_rows_with_too_few_cells_are_left_out(tmp_path):
     path = _defect_file(tmp_path, "| eps:R5 | 4 | a | repaired |", "| zeta:R6 | 5 | a | b | open |")
     assert reconstruct_state.open_defect_classes(path) == "none"
+
+
+# Added 2026-11-15 (T2 coverage): preserved behaviour that the 31 tests above did not reach.
+# Strip-convention readers and the slice-convention dashboard, at their entry points.
+
+DASH_OPEN = "| 01-1 | Tuning (validation) | defect text | waits on fixture | deferred-0.3.0"
+DASH_DOUBLE = DASH_ROW + "|"
+
+
+def test_dashboard_deferred_row_without_trailing_pipe_is_left_out(tmp_path, monkeypatch):
+    monkeypatch.setattr(build_dashboard, "ROADMAP", _write(tmp_path, ROADMAP_HEAD + DASH_OPEN + "\n"))
+    assert DASH_OPEN.count("|") == 5  # fixture: five cells, no trailing pipe
+    assert build_dashboard.deferred_section() == []
+
+
+def test_dashboard_deferred_row_ending_double_pipe_is_left_out(tmp_path, monkeypatch):
+    monkeypatch.setattr(build_dashboard, "ROADMAP", _write(tmp_path, ROADMAP_HEAD + DASH_DOUBLE + "\n"))
+    assert DASH_DOUBLE.endswith("||")  # fixture: no space between the last two pipes
+    assert build_dashboard.deferred_section() == []
+
+
+ORDER_HEAD = ("### `jnwb.fx`\n\n| spec | parameter | sizes | median times (ms) | exp | r2 | t-span "
+              "| achieved | admissible | cls | gap |\n|---|---|---|---|---|---|---|---|---|---|---|\n")
+ORDER_ROW = "| `fx.f` | `n` | 8, 16 | 1.5, 3.0 | 1.02 | 0.99 | 8-16 | O(n) | O(n) | A | 0 |"
+ORDER_OPEN = "| `fx.f` | `n` | 8, 16 | 1.5, 3.0 | 1.02 | 0.99 | 8-16 | O(n) | O(n) | A | 0"
+ORDER_DOUBLE = ORDER_ROW + "|"
+
+
+def _order(monkeypatch, tmp_path, row):
+    monkeypatch.setattr(build_dashboard, "ORDER_RECORD",
+                        _write(tmp_path, ORDER_HEAD + row + "\n", "computational_order.md"))
+    return build_dashboard.order_section()
+
+
+def test_dashboard_order_row_keeps_its_cells(tmp_path, monkeypatch):
+    assert ORDER_ROW.count("|") == 12  # fixture: eleven cells
+    assert _order(monkeypatch, tmp_path, ORDER_ROW) == [{
+        "export": "fx.f", "order": "O(n)", "evidence": "`n`: exponent 1.02, admissible O(n)",
+        "module": "jnwb.fx"}]
+
+
+def test_dashboard_order_row_without_trailing_pipe_is_refused(tmp_path, monkeypatch):
+    assert ORDER_OPEN.count("|") == 11  # fixture: eleven cells, no trailing pipe
+    with pytest.raises(ValueError, match=r"a row has 10 cells, not 11"):
+        _order(monkeypatch, tmp_path, ORDER_OPEN)
+
+
+def test_dashboard_order_row_ending_double_pipe_is_refused(tmp_path, monkeypatch):
+    assert ORDER_DOUBLE.endswith("||")  # fixture: no space between the last two pipes
+    with pytest.raises(ValueError, match=r"a row has 12 cells, not 11"):
+        _order(monkeypatch, tmp_path, ORDER_DOUBLE)
+
+
+STUDY_HEAD = "# References\n\n| Reference | Result reproduced | Receipt |\n|---|---|---|\n"
+STUDY_ROW = "| Smith 2001 | Result A | `tests/test_a.py::test_one`"
+
+
+def _studies(monkeypatch, tmp_path, row):
+    """The studies cards of validations_section(); the other card builders are held to nothing."""
+    monkeypatch.setattr(build_dashboard, "REFERENCES",
+                        _write(tmp_path, STUDY_HEAD + row + "\n", "references.md"))
+    monkeypatch.setattr(build_dashboard, "_receipt", lambda path, card: path.name)
+    monkeypatch.setattr(build_dashboard, "_git", lambda *args: "a" * 40)
+    monkeypatch.setattr(build_dashboard, "CALIBRATION_RECEIPTS", ())
+    monkeypatch.setattr(build_dashboard, "_performance_cards", lambda: [])
+    monkeypatch.setattr(build_dashboard, "_frozen_card", lambda: {"id": "frozen"})
+    monkeypatch.setattr(build_dashboard, "_closure_card", lambda: {"id": "closure"})
+    monkeypatch.setattr(build_dashboard, "VALIDATION_HTML", tmp_path / "no_html")
+    cards = build_dashboard.validations_section()
+    return [(card["id"], card["title"], card["fields"])
+            for card in cards if card["id"].startswith("studies-")]
+
+
+def test_dashboard_studies_row_keeps_its_receipt_cell(tmp_path, monkeypatch):
+    assert (STUDY_ROW + " |").count("|") == 4  # fixture: three cells
+    assert _studies(monkeypatch, tmp_path, STUDY_ROW + " |") == [(
+        "studies-1", "Smith 2001", {"result": "Result A", "tests": ["test_a.py::test_one"]})]
+
+
+def test_dashboard_studies_row_without_trailing_pipe_is_refused(tmp_path, monkeypatch):
+    assert STUDY_ROW.count("|") == 3  # fixture: three cells, no trailing pipe
+    with pytest.raises(ValueError, match=r"a studies row has 2 cells, not 3"):
+        _studies(monkeypatch, tmp_path, STUDY_ROW)
+
+
+def test_dashboard_studies_row_ending_double_pipe_is_refused(tmp_path, monkeypatch):
+    assert (STUDY_ROW + " ||").endswith("||")  # fixture: no space between the last two pipes
+    with pytest.raises(ValueError, match=r"a studies row has 4 cells, not 3"):
+        _studies(monkeypatch, tmp_path, STUDY_ROW + " ||")
+
+
+MAPPING_PREAMBLE = "Old file: `docs/old.md` at `abc1234`\nDraft: `docs/draft.md`\n\n"
+MAPPING_BODY = "|---|---|\n| `a` | `b` |\n"
+
+
+def _mapping_tables(tmp_path, header):
+    (tmp_path / "artifacts").mkdir()
+    _write(tmp_path / "artifacts", MAPPING_PREAMBLE + header + "\n" + MAPPING_BODY, "x.md")
+    return learning_gate.mapping_tables(tmp_path)
+
+
+def test_mapping_table_with_old_location_and_where_now_is_found(tmp_path):
+    assert _mapping_tables(tmp_path, "| Old location | Where now |") == [(
+        "artifacts/x.md", "abc1234", "docs/old.md", "docs/draft.md")]
+
+
+def test_mapping_header_without_where_now_is_refused(tmp_path):
+    header = "| Old location | Where |"
+    assert "Where now" not in header  # fixture: the header lacks its second name
+    assert _mapping_tables(tmp_path, header) == []
+
+
+def test_mapping_header_without_trailing_pipe_is_found(tmp_path):
+    assert _mapping_tables(tmp_path, "| Old location | Where now") == [(
+        "artifacts/x.md", "abc1234", "docs/old.md", "docs/draft.md")]
+
+
+FACT_OPEN = "| `F1` | boundary | the rule holds | `mod.a`, `mod.b` | 2026-01-02"
+FACT_DOUBLE = FACT_ROW + "|"
+FACT_F1 = {"id": "F1", "table": "Boundary", "domain": "boundary", "predicate": "the rule holds",
+           "held_by": "`mod.a`, `mod.b`", "holders": ["mod.a", "mod.b"], "ruled": "2026-01-02"}
+
+
+def test_fact_row_without_trailing_pipe_keeps_its_last_cell():
+    assert FACT_OPEN.count("|") == 5  # fixture: five cells, no trailing pipe
+    assert build_fact_graph.read_facts(_facts(FACT_OPEN)) == [FACT_F1]
+
+
+def test_fact_row_ending_double_pipe_keeps_its_last_cell():
+    assert FACT_DOUBLE.endswith("||")  # fixture: no space between the last two pipes
+    assert build_fact_graph.read_facts(_facts(FACT_DOUBLE)) == [FACT_F1]
+
+
+REF_ROW = "| [Smith 2001](https://doi.org/10.1000/x1) | Result A | `fn_a`"
+REF_ENTRY = (METHOD_HEADER, "Methods", "[Smith 2001](https://doi.org/10.1000/x1)", "Result A", "`fn_a`")
+
+
+def test_reference_row_without_trailing_pipe_keeps_its_functions_cell():
+    assert REF_ROW.count("|") == 3  # fixture: three cells, no trailing pipe
+    assert build_fact_graph.reference_table_rows(_methods(REF_ROW)) == [REF_ENTRY]
+
+
+def test_reference_row_ending_double_pipe_keeps_its_functions_cell():
+    assert (REF_ROW + " ||").endswith("||")  # fixture: no space between the last two pipes
+    assert build_fact_graph.reference_table_rows(_methods(REF_ROW + " ||")) == [REF_ENTRY]
+
+
+LEDGER_OPEN = "| cls:alpha | 3 | a; b; c"
+
+
+def test_ledger_row_without_trailing_pipe_keeps_its_instances_cell():
+    assert LEDGER_OPEN.count("|") == 3  # fixture: three cells, no trailing pipe
+    assert learning_gate.ledger_rows(LEDGER_HEAD + LEDGER_OPEN + "\n") == [("cls", 3, 3)]
+
+
+def test_ledger_row_ending_double_pipe_keeps_its_instances_cell():
+    assert (LEDGER_OPEN + " ||").endswith("||")  # fixture: no space between the last two pipes
+    assert learning_gate.ledger_rows(LEDGER_HEAD + LEDGER_OPEN + " ||\n") == [("cls", 3, 3)]
+
+
+RM_OPEN = "| 01-1 | Theme one | defect one | waits on one | deferred-90.0.0"
+
+
+def test_roadmap_row_without_trailing_pipe_keeps_its_release_cell():
+    assert RM_OPEN.count("|") == 5  # fixture: five cells, no trailing pipe
+    assert release_gate.roadmap_rows(ROADMAP_HEAD + RM_OPEN + "\n") == ([("01-1", "deferred-90.0.0")], [])
+
+
+def test_roadmap_row_ending_double_pipe_keeps_its_release_cell():
+    assert (RM_ROW + "|").endswith("||")  # fixture: no space between the last two pipes
+    assert release_gate.roadmap_rows(ROADMAP_HEAD + RM_ROW + "|\n") == ([("01-1", "deferred-90.0.0")], [])
+
+
+def test_table_row_without_trailing_pipe_is_a_data_row():
+    text = "| ID | Note |\n|---|---|\n| P-1 | open\n"
+    assert text.splitlines()[2].count("|") == 2  # fixture: two cells, no trailing pipe
+    assert release_gate.table_data_rows(text) == [(3, "| P-1 | open")]
+
+
+def test_table_row_ending_double_pipe_is_a_data_row():
+    text = "| ID | Note |\n|---|---|\n| P-1 | open ||\n"
+    assert text.splitlines()[2].endswith("||")  # fixture: no space between the last two pipes
+    assert release_gate.table_data_rows(text) == [(3, "| P-1 | open ||")]
+
+
+VOC_OPEN = "| spike | `spike` | `spk`"
+
+
+def test_vocabulary_row_without_trailing_pipe_keeps_its_superseded_cell():
+    assert VOC_OPEN.count("|") == 3  # fixture: three cells, no trailing pipe
+    assert _vocab(VOC_HEAD + VOC_OPEN + "\n") == [("spike", ("spike",), ("spk",))]
+
+
+def test_vocabulary_row_ending_double_pipe_keeps_its_superseded_cell():
+    assert (VOC_OPEN + " ||").endswith("||")  # fixture: no space between the last two pipes
+    assert _vocab(VOC_HEAD + VOC_OPEN + " ||\n") == [("spike", ("spike",), ("spk",))]
+
+
+def test_defect_row_without_trailing_pipe_keeps_its_status_cell(tmp_path):
+    path = _defect_file(tmp_path, "| alpha:R1 | 3 | a | b | c | open")
+    assert reconstruct_state.open_defect_classes(path) == "alpha (seen 3)"
+
+
+def test_defect_row_ending_double_pipe_keeps_its_status_cell(tmp_path):
+    path = _defect_file(tmp_path, "| beta:R2 | 2 | a | b | c | repaired ||")
+    assert path.read_text(encoding="utf-8").endswith("repaired ||\n")  # fixture: a closed status
+    assert reconstruct_state.open_defect_classes(path) == "none"

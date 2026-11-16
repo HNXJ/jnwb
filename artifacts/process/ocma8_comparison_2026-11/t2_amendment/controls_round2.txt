@@ -1,0 +1,100 @@
+## predicates
+== D:/repos/_work/exp_prereq/t2/base before: e3b0c44298fc
+P1 FAIL definitions=5 [scripts/build_dashboard.py:353 _cells, scripts/build_fact_graph.py:224 _cells, scripts/learning_gate.py:52 _cells, scripts/release_gate.py:1289 _cells, scripts/release_gate.py:1296 _table_cells] by_name=5 by_body=5 baseline_pairs_still_defined=5/5 inline_not_counted=3 [scripts/build_fact_graph.py:399, scri
+P2 FAIL not evaluated: P1 counted 5 splitters, need exactly 1
+P3 FAIL inline split matches outside the splitter=3 [scripts/build_fact_graph.py:399, scripts/docs_form_gate.py:285, scripts/reconstruct_state.py:224] baseline_files_still_matching=3/3
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '6 failed in 2.93s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 58 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 FAIL against ac995ddee147: 0 differing files; outside scripts/ and tests/ none; empty set is not a pass
+C5 PASS t2_preserved_test.py: pytest rc=0; expected 56 passed; last line '56 passed in 2.61s'
+PRIMARY 0/4 CONSTRAINTS 4/5
+rc=0 after: e3b0c44298fc
+== D:/repos/_work/exp_t2beh/pos2 before: 9d2c90398cf6
+P1 PASS definitions=1 [scripts/md_cells.py:10 split_cells] by_name=0 by_body=1 baseline_pairs_still_defined=0/5 inline_not_counted=0 []
+P2 PASS scripts/md_cells.py:10 split_cells: '| a \\| b | c |' -> ['a \\| b', 'c'] (list); '| x | y |' -> ['x', 'y'] (list)
+P3 PASS inline split matches outside the splitter=0 [] baseline_files_still_matching=0/3
+P4 PASS t2_corrected_test.py: pytest rc=0; expected 6 passed; last line '6 passed in 2.45s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 59 files; 0 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 7 differing files; outside scripts/ and tests/ none
+C5 PASS t2_preserved_test.py: pytest rc=0; expected 56 passed; last line '56 passed in 2.61s'
+PRIMARY 4/4 CONSTRAINTS 5/5
+rc=0 after: 9d2c90398cf6
+== D:/repos/_work/exp_prereq/t2/pos before: e5096115dad8
+P1 PASS definitions=1 [scripts/md_cells.py:6 cells] by_name=0 by_body=1 baseline_pairs_still_defined=0/5 inline_not_counted=0 []
+P2 PASS scripts/md_cells.py:6 cells: '| a \\| b | c |' -> ['a \\| b', 'c'] (list); '| x | y |' -> ['x', 'y'] (list)
+P3 PASS inline split matches outside the splitter=0 [] baseline_files_still_matching=0/3
+P4 PASS t2_corrected_test.py: pytest rc=0; expected 6 passed; last line '6 passed in 2.45s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 59 files; 13 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 7 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '14 failed, 42 passed in 3.36s'
+PRIMARY 4/4 CONSTRAINTS 4/5
+rc=0 after: e5096115dad8
+== D:/repos/_work/exp_t2cov/m10 before: 1d62f69f9347
+P1 PASS definitions=1 [scripts/md_cells.py:10 split_cells] by_name=0 by_body=1 baseline_pairs_still_defined=0/5 inline_not_counted=0 []
+P2 PASS scripts/md_cells.py:10 split_cells: '| a \\| b | c |' -> ['a \\| b', 'c'] (list); '| x | y |' -> ['x', 'y'] (list)
+P3 PASS inline split matches outside the splitter=0 [] baseline_files_still_matching=0/3
+P4 PASS t2_corrected_test.py: pytest rc=0; expected 6 passed; last line '6 passed in 2.45s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 59 files; 0 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 7 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '6 failed, 50 passed in 2.89s'
+PRIMARY 4/4 CONSTRAINTS 4/5
+rc=0 after: 1d62f69f9347
+== D:/repos/_work/exp_t2cov/m13 before: 64dd217e8303
+P1 PASS definitions=1 [scripts/md_cells.py:10 split_cells] by_name=0 by_body=1 baseline_pairs_still_defined=0/5 inline_not_counted=0 []
+P2 PASS scripts/md_cells.py:10 split_cells: '| a \\| b | c |' -> ['a \\| b', 'c'] (list); '| x | y |' -> ['x', 'y'] (list)
+P3 PASS inline split matches outside the splitter=0 [] baseline_files_still_matching=0/3
+P4 PASS t2_corrected_test.py: pytest rc=0; expected 6 passed; last line '6 passed in 2.45s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 59 files; 0 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 7 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '12 failed, 44 passed in 3.39s'
+PRIMARY 4/4 CONSTRAINTS 4/5
+rc=0 after: 64dd217e8303
+== D:/repos/_work/exp_prereq/t2/pos_inline before: de624dd3a299
+P1 PASS definitions=1 [scripts/md_cells.py:6 cells] by_name=0 by_body=1 baseline_pairs_still_defined=0/5 inline_not_counted=3 [scripts/build_fact_graph.py:398, scripts/docs_form_gate.py:285, scripts/reconstruct_state.py:224]
+P2 PASS scripts/md_cells.py:6 cells: '| a \\| b | c |' -> ['a \\| b', 'c'] (list); '| x | y |' -> ['x', 'y'] (list)
+P3 FAIL inline split matches outside the splitter=3 [scripts/build_fact_graph.py:398, scripts/docs_form_gate.py:285, scripts/reconstruct_state.py:224] baseline_files_still_matching=3/3
+P4 FAIL t2_corrected_test.py: pytest rc=1; expected 6 passed; last line '3 failed, 3 passed in 2.81s'
+C1 PASS harness_gate rc=0; gates executed 22 of 22; PASS lines 22; bad lines 0; last line 'ALL HARNESS GATES PASSED. 22 of 22 gates executed.'
+C2 PASS compileall rc=0; 59 files; 10 loads of ['_cells', '_table_cells']; unresolved none
+C3 PASS 369 tracked non-.py files hashed before and after the gate; new non-.py status entries none; bytes changed none
+C4 PASS against ac995ddee147: 5 differing files; outside scripts/ and tests/ none
+C5 FAIL t2_preserved_test.py: pytest rc=1; expected 56 passed; last line '8 failed, 48 passed in 3.14s'
+PRIMARY 2/4 CONSTRAINTS 4/5
+rc=0 after: de624dd3a299
+## acceptance
+== D:/repos/_work/exp_prereq/t2/base start 2026-11-16T01:27:53Z before: e3b0c44298fc
+harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+pytest rc=0 last: 1527 passed, 4 skipped, 1 warning in 197.97s (0:03:17)
+table rows rc=0 last: 56 passed in 2.62s
+ACCEPT_RC=0
+rc=0 wall_s=245 after: e3b0c44298fc
+== D:/repos/_work/exp_t2beh/pos2 start 2026-11-16T01:31:58Z before: 9d2c90398cf6
+harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+pytest rc=0 last: 1527 passed, 4 skipped, 1 warning in 196.60s (0:03:16)
+table rows rc=0 last: 56 passed in 2.89s
+ACCEPT_RC=0
+rc=0 wall_s=243 after: 9d2c90398cf6
+== D:/repos/_work/exp_prereq/t2/pos start 2026-11-16T01:36:02Z before: e5096115dad8
+harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+pytest rc=1 last: 129 failed, 1398 passed, 4 skipped, 1 warning in 197.35s (0:03:17)
+table rows rc=1 last: 14 failed, 42 passed in 3.42s
+ACCEPT_RC=1
+rc=1 wall_s=249 after: e5096115dad8
+== D:/repos/_work/exp_t2cov/m10 start 2026-11-16T01:40:11Z before: 1d62f69f9347
+harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+pytest rc=0 last: 1527 passed, 4 skipped, 1 warning in 189.75s (0:03:09)
+table rows rc=1 last: 6 failed, 50 passed in 2.89s
+ACCEPT_RC=1
+rc=1 wall_s=242 after: 1d62f69f9347
+DONE
+rc=0

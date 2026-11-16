@@ -1,6 +1,7 @@
-# T2 amendment 1 (2026-11-16, for review)
+# T2 amendment 1, revision 2 (2026-11-16, for review)
 
-Status: instruments changed; predicate controls, acceptance controls and timing run; independent review owed.
+Status: review 1 returned REVISE (`../review/t2_amendment_reviewer1.md`); coverage repaired and controls rerun
+(section "Review 1 and repair"); a second independent review is owed.
 T2 is not frozen. No experiment cell has run. `PREREG.md` is unchanged: the 30-minute cap, the evaluator, the
 thresholds and the adjudication rules stand.
 
@@ -32,14 +33,17 @@ thresholds and the adjudication rules stand.
 
 | Instrument | Before | After |
 |---|---|---|
-| `accept/accept_t2.sh` | gate; pytest on 30 files, serial | gate; the same 30 files with `-n 6`; `accept/t2_preserved_test.py` (31 tests) |
-| `predicates/predicates_t2.py` | P1 to P3, C1 to C4 | adds P4 (`predicates/t2_corrected_test.py`, exactly 6 passed) and C5 (the preserved file, exactly 31 passed); summary `PRIMARY k/4 CONSTRAINTS j/5` |
+| `accept/accept_t2.sh` | gate; pytest on 30 files, serial | gate; the same 30 files with `-n 6`; `accept/t2_preserved_test.py` (56 tests; 31 before review 1) |
+| `predicates/predicates_t2.py` | P1 to P3, C1 to C4 | adds P4 (`predicates/t2_corrected_test.py`, exactly 6 passed) and C5 (the preserved file, exactly 56 passed); summary `PRIMARY k/4 CONSTRAINTS j/5` |
 | Placement | | the preserved test sits with the acceptance script (arms may read it); the corrected test sits with the predicates (arms cannot) |
 | `t2_exploratory_test.py` | | 2 tests, reported, outside scoring |
 
 `PACKETS.md` ACCEPT-t2 (baseline lines, timeout) and `FREEZE.md` follow once timing is measured.
 
 ## Evidence
+
+The tables of this section were measured with the 31-test preserved file, before review 1. The figures in
+force are in "Review 1 and repair".
 
 Mutation kills by the preserved file (`matrix2.txt`, section d), failing tests per mutant: M1 5, M2 1, M3 5,
 M4 2, M5 3, M6 2, M7 4, M8 3, M9 3. Each kill is a named failing assertion in that file.
@@ -82,6 +86,60 @@ The slowest file of the serial study (`test_release_requires_an_empty_open_stack
 baseline) killed no mutant alone, and it is the only one of the 30 files that rejects the defective reference.
 It stays, as every file does.
 
+## Review 1 and repair
+
+Review 1 (REVISE) built a wrong refactor that passed the 31-test preserved file, the corrected file and the
+dashboard tests of the 30 files: the corrected reference with the dashboard row reader switched from the slice
+convention (`re.split(...)[1:-1]`) to the strip convention. `build_dashboard.deferred_section()` then accepts
+a roadmap row with no trailing pipe, or ending `||`; the baseline refuses both. The negative result stands.
+
+Repair: 25 tests added to `accept/t2_preserved_test.py` (the 31 are unchanged, byte-equal prefix): rows with no
+trailing pipe and rows ending `||` at each reader's entry point, and entry-point tests for
+`build_dashboard.order_section`, the studies cards (through `validations_section`) and the `learning_gate`
+mapping header. Four mutants added (`mutants/M10.diff` to `M13.diff`; `matrix3.txt`, rerun by the orchestrator
+with the same counts):
+
+| Tree | 31-test file | 56-test file | Killing tests |
+|---|---|---|---|
+| base | 31 passed | 56 passed | |
+| pos2 (corrected reference) | 31 passed | 56 passed | |
+| pos (defective reference) | 2 failed | 14 failed | |
+| M10: pos2, dashboard reader on the strip convention (review 1's case) | 31 passed | 6 failed | deferred, order and studies rows, no trailing pipe and `||` |
+| M11: base, `learning_gate._cells` on the slice convention | 31 passed | 2 failed | ledger row and mapping header, no trailing pipe |
+| M12: base, `build_fact_graph._cells` on the slice convention | 31 passed | 2 failed | fact row, no trailing pipe and `||` |
+| M13: pos2, every reader on the slice convention | 31 passed | 12 failed | fact, reference, ledger, mapping, roadmap, vocabulary and defect rows |
+
+M1 to M9 were not rerun on the 56-test file; their killing tests are in the unchanged prefix (inferred).
+Seven of the 25 added tests kill no mutant (order and studies well-formed rows, mapping header accepted and
+refused, ledger row ending `||`, `table_data_rows` with no trailing pipe and with `||`). They cover entry
+points; their sensitivity to a defect is not established.
+
+Round 2 (`controls_round2.txt`; alone under the suite lock; each tree's `git status` hash equal before and
+after):
+
+| Tree | PRIMARY | CONSTRAINTS | Failing checks | Amended acceptance | Wall |
+|---|---|---|---|---|---|
+| base | 0/4 | 4/5 | P1 to P4; C4 (empty diff) | `ACCEPT_RC=0` (1527 passed, 4 skipped; 56 passed) | 245 s |
+| pos2 | 4/4 | 5/5 | none | `ACCEPT_RC=0` (1527 passed, 4 skipped; 56 passed) | 243 s |
+| pos | 4/4 | 4/5 | C5 (14 of 56) | `ACCEPT_RC=1` (129 failed in the 30 files; 14 of 56) | 249 s |
+| M10 | 4/4 | 4/5 | C5 (6 of 56) | `ACCEPT_RC=1` (30 files all pass; 6 of 56) | 242 s |
+| M13 | 4/4 | 4/5 | C5 (12 of 56) | not run | |
+| pos_inline | 2/4 | 4/5 | P3, P4, C5 (8 of 56) | not run | |
+
+The defective reference, M10 and M13 score PRIMARY 4/4: C5 alone rejects them in the predicates, and for M10
+the preserved file alone rejects it in acceptance. C5 and the preserved file are mandatory.
+
+Timing over all baseline and corrected-reference runs (six runs): 242 to 263 s. Two keeper runs at 263 s take
+526 s, 29% of the cap. Keeper dispatch overhead and two acceptance runs at once are not measured.
+
+Review 1's minor findings: the ACCEPT-t2 text now says the times and the warning count vary; the 30-file pytest
+step closes stdin; the exploratory ruling is quoted under "Rulings applied".
+
+Open for review 2: the studies-card test patches eight names of `build_dashboard` (`REFERENCES`, `_receipt`,
+`_git`, `CALIBRATION_RECEIPTS`, `_performance_cards`, `_frozen_card`, `_closure_card`, `VALIDATION_HTML`), most
+of them private. It depends on structure outside the splitters. Whether it can reject a valid refactor is the
+reviewer's question; if it can, it is replaced by a fixture through a public entry point.
+
 ## Readings
 
 - No corrected test covers `release_gate.table_data_rows`: an escaped pipe does not change its output.
@@ -96,4 +154,4 @@ It stays, as every file does.
 
 ## Owed before freeze
 
-Independent review of this amendment and of the changed `PACKETS.md` (ACCEPT-t2, the deployment paragraph).
+Independent review 2 of this amendment and of the changed `PACKETS.md` (ACCEPT-t2, the deployment paragraph).

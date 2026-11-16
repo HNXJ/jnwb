@@ -54,7 +54,7 @@ out=$(PYTHONDONTWRITEBYTECODE=1 python -m pytest -q -p no:cacheprovider -n 6 --b
     tests/test_rng_parameters_by_use.py \
     tests/test_signal_class.py \
     tests/test_stack_metadata_contradictions.py \
-    tests/test_workflow_release_policy.py 2>&1)
+    tests/test_workflow_release_policy.py 2>&1 </dev/null)
 rc=$?
 echo "pytest rc=$rc last: $(printf '%s\n' "$out" | tail -n 1)"
 [ "$rc" -eq 0 ] || rc_all=1

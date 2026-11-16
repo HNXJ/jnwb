@@ -1,0 +1,97 @@
+diff --git a/scripts/build_fact_graph.py b/scripts/build_fact_graph.py
+index a8a65759..f53c9fb9 100644
+--- a/scripts/build_fact_graph.py
++++ b/scripts/build_fact_graph.py
+@@ -233,11 +233,11 @@ def _all_tables(text: str) -> List[Tuple[str, List[str], List[List[str]]]]:
+         if line.startswith("## "):
+             heading = line[3:].strip()
+         if line.lstrip().startswith("|"):
+-            header = split_cells(line)
++            header = split_cells(line, keep_outer=True)[1:-1]
+             rows: List[List[str]] = []
+             i += 2  # the header and its separator
+             while i < len(lines) and lines[i].lstrip().startswith("|"):
+-                rows.append(split_cells(lines[i]))
++                rows.append(split_cells(lines[i], keep_outer=True)[1:-1])
+                 i += 1
+             found.append((heading, header, rows))
+             continue
+@@ -393,7 +393,7 @@ def reference_table_rows(text: str) -> List[Tuple[Tuple[str, ...], str, str, str
+         line = line.strip()
+         if not line.startswith("|") or set(line) <= set("|- "):
+             continue
+-        cells = split_cells(line)
++        cells = split_cells(line, keep_outer=True)[1:-1]
+         if cells and cells[0] == "Reference":
+             header = tuple(cells)
+             assert header in (*FUNCTION_HEADERS, CORE_HEADER, REPRODUCTION_HEADER), (
+diff --git a/scripts/docs_form_gate.py b/scripts/docs_form_gate.py
+index a7c492a6..50ab587b 100644
+--- a/scripts/docs_form_gate.py
++++ b/scripts/docs_form_gate.py
+@@ -285,7 +285,7 @@ def parse_vocabulary(contract_text: str) -> List[VocabularyRow]:
+         line = line.strip()
+         if not line.startswith("|") or "|---" in line:
+             continue
+-        cells = split_cells(line)
++        cells = split_cells(line, keep_outer=True)[1:-1]
+         if len(cells) != 3 or cells[0].lower() == "concept":
+             continue
+         preferred = BACKTICKED.findall(cells[1])
+diff --git a/scripts/learning_gate.py b/scripts/learning_gate.py
+index 81947603..1544bbf0 100644
+--- a/scripts/learning_gate.py
++++ b/scripts/learning_gate.py
+@@ -54,7 +54,7 @@ def ledger_rows(text: str) -> List[Tuple[str, int, int]]:
+     """(class, Seen, instance count) for each ledger row whose Seen cell is a number."""
+     rows = []
+     for line in text.splitlines():
+-        cells = split_cells(line)
++        cells = split_cells(line, keep_outer=True)[1:-1]
+         if len(cells) < 3 or not cells[1].isdigit():
+             continue
+         instances = [part for part in re.split(r";\s*", cells[2]) if part]
+@@ -134,7 +134,7 @@ def _git_show(rev: str, path: str) -> Optional[str]:
+ 
+ 
+ def _is_mapping_header(line: str) -> bool:
+-    return line.lstrip().startswith("|") and {"Old location", "Where now"} <= set(split_cells(line))
++    return line.lstrip().startswith("|") and {"Old location", "Where now"} <= set(split_cells(line, keep_outer=True)[1:-1])
+ 
+ 
+ def mapping_tables(root: Path = REPO_ROOT) -> List[Tuple[str, Optional[str], Optional[str],
+diff --git a/scripts/reconstruct_state.py b/scripts/reconstruct_state.py
+index ec73e016..f1df222d 100644
+--- a/scripts/reconstruct_state.py
++++ b/scripts/reconstruct_state.py
+@@ -224,7 +224,7 @@ def open_defect_classes(path: pathlib.Path | None = None) -> str:
+         return "UNRESOLVED (file absent)"
+     found = []
+     for line in path.read_text(encoding="utf-8").splitlines():
+-        cells = split_cells(line)
++        cells = split_cells(line, keep_outer=True)[1:-1]
+         if len(cells) < 6 or not cells[1].isdigit() or ":" not in cells[0]:
+             continue
+         if not _CLOSED_STATUS.match(cells[-1]):
+diff --git a/scripts/release_gate.py b/scripts/release_gate.py
+index 18513b64..b7015b07 100644
+--- a/scripts/release_gate.py
++++ b/scripts/release_gate.py
+@@ -1291,7 +1291,7 @@ def _row_cells(line: str) -> Optional[List[str]]:
+     stripped = line.strip()
+     if not stripped.startswith("|"):
+         return None
+-    return split_cells(stripped)
++    return split_cells(stripped, keep_outer=True)[1:-1]
+ 
+ 
+ def _table_row_cells(line: str) -> Optional[List[str]]:
+@@ -1299,7 +1299,7 @@ def _table_row_cells(line: str) -> Optional[List[str]]:
+     body = line.lstrip(" \t>").strip()
+     if not body.startswith("|"):
+         return None
+-    return split_cells(body)
++    return split_cells(body, keep_outer=True)[1:-1]
+ 
+ 
+ def _is_separator(cells: Optional[List[str]]) -> bool:

@@ -1,0 +1,94 @@
+T2 preserved-behaviour coverage, matrix3. Model claude-haiku-5-5. Date 2026-11-15.
+Baseline D:/repos/_work/exp_prereq/t2/base: HEAD ac995dde, status clean before and after (observed).
+Current file: exp_t2cov/t2_current31_test.py (copy of accept/t2_preserved_test.py, 31 tests).
+New file: exp_t2cov/t2_preserved_test.py = 31 original bytes (prefix checked with cmp) + 25 added = 56 tests.
+Command, cwd = tree, stdin closed: PYTHONDONTWRITEBYTECODE=1 python -m pytest <file> -q -p no:cacheprovider --basetemp=D:/pytest_temp/t2cov_<tree>
+Logs: exp_t2cov/logs/<tree>_new.log and <tree>_cur31.log. Observation of baseline outputs: logs/observe_base.log.
+
+Trees
+- base: D:/repos/_work/exp_prereq/t2/base, run in place.
+- pos2: clone of base, git apply --index pos2.diff.
+- oldpos: clone of base, git apply old_pos_defective.diff, plus old_pos_md_cells.py copied to scripts/md_cells.py.
+- M10: clone of base at pos2 (index), mutants/M10.diff applied on top of pos2.
+- M11: clone of base, mutants/M11.diff (vs base).
+- M12: clone of base, mutants/M12.diff (vs base).
+- M13: clone of base at pos2 (index), mutants/M13.diff applied on top of pos2.
+
+Tree x file (observed)
+| tree | current 31 | new 56 |
+| base | 31 passed | 56 passed |
+| pos2 | 31 passed | 56 passed |
+| oldpos | 2 failed, 29 passed | 14 failed, 42 passed |
+| M10 | 31 passed | 6 failed, 50 passed |
+| M11 | 31 passed | 2 failed, 54 passed |
+| M12 | 31 passed | 2 failed, 54 passed |
+| M13 | 31 passed | 12 failed, 44 passed |
+
+Failing tests on mutants, new file (observed, first E line)
+M10
+- test_dashboard_deferred_row_without_trailing_pipe_is_left_out: AssertionError: assert [{'defect': '...-0.3.0', ...}] == []
+- test_dashboard_deferred_row_ending_double_pipe_is_left_out: same
+- test_dashboard_order_row_without_trailing_pipe_is_refused: Failed: DID NOT RAISE ValueError
+- test_dashboard_order_row_ending_double_pipe_is_refused: Failed: DID NOT RAISE ValueError
+- test_dashboard_studies_row_without_trailing_pipe_is_refused: Failed: DID NOT RAISE ValueError
+- test_dashboard_studies_row_ending_double_pipe_is_refused: Failed: DID NOT RAISE ValueError
+M11
+- test_mapping_header_without_trailing_pipe_is_found: AssertionError: assert [] == [('artifacts/...cs/draft.md')]
+- test_ledger_row_without_trailing_pipe_keeps_its_instances_cell: AssertionError: assert [] == [('cls', 3, 3)]
+M12
+- test_fact_row_without_trailing_pipe_keeps_its_last_cell: FactSourceError: Boundary: a fact row has 4 cells, not 5
+- test_fact_row_ending_double_pipe_keeps_its_last_cell: FactSourceError: Boundary: a fact row has 6 cells, not 5
+M13 (12)
+- test_mapping_header_without_trailing_pipe_is_found: AssertionError: assert [] == [...]
+- test_fact_row_without_trailing_pipe_keeps_its_last_cell: FactSourceError: a fact row has 4 cells, not 5
+- test_fact_row_ending_double_pipe_keeps_its_last_cell: FactSourceError: a fact row has 6 cells, not 5
+- test_reference_row_without_trailing_pipe_keeps_its_functions_cell: AssertionError: a references row does not have three cells
+- test_reference_row_ending_double_pipe_keeps_its_functions_cell: AssertionError: a references row does not have three cells
+- test_ledger_row_without_trailing_pipe_keeps_its_instances_cell: AssertionError: assert [] == [('cls', 3, 3)]
+- test_roadmap_row_without_trailing_pipe_keeps_its_release_cell: assert ([], ["line 3...")
+- test_roadmap_row_ending_double_pipe_keeps_its_release_cell: assert ([], ["line 3...")
+- test_vocabulary_row_without_trailing_pipe_keeps_its_superseded_cell: AssertionError: assert [] == [('spike', ...)]
+- test_vocabulary_row_ending_double_pipe_keeps_its_superseded_cell: same
+- test_defect_row_without_trailing_pipe_keeps_its_status_cell: AssertionError: assert 'none' == 'alpha (seen 3)'
+- test_defect_row_ending_double_pipe_keeps_its_status_cell: AssertionError: assert 'beta (seen 2)' == 'none'
+
+Per new test: mutants it kills (observed; oldpos listed too)
+1 test_dashboard_deferred_row_without_trailing_pipe_is_left_out: M10
+2 test_dashboard_deferred_row_ending_double_pipe_is_left_out: M10
+3 test_dashboard_order_row_keeps_its_cells: none (control, entry-point coverage)
+4 test_dashboard_order_row_without_trailing_pipe_is_refused: M10
+5 test_dashboard_order_row_ending_double_pipe_is_refused: M10
+6 test_dashboard_studies_row_keeps_its_receipt_cell: none (control, entry-point coverage)
+7 test_dashboard_studies_row_without_trailing_pipe_is_refused: M10
+8 test_dashboard_studies_row_ending_double_pipe_is_refused: M10
+9 test_mapping_table_with_old_location_and_where_now_is_found: none (control, entry-point coverage)
+10 test_mapping_header_without_where_now_is_refused: none (passes on every tree)
+11 test_mapping_header_without_trailing_pipe_is_found: M11, M13, oldpos
+12 test_fact_row_without_trailing_pipe_keeps_its_last_cell: M12, M13, oldpos
+13 test_fact_row_ending_double_pipe_keeps_its_last_cell: M12, M13, oldpos
+14 test_reference_row_without_trailing_pipe_keeps_its_functions_cell: M13, oldpos
+15 test_reference_row_ending_double_pipe_keeps_its_functions_cell: M13, oldpos
+16 test_ledger_row_without_trailing_pipe_keeps_its_instances_cell: M11, M13, oldpos
+17 test_ledger_row_ending_double_pipe_keeps_its_instances_cell: none (passes on every tree; reader reads cells 0-2 only)
+18 test_roadmap_row_without_trailing_pipe_keeps_its_release_cell: M13, oldpos
+19 test_roadmap_row_ending_double_pipe_keeps_its_release_cell: M13, oldpos
+20 test_table_row_without_trailing_pipe_is_a_data_row: none (passes on every tree; reader returns the raw line)
+21 test_table_row_ending_double_pipe_is_a_data_row: none (passes on every tree; same reason)
+22 test_vocabulary_row_without_trailing_pipe_keeps_its_superseded_cell: M13, oldpos
+23 test_vocabulary_row_ending_double_pipe_keeps_its_superseded_cell: M13, oldpos
+24 test_defect_row_without_trailing_pipe_keeps_its_status_cell: M13, oldpos
+25 test_defect_row_ending_double_pipe_keeps_its_status_cell: M13, oldpos
+Killing by a mutant: M10 = 6 tests (1,2,4,5,7,8); M11 = 2 (11,16); M12 = 2 (12,13); M13 = 12 (11,12,13,14,15,16,18,19,22,23,24,25); tests killing none of M10-M13: 3,6,9,10,17,20,21 (7 tests).
+
+Baseline values the new tests assert (observed, logs/observe_base.log)
+- deferred_section, no trailing pipe or ||: []
+- order_section, control: one entry, module jnwb.fx, evidence "`n`: exponent 1.02, admissible O(n)"; no trailing pipe: ValueError "a row has 10 cells, not 11"; ||: "a row has 12 cells, not 11"
+- validations_section studies, control: studies-1, title "Smith 2001", fields {result: Result A, tests: [test_a.py::test_one]}; no trailing pipe: "a studies row has 2 cells, not 3"; ||: "a studies row has 4 cells, not 3"
+- mapping_tables: header with Where now, with or without trailing pipe: [("artifacts/x.md", "abc1234", "docs/old.md", "docs/draft.md")]; header without Where now: []
+- read_facts, reference_table_rows, ledger_rows, roadmap_rows, table_data_rows, parse_vocabulary: the row is kept, values as asserted in the file
+- open_defect_classes: open row without trailing pipe: "alpha (seen 3)"; closed row ending ||: "none"
+- Defect double-pipe fixture uses a closed status: with an open status the slice mutant also reads the empty status cell as open, so it does not discriminate.
+
+Entry points: all reached through public functions. _study_cards is reached through validations_section() with REFERENCES, _receipt, _git, CALIBRATION_RECEIPTS, _performance_cards, _frozen_card, _closure_card and VALIDATION_HTML monkeypatched in the test helper _studies.
+
+Pos2 failures of new tests: none (56 passed).

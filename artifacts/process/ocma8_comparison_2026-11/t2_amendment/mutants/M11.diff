@@ -1,0 +1,13 @@
+diff --git a/scripts/learning_gate.py b/scripts/learning_gate.py
+index c6b42715..10825997 100644
+--- a/scripts/learning_gate.py
++++ b/scripts/learning_gate.py
+@@ -50,7 +50,7 @@ NOT_SEARCHED = ("artifacts/rulings", "artifacts/archive", "artifacts/evidence")
+ 
+ 
+ def _cells(line: str) -> List[str]:
+-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
++    return [cell.strip() for cell in re.split(r"(?<!\\)\|", line.strip())[1:-1]]
+ 
+ 
+ def ledger_rows(text: str) -> List[Tuple[str, int, int]]:

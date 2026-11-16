@@ -120,10 +120,11 @@ all passed. On the baseline it prints:
 
 ```
 Acceptance command: `{ACC}`. You may read that script. It prints one line per command and ends `ACCEPT_RC=0` when
-all passed. It takes about four minutes: run it in the foreground with a 10-minute timeout. On the baseline it prints:
+all passed. It takes about four minutes: run it in the foreground with a 10-minute timeout. On the baseline it prints
+(the times and the warning count vary; the rc values and the passed counts are what must hold):
   harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
   pytest rc=0 last: 1527 passed, 4 skipped, 1 warning in 202.40s (0:03:22)
-  table rows rc=0 last: 31 passed in 2.63s
+  table rows rc=0 last: 56 passed in 2.74s
   ACCEPT_RC=0
 ```
 

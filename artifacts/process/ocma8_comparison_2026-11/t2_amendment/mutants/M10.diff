@@ -1,0 +1,13 @@
+diff --git a/scripts/build_dashboard.py b/scripts/build_dashboard.py
+index d04b257e..8c4e1142 100644
+--- a/scripts/build_dashboard.py
++++ b/scripts/build_dashboard.py
+@@ -352,7 +352,7 @@ def performance_section() -> dict | None:
+ 
+ 
+ def _row_cells(line: str) -> list[str]:
+-    return split_cells(line, keep_outer=True)[1:-1]
++    return split_cells(line)
+ 
+ 
+ def _first_url(text: str) -> str | None:

@@ -75,7 +75,7 @@ GATE_TIMEOUT_S = 540
 SELF = pathlib.Path(__file__).resolve()
 #: Behavioural tests (t2 amendment): file and the exact number of tests that must pass.
 CORRECTED = (SELF.parent / "t2_corrected_test.py", 6)
-PRESERVED = (SELF.parent.parent / "accept" / "t2_preserved_test.py", 31)
+PRESERVED = (SELF.parent.parent / "accept" / "t2_preserved_test.py", 56)
 PYTEST_SUMMARY = re.compile(r"(\d+) (passed|failed|error|errors|skipped|xfailed|xpassed|deselected)\b")
 PYTEST_TIMEOUT_S = 300
 CHILD_ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
