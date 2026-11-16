@@ -1,0 +1,7 @@
+r_code_2026111600.txt: DIFF preserved readers=17 inputs=4748 mismatches=0 DIFF corrected readers=17 inputs=4407 mismatches=0 DIFF exploratory inputs=1045 mismatches=59 DIFF seed=2026111600 
+r_code_7.txt: DIFF preserved readers=17 inputs=4686 mismatches=0 DIFF corrected readers=17 inputs=4407 mismatches=0 DIFF exploratory inputs=1107 mismatches=47 DIFF seed=7 
+r_drop_a.txt: DIFF preserved readers=17 inputs=4748 mismatches=0 DIFF corrected readers=17 inputs=4407 mismatches=0 DIFF exploratory inputs=1045 mismatches=59 DIFF seed=2026111600 
+r_parity_a.txt: DIFF preserved readers=17 inputs=4748 mismatches=0 DIFF corrected readers=17 inputs=4407 mismatches=0 DIFF exploratory inputs=1045 mismatches=59 DIFF seed=2026111600 
+r_parity_b.txt: DIFF preserved readers=17 inputs=4686 mismatches=0 DIFF corrected readers=17 inputs=4407 mismatches=0 DIFF exploratory inputs=1107 mismatches=47 DIFF seed=7 
+r_pipeplus_a.txt: DIFF preserved readers=17 inputs=4748 mismatches=91 DIFF corrected readers=17 inputs=4407 mismatches=81 DIFF exploratory inputs=1045 mismatches=59 DIFF seed=2026111600 
+r_pipeplus_b.txt: DIFF preserved readers=17 inputs=4686 mismatches=115 DIFF corrected readers=17 inputs=4407 mismatches=80 DIFF exploratory inputs=1107 mismatches=47 DIFF seed=7 

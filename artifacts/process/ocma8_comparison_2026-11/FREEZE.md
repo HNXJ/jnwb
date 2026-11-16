@@ -105,8 +105,10 @@ whitespace unbuilt at three readers. Status (Hamm 2026-11-16): T2 UNFROZEN. The 
 discrimination on the tested controls, not completeness over unseen parsing implementations or validity of
 structural adjudication on arm-produced trees. The amended predicate script printed the expected lines on
 four trees (corrected reference 2/2 and 5/5, baseline 0/2 and 4/5, `w_hdr2` 1/2 and 5/5, `u_const2` 2/2 and
-5/5 with its structure left to adjudication). Independent freeze review has not returned, and a new material
-REVISE there ends T2 development for this pilot. No keeper dispatch or pilot execution is authorized.
+5/5 with its structure left to adjudication). The single freeze review of b65ea205
+(`review/t2_freeze_reviewer.md`) returned ACCEPT: no material finding, eight not material (isolation by
+instruction, two more conventions that pass P3, rubric corners, record wording), recorded in
+`t2_amendment/AMENDMENT.md`. Hamm's freeze decision is outstanding. No keeper dispatch or pilot execution is authorized.
 
 Baselines re-read 2026-11-16: jnwb `dev` moved to fabe3c02 (one README line); T2 and T3 keep ac995dde.
 

@@ -6,8 +6,9 @@ mismatches at every seed; all 29 behaviorally wrong trees produced at least one.
 reproducible across repeated runs. This establishes discrimination on the tested controls, not completeness
 over unseen parsing implementations or validity of structural adjudication on arm-produced trees. Updated
 after the four-tree run (14:56Z, section "Amended predicates on four trees"): the amended predicate script
-printed the expected lines on the corrected reference, the baseline, `w_hdr2` and `u_const2`. Independent
-freeze review has not returned. No keeper dispatch or pilot execution is authorized.
+printed the expected lines on the corrected reference, the baseline, `w_hdr2` and `u_const2`. Updated after
+the freeze review (section "Freeze review"): ACCEPT, no material finding, eight not material. T2 stays
+UNFROZEN until Hamm's freeze decision. No keeper dispatch or pilot execution is authorized.
 
 How it got here: amendment 3 (section "Amendment 3", Hamm's ruling after review 3's STOP) removed the
 automated consolidation predicates as primaries; consolidation is judged by two adjudicators against a rubric
@@ -28,7 +29,7 @@ Conclusions of the final cycle (Hamm 2026-11-16):
 | Generalization to unseen errors | Not tested | UNKNOWN |
 | Automated predicate semantics | Four-tree run (`predicates_r3_controls.txt`): 2/2 and 5/5, 0/2 and 4/5, 1/2 and 5/5, 2/2 and 5/5 as expected; D1/D2 unscored | PASS on four trees (was UNKNOWN) |
 | Structural adjudication on arm trees | Not tested | UNKNOWN |
-| T2 freeze | Review outstanding | NOT CLEARED |
+| T2 freeze | Freeze review ACCEPT at b65ea205 (was: review outstanding); Hamm's freeze decision outstanding | NOT CLEARED |
 
 History, amendment 2 (stopped by the stopping rule): amendment 1 was reviewed twice, REVISE both times (`../review/t2_amendment_reviewer1.md`,
 `../review/t2_amendment_reviewer2.md`; sections "Review 1 and repair", "Review 2"). Amendment 2 (section
@@ -421,7 +422,8 @@ stopping rule no further instrument work is done without a new ruling.
 ## Amendment 3: adjudicated structure, automated behaviour (not reviewed)
 
 Ruling (Hamm 2026-11-16): stop the amendment 2 instrument; keep T2 in the pilot; remove P1 and P2 as automated
-primaries; judge structural consolidation by independent blind adjudication of every T2 tree; keep P3, P4 and
+primaries; judge structural consolidation by independent blind adjudication (the ruling's words; the 23-tree
+adjudicators were not fully blind, see the limits below) of every T2 tree; keep P3, P4 and
 C5 automated, subject to validation; open-form rows leave the scored contract and stay exploratory; add the
 missing adversarial cases to the generator; T1, T3 and T4 unchanged. Stop condition: if adjudication cannot
 reliably separate the controls, T2 leaves the executable pilot. This authorises specification and validation,
@@ -795,6 +797,32 @@ shell command; the guard hook did not block it; it hung and was stopped; nothing
 in "Harness incident". Still undelivered to the harness keeper (the jchat hub and relay returned no HTTP
 answer). No pilot-side workaround; the harness was not modified.
 
+### Freeze review of the record at b65ea205: ACCEPT (2026-11-16)
+
+The single independent freeze review (fresh `reviewer` agent; packet `../review/t2_freeze_review_packet.md`;
+report as written by the reviewer `../review/t2_freeze_reviewer.md`, the returned message being a reworded
+copy; 53 tool calls, 201,368 tokens, 1,071 s). Verdict ACCEPT: no MATERIAL finding, no STOP condition, eight
+NOT MATERIAL findings, none needing an instrument file changed or a validation rerun. It recomputed all 295
+matrix rows from the run log, recomputed validation 2's score from the key and the 24 reports, checked the
+quoted numbers and ran 7 differential runs on four trees of its own (`freeze_review_probes/`: diffs against
+pos2 and the DIFF lines). One reviewer, of the model family of every earlier review; no cross-family review.
+
+| id | Finding (all NOT MATERIAL) | Disposition by the orchestrator, after the review, not reviewed |
+|---|---|---|
+| F1 | Four slot-1 reports call unchanged baseline pipe code a rubric gap; two say their verdict would change if it were counted. The scope rule decides it; the other reading fails every tree. "No verdict turned on it" understated this | stated here; the rubric is not edited |
+| F2 | Isolation rests on instruction: an isolated tree's `.git` names the baseline's path, and `D:/repos/_adj/` lists every label, so an adjudicator with file tools could read a sibling. No leak found; tool logs are not stored | limit, added below |
+| F3 | The protocol gives intervals for `V`, `E` and the AMBIGUOUS count but no explicit interval for the definitive-success rate; slot 1 has no stated retry | the reviewer's reading, proposed here for Hamm's confirmation, protocol unedited: lower bound = trees with `V` = 1 over all assigned, upper = those plus AMBIGUOUS trees whose other requirements are met, over all assigned. A slot-1 report without a verdict is UNRESOLVED, so the tree is AMBIGUOUS |
+| F4 | Slot-2 report 770bb9fd (m1) cites L2 wrongly beside the correct L1; slot-1 report 956200d3 carries its verdict line twice | limit of validation 2; verdicts unaffected |
+| F5 | Rubric, controls and stopping criteria were committed before any adjudication (5459ea6e); the protocol change (e4217e42) was committed 16 to 54 s after the isolated copies were built, and no adjudication start time is stored. m5 was edited, where the protocol says rebuilt | stated here: "before any validation tree was adjudicated" is shown for the rubric and controls and inferred for the protocol change |
+| F6 | Two more conventions score 0 at seeds 2026111600 and 7: a splitter that does not split inside a backtick pair (`w_codespan`; changes baseline behaviour on inputs the generator never builds; an unlikely arm output) and a backslash-parity scanner (`w_parity`; differs only at `\\|`, which the contract does not specify; a plausible arm output, not wrong under the contract). `w_pipeplus` (consecutive pipes collapse) is rejected, 172 and 195; a valid backslash-dropping control scores 0 | limits, added below; not added to any scored set |
+| F7 | Corners two careful readers could decide differently: escape pre- and post-processing spread over per-module wrappers around a shared plain split; a flag choosing row shape against one choosing technique; a subclass hook on the boundary of row shape and split; a ninth site routed to a second new splitter | limit, added below; such a tree may end AMBIGUOUS (inferred), which is reported, or be judged wrongly by both slots, which is not detectable |
+| F8 | The amendment 3 section still quotes the ruling's "independent blind adjudication" | note added at that line |
+
+Limits added by the review: adjudicator isolation is by instruction (F2); `w_codespan` and `w_parity` pass P3
+(F6); the rubric's corners (F7); slot 2's one misapplied criterion (F4).
+
+Not a freeze. The review clears owed item 5; the freeze and the go are Hamm's.
+
 ## Readings
 
 - No corrected test covers `release_gate.table_data_rows`: an escaped pipe does not change its output.
@@ -822,7 +850,7 @@ Hamm 2026-11-16; the state of each item is in brackets.
 4. Record the suite-lock exception and the 15 direct differential runs, distinguishing them from the locked
    matrix. [stated: "`w_hdr2` and the corrected reference per reader"]
 5. Obtain the single independent freeze review. Resolve its findings under the previously adopted terminal
-   stopping rule. [packet `../review/t2_freeze_review_packet.md`; not dispatched before item 1]
+   stopping rule. [done: ACCEPT, no material finding; "Freeze review of the record at b65ea205"]
 6. Preserve the unresolved harness-enforcement defect and undelivered keeper escalation. Do not treat it as
    closed. [open: "Harness incident", "Harness incident: third piece of evidence"]
 7. Freeze only after the mandatory evidence and review gates pass. No pilot execution or keeper dispatch

@@ -1,0 +1,28 @@
+diff -ruN -x __pycache__ -x .git -x .pytest_cache D:/repos/_work/exp_t2beh/pos2/scripts/md_cells.py D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev5/w_parity/scripts/md_cells.py
+--- D:/repos/_work/exp_t2beh/pos2/scripts/md_cells.py	2026-11-15 16:48:20.614352000 -0600
++++ D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev5/w_parity/scripts/md_cells.py	2026-11-16 09:01:09.470696500 -0600
+@@ -1,13 +1,15 @@
+-"""The one markdown table-row splitter. A pipe preceded by a backslash does not split a cell.
+-
+-By default a row's outer pipes are removed. ``keep_outer=True`` keeps them, so the first and last
+-segments are the ones outside the row. Which lines are rows stays with each reader.
+-"""
+-
+-import re
++"""probe tree w_parity: a pipe is escaped only by an odd run of backslashes (CommonMark-style)."""
+ 
+ 
+ def split_cells(line: str, *, keep_outer: bool = False) -> list[str]:
+-    """The stripped cells of ``line``, split on its unescaped pipes; an escaped pipe stays inside."""
+     body = line if keep_outer else line.strip().strip("|")
+-    return [cell.strip() for cell in re.split(r"(?<!\\)\|", body)]
++    cells, cur, run = [], [], 0
++    for ch in body:
++        if ch == "|" and run % 2 == 0:
++            cells.append("".join(cur))
++            cur, run = [], 0
++            continue
++        run = run + 1 if ch == "\\" else 0
++        cur.append(ch)
++    cells.append("".join(cur))
++    return [c.strip() for c in cells]
