@@ -802,6 +802,19 @@ shell command; the guard hook did not block it; it hung and was stopped; nothing
 in "Harness incident". Still undelivered to the harness keeper (the jchat hub and relay returned no HTTP
 answer). No pilot-side workaround; the harness was not modified.
 
+#### Harness incident: delivered, and the earlier account corrected (2026-11-16, after the freeze)
+
+Delivered to the harness keeper as jarness issue 16 at 16:03Z (the jchat hub, relay and tailnet hub still gave
+no answer); tracking in `../harness_defect/TRACKING.md`. Not acknowledged, not implemented, not verified.
+
+The two "Harness incident" sections above understate the defect and misstate its shape. Read from the session
+transcripts (`../harness_defect/`): 19 commands holding `python -c` or `python -` ran unrefused between
+2026-11-15T13:32Z and 2026-11-16T15:12Z, 13 from the orchestrator and 6 from subagents (one from the freeze
+reviewer), two of them standalone. The installed hook's own pattern matches all 19; the user settings on this
+machine do not wire the hook, and its log shows no refusal after 2026-11-15T01:12Z. So the guard was not
+invoked at all (inferred), and "blocks the standalone form, misses the compound form" was wrong. The
+orchestrator's 13 are its own breaches of the shell rule, whatever the guard did.
+
 ### Freeze review of the record at b65ea205: ACCEPT (2026-11-16)
 
 The single independent freeze review (fresh `reviewer` agent; packet `../review/t2_freeze_review_packet.md`;
@@ -857,9 +870,10 @@ Hamm 2026-11-16; the state of each item is in brackets.
 5. Obtain the single independent freeze review. Resolve its findings under the previously adopted terminal
    stopping rule. [done: ACCEPT, no material finding; "Freeze review of the record at b65ea205"]
 6. Preserve the unresolved harness-enforcement defect and undelivered keeper escalation. Do not treat it as
-   closed. [open: "Harness incident", "Harness incident: third piece of evidence"]
+   closed. [open; delivered as jarness issue 16 on 2026-11-16, not acknowledged: "Harness incident: delivered,
+   and the earlier account corrected", `../harness_defect/TRACKING.md`]
 7. Freeze only after the mandatory evidence and review gates pass. No pilot execution or keeper dispatch
    before then. [frozen by Hamm 2026-11-16 at 5f7a4e2a; execution and keeper dispatch still not authorized]
 
-After the freeze, still open: the harness enforcement defect (undelivered to the keeper); keeper dispatch
-overhead against the 30-minute cap (unmeasured); Hamm's go.
+After the freeze, still open: the harness enforcement defect (delivered as jarness issue 16, not
+acknowledged); keeper dispatch overhead against the 30-minute cap (unmeasured, deferred); Hamm's go.

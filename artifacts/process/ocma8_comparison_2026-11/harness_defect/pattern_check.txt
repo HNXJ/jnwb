@@ -1,0 +1,16 @@
+hook PATTERN: (?<![\w.-])(?:python[0-9.]*|py)(?:\.exe)?\s+(?:-(?=[bBdEiIOPqRsSuvx0-9.XW])[bBdEiIOPqRsSuvx0-9.]*(?:[XW]\s*[^\s-]\S*)?\s+)*-(?:[bBdEiIOPqRsSuvx0-9.]*c\b|\s|$)
+control must match     | True | python -c "print(1)"
+control must match     | True | python - </dev/null
+control must match     | True | cd x && python - </dev/null 2>/dev/null; ls
+control must match     | True | ls; python -c 'import os'
+control must match     | True | D=$(python -c 'print(1)')
+control must match     | True | tail -1 f | python -c 'import sys'
+control must match     | True | py -3 -c 'print(1)'
+control must match     | True | python -X utf8 -I -
+control must not match | False | python script.py -c x
+control must not match | False | python -m pytest -c x tests
+control must not match | False | python tools/run.py --check
+control must not match | False | git -C repo log -3
+control must not match | False | python3 path/to/file.py - <in.txt
+commands found in 78 transcripts: 19; the hook's pattern matches 19 of them
+controls as expected: True

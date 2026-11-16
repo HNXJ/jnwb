@@ -1,0 +1,28 @@
+rows 5941; keys of the last row ['cwd', 'hook', 'rule', 'ts']
+hook | rule | count | first ts | last ts | count in the session
+block_python_stdin | foreground_suite | 22 | 2026-11-08T20:56:36Z | 2026-11-11T14:44:39Z | 0
+block_python_stdin | gate_pipe | 395 | 2026-09-30T02:46:46Z | 2026-11-11T03:52:56Z | 0
+block_python_stdin | heredoc_source | 275 | 2026-09-30T02:03:09Z | 2026-11-11T14:39:20Z | 0
+block_python_stdin | python_c | 2513 | 2026-09-30T01:09:44Z | 2026-11-15T01:12:10Z | 0
+block_python_stdin | script_help | 80 | 2026-10-11T15:31:10Z | 2026-11-09T06:23:55Z | 0
+block_python_stdin | sed_inplace | 234 | 2026-09-30T03:53:56Z | 2026-11-09T03:40:48Z | 0
+block_python_stdin | system_packages | 710 | 2026-10-13T23:04:37Z | 2026-11-05T16:36:25Z | 0
+git_guard | ask:force-push rewrites remote history (need | 79 | 2026-10-11T05:48:35Z | 2026-11-15T16:00:01Z | 0
+git_guard | ask:git $() | 9 | 2026-11-15T17:18:16Z | 2026-11-16T03:15:33Z | 0
+git_guard | ask:git NWB_DIR:$() | 1 | 2026-11-15T18:16:45Z | 2026-11-15T18:16:45Z | 0
+git_guard | ask:git branch -D | 83 | 2026-10-01T12:57:12Z | 2026-11-16T00:05:55Z | 0
+git_guard | ask:git clean -f | 16 | 2026-10-11T16:28:20Z | 2026-11-15T21:22:47Z | 0
+git_guard | ask:git reset --hard | 10 | 2026-10-05T14:06:07Z | 2026-11-08T07:39:10Z | 0
+git_guard | ask:pushing a tag needs explicit instruction | 17 | 2026-10-03T18:21:07Z | 2026-11-15T01:15:57Z | 0
+git_guard | ask:pushing tags needs explicit instruction. | 1 | 2026-10-08T10:59:54Z | 2026-10-08T10:59:54Z | 0
+git_guard | ask:pushing to main/master needs explicit in | 288 | 2026-10-02T15:30:39Z | 2026-11-15T16:00:00Z | 0
+reviewer_write_guard | write_outside_scratch | 8 | 2026-10-12T16:55:36Z | 2026-11-15T01:12:10Z | 0
+run_guard | edit_while_read | 419 | 2026-09-30T01:18:09Z | 2026-11-16T03:03:30Z | 0
+run_guard | git_write_while_read | 148 | 2026-10-11T16:45:32Z | 2026-11-16T02:23:45Z | 0
+run_guard | stop_while_running | 315 | 2026-09-30T01:18:09Z | 2026-11-14T21:51:00Z | 0
+size_guard | handback_no_verdict | 70 | 2026-11-10T15:39:34Z | 2026-11-16T02:14:38Z | 0
+size_guard | handback_too_long | 30 | 2026-09-30T01:18:08Z | 2026-11-14T22:34:00Z | 0
+size_guard | packet_long_allowed | 11 | 2026-09-30T01:18:08Z | 2026-10-12T17:22:53Z | 0
+size_guard | packet_template | 4 | 2026-11-12T17:37:38Z | 2026-11-12T20:55:13Z | 0
+size_guard | packet_too_long | 27 | 2026-09-30T01:18:08Z | 2026-11-15T01:12:11Z | 0
+zsh_modifier_guard | unbraced_modifier | 6 | 2026-11-09T01:05:50Z | 2026-11-11T02:41:59Z | 0

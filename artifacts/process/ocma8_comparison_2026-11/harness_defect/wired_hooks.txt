@@ -1,0 +1,7 @@
+C:/Users/nejath/.claude/settings.json: keys ['agentPushNotifEnabled', 'autoCompactWindow', 'autoMode', 'autoUpdatesChannel', 'enabledPlugins', 'env', 'hooks', 'inputNeededNotifEnabled', 'model', 'mode
+  PreToolUse | matcher 'Bash|PowerShell' | ['git_guard.py', 'run_guard.py']
+  PreToolUse | matcher 'Edit|Write|NotebookEdit' | ['run_guard.py']
+  SubagentStop | matcher None | ['subagent_log.py']
+  SubagentStart | matcher None | ['subagent_log.py']
+E:/omission/.claude/settings.json: keys ['hooks']
+  SessionStart | matcher None | ['session_start.py']

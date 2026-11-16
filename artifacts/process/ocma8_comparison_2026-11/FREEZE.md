@@ -144,8 +144,9 @@ is a set of trees, not the measure `V` of `PREREG.md`.)
 
 The freeze does not authorize pilot execution, does not change the original preregistration retrospectively
 (T2 as amended is not the measurement `PREREG.md` froze) and removes no documented limitation. Open
-operational gates: the harness enforcement defect, undelivered to the keeper; keeper dispatch overhead against
-the 30-minute cap, unmeasured. Prerequisites 3, 4 and 7 of the table above keep their status for the other
+operational gates: the harness enforcement defect (delivered to the keeper as jarness issue 16 on
+2026-11-16T16:03Z, not acknowledged; `harness_defect/TRACKING.md`); keeper dispatch overhead against the
+30-minute cap, unmeasured and deferred by Hamm, with no compliance inferred from earlier worker timings. Prerequisites 3, 4 and 7 of the table above keep their status for the other
 tasks and for the go.
 
 Baselines re-read 2026-11-16: jnwb `dev` moved to fabe3c02 (one README line); T2 and T3 keep ac995dde.
