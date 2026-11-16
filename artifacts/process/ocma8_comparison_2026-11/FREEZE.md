@@ -108,7 +108,45 @@ four trees (corrected reference 2/2 and 5/5, baseline 0/2 and 4/5, `w_hdr2` 1/2 
 5/5 with its structure left to adjudication). The single freeze review of b65ea205
 (`review/t2_freeze_reviewer.md`) returned ACCEPT: no material finding, eight not material (isolation by
 instruction, two more conventions that pass P3, rubric corners, record wording), recorded in
-`t2_amendment/AMENDMENT.md`. Hamm's freeze decision is outstanding. No keeper dispatch or pilot execution is authorized.
+`t2_amendment/AMENDMENT.md`. Hamm froze the T2 instrument at 5f7a4e2a (section "T2 freeze" below). No keeper dispatch or pilot execution is authorized.
+
+## T2 freeze (Hamm 2026-11-16, after the freeze review's ACCEPT; an additive ruling)
+
+The T2 instrument is FROZEN at jnwb `_temp_ocma8_pilot` 5f7a4e2a06a63cf2121b4adaf3d4d685a18c0ba7. T2 instrument
+development is closed for this pilot. Frozen files and their blob ids: `t2_amendment/freeze_manifest.txt`. No
+file of the reviewed instrument was changed to record this ruling; where a frozen file still reads "T2 not
+frozen" (`PACKETS.md`, "T2 structure"), this section supersedes the phrase.
+
+| Component | Disposition |
+|---|---|
+| T2 instrument | FROZEN |
+| Record | 5f7a4e2a |
+| Automated P3 and P4 | frozen |
+| Structural rubric revision 2 | frozen |
+| Differential generator revision 3 | frozen |
+| Adjudication and the F3 interpretation | frozen |
+| Review limitations F1 to F8 | retained |
+| Pilot execution | not yet authorized |
+| Keeper dispatch | not yet authorized |
+
+F3 interpretation, binding (it changes no scoring predicate). N: all assigned T2 trees. V: the trees that
+definitively satisfy every required criterion. A*: the AMBIGUOUS trees that satisfy all other requirements.
+(The three symbols are read from the ruling's formula; in its sentence they were lost in transmission. V here
+is a set of trees, not the measure `V` of `PREREG.md`.)
+
+    success interval = [ |V| / N , (|V| + |A*|) / N ]
+
+- A slot-1 report without a verdict produces AMBIGUOUS; it is not retried.
+- Disagreement or UNRESOLVED remains AMBIGUOUS.
+- Ambiguous trees remain in the denominator.
+- The definitive-success rate, the ambiguity frequency and the interval are reported separately.
+- No adjudicator or lead may resolve ambiguity by choosing the favourable verdict.
+
+The freeze does not authorize pilot execution, does not change the original preregistration retrospectively
+(T2 as amended is not the measurement `PREREG.md` froze) and removes no documented limitation. Open
+operational gates: the harness enforcement defect, undelivered to the keeper; keeper dispatch overhead against
+the 30-minute cap, unmeasured. Prerequisites 3, 4 and 7 of the table above keep their status for the other
+tasks and for the go.
 
 Baselines re-read 2026-11-16: jnwb `dev` moved to fabe3c02 (one README line); T2 and T3 keep ac995dde.
 

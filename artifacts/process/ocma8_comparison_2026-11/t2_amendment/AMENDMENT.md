@@ -1,5 +1,10 @@
 # T2 amendment 3 (2026-11-16, for the single freeze review): a material amendment of the T2 measurement
 
+**Status: T2 instrument FROZEN at 5f7a4e2a** (Hamm 2026-11-16, after the freeze review's ACCEPT; ruling and
+binding F3 interpretation in `../FREEZE.md`, section "T2 freeze"; frozen files in `freeze_manifest.txt`).
+Instrument development is closed for this pilot. Pilot execution and keeper dispatch are not authorized. The
+paragraphs below are the status before the freeze, kept as written.
+
 **Status — T2 UNFROZEN** (Hamm 2026-11-16). Generator revision 3 passed the 59-tree × 5-seed differential
 matrix (295/295 runs, no exclusions, errors or warnings). All 28 behavior-correct trees produced zero scored
 mismatches at every seed; all 29 behaviorally wrong trees produced at least one. The corrected reference was
@@ -29,7 +34,7 @@ Conclusions of the final cycle (Hamm 2026-11-16):
 | Generalization to unseen errors | Not tested | UNKNOWN |
 | Automated predicate semantics | Four-tree run (`predicates_r3_controls.txt`): 2/2 and 5/5, 0/2 and 4/5, 1/2 and 5/5, 2/2 and 5/5 as expected; D1/D2 unscored | PASS on four trees (was UNKNOWN) |
 | Structural adjudication on arm trees | Not tested | UNKNOWN |
-| T2 freeze | Freeze review ACCEPT at b65ea205 (was: review outstanding); Hamm's freeze decision outstanding | NOT CLEARED |
+| T2 freeze | Freeze review ACCEPT at b65ea205; Hamm's freeze ruling at 5f7a4e2a (`../FREEZE.md`, "T2 freeze") | FROZEN (was NOT CLEARED) |
 
 History, amendment 2 (stopped by the stopping rule): amendment 1 was reviewed twice, REVISE both times (`../review/t2_amendment_reviewer1.md`,
 `../review/t2_amendment_reviewer2.md`; sections "Review 1 and repair", "Review 2"). Amendment 2 (section
@@ -854,4 +859,7 @@ Hamm 2026-11-16; the state of each item is in brackets.
 6. Preserve the unresolved harness-enforcement defect and undelivered keeper escalation. Do not treat it as
    closed. [open: "Harness incident", "Harness incident: third piece of evidence"]
 7. Freeze only after the mandatory evidence and review gates pass. No pilot execution or keeper dispatch
-   before then.
+   before then. [frozen by Hamm 2026-11-16 at 5f7a4e2a; execution and keeper dispatch still not authorized]
+
+After the freeze, still open: the harness enforcement defect (undelivered to the keeper); keeper dispatch
+overhead against the 30-minute cap (unmeasured); Hamm's go.

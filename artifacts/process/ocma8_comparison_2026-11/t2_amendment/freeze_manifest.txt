@@ -1,0 +1,15 @@
+T2 instrument frozen by Hamm 2026-11-16 at jnwb _temp_ocma8_pilot 5f7a4e2a06a63cf2121b4adaf3d4d685a18c0ba7
+git blob ids at that commit (git ls-tree); a later change to any of these files is an amendment
+100644 blob 2df6db1b261c238f197e6b02d1a6f4a3dbab2c8c	artifacts/process/ocma8_comparison_2026-11/PACKETS.md
+100644 blob ae2de3b5879b87c10e178c2f4bfa9312393b4eb2	artifacts/process/ocma8_comparison_2026-11/accept/accept_t2.sh
+100644 blob bc5fc1f6d93b092996d1303c7114a8441d961255	artifacts/process/ocma8_comparison_2026-11/accept/t2_preserved_test.py
+100644 blob e5e3fc8910d78e8a82892fbeb22b25d4794003d6	artifacts/process/ocma8_comparison_2026-11/predicates/build_adjudication_tree.py
+100644 blob dca7ec233e45f1bce7e66c98d7bdcb138ff19263	artifacts/process/ocma8_comparison_2026-11/predicates/predicates_t2.py
+100644 blob 0737fe4a548982b124aeec0bdb82b673efb0f0da	artifacts/process/ocma8_comparison_2026-11/predicates/t2_adjudication_packet.md
+100644 blob 8188bce5f5e5315ed05a67f5a30956f972873109	artifacts/process/ocma8_comparison_2026-11/predicates/t2_adjudication_protocol.md
+100644 blob 53944ef81bc02c321333bc3a010c23c2514174c5	artifacts/process/ocma8_comparison_2026-11/predicates/t2_corrected_test.py
+100644 blob 4b1382017e60eb13f1c01436b67861dab990b10b	artifacts/process/ocma8_comparison_2026-11/predicates/t2_differential.py
+100644 blob d00964397073bcf2e9ca707082033f3b9ce2b339	artifacts/process/ocma8_comparison_2026-11/predicates/t2_structure.py
+100644 blob 4fb905cedb67c48ed749d41b8c283802cc6d9e14	artifacts/process/ocma8_comparison_2026-11/predicates/t2_structure_rubric_r2.md
+PACKETS.md is listed for its TASK-t2 and ACCEPT-t2 blocks and the paragraphs 'AMBIGUOUS predicate results' and 'T2 structure'; its other tasks' text is under prerequisite 4 of FREEZE.md, not frozen here.
+Binding with the files: the F3 interpretation in FREEZE.md, section 'T2 freeze'.
