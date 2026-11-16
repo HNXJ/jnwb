@@ -1,0 +1,126 @@
+
+MODE preserved: scored inputs summed over 5 seeds (rows 300 per reader and mode)
+reader | blockquote | existing | inner_ws | lone_backslash | long_row | multi_table | wide_table | ws_pad
+dashboard.deferred | 101 | 928 | 77 | 90 | 81 | 76 | 60 | 0
+dashboard.references | 94 | 916 | 75 | 103 | 65 | 82 | 83 | 0
+dashboard.order | 111 | 940 | 71 | 81 | 61 | 73 | 81 | 0
+dashboard.studies | 82 | 946 | 77 | 80 | 74 | 82 | 66 | 0
+fact.facts | 81 | 954 | 74 | 84 | 80 | 69 | 84 | 0
+fact.constants | 86 | 949 | 36 | 107 | 71 | 78 | 89 | 0
+fact.references | 79 | 932 | 69 | 85 | 68 | 91 | 86 | 0
+learning.ledger | 85 | 746 | 35 | 89 | 71 | 78 | 69 | 0
+learning.mapping | 81 | 1050 | 0 | 88 | 74 | 65 | 68 | 0
+release.roadmap | 94 | 931 | 78 | 93 | 72 | 70 | 77 | 0
+release.table_data | 88 | 949 | 25 | 97 | 78 | 77 | 74 | 0
+docs.vocabulary | 98 | 1016 | 0 | 93 | 70 | 74 | 70 | 0
+state.defect | 70 | 760 | 22 | 101 | 68 | 71 | 79 | 0
+fact.b3_exceptions | 110 | 864 | 70 | 96 | 103 | 76 | 86 | 0
+fact.claim_estimators | 77 | 943 | 79 | 88 | 78 | 75 | 70 | 0
+fact.require_tables | 93 | 907 | 79 | 91 | 87 | 78 | 81 | 0
+routing.targets | 86 | 1030 | 0 | 75 | 78 | 72 | 79 | 0
+
+MODE corrected: scored inputs summed over 5 seeds (rows 300 per reader and mode)
+reader | blockquote | existing | header_escape | inner_ws | lone_backslash | long_row | multi_escape | multi_table | open_escape | tight_escape | wide_table | ws_pad
+dashboard.deferred | 93 | 645 | 117 | 70 | 76 | 67 | 74 | 77 | 0 | 0 | 79 | 0
+dashboard.references | 92 | 626 | 116 | 83 | 101 | 81 | 63 | 97 | 0 | 0 | 72 | 0
+dashboard.order | 71 | 632 | 128 | 83 | 75 | 80 | 75 | 62 | 0 | 0 | 78 | 0
+dashboard.studies | 98 | 631 | 135 | 72 | 91 | 71 | 69 | 70 | 0 | 0 | 78 | 0
+fact.facts | 93 | 676 | 124 | 71 | 89 | 57 | 83 | 74 | 0 | 0 | 67 | 0
+fact.constants | 89 | 694 | 131 | 25 | 83 | 72 | 55 | 86 | 0 | 0 | 85 | 0
+fact.references | 85 | 636 | 117 | 88 | 93 | 72 | 77 | 69 | 0 | 0 | 80 | 0
+learning.ledger | 86 | 538 | 116 | 42 | 102 | 76 | 78 | 67 | 0 | 0 | 85 | 0
+learning.mapping | 82 | 714 | 144 | 0 | 91 | 81 | 77 | 61 | 0 | 0 | 72 | 0
+release.roadmap | 85 | 623 | 121 | 70 | 92 | 84 | 63 | 84 | 0 | 0 | 77 | 0
+release.table_data | 94 | 665 | 119 | 46 | 79 | 63 | 70 | 85 | 0 | 0 | 86 | 0
+docs.vocabulary | 91 | 687 | 112 | 0 | 107 | 87 | 85 | 76 | 0 | 0 | 69 | 0
+state.defect | 92 | 585 | 120 | 19 | 84 | 72 | 78 | 75 | 0 | 0 | 69 | 0
+fact.b3_exceptions | 85 | 622 | 110 | 80 | 102 | 75 | 86 | 84 | 0 | 0 | 76 | 0
+fact.claim_estimators | 76 | 639 | 126 | 74 | 85 | 71 | 77 | 78 | 0 | 0 | 79 | 0
+fact.require_tables | 91 | 658 | 107 | 76 | 95 | 76 | 83 | 79 | 0 | 0 | 83 | 0
+routing.targets | 80 | 690 | 111 | 0 | 89 | 85 | 73 | 81 | 0 | 0 | 89 | 0
+
+GAPS (a scored cell that is 0 at some seed):
+preserved | dashboard.deferred | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | dashboard.references | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | dashboard.order | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | dashboard.studies | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | fact.facts | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | fact.constants | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | fact.references | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | learning.ledger | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | learning.mapping | inner_ws | per seed [0, 0, 0, 0, 0]
+preserved | learning.mapping | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | release.roadmap | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | release.table_data | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | docs.vocabulary | inner_ws | per seed [0, 0, 0, 0, 0]
+preserved | docs.vocabulary | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | state.defect | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | fact.b3_exceptions | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | fact.claim_estimators | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | fact.require_tables | ws_pad | per seed [0, 0, 0, 0, 0]
+preserved | routing.targets | inner_ws | per seed [0, 0, 0, 0, 0]
+preserved | routing.targets | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | dashboard.deferred | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | dashboard.deferred | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | dashboard.deferred | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | dashboard.references | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | dashboard.references | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | dashboard.references | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | dashboard.order | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | dashboard.order | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | dashboard.order | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | dashboard.studies | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | dashboard.studies | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | dashboard.studies | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | fact.facts | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | fact.facts | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | fact.facts | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | fact.constants | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | fact.constants | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | fact.constants | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | fact.references | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | fact.references | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | fact.references | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | learning.ledger | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | learning.ledger | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | learning.ledger | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | learning.mapping | inner_ws | per seed [0, 0, 0, 0, 0]
+corrected | learning.mapping | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | learning.mapping | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | learning.mapping | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | release.roadmap | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | release.roadmap | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | release.roadmap | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | release.table_data | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | release.table_data | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | release.table_data | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | docs.vocabulary | inner_ws | per seed [0, 0, 0, 0, 0]
+corrected | docs.vocabulary | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | docs.vocabulary | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | docs.vocabulary | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | state.defect | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | state.defect | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | state.defect | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | fact.b3_exceptions | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | fact.b3_exceptions | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | fact.b3_exceptions | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | fact.claim_estimators | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | fact.claim_estimators | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | fact.claim_estimators | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | fact.require_tables | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | fact.require_tables | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | fact.require_tables | ws_pad | per seed [0, 0, 0, 0, 0]
+corrected | routing.targets | inner_ws | per seed [0, 0, 0, 0, 0]
+corrected | routing.targets | open_escape | per seed [0, 0, 0, 0, 0]
+corrected | routing.targets | tight_escape | per seed [0, 0, 0, 0, 0]
+corrected | routing.targets | ws_pad | per seed [0, 0, 0, 0, 0]
+
+EXPLORATORY inputs by mode and family, summed over the seeds:
+corrected | blockquote | 48
+corrected | existing | 348
+corrected | open_escape | 720
+corrected | tight_escape | 768
+corrected | ws_pad | 1520
+preserved | blockquote | 36
+preserved | existing | 433
+preserved | ws_pad | 1478

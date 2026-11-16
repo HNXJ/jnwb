@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 """Differential test of the markdown-table readers of a jnwb tree against a baseline tree.
 
-Usage: python t2_differential.py <tree> <baseline tree> [--seed N] [--rows N] [--out FILE]
+Usage: python t2_differential_r3.py <tree> <baseline tree> [--seed N] [--rows N] [--out FILE]
 
-PRESERVED: no backslash in the input; tree(doc) must equal baseline(doc) exactly.
-CORRECTED: one or two escaped pipes (in the data row, or one in the header for the header-escape family);
-normalised tree(doc) must equal normalised baseline(doc with each escaped pipe replaced by a backslash + broken bar).
+Revision 3: a bounded repair of revision 2 (review 4, findings F1, F2, F8, F9).
+PRESERVED: no backslash directly before a pipe in the input (lone backslashes are allowed); tree(doc) must
+equal baseline(doc) exactly.
+CORRECTED: escaped pipes (one or two per input; three to five in multi_escape), lone backslashes kept as they
+are; normalised tree(doc) must equal normalised baseline(doc with each escaped pipe replaced by a backslash
++ broken bar). The normalisation leaves a lone backslash untouched.
 EXPLORATORY: reported apart, never scored: any input of learning.ledger or state.defect whose data row has no
-leading pipe, and any input whose header or data row ends (after strip) in an escaped pipe, open or tight form.
+leading pipe; any input with a line of its document (header, separator, data row or prose, in any table of a
+multi-table document) that ends after strip in an escaped pipe, open or tight form; every input of the
+whitespace-padding family (no-break space, em space, vertical tab, form feed; undocumented, Amendment 2).
+Families new in r3: lone_backslash (both modes), multi_escape (corrected), inner_ws (both), multi_table (both).
+Readers new in r3: every public consumer of build_fact_graph._all_tables (read_facts, require_tables,
+read_constants, read_b3_exceptions, read_claim_estimators, routing_targets). routing_targets takes a header
+with a backticked jnwb name, and the header-escape family puts its escaped pipe inside those backticks.
 Each input is a document for one reader and is run through that reader only.
 Standard library only. Child mode (internal): --child <inputs.json> doc|base_doc, cwd = one tree.
 """
@@ -44,6 +53,9 @@ NORM_RE = re.compile(re.escape(BSL) + "[|" + BROKEN + "]" + "|" + "[|" + BROKEN 
 TERMINAL_ENDS = (BSL + "|", BSL + "||")   # open form, tight form: a table line ending in an escaped pipe
 BLOCKQUOTES = ("> ", ">", "> > ")
 WS_PADS = (("nbsp", chr(0x00A0)), ("emsp", chr(0x2003)), ("vtab", chr(0x0B)), ("ff", chr(0x0C)))
+# backslash-bearing snippets for lone_backslash; none ends in a backslash
+LONE_SNIPPETS = ("\\dir", "\\alpha", "\\\\b", "\\n", "\\cdot")
+INNER_RUNS = ("  ", "   ", "    ", "\t")
 # family, share of inputs, modes; one draw per input, before the existing variations
 FAMILY_SHARES = (
     ("header_escape", 0.08, ("corrected",)),
@@ -53,7 +65,18 @@ FAMILY_SHARES = (
     ("open_escape", 0.03, ("corrected",)),
     ("tight_escape", 0.03, ("corrected",)),
     ("wide_table", 0.05, ("preserved", "corrected")),
+    ("lone_backslash", 0.06, ("preserved", "corrected")),
+    ("multi_escape", 0.05, ("corrected",)),
+    ("inner_ws", 0.05, ("preserved", "corrected")),
+    ("multi_table", 0.05, ("preserved", "corrected")),
 )
+# extra fixed rows appended to a reader's table: the claim table needs both its Magnitude and Direction rows
+FIXED_ROWS = {"fact.claim_estimators": ("| Direction | the sign | `fx.d` | not a magnitude |",)}
+# the five fact tables other than Identity, so that require_tables sees all six once each
+OTHER_FACT_TABLES = "".join(
+    f"## {heading}\n\n| ID | Domain | Predicate | Held by | Ruled |\n|---|---|---|---|---|\n"
+    f"| `{heading[:2].upper()}1` | boundary | the rule holds | `mod.a` | 2026-01-02 |\n\n"
+    for heading in ("Boundary", "Design", "Science", "Skills", "Release"))
 
 
 class HarnessError(Exception):
@@ -110,6 +133,20 @@ READERS = [
     ("state.defect", "reconstruct_state.open_defect_classes (defect_classes.md)", "",
      ["Class", "Seen", "a", "b", "c", "Status"],
      [["alpha:R1", "gamma:R3"], ["3", "1"], ["a"], ["b"], ["c"], ["open", "repaired", "repaired 2026-11-01"]]),
+    ("fact.b3_exceptions", "build_fact_graph.read_b3_exceptions", "## B3 exceptions\n\n",
+     ["Operation", "Parameter", "Default", "Reason", "Evidence"],
+     [["`fx.f`", "`fx.g`"], ["`n`", "`m`"], ["0", "none"], ["a reason text", "a reason two"],
+      ["`tests/t.py`", "`tests/u.py`"]]),
+    ("fact.claim_estimators", "build_fact_graph.read_claim_estimators", "",
+     ["Claim", "What it states", "What jnwb estimates it with", "What it does not license"],
+     [["Magnitude"], ["moves x", "moves y"], ["`fx.m`", "`fx.n`"], ["no sign claim", "not a rate"]]),
+    ("fact.require_tables", "build_fact_graph.require_tables", OTHER_FACT_TABLES + "## Identity\n\n",
+     ["ID", "Domain", "Predicate", "Held by", "Ruled"],
+     [["`F1`", "`F2`"], ["boundary"], ["the rule holds", "the rule holds too"],
+      ["`mod.a`, `mod.b`", "`mod.a`"], ["2026-01-02"]]),
+    ("routing.targets", "build_fact_graph.routing_targets", "",
+     ["Route", "`jnwb.fx`"],
+     [["alpha", "beta"], ["`a`", "`b`"]]),
 ]
 
 
@@ -144,20 +181,32 @@ def vary_cells(cells, cellv, rng):
     return cells
 
 
-def insert_escapes(cells, k, rng):
-    """Insert k escaped pipes inside non-empty cells; positions are read on the original text,
+def slot_positions(text):
+    """Where an escaped pipe may go in ``text``: inside its stripped extent, never right after a
+    backslash (that would make a lone backslash sit before a pipe) and never between two whitespace
+    characters (a run stays whole)."""
+    lo = len(text) - len(text.lstrip())
+    hi = len(text.rstrip())
+    return [p for p in range(lo, hi + 1)
+            if not (p > 0 and text[p - 1] == BSL)
+            and not (0 < p < len(text) and text[p - 1].isspace() and text[p].isspace())]
+
+
+def insert_escapes(cells, k, rng, targets=None):
+    """Insert k escaped pipes inside non-empty cells. ``targets`` names the cell of each escape;
+    by default each is drawn among the non-empty cells. Positions are read on the original text,
     so a second escape never splits the first."""
     cells = list(cells)
     marks = defaultdict(list)
-    for _ in range(k):
-        candidates = [j for j, cell in enumerate(cells) if cell.strip()]
-        if not candidates:
-            raise HarnessError("generator: no non-empty cell to hold an escaped pipe")
-        j = rng.choice(candidates)
-        text = cells[j]
-        lo = len(text) - len(text.lstrip())
-        hi = len(text.rstrip())
-        marks[j].append(rng.randint(lo, hi))
+    for i in range(k):
+        if targets is not None:
+            j = targets[i]
+        else:
+            candidates = [j for j, cell in enumerate(cells) if cell.strip()]
+            if not candidates:
+                raise HarnessError("generator: no non-empty cell to hold an escaped pipe")
+            j = rng.choice(candidates)
+        marks[j].append(rng.choice(slot_positions(cells[j])))
     for j, positions in marks.items():
         text = cells[j]
         for p in sorted(positions, reverse=True):
@@ -187,9 +236,23 @@ def pick_family(mode, rng):
     return None
 
 
+def inner_space(cell):
+    """Indices of single spaces that sit between two non-space characters of ``cell``."""
+    return [i for i in range(1, len(cell) - 1)
+            if cell[i] == " " and not cell[i - 1].isspace() and not cell[i + 1].isspace()]
+
+
 def insert_header_escape(cells, rng):
-    """One escaped pipe inside a non-empty header cell, strictly before the cell's stripped end."""
+    """One escaped pipe inside a non-empty header cell, strictly before the cell's stripped end.
+    A backticked jnwb name takes it just before its closing backtick, so inside the backticks
+    and after the name."""
     cells = list(cells)
+    named = [j for j, cell in enumerate(cells) if cell.startswith("`jnwb.")]
+    if named:
+        j = named[0]
+        p = cells[j].rindex("`")
+        cells[j] = cells[j][:p] + BSL + "|" + cells[j][p:]
+        return cells
     j = rng.choice([j for j, cell in enumerate(cells) if cell.strip()])
     text = cells[j]
     lo = len(text) - len(text.lstrip())
@@ -212,6 +275,8 @@ def make_input(name, prefix, header_cells, pools, mode, rng, rid):
     header = render(header_cells, "|", "|", False)
     sep = canonical_sep(len(header_cells))
     family = pick_family(mode, rng)
+    if family == "inner_ws" and not any(inner_space(cell) for cell in valid):
+        family = None  # no cell of this reader holds two words, so the family cannot be built here
     quote = ""
     if family is not None:
         labels.append(f"fam={family}")
@@ -219,6 +284,8 @@ def make_input(name, prefix, header_cells, pools, mode, rng, rid):
         quote = rng.choice(BLOCKQUOTES)
         labels.append(f"bq={quote!r}")
     escapes = 0
+    lone = 0    # backslashes placed by lone_backslash; none may sit before a pipe
+    doc = None  # set by multi_table, which assembles its own document
     if family == "header_escape":  # the header carries one escape; the data row is valid
         header = render(insert_header_escape(header_cells, rng), "|", "|", False)
         row = render(valid, "|", "|", False)
@@ -252,6 +319,72 @@ def make_input(name, prefix, header_cells, pools, mode, rng, rid):
             cells = insert_escapes(cells, escapes, rng)
             labels.append(f"escapes={escapes}")
         row = render(cells, "|", "|", False, pad)
+    elif family == "lone_backslash":  # one to three cells hold a backslash that never precedes a pipe
+        cells = list(valid)
+        k = min(rng.randint(1, 3), len(cells))
+        for j in rng.sample(range(len(cells)), k):
+            text = cells[j]
+            lo = len(text) - len(text.lstrip())
+            hi = len(text.rstrip())
+            snippet = rng.choice(LONE_SNIPPETS)
+            p = rng.randint(lo, hi)
+            cells[j] = text[:p] + snippet + text[p:]
+            lone += snippet.count(BSL)
+        labels += ["part=row", f"lone={k}"]
+        if mode == "corrected":
+            escapes = rng.choice((1, 2))
+            cells = insert_escapes(cells, escapes, rng)
+            labels.append(f"escapes={escapes}")
+        row = render(cells, "|", "|", False)
+    elif family == "multi_escape":  # three to five escaped pipes in one row: in one cell, or spread
+        cells = list(valid)
+        escapes = rng.randint(3, 5)
+        if rng.random() < 0.5:
+            targets = [rng.randrange(len(cells))] * escapes
+            labels.append("spread=cell")
+        else:  # two distinct cells at least
+            targets = rng.sample(range(len(cells)), 2) + [rng.randrange(len(cells)) for _ in range(escapes - 2)]
+            rng.shuffle(targets)
+            labels.append("spread=row")
+        cells = insert_escapes(cells, escapes, rng, targets)
+        labels += ["part=row", f"escapes={escapes}"]
+        row = render(cells, "|", "|", False)
+    elif family == "inner_ws":  # one or two cells hold a run of spaces or a tab between two words
+        cells = list(valid)
+        candidates = [j for j, cell in enumerate(cells) if inner_space(cell)]
+        k = min(rng.choice((1, 2)), len(candidates))
+        for j in rng.sample(candidates, k):
+            i = rng.choice(inner_space(cells[j]))
+            cells[j] = cells[j][:i] + rng.choice(INNER_RUNS) + cells[j][i + 1:]
+        labels += ["part=row", f"runs={k}"]
+        if mode == "corrected":
+            escapes = rng.choice((1, 2))
+            cells = insert_escapes(cells, escapes, rng)
+            labels.append(f"escapes={escapes}")
+        row = render(cells, "|", "|", False)
+    elif family == "multi_table":  # two tables of this reader's kind, joined as the shape says
+        shape = rng.choice(("blank_prose", "prose", "blank_row"))
+        rows1 = [list(valid)]
+        if shape == "blank_row":  # the first table has a blank line between two of its rows
+            rows1.append([rng.choice(pool) for pool in pools])
+        rows2 = [[rng.choice(pool) for pool in pools]]
+        labels += ["part=multi", f"multi={shape}"]
+        if mode == "corrected":  # one or two escaped pipes in one data row, in either table
+            escapes = rng.choice((1, 2))
+            pick = rng.randrange(len(rows1) + len(rows2))
+            if pick < len(rows1):
+                rows1[pick] = insert_escapes(rows1[pick], escapes, rng)
+            else:
+                rows2[pick - len(rows1)] = insert_escapes(rows2[pick - len(rows1)], escapes, rng)
+            labels.append(f"escapes={escapes}")
+        first = [header, sep, render(rows1[0], "|", "|", False)]
+        if shape == "blank_row":
+            first += ["", render(rows1[1], "|", "|", False)]
+        first += list(FIXED_ROWS.get(name, ()))
+        between = {"blank_prose": ["", PROSE[0], ""], "prose": [PROSE[1]], "blank_row": [PROSE[0]]}[shape]
+        second = [header, sep, render(rows2[0], "|", "|", False)]
+        doc = prefix + "\n".join(first + between + second) + "\n"
+        row = render(rows1[0], "|", "|", False)
     else:  # existing variations
         draw = rng.random()
         if draw < 0.15:  # header or separator carries the variation; the data row is valid
@@ -282,22 +415,29 @@ def make_input(name, prefix, header_cells, pools, mode, rng, rid):
                 escapes = k
                 labels.append(f"escapes={k}")
             row = render(cells, lead, trail, tab)
-    doc = prefix + quote + header + "\n" + quote + sep + "\n" + quote + row + "\n"
+    if doc is None:
+        doc = (prefix + quote + header + "\n" + quote + sep + "\n" + quote + row + "\n"
+               + "".join(quote + line + "\n" for line in FIXED_ROWS.get(name, ())))
     if mode == "corrected":
-        n = doc.count(BSL + "|")
+        n = doc.count(BSL + "|")  # escaped pairs; lone backslashes are counted apart
         base_doc = doc.replace(BSL + "|", BSL + BROKEN)
-        if not (n == escapes and n >= 1 and doc.count(BSL) == n and base_doc.count(BSL) == n
+        if not (n == escapes and n >= 1 and doc.count(BSL) - n == lone
                 and base_doc.count(BSL + "|") == 0 and base_doc.count(BROKEN) == n):
             raise HarnessError(f"generator: escape bookkeeping failed for {rid}: generated={escapes} n={n} "
-                               f"doc={doc.count(BSL)} base={base_doc.count(BSL)} "
+                               f"lone={lone} backslashes={doc.count(BSL)} "
                                f"base_pipe={base_doc.count(BSL + '|')} base_broken={base_doc.count(BROKEN)} "
                                f"doc={doc!r}")
     else:
         base_doc = doc
-        if BSL in doc:
-            raise HarnessError(f"generator: backslash in a preserved input {rid}")
-    terminal = any(line.strip().endswith(TERMINAL_ENDS) for line in (header, row))
-    exploratory = terminal or (name in EXPLORATORY_READERS and not row.lstrip().startswith("|"))
+        if BSL + "|" in doc:
+            raise HarnessError(f"generator: an escaped pipe in a preserved input {rid}")
+        if doc.count(BSL) != lone:
+            raise HarnessError(f"generator: {doc.count(BSL)} backslashes in a preserved input {rid}, "
+                               f"{lone} placed by the family")
+    # an escaped pipe at the end of any line of the document, in any table of it, makes the input exploratory
+    terminal = any(line.strip().endswith(TERMINAL_ENDS) for line in doc.split("\n"))
+    exploratory = (terminal or family == "ws_pad"
+                   or (name in EXPLORATORY_READERS and not row.lstrip().startswith("|")))
     return {"id": rid, "mode": mode, "reader": name, "bucket": "exploratory" if exploratory else mode,
             "row": quote + row, "doc": doc, "base_doc": base_doc, "labels": labels}
 
@@ -440,6 +580,25 @@ def ad_defect(text, scratch, mods):
     return run_reader_call(lambda: mods["reconstruct_state"].open_defect_classes(path))
 
 
+def ad_b3_exceptions(text, scratch, mods):
+    return run_reader_call(lambda: mods["build_fact_graph"].read_b3_exceptions(text))
+
+
+def ad_claim_estimators(text, scratch, mods):
+    return run_reader_call(lambda: mods["build_fact_graph"].read_claim_estimators(text))
+
+
+def ad_require_tables(text, scratch, mods):
+    def check():
+        mods["build_fact_graph"].require_tables(text)
+        return "accepted"  # the function returns None; a pass is recorded as a value
+    return run_reader_call(check)
+
+
+def ad_routing(text, scratch, mods):
+    return run_reader_call(lambda: mods["build_fact_graph"].routing_targets(text))
+
+
 ADAPTERS = {
     "dashboard.deferred": ad_dashboard_deferred,
     "dashboard.references": ad_dashboard_references,
@@ -454,6 +613,10 @@ ADAPTERS = {
     "release.table_data": ad_table_data,
     "docs.vocabulary": ad_vocabulary,
     "state.defect": ad_defect,
+    "fact.b3_exceptions": ad_b3_exceptions,
+    "fact.claim_estimators": ad_claim_estimators,
+    "fact.require_tables": ad_require_tables,
+    "routing.targets": ad_routing,
 }
 
 

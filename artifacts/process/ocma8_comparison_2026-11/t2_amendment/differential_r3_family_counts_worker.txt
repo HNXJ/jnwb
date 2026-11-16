@@ -1,0 +1,41 @@
+NORM ok: a lone backslash is left untouched; escaped pipe and broken bar both map to broken bar
+SEED 2026111600 MODE preserved inputs=5100 exploratory=352
+  FAMILY blockquote scored=313 readers=17
+  FAMILY existing scored=3137 readers=17
+  FAMILY inner_ws scored=180 readers=14
+  FAMILY lone_backslash scored=316 readers=17
+  FAMILY long_row scored=272 readers=17
+  FAMILY multi_table scored=247 readers=17
+  FAMILY wide_table scored=283 readers=17
+SEED 2026111600 MODE corrected inputs=5100 exploratory=693
+  FAMILY blockquote scored=316 readers=17
+  FAMILY existing scored=2217 readers=17
+  FAMILY header_escape scored=415 readers=17
+  FAMILY inner_ws scored=165 readers=14
+  FAMILY lone_backslash scored=307 readers=17
+  FAMILY long_row scored=224 readers=17
+  FAMILY multi_escape scored=263 readers=17
+  FAMILY multi_table scored=253 readers=17
+  FAMILY wide_table scored=247 readers=17
+  NOT BUILT inner_ws (no cell with two words; share returned to existing variations): ['docs.vocabulary', 'learning.mapping', 'routing.targets']
+  ASSERT seed 2026111600: no scored line ends in an escaped pipe; no scored ws_pad; every new family built in its modes; fixtures build their named case
+SEED 1 MODE preserved inputs=5100 exploratory=382
+  FAMILY blockquote scored=333 readers=17
+  FAMILY existing scored=3129 readers=17
+  FAMILY inner_ws scored=159 readers=14
+  FAMILY lone_backslash scored=304 readers=17
+  FAMILY long_row scored=251 readers=17
+  FAMILY multi_table scored=277 readers=17
+  FAMILY wide_table scored=265 readers=17
+SEED 1 MODE corrected inputs=5100 exploratory=670
+  FAMILY blockquote scored=301 readers=17
+  FAMILY existing scored=2127 readers=17
+  FAMILY header_escape scored=433 readers=17
+  FAMILY inner_ws scored=186 readers=14
+  FAMILY lone_backslash scored=316 readers=17
+  FAMILY long_row scored=281 readers=17
+  FAMILY multi_escape scored=244 readers=17
+  FAMILY multi_table scored=279 readers=17
+  FAMILY wide_table scored=263 readers=17
+  NOT BUILT inner_ws (no cell with two words; share returned to existing variations): ['docs.vocabulary', 'learning.mapping', 'routing.targets']
+  ASSERT seed 1: no scored line ends in an escaped pipe; no scored ws_pad; every new family built in its modes; fixtures build their named case

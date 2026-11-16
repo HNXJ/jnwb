@@ -19,7 +19,7 @@ Worktrees, each a linked worktree at the task's baseline, detached: arm A `D:/re
 `exp_t<n>_B` (keeper), `exp_t<n>_B1`, `exp_t<n>_B2`. They are linked to a clone made for the experiment,
 `D:/repos/_work/exp_src_<repo>` (`git clone --single-branch --branch dev`), so no ref of this record, of the
 predicates or of the pilot can be read through git from a worktree. Before the first dispatch `exp_prereq/`,
-`exp_mut_t2/`, `exp_t2beh/`, `exp_t2cov/`, `exp_t2ctl/`, `exp_t2diff/` and `exp_t2adj/` are moved out of `D:/repos/_work/`,
+`exp_mut_t2/`, `exp_t2beh/`, `exp_t2cov/`, `exp_t2ctl/`, `exp_t2diff/`, `exp_t2adj/` and `exp_t2val2/` are moved out of `D:/repos/_work/`, `D:/repos/_adj/` and `D:/repos/_adj_smoke/` are emptied,
 and the reviewers' probe trees are deleted from the session scratch directory; `exp_accept/` holds the `accept/` files of
 this record only: the four acceptance scripts and `t2_preserved_test.py`, which `accept_t2.sh` runs.
 The predicate scripts (`predicates/`, with `t2_corrected_test.py`, `t2_structure.py` and `t2_differential.py`) are run by the orchestrator from this record
@@ -34,14 +34,19 @@ automated result, the adjudicated result, the evidence, the reviewer, the lead's
 The candidate's author does not adjudicate; adjudication is case-specific and changes no predicate, generator
 or acceptance criterion.
 
-T2 structure (Hamm 2026-11-16, amendment 3; `t2_amendment/AMENDMENT.md`; not reviewed, T2 not frozen). Every
-arm-produced T2 tree is adjudicated for structural consolidation against `predicates/t2_structure_rubric.md`,
-which is hidden from workers with the predicates and is not edited after an arm output is seen. Two independent
+T2 structure (Hamm 2026-11-16, amendment 3 and its final repair cycle; `t2_amendment/AMENDMENT.md`; T2 not
+frozen). Every arm-produced T2 tree is adjudicated for structural consolidation against
+`predicates/t2_structure_rubric_r2.md` (the literal reading: exactly one implementation that performs cell
+splitting in `scripts/`, all eight sites on it, the others removed) by the procedure of
+`predicates/t2_adjudication_protocol.md`: the tree's `scripts/` isolated under a random label, one fresh
+Claude reviewer and one fresh adjudicator of a second model family, each on one tree. Rubric and protocol are
+hidden from workers with the predicates and are not edited after an arm output is seen. Two independent
 adjudicators judge the tree, with no access to each other's verdict, to other arm trees, to the arm label or to
 any automated result. Agreement on `PASS` or `FAIL` is the verdict; disagreement, or either `UNRESOLVED`, is
 `AMBIGUOUS`. The lead approves the ledger entry and verifies procedure, and cannot break a tie or override. The
 ledger keeps both reports, the tree SHA, the evidence and the automated observations as printed. `AMBIGUOUS` is
-its own outcome, reported with its frequency and denominator; no ambiguous tree is dropped from a rate. This
+its own outcome, reported with its frequency and denominator; no ambiguous tree is dropped from a rate, and a
+cell whose structure is AMBIGUOUS carries `V` and `E` as intervals (protocol, section 4). This
 supersedes the paragraph above for T2 arm-tree disagreement only. `t2_structure.py` output (D1, D2) is an
 unscored diagnostic.
 

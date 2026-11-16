@@ -603,6 +603,123 @@ Same scan, for F1: a backslash not before a pipe on 59 lines in 12 files (kept b
 more than two escaped pipes on 0 lines (scored under "honours escaped pipes"); a run of spaces inside a cell
 on 1 line (scored).
 
+### Final repair cycle: what was done (not reviewed; for the single freeze review)
+
+Order kept: rubric, protocol, control specifications and stopping criteria were committed (5459ea6e, protocol
+change e4217e42) before any validation tree was adjudicated; the matrix expectations (`matrix7_run.py`) were
+written before the run. No earlier control, verdict or acceptance result was changed.
+
+#### Protocol change before validation (route smoke test)
+
+The slot-2 route was run once on the earlier corrected reference, not a validation tree
+(`validation2/smoke/`). Run 1 returned UNRESOLVED: the adjudicator's root was `tree/`, so `RUBRIC.md` and
+`baseline/` were unreadable, and the review tier has no shell. Changed before any validation tree: the isolated
+directory is the root, `build_adjudication_tree.py` writes `changes.diff`, packet and protocol say so. Run 2
+returned a full report. Stated limit: slot 2 reads files and runs nothing.
+
+#### Validation 2: the deployed protocol on twelve new trees (`validation2/`)
+
+Trees built from written specifications (`validation2_controls.md`) by two Haiku workers, not the
+adjudicators; five expected PASS (n1 to n5), seven expected FAIL (m1 to m7). Each tree went to one fresh Claude
+reviewer (slot 1, all served by claude-sonnet-5-5) and one fresh Muse session (slot 2,
+muse-spark-1.3-contributor), each on its own isolated copy under its own label: 24 adjudications, reports as
+returned (`slot1/`, `slot2/`, `key.jsonl.txt`, `score_validation2.py`, `score.txt`).
+
+| Against the expected verdict | PASS | FAIL | AMBIGUOUS or UNRESOLVED |
+|---|---|---|---|
+| Tree verdict, expected PASS (5) | 5 | 0 | 0 |
+| Tree verdict, expected FAIL (7) | 0 | 7 | 0 |
+| Slot 1, expected PASS / FAIL | 5 / 0 | 0 / 7 | 0 |
+| Slot 2, expected PASS / FAIL | 5 / 0 | 0 / 7 | 0 |
+
+Slot agreement 12 of 12, Cohen's kappa 1.0. AMBIGUOUS 0 of 12. No UNRESOLVED, no retry, no fallback, so no
+tree is "no cross-family". Definitive verdicts 12 of 12 assigned trees.
+
+Stopping criteria (protocol, section 5): 1 and 2 not triggered (no expected FAIL judged PASS, no expected PASS
+judged FAIL); 3 not triggered (0 of 12; the threshold "more than 2 of 12" is the orchestrator's number, not
+Hamm's). Criteria 4 and 5 are the orchestrator's reading, not triggered, for the reviewer to judge. On 4:
+four slot-1 reports on PASS trees (labels 0b79bb95, 4b1a1322, 9b72baeb, dac65960) note that unchanged baseline
+code holding a pipe (`gates/api_types.py:15`, a multi-cell regex; `obligation_diff.SPLIT`;
+`stacks_closure.py:95`) is put out of scope by the scope rule's general wording and not by its one listed
+example. All four reached PASS by that rule; no verdict turned on it; slot 2 raised no gap. The rubric was not
+edited after the reports.
+
+As it happened, not repaired:
+- m5 as first built failed the preserved test on blockquoted rows (55 of 56). Before adjudication the
+  orchestrator edited its separator-row line (blockquote strip, `None` for non-rows; 56 and 6 passed); its
+  class (a site splitting for itself, L2) is unchanged. The protocol allows a rebuild before adjudication only.
+- Neither slot ran code: slot 2 cannot, slot 1 did not need to. Structure was judged from the tree, the
+  baseline and the diff.
+- The orchestrator wrote the specifications to match the decided cases, and knows the rubric: the twelve are
+  clear cases of each rule. m4 (a flag turning escape handling off for three sites) is the rubric's own
+  example of several implementations in one function.
+- No arm-produced tree has been adjudicated. Twelve of twelve on built controls bounds nothing for unseen
+  trees; with 0 errors in 12 the exact one-sided 95% upper bound on a per-tree error rate is 22%
+  (1 - 0.05^(1/12)), for trees like these twelve.
+- Slot 1 is one model family, the family of every review in this record. The cross-family element is slot 2.
+- v1 and the uncalled-splitter class changed class under the literal ruling; the 23-tree results are as
+  recorded and are not comparable with this table.
+
+#### Generator revision 3 (`predicates/t2_differential.py`, sha256 efa05ca3e514b050...; F1, F2, F8, F9)
+
+Worker packet `packet_generator_r3.md` (Haiku worker; the orchestrator read the whole diff against revision 2,
+189 insertions and 26 deletions, and changed nothing). Worker receipts:
+`differential_r3_family_counts_worker.py/.txt`.
+
+- Readers 13 to 17: `fact.b3_exceptions`, `fact.claim_estimators`, `fact.require_tables`, `routing.targets`
+  added, so every public consumer of `_all_tables` is exercised (F2). `predicates_t2.py` `DIFF_READERS = 17`.
+- New scored families (F1, F9): lone backslash (a backslash not before a pipe, both modes), multi-escape
+  (three to five escaped pipes in a row or cell, corrected mode), inner whitespace (a run of spaces between two
+  words of a cell, both modes), multi-table (two tables of the reader's kind in one document: prose between
+  them with or without blank lines, or a blank line inside the first table and prose between; both modes).
+- Whitespace padding (U+00A0, U+2003, `\x0b`, `\f`) is exploratory for every reader (F8): no specification
+  states `str.strip()` semantics and 0 tracked lines hold such whitespace. `w_ws` is no longer a scored
+  negative.
+- Any input in which any document line ends in `\|` or `\||` is exploratory (revision 2 looked at the header
+  and the data row).
+
+#### Matrix 7 (`matrix7_run.py`, `matrix7.txt`, `matrix7_runs.jsonl.txt`; `matrix7_reconcile.py/.txt`)
+
+59 trees (the baseline against itself, 28 behaviour-correct, 29 wrong, `w_ws`) at seeds 2026111600, 1, 2, 3,
+4: 295 runs, ten at a time under the suite lock, each at most 75 s; all rc 0, no WARN, all three DIFF lines;
+baseline and corrected-reference `git status` hashes equal before and after. Reconciled from the run log
+alone: one row per tree and seed, no run excluded; at each seed all 59 trees saw the same input counts, equal
+to what `generate()` gives (scored preserved 4685 to 4748, scored corrected 4404 to 4437, exploratory 1045 to
+1107).
+
+| Trees | Expectation (fixed before the run) | Scored mismatches over the five seeds | Met |
+|---|---|---|---|
+| baseline against itself | preserved 0 | preserved 0; corrected 767 to 817 | yes |
+| 28 behaviour-correct: pos2, v1 to v3, a1, u1 to u3, review 3's eleven, validation 2's n1 to n5, m1, m2, m3, m5 | 0 at every seed | 0 in 140 runs | 28 of 28 |
+| pos, M10 to M13 | more than 0 at every seed | 210 to 817 | 5 of 5 |
+| M1 to M9 | more than 0 at every seed | 832 to 2134 | 9 of 9 |
+| `s_tab`, `s_hdr`, `s_led`, `s_ledsingle` | more than 0 at every seed | 19 to 26, 7 to 16, 20 to 28, 4 to 17 | 4 of 4 |
+| t1 | more than 0 at every seed | 12 to 19 | yes |
+| `w_maxsplit`, `w_bq`, `w_hdr2` (review 3) | more than 0 at every seed | 47 to 60, 27 to 33, 20 to 27 | 3 of 3 |
+| `w_bsall`, `w_collapse`, `w_cap2`, `w_merge1` (review 4) | more than 0 at every seed | 259 to 301, 154 to 176, 114 to 140, 232 to 308 | 4 of 4 |
+| validation 2's m4, m6, m7 (escapes unhonoured at some site) | more than 0 at every seed | 157 to 168, 23 to 32, 118 to 134 | 3 of 3 |
+| `w_ws` | none; reported only, outside scoring | scored 0; exploratory 224 to 262 (a correct tree: 43 to 59) | not scored |
+
+Smallest margins: `s_ledsingle` 4 at seed 1, `s_hdr` 7 at seed 1. The worker's own runs at seeds 2026111600
+and 1 give the same figures for the nine trees it ran (baseline, pos2, v2, v3, `w_bsall`, `w_collapse`,
+`w_cap2`, `w_merge1`, `w_hdr2`).
+
+#### Coverage per reader (`coverage_r3.py`, `coverage_r3.txt`)
+
+Scored inputs per reader, mode and family at the five seeds, from `generate()`. Every reader has more than 0
+scored inputs at every seed in every family scored for that mode, with one exception: inner whitespace is not
+built for `docs.vocabulary`, `learning.mapping` and `routing.targets` (0 at every seed, both modes), whose
+fixture cells hold no two-word cell; the generator returns that share to the existing variations. A coverage
+limit, not a failed expectation (Hamm 2026-11-16). For those three readers every other scored family is
+present at every seed (per reader and mode, five-seed sums: blockquote 80 to 98, lone backslash 75 to 107,
+long row 70 to 87, multi-table 61 to 81, wide table 68 to 89, header escape 111 to 144, multi-escape 73 to 85,
+existing variations 687 to 1050). Thin cells: inner whitespace at `state.defect` (22 preserved, 19 corrected
+over five seeds), `release.table_data` (25, 46), `fact.constants` (36, 25), `learning.ledger` (35, 42); more
+than 0 at every seed.
+
+A whitespace-collapsing error confined to one of the three readers would score 0. `w_collapse` collapses in
+the shared splitter and is rejected at every seed (154 to 176).
+
 ## Readings
 
 - No corrected test covers `release_gate.table_data_rows`: an escaped pipe does not change its output.

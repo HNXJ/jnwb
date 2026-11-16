@@ -18,9 +18,10 @@ P3  behaviour through every affected reader: `t2_differential.py` (beside this s
     preserved mode (rows without an escaped pipe; the tree must equal the baseline) and corrected mode (rows
     with escaped pipes; the tree must equal the declared contract). PASS when it exits 0 with DIFF_READERS
     readers, more than 0 inputs and 0 mismatches in both modes, and no reader whose baseline results are all
-    empty (a WARN line). Generator revision 2 adds header escape, blockquote lead, long row, whitespace
-    padding and wide table. The exploratory bucket (any header or row ending in an escaped pipe, open or
-    tight) is printed, unscored.
+    empty (a WARN line). Generator revision 3 scores header escape, blockquote lead, long row, wide table,
+    lone backslash, three to five escapes, whitespace runs inside a cell and two-table documents, through
+    17 readers (every public consumer of `_all_tables`). The exploratory bucket (any line ending in an
+    escaped pipe, open or tight; the whitespace-padding family) is printed, unscored.
     Every mismatching input is written to the file named in the line.
 P4  the corrected behaviour holds at each reader's entry point: pytest on `t2_corrected_test.py` (beside
     this script) exits 0 with exactly CORRECTED_TESTS passed (an escaped pipe inside a cell changes neither
@@ -62,7 +63,7 @@ PYTEST_TIMEOUT_S = 300
 #: Differential test (P3): script, generation seed, number of reader entry points it must exercise.
 DIFFERENTIAL = SELF.parent / "t2_differential.py"
 DIFF_SEED = 2026111600
-DIFF_READERS = 13
+DIFF_READERS = 17
 DIFF_LINE = re.compile(r"^DIFF (preserved|corrected) readers=(\d+) inputs=(\d+) mismatches=(\d+)\s*$", re.M)
 DIFF_EXPLORATORY = re.compile(r"^DIFF exploratory inputs=(\d+) mismatches=(\d+)\s*$", re.M)
 DIFF_TIMEOUT_S = 600

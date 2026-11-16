@@ -1,0 +1,74 @@
+seed | preserved inputs | corrected inputs | exploratory inputs | trees with these counts | generate() counts
+2026111600 | 4748 | 4407 | 1045 | 59 | (4748, 4407, 1045)
+1 | 4718 | 4430 | 1052 | 59 | (4718, 4430, 1052)
+2 | 4689 | 4404 | 1107 | 59 | (4689, 4404, 1107)
+3 | 4685 | 4418 | 1097 | 59 | (4685, 4418, 1097)
+4 | 4713 | 4437 | 1050 | 59 | (4713, 4437, 1050)
+
+tree | kind | scored mismatches (preserved+corrected) per seed | exploratory mismatches per seed | met
+exp_prereq/t2/base | base | [0, 0, 0, 0, 0] | [125, 122, 142, 102, 106] | True
+exp_t2beh/pos2 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2ctl/v1 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2ctl/v2 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2ctl/v3 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2ctl/a1 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2ctl/u1 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2ctl/u2 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2ctl/u3 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+rev_t2c/trees/v_cls | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+rev_t2c/trees/v_gen | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+rev_t2c/trees/v_partial | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+rev_t2c/trees/v_map | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+rev_t2c/trees/v_split2 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+rev_t2c/trees/v_scan | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+rev_t2c/trees/v_wrap | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+rev_t2c/trees/u_disp | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+rev_t2c/trees/u_hidden_call | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+rev_t2c/trees/u_const2 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+rev_t2c/trees/u_allhidden | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2val2/n1 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2val2/n2 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2val2/n3 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2val2/n4 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2val2/n5 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2val2/m1 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2val2/m2 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2val2/m3 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_t2val2/m5 | correct | [0, 0, 0, 0, 0] | [59, 51, 52, 43, 45] | True
+exp_prereq/t2/pos | wrong | [763, 740, 755, 726, 786] | [137, 127, 112, 113, 131] | True
+exp_t2cov/m10 | wrong | [229, 210, 226, 254, 216] | [117, 92, 95, 97, 102] | True
+exp_t2cov/m11 | wrong | [810, 761, 817, 805, 807] | [138, 134, 147, 110, 115] | True
+exp_t2cov/m12 | wrong | [621, 590, 590, 594, 609] | [94, 92, 78, 72, 80] | True
+exp_t2cov/m13 | wrong | [541, 502, 510, 495, 548] | [99, 90, 78, 76, 85] | True
+exp_t2ctl/s_tab | wrong | [24, 19, 22, 26, 23] | [61, 55, 57, 45, 46] | True
+exp_t2ctl/s_hdr | wrong | [13, 7, 8, 16, 16] | [59, 51, 52, 43, 45] | True
+exp_t2ctl/s_led | wrong | [20, 28, 24, 28, 24] | [65, 55, 55, 48, 48] | True
+exp_t2ctl/s_ledsingle | wrong | [17, 4, 15, 10, 8] | [59, 51, 52, 43, 45] | True
+exp_t2ctl/t1 | wrong | [12, 12, 12, 19, 14] | [60, 52, 55, 43, 45] | True
+exp_t2ctl/M1 | wrong | [1814, 1788, 1860, 1851, 1847] | [240, 253, 290, 225, 247] | True
+exp_t2ctl/M2 | wrong | [1130, 1088, 1143, 1128, 1136] | [212, 188, 221, 172, 190] | True
+exp_t2ctl/M3 | wrong | [2020, 2033, 2077, 2049, 2134] | [279, 297, 305, 273, 271] | True
+exp_t2ctl/M4 | wrong | [1326, 1293, 1329, 1309, 1324] | [199, 181, 204, 181, 164] | True
+exp_t2ctl/M5 | wrong | [1244, 1195, 1255, 1241, 1258] | [181, 171, 194, 168, 152] | True
+exp_t2ctl/M6 | wrong | [882, 832, 876, 882, 884] | [131, 132, 155, 107, 120] | True
+exp_t2ctl/M7 | wrong | [986, 930, 988, 983, 996] | [147, 153, 171, 126, 126] | True
+exp_t2ctl/M8 | wrong | [935, 881, 920, 935, 932] | [147, 143, 170, 127, 138] | True
+exp_t2ctl/M9 | wrong | [885, 846, 912, 906, 913] | [144, 136, 161, 133, 130] | True
+rev_t2c/trees/w_maxsplit | wrong | [56, 60, 59, 50, 47] | [59, 51, 52, 43, 45] | True
+rev_t2c/trees/w_bq | wrong | [27, 31, 28, 28, 33] | [59, 51, 52, 44, 45] | True
+rev_t2c/trees/w_hdr2 | wrong | [20, 21, 27, 20, 23] | [59, 51, 52, 43, 45] | True
+rev4/trees/w_bsall | wrong | [272, 259, 287, 282, 301] | [59, 51, 52, 43, 45] | True
+rev4/trees/w_collapse | wrong | [156, 155, 166, 154, 176] | [61, 53, 53, 45, 46] | True
+rev4/trees/w_cap2 | wrong | [138, 114, 125, 140, 115] | [59, 51, 52, 43, 45] | True
+rev4/trees/w_merge1 | wrong | [308, 232, 251, 269, 256] | [68, 63, 67, 55, 57] | True
+exp_t2val2/m4 | wrong | [165, 161, 168, 163, 157] | [75, 75, 71, 62, 55] | True
+exp_t2val2/m6 | wrong | [27, 30, 32, 32, 23] | [67, 60, 60, 50, 46] | True
+exp_t2val2/m7 | wrong | [134, 131, 118, 127, 119] | [74, 60, 64, 52, 53] | True
+rev_t2c/trees/w_ws | none | [0, 0, 0, 0, 0] | [224, 246, 262, 242, 226] | True
+
+RUNS 295 of 295
+KIND base: 1 of 1 met (preserved mode only)
+KIND correct: 28 of 28 met
+KIND wrong: 29 of 29 met
+KIND none: 1 of 1 met (reported only, not scored)
+PROBLEMS 0
