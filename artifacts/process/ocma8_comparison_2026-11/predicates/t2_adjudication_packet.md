@@ -9,14 +9,15 @@ unchanged) and `tree/` (a clone of the same commit with a changed `scripts/` dir
 hold other trees, keys and results, and reading them voids the adjudication. Write only inside `{DIR}/notes/`
 (create it). Do not edit, commit or push anything in `tree/` or `baseline/`.
 
-What changed: `git -C {DIR}/tree status --porcelain` and `git -C {DIR}/tree diff HEAD -- scripts` (new files
-are untracked: read them directly). You know nothing else about the tree: not who wrote it, not why, and no
+What changed: `{DIR}/changes.diff` holds `git status --porcelain -- scripts` and `git diff HEAD -- scripts` of
+`tree/` (new files are untracked and not in the diff: read them directly in `tree/`). With a shell you may run
+those commands yourself; without one, read the file and the trees. You know nothing else about the tree: not who wrote it, not why, and no
 automated result for it. It may satisfy the rubric or not.
 
 Task: read `RUBRIC.md` in full first. It defines the question, the eight designated sites, the terms, the
 scope, criteria L1 to L3, decided cases and the procedure. Follow the procedure. Whether the cells come out
 right is not your question; how many implementations split cells, and who uses them, is. Where reading does
-not settle where a site's cells are split, run the reader on a row: write a small script file in
+not settle where a site's cells are split and you have a shell, run the reader on a row: write a small script file in
 `{DIR}/notes/`, run it by path with cwd = `{DIR}/tree`, `PYTHONDONTWRITEBYTECODE=1`, stdin closed
 (`</dev/null`). Never `python -c`, `python -`, heredoc code or `sed -i`.
 

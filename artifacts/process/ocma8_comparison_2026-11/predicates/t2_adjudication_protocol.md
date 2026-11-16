@@ -8,6 +8,7 @@ For one tree and each of the two adjudicators the orchestrator builds a separate
 `D:/repos/_adj/<label>/`, `<label>` = 8 random hex characters (`secrets`), different for the two adjudicators:
 - `tree/`: a `git clone --shared` of the T2 baseline with the tree's `scripts/` copied over it, without
   `__pycache__`. Nothing else of the tree is copied (no `tests/`, no git history, no worktree path, no author).
+- `changes.diff`: `git status --porcelain` and `git diff HEAD` of `tree/scripts`, made by the script.
 - `baseline/`: a clone of the baseline.
 - `RUBRIC.md`: `t2_structure_rubric_r2.md`.
 The key (label, source tree, adjudicator slot, time) is appended to a file outside `D:/repos/_adj/`, in the
@@ -23,6 +24,11 @@ about its origin is not hidden and is a stated limit.
   tier, read mode). A slot-2 run that fails, returns no verdict line or does not parse is retried once; after
   that a fresh Claude `reviewer` replaces it and the tree is marked "no cross-family". The count of such trees
   is reported.
+- Slot 2 runs with the directory as its root and read-only tools (read, grep, glob; no shell): it judges by
+  reading and cannot run a reader. Slot 1 may run code. This asymmetry is a stated limit. (Found by an
+  operational smoke run on the earlier corrected reference, not a validation tree, before any validation tree
+  was adjudicated: with `tree/` as root the rubric was unreadable and the run returned UNRESOLVED;
+  `changes.diff` and the root were changed for that reason. Smoke output: `t2_amendment/validation2/smoke/`.)
 - The packet is `t2_adjudication_packet.md`, the same text for both slots and every tree, with only the
   directory filled in. The report ends with one line `VERDICT: PASS`, `VERDICT: FAIL` or `VERDICT: UNRESOLVED`.
 - Evidence an adjudicator may use: its directory; code it runs there (scripts written in its `notes/`

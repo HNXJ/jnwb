@@ -3,8 +3,8 @@
 Usage: python build_adjudication_tree.py <tree> <baseline tree> <out root> <key file> <name>
 
 Builds two directories <out root>/<label>/, one per adjudicator slot, each with `tree/` (a `git clone
---shared` of the baseline with <tree>/scripts copied over it, no `__pycache__`), `baseline/` (a clone of the
-baseline) and `RUBRIC.md` (t2_structure_rubric_r2.md beside this script). Labels are 8 random hex characters.
+--shared` of the baseline with <tree>/scripts copied over it, no `__pycache__`), `changes.diff` (git status and diff of `tree/scripts`
+against the baseline), `baseline/` (a clone of the baseline) and `RUBRIC.md` (t2_structure_rubric_r2.md beside this script). Labels are 8 random hex characters.
 Appends one JSON line per slot to <key file>: name, source, slot, label, UTC time. Prints the two labels.
 """
 import datetime
@@ -40,6 +40,12 @@ def main(argv):
         clone(base, root / "tree")
         shutil.rmtree(root / "tree" / "scripts")
         shutil.copytree(tree / "scripts", root / "tree" / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
+        changed = [subprocess.run(["git", "-C", str(root / "tree"), *args], capture_output=True, check=True,
+                                  stdin=subprocess.DEVNULL).stdout
+                   for args in (("status", "--porcelain", "--untracked-files=all", "--", "scripts"),
+                                ("diff", "HEAD", "--", "scripts"))]
+        (root / "changes.diff").write_bytes(b"# git status --porcelain -- scripts (?? = new file, read it in tree/)\n"
+                                            + changed[0] + b"\n# git diff HEAD -- scripts\n" + changed[1])
         clone(base, root / "baseline")
         shutil.copyfile(RUBRIC, root / "RUBRIC.md")
         stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
