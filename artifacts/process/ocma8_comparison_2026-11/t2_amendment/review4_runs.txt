@@ -1,0 +1,41 @@
+== w_bsall seed 2026111600
+DIFF preserved readers=13 inputs=3778 mismatches=0
+DIFF corrected readers=13 inputs=3553 mismatches=0
+DIFF exploratory inputs=469 mismatches=44
+DIFF seed=2026111600
+== w_bsall seed 7
+DIFF preserved readers=13 inputs=3792 mismatches=0
+DIFF corrected readers=13 inputs=3578 mismatches=0
+DIFF exploratory inputs=430 mismatches=35
+DIFF seed=7
+== w_collapse seed 2026111600
+DIFF preserved readers=13 inputs=3778 mismatches=0
+DIFF corrected readers=13 inputs=3553 mismatches=0
+DIFF exploratory inputs=469 mismatches=47
+DIFF seed=2026111600
+== w_collapse seed 7
+DIFF preserved readers=13 inputs=3792 mismatches=0
+DIFF corrected readers=13 inputs=3578 mismatches=0
+DIFF exploratory inputs=430 mismatches=36
+DIFF seed=7
+== w_merge1 seed 2026111600
+DIFF preserved readers=13 inputs=3778 mismatches=0
+DIFF corrected readers=13 inputs=3553 mismatches=128
+DIFF exploratory inputs=469 mismatches=45
+DIFF seed=2026111600
+== w_merge1 seed 7
+DIFF preserved readers=13 inputs=3792 mismatches=0
+DIFF corrected readers=13 inputs=3578 mismatches=129
+DIFF exploratory inputs=430 mismatches=36
+DIFF seed=7
+== w_cap2 seed 2026111600
+DIFF preserved readers=13 inputs=3778 mismatches=0
+DIFF corrected readers=13 inputs=3553 mismatches=0
+DIFF exploratory inputs=469 mismatches=44
+DIFF seed=2026111600
+== w_cap2 seed 7
+DIFF preserved readers=13 inputs=3792 mismatches=0
+DIFF corrected readers=13 inputs=3578 mismatches=0
+DIFF exploratory inputs=430 mismatches=35
+DIFF seed=7
+DONE
