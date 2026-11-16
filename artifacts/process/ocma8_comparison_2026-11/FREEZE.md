@@ -1,5 +1,23 @@
 # Freeze record: OCMA-8 comparison protocol
 
+**OCMA8 INSTRUMENT FROZEN — PILOT NOT EXECUTED** (Hamm 2026-11-16, closeout at the instrument milestone).
+Instrument closeout: complete. Pilot completion: not reached, and not waited for.
+
+| Requirement | Status | Blocks |
+|---|---|---|
+| T2 instrument freeze | frozen at 5f7a4e2a; ruling recorded at 5d85c082 (section "T2 freeze") | nothing |
+| Frozen-file integrity | blob ids of `t2_amendment/freeze_manifest.txt` equal at the closeout commit | nothing |
+| Differential validation | 295 of 295 expectations met (`t2_amendment/matrix7_reconcile.txt`) | nothing |
+| Independent freeze review | ACCEPT, eight findings not material, retained as limits (`review/t2_freeze_reviewer.md`) | nothing |
+| Harness defect | delivered to the jarness keeper as jarness issue 16 on 2026-11-16T16:03Z; not acknowledged, not implemented, not verified (`harness_defect/TRACKING.md`). The jchat hub was unavailable | tracked; owner the keeper |
+| Keeper dispatch overhead against the 30-minute cap | unmeasured; an unresolved prerequisite of pilot execution; needs Hamm's separate authorization; no compliance inferred from earlier worker timings | pilot execution only |
+| Pilot execution, keeper dispatch | not authorized; no experiment cell has run | (Hamm's go) |
+
+Recovery point: jnwb `_temp_ocma8_pilot` (not merged into `dev`; promotion is Hamm's). To resume: this file,
+then `t2_amendment/AMENDMENT.md` (status, limits, owed list), `harness_defect/TRACKING.md`, `PREREG.md`
+prerequisites 1 to 7 below. Next check: the state of jarness issue 16, then Hamm's authorization for the
+dispatch-overhead measurement. Work on OCMA8 in the closing session stopped here.
+
 Frozen 2026-11-15T17:51:58Z: the analysis and acceptance rules are `PREREG.md` as committed at jnwb
 `_temp_ocma8_pilot` 2060527a (blob f04e692f53f106e2df9066e574b97bb90ccde1d8). Its "Status: DRAFT" line is left
 as reviewed; this file is the status. A later change to `PREREG.md` is an amendment: dated, reasoned, and

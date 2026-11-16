@@ -6,7 +6,7 @@ events below are separate; none implies the next.
 | Event | State | Evidence |
 |---|---|---|
 | Delivered | done 2026-11-16T16:03:36Z | jarness issue 16 (`https://github.com/HNXJ/jarness/issues/16`, private repo, label `bug`, opened through `gh` as HNXJ); body equals `packet.md` (one trailing blank line added by GitHub). jchat route unavailable: hub 127.0.0.1:8780, relay 127.0.0.1:8770 and the tailnet hub answered curl code 000 at 16:03Z |
-| Acknowledged by the keeper | not yet | 0 comments on the issue at creation |
+| Acknowledged by the keeper | not yet | at 2026-11-16T16:10Z the issue's one comment is the reporter's addendum (`issue16_addendum.md`: the settings file's last write postdates the first unrefused command); a comment by HNXJ is not by itself the keeper's acknowledgement, read its text |
 | Implemented | not yet | none |
 | Verified (regression tests red first, standalone and compound forms, permitted controls, a reviewer other than the writer) | not yet | none |
 
