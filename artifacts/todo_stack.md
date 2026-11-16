@@ -25,6 +25,13 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
+### 17-152 The branch push accepts CI from an earlier commit
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/ci_gate.py`, `scripts/jnwb_push.sh`, `tests/test_jnwb_push.py`, `tests/test_push_guard.py`, `AGENTS.md`.
+- 17-152: P0 (Hamm 2026-11-16). `ci_gate.py hnxj/jnwb dev` printed `pass 9252d0cd` while `origin/dev` was `fabe3c02`: the branch route of `jnwb_push.sh` let the newest completed run of any SHA decide and never compared it with the tip (the tag route does). Check: the wrapper tests of `tests/test_jnwb_push.py` fail on `fabe3c02` and pass with the fix; green runs at an older SHA, no run, a pending, failed or cancelled run at the tip, and a branch `origin` lacks, each refuse; runs at the tip pass; the tag-route tests of `tests/test_push_guard.py` pass unchanged. The fix is on `_temp_17-152_ci_gate_tip`, not on `dev` (Hamm 2026-11-16: no `dev` push yet); open row 17-152-ci holds what blocks integration.
+
 ### 17-151 Public docs state the AI-assisted and autonomous analysis direction
 
 Release: deferred-0.2.17.

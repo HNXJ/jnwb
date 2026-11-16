@@ -2,12 +2,13 @@
 
 Context audit: live GitHub dev@9252d0cd has successful inspected CI; two open rows remain unresolved. See `artifacts/ref/context_audit_2026-11-13.md` for dependencies and evidence limits. This note closes no row.
 
-Open rows: two (2026-11-12). A row leaves by being repaired, shown false, or moved into the todo stack (`AGENTS.md` §11); `git log -- artifacts/open_stack.md` holds the rows of earlier dates.
+Open rows: three (2026-11-16). A row leaves by being repaired, shown false, or moved into the todo stack (`AGENTS.md` §11); `git log -- artifacts/open_stack.md` holds the rows of earlier dates.
 
 | Id | Open item | Evidence | Owner | Next step |
 |---|---|---|---|---|
 | OCMA-5 | Four cardless-receipt OCMA card specs await Hamm's ruling, one at a time, before any card code (ocma plan decision 5) | Drafts, each `STATUS: draft-awaiting-Hamm` with receipt sha256 and flags: `artifacts/process/ocma_card_specs/curation_calibration_0.2.14.md`, `artifacts/process/ocma_card_specs/vflip2_separation_0.2.14.md`, `artifacts/process/ocma_card_specs/gpu_launch_overhead_0.2.5.md`, `artifacts/process/ocma_card_specs/complexity_inventory.md` | Hamm | rule each draft (release version, claim class, signal split, section and the flags it lists); no card code until ruled |
 | 17-144-src | The three isi_cv SHAs for todo 17-144 are unreachable | `E:/cl-jnwb16e` missing; `0e06993c`, `9980f58d`, `5fa63dd3` absent from `D:/repos/jnwb` and from `origin` (`gh api` 422 / fetch couldn't find remote ref), 2026-11-12 | Hamm / jaxfne-orchestrator | restore the clone or re-push the three commits so they can be picked onto `dev` |
+| 17-152-ci | No CI run can be at `dev`'s tip while the workflows are disabled, so the push wrapper's CI condition cannot pass honestly | Workflows `CI`, `CI/CD` and `dashboard` are `disabled_manually` (`gh api repos/hnxj/jnwb/actions/workflows`, 2026-11-16); no run at any of the 14 commits `9252d0cd..fabe3c02`; before todo 17-152 the condition passed on the `9252d0cd` runs, with it `ci_gate.py hnxj/jnwb dev --tip <fabe3c02>` prints `refuse: no run at the branch tip fabe3c02`; local qualification of `fabe3c02` is on `_temp_dev_qual_20261116` (`artifacts/evidence/0.2.17/dev_qualification_2026-11-16/`) | Hamm | rule how `dev` moves while CI is off (re-enable and dispatch a run at the tip, or another governed route), and whether `JNWB_PUSH_OVER_RED=1` may pass a tip with no run, as it passes a red run today; 17-152 and the 17-143 closure wait on it |
 
 Cleared 2026-11-09, the seven rows of the audit of 2026-11-08 at `5bfee7b0` (`artifacts/rulings/2026-11-09.md`): repaired P-217-03 (goal row 12) and P-217-05 (fact S15 narrowed); moved to the todo stack P-217-01 (17-145), P-217-02 and -06 (17-146), P-217-04 and -07 (17-148).
 
