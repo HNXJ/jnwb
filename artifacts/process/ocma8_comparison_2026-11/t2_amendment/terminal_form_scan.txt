@@ -1,0 +1,3 @@
+SCAN tree=D:\repos\_work\exp_prereq\t2\base files=215 table_like_lines=5067 with_escaped_pipe=7 spaced=0 open=0 tight=0
+second tree: jnwb dev fabe3c02 plus the README line (4d92ab8f)
+SCAN tree=D:\repos\_work\jnwb_readme_def files=215 table_like_lines=5067 with_escaped_pipe=7 spaced=0 open=0 tight=0

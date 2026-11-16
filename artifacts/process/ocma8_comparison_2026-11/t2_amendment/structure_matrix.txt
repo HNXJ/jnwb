@@ -1,0 +1,76 @@
+== exp_prereq/t2/base
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+rc=0
+== exp_t2beh/pos2
+P1 PASS all eight sites reach one definition: md_cells.split_cells [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_t2ctl/v1
+P1 PASS all eight sites reach one definition: table_cells._PIPE (module name) [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_t2ctl/v2
+P1 PASS all eight sites reach one definition: stack_parse.table_cells [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_t2ctl/v3
+P1 PASS all eight sites reach one definition: md_table.cells [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_t2ctl/a1
+P1 AMBIGUOUS definitions reached none; unresolved ['scripts/build_dashboard.py:_cells: anchor _study_cards reaches no recognised split', 'scripts/build_dashboard.py:_cells: anchor deferred_section reaches no recognised split', 'scripts/build_dashboard.py:_cells: anchor order_section reaches no recognised split', 'scripts/build_d
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_prereq/t2/pos
+P1 PASS all eight sites reach one definition: md_cells.cells [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_prereq/t2/pos_inline
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['md_cells.cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 4 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'reconstruct_state.open_defect_classes']
+rc=0
+== exp_t2ctl/u1
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard.split_cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.split_cells']; 6 definitions reached in all [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_t2ctl/u2
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['md_cells.split_cells_1'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['md_cells.split_cells_2']; 6 definitions reached in all [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_t2ctl/u3
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+rc=0
+== exp_t2cov/m10
+P1 PASS all eight sites reach one definition: md_cells.split_cells [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_t2cov/m11
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+rc=0
+== exp_t2cov/m12
+P1 FAIL no shared definition between [scripts/build_dashboard.py:_cells via _study_cards] -> ['build_dashboard._cells'] and [scripts/build_fact_graph.py:399 via reference_table_rows] -> ['build_fact_graph.reference_table_rows']; 8 definitions reached in all [8 sites, 12 anchors]
+P2 FAIL splits kept in baseline site functions or anchors: ['build_dashboard._cells', 'build_fact_graph._cells', 'build_fact_graph.reference_table_rows', 'docs_form_gate.parse_vocabulary', 'learning_gate._cells', 'reconstruct_state.open_defect_classes', 'release_gate._cells', 'release_gate._table_cells']
+rc=0
+== exp_t2cov/m13
+P1 PASS all eight sites reach one definition: md_cells.split_cells [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_t2ctl/s_tab
+P1 PASS all eight sites reach one definition: md_cells.split_cells [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_t2ctl/s_hdr
+P1 PASS all eight sites reach one definition: md_cells.split_cells [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_t2ctl/s_led
+P1 PASS all eight sites reach one definition: md_cells.split_cells [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0
+== exp_t2ctl/s_ledsingle
+P1 PASS all eight sites reach one definition: md_cells.split_cells [8 sites, 12 anchors]
+P2 PASS no baseline site function or anchor holds a split of its own
+rc=0

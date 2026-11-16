@@ -1,0 +1,50 @@
+base fact.facts spaced [scored] WRONG cell='{"raises": "FactSourceError"}'
+base fact.facts open [exploratory] WRONG cell='zq9term\\'
+base fact.facts tight [exploratory] WRONG cell='zq9term\\'
+base fact.references spaced [scored] WRONG cell='{"raises": "AssertionError"}'
+base fact.references open [exploratory] WRONG cell='zq9term\\'
+base fact.references tight [exploratory] WRONG cell='zq9term\\'
+TERMINAL tree=base scored observed=2 ok=0 wrong=2 | exploratory observed=4 ok=0 wrong=4
+pos2 fact.facts spaced [scored] OK cell='zq9term\\|'
+pos2 fact.facts open [exploratory] WRONG cell='zq9term\\'
+pos2 fact.facts tight [exploratory] WRONG cell='zq9term\\'
+pos2 fact.references spaced [scored] OK cell='zq9term\\|'
+pos2 fact.references open [exploratory] WRONG cell='zq9term\\'
+pos2 fact.references tight [exploratory] WRONG cell='zq9term\\'
+TERMINAL tree=pos2 scored observed=2 ok=2 wrong=0 | exploratory observed=4 ok=0 wrong=4
+v1 fact.facts spaced [scored] OK cell='zq9term\\|'
+v1 fact.facts open [exploratory] WRONG cell='zq9term\\'
+v1 fact.facts tight [exploratory] WRONG cell='zq9term\\'
+v1 fact.references spaced [scored] OK cell='zq9term\\|'
+v1 fact.references open [exploratory] WRONG cell='zq9term\\'
+v1 fact.references tight [exploratory] WRONG cell='zq9term\\'
+TERMINAL tree=v1 scored observed=2 ok=2 wrong=0 | exploratory observed=4 ok=0 wrong=4
+v2 fact.facts spaced [scored] OK cell='zq9term\\|'
+v2 fact.facts open [exploratory] WRONG cell='zq9term\\'
+v2 fact.facts tight [exploratory] WRONG cell='zq9term\\'
+v2 fact.references spaced [scored] OK cell='zq9term\\|'
+v2 fact.references open [exploratory] WRONG cell='zq9term\\'
+v2 fact.references tight [exploratory] WRONG cell='zq9term\\'
+TERMINAL tree=v2 scored observed=2 ok=2 wrong=0 | exploratory observed=4 ok=0 wrong=4
+v3 fact.facts spaced [scored] OK cell='zq9term\\|'
+v3 fact.facts open [exploratory] WRONG cell='zq9term\\'
+v3 fact.facts tight [exploratory] WRONG cell='zq9term\\'
+v3 fact.references spaced [scored] OK cell='zq9term\\|'
+v3 fact.references open [exploratory] WRONG cell='zq9term\\'
+v3 fact.references tight [exploratory] WRONG cell='zq9term\\'
+TERMINAL tree=v3 scored observed=2 ok=2 wrong=0 | exploratory observed=4 ok=0 wrong=4
+t1 fact.facts spaced [scored] WRONG cell='zq9term'
+t1 fact.facts open [exploratory] WRONG cell='zq9term\\'
+t1 fact.facts tight [exploratory] WRONG cell='zq9term\\'
+t1 fact.references spaced [scored] WRONG cell='zq9term'
+t1 fact.references open [exploratory] WRONG cell='zq9term\\'
+t1 fact.references tight [exploratory] WRONG cell='zq9term\\'
+TERMINAL tree=t1 scored observed=2 ok=0 wrong=2 | exploratory observed=4 ok=0 wrong=4
+t1 differential (seed 2026111600):
+READER fact.facts | preserved n=300 mismatch=0 raised=119 nonempty=103 | corrected n=300 mismatch=2 raised=128 nonempty=113 | exploratory n=0 mismatch=0 raised=0 nonempty=0
+READER fact.constants | preserved n=300 mismatch=0 raised=6 nonempty=210 | corrected n=300 mismatch=0 raised=0 nonempty=229 | exploratory n=0 mismatch=0 raised=0 nonempty=0
+READER fact.references | preserved n=300 mismatch=0 raised=123 nonempty=99 | corrected n=300 mismatch=4 raised=126 nonempty=128 | exploratory n=0 mismatch=0 raised=0 nonempty=0
+DIFF preserved readers=13 inputs=3771 mismatches=0
+DIFF corrected readers=13 inputs=3784 mismatches=10
+DIFF exploratory inputs=245 mismatches=0
+DIFF seed=2026111600

@@ -1,16 +1,20 @@
-# T2 amendment 1, revision 2 (2026-11-16, for review)
+# T2 amendment 2 (2026-11-16, for review 3)
 
-Status: review 1 returned REVISE (`../review/t2_amendment_reviewer1.md`); coverage repaired and controls rerun
-(section "Review 1 and repair"). Review 2 of revision 2 at de539073 returned REVISE
-(`../review/t2_amendment_reviewer2.md`; section "Review 2"). Not accepted; T2 not frozen.
+Status: amendment 1 was reviewed twice, REVISE both times (`../review/t2_amendment_reviewer1.md`,
+`../review/t2_amendment_reviewer2.md`; sections "Review 1 and repair", "Review 2"). Amendment 2 (section
+"Amendment 2") replaces the primary predicates P1 to P3 on Hamm's ruling of 2026-11-15 (option 2, a bounded
+structural check) and his ruling of 2026-11-16 on the terminal escaped pipe. One bounded implementation, one
+independent review; not reviewed yet. Not accepted; T2 not frozen.
 
 | Conclusion | Status |
 |---|---|
 | C5 detects the defective reference and M1 to M13 | demonstrated (round 2; review 2 reran M1 to M9, M11, M12 on the 56-test file) |
 | C5 accepts valid alternative implementations | shown for three refactors built by review 2 (v1, v2, v3: 56 and 6 passed) |
-| C5 detects every wrong convention in the classes it claims | NO: review 2 found four survivors |
-| P1 to P3 accept valid alternative implementations | NO: review 2's v1 and v3 score PRIMARY 1/4 with P4 and C5 passing |
-| Two keeper dispatches fit the 30-minute cap | UNKNOWN: two acceptance runs take 526 of 1800 s; dispatch overhead and two runs at once are unmeasured |
+| C5 detects every wrong convention in the classes it claims | NO: review 2's four survivors pass it. The new P3 rejects all four (6 to 31 preserved mismatches) |
+| P1 and P2 accept valid alternative implementations | shown for pos2, v1, v2, v3 (PRIMARY 4/4); a1, valid with a delegation the AST does not resolve, is AMBIGUOUS, not rejected |
+| P1 rejects unconsolidated implementations with correct behaviour | shown for u1, u2, u3 (P1 FAIL with P3, P4, C5 passing) |
+| P3 is correct at a row-final escaped pipe | spaced closing: shown at two readers, with a negative control. Open and tight closings: outside the contract; every reference fails the independent oracle there (unresolved parser-contract issue) |
+| Two keeper dispatches fit the 30-minute cap | UNKNOWN: two serial acceptance runs take 526 of 1800 s; two at once take 331 and 328 s each, inside the 10-minute timeout; dispatch overhead is unmeasured |
 T2 is not frozen. No experiment cell has run. `PREREG.md` is unchanged: the 30-minute cap, the evaluator, the
 thresholds and the adjudication rules stand.
 
@@ -179,6 +183,133 @@ Probe diffs and outputs: `review2_probes/`.
 Two rounds of enumerated fixtures each left survivors of the same class. A third round of the same kind is not
 planned without a ruling on the approach.
 
+## Amendment 2: structural P1 and P2, differential P3 (not reviewed)
+
+Motivation: the complete false-positive and false-negative record of the instrument before this amendment.
+
+| Kind | Case | Instrument at the time | Outcome |
+|---|---|---|---|
+| False positive | defective reference (`old_pos_defective.diff`) | frozen P1 to P3, C1 to C4 | PRIMARY 3/3, CONSTRAINTS 4/4 while two readers changed behaviour |
+| False positive | M2, M6, M8, M9 | frozen acceptance (30 files) | survive |
+| False positive | review 1's dashboard reader on the strip convention (M10) | 31-test preserved file, corrected file, 30 files | passes all |
+| False positive | `s_tab`, `s_hdr`, `s_led`, `s_ledsingle` (review 2) | 56-test preserved file, corrected file, tree's tests | pass all |
+| False negative | v1 (compiled pattern), v3 (intermediate variable) | syntactic P1 to P3 | PRIMARY 1/4 with P4 and C5 passing |
+| Misreport | defective reference said to pass the frozen acceptance | none stored | it fails: 129 tests (section "Why", item 3) |
+
+Rulings (Hamm 2026-11-15): primaries are P1 consolidation (all eight former sites use one shared parsing
+implementation), P2 removal (the eight independent baseline splitters are removed), P3 behaviour (correct
+parsing through every affected reader), P4 the existing behavioural gate. The structural check reads AST
+relationships, bounded to the eight sites and the supported patterns; an ambiguous case goes to independent
+adjudication, never to automatic rejection. Survivors are met by differential testing against the baseline for
+preserved behaviour and against the unified-parser contract for corrected behaviour, generated tests outside
+both arms, seed and failing inputs recorded, undocumented behaviour ruled exploratory not required. Stopping
+rule: one bounded implementation and one independent review; if the checker still rejects a valid
+implementation or accepts an unconsolidated one, instrument development stops and the problem returns to Hamm.
+
+| Predicate | Before | After |
+|---|---|---|
+| P1 | exactly one function matching a name or a `return` pattern | `predicates/t2_structure.py`: every anchor of the eight sites reaches one and the same delimiter definition. PASS, FAIL (two anchors share none) or AMBIGUOUS |
+| P2 | the one splitter called directly on two rows | `t2_structure.py`: no baseline site function or anchor holds a split in its own body. PASS, FAIL or AMBIGUOUS |
+| P3 | no line matching an inline-split pattern | `predicates/t2_differential.py`, seed 2026111600, 13 reader entry points, 300 rows per reader and mode: 0 mismatches in preserved mode (3771 inputs, tree equals baseline) and in corrected mode (3784 inputs, tree equals the baseline on the row with each escaped pipe replaced by an ordinary character); 245 exploratory inputs unscored; mismatching inputs written to a file |
+| P4, C1 to C5 | | unchanged |
+| Summary line | `PRIMARY k/4 CONSTRAINTS j/5` | `PRIMARY k/4 AMBIGUOUS a CONSTRAINTS j/5` |
+
+Acceptance (`accept/`), the 30 files, the 56-test file, the cap and the timeout are unchanged. The three new
+files sit with the predicates; arms cannot read them.
+
+Structure definitions (the docstring of `t2_structure.py` is the reference). A delimiter definition is a
+function body that splits on a pipe: `.split`/`re.split` with a pipe constant or a name bound to one, a
+compiled pipe pattern's `.split`, or a comparison with `"|"` inside a loop; a pattern bound at module level is
+one definition for every function that uses it. Anchors come from the baseline: the callers of the 5 splitter
+definitions and the 3 functions holding the inline splits (8 sites, 12 anchors). Calls are followed through
+local functions, module-level aliases and lambdas, `from m import f as g` and `import m as n`, to depth 8.
+
+Controls (`matrix4.txt`, run by the orchestrator, three trees at a time under the suite lock; every tree's
+`git status` hash equal before and after; 105 to 120 s per tree; `structure_matrix.txt` holds the P1 and P2
+lines alone). The worker's differential counts (`differential_controls_worker.txt`) were reproduced exactly.
+
+| Tree | What it is | P1 | P2 | P3 preserved / corrected mismatches | P4 | C5 | PRIMARY | CONSTRAINTS |
+|---|---|---|---|---|---|---|---|---|
+| base | baseline | FAIL | FAIL | 0 / 688 | 6 fail | 56 | 0/4 | 4/5 (C4, empty diff) |
+| pos2 | corrected reference | PASS | PASS | 0 / 0 | 6 | 56 | 4/4 | 5/5 |
+| v1 | valid: compiled module-level pattern, two functions, wrappers kept | PASS | PASS | 0 / 0 | 6 | 56 | 4/4 | 5/5 |
+| v2 | valid: character scan in an existing module, lambda aliases | PASS | PASS | 0 / 0 | 6 | 56 | 4/4 | 5/5 |
+| v3 | valid: intermediate variable, helpers renamed | PASS | PASS | 0 / 0 | 6 | 56 | 4/4 | 5/5 |
+| a1 | valid: static method behind `split_cells = Row.cells` | AMBIGUOUS | PASS | 0 / 0 | 6 | 56 | 3/4, AMBIGUOUS 1 | 5/5 |
+| u1 | unconsolidated: the reference splitter copied into each of six modules | FAIL | PASS | 0 / 0 | 6 | 56 | 3/4 | 5/5 |
+| u2 | unconsolidated: six copies in one module, one per reader module | FAIL | PASS | 0 / 0 | 6 | 56 | 3/4 | 5/5 |
+| u3 | unconsolidated: the eight baseline splits fixed in place | FAIL | FAIL | 0 / 0 | 6 | 56 | 2/4 | 5/5 |
+| pos_inline | defective, three inline splits left | FAIL | FAIL | 323 / 540 | 3 fail | 8 fail | 0/4 | 4/5 |
+| pos | defective reference | PASS | PASS | 445 / 396 | 6 | 14 fail | 3/4 | 4/5 |
+| M10 | pos2, dashboard reader on the strip convention | PASS | PASS | 221 / 248 | 6 | 6 fail | 3/4 | 4/5 |
+| M11 | base, `learning_gate._cells` on the slice convention | FAIL | FAIL | 17 / 662 | 5 fail | 2 fail | 0/4 | 4/5 |
+| M12 | base, `build_fact_graph._cells` on the slice convention | FAIL | FAIL | 118 / 494 | 5 fail | 2 fail | 0/4 | 4/5 |
+| M13 | pos2, every reader on the slice convention | PASS | PASS | 319 / 312 | 6 | 12 fail | 3/4 | 4/5 |
+| s_tab | review 2 survivor | PASS | PASS | 21 / 13 | 6 | 56 | 3/4 | 5/5 |
+| s_hdr | review 2 survivor | PASS | PASS | 6 / 6 | 6 | 56 | 3/4 | 5/5 |
+| s_led | review 2 survivor | PASS | PASS | 31 / 18 | 6 | 56 | 3/4 | 5/5 |
+| s_ledsingle | review 2 survivor | PASS | PASS | 9 / 9 | 6 | 56 | 3/4 | 5/5 |
+
+Read: the four valid refactors pass every primary. Every tree with wrong behaviour fails P3. The three
+unconsolidated trees keep correct behaviour (P3, P4, C5 pass) and fail P1. The four survivors are rejected by
+P3 alone: C5 and the acceptance still pass them, so an arm can hand in such a tree with `ACCEPT_RC=0` and the
+defect shows only in the hidden predicates. u1 and u2 pass P2: the baseline splitters are gone under their
+names and anchors; P1 carries the rejection. M1 to M9 and the constraint negatives `pos_c1` to `pos_c4` were
+not rerun; C1 to C4 are unchanged.
+
+Control trees: `build_structure_controls.py` (u1, u2, u3, a1), `build_t1.py` (t1), `review2_probes/` (v1 to v3,
+survivors; `v1_table_cells.py` and `v3_md_table.py` are the new modules the diffs omit), `mutants/`.
+
+### Terminal escaped pipe (Hamm 2026-11-16, provisional)
+
+`terminal_cell_check.py`, output `terminal_cell.txt`: one valid row per reader whose last cell is `v\|`, three
+closings, against an oracle written without any tree (the cell is `v` followed by a pipe, backslash kept or
+dropped). 2 of the 13 readers return the last cell as a parsed cell (`read_facts`, `reference_table_rows`);
+the other 11 are not judged.
+
+| Closing | Scope | base | pos2, v1, v2, v3 | t1 (drops a cell-final escaped pipe) |
+|---|---|---|---|---|
+| spaced `v\| \|` | scored | raises (2 of 2) | correct (2 of 2) | wrong (2 of 2); P3 corrected mismatches 10, preserved 0 (`t1_mismatches.jsonl`) |
+| open `v\|` | exploratory | `v\` | `v\` (known oracle failure) | `v\` |
+| tight `v\|\|` | exploratory | `v\` | `v\` (known oracle failure) | `v\` |
+
+Unresolved parser-contract issue: `.strip("|")` on the row removes the bar of an escaped pipe that ends the
+row, so the last cell loses it. Affected forms: open and tight, at every reader on the strip convention;
+observed at the two readers above. Reproducer: `| F1 | ... | v\|` through `build_fact_graph.read_facts`
+(`terminal_cell_check.py`). The baseline, the corrected reference and v1 to v3 all do it. Preserving that
+baseline behaviour is not satisfying the oracle: the forms are outside the bounded T2 contract, neither invalid
+syntax nor correct behaviour, and the references hold their standing for the scored contract only. Production
+parsing is not changed here.
+
+Condition checked before the exclusion (`terminal_form_scan.py`, `terminal_form_scan.txt`): 5067 table-like
+lines in 215 tracked text files at ac995dde, 7 with an escaped pipe, all inside a cell: 0 open, 0 tight,
+0 spaced; the same counts at `dev` fabe3c02 with the README line. Specifications found by grep for the escape
+rule: item 17-95 ("honours escaped pipes") and `test_an_escaped_pipe_inside_a_code_span_is_content`
+(`` `a\|b` `` is one cell); both concern a pipe inside a cell, neither a row-final one. No conflict to escalate.
+
+The scored generator is unchanged. It emits the spaced form and the open form (45 rows end in an escaped
+pipe); at this seed none of the open rows reaches a reader that returns the cell (inferred from 0 mismatches on
+pos2 and the two observing readers' failure in the check), and it never emits the tight form.
+
+### Timing, two runs at once
+
+`accept_pair_timing.txt`: baseline and corrected reference started together under the suite lock: 331 s and
+328 s, both `ACCEPT_RC=0` (22 of 22; 1527 passed, 4 skipped in 275 s and 271 s; 56 passed), 55% of the
+10-minute per-run timeout; alone, 242 to 263 s. The differential worker's controls ran during the measurement,
+so the figure includes that load. Keeper dispatch overhead is not measured.
+
+### Limits
+
+- Static reading cannot prove call relationships in general. Unresolved: attribute aliases, methods,
+  `functools.partial`, dynamic dispatch, a splitter outside `scripts/`: these give AMBIGUOUS.
+- P1 FAIL needs two anchors with no definition in common. A tree where every anchor reaches the shared
+  definition and one also keeps its own split is AMBIGUOUS on P1; P2 then reads FAIL or AMBIGUOUS.
+- A splitter with no recognised split form (for example `str.partition` in a loop) is AMBIGUOUS.
+- Who adjudicates an AMBIGUOUS cell, and how the answer enters the ledger, is not in `PREREG.md`: Hamm's.
+- P3's corrected oracle is the baseline on a substituted row, so it inherits baseline behaviour around the
+  escape; the terminal forms above are where that differs from the independent oracle.
+- One seed. The row classes are those of the ruling; 300 rows per reader and mode.
+
 ## Readings
 
 - No corrected test covers `release_gate.table_data_rows`: an escaped pipe does not change its output.
@@ -193,4 +324,5 @@ planned without a ruling on the approach.
 
 ## Owed before freeze
 
-Independent review 2 of this amendment and of the changed `PACKETS.md` (ACCEPT-t2, the deployment paragraph).
+One independent review of amendment 2 at its final SHA (the stopping rule allows one). Hamm: the adjudication
+route for an AMBIGUOUS cell; the go decision. Experiment execution stays withheld.

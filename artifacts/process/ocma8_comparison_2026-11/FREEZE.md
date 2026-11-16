@@ -78,7 +78,12 @@ the predicates. Measured alone: 257, 242 and 245 s per run on the baseline; two 
 minutes. T2 after the amendment: baseline 0/4 and 4/5, corrected reference 4/4 and 5/5 with `ACCEPT_RC=0`,
 defective reference 4/4 and 4/5 with `ACCEPT_RC=1`. The row for T2 in the table above is the pre-amendment
 record. Review 1 of the amendment returned REVISE (a wrong refactor passed); the preserved test grew from 31 to
-56 tests and the controls were rerun (revision 2). The T2 packet is not frozen until review 2 returns ACCEPT.
+56 tests and the controls were rerun (revision 2). Review 2 returned REVISE (four surviving wrong conventions;
+P1 to P3 rejected two valid refactors). Amendment 2 (Hamm 2026-11-15 and 2026-11-16) replaces P1 to P3 by an
+AST structure check and a generated differential test: baseline 0/4 and 4/5, corrected reference and three
+other valid refactors 4/4 and 5/5, every wrong or unconsolidated control below 4/4; two acceptance runs at once
+take 331 and 328 s. The T2 row of the table above is superseded by these figures. The T2 packet is not frozen
+until the one review of amendment 2 returns ACCEPT and Hamm rules on the AMBIGUOUS route.
 
 Baselines re-read 2026-11-16: jnwb `dev` moved to fabe3c02 (one README line); T2 and T3 keep ac995dde.
 

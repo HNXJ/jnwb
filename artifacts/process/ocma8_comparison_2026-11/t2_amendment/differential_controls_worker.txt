@@ -1,0 +1,39 @@
+T2 differential controls. Harness: D:/repos/_work/exp_t2diff/t2_differential.py. Seed 2026111600, 300 rows per reader per mode. Baseline tree: D:/repos/_work/exp_prereq/t2/base at ac995dde, clean before and after.
+Columns: preserved mismatches/inputs | corrected mismatches/inputs | exploratory mismatches/inputs | seconds | rc. Inputs: preserved 3771, corrected 3784, exploratory 245 (identical for every tree, same seed).
+
+tree | role | preserved | corrected | exploratory | seconds | rc | expected | met
+exp_prereq/t2/base vs itself | base-as-tree | 0/3771 | 688/3784 | 20/245 | 58 | 0 | corrected > 0 at base-failing readers | yes
+exp_t2beh/pos2 | corrected reference | 0/3771 | 0/3784 | 0/245 | 54 | 0 | 0, 0 | yes
+exp_t2ctl/v1 | valid refactor | 0/3771 | 0/3784 | 0/245 | 67 | 0 | 0, 0 | yes
+exp_t2ctl/v2 | valid refactor | 0/3771 | 0/3784 | 0/245 | 80 | 0 | 0, 0 | yes
+exp_t2ctl/v3 | valid refactor | 0/3771 | 0/3784 | 0/245 | 80 | 0 | 0, 0 | yes
+exp_prereq/t2/pos | wrong refactor | 445/3771 | 396/3784 | 58/245 | 52 | 0 | preserved > 0 | yes
+exp_t2cov/m10 | wrong refactor | 221/3771 | 248/3784 | 0/245 | 46 | 0 | preserved > 0 | yes
+exp_t2cov/m11 | wrong refactor | 17/3771 | 662/3784 | 36/245 | 53 | 0 | preserved > 0 | yes
+exp_t2cov/m12 | wrong refactor | 118/3771 | 494/3784 | 20/245 | 53 | 0 | preserved > 0 | yes
+exp_t2cov/m13 | wrong refactor | 319/3771 | 312/3784 | 58/245 | 52 | 0 | preserved > 0 | yes
+exp_t2ctl/s_tab | wrong refactor | 21/3771 | 13/3784 | 0/245 | 49 | 0 | preserved > 0 | yes
+exp_t2ctl/s_hdr | wrong refactor | 6/3771 | 6/3784 | 0/245 | 48 | 0 | preserved > 0 | yes
+exp_t2ctl/s_led | wrong refactor | 31/3771 | 18/3784 | 8/245 | 48 | 0 | preserved > 0 | yes
+exp_t2ctl/s_ledsingle | wrong refactor | 9/3771 | 9/3784 | 0/245 | 61 | 0 | preserved > 0 | yes
+
+Base-as-tree corrected mismatches by reader (sum 688; exploratory 20 = ledger 7 + defect 13, all corrected-mode):
+dashboard.deferred 0 | dashboard.references 0 | dashboard.order 0 | dashboard.studies 0 | fact.facts 134 | fact.constants 179 | fact.references 148 | learning.ledger 36 | learning.mapping 0 | release.roadmap 59 | release.table_data 0 | docs.vocabulary 89 | state.defect 43
+
+Determinism (base vs base): seed 2026111600 run twice: DIFF lines identical (sha256 8f44a0f369067036...), --out files identical (sha256 a840c541c78444013b114ccd8ebf1c52ff22fe7791ccc9ce1494a57bc772c4b0), full logs identical. Seed 7: preserved inputs 3770, corrected 3810, exploratory 220; first fact.facts mismatch row changes from the seed-2026111600 row `| `F1` | boundary\| | the rule holds | `mod.a` | 2026-01\|-02 |` to the seed-7 row `  | `F1\|\|` | boundary | the rule holds | `mod.a`, `mod.b` |  ||`.
+
+Safety: git status --porcelain sha256 unchanged for base (e3b0c442...) and pos2 (9d2c9039...) before and after all runs. Ignored .pyc counts unchanged: base 117, pos2 59.
+
+Readers (13) and entry points: dashboard.deferred = build_dashboard.deferred_section (ROADMAP); dashboard.references = build_dashboard.references_section (REFERENCES); dashboard.order = build_dashboard.order_section (ORDER_RECORD); dashboard.studies = build_dashboard.validations_section, studies- cards (REFERENCES, other builders patched as in the test file); fact.facts = build_fact_graph.read_facts; fact.constants = build_fact_graph.read_constants; fact.references = build_fact_graph.reference_table_rows; learning.ledger = learning_gate.ledger_rows; learning.mapping = learning_gate.mapping_tables; release.roadmap = release_gate.roadmap_rows; release.table_data = release_gate.table_data_rows; docs.vocabulary = docs_form_gate.parse_vocabulary; state.defect = reconstruct_state.open_defect_classes.
+
+Interpretations (packet wording taken as follows):
+1. read_constants is included (exercised by the preserved test file; the packet's enumerated list omits it, "about 11").
+2. CORRECTED is applied to all 13 readers ("every reader"); the 6-test corrected file covers 6 of them.
+3. EXPLORATORY = any input (either mode) of learning.ledger or state.defect whose data row, after leading whitespace, does not start with a pipe; excluded from preserved and corrected counts.
+4. Each input is a document for one reader and runs through that reader only.
+5. Corrected header/separator variants keep the escaped pipes in the data row.
+6. Temp files: TMPDIR/TEMP/TMP set to D:/pytest_temp/t2diff_tmp for every run.
+
+Harness fix before any counted run: the first full base-vs-base attempt stopped at generation (exit 1, HarnessError from the escape-bookkeeping assertion). Cause: two escaped pipes in one cell, the second inserted inside the first (`\\||`). Fixed by picking escape positions on the original cell text and inserting right to left. No comparison rule changed.
+
+Smoke run (3 rows) printed four WARN lines (empty examined sets); none appear in any 300-row run.

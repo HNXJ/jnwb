@@ -1,0 +1,10 @@
+harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+pytest rc=0 last: 1527 passed, 4 skipped, 1 warning in 275.12s (0:04:35)
+table rows rc=0 last: 56 passed in 2.48s
+ACCEPT_RC=0
+base rc=0 wall_s=331 porcelain e3b0c44298fc -> e3b0c44298fc
+harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+pytest rc=0 last: 1527 passed, 4 skipped, 1 warning in 270.92s (0:04:30)
+table rows rc=0 last: 56 passed in 2.96s
+ACCEPT_RC=0
+pos2 rc=0 wall_s=328 porcelain 9d2c90398cf6 -> 9d2c90398cf6

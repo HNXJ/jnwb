@@ -2,20 +2,22 @@ r"""Predicates for experiment task t2: one markdown table cell splitter under sc
 
 Usage: python predicates_t2.py <tree> <baseline tree>
 
-Prints one line per check (P1..P4, C1..C5), then `PRIMARY k/4 CONSTRAINTS j/5`. Exit 0 when it runs to
-the end, 2 on a usage error. Standard library only (P4 and C5 run pytest as a subprocess); every subprocess
-runs with cwd=<tree>.
+Prints one line per check (P1..P4, C1..C5), then `PRIMARY k/4 AMBIGUOUS a CONSTRAINTS j/5`. Exit 0 when it
+runs to the end, 2 on a usage error. Standard library only (P3, P4 and C5 run subprocesses); every subprocess
+runs with cwd=<tree>. Amendment 2 (t2_amendment/AMENDMENT.md) replaced the syntactic P1 to P3.
 
-P1  exactly one function under scripts/**/*.py is a markdown-row cell splitter. A function counts when its
-    name is in BASELINE_NAMES, or when a return statement in it matches SPLIT_RETURN (applied to the
-    return statement's source). Inline split lines outside counted functions are printed, not counted.
-P2  that one splitter honours escaped pipes: it is loaded by file path with importlib in a subprocess
-    (`-I`, cwd=<tree>) and called on `| a \| b | c |` (2 cells; first `a \| b` or `a | b` after strip,
-    second `c`) and on `| x | y |` (['x', 'y'] after strip). FAIL when P1 does not count exactly 1.
-P3  no inline markdown-row split remains: SPLIT_INLINE (the idiom `.strip("|").split("|")` or a split on
-    an unescaped/escaped pipe) matches no line under scripts/**/*.py outside the counted splitter
-    definitions (the single remaining one, when P1 is 1). PASS only when the count is 0; FAIL when P1
-    is not exactly 1. The matches are printed; at the baseline they are BASELINE_INLINE_SITES.
+P1  consolidation: all eight baseline split sites use one shared parsing implementation. Read from the AST by
+    `t2_structure.py` (beside this script; its docstring is the definition). PASS, FAIL or AMBIGUOUS.
+P2  removal: the eight independent baseline splitters are gone. `t2_structure.py`. PASS, FAIL or AMBIGUOUS.
+    AMBIGUOUS is neither a pass nor a rejection: it is counted apart and the cell goes to independent
+    adjudication of the tree against the P1 and P2 sentences above.
+P3  behaviour through every affected reader: `t2_differential.py` (beside this script) generates table rows
+    from DIFF_SEED and compares what each reader's entry point returns in <tree> and in <baseline tree>:
+    preserved mode (rows without an escaped pipe; the tree must equal the baseline) and corrected mode (rows
+    with escaped pipes; the tree must equal the declared contract). PASS when it exits 0 with DIFF_READERS
+    readers, more than 0 inputs and 0 mismatches in both modes, and no reader whose baseline results are all
+    empty (a WARN line). The exploratory bucket is printed, unscored.
+    Every mismatching input is written to the file named in the line.
 P4  the corrected behaviour holds at each reader's entry point: pytest on `t2_corrected_test.py` (beside
     this script) exits 0 with exactly CORRECTED_TESTS passed (an escaped pipe inside a cell changes neither
     the rows nor the cells read). Independent of the refactor's structure; FAIL at the baseline.
@@ -30,54 +32,36 @@ C3  the C1 gate run changes no tracked non-.py file: no non-.py entry is new in 
     sha256 of every tracked non-.py file is unchanged across the run.
 C4  every file that differs from the baseline commit (tracked diff plus untracked, not ignored) lies under
     scripts/ or tests/. An empty set of differing files is FAIL: nothing was examined.
-
-Baseline (ac995dde) splitter definitions are BASELINE_DEFINITIONS; the survey counted 5 definitions in 4
-files, and 8 pipe-split sites (the 5 definitions plus 3 inline sites in larger functions).
 """
 
 import ast
 import hashlib
-import importlib.util
-import json
 import os
 import pathlib
 import re
 import subprocess
 import sys
 
-#: Splitter definitions at the baseline ac995dde, from an AST survey: (file, line, name).
-#: Line numbers are the baseline's; P1 matches the tree by file and name.
-BASELINE_DEFINITIONS = (
-    ("scripts/build_dashboard.py", 353, "_cells"),
-    ("scripts/build_fact_graph.py", 224, "_cells"),
-    ("scripts/learning_gate.py", 52, "_cells"),
-    ("scripts/release_gate.py", 1289, "_cells"),
-    ("scripts/release_gate.py", 1296, "_table_cells"),
-)
-BASELINE_NAMES = frozenset(name for _, _, name in BASELINE_DEFINITIONS)
-#: The baseline idiom in a return statement: a split on a pipe, escaped-pipe lookbehind included.
-SPLIT_RETURN = re.compile(r"""split\(\s*r?["'][^"']*\|""")
-#: P3's idiom: an inline split on a pipe, in any statement (not only a return). Counted by P3 outside the
-#: splitter definitions. At the baseline it matches 8 lines: the 5 definition bodies and the 3 sites below.
-SPLIT_INLINE = re.compile(r"""strip\(\s*["']\|["']\s*\)\.split\(|split\(\s*r?["'](?:\(\?<!\\\\\))?\\?\|["']""")
-#: The inline split sites at the baseline ac995dde outside the five definitions: (file, line). Checked by
-#: P3 at the baseline: SPLIT_INLINE matches exactly these three lines outside BASELINE_DEFINITIONS.
-BASELINE_INLINE_SITES = (
-    ("scripts/build_fact_graph.py", 399),
-    ("scripts/docs_form_gate.py", 285),
-    ("scripts/reconstruct_state.py", 224),
-)
-ROW_ESCAPED = "| a \\| b | c |"
-ROW_PLAIN = "| x | y |"
-GATE_PASS = re.compile(r"ALL HARNESS GATES PASSED\. (\d+) of (\d+) gates executed\.")
-PROBE_TAG = "T2_PROBE_RESULT "
-GATE_TIMEOUT_S = 540
 SELF = pathlib.Path(__file__).resolve()
-#: Behavioural tests (t2 amendment): file and the exact number of tests that must pass.
+sys.path.insert(0, str(SELF.parent))
+import t2_structure  # noqa: E402
+
+#: Names of the baseline splitter definitions (C2).
+BASELINE_NAMES = frozenset(name for _, name in t2_structure.DEF_SITES)
+GATE_PASS = re.compile(r"ALL HARNESS GATES PASSED\. (\d+) of (\d+) gates executed\.")
+GATE_TIMEOUT_S = 540
+#: Behavioural tests: file and the exact number of tests that must pass.
 CORRECTED = (SELF.parent / "t2_corrected_test.py", 6)
 PRESERVED = (SELF.parent.parent / "accept" / "t2_preserved_test.py", 56)
 PYTEST_SUMMARY = re.compile(r"(\d+) (passed|failed|error|errors|skipped|xfailed|xpassed|deselected)\b")
 PYTEST_TIMEOUT_S = 300
+#: Differential test (P3): script, generation seed, number of reader entry points it must exercise.
+DIFFERENTIAL = SELF.parent / "t2_differential.py"
+DIFF_SEED = 2026111600
+DIFF_READERS = 13
+DIFF_LINE = re.compile(r"^DIFF (preserved|corrected) readers=(\d+) inputs=(\d+) mismatches=(\d+)\s*$", re.M)
+DIFF_EXPLORATORY = re.compile(r"^DIFF exploratory inputs=(\d+) mismatches=(\d+)\s*$", re.M)
+DIFF_TIMEOUT_S = 600
 CHILD_ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
 
 
@@ -96,59 +80,6 @@ def git(path, *args):
 
 def script_files(tree):
     return sorted(p for p in (tree / "scripts").rglob("*.py") if "__pycache__" not in p.parts)
-
-
-def definitions(tree):
-    """Counted splitter definitions as (file, line, name, by_name, by_body), and inline split lines."""
-    found, inline = [], []
-    for path in script_files(tree):
-        source = path.read_text(encoding="utf-8")
-        module = ast.parse(source, filename=str(path))
-        rel = path.relative_to(tree).as_posix()
-        spans = []
-        for fn in ast.walk(module):
-            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            by_name = fn.name in BASELINE_NAMES
-            by_body = any(isinstance(node, ast.Return) and node.value is not None
-                          and SPLIT_RETURN.search(ast.get_source_segment(source, node) or "")
-                          for node in ast.walk(fn))
-            if by_name or by_body:
-                found.append((rel, fn.lineno, fn.name, by_name, by_body))
-                spans.append((fn.lineno, fn.end_lineno))
-        for number, line in enumerate(source.splitlines(), 1):
-            if SPLIT_INLINE.search(line) and not any(a <= number <= b for a, b in spans):
-                inline.append(f"{rel}:{number}")
-    return sorted(found), inline
-
-
-def probe(tree, rel, name):
-    """Import the splitter by path in a child with cwd=tree, call it on both rows, return the JSON result."""
-    payload = json.dumps({"path": str(tree / rel), "name": name, "rows": [ROW_ESCAPED, ROW_PLAIN]})
-    proc = run([sys.executable, "-I", str(SELF)], tree, 120, dict(CHILD_ENV, T2_PROBE=payload))
-    if proc.returncode != 0:
-        last = (text(proc.stderr).strip().splitlines() or ["no stderr"])[-1]
-        raise RuntimeError(f"probe rc={proc.returncode}: {last}")
-    for line in text(proc.stdout).splitlines():
-        if line.startswith(PROBE_TAG):
-            return json.loads(line[len(PROBE_TAG):])
-    raise RuntimeError("probe printed no result line")
-
-
-def probe_child():
-    """Child mode, entered only through the T2_PROBE environment variable set by probe()."""
-    payload = json.loads(os.environ["T2_PROBE"])
-    sys.path[:0] = [os.getcwd(), os.path.dirname(payload["path"])]
-    spec = importlib.util.spec_from_file_location("t2_probe_target", payload["path"])
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    function = getattr(module, payload["name"])
-    out = {}
-    for row in payload["rows"]:
-        value = function(row)
-        out[row] = {"type": type(value).__name__,
-                    "value": list(value) if isinstance(value, (list, tuple)) else None}
-    print(PROBE_TAG + json.dumps(out))
 
 
 def tracked_entries(tree):
@@ -197,44 +128,38 @@ def gate_run(tree):
             "paths": paths, "before": before, "after": digests(tree, paths)}
 
 
-def check_p1(found, inline):
-    counted = ", ".join(f"{rel}:{line} {name}" for rel, line, name, _, _ in found) or "none"
-    by_name = sum(1 for f in found if f[3])
-    by_body = sum(1 for f in found if f[4])
-    still = sum(1 for rel, _, name in BASELINE_DEFINITIONS
-                if any(f[0] == rel and f[2] == name for f in found))
-    detail = (f"definitions={len(found)} [{counted}] by_name={by_name} by_body={by_body} "
-              f"baseline_pairs_still_defined={still}/{len(BASELINE_DEFINITIONS)} "
-              f"inline_not_counted={len(inline)} [{', '.join(inline)}]")
-    return len(found) == 1, detail
+def check_structure(tree, base):
+    """P1 and P2 as (verdict, line); a tree the AST cannot read is AMBIGUOUS, never a rejection."""
+    try:
+        p1, p2, n_sites, n_anchors = t2_structure.evaluate(t2_structure.Tree(tree), t2_structure.Tree(base))
+    except Exception as exc:  # not evaluated: to adjudication
+        why = f"cannot evaluate: {type(exc).__name__}: {exc}"
+        return ("AMBIGUOUS", f"P1 AMBIGUOUS {why}"), ("AMBIGUOUS", f"P2 AMBIGUOUS {why}")
+    return ((p1[0], f"P1 {p1[0]} {p1[1]} [{n_sites} sites, {n_anchors} anchors]"),
+            (p2[0], f"P2 {p2[0]} {p2[1]}"))
 
 
-def check_p2(tree, found):
-    if len(found) != 1:
-        return False, f"not evaluated: P1 counted {len(found)} splitters, need exactly 1"
-    rel, line, name = found[0][0], found[0][1], found[0][2]
-    result = probe(tree, rel, name)
-    one, two = result[ROW_ESCAPED], result[ROW_PLAIN]
-    cells_one, cells_two = one["value"], two["value"]
-    ok_one = (cells_one is not None and len(cells_one) == 2
-              and cells_one[0].strip() in ("a \\| b", "a | b") and cells_one[1].strip() == "c")
-    ok_two = cells_two is not None and [c.strip() for c in cells_two] == ["x", "y"]
-    detail = (f"{rel}:{line} {name}: {ROW_ESCAPED!r} -> {cells_one} ({one['type']}); "
-              f"{ROW_PLAIN!r} -> {cells_two} ({two['type']})")
-    return ok_one and ok_two, detail
-
-
-def check_p3(found, inline):
-    matched = {site.rsplit(":", 1)[0] for site in inline}
-    files_still = sum(1 for rel, _ in BASELINE_INLINE_SITES if rel in matched)
-    detail = (f"inline split matches outside the splitter={len(inline)} [{', '.join(inline)}] "
-              f"baseline_files_still_matching={files_still}/{len(BASELINE_INLINE_SITES)}")
-    return len(found) == 1 and not inline, detail
+def check_p3(tree, base):
+    out = pathlib.Path(f"D:/pytest_temp/exp_t2_pred_{tree.name}_p3_mismatches.jsonl")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    proc = run([sys.executable, str(DIFFERENTIAL), str(tree), str(base), "--seed", str(DIFF_SEED),
+                "--out", str(out)], tree, DIFF_TIMEOUT_S)
+    stdout = text(proc.stdout)
+    modes = {mode: (int(r), int(n), int(m)) for mode, r, n, m in DIFF_LINE.findall(stdout)}
+    explore = DIFF_EXPLORATORY.search(stdout)
+    warned = sum(1 for line in stdout.splitlines() if line.startswith("WARN "))  # a reader with nothing examined
+    passed = (proc.returncode == 0 and set(modes) == {"preserved", "corrected"} and warned == 0
+              and all(r == DIFF_READERS and n > 0 and m == 0 for r, n, m in modes.values()))
+    shown = "; ".join(f"{mode} readers={r} inputs={n} mismatches={m}" for mode, (r, n, m) in sorted(modes.items()))
+    last = (text(proc.stderr).strip().splitlines() or [""])[-1] if proc.returncode else ""
+    detail = (f"differential rc={proc.returncode} seed={DIFF_SEED}; {shown or 'no DIFF lines'}; "
+              f"readers with an empty examined set {warned}; "
+              f"exploratory (unscored) {explore.group(0).strip() if explore else 'absent'}; "
+              f"mismatching inputs in {out.as_posix()}" + (f"; stderr {last!r}" if last else ""))
+    return passed, detail
 
 
 def check_c1(gate):
-    if gate is None:
-        raise RuntimeError("gate did not run")
     proc = gate["proc"]
     lines = [line.strip() for line in text(proc.stdout).splitlines() if line.strip()]
     last = lines[-1] if lines else ""
@@ -283,8 +208,6 @@ def check_c2(tree):
 
 
 def check_c3(gate):
-    if gate is None:
-        raise RuntimeError("gate did not run")
     new = sorted(e for e in gate["after_entries"] - gate["before_entries"] if not e[1].endswith(".py"))
     changed = [p for p in gate["paths"] if gate["before"][p] != gate["after"][p]]
     passed = not new and not changed and len(gate["paths"]) > 0
@@ -337,28 +260,19 @@ def attempt(check_id, fn, *args):
         passed, detail = fn(*args)
     except Exception as exc:  # a check that cannot be evaluated is a FAIL
         passed, detail = False, f"cannot evaluate: {type(exc).__name__}: {exc}"
-    return passed, f"{check_id} {'PASS' if passed else 'FAIL'} {detail}"
+    verdict = "PASS" if passed else "FAIL"
+    return verdict, f"{check_id} {verdict} {detail}"
 
 
 def main(argv):
-    if os.environ.get("T2_PROBE"):
-        probe_child()
-        return 0
     if len(argv) != 2 or not all(pathlib.Path(a).is_dir() for a in argv):
         print("usage: python predicates_t2.py <tree> <baseline tree>", file=sys.stderr)
         return 2
     sys.stdout.reconfigure(errors="backslashreplace")
     tree, base = (pathlib.Path(a).resolve() for a in argv)
 
-    found, inline = [], []
-    try:
-        found, inline = definitions(tree)
-        p1_ok, p1_detail = check_p1(found, inline)
-        p1 = (p1_ok, f"P1 {'PASS' if p1_ok else 'FAIL'} {p1_detail}")
-    except Exception as exc:
-        p1 = (False, f"P1 FAIL cannot evaluate: {type(exc).__name__}: {exc}")
-    p2 = attempt("P2", check_p2, tree, found)
-    p3 = attempt("P3", check_p3, found, inline)
+    p1, p2 = check_structure(tree, base)
+    p3 = attempt("P3", check_p3, tree, base)
 
     gate, gate_error = None, None
     try:
@@ -376,8 +290,9 @@ def main(argv):
     constraints = [c1, c2, c3, c4, c5]
     for _, line in primary + constraints:
         print(line)
-    print(f"PRIMARY {sum(ok for ok, _ in primary)}/{len(primary)} "
-          f"CONSTRAINTS {sum(ok for ok, _ in constraints)}/{len(constraints)}")
+    print(f"PRIMARY {sum(v == 'PASS' for v, _ in primary)}/{len(primary)} "
+          f"AMBIGUOUS {sum(v == 'AMBIGUOUS' for v, _ in primary)} "
+          f"CONSTRAINTS {sum(v == 'PASS' for v, _ in constraints)}/{len(constraints)}")
     return 0
 
 
