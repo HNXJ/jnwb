@@ -1,0 +1,404 @@
+................................F.FFFFFFFFFFFF.FF.FFF                    [100%]
+================================== FAILURES ===================================
+_ test_namespace_and_case_spellings_cannot_bypass_guard[git --namespace foo push origin dev] _
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_namespace_and_case_spelli0')
+command = 'git --namespace foo push origin dev'
+
+    @pytest.mark.parametrize("command", [
+        "git --namespace foo push origin dev",
+        "git --namespace=foo push origin dev",
+        "GIT push origin dev",
+        "git.EXE push origin dev",
+    ])
+    def test_namespace_and_case_spellings_cannot_bypass_guard(tmp_path, command):
+        clone = make_checkout(tmp_path / "_temp_namespace")
+>       assert decide(command, clone) == "deny", command
+E       AssertionError: git --namespace foo push origin dev
+E       assert 'allow' == 'deny'
+E         
+E         - deny
+E         + allow
+
+tests\test_push_guard.py:190: AssertionError
+_ test_namespace_and_case_spellings_cannot_bypass_guard[GIT push origin dev] __
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_namespace_and_case_spelli2')
+command = 'GIT push origin dev'
+
+    @pytest.mark.parametrize("command", [
+        "git --namespace foo push origin dev",
+        "git --namespace=foo push origin dev",
+        "GIT push origin dev",
+        "git.EXE push origin dev",
+    ])
+    def test_namespace_and_case_spellings_cannot_bypass_guard(tmp_path, command):
+        clone = make_checkout(tmp_path / "_temp_namespace")
+>       assert decide(command, clone) == "deny", command
+E       AssertionError: GIT push origin dev
+E       assert 'allow' == 'deny'
+E         
+E         - deny
+E         + allow
+
+tests\test_push_guard.py:190: AssertionError
+_ test_namespace_and_case_spellings_cannot_bypass_guard[git.EXE push origin dev] _
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_namespace_and_case_spelli3')
+command = 'git.EXE push origin dev'
+
+    @pytest.mark.parametrize("command", [
+        "git --namespace foo push origin dev",
+        "git --namespace=foo push origin dev",
+        "GIT push origin dev",
+        "git.EXE push origin dev",
+    ])
+    def test_namespace_and_case_spellings_cannot_bypass_guard(tmp_path, command):
+        clone = make_checkout(tmp_path / "_temp_namespace")
+>       assert decide(command, clone) == "deny", command
+E       AssertionError: git.EXE push origin dev
+E       assert 'allow' == 'deny'
+E         
+E         - deny
+E         + allow
+
+tests\test_push_guard.py:190: AssertionError
+______ test_tag_push_refuses_when_the_newest_main_run_is_not_at_the_tip _______
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_tag_push_refuses_when_the0')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb..."status": "completed", "created_at": "2026-11-02T18:56:16Z"}]}', 'paths': [], 'status': 200}, 'http://127.0.0.1:64517')
+
+    def test_tag_push_refuses_when_the_newest_main_run_is_not_at_the_tip(tmp_path, ci_api):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path)
+        state["body"] = _body([_run("CI/CD", OLDER_SHA, "success")])
+        proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+        out = proc.stdout + proc.stderr
+        assert proc.returncode != 0, out
+>       assert "refusing" in out and "tip" in out, out
+E       AssertionError: not on --tag
+E         
+E       assert ('refusing' in 'not on --tag\n')
+
+tests\test_push_guard.py:294: AssertionError
+___________ test_tag_push_refuses_when_a_main_run_at_the_tip_failed ___________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_tag_push_refuses_when_a_m0')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "bb2937b15617de7efda04fe9a76f43b4066bfb..."status": "completed", "created_at": "2026-11-02T18:56:16Z"}]}', 'paths': [], 'status': 200}, 'http://127.0.0.1:64518')
+
+    def test_tag_push_refuses_when_a_main_run_at_the_tip_failed(tmp_path, ci_api):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path)
+        tip = _git(repo, "rev-parse", "origin/main")
+        state["body"] = _body([_run("CI/CD", tip, "failure")])
+        proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+        out = proc.stdout + proc.stderr
+        assert proc.returncode != 0, out
+>       assert "not successful" in out, out
+E       AssertionError: not on --tag
+E         
+E       assert 'not successful' in 'not on --tag\n'
+
+tests\test_push_guard.py:306: AssertionError
+_______________ test_tag_push_refuses_an_unreadable_main_answer _______________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_tag_push_refuses_an_unrea0')
+ci_api = ({'body': b'{"message": "API rate limit exceeded"}', 'paths': [], 'status': 403}, 'http://127.0.0.1:64521')
+
+    def test_tag_push_refuses_an_unreadable_main_answer(tmp_path, ci_api):
+        state, url = ci_api
+        state["status"], state["body"] = 403, b'{"message": "API rate limit exceeded"}'
+        repo, bare, home = _scaffold(tmp_path)
+        proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+        out = proc.stdout + proc.stderr
+        assert proc.returncode != 0, out
+>       assert "unreadable" in out, out
+E       AssertionError: not on --tag
+E         
+E       assert 'unreadable' in 'not on --tag\n'
+
+tests\test_push_guard.py:317: AssertionError
+____________________ test_tag_name_must_be_vX_Y_Z[0.2.17] _____________________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_tag_name_must_be_vX_Y_Z_00')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "0af093c5fe57b598dfbc096cc2c389d9cf91f2..."status": "completed", "created_at": "2026-11-02T18:56:16Z"}]}', 'paths': [], 'status': 200}, 'http://127.0.0.1:64522')
+name = '0.2.17'
+
+    @pytest.mark.parametrize("name", ["0.2.17", "v0.2", "v0.2.17-rc1", "release-1"])
+    def test_tag_name_must_be_vX_Y_Z(tmp_path, ci_api, name):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path)
+        tip = _git(repo, "rev-parse", "origin/main")
+        state["body"] = _body([_run("CI/CD", tip, "success")])
+        proc = _wrapper(repo, home, url, "--tag", name)
+        out = proc.stdout + proc.stderr
+        assert proc.returncode != 0, out
+>       assert "vX.Y.Z" in out, out
+E       AssertionError: not on --tag
+E         
+E       assert 'vX.Y.Z' in 'not on --tag\n'
+
+tests\test_push_guard.py:330: AssertionError
+_____________________ test_tag_name_must_be_vX_Y_Z[v0.2] ______________________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_tag_name_must_be_vX_Y_Z_v0')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "a5d30315267665e6016133ad0caf3f87293872..."status": "completed", "created_at": "2026-11-02T18:56:16Z"}]}', 'paths': [], 'status': 200}, 'http://127.0.0.1:64523')
+name = 'v0.2'
+
+    @pytest.mark.parametrize("name", ["0.2.17", "v0.2", "v0.2.17-rc1", "release-1"])
+    def test_tag_name_must_be_vX_Y_Z(tmp_path, ci_api, name):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path)
+        tip = _git(repo, "rev-parse", "origin/main")
+        state["body"] = _body([_run("CI/CD", tip, "success")])
+        proc = _wrapper(repo, home, url, "--tag", name)
+        out = proc.stdout + proc.stderr
+        assert proc.returncode != 0, out
+>       assert "vX.Y.Z" in out, out
+E       AssertionError: not on --tag
+E         
+E       assert 'vX.Y.Z' in 'not on --tag\n'
+
+tests\test_push_guard.py:330: AssertionError
+__________________ test_tag_name_must_be_vX_Y_Z[v0.2.17-rc1] __________________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_tag_name_must_be_vX_Y_Z_v1')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "5c824cee6f1f684ba1c57e34e5315f40d22abc..."status": "completed", "created_at": "2026-11-02T18:56:16Z"}]}', 'paths': [], 'status': 200}, 'http://127.0.0.1:64524')
+name = 'v0.2.17-rc1'
+
+    @pytest.mark.parametrize("name", ["0.2.17", "v0.2", "v0.2.17-rc1", "release-1"])
+    def test_tag_name_must_be_vX_Y_Z(tmp_path, ci_api, name):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path)
+        tip = _git(repo, "rev-parse", "origin/main")
+        state["body"] = _body([_run("CI/CD", tip, "success")])
+        proc = _wrapper(repo, home, url, "--tag", name)
+        out = proc.stdout + proc.stderr
+        assert proc.returncode != 0, out
+>       assert "vX.Y.Z" in out, out
+E       AssertionError: not on --tag
+E         
+E       assert 'vX.Y.Z' in 'not on --tag\n'
+
+tests\test_push_guard.py:330: AssertionError
+___________________ test_tag_name_must_be_vX_Y_Z[release-1] ___________________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_tag_name_must_be_vX_Y_Z_r0')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "000e37c04ddc6ab6bf909ff0036b36cf7eff50..."status": "completed", "created_at": "2026-11-02T18:56:16Z"}]}', 'paths': [], 'status': 200}, 'http://127.0.0.1:64525')
+name = 'release-1'
+
+    @pytest.mark.parametrize("name", ["0.2.17", "v0.2", "v0.2.17-rc1", "release-1"])
+    def test_tag_name_must_be_vX_Y_Z(tmp_path, ci_api, name):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path)
+        tip = _git(repo, "rev-parse", "origin/main")
+        state["body"] = _body([_run("CI/CD", tip, "success")])
+        proc = _wrapper(repo, home, url, "--tag", name)
+        out = proc.stdout + proc.stderr
+        assert proc.returncode != 0, out
+>       assert "vX.Y.Z" in out, out
+E       AssertionError: not on --tag
+E         
+E       assert 'vX.Y.Z' in 'not on --tag\n'
+
+tests\test_push_guard.py:330: AssertionError
+____ test_tag_push_pushes_the_tag_at_main_tip_when_the_tip_runs_succeeded _____
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_tag_push_pushes_the_tag_a0')
+ci_api = ({'body': b'{"total_count": 2, "workflow_runs": [{"name": "CI/CD", "head_sha": "2a90cdf20e6f5b82d3de1c9080c3d5fb7b2187..."status": "completed", "created_at": "2026-11-02T18:56:16Z"}]}', 'paths': [], 'status': 200}, 'http://127.0.0.1:64526')
+
+    def test_tag_push_pushes_the_tag_at_main_tip_when_the_tip_runs_succeeded(tmp_path, ci_api):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path)
+        tip = _git(repo, "rev-parse", "origin/main")
+        state["body"] = _body([_run("CI/CD", tip, "success"), _run("dashboard", tip, "success")])
+        proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+>       assert proc.returncode == 0, proc.stdout + proc.stderr
+E       AssertionError: not on --tag
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:/Program Files/Git/usr/bin/bash.exe', 'D:/repos/_work/_temp_jnwb_qual_base/scripts/jnwb_push...ed/test_tag_push_pushes_the_tag_a0/_temp_stack', '--tag', 'v0.2.17'], returncode=1, stdout='not on --tag\n', stderr='').returncode
+
+tests\test_push_guard.py:340: AssertionError
+________________ test_tag_push_refuses_to_move_an_existing_tag ________________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_tag_push_refuses_to_move_0')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "4e01bed669d071f52c35e16c392854cdbba6a6..."status": "completed", "created_at": "2026-11-02T18:56:16Z"}]}', 'paths': [], 'status': 200}, 'http://127.0.0.1:64527')
+
+    def test_tag_push_refuses_to_move_an_existing_tag(tmp_path, ci_api):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path)
+        old_tip = _git(repo, "rev-parse", "origin/main")
+        _git(repo, "push", "-q", bare.as_posix(), f"{old_tip}:refs/tags/v0.2.17")
+        _commit_artifacts_only(repo, "\n- main moved\n")
+        new_tip = _git(repo, "rev-parse", "HEAD")
+        _git(repo, "push", "-q", bare.as_posix(), "HEAD:refs/heads/main")
+        _git(repo, "update-ref", "refs/remotes/origin/main", new_tip)
+        state["body"] = _body([_run("CI/CD", new_tip, "success")])
+        proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+        out = proc.stdout + proc.stderr
+        assert proc.returncode != 0, out
+>       assert "already exists" in out, out
+E       AssertionError: not on --tag
+E         
+E       assert 'already exists' in 'not on --tag\n'
+
+tests\test_push_guard.py:357: AssertionError
+_________ test_artifacts_only_push_refuses_a_bare_directory_in_writes _________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_artifacts_only_push_refus0')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "477dc3739ad0a222f06df59e11d703281085c9...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:64529')
+
+    def test_artifacts_only_push_refuses_a_bare_directory_in_writes(tmp_path, ci_api):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path, writes="`artifacts`")
+        _commit_artifacts_only(repo)
+        head = _git(repo, "rev-parse", "HEAD")
+        state["body"] = _body([_run("CI/CD", head, "success")])
+        proc = _wrapper(repo, home, url, "dev", "--item", "17-900")
+        out = proc.stdout + proc.stderr
+>       assert proc.returncode != 0, out
+E       AssertionError: WRITES OK: 1 changed path(s) inside the Writes of 17-900, or always writable.
+E         From D:/pytest_temp/jnwb_qual_red/test_artifacts_only_push_refus0/origin
+E          * branch            dev        -> FETCH_HEAD
+E         To D:/pytest_temp/jnwb_qual_red/test_artifacts_only_push_refus0/origin.git
+E            339d0c5..477dc37  dev -> dev
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['C:/Program Files/Git/usr/bin/bash.exe', 'D:/repos/_work/_temp_jnwb_qual_base/scripts/jnwb_push...H_HEAD\nTo D:/pytest_temp/jnwb_qual_red/test_artifacts_only_push_refus0/origin.git\n   339d0c5..477dc37  dev -> dev\n').returncode
+
+tests\test_push_guard.py:369: AssertionError
+_________ test_artifacts_only_push_refuses_when_the_stack_gate_fails __________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_artifacts_only_push_refus1')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "3cbb6673e8c977c187a95f05adfc55d8dce110...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:64537')
+
+    def test_artifacts_only_push_refuses_when_the_stack_gate_fails(tmp_path, ci_api):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path, gate_stub=FAIL_STUB)
+        _commit_artifacts_only(repo)
+        head = _git(repo, "rev-parse", "HEAD")
+        state["body"] = _body([_run("CI/CD", head, "success")])
+        proc = _wrapper(repo, home, url, "dev", "--item", "17-900")
+        out = proc.stdout + proc.stderr
+>       assert proc.returncode != 0, out
+E       AssertionError: WRITES OK: 1 changed path(s) inside the Writes of 17-900, or always writable.
+E         From D:/pytest_temp/jnwb_qual_red/test_artifacts_only_push_refus1/origin
+E          * branch            dev        -> FETCH_HEAD
+E         To D:/pytest_temp/jnwb_qual_red/test_artifacts_only_push_refus1/origin.git
+E            d469f2b..3cbb667  dev -> dev
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['C:/Program Files/Git/usr/bin/bash.exe', 'D:/repos/_work/_temp_jnwb_qual_base/scripts/jnwb_push...H_HEAD\nTo D:/pytest_temp/jnwb_qual_red/test_artifacts_only_push_refus1/origin.git\n   d469f2b..3cbb667  dev -> dev\n').returncode
+
+tests\test_push_guard.py:393: AssertionError
+_______ test_tag_push_refuses_when_the_tip_has_no_successful_CI_CD_run ________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_tag_push_refuses_when_the1')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "dashboard", "head_sha": "f824bdba864082b3140a3e5c7cf237a4b7..."status": "completed", "created_at": "2026-11-02T18:56:16Z"}]}', 'paths': [], 'status': 200}, 'http://127.0.0.1:64539')
+
+    def test_tag_push_refuses_when_the_tip_has_no_successful_CI_CD_run(tmp_path, ci_api):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path)
+        tip = _git(repo, "rev-parse", "origin/main")
+        state["body"] = _body([_run("dashboard", tip, "success")])
+        proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+        out = proc.stdout + proc.stderr
+        assert proc.returncode != 0, out
+>       assert "CI/CD" in out, out
+E       AssertionError: not on --tag
+E         
+E       assert 'CI/CD' in 'not on --tag\n'
+
+tests\test_push_guard.py:406: AssertionError
+______________ test_a_push_whose_diff_cannot_be_read_is_refused _______________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_a_push_whose_diff_cannot_0')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "246a9e7a351053053f062dddc605de64f1c055...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:64542')
+
+    def test_a_push_whose_diff_cannot_be_read_is_refused(tmp_path, ci_api):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path)
+        _commit_artifacts_only(repo)
+        _git(repo, "update-ref", "-d", "refs/remotes/origin/dev")
+        head = _git(repo, "rev-parse", "HEAD")
+        state["body"] = _body([_run("CI/CD", head, "success")])
+        proc = _wrapper(repo, home, url, "dev")
+        out = proc.stdout + proc.stderr
+>       assert proc.returncode != 0, out
+E       AssertionError: fatal: ambiguous argument 'origin/dev..HEAD': unknown revision or path not in the working tree.
+E         Use '--' to separate paths from revisions, like this:
+E         'git <command> [<revision>...] -- [<file>...]'
+E         To D:/pytest_temp/jnwb_qual_red/test_a_push_whose_diff_cannot_0/origin.git
+E            eabfc48..246a9e7  dev -> dev
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['C:/Program Files/Git/usr/bin/bash.exe', 'D:/repos/_work/_temp_jnwb_qual_base/scripts/jnwb_push...>...]'\nTo D:/pytest_temp/jnwb_qual_red/test_a_push_whose_diff_cannot_0/origin.git\n   eabfc48..246a9e7  dev -> dev\n").returncode
+
+tests\test_push_guard.py:431: AssertionError
+_______ test_tag_push_refuses_when_origin_main_moves_during_the_CI_read _______
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_tag_push_refuses_when_ori0')
+ci_api_with_hook = ({'before_response': <function test_tag_push_refuses_when_origin_main_moves_during_the_CI_read.<locals>.<lambda> at 0x...: "success", "status": "completed", "created_at": "2026-11-02T18:56:16Z"}]}', 'status': 200}, 'http://127.0.0.1:64544')
+
+    def test_tag_push_refuses_when_origin_main_moves_during_the_CI_read(tmp_path, ci_api_with_hook):
+        state, url = ci_api_with_hook
+        repo, bare, home = _scaffold(tmp_path)
+        tip = _git(repo, "rev-parse", "origin/main")
+        _commit_artifacts_only(repo, "\n- main moves\n")
+        moved = _git(repo, "rev-parse", "HEAD")
+        state["body"] = _body([_run("CI/CD", tip, "success")])
+        state["before_response"] = lambda: _git(repo, "push", "-q", bare.as_posix(), "HEAD:refs/heads/main")
+        proc = _wrapper(repo, home, url, "--tag", "v0.2.17")
+        out = proc.stdout + proc.stderr
+        assert proc.returncode != 0, out
+>       assert "moved" in out, out
+E       AssertionError: not on --tag
+E         
+E       assert 'moved' in 'not on --tag\n'
+
+tests\test_push_guard.py:480: AssertionError
+______ test_artifacts_only_push_refuses_when_the_item_length_test_fails _______
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_qual_red/test_artifacts_only_push_refus2')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "593668c98fa407a1f14a2a1c40789a326f2fc5...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:64545')
+
+    def test_artifacts_only_push_refuses_when_the_item_length_test_fails(tmp_path, ci_api):
+        state, url = ci_api
+        repo, bare, home = _scaffold(tmp_path, item_test=ITEM_TEST_FAIL)
+        _commit_artifacts_only(repo)
+        head = _git(repo, "rev-parse", "HEAD")
+        state["body"] = _body([_run("CI/CD", head, "success")])
+        proc = _wrapper(repo, home, url, "dev", "--item", "17-900")
+        out = proc.stdout + proc.stderr
+>       assert proc.returncode != 0, out
+E       AssertionError: WRITES OK: 1 changed path(s) inside the Writes of 17-900, or always writable.
+E         From D:/pytest_temp/jnwb_qual_red/test_artifacts_only_push_refus2/origin
+E          * branch            dev        -> FETCH_HEAD
+E         To D:/pytest_temp/jnwb_qual_red/test_artifacts_only_push_refus2/origin.git
+E            1e25476..593668c  dev -> dev
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['C:/Program Files/Git/usr/bin/bash.exe', 'D:/repos/_work/_temp_jnwb_qual_base/scripts/jnwb_push...H_HEAD\nTo D:/pytest_temp/jnwb_qual_red/test_artifacts_only_push_refus2/origin.git\n   1e25476..593668c  dev -> dev\n').returncode
+
+tests\test_push_guard.py:493: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_push_guard.py::test_namespace_and_case_spellings_cannot_bypass_guard[git --namespace foo push origin dev]
+FAILED tests/test_push_guard.py::test_namespace_and_case_spellings_cannot_bypass_guard[GIT push origin dev]
+FAILED tests/test_push_guard.py::test_namespace_and_case_spellings_cannot_bypass_guard[git.EXE push origin dev]
+FAILED tests/test_push_guard.py::test_tag_push_refuses_when_the_newest_main_run_is_not_at_the_tip
+FAILED tests/test_push_guard.py::test_tag_push_refuses_when_a_main_run_at_the_tip_failed
+FAILED tests/test_push_guard.py::test_tag_push_refuses_an_unreadable_main_answer
+FAILED tests/test_push_guard.py::test_tag_name_must_be_vX_Y_Z[0.2.17] - Asser...
+FAILED tests/test_push_guard.py::test_tag_name_must_be_vX_Y_Z[v0.2] - Asserti...
+FAILED tests/test_push_guard.py::test_tag_name_must_be_vX_Y_Z[v0.2.17-rc1] - ...
+FAILED tests/test_push_guard.py::test_tag_name_must_be_vX_Y_Z[release-1] - As...
+FAILED tests/test_push_guard.py::test_tag_push_pushes_the_tag_at_main_tip_when_the_tip_runs_succeeded
+FAILED tests/test_push_guard.py::test_tag_push_refuses_to_move_an_existing_tag
+FAILED tests/test_push_guard.py::test_artifacts_only_push_refuses_a_bare_directory_in_writes
+FAILED tests/test_push_guard.py::test_artifacts_only_push_refuses_when_the_stack_gate_fails
+FAILED tests/test_push_guard.py::test_tag_push_refuses_when_the_tip_has_no_successful_CI_CD_run
+FAILED tests/test_push_guard.py::test_a_push_whose_diff_cannot_be_read_is_refused
+FAILED tests/test_push_guard.py::test_tag_push_refuses_when_origin_main_moves_during_the_CI_read
+FAILED tests/test_push_guard.py::test_artifacts_only_push_refuses_when_the_item_length_test_fails
+18 failed, 35 passed in 49.13s
