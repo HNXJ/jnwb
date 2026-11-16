@@ -18,10 +18,11 @@ that case, is not reported; the reason is.
 Worktrees, each a linked worktree at the task's baseline, detached: arm A `D:/repos/_work/exp_t<n>_A`; arm B
 `exp_t<n>_B` (keeper), `exp_t<n>_B1`, `exp_t<n>_B2`. They are linked to a clone made for the experiment,
 `D:/repos/_work/exp_src_<repo>` (`git clone --single-branch --branch dev`), so no ref of this record, of the
-predicates or of the pilot can be read through git from a worktree. Before the first dispatch `exp_prereq/` is
-moved out of `D:/repos/_work/`; `exp_accept/` holds the four acceptance scripts only (`accept/` of this record).
-The predicate scripts (`predicates/`) are run by the orchestrator after a cell's final tree is saved, never
-before, and their output goes to the ledger only.
+predicates or of the pilot can be read through git from a worktree. Before the first dispatch `exp_prereq/`,
+`exp_mut_t2/` and `exp_t2beh/` are moved out of `D:/repos/_work/`; `exp_accept/` holds the `accept/` files of
+this record only: the four acceptance scripts and `t2_preserved_test.py`, which `accept_t2.sh` runs.
+The predicate scripts (`predicates/`, with `t2_corrected_test.py`) are run by the orchestrator from this record
+after a cell's final tree is saved, never before, and their output goes to the ledger only.
 
 ## TASK blocks
 
@@ -119,8 +120,11 @@ all passed. On the baseline it prints:
 
 ```
 Acceptance command: `{ACC}`. You may read that script. It prints one line per command and ends `ACCEPT_RC=0` when
-all passed. It takes several minutes: run it in the foreground with a 15-minute timeout. On the baseline it prints:
-<ACC_BASELINE_T2>
+all passed. It takes about four minutes: run it in the foreground with a 10-minute timeout. On the baseline it prints:
+  harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+  pytest rc=0 last: 1527 passed, 4 skipped, 1 warning in 202.40s (0:03:22)
+  table rows rc=0 last: 31 passed in 2.63s
+  ACCEPT_RC=0
 ```
 
 ### ACCEPT-t3

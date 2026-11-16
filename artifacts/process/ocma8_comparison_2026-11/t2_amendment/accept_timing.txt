@@ -1,0 +1,32 @@
+== base_1 D:/repos/_work/exp_prereq/t2/base start 2026-11-16T00:05:49Z porcelain e3b0c44298fc
+harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+pytest rc=0 last: 1527 passed, 4 skipped, 1 warning in 202.40s (0:03:22)
+table rows rc=0 last: 31 passed in 2.63s
+ACCEPT_RC=0
+rc=0 wall_s=257 porcelain e3b0c44298fc
+== base_2 D:/repos/_work/exp_prereq/t2/base start 2026-11-16T00:10:07Z porcelain e3b0c44298fc
+harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+pytest rc=0 last: 1527 passed, 4 skipped, 1 warning in 196.53s (0:03:16)
+table rows rc=0 last: 31 passed in 2.57s
+ACCEPT_RC=0
+rc=0 wall_s=242 porcelain e3b0c44298fc
+== base_3 D:/repos/_work/exp_prereq/t2/base start 2026-11-16T00:14:09Z porcelain e3b0c44298fc
+harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+pytest rc=0 last: 1527 passed, 4 skipped, 1 warning in 200.00s (0:03:19)
+table rows rc=0 last: 31 passed in 2.53s
+ACCEPT_RC=0
+rc=0 wall_s=245 porcelain e3b0c44298fc
+== pos2 D:/repos/_work/exp_t2beh/pos2 start 2026-11-16T00:18:15Z porcelain 9d2c90398cf6
+harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+pytest rc=0 last: 1527 passed, 4 skipped, 1 warning in 206.97s (0:03:26)
+table rows rc=0 last: 31 passed in 2.58s
+ACCEPT_RC=0
+rc=0 wall_s=263 porcelain 9d2c90398cf6
+== old_pos D:/repos/_work/exp_prereq/t2/pos start 2026-11-16T00:22:38Z porcelain e5096115dad8
+harness_gate rc=0 last: ALL HARNESS GATES PASSED. 22 of 22 gates executed.
+pytest rc=1 last: 129 failed, 1398 passed, 4 skipped, 1 warning in 194.38s (0:03:14)
+table rows rc=1 last: 2 failed, 29 passed in 2.83s
+ACCEPT_RC=1
+rc=1 wall_s=247 porcelain e5096115dad8
+DONE
+rc=0

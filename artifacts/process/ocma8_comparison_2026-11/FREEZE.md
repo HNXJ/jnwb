@@ -71,11 +71,15 @@ on the baseline (the size is a minor finding of `artifacts_check.py`): only the 
 Acceptance scripts use one pytest basetemp per tree, changed after the workers' controls, so two trees can run
 them at once.
 
-T2 feasibility is not established (Hamm 2026-11-15): arm B's keeper runs acceptance once per draft in one
-dispatch, and two runs at the measured speed pass the 30-minute cap. The T2 packet is not frozen and no cell runs
-until an uncontended timing with per-test durations and the gate step exists. Narrowing the acceptance command is
-an amendment: versioned, with its coverage shown, reviewed before any run. If the whole suite is needed and does
-not fit, the conflict between cap and packet goes to Hamm; no timeout is extended silently.
+T2 feasibility (Hamm 2026-11-15): arm B's keeper runs acceptance once per draft in one dispatch, and two serial
+runs (943 to 953 s each) pass the 30-minute cap. Amendment 1 (`t2_amendment/AMENDMENT.md`, 2026-11-16) keeps
+all 30 files, runs them on six xdist workers, adds the preserved-behaviour test to acceptance and P4 and C5 to
+the predicates. Measured alone: 257, 242 and 245 s per run on the baseline; two runs take under 9 of the 30
+minutes. T2 after the amendment: baseline 0/4 and 4/5, corrected reference 4/4 and 5/5 with `ACCEPT_RC=0`,
+defective reference 4/4 and 4/5 with `ACCEPT_RC=1`. The row for T2 in the table above is the pre-amendment
+record. The T2 packet is not frozen until the amendment's independent review returns ACCEPT.
+
+Baselines re-read 2026-11-16: jnwb `dev` moved to fabe3c02 (one README line); T2 and T3 keep ac995dde.
 
 ## Packet review 1: disposition (Hamm's rule: every B needs one)
 

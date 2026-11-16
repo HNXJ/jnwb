@@ -1,7 +1,7 @@
-# T2 amendment 1 (DRAFT, 2026-11-15)
+# T2 amendment 1 (2026-11-16, for review)
 
-Status: instruments changed and predicate controls run; acceptance timing and independent review owed. T2 is
-not frozen. No experiment cell has run. `PREREG.md` is unchanged: the 30-minute cap, the evaluator, the
+Status: instruments changed; predicate controls, acceptance controls and timing run; independent review owed.
+T2 is not frozen. No experiment cell has run. `PREREG.md` is unchanged: the 30-minute cap, the evaluator, the
 thresholds and the adjudication rules stand.
 
 ## Why
@@ -10,8 +10,12 @@ thresholds and the adjudication rules stand.
    runs it twice, so one cell could not fit the 30-minute cap.
 2. A mutation study of the eight pipe-split sites (`mutants/`, `matrix.txt`) left M2, M6, M8 and M9 alive under
    the frozen acceptance: it did not cover every site's behaviour.
-3. A throwaway reference refactor (`old_pos_defective.diff`) passed the frozen acceptance and predicates 3/3
-   while changing behaviour at two readers. It is kept as the false-positive control.
+3. A throwaway reference refactor (`old_pos_defective.diff`) scored PRIMARY 3/3, CONSTRAINTS 4/4 on the frozen
+   predicates while changing behaviour at two readers. It is kept as the false-positive control.
+   Correction (2026-11-16): earlier messages said it also passed the frozen acceptance. No stored run shows
+   that, and the tree, byte-equal to the recorded diff, fails it: 129 tests of
+   `tests/test_release_requires_an_empty_open_stack.py` fail, serial or parallel (the reader takes the
+   `# Roadmap` heading of the tree's own files as a row). The false positive is the predicates' alone.
 
 ## Rulings applied (Hamm 2026-11-15)
 
@@ -57,6 +61,27 @@ before and after):
 The defective reference scores PRIMARY 4/4: its rejection rests on C5 alone. The four constraint negatives were
 built on the defective reference, so C5 fails in each beside the constraint it was built to break.
 
+Amended acceptance, run alone under the machine suite lock (`accept_timing.txt`; each tree's `git status` hash
+equal before and after):
+
+| Tree | Gate | 30 files, `-n 6` | Preserved test | Result | Wall |
+|---|---|---|---|---|---|
+| base, run 1 | 22 of 22 | 1527 passed, 4 skipped, 202.40 s | 31 passed | `ACCEPT_RC=0` | 257 s |
+| base, run 2 | 22 of 22 | 1527 passed, 4 skipped, 196.53 s | 31 passed | `ACCEPT_RC=0` | 242 s |
+| base, run 3 | 22 of 22 | 1527 passed, 4 skipped, 200.00 s | 31 passed | `ACCEPT_RC=0` | 245 s |
+| pos2 (corrected reference) | 22 of 22 | 1527 passed, 4 skipped, 206.97 s | 31 passed | `ACCEPT_RC=0` | 263 s |
+| pos (defective reference) | 22 of 22 | 129 failed, 1398 passed, 4 skipped | 2 failed, 29 passed | `ACCEPT_RC=1` | 247 s |
+
+Cap: the slowest baseline run is 257 s and the slowest of the four passing runs 263 s. Two keeper runs take
+526 s (8.8 min) at the slower figure, 29% of the 30-minute cap; the wall time includes xdist start and
+teardown. The spread over the three baseline runs is 15 s. The packet's per-run timeout is 10 minutes
+(2.3 times the slowest run). Dispatch overhead and the keeper's own work use the remaining 21 minutes; that
+share is not measured here.
+
+The slowest file of the serial study (`test_release_requires_an_empty_open_stack.py`, 374 s serial on the
+baseline) killed no mutant alone, and it is the only one of the 30 files that rejects the defective reference.
+It stays, as every file does.
+
 ## Readings
 
 - No corrected test covers `release_gate.table_data_rows`: an escaped pipe does not change its output.
@@ -65,10 +90,10 @@ built on the defective reference, so C5 fails in each beside the constraint it w
 - `cited_works_removed` splits on a spaced pipe and is not one of the eight sites.
 - P and C counts change (3 and 4 to 4 and 5). The scoring rule over them is PREREG's and is unchanged.
 
+- Six workers on a 24-core machine: a run beside another suite is slower. Arm B's two workers may run the
+  acceptance at once. Runs of the 30 files beside another agent's suite measured 221, 210 and 249 s, inside
+  the 10-minute timeout; two acceptance runs at once were not measured.
+
 ## Owed before freeze
 
-1. Amended `accept_t2.sh` on base and pos2 (`ACCEPT_RC=0`) and on the defective reference (`ACCEPT_RC=1`).
-2. Three uncontended runs of the amended acceptance on the baseline; the slowest, doubled, plus dispatch
-   overhead, against the 30-minute cap. Contended runs of the 30 files with `-n 6`: 221, 210, 249 s
-   (1527 passed, 4 skipped each); these do not count.
-3. `PACKETS.md` ACCEPT-t2 and `FREEZE.md` updated; independent review of this amendment and the changed packet.
+Independent review of this amendment and of the changed `PACKETS.md` (ACCEPT-t2, the deployment paragraph).
