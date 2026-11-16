@@ -1,0 +1,69 @@
+VERDICT: REVISE
+
+Review 2 of T2 amendment 1 rev 2, record HEAD de539073, read-only. Not run (by instruction): accept_t2.sh and the 30-file suite; timings and acceptance results are taken from controls_round2.txt (observed there, not by me).
+Scratch: D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2b/ (variants v1 v2 v3, mutation harness mutate.py with output mut_out.txt, survivors s_led s_ledsingle s_hdr s_tab, diff_probe.py).
+
+## A. C5 validity: PASS for C5, FAIL for the predicate set around it
+
+Three structurally different valid refactors, each built from base ac995dde in a --shared clone (all eight sites replaced, no `_cells` left except as noted):
+- v1: new module `scripts/table_cells.py`, two functions (`padded_cells` strip convention, `inner_cells` slice convention), compiled `_PIPE` regex. 56 passed; 6 passed (corrected); tests/test_build_dashboard + test_dashboard_page + test_learning_gate + test_fact_gate: 430 passed (385.98 s). observed.
+- v2: splitter `table_cells(line, outer=False)` added to existing `scripts/stack_parse.py`, hand-written character scan (no regex), imported by the six scripts. 56 passed; 6 passed; the four test files 430 passed (411.52 s). observed.
+- v3: new module `scripts/md_table.py`, one flag function, local variable `pieces`; dashboard helper renamed (`_row_of`), release_gate wrappers renamed to `_row_cells`/`_table_row_cells`. 56 passed; 6 passed. Four-file run pending when this was written (see end).
+No failure in any variant; no test or refactor at fault. None of the 56 tests names `_cells`, `_table_cells` or any splitter; pos2 itself renamed every private helper.
+
+Studies-card test (preserved file lines 313-338): it patches `REFERENCES`, `_receipt`, `_git`, `CALIBRATION_RECEIPTS`, `_performance_cards`, `_frozen_card`, `_closure_card`, `VALIDATION_HTML` and calls `validations_section()`. A valid T2 refactor would not plausibly rename or re-route these: TASK-t2 scope is the split sites, `_git` wrappers are explicitly out of scope, the other six are unrelated to splitting; `build_dashboard._cells` (the only site-related name) is not patched. Residual risk: an AttributeError from `monkeypatch.setattr` on a renamed name; arms can read the file (accept/), so they would see it. Lighter route exists: `build_dashboard._study_cards()` with only `REFERENCES`, `_receipt`, `_git` patched works (probe_light.py: 2 passed in v1; the unpatched call on the tracked tree also works). It trades five patched names for one more private name. Optional, not required. inferred (plausibility), observed (probe).
+
+Other 25 added tests: names used are public readers plus module constants `ROADMAP`, `ORDER_RECORD`, `REFERENCES` and `learning_gate.mapping_tables(root)`; all exist at baseline and are not split-related. Exact-text pins (substring or regex): "a row has 10/12 cells, not 11", "a studies row has 2/4 cells, not 3", "a fact row has N cells, not 5", "does not have three cells", "is not a readable row", "is id-shaped outside the table". The cell counts in them are derived from splitter output (contract); the surrounding text belongs to the readers, untouched by T2. minor, no finding.
+
+Dependence of P1 to P3 on splitter shape (not C5; unchanged by the amendment, but it decides whether a valid refactor scores): see finding 1.
+
+## B. C5 necessity and contract: PASS
+
+Run by me, cwd = each tree, same command as the packet: base 56 passed (3.22 s); pos (defective reference) 14 failed, 42 passed; M13 12 failed, 44 passed; m10 6 failed, 50 passed. The 14 pos failures are fact (2), reference (2), ledger (1), mapping header (1), roadmap (2), vocabulary (2), defect (2), plus two earlier-prefix tests... (the list printed: roadmap_malformed, prose_with_pipes, mapping_header, fact x2, reference x2, ledger, roadmap x2, vocab x2, defect x2). Each asserts, for a row with no trailing pipe or ending `||`, the value the baseline returns (`line.strip().strip("|").split("|")`: the last cell is kept and all trailing pipes are removed). The defective reference applies the dashboard's slice convention `split(...)[1:-1]` to the strip readers, which drops the last cell. None is an artefact: the fixtures state their cell counts and the defect-double-pipe fixture uses a closed status so the empty last cell cannot mask the difference. M10 fails 6 tests, all dashboard (deferred, order, studies; no trailing pipe and `||`): the baseline dashboard reader refuses both, the strip convention accepts them. The asserted values are baseline behaviour: the file runs 56 passed on base. Rows without a leading pipe at `learning_gate.ledger_rows` and `reconstruct_state.open_defect_classes` are asserted nowhere in the 56 (every ledger and defect fixture starts with `|`); they are in `t2_exploratory_test.py` only. observed. Contract remark (no finding): "ending `||` keeps the last cell" is an accident of `strip("|")`; the owner's ruling makes it the contract.
+
+## C. Review 1 closed; new survivors found: FAIL
+
+Closed: m10 on the 56-test file, 6 failed (above); predicates on m10: P1-P4 PASS, C1-C4 PASS, C5 FAIL "6 failed, 50 passed", PRIMARY 4/4 CONSTRAINTS 4/5 (git status unchanged before and after). M1-M9 rerun on the 56-test file (the AMENDMENT says "inferred"): M1 12, M2 1, M3 7, M4 6, M5 5, M6 2, M7 6, M8 5, M9 4, M11 2, M12 2 failed: all killed. observed.
+
+Mutation harness on pos2 (mutate.py; 10 sites x convention swaps slice/strip/single-outer-pipe/drop-empty-cells, plus three global changes; both test files run on each, mut_out.txt). Survivors (56 and 6 both pass) and my check of each against the four relevant 30-file test files:
+
+| Mutant | Change | Input, baseline vs mutant | Tree tests | Severity |
+|---|---|---|---|---|
+| s_tab (rg-tab-slice, -single, -dropempty all survive) | `release_gate._table_row_cells` on the slice convention | `table_data_rows("\| ID \|\n\|---\|\|\n\| x \|\n")` base `[(3,'\| x \|')]`, mutant `[(1,'\| ID \|'),(2,'\|---\|\|'),(3,'\| x \|')]`; `"\| Item\n\|---\n\| x\n"` base `[(3,'\| x')]`, mutant all 3 lines; `\|\|---\|---\|` likewise | test_release_requires_an_empty_open_stack: 188 passed | major: documented-malformed class (`||`, no trailing pipe) at the open-stack reader; the open-stack gate would count a header and a separator as open rows |
+| s_hdr (fg-hdr-slice, -single, -dropempty survive) | `build_fact_graph._all_tables` header on slice | `read_facts` with header `\| ID \| Domain \| Predicate \| Held by \| Ruled` (no trailing pipe) base 1 fact, mutant FactSourceError "header ['ID',...,'Held by'] is not the fact header"; header ending `\|\|` and leading `\|\|`: base 1, mutant raises | test_fact_gate: 300 passed | major: same class at a header; the preserved tests cover data rows only |
+| s_led (lg-led-dropempty) | `learning_gate.ledger_rows` drops empty cells | `ledger_rows(HEAD + "\| cls:a \| 3 \| \|\n")` base `[('cls',3,0)]`, mutant `[]`: a ledger row with Seen 3 and no instances is no longer reported | test_learning_gate: 26 passed | major: well-formed input (empty cell) |
+| s_ledsingle (lg-led-single) | one outer pipe stripped per side | `"\| cls:a \| 3 \|\|"` base `[]`, mutant `[('cls',3,0)]` | test_learning_gate: 26 passed | major: documented-malformed class; test 17 (ledger `\|\|`) is insensitive because the reader uses cells 0-2 only and the fixture has 3 cells |
+| G-stripspace | cell strip limited to spaces | tab-padded cells | not run | minor |
+| lg-map-single / -dropempty | | equivalent mutants: the header test is a membership test on two non-empty names | | none |
+
+Single-outer-pipe stripping (`if s.startswith("|"): s=s[1:]; if s.endswith("|"): s=s[:-1]`) is the most natural hand-written splitter; it survives at ledger and header. The tracked input holds none of these inputs: of 5062 table-like lines in 188 tracked .md files, 1 has no trailing pipe (artifacts/direction.md:103), none ends or starts with `||`, no odd separator, and no ledger row with an empty instances cell (scan.py, grep). So the survivors are latent (no tracked file today changes), but they sit in the classes the amendment claims to cover ("rows with no trailing pipe and rows ending `||` at each reader's entry point"), hence major. Fix: (a) replace tests 20 and 21 by separator-row fixtures: `| ID |\n|---||\n| x |` expecting `[(3,'| x |')]`, `| Item\n|---\n| x` expecting `[(3,'| x')]`; (b) add a fact-table header without trailing pipe and one ending `||` expecting read_facts to accept them; (c) change test 17 to `| cls:a | 3 ||` expecting `[]` and add `| cls:a | 3 | |` expecting `[('cls',3,0)]`; (d) bump PRESERVED_TESTS and the ACCEPT-t2 count; rerun matrix.
+
+## D. The seven non-killing tests: NOT SHOWN acceptable for two; the rest acceptable
+
+#3, #6, #9: positive controls that make the refusal tests non-vacuous (the refusal tests pin counts, so they fail for the wrong reason only if the control fails); acceptable. #10 (mapping header lacking "Where now"): kills any `any()`-style header test; the splitter-level mutants I tried are equivalent. #17, #20, #21: not vacuous (a splitter that cannot parse the separator fails #20/#21), but they cannot discriminate any splitter convention: #20/#21 assert the raw line, whose fixture has a normal separator; #17 reads cells 0-2 only. s_tab and s_ledsingle survive them. See C fix.
+
+## E. Records: PASS with one stale row
+
+- AMENDMENT rev 2 against controls_round2.txt and matrix3.txt: every figure matches (base 245 s, pos2 243, pos 249, m10 242; 1527 passed, 4 skipped; 14, 6, 12, 8 of 56; matrix3 tree x file table; seven non-killers #3,6,9,10,17,20,21; round-2 table). "six runs 242 to 263 s": 257, 242, 245, 263, 245, 243 -> correct. observed.
+- `grep -c "^def test_"`: t2_preserved_test.py 56, t2_corrected_test.py 6 = the counts in predicates_t2.py:67-68. observed.
+- `git diff 31cbfb47..de539073 -- PREREG.md` is empty; the PACKETS.md diff changes only the Worktrees paragraph and ACCEPT-t2 (no evaluator, threshold or adjudication text). observed.
+- ACCEPT-t2 baseline lines: rc and passed counts equal controls_round2 (1527 passed, 4 skipped, 1 warning; 56 passed); times are the run-1 figures (202.40 s) and the text says they vary. 
+- FREEZE.md "Prerequisite 3" T2 row is stale (0/3, 3/4; solved 3/3, 4/4; "pytest step 943 s"); the AMENDMENT says it follows after timing. minor, update before freeze.
+- PACKETS.md:21-22 move-out list names `exp_prereq/`, `exp_mut_t2/`, `exp_t2beh/` but not `D:/repos/_work/exp_t2cov/`, which holds `pos2` (the complete corrected solution), `oldpos`, m10-m13 and a copy of the preserved file; it sits beside the arm worktrees now. The arm rule "read nothing under D:/repos/_work/ outside {W}" is the only control. major (cheap): add `exp_t2cov/` (and any other `exp_t2*`) to the list, or move it.
+
+## F. Cap: defensible, one reasoned condition
+
+Slowest passing run 263 s; x2 = 526 s = 29% of 1800 s; spread of six runs 21 s; margin 3.4x on two runs. The cap is not the binding exposure; the 10-minute per-run timeout is (2.3x on 263 s). Concurrency is bounded: PREREG:136 says arms run one after the other; only arm B's keeper plus B1/B2 can overlap, 12 xdist workers on 24 cores. Data: 221, 210, 249 s beside another agent's suite. A timeout hits only arm B, so it would bias against B. Position: freeze without measuring is defensible for the cap; for the timeout, either add one sentence to ACCEPT-t2 telling the keeper to run the acceptance once at a time, or measure one two-at-once run (about 5 min) before freezing. I would measure: it is cheaper than a post-freeze change to PACKETS.md. inferred.
+
+## Findings
+
+1. MAJOR, predicates_t2.py:95-117 (P1-P3), unchanged by the amendment: the splitter is recognised syntactically, by name in BASELINE_NAMES or by a `return` statement whose source matches `split\(\s*r?["'][^"']*\|`. Valid refactors fail: v3 (single splitter, `pieces = re.split(...)` then `return [piece.strip() ...]`): `P1 FAIL definitions=0`, P2 not evaluated, `P3 FAIL inline ... scripts/md_table.py:7` (the splitter's own line counted as an inline site), PRIMARY 1/4 CONSTRAINTS 5/5 while P4 and C5 PASS. v1 (compiled `_PIPE.split`) and v2 (character scan) are not recognised either; v1 scored P1 FAIL definitions=2 only because its `release_gate` wrappers kept the names `_cells`/`_table_cells` (by_name), PRIMARY 1/4. pos2 passes because its return is a one-line comprehension over `re.split(r"(?<!\\)\|"...`. Compiled regex constants and intermediate variables are common in agent output. Fix: recognise splitters by AST content (a function whose body holds a string constant containing `|` and a call to `split`, `re.split`, `findall` or a compiled pattern's `.split`, anywhere in the body or a module-level compiled pattern it uses), count module-level compiled pipe patterns for P3, and drop the by-name rule or limit it to functions with the old body. Add controls v1/v2/v3 equivalents to the control set (they are in scratch above). observed.
+2. MAJOR, accept/t2_preserved_test.py: survivors of section C (tests 17, 20, 21 plus missing header and separator fixtures). Fix as in C.
+3. MAJOR, PACKETS.md:21-22: `exp_t2cov/` (answer key) not in the move-out list. Fix as in E.
+4. MINOR, FREEZE.md T2 row stale; minor, G-stripspace (tab-padded cells) survives: add a tab-padded row to one reader or accept.
+5. MINOR, AMENDMENT.md "Open for review 2": the studies test is acceptable as is; the lighter route above is optional.
+
+## Checks passed
+56 passed on base; 6 failed on m10 and 14 on pos, 12 on M13; predicates on m10 (4/4, C5 FAIL); M1-M9, M11, M12 killed on the 56 file; v1, v2 valid refactors pass 56, 6 and 430 tree tests; PREREG untouched; counts 56 and 6 match files; round-2 numbers match; no splitter name in any added test.
+
+(The v3 four-file run result is appended below if it finished before handback.)

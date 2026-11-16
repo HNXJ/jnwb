@@ -1,7 +1,16 @@
 # T2 amendment 1, revision 2 (2026-11-16, for review)
 
 Status: review 1 returned REVISE (`../review/t2_amendment_reviewer1.md`); coverage repaired and controls rerun
-(section "Review 1 and repair"); a second independent review is owed.
+(section "Review 1 and repair"). Review 2 of revision 2 at de539073 returned REVISE
+(`../review/t2_amendment_reviewer2.md`; section "Review 2"). Not accepted; T2 not frozen.
+
+| Conclusion | Status |
+|---|---|
+| C5 detects the defective reference and M1 to M13 | demonstrated (round 2; review 2 reran M1 to M9, M11, M12 on the 56-test file) |
+| C5 accepts valid alternative implementations | shown for three refactors built by review 2 (v1, v2, v3: 56 and 6 passed) |
+| C5 detects every wrong convention in the classes it claims | NO: review 2 found four survivors |
+| P1 to P3 accept valid alternative implementations | NO: review 2's v1 and v3 score PRIMARY 1/4 with P4 and C5 passing |
+| Two keeper dispatches fit the 30-minute cap | UNKNOWN: two acceptance runs take 526 of 1800 s; dispatch overhead and two runs at once are unmeasured |
 T2 is not frozen. No experiment cell has run. `PREREG.md` is unchanged: the 30-minute cap, the evaluator, the
 thresholds and the adjudication rules stand.
 
@@ -139,6 +148,36 @@ Open for review 2: the studies-card test patches eight names of `build_dashboard
 `_git`, `CALIBRATION_RECEIPTS`, `_performance_cards`, `_frozen_card`, `_closure_card`, `VALIDATION_HTML`), most
 of them private. It depends on structure outside the splitters. Whether it can reject a valid refactor is the
 reviewer's question; if it can, it is replaced by a fixture through a public entry point.
+
+## Review 2 (REVISE; nothing below is repaired yet)
+
+Probe diffs and outputs: `review2_probes/`.
+
+1. Major, pre-existing in the frozen-candidate predicates: P1 to P3 recognise the splitter by syntax (a baseline
+   name, or a `return` whose source matches a `split("...|` pattern). Valid refactors fail them: v3 (one
+   splitter, an intermediate variable before the return) scores P1 definitions=0, P2 not evaluated, P3 FAIL on
+   the splitter's own line, PRIMARY 1/4 with P4 and C5 passing; v1 (compiled pattern) scores PRIMARY 1/4. The
+   corrected reference passes because its return is a one-line comprehension over `re.split`. This contradicts
+   the ruling that the hidden predicates are independent of the refactor's structure. The repair changes what
+   PRIMARY counts: Hamm's decision.
+2. Major: four wrong conventions pass the 56-test file, the corrected file and the tree's own tests
+   (`s_tab`, `s_hdr`, `s_led`, `s_ledsingle`): the open-stack table reader on the slice convention (a header
+   and a separator count as rows when the separator is `|---||` or `|---`); the fact-table header with no
+   trailing pipe or ending `||` (raises); the ledger reader dropping an empty cell (`| cls:a | 3 | |` returns
+   nothing); one outer pipe stripped per side at the ledger (`| cls:a | 3 ||` returns a row). No tracked file
+   holds such input (5062 table-like lines in 188 tracked `.md` files: one with no trailing pipe, none with
+   `||`). A fifth, cells padded with tabs, is minor. Three added tests (17, 20, 21) discriminate no convention.
+3. Major, fixed in this revision's `PACKETS.md`: `exp_t2cov/` holds the corrected solution and was missing from
+   the move-out list.
+4. C5 validity: three structurally different valid refactors pass the 56 and the 6 tests. The studies-card
+   fixture patches names a split-site refactor does not touch; a lighter route exists (`_study_cards()` with
+   three patches) and is optional.
+5. Cap: two runs are 29% of the cap. The 10-minute per-run timeout is the exposure, in arm B only, where two
+   workers may run acceptance at once; the reviewer advises measuring one two-at-once run before the freeze.
+6. `FREEZE.md`'s T2 table row is the pre-amendment record and reads as stale.
+
+Two rounds of enumerated fixtures each left survivors of the same class. A third round of the same kind is not
+planned without a ruling on the approach.
 
 ## Readings
 

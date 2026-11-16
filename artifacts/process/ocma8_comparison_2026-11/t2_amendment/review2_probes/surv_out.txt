@@ -1,0 +1,12 @@
+== s_led learning_gate
+..........................                                               [100%]
+26 passed in 53.00s
+== s_ledsingle learning_gate
+..........................                                               [100%]
+26 passed in 53.01s
+== s_hdr fact_gate
+............                                                             [100%]
+300 passed in 67.36s (0:01:07)
+== s_tab open_stack
+............................................                             [100%]
+188 passed in 72.75s (0:01:12)

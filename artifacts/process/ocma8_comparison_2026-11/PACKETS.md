@@ -19,7 +19,8 @@ Worktrees, each a linked worktree at the task's baseline, detached: arm A `D:/re
 `exp_t<n>_B` (keeper), `exp_t<n>_B1`, `exp_t<n>_B2`. They are linked to a clone made for the experiment,
 `D:/repos/_work/exp_src_<repo>` (`git clone --single-branch --branch dev`), so no ref of this record, of the
 predicates or of the pilot can be read through git from a worktree. Before the first dispatch `exp_prereq/`,
-`exp_mut_t2/` and `exp_t2beh/` are moved out of `D:/repos/_work/`; `exp_accept/` holds the `accept/` files of
+`exp_mut_t2/`, `exp_t2beh/` and `exp_t2cov/` are moved out of `D:/repos/_work/`, and the reviewers' probe trees
+are deleted from the session scratch directory; `exp_accept/` holds the `accept/` files of
 this record only: the four acceptance scripts and `t2_preserved_test.py`, which `accept_t2.sh` runs.
 The predicate scripts (`predicates/`, with `t2_corrected_test.py`) are run by the orchestrator from this record
 after a cell's final tree is saved, never before, and their output goes to the ledger only.
