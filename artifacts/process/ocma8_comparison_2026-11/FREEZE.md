@@ -85,7 +85,12 @@ other valid refactors 4/4 and 5/5, every wrong or unconsolidated control below 4
 take 331 and 328 s. The T2 row of the table above is superseded by these figures. The one review of
 amendment 2 returned STOP (2026-11-16): the structure check passes unconsolidated trees with correct behaviour
 and the differential misses new wrong conventions. Under Hamm's stopping rule instrument development is
-stopped; the T2 packet is not frozen and waits for a new ruling.
+stopped. Amendment 3 (Hamm 2026-11-16, a material amendment): P1 and P2 leave the primaries; structure is
+judged by two independent adjudicators against a rubric fixed at 052a37d8 (`PASS`, `FAIL` or `AMBIGUOUS`); P3
+runs on generator revision 2, P4 and C1 to C5 unchanged. On known controls: both adjudicators 23 of 23 against
+the anchors (limited independence, no arm-produced tree); the differential leaves 19 correct trees at 0 and
+rejects 22 wrong trees at each of five seeds, and one wrong tree (`w_hdr2`) shows no difference at a public
+entry point. T2 as amended is not the measurement `PREREG.md` froze. Not reviewed; the T2 packet is not frozen.
 
 Baselines re-read 2026-11-16: jnwb `dev` moved to fabe3c02 (one README line); T2 and T3 keep ac995dde.
 

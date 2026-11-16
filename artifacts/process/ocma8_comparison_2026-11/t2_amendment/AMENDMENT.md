@@ -1,6 +1,12 @@
-# T2 amendment 2 (2026-11-16): STOPPED by the stopping rule
+# T2 amendment 3 (2026-11-16, for review 4): a material amendment of the T2 measurement
 
-Status: amendment 1 was reviewed twice, REVISE both times (`../review/t2_amendment_reviewer1.md`,
+Status of amendment 3 (section "Amendment 3"): Hamm's ruling of 2026-11-16 after review 3's STOP. The
+automated consolidation predicates are removed as primaries; consolidation is judged by independent blind
+adjudication against a rubric fixed beforehand; the behaviour predicates stay automated with a corrected
+generator. Validated on known controls only; not reviewed; T2 not frozen; nothing executed. T2 as amended is
+not the measurement `PREREG.md` froze (section "Preregistration consequence").
+
+History, amendment 2 (stopped by the stopping rule): amendment 1 was reviewed twice, REVISE both times (`../review/t2_amendment_reviewer1.md`,
 `../review/t2_amendment_reviewer2.md`; sections "Review 1 and repair", "Review 2"). Amendment 2 (section
 "Amendment 2") replaces the primary predicates P1 to P3 on Hamm's ruling of 2026-11-15 (option 2, a bounded
 structural check) and his ruling of 2026-11-16 on the terminal escaped pipe. Its one independent review, of
@@ -21,6 +27,8 @@ The rows of the table below marked "shown" hold for the listed controls only; re
 | P1 and P2 reject every unconsolidated implementation | NO (review 3): `u_disp`, `u_hidden_call`, `u_const2` score P1 PASS, P2 PASS with correct behaviour, the first two PRIMARY 4/4 |
 | P3 rejects every wrong convention | NO (review 3): `w_hdr2`, `w_maxsplit`, `w_ws` pass all four primaries; `w_bq` passes P3 and P4 |
 | P1 resolves valid refactors without adjudication | rarely: 6 of review 3's 7 valid trees are AMBIGUOUS (none rejected) |
+| Structural adjudication separates the known controls (amendment 3) | 23 of 23 against the anchors, two adjudicators, kappa 1.0; limited independence, no arm-produced tree |
+| Revised P3 rejects wrong trees and accepts correct ones (amendment 3) | 19 correct trees 0 mismatches and 22 wrong trees more than 0 at each of 5 seeds; one wrong tree (`w_hdr2`) shows no difference at any public entry point |
 | Two keeper dispatches fit the 30-minute cap | UNKNOWN: two serial acceptance runs take 526 of 1800 s; two at once take 331 and 328 s each, inside the 10-minute timeout; dispatch overhead is unmeasured |
 T2 is not frozen. No experiment cell has run. `PREREG.md` is unchanged: the 30-minute cap, the evaluator, the
 thresholds and the adjudication rules stand.
@@ -385,6 +393,138 @@ the enumeration the ruling set out to avoid. P1 and P2 as built are not a valid 
 behaviour predicates reject every wrong tree of the earlier sets and still miss new conventions. Under the
 stopping rule no further instrument work is done without a new ruling.
 
+## Amendment 3: adjudicated structure, automated behaviour (not reviewed)
+
+Ruling (Hamm 2026-11-16): stop the amendment 2 instrument; keep T2 in the pilot; remove P1 and P2 as automated
+primaries; judge structural consolidation by independent blind adjudication of every T2 tree; keep P3, P4 and
+C5 automated, subject to validation; open-form rows leave the scored contract and stay exploratory; add the
+missing adversarial cases to the generator; T1, T3 and T4 unchanged. Stop condition: if adjudication cannot
+reliably separate the controls, T2 leaves the executable pilot. This authorises specification and validation,
+not execution.
+
+| Measure | Amendment 2 | Amendment 3 |
+|---|---|---|
+| Consolidation and removal | P1, P2 from `t2_structure.py`, primaries | S: adjudicated against `predicates/t2_structure_rubric.md`, PASS, FAIL or AMBIGUOUS, recorded in the ledger. `t2_structure.py` prints D1 and D2, diagnostics, unscored, shown to no adjudicator |
+| Behaviour | P3 (generator revision 1), P4 | P3 (generator revision 2), P4 |
+| Constraints | C1 to C5 | unchanged |
+| Summary line | `PRIMARY k/4 AMBIGUOUS a CONSTRAINTS j/5` | `PRIMARY automated k/2 CONSTRAINTS j/5 STRUCTURE adjudicated` |
+
+Acceptance (`accept/`), the 30 files, the 56-test file, the cap and the timeout are unchanged.
+
+### Structural adjudication
+
+Rubric: `predicates/t2_structure_rubric.md`, with the anchor verdicts of 23 control trees
+(`adjudication_key.txt`, `build_adjudication_set.py`), committed at 052a37d8 before any adjudicator was
+dispatched. It asks whether one effective body of delimiter logic serves all eight sites with the redundant
+ones removed (S1 to S3), judged on which logic produces the cells a reader uses, with six FAIL anchors (a
+shared entry point that dispatches to per-site logic is F3) and PASS anchors.
+
+Protocol for an arm-produced T2 tree (Hamm 2026-11-16, adopted; supersedes the general AMBIGUOUS procedure for
+T2 arm-tree disagreement only):
+1. Two independent adjudicators judge the tree against the frozen rubric, with no access to each other's
+   verdict, to other arm trees, to the arm label or to any automated result.
+2. Agreement on PASS or FAIL is the structural verdict.
+3. Disagreement, or either UNRESOLVED, is AMBIGUOUS.
+4. The lead approves the ledger entry and verifies procedure; the lead does not break a tie or override.
+5. Kept: both reports, the tree SHA, the evidence, the automated observations as printed.
+AMBIGUOUS is its own outcome: never a pass, a fail or an excluded observation. Its frequency and denominator
+are reported, and no ambiguous tree is dropped from a rate. The rubric is not edited after an arm output is
+seen.
+
+Validation on the controls (`adjudication/`: `packet.md`, both reports as returned, `agreement.txt`;
+`score_adjudication.py`): 14 trees anchored PASS (the corrected reference, v1 to v3, a1, review 3's seven valid
+trees, and two trees with wrong behaviour and one shared splitter) and 9 anchored FAIL (baseline, u1 to u3,
+`pos_inline`, and review 3's `u_disp`, `u_hidden_call`, `u_const2`, `u_allhidden`), under shuffled labels.
+
+| Adjudicator | Agreement with anchors | PASS | FAIL | UNRESOLVED |
+|---|---|---|---|---|
+| A | 23 of 23 | 14 | 9 | 0 |
+| B | 23 of 23 | 14 | 9 | 0 |
+
+A against B: 23 of 23, Cohen's kappa 1.0. The three trees amendment 2's checker accepted are all FAIL; the two
+wrong-behaviour trees pass on structure. A ran a probe row in 15 trees; B judged from diffs alone.
+
+Limits, as they happened and not repaired:
+- Both adjudicators are one model family (Sonnet), the family of reviews 2 and 3.
+- Both compared trees with each other (diffs against k01, hashes of diffs), which the rubric's procedure
+  forbids. They were not fully blind to the set. Several controls share one wiring, so the set was easier than
+  a single candidate is.
+- Both named the same two cases as least sure: `u_disp` (every tagged call reaches one body and a second
+  splitter stays live as the default branch; failed on S3 and F3) and v1 (two entry functions over one shared
+  pattern; passed on the PASS anchor, close to F5). They stay in the set as adversarial anchors.
+- The PASS anchors of review 3's seven valid trees rest on that reviewer's declaration.
+- No arm-produced tree has been adjudicated: 23 of 23 on built controls is not evidence for unseen trees.
+- The controls were not rerun to improve the score.
+
+### Generator revision 2 (`predicates/t2_differential.py`)
+
+Changes (worker packet `packet_generator_r2.md`; the wide-table family was added by the orchestrator after the
+worker's matrix):
+- Terminal escaped pipe: any input in which the header or the data row ends, after strip, in `\|` (open) or
+  `\||` (tight) is exploratory for every reader; both forms are generated (about 3% each of corrected inputs).
+- New scored families: header escape (corrected mode), blockquote lead (`> `, `>`, `> > ` on every table
+  line), long row (4 to 20 extra cells), other whitespace as padding (U+00A0, U+2003, `\x0b`, `\f`), wide
+  table (header, separator and row all gain 13 to 20 cells).
+
+Matrix (`matrix6.txt`, run by the orchestrator with `matrix6_run.py`, three runs at a time under the suite
+lock; 43 trees, seeds 2026111600, 1, 2, 3, 4; 215 runs, all rc 0, no WARN; baseline and corrected-reference
+`git status` hashes equal before and after). The worker's matrix without the wide-table family is
+`differential_r2_controls_worker.txt`.
+
+| Trees | Expectation | Scored mismatches over the five seeds | Met |
+|---|---|---|---|
+| baseline against itself | preserved 0 | preserved 0; corrected 466 to 512 | yes |
+| 19 behaviour-correct: pos2, v1 to v3, a1, u1 to u3, review 3's seven valid and four unconsolidated trees | 0 at every seed | 0 | 19 of 19 |
+| pos, M10 to M13 | more than 0 at every seed | 304 to 765 | 5 of 5 |
+| M1 to M9 | more than 0 at every seed | 529 to 1463 | 9 of 9 |
+| `s_tab`, `s_hdr`, `s_led`, `s_ledsingle` | more than 0 at every seed | 18 to 35, 2 to 8, 27 to 32, 10 to 24 | 4 of 4 |
+| t1 (drops a cell-final escaped pipe) | more than 0 at every seed | 6 to 11 | yes |
+| `w_maxsplit`, `w_ws`, `w_bq` (review 3) | more than 0 at every seed | 38 to 57, 143 to 178, 23 to 33 | 3 of 3 |
+| `w_hdr2` (review 3) | none set | 0 | see below |
+
+The corrected reference is 0 at every seed: no scored input ends in an escaped pipe (worker's checker: 0 at
+each seed), so its result no longer rests on the frozen seed.
+
+Specific failure found and repaired: in the worker's matrix `w_maxsplit` (splits capped at 15) showed 0 at all
+five seeds. The cap shows only when a whole table is wide; the long-row family widened the data row alone
+(`survivor_probe.py`, `survivor_probe.txt`: 1 of 42 probes differs, a wide table at `table_data_rows`). The
+wide-table family rejects it at every seed and leaves the 19 correct trees at 0.
+
+`w_hdr2` (the fact-table header split naively): 0 at every seed, and 0 of 42 targeted probes differ from the
+oracle (an escaped pipe at the start, middle and end of each header cell of the three fact readers, an extra
+header cell, a wide table). The readers match header names exactly, so a header holding an escaped pipe is
+refused either way; review 3 saw the difference through the private `_all_tables`. Not observed at a public
+entry point (inferred from the probes, not proven). It is a second, naive split left in a reader: a question
+of structure (F1), not shown to be one of behaviour. It was not in the adjudication set.
+
+Readings of the worker kept: a blockquoted row stays scored; 4 to 20 extra cells, so only part of the long
+rows exceed 15 delimiters; the normalisation maps an escaped and a bare pipe to one character (review 3, Q3c:
+it accepts kept and dropped backslashes and penalised no correct tree).
+
+Amended predicates on two trees after the change: pos2 `PRIMARY automated 2/2 CONSTRAINTS 5/5`, D1 and D2
+PASS; `u_disp` `PRIMARY automated 2/2 CONSTRAINTS 5/5` (its structure is the adjudicators' FAIL). The 19-tree
+and 13-tree matrices of amendment 2 were not rerun whole under the amended script; P4 and C1 to C5 are
+unchanged code, P3 is covered by `matrix6.txt`.
+
+### Preregistration consequence
+
+A material amendment, not a repair inside the frozen design. The original T2 instrument failed (false
+positives and false negatives in the table of "Amendment 2", review 3's STOP). T2's consolidation is now a
+judgement by two adjudicators with an AMBIGUOUS outcome, and its behaviour a generated differential test that
+did not exist when `PREREG.md` was frozen. T2 as amended is not measured under the original preregistration:
+its result is reported as amended, beside T1, T3 and T4, with this limitation stated, and no claim treats the
+four tasks as one preregistered instrument. `PREREG.md`'s evaluator, thresholds, cap and adjudication rules for
+defects are untouched.
+
+### Harness incident (open, the harness keeper's)
+
+One enforcement defect, two pieces of evidence, 2026-11-16: (1) the orchestrator ran a stray `python -` inside
+a compound shell command; it read empty stdin, did nothing and was stopped. (2) The guard hook that blocks
+`python -` standalone did not block it there. A worker in this pilot reported one empty `python -c` of its own.
+Repair is the harness keeper's, with a regression test: the forbidden forms are refused standalone and inside
+compound commands, and permitted commands still pass. No pilot-side workaround; the harness was not modified.
+Not yet delivered to the keeper: the jchat hub was unreachable earlier in this session.
+
 ## Readings
 
 - No corrected test covers `release_gate.table_data_rows`: an escaped pipe does not change its output.
@@ -399,5 +539,5 @@ stopping rule no further instrument work is done without a new ruling.
 
 ## Owed before freeze
 
-A new ruling from Hamm on how T2's consolidation and behaviour are measured, or on T2's place in the pilot.
-Experiment execution and keeper dispatch stay withheld.
+Independent review of amendment 3, including the rubric's exposure to unseen architectures. Then Hamm's freeze
+and go decisions. Experiment execution and keeper dispatch stay withheld.

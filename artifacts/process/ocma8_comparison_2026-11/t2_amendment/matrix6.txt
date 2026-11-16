@@ -1,0 +1,261 @@
+tree | seed | preserved mism/inputs | corrected mism/inputs | exploratory mism/inputs | WARN | s | rc
+D:/repos/_work/exp_prereq/t2/base | 2026111600 | 0/3778 | 504/3553 | 56/469 | 0 | 55 | 0
+D:/repos/_work/exp_prereq/t2/base | 1 | 0/3790 | 466/3578 | 52/432 | 0 | 57 | 0
+D:/repos/_work/exp_prereq/t2/base | 2 | 0/3781 | 512/3565 | 46/454 | 0 | 57 | 0
+D:/repos/_work/exp_prereq/t2/base | 3 | 0/3782 | 501/3562 | 53/456 | 0 | 60 | 0
+D:/repos/_work/exp_prereq/t2/base | 4 | 0/3783 | 472/3560 | 36/457 | 0 | 58 | 0
+D:/repos/_work/exp_t2beh/pos2 | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 58 | 0
+D:/repos/_work/exp_t2beh/pos2 | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 58 | 0
+D:/repos/_work/exp_t2beh/pos2 | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 58 | 0
+D:/repos/_work/exp_t2beh/pos2 | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 57 | 0
+D:/repos/_work/exp_t2beh/pos2 | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 59 | 0
+D:/repos/_work/exp_t2ctl/v1 | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 59 | 0
+D:/repos/_work/exp_t2ctl/v1 | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/v1 | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 59 | 0
+D:/repos/_work/exp_t2ctl/v1 | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 59 | 0
+D:/repos/_work/exp_t2ctl/v1 | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/v2 | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 60 | 0
+D:/repos/_work/exp_t2ctl/v2 | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 60 | 0
+D:/repos/_work/exp_t2ctl/v2 | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 60 | 0
+D:/repos/_work/exp_t2ctl/v2 | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 60 | 0
+D:/repos/_work/exp_t2ctl/v2 | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 60 | 0
+D:/repos/_work/exp_t2ctl/v3 | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 60 | 0
+D:/repos/_work/exp_t2ctl/v3 | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 61 | 0
+D:/repos/_work/exp_t2ctl/v3 | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 60 | 0
+D:/repos/_work/exp_t2ctl/v3 | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 60 | 0
+D:/repos/_work/exp_t2ctl/v3 | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 63 | 0
+D:/repos/_work/exp_t2ctl/a1 | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 63 | 0
+D:/repos/_work/exp_t2ctl/a1 | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 62 | 0
+D:/repos/_work/exp_t2ctl/a1 | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 62 | 0
+D:/repos/_work/exp_t2ctl/a1 | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 62 | 0
+D:/repos/_work/exp_t2ctl/a1 | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 62 | 0
+D:/repos/_work/exp_t2ctl/u1 | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 60 | 0
+D:/repos/_work/exp_t2ctl/u1 | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 60 | 0
+D:/repos/_work/exp_t2ctl/u1 | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 59 | 0
+D:/repos/_work/exp_t2ctl/u1 | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/u1 | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/u2 | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/u2 | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/u2 | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/u2 | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/u2 | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 59 | 0
+D:/repos/_work/exp_t2ctl/u3 | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 59 | 0
+D:/repos/_work/exp_t2ctl/u3 | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 59 | 0
+D:/repos/_work/exp_t2ctl/u3 | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/u3 | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/u3 | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 58 | 0
+review3_probes:v_cls | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 58 | 0
+review3_probes:v_cls | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 58 | 0
+review3_probes:v_cls | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 58 | 0
+review3_probes:v_cls | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 57 | 0
+review3_probes:v_cls | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 57 | 0
+review3_probes:v_gen | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 57 | 0
+review3_probes:v_gen | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 57 | 0
+review3_probes:v_gen | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 57 | 0
+review3_probes:v_gen | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 56 | 0
+review3_probes:v_gen | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 58 | 0
+review3_probes:v_partial | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 58 | 0
+review3_probes:v_partial | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 57 | 0
+review3_probes:v_partial | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 57 | 0
+review3_probes:v_partial | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 57 | 0
+review3_probes:v_partial | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 56 | 0
+review3_probes:v_map | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 58 | 0
+review3_probes:v_map | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 58 | 0
+review3_probes:v_map | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 57 | 0
+review3_probes:v_map | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 58 | 0
+review3_probes:v_map | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 58 | 0
+review3_probes:v_split2 | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 58 | 0
+review3_probes:v_split2 | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 56 | 0
+review3_probes:v_split2 | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 56 | 0
+review3_probes:v_split2 | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 56 | 0
+review3_probes:v_split2 | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 57 | 0
+review3_probes:v_scan | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 57 | 0
+review3_probes:v_scan | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 56 | 0
+review3_probes:v_scan | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 57 | 0
+review3_probes:v_scan | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 56 | 0
+review3_probes:v_scan | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 56 | 0
+review3_probes:v_wrap | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 57 | 0
+review3_probes:v_wrap | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 57 | 0
+review3_probes:v_wrap | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 56 | 0
+review3_probes:v_wrap | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 57 | 0
+review3_probes:v_wrap | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 56 | 0
+review3_probes:u_disp | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 56 | 0
+review3_probes:u_disp | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 56 | 0
+review3_probes:u_disp | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 56 | 0
+review3_probes:u_disp | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 56 | 0
+review3_probes:u_disp | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 58 | 0
+review3_probes:u_hidden_call | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 58 | 0
+review3_probes:u_hidden_call | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 58 | 0
+review3_probes:u_hidden_call | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 58 | 0
+review3_probes:u_hidden_call | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 57 | 0
+review3_probes:u_hidden_call | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 57 | 0
+review3_probes:u_const2 | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 58 | 0
+review3_probes:u_const2 | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 58 | 0
+review3_probes:u_const2 | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 57 | 0
+review3_probes:u_const2 | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 57 | 0
+review3_probes:u_const2 | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 57 | 0
+review3_probes:u_allhidden | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 56 | 0
+review3_probes:u_allhidden | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 56 | 0
+review3_probes:u_allhidden | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 56 | 0
+review3_probes:u_allhidden | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 56 | 0
+review3_probes:u_allhidden | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 57 | 0
+D:/repos/_work/exp_prereq/t2/pos | 2026111600 | 419/3778 | 313/3553 | 78/469 | 0 | 57 | 0
+D:/repos/_work/exp_prereq/t2/pos | 1 | 414/3790 | 317/3578 | 95/432 | 0 | 56 | 0
+D:/repos/_work/exp_prereq/t2/pos | 2 | 435/3781 | 330/3565 | 84/454 | 0 | 57 | 0
+D:/repos/_work/exp_prereq/t2/pos | 3 | 403/3782 | 306/3562 | 91/456 | 0 | 56 | 0
+D:/repos/_work/exp_prereq/t2/pos | 4 | 400/3783 | 334/3560 | 81/457 | 0 | 56 | 0
+D:/repos/_work/exp_t2cov/m10 | 2026111600 | 186/3778 | 159/3553 | 74/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m10 | 1 | 171/3790 | 159/3578 | 54/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m10 | 2 | 163/3781 | 157/3565 | 69/454 | 0 | 56 | 0
+D:/repos/_work/exp_t2cov/m10 | 3 | 180/3782 | 179/3562 | 79/456 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m10 | 4 | 182/3783 | 122/3560 | 66/457 | 0 | 56 | 0
+D:/repos/_work/exp_t2cov/m11 | 2026111600 | 19/3778 | 488/3553 | 75/469 | 0 | 56 | 0
+D:/repos/_work/exp_t2cov/m11 | 1 | 15/3790 | 456/3578 | 68/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m11 | 2 | 19/3781 | 502/3565 | 58/454 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m11 | 3 | 13/3782 | 481/3562 | 68/456 | 0 | 56 | 0
+D:/repos/_work/exp_t2cov/m11 | 4 | 7/3783 | 456/3560 | 54/457 | 0 | 58 | 0
+D:/repos/_work/exp_t2cov/m12 | 2026111600 | 91/3778 | 354/3553 | 40/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m12 | 1 | 101/3790 | 335/3578 | 46/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m12 | 2 | 94/3781 | 361/3565 | 39/454 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m12 | 3 | 92/3782 | 365/3562 | 45/456 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m12 | 4 | 84/3783 | 350/3560 | 30/457 | 0 | 56 | 0
+D:/repos/_work/exp_t2cov/m13 | 2026111600 | 277/3778 | 214/3553 | 78/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m13 | 1 | 277/3790 | 210/3578 | 93/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m13 | 2 | 270/3781 | 219/3565 | 84/454 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m13 | 3 | 263/3782 | 215/3562 | 88/456 | 0 | 57 | 0
+D:/repos/_work/exp_t2cov/m13 | 4 | 241/3783 | 230/3560 | 79/457 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_tab | 2026111600 | 20/3778 | 7/3553 | 46/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_tab | 1 | 18/3790 | 4/3578 | 39/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_tab | 2 | 11/3781 | 7/3565 | 41/454 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_tab | 3 | 20/3782 | 15/3562 | 44/456 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/s_tab | 4 | 13/3783 | 10/3560 | 31/457 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_hdr | 2026111600 | 2/3778 | 3/3553 | 44/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_hdr | 1 | 5/3790 | 3/3578 | 34/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_hdr | 2 | 2/3781 | 0/3565 | 34/454 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/s_hdr | 3 | 4/3782 | 3/3562 | 42/456 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/s_hdr | 4 | 0/3783 | 2/3560 | 29/457 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_led | 2026111600 | 19/3778 | 8/3553 | 48/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_led | 1 | 18/3790 | 12/3578 | 38/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_led | 2 | 18/3781 | 11/3565 | 37/454 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_led | 3 | 20/3782 | 11/3562 | 45/456 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_led | 4 | 21/3783 | 11/3560 | 34/457 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_ledsingle | 2026111600 | 13/3778 | 6/3553 | 44/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_ledsingle | 1 | 7/3790 | 7/3578 | 34/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_ledsingle | 2 | 15/3781 | 9/3565 | 34/454 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/s_ledsingle | 3 | 7/3782 | 5/3562 | 42/456 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/s_ledsingle | 4 | 6/3783 | 4/3560 | 29/457 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/t1 | 2026111600 | 0/3778 | 11/3553 | 44/469 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/t1 | 1 | 0/3790 | 8/3578 | 34/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/t1 | 2 | 0/3781 | 7/3565 | 34/454 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/t1 | 3 | 0/3782 | 8/3562 | 42/456 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/t1 | 4 | 0/3783 | 6/3560 | 29/457 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M1 | 2026111600 | 488/3778 | 944/3553 | 117/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M1 | 1 | 493/3790 | 907/3578 | 101/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M1 | 2 | 496/3781 | 967/3565 | 105/454 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M1 | 3 | 490/3782 | 931/3562 | 112/456 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M1 | 4 | 507/3783 | 919/3560 | 99/457 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M2 | 2026111600 | 0/3778 | 754/3553 | 102/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M2 | 1 | 0/3790 | 714/3578 | 89/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M2 | 2 | 0/3781 | 779/3565 | 99/454 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M2 | 3 | 0/3782 | 733/3562 | 107/456 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M2 | 4 | 0/3783 | 722/3560 | 92/457 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M3 | 2026111600 | 343/3778 | 572/3553 | 68/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M3 | 1 | 349/3790 | 553/3578 | 71/432 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M3 | 2 | 351/3781 | 598/3565 | 64/454 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M3 | 3 | 344/3782 | 577/3562 | 81/456 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M3 | 4 | 333/3783 | 550/3560 | 56/457 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M4 | 2026111600 | 306/3778 | 723/3553 | 93/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M4 | 1 | 305/3790 | 681/3578 | 93/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M4 | 2 | 299/3781 | 728/3565 | 83/454 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M4 | 3 | 297/3782 | 724/3562 | 92/456 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M4 | 4 | 305/3783 | 695/3560 | 76/457 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M5 | 2026111600 | 265/3778 | 713/3553 | 79/469 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M5 | 1 | 266/3790 | 686/3578 | 65/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M5 | 2 | 270/3781 | 732/3565 | 69/454 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M5 | 3 | 267/3782 | 698/3562 | 67/456 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M5 | 4 | 267/3783 | 671/3560 | 53/457 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M6 | 2026111600 | 38/3778 | 516/3553 | 61/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M6 | 1 | 51/3790 | 478/3578 | 60/432 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M6 | 2 | 37/3781 | 524/3565 | 53/454 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M6 | 3 | 49/3782 | 516/3562 | 57/456 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M6 | 4 | 45/3783 | 486/3560 | 43/457 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M7 | 2026111600 | 163/3778 | 529/3553 | 55/469 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/M7 | 1 | 169/3790 | 491/3578 | 51/432 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/M7 | 2 | 161/3781 | 536/3565 | 46/454 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/M7 | 3 | 170/3782 | 531/3562 | 53/456 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M7 | 4 | 174/3783 | 506/3560 | 35/457 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M8 | 2026111600 | 97/3778 | 518/3553 | 70/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M8 | 1 | 85/3790 | 490/3578 | 70/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M8 | 2 | 80/3781 | 539/3565 | 74/454 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M8 | 3 | 85/3782 | 530/3562 | 65/456 | 0 | 56 | 0
+D:/repos/_work/exp_t2ctl/M8 | 4 | 81/3783 | 489/3560 | 59/457 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M9 | 2026111600 | 55/3778 | 528/3553 | 77/469 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M9 | 1 | 53/3790 | 478/3578 | 76/432 | 0 | 57 | 0
+D:/repos/_work/exp_t2ctl/M9 | 2 | 58/3781 | 526/3565 | 64/454 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/M9 | 3 | 56/3782 | 523/3562 | 81/456 | 0 | 58 | 0
+D:/repos/_work/exp_t2ctl/M9 | 4 | 69/3783 | 505/3560 | 58/457 | 0 | 57 | 0
+review3_probes:w_maxsplit | 2026111600 | 25/3778 | 18/3553 | 44/469 | 0 | 57 | 0
+review3_probes:w_maxsplit | 1 | 26/3790 | 26/3578 | 34/432 | 0 | 57 | 0
+review3_probes:w_maxsplit | 2 | 16/3781 | 22/3565 | 34/454 | 0 | 56 | 0
+review3_probes:w_maxsplit | 3 | 25/3782 | 26/3562 | 42/456 | 0 | 56 | 0
+review3_probes:w_maxsplit | 4 | 26/3783 | 31/3560 | 29/457 | 0 | 56 | 0
+review3_probes:w_ws | 2026111600 | 70/3778 | 73/3553 | 44/469 | 0 | 56 | 0
+review3_probes:w_ws | 1 | 84/3790 | 77/3578 | 34/432 | 0 | 56 | 0
+review3_probes:w_ws | 2 | 96/3781 | 82/3565 | 34/454 | 0 | 56 | 0
+review3_probes:w_ws | 3 | 80/3782 | 79/3562 | 42/456 | 0 | 56 | 0
+review3_probes:w_ws | 4 | 89/3783 | 78/3560 | 29/457 | 0 | 57 | 0
+review3_probes:w_bq | 2026111600 | 14/3778 | 14/3553 | 44/469 | 0 | 57 | 0
+review3_probes:w_bq | 1 | 16/3790 | 17/3578 | 34/432 | 0 | 56 | 0
+review3_probes:w_bq | 2 | 16/3781 | 15/3565 | 34/454 | 0 | 57 | 0
+review3_probes:w_bq | 3 | 11/3782 | 17/3562 | 43/456 | 0 | 57 | 0
+review3_probes:w_bq | 4 | 11/3783 | 12/3560 | 29/457 | 0 | 56 | 0
+review3_probes:w_hdr2 | 2026111600 | 0/3778 | 0/3553 | 44/469 | 0 | 57 | 0
+review3_probes:w_hdr2 | 1 | 0/3790 | 0/3578 | 34/432 | 0 | 57 | 0
+review3_probes:w_hdr2 | 2 | 0/3781 | 0/3565 | 34/454 | 0 | 57 | 0
+review3_probes:w_hdr2 | 3 | 0/3782 | 0/3562 | 42/456 | 0 | 56 | 0
+review3_probes:w_hdr2 | 4 | 0/3783 | 0/3560 | 29/457 | 0 | 56 | 0
+SUMMARY D:/repos/_work/exp_prereq/t2/base | base | scored mismatches min 466 max 512 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2beh/pos2 | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/v1 | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/v2 | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/v3 | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/a1 | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/u1 | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/u2 | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/u3 | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY review3_probes:v_cls | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY review3_probes:v_gen | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY review3_probes:v_partial | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY review3_probes:v_map | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY review3_probes:v_split2 | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY review3_probes:v_scan | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY review3_probes:v_wrap | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY review3_probes:u_disp | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY review3_probes:u_hidden_call | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY review3_probes:u_const2 | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY review3_probes:u_allhidden | correct | scored mismatches min 0 max 0 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_prereq/t2/pos | wrong | scored mismatches min 709 max 765 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2cov/m10 | wrong | scored mismatches min 304 max 359 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2cov/m11 | wrong | scored mismatches min 463 max 521 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2cov/m12 | wrong | scored mismatches min 434 max 457 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2cov/m13 | wrong | scored mismatches min 471 max 491 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/s_tab | wrong | scored mismatches min 18 max 35 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/s_hdr | wrong | scored mismatches min 2 max 8 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/s_led | wrong | scored mismatches min 27 max 32 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/s_ledsingle | wrong | scored mismatches min 10 max 24 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/t1 | wrong | scored mismatches min 6 max 11 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/M1 | wrong | scored mismatches min 1400 max 1463 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/M2 | wrong | scored mismatches min 714 max 779 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/M3 | wrong | scored mismatches min 883 max 949 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/M4 | wrong | scored mismatches min 986 max 1029 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/M5 | wrong | scored mismatches min 938 max 1002 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/M6 | wrong | scored mismatches min 529 max 565 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/M7 | wrong | scored mismatches min 660 max 701 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/M8 | wrong | scored mismatches min 570 max 619 | runs ok True | expectation met True
+SUMMARY D:/repos/_work/exp_t2ctl/M9 | wrong | scored mismatches min 531 max 584 | runs ok True | expectation met True
+SUMMARY review3_probes:w_maxsplit | wrong | scored mismatches min 38 max 57 | runs ok True | expectation met True
+SUMMARY review3_probes:w_ws | wrong | scored mismatches min 143 max 178 | runs ok True | expectation met True
+SUMMARY review3_probes:w_bq | wrong | scored mismatches min 23 max 33 | runs ok True | expectation met True
+SUMMARY review3_probes:w_hdr2 | unobserved | scored mismatches min 0 max 0 | runs ok True | expectation met True
+PORCELAIN {'D:/repos/_work/exp_prereq/t2/base': 'e3b0c44298fc', 'D:/repos/_work/exp_t2beh/pos2': '9d2c90398cf6'} -> {'D:/repos/_work/exp_prereq/t2/base': 'e3b0c44298fc', 'D:/repos/_work/exp_t2beh/pos2': '9d2c90398cf6'}
+TOTAL trees=43 runs=215 expectations not met=0

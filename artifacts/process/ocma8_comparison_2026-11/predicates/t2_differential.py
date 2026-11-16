@@ -4,9 +4,10 @@
 Usage: python t2_differential.py <tree> <baseline tree> [--seed N] [--rows N] [--out FILE]
 
 PRESERVED: no backslash in the input; tree(doc) must equal baseline(doc) exactly.
-CORRECTED: one or two escaped pipes in the data row; normalised tree(doc) must equal normalised
-baseline(doc with each escaped pipe replaced by a backslash + broken bar).
-EXPLORATORY: any input of learning.ledger or state.defect whose data row has no leading pipe; reported apart.
+CORRECTED: one or two escaped pipes (in the data row, or one in the header for the header-escape family);
+normalised tree(doc) must equal normalised baseline(doc with each escaped pipe replaced by a backslash + broken bar).
+EXPLORATORY: reported apart, never scored: any input of learning.ledger or state.defect whose data row has no
+leading pipe, and any input whose header or data row ends (after strip) in an escaped pipe, open or tight form.
 Each input is a document for one reader and is run through that reader only.
 Standard library only. Child mode (internal): --child <inputs.json> doc|base_doc, cwd = one tree.
 """
@@ -40,6 +41,19 @@ SEPARATORS = ["|---|---|", "|---||", "|---", "||---|---|", "| :--- | ---: |"]
 PROSE = ["Prose with a | pipe in it.", "Note: x | y | z"]
 PIPE_LINES = ["||", "| | |", "|||||"]
 NORM_RE = re.compile(re.escape(BSL) + "[|" + BROKEN + "]" + "|" + "[|" + BROKEN + "]")
+TERMINAL_ENDS = (BSL + "|", BSL + "||")   # open form, tight form: a table line ending in an escaped pipe
+BLOCKQUOTES = ("> ", ">", "> > ")
+WS_PADS = (("nbsp", chr(0x00A0)), ("emsp", chr(0x2003)), ("vtab", chr(0x0B)), ("ff", chr(0x0C)))
+# family, share of inputs, modes; one draw per input, before the existing variations
+FAMILY_SHARES = (
+    ("header_escape", 0.08, ("corrected",)),
+    ("blockquote", 0.06, ("preserved", "corrected")),
+    ("long_row", 0.05, ("preserved", "corrected")),
+    ("ws_pad", 0.06, ("preserved", "corrected")),
+    ("open_escape", 0.03, ("corrected",)),
+    ("tight_escape", 0.03, ("corrected",)),
+    ("wide_table", 0.05, ("preserved", "corrected")),
+)
 
 
 class HarnessError(Exception):
@@ -101,8 +115,9 @@ READERS = [
 
 # ---------------------------------------------------------------- generator
 
-def render(cells, lead, trail, tab):
-    pad = "\t" if tab else " "
+def render(cells, lead, trail, tab, pad=None):
+    if pad is None:
+        pad = "\t" if tab else " "
     return lead + "|".join(pad + cell + pad for cell in cells) + trail
 
 
@@ -160,53 +175,131 @@ def whole_line(rng):
     return rng.choice(PIPE_LINES), "pipes"
 
 
+def pick_family(mode, rng):
+    """One draw per input: the new variation family it carries, or None (existing variations only)."""
+    draw = rng.random()
+    edge = 0.0
+    for family, share, modes in FAMILY_SHARES:
+        if mode in modes:
+            edge += share
+            if draw < edge:
+                return family
+    return None
+
+
+def insert_header_escape(cells, rng):
+    """One escaped pipe inside a non-empty header cell, strictly before the cell's stripped end."""
+    cells = list(cells)
+    j = rng.choice([j for j, cell in enumerate(cells) if cell.strip()])
+    text = cells[j]
+    lo = len(text) - len(text.lstrip())
+    hi = len(text.rstrip())
+    p = rng.randint(lo + 1, hi - 1) if hi - lo >= 2 else lo
+    cells[j] = text[:p] + BSL + "|" + text[p:]
+    return cells
+
+
+def terminal_row(cells, tight, tab):
+    """Data row whose last cell ends in an escaped pipe: open form, or tight form (one closing pipe, no space)."""
+    pad = "\t" if tab else " "
+    head = "|" + "|".join(pad + cell + pad for cell in cells[:-1]) + "|"
+    return head + pad + cells[-1] + BSL + "|" + ("|" if tight else "")
+
+
 def make_input(name, prefix, header_cells, pools, mode, rng, rid):
     labels = []
     valid = [rng.choice(pool) for pool in pools]
     header = render(header_cells, "|", "|", False)
     sep = canonical_sep(len(header_cells))
-    draw = rng.random()
-    if draw < 0.15:  # header or separator carries the variation; the data row is valid
-        cells = valid
+    family = pick_family(mode, rng)
+    quote = ""
+    if family is not None:
+        labels.append(f"fam={family}")
+    if family == "blockquote":  # the existing variations below, each table line prefixed
+        quote = rng.choice(BLOCKQUOTES)
+        labels.append(f"bq={quote!r}")
+    escapes = 0
+    if family == "header_escape":  # the header carries one escape; the data row is valid
+        header = render(insert_header_escape(header_cells, rng), "|", "|", False)
+        row = render(valid, "|", "|", False)
+        escapes = 1
+        labels.append("part=header")
+    elif family in ("open_escape", "tight_escape"):  # terminal escaped pipe: exploratory for every reader
+        row = terminal_row(valid, family == "tight_escape", rng.random() < 0.2)
+        escapes = 1
+        labels.append("part=row")
+    elif family == "wide_table":  # header, separator and data row all gain 13 to 20 cells
+        extra = rng.randint(13, 20)
+        header = render(list(header_cells) + [f"h{i}" for i in range(1, extra + 1)], "|", "|", False)
+        sep = canonical_sep(len(header_cells) + extra)
+        cells = valid + [f"c{i}" for i in range(1, extra + 1)]
+        labels.append("part=table")
         if mode == "corrected":
-            k = rng.choice((1, 2))
-            cells = insert_escapes(cells, k, rng)
-            labels.append(f"escapes={k}")
+            escapes = rng.choice((1, 2))
+            cells = insert_escapes(cells, escapes, rng)
+            labels.append(f"escapes={escapes}")
         row = render(cells, "|", "|", False)
-        if rng.random() < 0.5:
-            cellv, lead, trail, tab = pick_variant(rng)
-            header = render(vary_cells(header_cells, cellv, rng), lead, trail, tab)
-            labels += ["part=header", f"hcell={cellv}", f"hlead={lead!r}", f"htrail={trail!r}", f"htab={tab}"]
-        else:
-            sep = rng.choice(SEPARATORS)
-            labels.append("part=separator")
-    elif mode == "preserved" and rng.random() < 0.16:  # whole line: prose, blank, pipes only
-        row, kind = whole_line(rng)
-        labels += ["part=whole", f"whole={kind}"]
-    else:  # one generated data row
-        cellv, lead, trail, tab = pick_variant(rng)
-        cells = vary_cells(valid, cellv, rng)
-        labels += ["part=row", f"cell={cellv}", f"lead={lead!r}", f"trail={trail!r}", f"tab={tab}"]
+    elif family in ("long_row", "ws_pad"):
+        cells, pad = valid, None
+        if family == "long_row":  # 4 to 20 extra cells appended to the data row
+            cells = valid + [f"extra{i}" for i in range(1, rng.randint(4, 20) + 1)]
+        else:  # one whitespace character as the cell padding on both sides of every cell
+            ws_name, pad = rng.choice(WS_PADS)
+            labels.append(f"ws={ws_name}")
+        labels.append("part=row")
         if mode == "corrected":
-            k = rng.choice((1, 2))
-            cells = insert_escapes(cells, k, rng)
-            labels.append(f"escapes={k}")
-        row = render(cells, lead, trail, tab)
-    doc = prefix + header + "\n" + sep + "\n" + row + "\n"
+            escapes = rng.choice((1, 2))
+            cells = insert_escapes(cells, escapes, rng)
+            labels.append(f"escapes={escapes}")
+        row = render(cells, "|", "|", False, pad)
+    else:  # existing variations
+        draw = rng.random()
+        if draw < 0.15:  # header or separator carries the variation; the data row is valid
+            cells = valid
+            if mode == "corrected":
+                k = rng.choice((1, 2))
+                cells = insert_escapes(cells, k, rng)
+                escapes = k
+                labels.append(f"escapes={k}")
+            row = render(cells, "|", "|", False)
+            if rng.random() < 0.5:
+                cellv, lead, trail, tab = pick_variant(rng)
+                header = render(vary_cells(header_cells, cellv, rng), lead, trail, tab)
+                labels += ["part=header", f"hcell={cellv}", f"hlead={lead!r}", f"htrail={trail!r}", f"htab={tab}"]
+            else:
+                sep = rng.choice(SEPARATORS)
+                labels.append("part=separator")
+        elif mode == "preserved" and rng.random() < 0.16:  # whole line: prose, blank, pipes only
+            row, kind = whole_line(rng)
+            labels += ["part=whole", f"whole={kind}"]
+        else:  # one generated data row
+            cellv, lead, trail, tab = pick_variant(rng)
+            cells = vary_cells(valid, cellv, rng)
+            labels += ["part=row", f"cell={cellv}", f"lead={lead!r}", f"trail={trail!r}", f"tab={tab}"]
+            if mode == "corrected":
+                k = rng.choice((1, 2))
+                cells = insert_escapes(cells, k, rng)
+                escapes = k
+                labels.append(f"escapes={k}")
+            row = render(cells, lead, trail, tab)
+    doc = prefix + quote + header + "\n" + quote + sep + "\n" + quote + row + "\n"
     if mode == "corrected":
         n = doc.count(BSL + "|")
         base_doc = doc.replace(BSL + "|", BSL + BROKEN)
-        if not (n >= 1 and doc.count(BSL) == n and base_doc.count(BSL) == n and base_doc.count(BSL + "|") == 0):
-            raise HarnessError(f"generator: escape bookkeeping failed for {rid}: n={n} "
+        if not (n == escapes and n >= 1 and doc.count(BSL) == n and base_doc.count(BSL) == n
+                and base_doc.count(BSL + "|") == 0 and base_doc.count(BROKEN) == n):
+            raise HarnessError(f"generator: escape bookkeeping failed for {rid}: generated={escapes} n={n} "
                                f"doc={doc.count(BSL)} base={base_doc.count(BSL)} "
-                               f"base_pipe={base_doc.count(BSL + '|')} doc={doc!r}")
+                               f"base_pipe={base_doc.count(BSL + '|')} base_broken={base_doc.count(BROKEN)} "
+                               f"doc={doc!r}")
     else:
         base_doc = doc
         if BSL in doc:
             raise HarnessError(f"generator: backslash in a preserved input {rid}")
-    exploratory = name in EXPLORATORY_READERS and not row.lstrip().startswith("|")
+    terminal = any(line.strip().endswith(TERMINAL_ENDS) for line in (header, row))
+    exploratory = terminal or (name in EXPLORATORY_READERS and not row.lstrip().startswith("|"))
     return {"id": rid, "mode": mode, "reader": name, "bucket": "exploratory" if exploratory else mode,
-            "row": row, "doc": doc, "base_doc": base_doc, "labels": labels}
+            "row": quote + row, "doc": doc, "base_doc": base_doc, "labels": labels}
 
 
 def generate(seed, rows):

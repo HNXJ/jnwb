@@ -1,0 +1,3 @@
+adj_A: agrees with the anchor on 23 of 23; verdicts {'FAIL': 9, 'PASS': 14}
+adj_B: agrees with the anchor on 23 of 23; verdicts {'FAIL': 9, 'PASS': 14}
+adj_A vs adj_B: agreement 1.000, Cohen's kappa 1.000, n=23, differ on none

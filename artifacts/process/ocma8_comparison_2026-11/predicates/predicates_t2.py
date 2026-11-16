@@ -2,21 +2,25 @@ r"""Predicates for experiment task t2: one markdown table cell splitter under sc
 
 Usage: python predicates_t2.py <tree> <baseline tree>
 
-Prints one line per check (P1..P4, C1..C5), then `PRIMARY k/4 AMBIGUOUS a CONSTRAINTS j/5`. Exit 0 when it
-runs to the end, 2 on a usage error. Standard library only (P3, P4 and C5 run subprocesses); every subprocess
-runs with cwd=<tree>. Amendment 2 (t2_amendment/AMENDMENT.md) replaced the syntactic P1 to P3.
+Prints one line per check (D1, D2, P3, P4, C1..C5), then `PRIMARY automated k/2 CONSTRAINTS j/5 STRUCTURE
+adjudicated`. Exit 0 when it runs to the end, 2 on a usage error. Standard library only (P3, P4 and C5 run
+subprocesses); every subprocess runs with cwd=<tree>. History: t2_amendment/AMENDMENT.md.
 
-P1  consolidation: all eight baseline split sites use one shared parsing implementation. Read from the AST by
-    `t2_structure.py` (beside this script; its docstring is the definition). PASS, FAIL or AMBIGUOUS.
-P2  removal: the eight independent baseline splitters are gone. `t2_structure.py`. PASS, FAIL or AMBIGUOUS.
-    AMBIGUOUS is neither a pass nor a rejection: it is counted apart and the cell goes to independent
-    adjudication of the tree against the P1 and P2 sentences above.
+Primary measures of t2 (amendment 3, Hamm 2026-11-16): S, structural consolidation, judged by independent
+blind adjudication against `t2_structure_rubric.md` and recorded in the ledger, never computed here; P3 and
+P4, behaviour, computed here.
+
+D1  diagnostic, unscored: what `t2_structure.py` reads from the AST about consolidation (PASS, FAIL or
+D2  AMBIGUOUS) and about removal. Review 3 showed these accept unconsolidated trees: they are an observation
+    for the record, they enter no score, and no adjudicator sees them.
 P3  behaviour through every affected reader: `t2_differential.py` (beside this script) generates table rows
     from DIFF_SEED and compares what each reader's entry point returns in <tree> and in <baseline tree>:
     preserved mode (rows without an escaped pipe; the tree must equal the baseline) and corrected mode (rows
     with escaped pipes; the tree must equal the declared contract). PASS when it exits 0 with DIFF_READERS
     readers, more than 0 inputs and 0 mismatches in both modes, and no reader whose baseline results are all
-    empty (a WARN line). The exploratory bucket is printed, unscored.
+    empty (a WARN line). Generator revision 2 adds header escape, blockquote lead, long row, whitespace
+    padding and wide table. The exploratory bucket (any header or row ending in an escaped pipe, open or
+    tight) is printed, unscored.
     Every mismatching input is written to the file named in the line.
 P4  the corrected behaviour holds at each reader's entry point: pytest on `t2_corrected_test.py` (beside
     this script) exits 0 with exactly CORRECTED_TESTS passed (an escaped pipe inside a cell changes neither
@@ -271,7 +275,8 @@ def main(argv):
     sys.stdout.reconfigure(errors="backslashreplace")
     tree, base = (pathlib.Path(a).resolve() for a in argv)
 
-    p1, p2 = check_structure(tree, base)
+    diagnostics = [line.replace(f"P{n} ", f"D{n} diagnostic, unscored: ", 1)
+                   for n, (_, line) in enumerate(check_structure(tree, base), 1)]
     p3 = attempt("P3", check_p3, tree, base)
 
     gate, gate_error = None, None
@@ -286,13 +291,13 @@ def main(argv):
     p4 = attempt("P4", check_tests, tree, CORRECTED, "p4")
     c5 = attempt("C5", check_tests, tree, PRESERVED, "c5")
 
-    primary = [p1, p2, p3, p4]
+    primary = [p3, p4]
     constraints = [c1, c2, c3, c4, c5]
-    for _, line in primary + constraints:
+    for line in diagnostics + [line for _, line in primary + constraints]:
         print(line)
-    print(f"PRIMARY {sum(v == 'PASS' for v, _ in primary)}/{len(primary)} "
-          f"AMBIGUOUS {sum(v == 'AMBIGUOUS' for v, _ in primary)} "
-          f"CONSTRAINTS {sum(v == 'PASS' for v, _ in constraints)}/{len(constraints)}")
+    print(f"PRIMARY automated {sum(v == 'PASS' for v, _ in primary)}/{len(primary)} "
+          f"CONSTRAINTS {sum(v == 'PASS' for v, _ in constraints)}/{len(constraints)} "
+          f"STRUCTURE adjudicated")
     return 0
 
 
