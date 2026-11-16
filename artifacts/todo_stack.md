@@ -25,13 +25,6 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
-### 17-152 The branch push accepts CI from an earlier commit
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/ci_gate.py`, `scripts/jnwb_push.sh`, `tests/test_jnwb_push.py`, `tests/test_push_guard.py`, `tests/test_lane_verifies_its_own_baseline.py`, `AGENTS.md`.
-- 17-152: P0 (Hamm 2026-11-16). `ci_gate.py hnxj/jnwb dev` printed `pass 9252d0cd` while `origin/dev` was `fabe3c02`: the branch route of `jnwb_push.sh` let the newest completed run of any SHA decide and never compared it with the tip (the tag route does). Check: the wrapper tests of `tests/test_jnwb_push.py` fail on `fabe3c02` and pass with the fix; green runs at an older SHA, no run, a pending, failed or cancelled run at the tip, and a branch `origin` lacks, each refuse; runs at the tip pass; the tag-route tests of `tests/test_push_guard.py` pass unchanged. The fix is on `_temp_17-152_ci_gate_tip`, not on `dev` (Hamm 2026-11-16: no `dev` push yet); open row 17-152-ci holds what blocks integration.
-
 ### 17-151 Public docs state the AI-assisted and autonomous analysis direction
 
 Release: deferred-0.2.17.
@@ -49,16 +42,9 @@ Writes: `scripts/learning_gate.py`, `tests/test_nan_passes_sign_guard_scan.py`.
 ### 17-147 Audit 2026-11-08: scripts and tests that cannot fail
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-143 (shared `scripts/push_guard.py`).
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/measure_agents_md_duplication.py`, `scripts/vflip2_recovery.py`, `scripts/figures/generate_figures.py`, `tests/test_*.py`.
 - 17-147: left of the audit (the rest landed 2026-11-08): scripts-2 (gate 15 passes on zero tables; `tests/test_learning_gate.py:212` pins that), -5 (move), -6, -7, -8 (`measure_agents_md_duplication.py:149,158`, `vflip2_recovery.py:978`), tests-2 (`match=`), -4, -5, -6, -9; push spellings the guard still allows: a quoted `git.exe` path, `GIT_DIR=<jnwb>` from another cwd. Check: each by a failing-first test; `ruff check tests --select F401,F541,F821,F841` clean.
-
-### 17-143 A tag push through the push wrapper
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/jnwb_push.sh`, `scripts/push_guard.py`, `tests/test_push_guard.py`, `scripts/verify_lane.py`, `scripts/ci_gate.py` (the last two added by Hamm 2026-11-15).
-- 17-143: `push_guard.py` denied the v0.2.16 tag push (2026-11-08) and `jnwb_push.sh` pushes only a branch (`:52`), so Hamm pushed it by hand. Ruled 2026-11-09: an artifacts-only push first runs gate 15 and `tests/test_stack_item_length.py`. Check: `jnwb_push.sh <dir> --tag vX.Y.Z` pushes a `v*` tag only at `origin/main`'s tip with a successful main CI/CD run of that SHA, else refuses; an artifacts-only push with a bare directory in `Writes:` is refused; guard tests cover each.
 
 ### 17-144 The jaxfne isi_cv commits
 
