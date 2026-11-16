@@ -1,0 +1,143 @@
+{
+ "seed": 2026111601,
+ "trees": [
+  {
+   "label": "k01",
+   "source": "D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/v_scan",
+   "anchor": "PASS",
+   "origin": "review 3: valid"
+  },
+  {
+   "label": "k02",
+   "source": "D:/repos/_work/exp_t2beh/pos2",
+   "anchor": "PASS",
+   "origin": "orchestrator: corrected reference"
+  },
+  {
+   "label": "k03",
+   "source": "D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/v_map",
+   "anchor": "PASS",
+   "origin": "review 3: valid"
+  },
+  {
+   "label": "k04",
+   "source": "D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/v_split2",
+   "anchor": "PASS",
+   "origin": "review 3: valid"
+  },
+  {
+   "label": "k05",
+   "source": "D:/repos/_work/exp_t2ctl/u3",
+   "anchor": "FAIL",
+   "origin": "orchestrator: eight splits fixed in place (F1)"
+  },
+  {
+   "label": "k06",
+   "source": "D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/u_disp",
+   "anchor": "FAIL",
+   "origin": "review 3: shared entry dispatching to per-site splitters (F3)"
+  },
+  {
+   "label": "k07",
+   "source": "D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/v_wrap",
+   "anchor": "PASS",
+   "origin": "review 3: valid"
+  },
+  {
+   "label": "k08",
+   "source": "D:/repos/_work/exp_t2ctl/v1",
+   "anchor": "PASS",
+   "origin": "review 2: valid"
+  },
+  {
+   "label": "k09",
+   "source": "D:/repos/_work/exp_prereq/t2/base",
+   "anchor": "FAIL",
+   "origin": "baseline: eight independent splitters"
+  },
+  {
+   "label": "k10",
+   "source": "D:/repos/_work/exp_prereq/t2/pos_inline",
+   "anchor": "FAIL",
+   "origin": "orchestrator: three inline splits left (F1)"
+  },
+  {
+   "label": "k11",
+   "source": "D:/repos/_work/exp_t2ctl/u2",
+   "anchor": "FAIL",
+   "origin": "orchestrator: six copies in one module (F2)"
+  },
+  {
+   "label": "k12",
+   "source": "D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/u_hidden_call",
+   "anchor": "FAIL",
+   "origin": "review 3: own splitter effective beside a shared call (F4)"
+  },
+  {
+   "label": "k13",
+   "source": "D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/v_gen",
+   "anchor": "PASS",
+   "origin": "review 3: valid"
+  },
+  {
+   "label": "k14",
+   "source": "D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/u_const2",
+   "anchor": "FAIL",
+   "origin": "review 3: eight inline splits sharing one pattern (F5)"
+  },
+  {
+   "label": "k15",
+   "source": "D:/repos/_work/exp_t2ctl/v2",
+   "anchor": "PASS",
+   "origin": "review 2: valid"
+  },
+  {
+   "label": "k16",
+   "source": "D:/repos/_work/exp_t2ctl/s_led",
+   "anchor": "PASS",
+   "origin": "review 2: wrong convention, one shared splitter"
+  },
+  {
+   "label": "k17",
+   "source": "D:/repos/_work/exp_t2ctl/a1",
+   "anchor": "PASS",
+   "origin": "orchestrator: valid, static method behind an alias"
+  },
+  {
+   "label": "k18",
+   "source": "D:/repos/_work/exp_t2ctl/v3",
+   "anchor": "PASS",
+   "origin": "review 2: valid"
+  },
+  {
+   "label": "k19",
+   "source": "D:/repos/_work/exp_t2ctl/u1",
+   "anchor": "FAIL",
+   "origin": "orchestrator: six per-module copies (F2)"
+  },
+  {
+   "label": "k20",
+   "source": "D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/v_cls",
+   "anchor": "PASS",
+   "origin": "review 3: valid"
+  },
+  {
+   "label": "k21",
+   "source": "D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/v_partial",
+   "anchor": "PASS",
+   "origin": "review 3: valid"
+  },
+  {
+   "label": "k22",
+   "source": "D:/tmp/claude/acfe204914b1181d/30cef652-1268-5f7a-911c-87a2f8fc2c76/scratchpad/rev_t2c/trees/u_allhidden",
+   "anchor": "FAIL",
+   "origin": "review 3: eight partition loops (F1)"
+  },
+  {
+   "label": "k23",
+   "source": "D:/repos/_work/exp_prereq/t2/pos",
+   "anchor": "PASS",
+   "origin": "orchestrator: defective behaviour, one shared splitter"
+  }
+ ]
+}
