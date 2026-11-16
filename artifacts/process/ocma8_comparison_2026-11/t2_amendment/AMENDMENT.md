@@ -3,7 +3,8 @@
 Status of amendment 3 (section "Amendment 3"): Hamm's ruling of 2026-11-16 after review 3's STOP. The
 automated consolidation predicates are removed as primaries; consolidation is judged by independent blind
 adjudication against a rubric fixed beforehand; the behaviour predicates stay automated with a corrected
-generator. Validated on known controls only; not reviewed; T2 not frozen; nothing executed. T2 as amended is
+generator. Validated on known controls only, by adjudicators not blind to the validation set; review 4
+returned REVISE (section "Review 4"), unrepaired; T2 not frozen; nothing executed. T2 as amended is
 not the measurement `PREREG.md` froze (section "Preregistration consequence").
 
 History, amendment 2 (stopped by the stopping rule): amendment 1 was reviewed twice, REVISE both times (`../review/t2_amendment_reviewer1.md`,
@@ -28,7 +29,7 @@ The rows of the table below marked "shown" hold for the listed controls only; re
 | P3 rejects every wrong convention | NO (review 3): `w_hdr2`, `w_maxsplit`, `w_ws` pass all four primaries; `w_bq` passes P3 and P4 |
 | P1 resolves valid refactors without adjudication | rarely: 6 of review 3's 7 valid trees are AMBIGUOUS (none rejected) |
 | Structural adjudication separates the known controls (amendment 3) | 23 of 23 against the anchors, two adjudicators, kappa 1.0; limited independence, no arm-produced tree |
-| Revised P3 rejects wrong trees and accepts correct ones (amendment 3) | 19 correct trees 0 mismatches and 22 wrong trees more than 0 at each of 5 seeds; one wrong tree (`w_hdr2`) shows no difference at any public entry point |
+| Revised P3 rejects wrong trees and accepts correct ones (amendment 3) | 19 correct trees 0 mismatches and 22 wrong trees more than 0 at each of 5 seeds; one wrong tree (`w_hdr2`) scores 0 (review 4: it differs at `routing_targets`, which the generator does not reach); review 4 built three more wrong trees that score 0 |
 | Two keeper dispatches fit the 30-minute cap | UNKNOWN: two serial acceptance runs take 526 of 1800 s; two at once take 331 and 328 s each, inside the 10-minute timeout; dispatch overhead is unmeasured |
 T2 is not frozen. No experiment cell has run. `PREREG.md` is unchanged: the 30-minute cap, the evaluator, the
 thresholds and the adjudication rules stand.
@@ -523,7 +524,31 @@ a compound shell command; it read empty stdin, did nothing and was stopped. (2) 
 `python -` standalone did not block it there. A worker in this pilot reported one empty `python -c` of its own.
 Repair is the harness keeper's, with a regression test: the forbidden forms are refused standalone and inside
 compound commands, and permitted commands still pass. No pilot-side workaround; the harness was not modified.
-Not yet delivered to the keeper: the jchat hub was unreachable earlier in this session.
+Not yet delivered to the keeper: the jchat hub and relay did not answer on 2026-11-16 (two attempts).
+
+### Review 4 of amendment 3: REVISE (2026-11-16)
+
+Report: `../review/t2_amendment_reviewer4.md`; its differential runs: `review4_runs.txt`; its four trees are
+in the session scratch directory (`rev4/trees/`), not in this record. Not STOP: the reviewer found no evidence
+that adjudication fails on the 23 controls. Nothing below is repaired; each needs a ruling or a repair and
+re-verification before freeze.
+
+| id | Finding | Checked by the orchestrator |
+|---|---|---|
+| F1 | Three wrong conventions score 0 at seeds 2026111600 and 7: any backslash escapes and is dropped (`w_bsall`), internal whitespace runs collapsed (`w_collapse`), at most two escapes honoured per row (`w_cap2`). The generator has no lone backslash, no row with more than two escapes, no whitespace run inside a cell | `review4_runs.txt`: 0 and 0 for each at both seeds; the preserved mode refuses any backslash (generator, "backslash in a preserved input") |
+| F2 | `w_hdr2` differs at a public entry point, `build_fact_graph.routing_targets` (a header cell holding a backticked name with an escaped pipe): the statement in "Generator revision 2", not observed at a public entry point, is withdrawn. `_all_tables` has six public consumers and the generator adapts three | `routing_targets` calls `_all_tables` (baseline `build_fact_graph.py:3205`), six call sites read; the probe itself not rerun (the reviewer deleted its script) |
+| F3 | Rubric: FAIL anchors, PASS anchors and S1 to S3 have no precedence; S1 to S3 read PASS for `u_const2`, anchored FAIL; v1 sits between a PASS anchor and F5 | both adjudicators' "least sure" notes only |
+| F4 | Undecided and without a control: all eight sites on the shared splitter, an old private splitter left defined and uncalled (S3 "live" against F6 "reachable") | not rechecked |
+| F5 | S3 read literally fails every tree: `docs_form_gate.py:323` splits a line on a spaced pipe in a listed file, is none of the eight sites, and the rubric does not exclude it | line read at the baseline |
+| F6 | The validation is not the deployed procedure: adjudicators compared trees; six of nine FAIL anchors are easy; one model family. Asks a second validation: one tree per fresh adjudicator, at least eight trees with the hard cases and new architectures, UNRESOLVED rate reported | limits recorded above; second validation not run |
+| F7 | Blinding of an arm tree (paths, authors, extra files) and how AMBIGUOUS enters the efficiency measure are unspecified | absent from `PACKETS.md` (read) |
+| F8 | The whitespace-padding family scores `str.strip()` semantics that no spec states; a refactor using `strip(" ")` would be rejected | no spec search in this record |
+| F9 | No document with two tables, a blank line inside a table or text between tables | not rechecked |
+| F10 | The headline and ruling text say "independent blind"; only the limits say otherwise | status paragraph of this file corrected |
+
+Undecided architectures in the reviewer's reading of the rubric (none built): per-site flags changing escape
+handling in one body; a lambda per module over one shared pattern; a state machine with `str.split` kept for
+the separator row; the uncalled old helper (F4); the untouched `docs_form_gate.py:323` (F5).
 
 ## Readings
 
@@ -539,5 +564,5 @@ Not yet delivered to the keeper: the jchat hub was unreachable earlier in this s
 
 ## Owed before freeze
 
-Independent review of amendment 3, including the rubric's exposure to unseen architectures. Then Hamm's freeze
-and go decisions. Experiment execution and keeper dispatch stay withheld.
+Hamm's ruling on review 4's findings (repair and re-verify, or remove T2 from the executable pilot). Then
+Hamm's freeze and go decisions. Experiment execution and keeper dispatch stay withheld.

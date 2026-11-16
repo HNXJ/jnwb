@@ -89,8 +89,11 @@ stopped. Amendment 3 (Hamm 2026-11-16, a material amendment): P1 and P2 leave th
 judged by two independent adjudicators against a rubric fixed at 052a37d8 (`PASS`, `FAIL` or `AMBIGUOUS`); P3
 runs on generator revision 2, P4 and C1 to C5 unchanged. On known controls: both adjudicators 23 of 23 against
 the anchors (limited independence, no arm-produced tree); the differential leaves 19 correct trees at 0 and
-rejects 22 wrong trees at each of five seeds, and one wrong tree (`w_hdr2`) shows no difference at a public
-entry point. T2 as amended is not the measurement `PREREG.md` froze. Not reviewed; the T2 packet is not frozen.
+rejects 22 wrong trees at each of five seeds; one wrong tree (`w_hdr2`) scores 0. T2 as amended is not the
+measurement `PREREG.md` froze. Review 4 returned REVISE (2026-11-16, `review/t2_amendment_reviewer4.md`): three
+more wrong conventions score 0, `w_hdr2` differs at an entry point the generator does not reach, the rubric
+leaves five architectures undecided, and the validation was not the deployed procedure. Unrepaired; the T2
+packet is not frozen.
 
 Baselines re-read 2026-11-16: jnwb `dev` moved to fabe3c02 (one README line); T2 and T3 keep ac995dde.
 
