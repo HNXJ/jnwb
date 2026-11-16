@@ -256,12 +256,14 @@ def test_a_second_ref_matching_the_branch_name_refuses(tmp_path, ci_api):
     assert _ref(bare) == tip, "green CI at a decoy ref's commit let a push through"
 
 
-def test_more_runs_at_the_tip_than_were_read_refuses(tmp_path, ci_api):
-    """A failed run past the first page would be invisible; the gate answers unreadable."""
+@pytest.mark.parametrize("count", [{"total_count": 101}, {}, {"total_count": "1"}, {"total_count": None}],
+                         ids=["more_than_read", "missing", "a_string", "null"])
+def test_a_list_of_runs_not_known_to_be_complete_refuses(tmp_path, ci_api, count):
+    """A failed run past the first page would be invisible; without a total_count that the runs
+    read account for, the gate answers unreadable."""
     state, url = ci_api
     repo, bare, tip, _head = _repo(tmp_path)
-    state["body"] = json.dumps({"total_count": 101,
-                                "workflow_runs": [_run("CI/CD", tip, "success")]}).encode("utf-8")
+    state["body"] = json.dumps({**count, "workflow_runs": [_run("CI/CD", tip, "success")]}).encode("utf-8")
     proc = _run_push(tmp_path, repo, url, override=True)
     out = proc.stdout + proc.stderr
     assert proc.returncode == 1, out

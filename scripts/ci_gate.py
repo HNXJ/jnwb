@@ -13,7 +13,7 @@ tag push needs the CI/CD run, not any run).
 Exit codes: 0 pass (prints "pass <sha8> ..."); 1 refuse (prints "refuse: ..." naming each run that
 did not complete or succeed, or that no run is listed or at the tip); 2 unreadable (network, HTTP
 status, bad JSON, a response without workflow_runs, such as a rate-limit body, a --tip that is not
-a full SHA, or more runs at the tip than the one page read).
+a full SHA, or, with --tip, a total_count that is missing or exceeds the runs of the one page read).
 JNWB_CI_API overrides the API base; the tests point it at a local server.
 """
 import json
@@ -99,8 +99,9 @@ def main(argv):
         print("unreadable: no workflow_runs in the response")
         return 2
     total = data.get("total_count")
-    if tip is not None and isinstance(total, int) and total > len(runs):
-        print(f"unreadable: {total} runs at the tip, {len(runs)} read; a run past the first page could have failed")
+    if tip is not None and (type(total) is not int or total > len(runs)):
+        print(f"unreadable: total_count is {total!r} with {len(runs)} run(s) read at the tip; "
+              "a run not read could have failed")
         return 2
     try:
         code, line = decide(runs, require_name, tip)

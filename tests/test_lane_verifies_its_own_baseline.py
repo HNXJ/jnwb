@@ -377,7 +377,7 @@ def _push_lane(tmp_path, change):
 def _green_ci(tip):
     """A local stand-in for the Actions API that lists one successful run at ``tip``, origin's tip
     of dev, so the wrapper's CI check passes without reading the live repository."""
-    body = json.dumps({"workflow_runs": [
+    body = json.dumps({"total_count": 1, "workflow_runs": [
         {"name": "CI/CD", "head_sha": tip, "status": "completed", "conclusion": "success"}]}).encode("utf-8")
 
     class Handler(BaseHTTPRequestHandler):
