@@ -1,0 +1,9 @@
+table-like lines=5189 files=145
+odd whitespace (not space or tab): lines=0 files=0 (.md files=0)
+backslash not before a pipe: lines=59 files=12 (.md files=12)
+   artifacts/benchmarks/performance/complexity_inventory.md:31: '| INV-01 | `complex_tfr` | `jnwb.tfr` | $\\mathcal{O}(C \\cdot F \\cdot T \\log T)$ | $\\mathcal{O}(C \\cdot F \\cdot'
+   artifacts/benchmarks/performance/complexity_inventory.md:32: '| INV-02 | `TFRAccumulator` | `jnwb.tfr_accumulator` | $\\mathcal{O}(R \\cdot C \\cdot F \\cdot T)$ | $\\mathcal{O}'
+   artifacts/benchmarks/performance/complexity_inventory.md:33: '| INV-03 | `compute_psd` | `jnwb.spectral` | $\\mathcal{O}(C \\cdot T \\log N_{\\text{perseg}})$ | $\\mathcal{O}(C '
+more than two escaped pipes: lines=0 files=0 (.md files=0)
+run of spaces inside a cell: lines=1 files=1 (.md files=1)
+   artifacts/evidence/0.2.17/audit_2026-11-08.md:53: '| scripts | scripts-7 | yes | minor | dead-code | scripts/figures/generate_figures.py:1651 | none | `time_seri'

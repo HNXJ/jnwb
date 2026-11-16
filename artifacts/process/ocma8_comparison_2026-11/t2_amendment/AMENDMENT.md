@@ -550,6 +550,32 @@ Undecided architectures in the reviewer's reading of the rubric (none built): pe
 handling in one body; a lambda per module over one shared pattern; a state machine with `str.split` kept for
 the separator row; the uncalled old helper (F4); the untouched `docs_form_gate.py:323` (F5).
 
+### Final repair cycle (Hamm 2026-11-16): rulings reconciled with the task contract
+
+Ruling: review 4 is REVISE; one final bounded repair cycle; the next review is a terminal gate (a new material
+REVISE ends T2 for this pilot). STOP T2 when a known-invalid structure is accepted, a known-valid one is
+rejected, material rubric ambiguity remains, the deployed adjudication cannot separate valid from invalid
+trees, or another material defect needs a wider repair. The 23-tree results and all earlier verdicts stay as
+recorded. Nothing in the instrument is edited before the rows below are final.
+
+Contract read: `PACKETS.md`, TASK-t2 ("The 8 are 5 function definitions and 3 inline splits; after the change
+`scripts/` has one cell splitter, it honours escaped pipes, and every former site uses it"; "behaviour is
+kept: the gate's outputs and the tracked tables it writes stay byte-equal") and the todo item's check ("one
+`cells()`"). Baseline scan: `contract_scan.py`, `contract_scan.txt` (5189 table-like tracked lines, 145 files).
+
+| Finding | Hamm's proposed ruling | Against the contract | State |
+|---|---|---|---|
+| F3 precedence | validity requirements over illustrative anchors | no conflict | final |
+| F3 `u_const2` | resolve against the contract, not the anchor | Nine split calls stay at the sites (`PIPE.split` in six files) and share a compiled pattern: no site "uses" a splitter and `scripts/` has no "one `cells()`". FAIL by the contract | final: FAIL, because sites split for themselves |
+| F3 v1 (two entry functions) | not ruled | `table_cells.py` has `padded_cells` and `inner_cells`, each calling `_PIPE.split` itself and differing in outer-pipe handling: the same sharing as `u_const2`, in two functions that every site calls. "One cell splitter" read as one callable makes it FAIL; the rubric's PASS anchor 3 and the adjudication key say PASS | CONTRADICTION, returned to Hamm |
+| F4 unused helper | qualifies; a cleanup defect, not several parsers | "after the change `scripts/` has one cell splitter" and the redesign ruling's "redundant implementations removed" read literally fail a tree that keeps a second, uncalled definition | CONTRADICTION, returned to Hamm |
+| F5 ninth split | adjudicate the eight designated sites only | The contract counts eight (five definitions, three inline). `docs_form_gate.py:323` (`cited_works_removed`) cuts a row once at the first spaced pipe to drop a citation cell; it is none of the eight. Out of the adjudication whether a tree leaves it or routes it | final |
+| F8 whitespace | score `str.strip()` equivalence only with a specification | 0 of 5189 tracked table-like lines hold whitespace other than space and tab; no specification found (docs grep; inferred absent). The contract's kept behaviour does not reach it | final: the family moves to exploratory; `w_ws` is then no scored negative |
+
+Same scan, for F1: a backslash not before a pipe on 59 lines in 12 files (kept behaviour covers it: scored);
+more than two escaped pipes on 0 lines (scored under "honours escaped pipes"); a run of spaces inside a cell
+on 1 line (scored).
+
 ## Readings
 
 - No corrected test covers `release_gate.table_data_rows`: an escaped pipe does not change its output.
