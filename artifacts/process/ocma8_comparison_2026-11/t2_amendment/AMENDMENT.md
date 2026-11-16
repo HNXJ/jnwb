@@ -567,10 +567,37 @@ kept: the gate's outputs and the tracked tables it writes stay byte-equal") and 
 |---|---|---|---|
 | F3 precedence | validity requirements over illustrative anchors | no conflict | final |
 | F3 `u_const2` | resolve against the contract, not the anchor | Nine split calls stay at the sites (`PIPE.split` in six files) and share a compiled pattern: no site "uses" a splitter and `scripts/` has no "one `cells()`". FAIL by the contract | final: FAIL, because sites split for themselves |
-| F3 v1 (two entry functions) | not ruled | `table_cells.py` has `padded_cells` and `inner_cells`, each calling `_PIPE.split` itself and differing in outer-pipe handling: the same sharing as `u_const2`, in two functions that every site calls. "One cell splitter" read as one callable makes it FAIL; the rubric's PASS anchor 3 and the adjudication key say PASS | CONTRADICTION, returned to Hamm |
+| F3 v1 (two entry functions; ruled below: FAIL) | not ruled | `table_cells.py` has `padded_cells` and `inner_cells`, each calling `_PIPE.split` itself and differing in outer-pipe handling: the same sharing as `u_const2`, in two functions that every site calls. "One cell splitter" read as one callable makes it FAIL; the rubric's PASS anchor 3 and the adjudication key say PASS | CONTRADICTION, returned to Hamm |
 | F4 unused helper | qualifies; a cleanup defect, not several parsers | "after the change `scripts/` has one cell splitter" and the redesign ruling's "redundant implementations removed" read literally fail a tree that keeps a second, uncalled definition | CONTRADICTION, returned to Hamm |
 | F5 ninth split | adjudicate the eight designated sites only | The contract counts eight (five definitions, three inline). `docs_form_gate.py:323` (`cited_works_removed`) cuts a row once at the first spaced pipe to drop a citation cell; it is none of the eight. Out of the adjudication whether a tree leaves it or routes it | final |
 | F8 whitespace | score `str.strip()` equivalence only with a specification | 0 of 5189 tracked table-like lines hold whitespace other than space and tab; no specification found (docs grep; inferred absent). The contract's kept behaviour does not reach it | final: the family moves to exploratory; `w_ws` is then no scored negative |
+
+Scope ruling on the two contradictions (Hamm 2026-11-16): option 3, literal. The contract requires exactly one
+cell-splitter implementation in `scripts/`, all eight designated sites using it, the redundant splitter
+implementations removed. Count implementations that perform cell splitting, not functions on the call path; a
+wrapper that delegates is not a splitter. Two entry functions over one shared core pass when neither splits;
+two functions each applying a shared pattern fail; an uncalled legacy splitter fails (this supersedes the
+proposed F4 ruling). Structure and behaviour stay separately scored.
+
+A material rubric clarification. Effect on earlier positive controls: v1 (anchored PASS in the 23-tree set,
+PASS from both adjudicators) is FAIL under the literal reading, and so is any tree that keeps an uncalled
+former splitter. The 23-tree key, reports and agreement stay as recorded; the revised classification lives
+only in `validation2_controls.md` (tree m1 is the v1 class, built anew).
+
+Written before any repair or validation (this commit):
+- `predicates/t2_structure_rubric_r2.md`: criteria L1 to L3 decide and the examples illustrate (F3); scope
+  stated, the ninth split out either way (F5); the first rubric kept as written.
+- `predicates/t2_adjudication_protocol.md`, `t2_adjudication_packet.md`, `build_adjudication_tree.py` (F7):
+  isolation of a tree, one tree per fresh adjudicator, slot 2 from a second model family with one retry and a
+  recorded fallback, evidence access, AMBIGUOUS as intervals on `V` and `E` and as a count over all assigned
+  trees.
+- `validation2_controls.md`: twelve new trees, five expected PASS and seven expected FAIL, to be built by
+  agents other than the adjudicators.
+- Stopping criteria of validation 2 (protocol, section 5). The orchestrator set one number Hamm did not: more
+  than 2 of 12 AMBIGUOUS trees counts as "cannot reliably distinguish".
+- Generator repair planned (F1, F2, F8, F9): lone backslashes in preserved rows, three to five escapes,
+  whitespace runs inside cells, every public consumer of `_all_tables`, documents with two tables; the
+  whitespace-padding family moves to exploratory.
 
 Same scan, for F1: a backslash not before a pipe on 59 lines in 12 files (kept behaviour covers it: scored);
 more than two escaped pipes on 0 lines (scored under "honours escaped pipes"); a run of spaces inside a cell
