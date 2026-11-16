@@ -94,6 +94,11 @@ inflight=$(python "$bin/ci_inflight.py" hnxj/jnwb "$branch") || { echo "CI count
 # it now; the newest run of the branch may sit at an earlier SHA and says nothing about the tip.
 tip_out=$(git ls-remote origin "refs/heads/$branch" </dev/null) \
   || { echo "refusing: ls-remote of origin/$branch failed"; exit 1; }
+# ls-remote matches a pattern by its trailing path, so a ref such as refs/heads/a/refs/heads/dev is
+# listed too, and sorts first; one line is the only answer that names the branch.
+case "$tip_out" in
+  *$'\n'*) echo "refusing: origin lists more than one ref matching refs/heads/$branch"; exit 1 ;;
+esac
 tip=${tip_out%%$'\t'*}
 if [ -z "$tip" ]; then
   gate_out="refuse: origin has no $branch, so no CI run can be at its tip"; gate_rc=1

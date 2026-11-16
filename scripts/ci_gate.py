@@ -12,8 +12,8 @@ With --require-name, at least one run at the deciding SHA must be a successful r
 tag push needs the CI/CD run, not any run).
 Exit codes: 0 pass (prints "pass <sha8> ..."); 1 refuse (prints "refuse: ..." naming each run that
 did not complete or succeed, or that no run is listed or at the tip); 2 unreadable (network, HTTP
-status, bad JSON, a response without workflow_runs, such as a rate-limit body, or a --tip that is not
-a full SHA).
+status, bad JSON, a response without workflow_runs, such as a rate-limit body, a --tip that is not
+a full SHA, or more runs at the tip than the one page read).
 JNWB_CI_API overrides the API base; the tests point it at a local server.
 """
 import json
@@ -97,6 +97,10 @@ def main(argv):
     runs = data.get("workflow_runs") if isinstance(data, dict) else None
     if runs is None:
         print("unreadable: no workflow_runs in the response")
+        return 2
+    total = data.get("total_count")
+    if tip is not None and isinstance(total, int) and total > len(runs):
+        print(f"unreadable: {total} runs at the tip, {len(runs)} read; a run past the first page could have failed")
         return 2
     try:
         code, line = decide(runs, require_name, tip)

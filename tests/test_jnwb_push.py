@@ -240,6 +240,35 @@ def test_a_branch_the_remote_does_not_hold_refuses(tmp_path, ci_api):
     assert _ref(bare) is None, "a push to a branch with no CI-read tip reached the remote"
 
 
+def test_a_second_ref_matching_the_branch_name_refuses(tmp_path, ci_api):
+    """`git ls-remote origin refs/heads/dev` also lists refs/heads/a/refs/heads/dev, and lists it
+    first; taking the first line would read CI at that ref's commit instead of dev's tip."""
+    state, url = ci_api
+    repo, bare, tip, head = _repo(tmp_path)
+    _git(repo, "push", "-q", bare.as_posix(), "HEAD:refs/heads/a/refs/heads/dev")
+    listed = _git(repo, "ls-remote", "origin", "refs/heads/dev").splitlines()
+    assert len(listed) == 2 and listed[0].startswith(head), "the fixture must list the decoy ref first"
+    state["body"] = _body([_run("CI/CD", head, "success")])
+    proc = _run_push(tmp_path, repo, url)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode == 1, out
+    assert "more than one ref" in out, out
+    assert _ref(bare) == tip, "green CI at a decoy ref's commit let a push through"
+
+
+def test_more_runs_at_the_tip_than_were_read_refuses(tmp_path, ci_api):
+    """A failed run past the first page would be invisible; the gate answers unreadable."""
+    state, url = ci_api
+    repo, bare, tip, _head = _repo(tmp_path)
+    state["body"] = json.dumps({"total_count": 101,
+                                "workflow_runs": [_run("CI/CD", tip, "success")]}).encode("utf-8")
+    proc = _run_push(tmp_path, repo, url, override=True)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode == 1, out
+    assert "unreadable" in out, out
+    assert _ref(bare) == tip, "a partly read list of runs let a push through"
+
+
 def test_the_override_pushes_over_a_red_run(tmp_path, ci_api):
     state, url = ci_api
     repo, bare, tip, head = _repo(tmp_path)
