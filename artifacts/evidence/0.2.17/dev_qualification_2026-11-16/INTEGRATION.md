@@ -31,3 +31,15 @@ and the full local suite 10901 passed, 82 skipped, 38 xfailed.
 
 `17-152/` holds the red runs (new tests on `fabe3c02`, review tests on `f967d2ee`, `total_count`
 cases on `00f1d022`), the suite wrapper outputs, the final suite log and harness gate at `4dfb398d`.
+
+## The record on `dev` (Hamm 2026-11-16: merge the complete record, then delete the branch)
+
+Branch `_temp_dev_qual_20261116` (tip `5d6e05f994ff1035118fab922f8b30689382d962`) was merged as
+`5fcb1428`; `51c7ef48d3e0f9a874ff22f802a567bdb8979add` then set `env_pip_freeze.txt` to LF, because
+its mixed line endings failed gate 16 and three tests on the merge (lines unchanged). Pushed
+through the wrapper with no override. CI/CD run 44004557410 (push) at `51c7ef48` concluded success:
+every test leg and the build job, every publish job skipped. The 56 files of this folder are the
+whole record; nothing outside it changed between `fef42bf6` and `51c7ef48`. The branch was deleted
+on the remote after that run; `_temp_17-152_ci_gate_tip` and the fix checkpoint
+`_temp_fix_release_plan_17-143` were deleted when they merged. The commit that adds this section
+is tested by its own CI run, which this file cannot name.
