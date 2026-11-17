@@ -1,0 +1,260 @@
+...FF..FF.FFF.F...FFF................................................... [ 97%]
+..                                                                       [100%]
+================================== FAILURES ===================================
+____ test_green_runs_at_an_older_sha_do_not_authorize_the_tip[older_first] ____
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_17152_red/test_green_runs_at_an_older_sh0')
+ci_api = ({'body': b'{"total_count": 2, "workflow_runs": [{"name": "CI/CD", "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:51996')
+order = 'older_first'
+
+    @pytest.mark.parametrize("order", ["older_first", "older_last"])
+    def test_green_runs_at_an_older_sha_do_not_authorize_the_tip(tmp_path, ci_api, order):
+        """The defect of 2026-11-16: CI green at 9252d0cd passed the gate while origin/dev was fabe3c02."""
+        state, url = ci_api
+        repo, bare, tip, _head = _repo(tmp_path)
+        older = [_run("CI/CD", OLDER_SHA, "success"), _run("dashboard", OLDER_SHA, "success")]
+        state["body"] = _body(older if order == "older_first" else older[::-1])
+        proc = _run_push(tmp_path, repo, url)
+        out = proc.stdout + proc.stderr
+>       assert proc.returncode == 1, out
+E       AssertionError: To D:/pytest_temp/jnwb_17152_red/test_green_runs_at_an_older_sh0/origin.git
+E            90aeb9e..22f6b72  dev -> dev
+E         
+E       assert 0 == 1
+E        +  where 0 = CompletedProcess(args=['C:/Program Files/Git/usr/bin/bash.exe', 'D:/repos/_work/_temp_jnwb_lane_17152/scripts/jnwb_pus...tderr='To D:/pytest_temp/jnwb_17152_red/test_green_runs_at_an_older_sh0/origin.git\n   90aeb9e..22f6b72  dev -> dev\n').returncode
+
+tests\test_jnwb_push.py:163: AssertionError
+____ test_green_runs_at_an_older_sha_do_not_authorize_the_tip[older_last] _____
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_17152_red/test_green_runs_at_an_older_sh1')
+ci_api = ({'body': b'{"total_count": 2, "workflow_runs": [{"name": "dashboard", "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:52056')
+order = 'older_last'
+
+    @pytest.mark.parametrize("order", ["older_first", "older_last"])
+    def test_green_runs_at_an_older_sha_do_not_authorize_the_tip(tmp_path, ci_api, order):
+        """The defect of 2026-11-16: CI green at 9252d0cd passed the gate while origin/dev was fabe3c02."""
+        state, url = ci_api
+        repo, bare, tip, _head = _repo(tmp_path)
+        older = [_run("CI/CD", OLDER_SHA, "success"), _run("dashboard", OLDER_SHA, "success")]
+        state["body"] = _body(older if order == "older_first" else older[::-1])
+        proc = _run_push(tmp_path, repo, url)
+        out = proc.stdout + proc.stderr
+>       assert proc.returncode == 1, out
+E       AssertionError: To D:/pytest_temp/jnwb_17152_red/test_green_runs_at_an_older_sh1/origin.git
+E            0803110..57ba7d3  dev -> dev
+E         
+E       assert 0 == 1
+E        +  where 0 = CompletedProcess(args=['C:/Program Files/Git/usr/bin/bash.exe', 'D:/repos/_work/_temp_jnwb_lane_17152/scripts/jnwb_pus...tderr='To D:/pytest_temp/jnwb_17152_red/test_green_runs_at_an_older_sh1/origin.git\n   0803110..57ba7d3  dev -> dev\n').returncode
+
+tests\test_jnwb_push.py:163: AssertionError
+_________ test_only_the_tip_decides[older_first-success-failure-True] _________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_17152_red/test_only_the_tip_decides_olde0')
+ci_api = ({'body': b'{"total_count": 2, "workflow_runs": [{"name": "CI/CD", "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:52169')
+at_tip = 'success', older = 'failure', passes = True, order = 'older_first'
+
+    @pytest.mark.parametrize("at_tip, older, passes", [
+        ("success", "failure", True),
+        ("failure", "success", False),
+    ])
+    @pytest.mark.parametrize("order", ["tip_first", "older_first"])
+    def test_only_the_tip_decides(tmp_path, ci_api, at_tip, older, passes, order):
+        state, url = ci_api
+        repo, bare, tip, head = _repo(tmp_path)
+        runs = [_run("CI/CD", tip, at_tip), _run("CI/CD", OLDER_SHA, older)]
+        state["body"] = _body(runs if order == "tip_first" else runs[::-1])
+        proc = _run_push(tmp_path, repo, url)
+        out = proc.stdout + proc.stderr
+>       assert (proc.returncode == 0) is passes, out
+E       AssertionError: CI gate on dev: refuse: bbbbbbbb has completed run(s) not successful: CI/CD: failure; refusing. Read its failure; to push the fix, set JNWB_PUSH_OVER_RED=1
+E         
+E       assert (1 == 0) is True
+E        +  where 1 = CompletedProcess(args=['C:/Program Files/Git/usr/bin/bash.exe', 'D:/repos/_work/_temp_jnwb_lane_17152/scripts/jnwb_pus...s) not successful: CI/CD: failure; refusing. Read its failure; to push the fix, set JNWB_PUSH_OVER_RED=1\n', stderr='').returncode
+
+tests\test_jnwb_push.py:180: AssertionError
+________ test_only_the_tip_decides[older_first-failure-success-False] _________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_17152_red/test_only_the_tip_decides_olde1')
+ci_api = ({'body': b'{"total_count": 2, "workflow_runs": [{"name": "CI/CD", "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:52222')
+at_tip = 'failure', older = 'success', passes = False, order = 'older_first'
+
+    @pytest.mark.parametrize("at_tip, older, passes", [
+        ("success", "failure", True),
+        ("failure", "success", False),
+    ])
+    @pytest.mark.parametrize("order", ["tip_first", "older_first"])
+    def test_only_the_tip_decides(tmp_path, ci_api, at_tip, older, passes, order):
+        state, url = ci_api
+        repo, bare, tip, head = _repo(tmp_path)
+        runs = [_run("CI/CD", tip, at_tip), _run("CI/CD", OLDER_SHA, older)]
+        state["body"] = _body(runs if order == "tip_first" else runs[::-1])
+        proc = _run_push(tmp_path, repo, url)
+        out = proc.stdout + proc.stderr
+>       assert (proc.returncode == 0) is passes, out
+E       AssertionError: To D:/pytest_temp/jnwb_17152_red/test_only_the_tip_decides_olde1/origin.git
+E            cc9378b..727252d  dev -> dev
+E         
+E       assert (0 == 0) is False
+E        +  where 0 = CompletedProcess(args=['C:/Program Files/Git/usr/bin/bash.exe', 'D:/repos/_work/_temp_jnwb_lane_17152/scripts/jnwb_pus...tderr='To D:/pytest_temp/jnwb_17152_red/test_only_the_tip_decides_olde1/origin.git\n   cc9378b..727252d  dev -> dev\n').returncode
+
+tests\test_jnwb_push.py:180: AssertionError
+__________ test_a_run_not_completed_at_the_tip_refuses[in_progress] ___________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_17152_red/test_a_run_not_completed_at_th0')
+ci_api = ({'body': b'{"total_count": 2, "workflow_runs": [{"name": "CI/CD", "head_sha": "f6fdc0767dc80ea54b0be4e4154372a946f4bd...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:52304')
+status = 'in_progress'
+
+    @pytest.mark.parametrize("status", ["in_progress", "queued"])
+    def test_a_run_not_completed_at_the_tip_refuses(tmp_path, ci_api, status):
+        state, url = ci_api
+        repo, bare, tip, _head = _repo(tmp_path)
+        state["body"] = _body([_run("CI/CD", tip, None, status=status), _run("dashboard", tip, "success")])
+        proc = _run_push(tmp_path, repo, url)
+        out = proc.stdout + proc.stderr
+        assert proc.returncode == 1, out
+>       assert "not completed" in out, out
+E       AssertionError: CI gate on dev: refuse: f6fdc076 has completed run(s) not successful: CI/CD: None; refusing. Read its failure; to push the fix, set JNWB_PUSH_OVER_RED=1
+E         
+E       assert 'not completed' in 'CI gate on dev: refuse: f6fdc076 has completed run(s) not successful: CI/CD: None; refusing. Read its failure; to push the fix, set JNWB_PUSH_OVER_RED=1\n'
+
+tests\test_jnwb_push.py:202: AssertionError
+_____________ test_a_run_not_completed_at_the_tip_refuses[queued] _____________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_17152_red/test_a_run_not_completed_at_th1')
+ci_api = ({'body': b'{"total_count": 2, "workflow_runs": [{"name": "CI/CD", "head_sha": "d7ca4f8509320305c9d94e6529880985b0ba8e...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:52427')
+status = 'queued'
+
+    @pytest.mark.parametrize("status", ["in_progress", "queued"])
+    def test_a_run_not_completed_at_the_tip_refuses(tmp_path, ci_api, status):
+        state, url = ci_api
+        repo, bare, tip, _head = _repo(tmp_path)
+        state["body"] = _body([_run("CI/CD", tip, None, status=status), _run("dashboard", tip, "success")])
+        proc = _run_push(tmp_path, repo, url)
+        out = proc.stdout + proc.stderr
+        assert proc.returncode == 1, out
+>       assert "not completed" in out, out
+E       AssertionError: CI gate on dev: refuse: d7ca4f85 has completed run(s) not successful: CI/CD: None; refusing. Read its failure; to push the fix, set JNWB_PUSH_OVER_RED=1
+E         
+E       assert 'not completed' in 'CI gate on dev: refuse: d7ca4f85 has completed run(s) not successful: CI/CD: None; refusing. Read its failure; to push the fix, set JNWB_PUSH_OVER_RED=1\n'
+
+tests\test_jnwb_push.py:202: AssertionError
+______ test_the_gate_asks_for_the_runs_at_the_tip_whatever_their_status _______
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_17152_red/test_the_gate_asks_for_the_run0')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "9d24554803f03d2a148199c21cb61510bf5f50...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:52465')
+
+    def test_the_gate_asks_for_the_runs_at_the_tip_whatever_their_status(tmp_path, ci_api):
+        """A `status=completed` filter hides a pending run from the gate, and a query without the tip
+        lets the newest run of any sha decide."""
+        state, url = ci_api
+        repo, bare, tip, head = _repo(tmp_path)
+        state["body"] = _body([_run("CI/CD", tip, "success")])
+        proc = _run_push(tmp_path, repo, url)
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert _ref(bare) == head
+        assert state["paths"], "the wrapper never read the CI stand-in"
+        for path in state["paths"]:
+>           assert f"head_sha={tip}" in path, path
+E           AssertionError: /repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20
+E           assert 'head_sha=9d24554803f03d2a148199c21cb61510bf5f50a0' in '/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'
+
+tests\test_jnwb_push.py:217: AssertionError
+_______________ test_a_branch_the_remote_does_not_hold_refuses ________________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_17152_red/test_a_branch_the_remote_does_0')
+ci_api = ({'body': b'{"total_count": 2, "workflow_runs": [{"name": "CI/CD", "head_sha": "628fcec9c6ed6ad7a5db72ec01e94222815bea...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:52597')
+
+    def test_a_branch_the_remote_does_not_hold_refuses(tmp_path, ci_api):
+        """With no dev on origin there is no tip a run could be at, whatever runs the API lists."""
+        state, url = ci_api
+        repo, bare, tip, head = _repo(tmp_path, remote_has_dev=False)
+        state["body"] = _body([_run("CI/CD", tip, "success"), _run("CI/CD", head, "success")])
+        proc = _run_push(tmp_path, repo, url)
+        out = proc.stdout + proc.stderr
+>       assert proc.returncode == 1, out
+E       AssertionError: To D:/pytest_temp/jnwb_17152_red/test_a_branch_the_remote_does_0/origin.git
+E          * [new branch]      dev -> dev
+E         
+E       assert 0 == 1
+E        +  where 0 = CompletedProcess(args=['C:/Program Files/Git/usr/bin/bash.exe', 'D:/repos/_work/_temp_jnwb_lane_17152/scripts/jnwb_pus...tderr='To D:/pytest_temp/jnwb_17152_red/test_a_branch_the_remote_does_0/origin.git\n * [new branch]      dev -> dev\n').returncode
+
+tests\test_jnwb_push.py:238: AssertionError
+_________ test_ci_gate_refuses_a_tip_that_is_not_a_full_sha[9252d0cd] _________
+
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:52677')
+tip = '9252d0cd'
+
+    @pytest.mark.parametrize("tip", ["9252d0cd", "g" * 40, ""])
+    def test_ci_gate_refuses_a_tip_that_is_not_a_full_sha(ci_api, tip):
+        """A short or malformed tip would match no run or the wrong one; the gate answers 2, unreadable."""
+        state, url = ci_api
+        state["body"] = _body([_run("CI/CD", OLDER_SHA, "success")])
+        env = dict(os.environ)
+        env["JNWB_CI_API"] = url
+        env["NO_PROXY"] = env["no_proxy"] = "127.0.0.1,localhost"
+        proc = subprocess.run([sys.executable, CI_GATE.as_posix(), "hnxj/jnwb", "dev", "--tip", tip],
+                              env=env, capture_output=True, text=True, timeout=60)
+>       assert proc.returncode == 2, proc.stdout + proc.stderr
+E       AssertionError: pass bbbbbbbb: 1 completed run(s) succeeded
+E         
+E       assert 0 == 2
+E        +  where 0 = CompletedProcess(args=['C:\\Python314\\python.exe', 'D:/repos/_work/_temp_jnwb_lane_17152/scripts/ci_gate.py', 'hnxj/jnwb', 'dev', '--tip', '9252d0cd'], returncode=0, stdout='pass bbbbbbbb: 1 completed run(s) succeeded\n', stderr='').returncode
+
+tests\test_jnwb_push.py:276: AssertionError
+_ test_ci_gate_refuses_a_tip_that_is_not_a_full_sha[gggggggggggggggggggggggggggggggggggggggg] _
+
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:52679')
+tip = 'gggggggggggggggggggggggggggggggggggggggg'
+
+    @pytest.mark.parametrize("tip", ["9252d0cd", "g" * 40, ""])
+    def test_ci_gate_refuses_a_tip_that_is_not_a_full_sha(ci_api, tip):
+        """A short or malformed tip would match no run or the wrong one; the gate answers 2, unreadable."""
+        state, url = ci_api
+        state["body"] = _body([_run("CI/CD", OLDER_SHA, "success")])
+        env = dict(os.environ)
+        env["JNWB_CI_API"] = url
+        env["NO_PROXY"] = env["no_proxy"] = "127.0.0.1,localhost"
+        proc = subprocess.run([sys.executable, CI_GATE.as_posix(), "hnxj/jnwb", "dev", "--tip", tip],
+                              env=env, capture_output=True, text=True, timeout=60)
+>       assert proc.returncode == 2, proc.stdout + proc.stderr
+E       AssertionError: pass bbbbbbbb: 1 completed run(s) succeeded
+E         
+E       assert 0 == 2
+E        +  where 0 = CompletedProcess(args=['C:\\Python314\\python.exe', 'D:/repos/_work/_temp_jnwb_lane_17152/scripts/ci_gate.py', 'hnxj/j...ggggggggggggggggggggggggggggggggggg'], returncode=0, stdout='pass bbbbbbbb: 1 completed run(s) succeeded\n', stderr='').returncode
+
+tests\test_jnwb_push.py:276: AssertionError
+_____________ test_ci_gate_refuses_a_tip_that_is_not_a_full_sha[] _____________
+
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...': ['/repos/hnxj/jnwb/actions/runs?branch=dev&status=completed&per_page=20'], 'status': 200}, 'http://127.0.0.1:52681')
+tip = ''
+
+    @pytest.mark.parametrize("tip", ["9252d0cd", "g" * 40, ""])
+    def test_ci_gate_refuses_a_tip_that_is_not_a_full_sha(ci_api, tip):
+        """A short or malformed tip would match no run or the wrong one; the gate answers 2, unreadable."""
+        state, url = ci_api
+        state["body"] = _body([_run("CI/CD", OLDER_SHA, "success")])
+        env = dict(os.environ)
+        env["JNWB_CI_API"] = url
+        env["NO_PROXY"] = env["no_proxy"] = "127.0.0.1,localhost"
+        proc = subprocess.run([sys.executable, CI_GATE.as_posix(), "hnxj/jnwb", "dev", "--tip", tip],
+                              env=env, capture_output=True, text=True, timeout=60)
+>       assert proc.returncode == 2, proc.stdout + proc.stderr
+E       AssertionError: pass bbbbbbbb: 1 completed run(s) succeeded
+E         
+E       assert 0 == 2
+E        +  where 0 = CompletedProcess(args=['C:\\Python314\\python.exe', 'D:/repos/_work/_temp_jnwb_lane_17152/scripts/ci_gate.py', 'hnxj/jnwb', 'dev', '--tip', ''], returncode=0, stdout='pass bbbbbbbb: 1 completed run(s) succeeded\n', stderr='').returncode
+
+tests\test_jnwb_push.py:276: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_jnwb_push.py::test_green_runs_at_an_older_sha_do_not_authorize_the_tip[older_first]
+FAILED tests/test_jnwb_push.py::test_green_runs_at_an_older_sha_do_not_authorize_the_tip[older_last]
+FAILED tests/test_jnwb_push.py::test_only_the_tip_decides[older_first-success-failure-True]
+FAILED tests/test_jnwb_push.py::test_only_the_tip_decides[older_first-failure-success-False]
+FAILED tests/test_jnwb_push.py::test_a_run_not_completed_at_the_tip_refuses[in_progress]
+FAILED tests/test_jnwb_push.py::test_a_run_not_completed_at_the_tip_refuses[queued]
+FAILED tests/test_jnwb_push.py::test_the_gate_asks_for_the_runs_at_the_tip_whatever_their_status
+FAILED tests/test_jnwb_push.py::test_a_branch_the_remote_does_not_hold_refuses
+FAILED tests/test_jnwb_push.py::test_ci_gate_refuses_a_tip_that_is_not_a_full_sha[9252d0cd]
+FAILED tests/test_jnwb_push.py::test_ci_gate_refuses_a_tip_that_is_not_a_full_sha[gggggggggggggggggggggggggggggggggggggggg]
+FAILED tests/test_jnwb_push.py::test_ci_gate_refuses_a_tip_that_is_not_a_full_sha[]
+11 failed, 63 passed in 114.48s (0:01:54)
