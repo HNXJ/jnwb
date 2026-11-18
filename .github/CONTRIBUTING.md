@@ -108,7 +108,7 @@ python scripts/release_gate.py
   records another HEAD, the working tree has an uncommitted
   change, the open stack holds a row, a todo item is still required for this cycle, or the
   closure receipt is missing or nonzero (`AGENTS.md` §11, condition 3), or while the committed
-  `artifacts/benchmarks/performance/peak_memory.json` names a version other than the one the tree declares.
+  `artifacts/benchmarks/performance/peak_memory.json` names a version other than the one the tree declares, or while an operation in that record grew more than 20% and at least 5 MiB over the previous release, unless the declared version's `CHANGELOG.md` section names it (`peak_memory_growth_violations` in `scripts/release_gate.py`).
   It then runs every check that takes minutes, and the suite last, so a failure costs minutes
   rather than a full run: the harness gate, builds the wheel, installs it in a clean venv,
   smoke-tests the installed package and runs the tutorials against it. It catches packaging
@@ -340,7 +340,7 @@ jnwb/
 - **Source & Tests**: `jnwb/`, `tests/`, `examples/`, `docs/`, `skills/`, `scripts/`
 - **Configuration & Metadata**: `pyproject.toml`, `README.md`, `CHANGELOG.md`, `LICENSE`, `.gitignore`, `mkdocs.yml`, `.readthedocs.yaml`, and the repository's policy files
 
-The authoritative list is `ALLOWED_ROOT_DIRS` / `ALLOWED_ROOT_FILES` in `scripts/harness_gate.py`, enforced by Gate 4.
+The authoritative list is `ALLOWED_ROOT_DIRS` / `ALLOWED_ROOT_FILES` in `scripts/gates/boundary.py`, enforced by Gate 4 (`check_root_allowlist`).
 - **CI / VCS**: `.git/`, `.github/`
 - **Repository Artifact Container**: `artifacts/`
 
@@ -350,7 +350,16 @@ The `artifacts/` directory is the canonical location for non-package, repository
 ```text
 artifacts/
 ├── todo_stack.md    # Remaining work, grouped by the version that carries it
+├── agents/          # Role definitions, parameterized by delegation packets
+├── archive/         # Closed cycles, kept only while a file reads or cites them
 ├── benchmarks/      # Performance profiles, timing benchmarks, scalability receipts
+├── changelog.d/     # Changelog fragments, assembled into CHANGELOG.md at release
+├── evidence/        # Per-version working evidence
+├── process/         # How concurrent agents share the repository, defect classes
+├── ref/             # Reference notes
+├── rulings/         # Hamm's rulings by date
+├── showcases/       # Worked examples on public data
+├── skills/          # Repository-only skills
 └── scratch/         # Disposable developer scripts, temporary test data (gitignored)
 ```
 
