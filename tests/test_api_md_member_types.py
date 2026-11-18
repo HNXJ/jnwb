@@ -227,7 +227,7 @@ class TestSignatureCellsCarryParameterKinds:
             obj = getattr(jnwb, short)
             try:
                 parameters = inspect.signature(obj).parameters.values()
-            except (TypeError, ValueError):
+            except ValueError:
                 continue  # rendered as a description, not a signature
             signed += 1
             signature = cell.split("<br")[0].rstrip()
@@ -262,7 +262,7 @@ class TestSignatureCellsCarryParameterKinds:
 def _signature_parameters(obj):
     try:
         return list(inspect.signature(obj).parameters.values())
-    except (TypeError, ValueError):
+    except ValueError:
         return []
 
 

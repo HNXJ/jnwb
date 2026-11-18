@@ -252,7 +252,7 @@ def _walk_page(rel, trees):
                 continue
             try:
                 sig = inspect.signature(obj)
-            except (TypeError, ValueError):
+            except ValueError:
                 continue
             if next(iter(sig.parameters), None) in ("self", "cls"):
                 # An unbound method reached through its class. The documented call is on
@@ -436,7 +436,7 @@ def _module_union(module):
             continue
         try:
             names |= set(inspect.signature(obj).parameters)
-        except (TypeError, ValueError):
+        except ValueError:
             continue
     return names
 
@@ -458,7 +458,7 @@ def _resolve_spec_row(operation, module_cell, input_cell):
     if callable(target):
         try:
             sig = inspect.signature(target)
-        except (TypeError, ValueError):
+        except ValueError:
             sig = None
         if sig is not None:
             return STRATEGY_SIGNATURE, set(sig.parameters), sig, []

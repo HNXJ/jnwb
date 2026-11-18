@@ -144,7 +144,7 @@ def _public_rng_parameters():
         for qualname, fn in members:
             try:
                 param = inspect.signature(fn).parameters.get("rng")
-            except (TypeError, ValueError):
+            except ValueError:
                 continue
             if param is not None:
                 yield qualname, param
@@ -157,7 +157,7 @@ RANDOMNESS_PARAMETERS = ("rng", "seed")
 def _takes_randomness(obj) -> bool:
     try:
         params = inspect.signature(obj).parameters
-    except (TypeError, ValueError):
+    except ValueError:
         return False
     return any(p in params for p in RANDOMNESS_PARAMETERS)
 
@@ -190,7 +190,7 @@ def _seed_only_public_surfaces():
         if callable(obj) and not inspect.isclass(obj):
             try:
                 params = inspect.signature(obj).parameters
-            except (TypeError, ValueError):
+            except ValueError:
                 continue
             if "seed" in params and "rng" not in params:
                 out.add(name)

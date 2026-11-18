@@ -131,7 +131,7 @@ def _rng_parameters():
     for qualname, fn in _public_callables():
         try:
             sig = inspect.signature(fn)
-        except (ValueError, TypeError):
+        except ValueError:
             continue
         param = sig.parameters.get("rng")
         if param is not None:
