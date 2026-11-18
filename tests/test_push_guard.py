@@ -583,6 +583,45 @@ def test_a_quoted_subcommand_temp_only_or_not_push_passes(tmp_path, form):
     assert decide(form, clone) == "allow", form
 
 
+# ---- 17-147-A revision 4: a `)` pairs with its own `(`, a command substitution's included -----------
+
+COMMAND_SUBSTITUTION_DENY_FROM_ELSEWHERE = [
+    "(cd {clone}; echo $(date); git push origin dev)",
+    "(cd {clone}; v=$(x); git push origin dev)",
+]
+
+
+@pytest.mark.parametrize("form", COMMAND_SUBSTITUTION_DENY_FROM_ELSEWHERE)
+def test_a_command_substitution_close_does_not_restore_the_directory_of_a_subshell(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_subst")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(form.format(clone=clone.as_posix()), elsewhere)
+
+
+def test_a_command_substitution_after_a_subshell_cd_leaves_the_push_in_the_outer_directory(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_subst_outer")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert decide(f"(cd {elsewhere.as_posix()} && echo $(date); git push origin dev)", clone) == "allow"
+    assert decide(f"(cd {elsewhere.as_posix()}); echo $(date); git push origin dev", clone) == "deny"
+
+
+def test_a_subshell_closed_before_a_command_substitution_restores_for_the_push_after(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_subst_after")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(f"(cd {elsewhere.as_posix()}); echo $(date); git push origin dev", clone)
+
+
+def test_nested_parentheses_finish_quickly_and_a_push_inside_them_is_denied(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_parens")
+    depth = 50000
+    started = _time.perf_counter()
+    reason = bounded_reply("(" * depth + "git push origin dev" + ")" * depth, clone)[
+        "hookSpecificOutput"]["permissionDecisionReason"]
+    elapsed = _time.perf_counter() - started
+    assert JNWB_REASON in reason
+    assert elapsed < 1.5, f"{elapsed:.2f} s for {depth} nested parentheses"
+
+
 # ---- 17-143: `jnwb_push.sh <dir> --tag vX.Y.Z` and the artifacts-only stack checks ---------------
 #
 # CI reads go to the local stand-in server of test_jnwb_push.py (`ci_api`); the remote is a local bare
