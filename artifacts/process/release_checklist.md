@@ -29,7 +29,7 @@ registry work pushed; scripts-2, the tolerance test and the guard gaps remain).
 | # | Condition | Pts | Check | Now |
 |---|---|---|---|---|
 | A1 | The open stack holds no row | 10 | `artifacts/open_stack.md`, `tests/test_release_requires_an_empty_open_stack.py` | 0 (six rows) |
-| A2 | Full suite 0 failed at the tip of `dev`, and CI green at that SHA | 10 | `bash scripts/jnwb_suite.sh`, `gh run list` | 0 (suite green at `9479505e`; CI at the tip unread) |
+| A2 | Full suite 0 failed at the tip of `dev`, and CI green at that SHA | 10 | `bash scripts/jnwb_suite.sh`, `gh run list` | 0 (suite green at `9479505e`; CI success at `b442e2b1`, runs 44403457956 and 44403468332; both are tips of an unfinished cycle) |
 | A3 | Documentation low-verbosity and consistently formed | 5 | `python scripts/harness_gate.py` 22 of 22, `python scripts/docs_build.py` strict | 5 (harness gate passed at `9479505e`; docs build not run) |
 | A4 | Code low-complexity: no function above 40 | 5 | cyclomatic scan of `jnwb/` (item 17-79) | 0 (13 above 40 at `93fd20e1`) |
 | A5 | `scripts/release_gate.py` passes its STEP 0 checks | 5 | `python scripts/release_gate.py` | 0 (not run) |
