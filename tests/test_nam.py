@@ -34,7 +34,7 @@ def test_training_leaves_the_global_random_state_as_it_found_it():
 
 
 def test_the_seed_still_reproduces_training_and_a_different_seed_changes_it():
-    (a, wa), (b, wb), (c, wc) = _train(0), _train(0), _train(1)
+    (a, wa), (b, wb), (_, wc) = _train(0), _train(0), _train(1)
     assert a == b and all(torch.equal(x, y) for x, y in zip(wa, wb))
     assert not all(torch.equal(x, y) for x, y in zip(wa, wc))
 

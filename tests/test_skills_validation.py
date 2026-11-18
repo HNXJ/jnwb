@@ -124,7 +124,7 @@ def _scopes(text: str) -> List[Tuple[str, str]]:
     scope is kept for the same reason, since a module-level statement can write too.
     """
     try:
-        tree = ast.parse(text)
+        ast.parse(text)
     except SyntaxError:
         return [("<unparsed>", text)]
 

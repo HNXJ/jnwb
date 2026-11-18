@@ -281,6 +281,7 @@ class TestComplexTFRProbes:
         rng = np.random.default_rng(42)
 
         acc = TFRAccumulator((n_ch, len(freqs), T))
+        zs = []
 
         for _ in range(n_trials):
             # Phase-locked 20 Hz signal (index 2 in freqs) on channel 0
@@ -291,6 +292,7 @@ class TestComplexTFRProbes:
             assert tfr.shape == (n_ch, len(freqs), T)
 
             acc.add_trial(tfr.z, valid=tfr.coi_mask)
+            zs.append(tfr.z)
 
         # Verify derived sufficient statistics
         p = acc.power()
@@ -299,6 +301,20 @@ class TestComplexTFRProbes:
 
         assert p.shape == (n_ch, len(freqs), T)
         assert itc.shape == (n_ch, len(freqs), T)
+
+        # evoked is |trial-mean z|^2, recomputed here from the trials. Outside the cone of
+        # influence at the lowest frequencies no trial is valid and evoked is NaN, so compare
+        # the finite samples and require the two probed rows to be finite throughout.
+        assert evoked.shape == (n_ch, len(freqs), T)
+        trial_mean = np.mean(np.stack(zs), axis=0)
+        window = slice(300, 500)
+        finite = np.isfinite(evoked[:, :, window])
+        assert finite[0, 2].all() and finite[1, 5].all(), "probed rows must be valid in the window"
+        assert np.allclose(evoked[:, :, window][finite],
+                           (np.abs(trial_mean[:, :, window]) ** 2)[finite],
+                           rtol=1e-9, atol=0.0)
+        # The phase-locked channel carries the evoked power the noise channel lacks.
+        assert evoked[0, 2, 400] > evoked[1, 5, 400]
 
         # Channel 0 at 20 Hz (index 2) must have high ITC in the interior
         assert itc[0, 2, 400] > 0.8

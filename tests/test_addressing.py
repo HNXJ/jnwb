@@ -669,7 +669,6 @@ class TestProbeGeometry:
 
     def test_arbitrary_linear_orientation_and_order_recovery(self):
         # 10 contacts along diagonal (1, 1, 0) direction, pitch = 100 um
-        n = 10
         pitch = 100.0
         unit_vec = np.array([1.0, 1.0, 0.0]) / np.sqrt(2.0)
         # Shuffle presentation order
