@@ -622,6 +622,81 @@ def test_nested_parentheses_finish_quickly_and_a_push_inside_them_is_denied(tmp_
     assert elapsed < 1.5, f"{elapsed:.2f} s for {depth} nested parentheses"
 
 
+# ---- 17-147-A revision 5: a cd at any command position: after `$(`, a backtick, `(`, `{` or a segment start
+
+
+CD_IN_SUBSTITUTION_DENY_FROM_ELSEWHERE = [
+    "echo $(cd {clone} && git push origin dev)",
+    "x=$(cd {clone}; git push origin dev)",
+    "echo `cd {clone} && git push origin dev`",
+]
+
+
+@pytest.mark.parametrize("form", CD_IN_SUBSTITUTION_DENY_FROM_ELSEWHERE)
+def test_a_cd_inside_a_substitution_names_the_checkout_it_pushes_from(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_cd_subst")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(form.format(clone=clone.as_posix()), elsewhere)
+
+
+def test_a_cd_inside_a_substitution_leaves_the_push_after_it_in_the_outer_directory(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_cd_subst_outer")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(f"echo $(cd {elsewhere.as_posix()}); git push origin dev", clone)
+    assert decide(f"echo $(cd {clone.as_posix()}); git push origin dev", elsewhere) == "allow"
+    assert decide(f"echo $(cd {elsewhere.as_posix()} && git push origin dev)", clone) == "allow"
+
+
+@pytest.mark.parametrize("form", [
+    "echo $(cd {elsewhere} && git push origin dev)",
+    "x=$(cd {elsewhere}; git push origin dev)",
+    "echo `cd {elsewhere} && git push origin dev`",
+    "echo $(cd {elsewhere}); git status",
+])
+def test_a_cd_inside_a_substitution_to_another_directory_passes_from_a_jnwb_checkout(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_cd_subst_ok")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert decide(form.format(elsewhere=elsewhere.as_posix()), clone) == "allow", form
+
+
+# (command, cwd key, new verdict, whether the old guard's verdict is a named fix), built around cd, pushd,
+# substitutions, backticks, subshells and braces
+SUBSTITUTION_DIFFERENTIAL = [
+    ("echo $(cd {clone} && git push origin dev)", "elsewhere", "deny", True),
+    ("x=$(cd {clone}; git push origin dev)", "elsewhere", "deny", True),
+    ("echo `cd {clone} && git push origin dev`", "elsewhere", "deny", True),
+    ("echo $(cd {elsewhere}); git push origin dev", "clone", "deny", False),
+    ("echo $(cd {elsewhere}); git push origin dev", "elsewhere", "allow", False),
+    ("echo $(cd {elsewhere} && git push origin dev)", "clone", "allow", True),
+    ("x=$(cd {elsewhere}; git push origin dev)", "clone", "allow", True),
+    ("echo `cd {elsewhere} && git push origin dev`", "clone", "allow", True),
+    ("echo $(pushd {elsewhere} && git push origin dev)", "clone", "allow", True),
+    ("(cd {elsewhere} && echo $(date); git push origin dev)", "clone", "allow", True),
+    ("echo $(pushd {clone} && git push origin dev)", "elsewhere", "deny", True),
+    ("echo $(cd {elsewhere}); echo $(cd {clone}); git push origin dev", "elsewhere", "allow", False),
+]
+
+
+def test_cd_in_a_substitution_matches_the_old_guard_except_the_named_fixes(tmp_path):
+    """Each row is a case the old guard decides differently only where the named flag says it was wrong:
+    the old guard judged the push in the cwd, not in the directory the cd moved to (over-deny), or did not
+    read the cd at all (a missed push). Every other row agrees with the old guard."""
+    old = _old_guard(tmp_path)
+    clone = make_checkout(tmp_path / "_temp_subst_diff")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    where = {"clone": clone, "elsewhere": elsewhere}
+    differs = []
+    for template, at, expected, named_fix in SUBSTITUTION_DIFFERENTIAL:
+        command = template.format(clone=clone.as_posix(), elsewhere=elsewhere.as_posix())
+        new = _decision(GUARD, command, where[at])
+        prior = _decision(old, command, where[at])
+        assert new == expected, (command, at, new)
+        if prior != new:
+            assert named_fix, (command, at, "old", prior, "new", new)
+        differs.append(prior != new)
+    assert any(differs), "the differential must contain a case the old guard decides differently"
+
+
 # ---- 17-143: `jnwb_push.sh <dir> --tag vX.Y.Z` and the artifacts-only stack checks ---------------
 #
 # CI reads go to the local stand-in server of test_jnwb_push.py (`ci_api`); the remote is a local bare

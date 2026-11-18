@@ -14,11 +14,12 @@ A command is split at `;`, `&&`, `||`, `|`, `&` and newlines, and each segment i
 - the global options and `push`: git's `-C`, `-c`, `--git-dir`, `--work-tree`, `--namespace` and the
   other global options, quoted or not, then the subcommand `push` as the shell passes it on (`"push"`,
   `'push'`, `pu\sh`, `""push`).
-- the directory: a `cd`, `pushd`, or `{ cd ...; }` segment sets the directory of the segments after it;
-  every `(` returns to the directory it was entered with at its own `)`: a `( ... )` subshell, and a
-  command substitution `$( ... )` too, since its cd never reaches the outer shell. So `(cd X); git push`
-  pushes from the outer directory, `(cd X && git push)` pushes from X, and `(cd X); echo $(date); git push`
-  pushes from the outer directory. `~` expands to the home
+- the directory: a `cd` or `pushd` at a command position (the start of a segment, or after `(`, `{`, `$(`
+  or a backtick) sets the directory of the segments after it. Every `(` returns to the directory it was
+  entered with at its own `)`, and a backtick returns at its closing backtick: a `( ... )` subshell, and a
+  substitution `$( ... )` or `` `...` `` too, since its cd never reaches the outer shell. So `(cd X); git push`
+  pushes from the outer directory, `(cd X && git push)` pushes from X, `echo $(cd X && git push)` pushes
+  from X, and `(cd X); echo $(date); git push` pushes from the outer directory. `~` expands to the home
   directory. A directory of more than 64 components is not resolved, and a push from it is denied;
   `git -C <dir>` sets the directory for its own push;
   `--git-dir` and `--work-tree` (either form, quoted or not) name a checkout too; so do `GIT_DIR`,
@@ -56,7 +57,6 @@ TEMP = re.compile(r"_temp(?:orary)?_")
 ALL_REFS = {"--all", "--mirror", "--tags"}
 SEGMENT_SEP = re.compile(r"&&|\|\||[;&|\n]")
 # Possessive quantifiers: a cd line is read once, with no backtracking over its spaces.
-CD = re.compile(r"[\s({]*+(?:cd|pushd)\s++(\"[^\"]*\"|'[^']*'|[^\s;&|()]++)[\s)}]*+$")
 QUOTES = "\"'"
 OPERATORS = ";&|<>()`!{}"
 # Global options that take their value as the next word, or as `=value` in the same word.
@@ -352,15 +352,17 @@ def verdict(payload):
     cmd = (payload.get("tool_input") or {}).get("command") or ""
     base = _bounded(payload.get("cwd") or "")
     env = {}
-    saved = []  # the directory to return to at each open `(`, for a subshell and a substitution alike
+    stack = []  # (kind, directory to return to) for each open `(`, `$(` or backtick, across segments
     for seg in SEGMENT_SEP.split(cmd):
         env.update(ENV_ASSIGN.findall(seg))
         actions = _segment_actions(seg)
         index = 0
-        if not any(kind == "cd" for _, kind, _ in actions):
+        # A word names git only when its quotes and backslashes, removed, spell git: without that text
+        # no candidate needs reading, and the segment's directory changes still settle below.
+        if "git" in seg.replace('"', "").replace("'", "").replace("\\", "").lower():
             for s, a, b, memo in _candidates(seg):
                 if s is seg:
-                    index, base = _settle(actions, index, a, base, saved)
+                    index, base = _settle(actions, index, a, base, stack)
                 if b >= len(s) or not s[b].isspace() or not is_git_exe(s[a:b]):
                     continue
                 end = _push_end(s, b, memo)
@@ -368,41 +370,64 @@ def verdict(payload):
                     continue
                 if any(where is None or is_jnwb(where) for where in push_dirs(base, _steps(s, b), env)):
                     return DENY
-        _, base = _settle(actions, index, len(seg) + 1, base, saved)
+        _, base = _settle(actions, index, len(seg) + 1, base, stack)
     return None
 
 
-# Quoted runs and escapes are matched only to be skipped: a parenthesis inside them is not an action.
-PAREN_TOKEN = re.compile(r"'[^']*'|\"[^\"]*\"|\\.|[()]")
+# One token of a command, in order. Quoted runs and escapes are matched only to be skipped. A `cd` or
+# `pushd` is a token with its path; any other word, quote or escape ends the command position it is in.
+CMD_TOKEN = re.compile(
+    r"'[^']*'|\"[^\"]*\"|\\.|[(){}`]"
+    r"|(?P<cd>(?:cd|pushd)\s++(?P<path>\"[^\"]*\"|'[^']*'|[^\s;&|()`]++))"
+    r"|[^\s'\"\\(){}`]++"
+)
 
 
 def _segment_actions(seg):
-    """The parentheses of ``seg`` and its cd, in position order, as (position, kind, path): "open" for a `(`
-    (a subshell, or a command substitution `$(`), "close" for a `)`, and "cd" for the directory of a cd."""
+    """The parentheses, backticks and cds of ``seg`` in position order, as (position, kind, path): "open" for
+    a `(` (a subshell, or a substitution `$(`), "close" for a `)`, "tick" for a backtick (which opens or closes
+    a substitution), and "cd" for a cd or pushd at a command position: the start of the segment, or after a
+    `(`, `{`, or backtick. A cd anywhere else is an argument, not a directory change."""
     actions = []
-    for m in PAREN_TOKEN.finditer(seg):
-        if m.group() == "(":
+    command = True
+    for m in CMD_TOKEN.finditer(seg):
+        tok = m.group()
+        if tok == "(":
             actions.append((m.start(), "open", None))
-        elif m.group() == ")":
+            command = True
+        elif tok == ")":
             actions.append((m.start(), "close", None))
-    cd = CD.match(seg)
-    if cd:
-        actions.append((cd.start(1), "cd", cd.group(1)))
-    actions.sort(key=lambda action: action[0])
+            command = False
+        elif tok == "`":
+            actions.append((m.start(), "tick", None))
+            command = True
+        elif tok == "{":
+            command = True
+        elif m.group("cd") is not None:
+            if command:
+                actions.append((m.start(), "cd", m.group("path")))
+            command = False
+        else:
+            command = False
     return actions
 
 
-def _settle(actions, index, pos, base, saved):
-    """Apply the actions of a segment before position ``pos``: a `(` saves the directory, its `)` returns to
-    the saved one (a `)` with no open `(` does nothing), and a cd sets it. Returns the next index and the
-    directory in effect. Every `(` is paired with its own `)`, so a substitution never restores a subshell."""
+def _settle(actions, index, pos, base, stack):
+    """Apply the actions of a segment before position ``pos``. A `(` pushes the directory it was entered with;
+    its `)` returns to it, and a backtick returns at its closing backtick; a `)` with nothing open does
+    nothing. A cd sets the directory. Returns the next index and the directory in effect."""
     while index < len(actions) and actions[index][0] < pos:
         _, kind, path = actions[index]
         if kind == "open":
-            saved.append(base)
+            stack.append(("(", base))
+        elif kind == "tick":
+            if stack and stack[-1][0] == "`":
+                base = stack.pop()[1]
+            else:
+                stack.append(("`", base))
         elif kind == "close":
-            if saved:
-                base = saved.pop()
+            if stack:
+                base = stack.pop()[1]
         else:
             base = under(base, unquote(path))
         index += 1
