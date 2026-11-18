@@ -19,9 +19,11 @@ A command is split at `;`, `&&`, `||`, `|`, `&` and newlines, and each segment i
 - nothing is exempt: a jnwb_push.sh call is not skipped, so a push inside its arguments
   (`"$(git push ...)"`) is checked like any other.
 
-Not read: a shell string whose `cd` or `&&` sits inside quotes (`bash -c "cd X && git push"`), and a
-command or path that a substitution or variable builds (`$(which git)`, `$GIT`, `eval`). The guard
-reads text, not a shell. A payload that cannot be read or interpreted is denied with a message: the
+A push is read wherever it starts a word: after a quote, a backtick, `$(`, `!`, `{` or a wrapper word
+(`bash -c 'git push ...'`, `` `git push ...` ``). Not read: a `cd` or `&&` inside a quoted string
+(`bash -c "cd X && git push"`), since the split cuts there and the push runs in the outer directory;
+and a command or path that a substitution or variable builds (`$(which git)`, `$GIT`, `eval`). The
+guard reads text, not a shell. A payload that cannot be read or interpreted is denied with a message: the
 guard cannot tell what it would push.
 
 Wire it in `.claude/settings.json` under hooks.PreToolUse with matcher "Bash":
@@ -38,10 +40,17 @@ from pathlib import Path
 PATH = r"(?:\"[^\"]*\"|'[^']*'|\S+)"
 QUOTE = r"[\"']?"
 GLOBAL = rf"(?:{QUOTE}--namespace{QUOTE}(?:=|\s+){PATH}|{QUOTE}-C{QUOTE}\s+{PATH}|{QUOTE}-c{QUOTE}\s+{PATH}|{QUOTE}--super-prefix{QUOTE}\s+{PATH}|{QUOTE}--config-env{QUOTE}\s+{PATH}|{QUOTE}--git-dir{QUOTE}(?:=|\s+){PATH}|{QUOTE}--work-tree{QUOTE}(?:=|\s+){PATH}|{QUOTE}--?[A-Za-z][\w-]*{QUOTE}(?:={PATH})?)"
-# One shell word: quoted runs, backslash escapes and plain characters. The plain-character class excludes
-# the backslash, so only the escape branch consumes one and the matcher never splits it two ways.
-WORD = r"(?:\"[^\"\n]*\"|'[^'\n]*'|\\.?|[^\s\"';&|<>()\\])+"
-PUSH = re.compile(rf"(?P<exe>{WORD})\s+(?P<glob>(?:{GLOBAL}\s+)*)push\b(?P<args>[^;&|<>\n]*)", re.IGNORECASE)
+# A word ends at a character that opens a command or a quote: whitespace, quotes, operators, grouping,
+# backtick, `!` and braces. The plain-character class excludes the backslash, so only the escape branch
+# consumes one and the matcher never splits it two ways.
+WORD_EDGE = r"\s\"';&|<>()`!{}"
+WORD = rf"(?:\"[^\"\n]*\"|'[^'\n]*'|\\.?|[^{WORD_EDGE}\\])+"
+# A push is read at every position where a word can start after one of those characters, so a push nested
+# in a quote, a backtick or a wrapper word (`bash -c 'git push ...'`) is found. The zero-width lookahead
+# lets matches overlap, which a consuming pattern would not.
+WORD_START = rf"(?<![^{WORD_EDGE}])"
+PUSH = re.compile(rf"{WORD_START}(?=(?P<exe>{WORD})\s+(?P<glob>(?:{GLOBAL}\s+)*)push\b(?P<args>[^;&|<>\n]*))",
+                  re.IGNORECASE)
 GLOBAL_OPT = re.compile(rf"{QUOTE}(-C|--git-dir|--work-tree){QUOTE}(?:=|\s+)({PATH})|{QUOTE}-c{QUOTE}\s+{PATH}")
 GIT_ENV = ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR")
 GIT_ENV_NAMES = "|".join(GIT_ENV)
