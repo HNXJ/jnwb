@@ -165,7 +165,7 @@ def section_release(body: List[str]) -> Tuple[str, Optional[str]]:
     of these reads as deferred. An entity-encoded colon (``Release&#58;``) reads as a colon.
     """
     lines = [_field_line(line) for line in body]
-    values = [m.group(1).strip().rstrip(".").strip()
+    values = [m.group(1).strip().removesuffix(".").strip()
               for m in map(RELEASE_VALUE.match, lines) if m]
     # Capture to end of line and strip one trailing sentence period. Stopping at the first `.`
     # would truncate `deferred-0.2.7` to `deferred-0`, and the truncated value compares unequal
