@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 from dateutil.tz import tzlocal
 from hdmf.build.builders import GroupBuilder
+from hdmf.build.errors import ConstructError
 from hdmf.build.manager import BuildManager
 from pynwb import NWBFile, NWBHDF5IO, get_type_map
 
@@ -160,7 +161,7 @@ class TestRepairReproducersViaReadBoundary:
                 "description": np.array(["probe desc"], dtype=object),
             },
         )
-        with pytest.raises(Exception):
+        with pytest.raises(ConstructError):
             mgr.construct(gb)
         with hdmf_build_repair_context():
             obj = mgr.construct(gb)
@@ -184,7 +185,7 @@ class TestRepairReproducersViaReadBoundary:
         try:
             _write_minimal_nwb(path)
             _corrupt_units_colnames_index(path)
-            with pytest.raises(Exception):
+            with pytest.raises(ConstructError):
                 with NWBHDF5IO(path, "r") as io:
                     io.read()
             nwb = read_nwb(path)
@@ -198,7 +199,7 @@ class TestRepairReproducersViaReadBoundary:
         try:
             _write_minimal_nwb(path, with_waveform=True)
             _corrupt_malformed_vector_index(path, "waveform_mean_index")
-            with pytest.raises(Exception):
+            with pytest.raises(ConstructError):
                 with NWBHDF5IO(path, "r") as io:
                     io.read()
             nwb = read_nwb(path)
@@ -233,7 +234,7 @@ class TestRepairReproducersViaReadBoundary:
             with NWBHDF5IO(path, "w") as io:
                 io.write(nwb)
             _corrupt_malformed_vector_index(path, "spike_amplitudes_index")
-            with pytest.raises(Exception):
+            with pytest.raises(ConstructError):
                 with NWBHDF5IO(path, "r") as io:
                     io.read()
             nwb = read_nwb(path)

@@ -447,7 +447,7 @@ def _():
         name="stamped", data=np.zeros((200, receipt.n_channels)), electrodes=region,
         timestamps=np.arange(1, 201) * 0.001,
     ))
-    with pytest.raises(Exception, match="has no constant sampling rate"):
+    with pytest.raises(jnwb.AcquisitionNotFoundError, match="has no constant sampling rate"):
         jnwb.acquisition_channel(nwb, name="stamped")
     entry = [a for a in jnwb.inspect(nwb)["acquisitions"] if a["name"] == "stamped"]
     assert entry and entry[0]["rate_hz"] is None
