@@ -55,6 +55,7 @@ if str(REPO_ROOT) not in sys.path:
 # The one stack reader, shared with gates 15 and 17 (scripts/stack_parse.py). The names keep the
 # spelling this module used, so its call sites read the shared parser unchanged.
 from scripts.stack_parse import (  # noqa: E402
+    cells as _split_cells,
     ITEM_HEADING as _ITEM_HEADING,
     ITEM_SHAPED as _ITEM_SHAPED,
     parse_todo_stack as _parse_todo_stack,
@@ -1290,7 +1291,7 @@ def _cells(line: str) -> Optional[List[str]]:
     stripped = line.strip()
     if not stripped.startswith("|"):
         return None
-    return [cell.strip() for cell in stripped.strip("|").split("|")]
+    return _split_cells(stripped)
 
 
 def _table_cells(line: str) -> Optional[List[str]]:
@@ -1298,7 +1299,7 @@ def _table_cells(line: str) -> Optional[List[str]]:
     body = line.lstrip(" \t>").strip()
     if not body.startswith("|"):
         return None
-    return [cell.strip() for cell in body.strip("|").split("|")]
+    return _split_cells(body)
 
 
 def _is_separator(cells: Optional[List[str]]) -> bool:

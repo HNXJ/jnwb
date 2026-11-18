@@ -183,6 +183,7 @@ from scripts.computational_contract_gate import (  # noqa: E402
     EXECUTION_PARAMETERS,
     _dataclass_field,
 )
+from scripts.stack_parse import cells as _cells  # noqa: E402
 # Which resolver calls make a parameter stochastic is defined once, beside the resolvers,
 # and read by the rng-parameter walk and by this scan alike; the reachability wrapper below
 # is shared with the S10 scan.
@@ -219,10 +220,6 @@ class FactSourceError(ValueError):
 
 
 # ------------------------------------------------------------------------ owned tables
-
-
-def _cells(line: str) -> List[str]:
-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
 
 
 def _all_tables(text: str) -> List[Tuple[str, List[str], List[List[str]]]]:
@@ -396,7 +393,7 @@ def reference_table_rows(text: str) -> List[Tuple[Tuple[str, ...], str, str, str
         line = line.strip()
         if not line.startswith("|") or set(line) <= set("|- "):
             continue
-        cells = [c.strip() for c in line.strip("|").split("|")]
+        cells = _cells(line)
         if cells and cells[0] == "Reference":
             header = tuple(cells)
             assert header in (*FUNCTION_HEADERS, CORE_HEADER, REPRODUCTION_HEADER), (
