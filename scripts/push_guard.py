@@ -12,9 +12,13 @@ A command is split at `;`, `&&`, `||`, `|`, `&` and newlines, and each segment i
   `C:\x\git.exe`, `g"i"t` and `\git` all run git. A word before it (`command`, `exec`, `env`, `xargs`)
   does not hide it. The unquoted run after a closing quote is a word too (`"a"git`).
 - the global options and `push`: git's `-C`, `-c`, `--git-dir`, `--work-tree`, `--namespace` and the
-  other global options, quoted or not, then the word `push`.
-- the directory: a `cd`, `pushd`, `(cd ...)` or `{ cd ...; }` segment sets the directory of the
-  segments after it (`~` expands to the home directory); `git -C <dir>` sets it for its own push;
+  other global options, quoted or not, then the subcommand `push` as the shell passes it on (`"push"`,
+  `'push'`, `pu\sh`, `""push`).
+- the directory: a `cd`, `pushd`, or `{ cd ...; }` segment sets the directory of the segments after it;
+  a `( ... )` subshell returns to the directory it was entered with at its `)`, so `(cd X); git push`
+  pushes from the outer directory, while `(cd X && git push)` pushes from X. `~` expands to the home
+  directory. A directory of more than 64 components is not resolved, and a push from it is denied;
+  `git -C <dir>` sets the directory for its own push;
   `--git-dir` and `--work-tree` (either form, quoted or not) name a checkout too; so do `GIT_DIR`,
   `GIT_WORK_TREE` and `GIT_COMMON_DIR` set as a prefix, after `env`, or by `export`, in the same or an
   earlier segment. Such an assignment is read whether or not git would see it.
@@ -173,24 +177,50 @@ def _token(s, j):
     return (j, end) if end > j else None
 
 
+def _shell_value(word):
+    """The word as the shell passes it on: quotes removed, and a backslash outside single quotes escapes
+    the next character (inside double quotes only `"`, `\\`, `$` and backtick are escaped)."""
+    out = []
+    quote = None
+    i = 0
+    n = len(word)
+    while i < n:
+        c = word[i]
+        if quote is None and c in QUOTES:
+            quote = c
+        elif quote == c:
+            quote = None
+        elif c == "\\" and quote != "'" and i + 1 < n and (quote is None or word[i + 1] in "\"\\$`"):
+            out.append(word[i + 1])
+            i += 2
+            continue
+        else:
+            out.append(c)
+        i += 1
+    return "".join(out)
+
+
 def _is_push(word):
-    """True for the word `push`, or a word that starts with it and is not a longer word (`push-x`)."""
-    return word[:4].lower() == "push" and not (len(word) > 4 and (word[4].isalnum() or word[4] == "_"))
+    """True for the subcommand `push` as the shell reads it (`"push"`, `'push'`, `pu\\sh`, `""push`), or a
+    word that starts with it and is not a longer word (`push-x`)."""
+    sv = _shell_value(word)
+    return sv[:4].lower() == "push" and not (len(sv) > 4 and (sv[4].isalnum() or sv[4] == "_"))
 
 
 def _option(word):
     """How a word reads among git's global options: ("value", name) when the next word is its value,
     ("flag", (name, value)) for a whole option (value None when it has none), or None when the word is
     not a global option. Names are read as git reads them, any case; quotes around a name are removed."""
-    d = dequote(word)
-    name, eq, value = d.partition("=")
+    has_eq = "=" in word
+    name = _shell_value(word.partition("=")[0])
+    value = dequote(word).partition("=")[2] if has_eq else None
     low = name.lower()
-    if low in SEPARATE_ARG and not eq:
+    if low in SEPARATE_ARG and not has_eq:
         return ("value", name)
     if low in EQUALS_OR_SEPARATE:
-        return ("flag", (name, value)) if eq else ("value", name)
+        return ("flag", (name, value)) if has_eq else ("value", name)
     if re.fullmatch(r"--?[A-Za-z][\w-]*", name):
-        return ("flag", (name, value if eq else None))
+        return ("flag", (name, value))
     return None
 
 
@@ -211,7 +241,7 @@ def _push_end(s, j, memo):
         path.append(a)
         word = s[a:b]
         if _is_push(word):
-            found = a + 4
+            found = b
             break
         kind = _option(word)
         if kind is None:
@@ -267,11 +297,32 @@ def unquote(word):
     return MSYS_DRIVE.sub(lambda m: m.group(1).upper() + ":", word) if os.name == "nt" else word
 
 
+MAX_DIR_PARTS = 64
+MAX_DIR_LENGTH = 4096
+
+
+def _bounded(path):
+    """``path`` normalized (`..` and repeated separators collapse), or None when it has more than
+    MAX_DIR_PARTS components or MAX_DIR_LENGTH characters: such a directory is not resolved, and a push
+    from it is denied, since the guard cannot tell which checkout it is."""
+    if not path:
+        return path
+    norm = os.path.normpath(path)
+    if len(norm) > MAX_DIR_LENGTH or len([p for p in norm.replace("\\", "/").split("/") if p]) > MAX_DIR_PARTS:
+        return None
+    return norm
+
+
 def under(base, where):
-    """``where`` resolved against ``base`` when it is relative; ``base`` when ``where`` is empty."""
+    """``where`` resolved against ``base`` when it is relative; ``base`` when ``where`` is empty. None once a
+    relative ``where`` follows an unresolved base; an absolute ``where`` resolves again."""
     if not where:
         return base
-    return where if os.path.isabs(where) else os.path.join(base, where)
+    if os.path.isabs(where):
+        return _bounded(where)
+    if base is None:
+        return None
+    return _bounded(os.path.join(base, where))
 
 
 def is_jnwb(path):
@@ -297,23 +348,50 @@ def push_dirs(base, steps, env):
 def verdict(payload):
     """Return the deny reason for a plain `git push` in a jnwb checkout, else None."""
     cmd = (payload.get("tool_input") or {}).get("command") or ""
-    base = payload.get("cwd") or ""
+    base = _bounded(payload.get("cwd") or "")
     env = {}
+    saved = []  # the directory each open subshell `(` returns to at its `)`
     for seg in SEGMENT_SEP.split(cmd):
         env.update(ENV_ASSIGN.findall(seg))
+        saved.extend([base] * _open_count(seg))
         cd = CD.match(seg)
         if cd:
             base = under(base, unquote(cd.group(1)))
-            continue
-        for s, a, b, memo in _candidates(seg):
-            if b >= len(s) or not s[b].isspace() or not is_git_exe(s[a:b]):
-                continue
-            end = _push_end(s, b, memo)
-            if end is None or temp_only(ARGS.match(s, end).group()):
-                continue
-            if any(is_jnwb(where) for where in push_dirs(base, _steps(s, b), env)):
-                return DENY
+        else:
+            for s, a, b, memo in _candidates(seg):
+                if b >= len(s) or not s[b].isspace() or not is_git_exe(s[a:b]):
+                    continue
+                end = _push_end(s, b, memo)
+                if end is None or temp_only(ARGS.match(s, end).group()):
+                    continue
+                if any(where is None or is_jnwb(where) for where in push_dirs(base, _steps(s, b), env)):
+                    return DENY
+        for _ in range(_close_count(seg)):
+            if saved:
+                base = saved.pop()
     return None
+
+
+def _open_count(seg):
+    """Subshells opened before the first word of ``seg``: its leading `(` characters."""
+    count = 0
+    for c in seg:
+        if c == "(":
+            count += 1
+        elif not c.isspace():
+            break
+    return count
+
+
+def _close_count(seg):
+    """Subshells closed at the end of ``seg``: its trailing `)` characters, spaces allowed between."""
+    count = 0
+    for c in reversed(seg):
+        if c == ")":
+            count += 1
+        elif not c.isspace():
+            break
+    return count
 
 
 def decide(raw):
