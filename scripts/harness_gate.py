@@ -161,7 +161,6 @@ from scripts.gates.frozen import (
 )
 
 from scripts.gates.state import (
-    validate_receipt_provenance,
     check_state_file_head,
     check_computational_contract,
     _FACT_REPORT,
