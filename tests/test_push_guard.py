@@ -434,6 +434,155 @@ def test_a_repeated_push_word_finishes_and_is_denied(tmp_path):
     assert JNWB_REASON in reason
 
 
+# ---- 17-147-A revision 3: subshell cd, cd-chain time, quoted subcommands ---------------------------
+
+import time as _time  # noqa: E402
+
+OLD_GUARD_SHA = "bc61f8f089be571e23987b14e7832e7dd4b0a08d"  # the guard before 17-147-A
+
+
+SUBSHELL_CD_DENY_FROM_CLONE = [
+    "(cd {elsewhere}); git push origin dev",
+    "(cd {elsewhere}) && git push origin dev",
+    "(cd {elsewhere}) ; (git push origin dev)",
+]
+
+
+@pytest.mark.parametrize("form", SUBSHELL_CD_DENY_FROM_CLONE)
+def test_a_cd_inside_a_subshell_does_not_persist_past_its_close(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_subshell")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(form.format(elsewhere=elsewhere.as_posix()), clone)
+
+
+def test_a_cd_inside_a_subshell_applies_to_a_push_inside_it(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_subshell_in")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(f"(cd {clone.as_posix()} && git push origin dev)", elsewhere)
+
+
+@pytest.mark.parametrize("form", [
+    "{{ cd {clone}; }}; git push origin dev",
+    "cd {clone}; git push origin dev",
+])
+def test_a_brace_group_or_bare_cd_persists_and_names_the_checkout(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_persist")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(form.format(clone=clone.as_posix()), elsewhere)
+
+
+@pytest.mark.parametrize("form", [
+    "{{ cd {elsewhere}; }}; git push origin dev",
+    "cd {elsewhere}; git push origin dev",
+    "(cd {elsewhere} && git push origin dev)",
+    "(cd {elsewhere}); git status",
+])
+def test_a_cd_to_another_directory_passes_from_a_jnwb_checkout(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_persist_ok")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert decide(form.format(elsewhere=elsewhere.as_posix()), clone) == "allow", form
+
+
+def _decision(guard: Path, command: str, cwd: Path) -> str:
+    """"deny" or "allow" as the given guard file decides the command in cwd."""
+    raw = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}, "cwd": cwd.as_posix()})
+    proc = subprocess.run([sys.executable, str(guard)], input=raw.encode("utf-8"), capture_output=True,
+                          timeout=30, check=True)
+    return "deny" if proc.stdout.strip() else "allow"
+
+
+def _old_guard(tmp_path: Path) -> Path:
+    shown = subprocess.run(["git", "-C", str(REPO_ROOT), "show", f"{OLD_GUARD_SHA}:scripts/push_guard.py"],
+                           capture_output=True)
+    if shown.returncode != 0:
+        pytest.skip("the pre-17-147-A push_guard is not in this repository's history")
+    path = tmp_path / "old_push_guard.py"
+    path.write_bytes(shown.stdout)
+    return path
+
+
+# (command, cwd, new verdict, whether the old guard's verdict is a named fix)
+DIFFERENTIAL = [
+    ("(cd {elsewhere}); git push origin dev", "clone", "deny", False),
+    ("(cd {elsewhere}) && git push origin dev", "clone", "deny", False),
+    ("(cd {clone} && git push origin dev)", "elsewhere", "deny", True),
+    ("cd {clone}; git push origin dev", "elsewhere", "deny", False),
+    ("cd {elsewhere}; git push origin dev", "clone", "allow", False),
+    ("cd {elsewhere} && git push origin dev", "clone", "allow", False),
+    ("(cd {elsewhere} && git push origin dev)", "clone", "allow", True),
+    ("(cd {elsewhere}); git status", "clone", "allow", False),
+    ("(git push origin dev)", "clone", "deny", False),
+    ("git push origin dev", "clone", "deny", False),
+    ("git push origin _temp_a", "clone", "allow", False),
+]
+
+
+def test_subshell_and_cd_verdicts_match_the_old_guard_except_the_named_fixes(tmp_path):
+    old = _old_guard(tmp_path)
+    clone = make_checkout(tmp_path / "_temp_diff")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    where = {"clone": clone, "elsewhere": elsewhere}
+    differs = []
+    for template, at, expected, named_fix in DIFFERENTIAL:
+        command = template.format(clone=clone.as_posix(), elsewhere=elsewhere.as_posix())
+        new = _decision(GUARD, command, where[at])
+        prior = _decision(old, command, where[at])
+        assert new == expected, (command, at, new)
+        if prior != new:
+            assert named_fix, (command, at, "old", prior, "new", new)
+        differs.append(prior != new)
+    assert any(differs), "the differential must contain a case the old guard decides differently"
+
+
+# ---- cd chains: a relative chain is resolved up to a bound, and its push is denied past it ---------
+
+CD_CHAIN_50_KB = "cd 'a b' ; " * 4500
+CD_CHAIN_1_MB = "cd 'a b' ; " * 90000
+
+
+@pytest.mark.parametrize("chain", [CD_CHAIN_50_KB, CD_CHAIN_1_MB], ids=["50 KB", "1 MB"])
+def test_a_relative_cd_chain_finishes_quickly_and_a_push_from_it_is_denied(tmp_path, chain):
+    clone = make_checkout(tmp_path / "_temp_chain")
+    started = _time.perf_counter()
+    reason = bounded_reply(chain + "git push origin dev", clone)["hookSpecificOutput"]["permissionDecisionReason"]
+    elapsed = _time.perf_counter() - started
+    assert JNWB_REASON in reason
+    assert elapsed < 1.5, f"{elapsed:.2f} s for a {len(chain)}-character chain"
+
+
+def test_a_relative_cd_chain_without_a_push_is_allowed(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_chain_ok")
+    assert bounded_reply(CD_CHAIN_50_KB + "git status", clone) == {}
+
+
+# ---- the subcommand `push` spelled with quotes, a backslash or an empty pair -------------------------
+
+QUOTED_PUSH_DENY = [
+    'git "push" origin dev',
+    "git 'push' origin dev",
+    r"git pu\sh origin dev",
+    'git ""push origin dev',
+    'git -C "{clone}" "push" origin dev',
+]
+
+
+@pytest.mark.parametrize("form", QUOTED_PUSH_DENY)
+def test_a_quoted_or_escaped_push_subcommand_is_denied_in_a_jnwb_checkout(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_quoted_push")
+    assert_denied(form.format(clone=clone.as_posix()), clone)
+
+
+@pytest.mark.parametrize("form", [
+    'git "push" origin _temp_a',
+    r"git pu\sh origin _temp_a",
+    'git "pushx" origin dev',
+    'git "status" origin dev',
+])
+def test_a_quoted_subcommand_temp_only_or_not_push_passes(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_quoted_push_ok")
+    assert decide(form, clone) == "allow", form
+
+
 # ---- 17-143: `jnwb_push.sh <dir> --tag vX.Y.Z` and the artifacts-only stack checks ---------------
 #
 # CI reads go to the local stand-in server of test_jnwb_push.py (`ci_api`); the remote is a local bare
