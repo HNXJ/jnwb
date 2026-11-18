@@ -281,7 +281,9 @@ class TestFrozenDoesNotFreezeWhatTheFieldsPointAt:
     """The module docstring used to say "All are immutable unless otherwise specified"."""
 
     def test_rebinding_a_field_is_refused(self, parts):
-        with pytest.raises(Exception):  # FrozenInstanceError
+        import dataclasses
+
+        with pytest.raises(dataclasses.FrozenInstanceError):
             parts["Dataset"].sessions = ["other"]
 
     def test_but_mutating_the_contained_list_is_not_and_the_docstring_admits_it(self, parts):

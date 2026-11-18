@@ -975,7 +975,7 @@ def render(n: int, measures: dict, stats: dict, chosen: dict, counts, smoke: boo
         f"{p2['accepted_indeterminate_oracle']} | none |",
         f"| 3 | Unconditional recovery (accepted, scored, within 1 contact, / n) | {fmt(p3)}; "
         f"target 90 of 100: {met(p3.get('target_met'))} | at least 90 of 100 |",
-        f"| 4 | Error against planted depth, accepted (contacts: count) | "
+        "| 4 | Error against planted depth, accepted (contacts: count) | "
         + ", ".join(f"{k}: {v}" for k, v in p4.items()) + " | none |",
         f"| 5 | Window selection: window contains z0 | {p5['z0_inside']} of {p5['n_with_window']}; "
         f"{p5['distinct_windows']} distinct windows | none |",

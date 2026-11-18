@@ -247,7 +247,7 @@ class TestNoUnitLessWindowRemainsInThePublicApi:
                 continue
             try:
                 sig = inspect.signature(obj)
-            except (TypeError, ValueError):
+            except ValueError:
                 continue
             for pname, param in sig.parameters.items():
                 if not self.WINDOWY.search(pname):

@@ -487,7 +487,7 @@ def test_path_exclusion_reasons_hold() -> None:
             assert (ROOT / "docs" / f"{target.group(1)}.md").is_file(), (
                 f"{path} redirects to {target.group(1)}, which is not a page"
             )
-            assert f"{target.group(1)}.md" in _nav_pages(), f"redirect target is not in the nav"
+            assert f"{target.group(1)}.md" in _nav_pages(), "redirect target is not in the nav"
             assert name in "\n".join(_mkdocs_block("not_in_nav")), (
                 f"{name} is not declared in mkdocs `not_in_nav`"
             )

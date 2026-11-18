@@ -43,8 +43,8 @@ TEST_EXTRA_CALLERS = {
 NOT_A_CALLER = ("CHANGELOG.md", "artifacts/")
 
 
-def _tracked_text() -> str:
-    """Every tracked text file's contents, concatenated once.
+def _tracked_text(exclude: tuple = ()) -> str:
+    """Every tracked text file's contents, concatenated once, except the named ``exclude`` paths.
 
     Tracked rather than walked: a working checkout has a `.venv` with thousands of files that
     mention every one of these packages, and a caller inside one is not this repository's.
@@ -54,7 +54,7 @@ def _tracked_text() -> str:
             ["git", "ls-files"],
             cwd=ROOT, capture_output=True, text=True, check=True,
         ).stdout.split()
-        if not name.startswith(NOT_A_CALLER)
+        if not name.startswith(NOT_A_CALLER) and name not in exclude
     ]
     assert len(names) > 100, f"git ls-files returned {len(names)} files; the search is empty"
     chunks = []
@@ -100,14 +100,20 @@ def test_the_caller_table_has_no_stale_entries() -> None:
 
 
 def test_coverage_is_not_declared_while_nothing_measures_it() -> None:
-    """The specific defect. If coverage comes back, it comes back with an invocation."""
+    """The specific defect. If coverage comes back, it comes back with an invocation.
+
+    This file names the flag it searches for, so it is left out of the corpus it searches.
+    """
     declared = _declared("test")
-    if "pytest-cov" not in declared:
-        return
-    corpus = _tracked_text()
-    assert "--cov" in corpus or "addopts" in corpus, (
-        "pytest-cov is declared again with nothing invoking it"
-    )
+    corpus = _tracked_text(exclude=(Path(__file__).resolve().relative_to(ROOT).as_posix(),))
+    if "pytest-cov" in declared:
+        assert "--cov" in corpus or "addopts" in corpus, (
+            "pytest-cov is declared again with nothing invoking it"
+        )
+    else:
+        assert "--cov" not in corpus, (
+            "--cov is invoked, but pytest-cov is not in the test extra"
+        )
 
 
 @pytest.mark.requires_git_checkout

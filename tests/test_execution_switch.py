@@ -159,7 +159,7 @@ def _exports_with(param):
     for name, obj in _public_callables():
         try:
             params = inspect.signature(obj).parameters
-        except (TypeError, ValueError):
+        except ValueError:
             continue
         if param in params:
             found.add(name)

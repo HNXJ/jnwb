@@ -599,3 +599,14 @@ class TestStepZeroAReadsEachHtmlHeadingForm:
         block, ident, _title = HTML_FORMS[form]
         text = "# 0.2.12\n\n" + block.replace("{d}", DEFERRED_VALUE)
         assert [item_id for _lineno, item_id, _body in _stack_items(text)] == [ident]
+
+
+class TestSectionReleaseStripsOneSentencePeriod:
+    # The comment in `stack_parse.section_release` says one trailing sentence period goes.
+    @pytest.mark.parametrize("line, value", [
+        ("Release: deferred-0.2.7.", "deferred-0.2.7"),
+        ("Release: deferred-0.2.7..", "deferred-0.2.7."),
+    ])
+    def test_only_the_sentence_period_is_stripped(self, line, value):
+        from scripts import stack_parse
+        assert stack_parse.section_release([line]) == (value, None), line
