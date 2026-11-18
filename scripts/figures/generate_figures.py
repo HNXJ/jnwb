@@ -1647,8 +1647,9 @@ def fig26_ensembles_rdm_decoding():
     n_conditions, n_units = 6, 30
     patterns_v1 = rng.normal(loc=1.0, scale=0.5, size=(n_conditions, n_units))
     patterns_v2 = patterns_v1 + 0.3 * rng.normal(size=(n_conditions, n_units))
-    time_series_1 = rng.normal(size=(n_conditions, n_units, 10))
-    time_series_2 = time_series_1 + 0.2 * rng.normal(size=(n_conditions, n_units, 10))
+    # The two draws below are unused; they stay so that X keeps its rng stream.
+    rng.normal(size=(n_conditions, n_units, 10))
+    rng.normal(size=(n_conditions, n_units, 10))
     X = rng.normal(size=(40, n_units))
     X[:20, :5] += 0.8
     y = np.array([0] * 20 + [1] * 20)
