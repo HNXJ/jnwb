@@ -43,8 +43,8 @@ Writes: `scripts/learning_gate.py`, `tests/test_nan_passes_sign_guard_scan.py`.
 
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/measure_agents_md_duplication.py`, `scripts/vflip2_recovery.py`, `scripts/figures/generate_figures.py`, `tests/test_*.py`.
-- 17-147: left of the audit (the rest landed 2026-11-08): scripts-2 (gate 15 passes on zero tables; `tests/test_learning_gate.py:212` pins that), -5 (move), -6, -7, -8 (`measure_agents_md_duplication.py:149,158`, `vflip2_recovery.py:978`), tests-2 (`match=`), -4, -5, -6, -9; push spellings the guard still allows: a quoted `git.exe` path, `GIT_DIR=<jnwb>` from another cwd. Check: each by a failing-first test; `ruff check tests --select F401,F541,F821,F841` clean.
+Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/measure_agents_md_duplication.py`, `scripts/vflip2_recovery.py`, `scripts/figures/generate_figures.py`, `scripts/figures/figure_registry.toml`, `tests/test_*.py`.
+- 17-147: left after 9479505e (scripts-5 to -8, tests-2, -4 (six of seven sites), -5, -6, -9 and the quoted `git.exe` and `GIT_DIR` push spellings landed 2026-11-18): scripts-2 (gate 15 passes on zero tables; `tests/test_learning_gate.py:212` pins that; Hamm rules delete the check or make zero red); tests-4 at `tests/test_nwb_read_tolerance_and_visibility.py:229` (callers expect four exception classes); push_guard reads text only and still allows a `cd` after `then`, `do`, `!`, `time`, `NAME=v`, `command` or `builtin`, `cd -P J` / `cd -- J`, `cd J>/dev/null`, `cd -`, `bash -c "cd J && git push"`, `$GIT push`, `eval`, a line continuation inside `git push`. Check: one failing-first test per case in `tests/test_push_guard.py` (each denied from a non-jnwb cwd, or refused with a stated reason); `ruff check tests --select F401,F541,F821,F841` clean.
 
 ### 17-144 The jaxfne isi_cv commits
 
