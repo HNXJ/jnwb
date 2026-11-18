@@ -18,7 +18,6 @@ from pynwb.ecephys import ElectricalSeries
 import jnwb
 from jnwb.nwb_io import MissingRequiredNWBFieldError
 from jnwb.nwb_write import (
-    AmbiguousMappingError,
     AppliedOperation,
     MutationCheck,
     MutationIssue,
@@ -26,7 +25,6 @@ from jnwb.nwb_write import (
     NWBMutationError,
     NWBVerificationError,
     REPAIRS,
-    UndeclaredUnitError,
     UnidentifiableRepairError,
     _attr_scalar_equal,
     _is_null,
@@ -1006,8 +1004,6 @@ def test_repair_undeclared_squeeze_attribute_refuses(tmp_path):
 
 def test_repair_squeeze_names_a_broken_schema_lookup(tmp_path, monkeypatch):
     """A catalog failure is a refusal that names the cause, not a silent undeclared."""
-    import jnwb.nwb_write as module
-
     src = tmp_path / "src.nwb"
     dst = tmp_path / "never.nwb"
     _make_nwb(src)

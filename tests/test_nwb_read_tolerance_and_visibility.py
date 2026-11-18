@@ -23,6 +23,7 @@ absent, crossed with a device attribute scalar or a length-1 object array.
 from __future__ import annotations
 
 import os
+import pathlib
 import shutil
 import warnings
 
