@@ -190,6 +190,159 @@ def test_namespace_and_case_spellings_cannot_bypass_guard(tmp_path, command):
     assert decide(command, clone) == "deny", command
 
 
+# ---- 17-147-A: pushes spelled through another executable, an environment, a cd form or a wrapper ----
+
+JNWB_REASON = "jnwb_push.sh"  # the deny message names the wrapper to use instead
+
+
+def reply(command: str, cwd: Path | str, env: dict | None = None) -> dict:
+    """The hook's whole reply for a Bash command run in cwd, under the given environment."""
+    raw = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}, "cwd": Path(cwd).as_posix()})
+    proc = subprocess.run([sys.executable, str(GUARD)], input=raw.encode("utf-8"), capture_output=True,
+                          timeout=30, check=True, env=env)
+    return json.loads(proc.stdout.decode("utf-8")) if proc.stdout.strip() else {}
+
+
+def assert_denied(command: str, cwd: Path | str, env: dict | None = None) -> None:
+    """The guard denies, and the reason names the wrapper; an allow fails with the command shown."""
+    out = reply(command, cwd, env)
+    assert out, f"allowed, expected a deny: {command!r}"
+    reason = out["hookSpecificOutput"]["permissionDecisionReason"]
+    assert JNWB_REASON in reason, (command, reason)
+
+
+QUOTED_OR_ABSOLUTE_EXE = [
+    '"C:/Program Files/Git/cmd/git.exe" push origin dev',
+    "'/usr/bin/git' push origin dev",
+    '"/usr/bin/git" push origin dev',
+    r'"C:\Program Files\Git\cmd\git.exe" push origin dev',
+    r"C:\Git\cmd\git.exe push origin dev",
+    '"git" push origin dev',
+    'g"i"t push origin dev',
+]
+
+
+@pytest.mark.parametrize("command", QUOTED_OR_ABSOLUTE_EXE)
+def test_a_quoted_or_absolute_git_executable_is_denied_in_a_jnwb_checkout(tmp_path, command):
+    clone = make_checkout(tmp_path / "_temp_exe")
+    assert_denied(command, clone)
+
+
+@pytest.mark.parametrize("command", QUOTED_OR_ABSOLUTE_EXE)
+def test_a_quoted_or_absolute_git_executable_passes_for_temp_branches_and_elsewhere(tmp_path, command):
+    clone = make_checkout(tmp_path / "_temp_exe_ok")
+    other = make_checkout(tmp_path / "other", jnwb=False)
+    temp = command.replace(" origin dev", " origin _temp_a")
+    assert temp != command
+    assert decide(temp, clone) == "allow", temp
+    assert decide(command, other) == "allow", command
+
+
+GIT_ENV_FORMS = [
+    "GIT_DIR={clone}/.git git push origin dev",
+    'GIT_DIR="{clone}/.git" git push origin dev',
+    "env GIT_DIR={clone}/.git git push origin dev",
+    "env -i GIT_DIR={clone}/.git git push origin dev",
+    "GIT_WORK_TREE={clone} git push origin dev",
+    "GIT_COMMON_DIR={clone}/.git git push origin dev",
+    "export GIT_DIR={clone}/.git; git push origin dev",
+]
+
+
+@pytest.mark.parametrize("form", GIT_ENV_FORMS)
+def test_a_git_dir_or_work_tree_in_the_environment_names_a_checkout(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_env")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert not (elsewhere / "jnwb" / "__init__.py").exists(), "fixture must be a non-jnwb cwd"
+    assert_denied(form.format(clone=clone.as_posix()), elsewhere)
+
+
+def test_an_environment_git_dir_naming_another_checkout_or_a_temp_push_passes(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_env_ok")
+    other = make_checkout(tmp_path / "other", jnwb=False)
+    assert decide(f"GIT_DIR={other.as_posix()}/.git git push origin dev", tmp_path) == "allow"
+    assert decide(f"export GIT_DIR={other.as_posix()}/.git; git push origin dev", tmp_path) == "allow"
+    assert decide(f"GIT_DIR={clone.as_posix()}/.git git push origin _temp_a", tmp_path) == "allow"
+    assert decide(f"GIT_DIR={clone.as_posix()}/.git git status", tmp_path) == "allow"
+
+
+GLOBAL_OPTION_FORMS = [
+    'git --namespace="x y" push origin dev',
+    'git -c "user.name=a b" push origin dev',
+    "git --super-prefix sub/ push origin dev",
+    "git --config-env a=HOME push origin dev",
+]
+
+
+@pytest.mark.parametrize("command", GLOBAL_OPTION_FORMS)
+def test_a_global_option_with_a_quoted_value_or_a_separate_argument_is_parsed(tmp_path, command):
+    clone = make_checkout(tmp_path / "_temp_globals")
+    assert_denied(command, clone)
+
+
+def test_a_quoted_git_C_option_name_names_its_checkout(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_quoted_C")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(f'git "-C" "{clone.as_posix()}" push origin dev', elsewhere)
+    assert decide(f'git "-C" "{elsewhere.as_posix()}" push origin dev', clone) == "allow"
+
+
+CD_FORMS = [
+    "(cd {clone} && git push origin dev)",
+    "{{ cd {clone}; git push origin dev; }}",
+    "pushd {clone} && git push origin dev",
+    'pushd "{clone}" && git push origin dev',
+]
+
+
+@pytest.mark.parametrize("form", CD_FORMS)
+def test_a_cd_in_a_subshell_brace_group_or_pushd_names_the_checkout(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_cd")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(form.format(clone=clone.as_posix()), elsewhere)
+
+
+def test_a_cd_in_a_subshell_or_brace_group_to_another_checkout_passes(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_cd_ok")
+    other = make_checkout(tmp_path / "other", jnwb=False)
+    assert decide(f"(cd {other.as_posix()} && git push origin dev)", clone) == "allow"
+    assert decide(f"{{ cd {other.as_posix()}; git push origin dev; }}", clone) == "allow"
+    assert decide(f"(cd {clone.as_posix()} && git push origin _temp_a)", tmp_path) == "allow"
+
+
+def test_a_tilde_cd_names_a_checkout_under_home(tmp_path):
+    home = tmp_path / "home"
+    clone = make_checkout(home / "_temp_home_jnwb")
+    make_checkout(home / "plain_home", jnwb=False)
+    plain = make_checkout(tmp_path / "plain", jnwb=False)
+    env = dict(os.environ, HOME=home.as_posix(), USERPROFILE=home.as_posix())
+    assert (clone / "jnwb" / "__init__.py").is_file(), "fixture must be a jnwb checkout under home"
+    assert_denied("cd ~/_temp_home_jnwb && git push origin dev", plain, env)
+    assert reply("cd ~/plain_home && git push origin dev", plain, env) == {}
+    assert reply("cd ~/_temp_home_jnwb && git push origin _temp_a", plain, env) == {}
+
+
+def test_a_push_inside_the_wrapper_call_is_checked(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_wrap")
+    wrapper = f'bash "{clone.as_posix()}/scripts/jnwb_push.sh"'
+    assert_denied(f'{wrapper} "$(git push origin dev)"', clone)
+    assert reply(f'{wrapper} "$(git push origin _temp_a)"', clone) == {}
+    assert reply(f'{wrapper} "{clone.as_posix()}" dev </dev/null', clone) == {}
+
+
+@pytest.mark.parametrize("command", [
+    "command git push origin dev",
+    r"\git push origin dev",
+    "/usr/bin/env git push origin dev",
+    "exec git push origin dev",
+    "nohup git push origin dev",
+    "echo origin dev | xargs git push",
+])
+def test_a_word_before_git_does_not_hide_a_push_in_a_jnwb_checkout(tmp_path, command):
+    clone = make_checkout(tmp_path / "_temp_prefix_words")
+    assert_denied(command, clone)
+
+
 # ---- 17-143: `jnwb_push.sh <dir> --tag vX.Y.Z` and the artifacts-only stack checks ---------------
 #
 # CI reads go to the local stand-in server of test_jnwb_push.py (`ci_api`); the remote is a local bare
