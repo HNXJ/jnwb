@@ -343,6 +343,52 @@ def test_a_word_before_git_does_not_hide_a_push_in_a_jnwb_checkout(tmp_path, com
     assert_denied(command, clone)
 
 
+# ---- 17-147-A revision: a push nested after a wrapper word, a quote or a backtick ------------------
+
+NESTED_PUSH_FORMS = [
+    "bash -c 'git push origin dev'",
+    'sh -c "git push origin dev"',
+    "bash -lc 'git push origin dev'",
+    "`git push origin dev`",
+    '"`git push origin dev`"',
+    "echo `git push origin dev`",
+    "x=`git push origin dev`",
+    'echo "$(git push origin dev)"',
+    "! git push origin dev",
+    "{ git push origin dev; }",
+]
+
+
+@pytest.mark.parametrize("command", NESTED_PUSH_FORMS)
+def test_a_push_nested_after_a_wrapper_word_or_a_backtick_is_denied_in_a_jnwb_checkout(tmp_path, command):
+    clone = make_checkout(tmp_path / "_temp_nested")
+    assert_denied(command, clone)
+
+
+@pytest.mark.parametrize("command", NESTED_PUSH_FORMS)
+def test_a_nested_push_temp_only_or_elsewhere_passes(tmp_path, command):
+    clone = make_checkout(tmp_path / "_temp_nested_ok")
+    other = make_checkout(tmp_path / "other", jnwb=False)
+    temp = command.replace(" origin dev", " origin _temp_a")
+    assert temp != command, "fixture must name the dev push"
+    assert decide(temp, clone) == "allow", temp
+    assert decide(command, other) == "allow", command
+
+
+def test_legitimate_commands_pass_inside_and_outside_a_jnwb_checkout(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_legit")
+    other = make_checkout(tmp_path / "other", jnwb=False)
+    wrapper = f'bash "{clone.as_posix()}/scripts/jnwb_push.sh" "{clone.as_posix()}" dev </dev/null'
+    for cwd in (clone, other):
+        assert reply("git status", cwd) == {}, cwd
+        assert reply("git push origin _temp_a", cwd) == {}, cwd
+        assert reply("git push origin _temp_a _temp_b </dev/null", cwd) == {}, cwd
+        assert reply(wrapper, cwd) == {}, cwd
+        assert reply("bash -c 'git status'", cwd) == {}, cwd
+        assert reply("bash -c 'git push origin _temp_a'", cwd) == {}, cwd
+        assert reply("mygit push origin dev", cwd) == {}, cwd
+
+
 # ---- 17-143: `jnwb_push.sh <dir> --tag vX.Y.Z` and the artifacts-only stack checks ---------------
 #
 # CI reads go to the local stand-in server of test_jnwb_push.py (`ci_api`); the remote is a local bare
