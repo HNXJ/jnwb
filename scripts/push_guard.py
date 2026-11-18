@@ -10,7 +10,9 @@ A command is split at `;`, `&&`, `||`, `|`, `&` and newlines, and each segment i
 - the executable: a shell word whose last path part is `git` or `git.exe`, after its quotes are
   removed and a backslash escape is read as the letter it escapes. `"C:/x/git.exe"`, `'/usr/bin/git'`,
   `C:\x\git.exe`, `g"i"t` and `\git` all run git. A word before it (`command`, `exec`, `env`, `xargs`)
-  does not hide it.
+  does not hide it. The unquoted run after a closing quote is a word too (`"a"git`).
+- the global options and `push`: git's `-C`, `-c`, `--git-dir`, `--work-tree`, `--namespace` and the
+  other global options, quoted or not, then the word `push`.
 - the directory: a `cd`, `pushd`, `(cd ...)` or `{ cd ...; }` segment sets the directory of the
   segments after it (`~` expands to the home directory); `git -C <dir>` sets it for its own push;
   `--git-dir` and `--work-tree` (either form, quoted or not) name a checkout too; so do `GIT_DIR`,
@@ -19,8 +21,10 @@ A command is split at `;`, `&&`, `||`, `|`, `&` and newlines, and each segment i
 - nothing is exempt: a jnwb_push.sh call is not skipped, so a push inside its arguments
   (`"$(git push ...)"`) is checked like any other.
 
-A push is read wherever it starts a word: after a quote, a backtick, `$(`, `!`, `{` or a wrapper word
-(`bash -c 'git push ...'`, `` `git push ...` ``). Not read: a `cd` or `&&` inside a quoted string
+A push is read wherever its executable starts a word: after a quote, a backtick, `$(`, `!`, `{` or a
+wrapper word (`bash -c 'git push ...'`, `` `git push ...` ``). The scan is linear in the command length:
+each word is read once, each quoted run's content once per nesting level (at most two), and the global
+options of each executable are walked once. Not read: a `cd` or `&&` inside a quoted string
 (`bash -c "cd X && git push"`), since the split cuts there and the push runs in the outer directory;
 and a command or path that a substitution or variable builds (`$(which git)`, `$GIT`, `eval`). The
 guard reads text, not a shell. A payload that cannot be read or interpreted is denied with a message: the
@@ -37,28 +41,22 @@ import re
 import sys
 from pathlib import Path
 
-PATH = r"(?:\"[^\"]*\"|'[^']*'|\S+)"
-QUOTE = r"[\"']?"
-GLOBAL = rf"(?:{QUOTE}--namespace{QUOTE}(?:=|\s+){PATH}|{QUOTE}-C{QUOTE}\s+{PATH}|{QUOTE}-c{QUOTE}\s+{PATH}|{QUOTE}--super-prefix{QUOTE}\s+{PATH}|{QUOTE}--config-env{QUOTE}\s+{PATH}|{QUOTE}--git-dir{QUOTE}(?:=|\s+){PATH}|{QUOTE}--work-tree{QUOTE}(?:=|\s+){PATH}|{QUOTE}--?[A-Za-z][\w-]*{QUOTE}(?:={PATH})?)"
-# A word ends at a character that opens a command or a quote: whitespace, quotes, operators, grouping,
-# backtick, `!` and braces. The plain-character class excludes the backslash, so only the escape branch
-# consumes one and the matcher never splits it two ways.
-WORD_EDGE = r"\s\"';&|<>()`!{}"
-WORD = rf"(?:\"[^\"\n]*\"|'[^'\n]*'|\\.?|[^{WORD_EDGE}\\])+"
-# A push is read at every position where a word can start after one of those characters, so a push nested
-# in a quote, a backtick or a wrapper word (`bash -c 'git push ...'`) is found. The zero-width lookahead
-# lets matches overlap, which a consuming pattern would not.
-WORD_START = rf"(?<![^{WORD_EDGE}])"
-PUSH = re.compile(rf"{WORD_START}(?=(?P<exe>{WORD})\s+(?P<glob>(?:{GLOBAL}\s+)*)push\b(?P<args>[^;&|<>\n]*))",
-                  re.IGNORECASE)
-GLOBAL_OPT = re.compile(rf"{QUOTE}(-C|--git-dir|--work-tree){QUOTE}(?:=|\s+)({PATH})|{QUOTE}-c{QUOTE}\s+{PATH}")
 GIT_ENV = ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR")
 GIT_ENV_NAMES = "|".join(GIT_ENV)
+PATH = r"(?:\"[^\"]*\"|'[^']*'|\S+)"
 ENV_ASSIGN = re.compile(rf"(?<![\w.-])({GIT_ENV_NAMES})=({PATH})")
+ARGS = re.compile(r"[^;&|<>\n]*")
 TEMP = re.compile(r"_temp(?:orary)?_")
 ALL_REFS = {"--all", "--mirror", "--tags"}
 SEGMENT_SEP = re.compile(r"&&|\|\||[;&|\n]")
-CD = re.compile(r"\s*[({]*\s*(?:cd|pushd)\s+(\"[^\"]*\"|'[^']*'|[^\s;&|()]+)\s*[)}]*\s*$")
+# Possessive quantifiers: a cd line is read once, with no backtracking over its spaces.
+CD = re.compile(r"[\s({]*+(?:cd|pushd)\s++(\"[^\"]*\"|'[^']*'|[^\s;&|()]++)[\s)}]*+$")
+QUOTES = "\"'"
+OPERATORS = ";&|<>()`!{}"
+# Global options that take their value as the next word, or as `=value` in the same word.
+SEPARATE_ARG = {"-c", "--super-prefix", "--config-env"}  # lower case; -C reads as -c
+EQUALS_OR_SEPARATE = {"--namespace", "--git-dir", "--work-tree"}
+STEP_FLAGS = ("-C", "--git-dir", "--work-tree")
 JNWB_MARKERS = ("jnwb/__init__.py", "scripts/jnwb_push.sh")
 DENY = ("plain `git push` in jnwb skips the suite stamp and CI checks; run "
         "`bash <repo>/scripts/jnwb_push.sh <repo> dev </dev/null`.")
@@ -92,6 +90,173 @@ def is_git_exe(word):
     return any(name.lower().removesuffix(".exe") == "git" for name in names)
 
 
+def _piece_end(s, j):
+    """End of the shell word that starts at j: closed quoted runs, backslash escapes and plain characters.
+    The word stops at whitespace, an operator, or a quote that never closes."""
+    n = len(s)
+    while j < n:
+        c = s[j]
+        if c in QUOTES:
+            close = s.find(c, j + 1)
+            if close < 0:
+                break
+            j = close + 1
+        elif c == "\\":
+            j += 2 if j + 1 < n else 1
+        elif c.isspace() or c in OPERATORS:
+            break
+        else:
+            j += 1
+    return j
+
+
+def _run_end(s, j):
+    """End of the unquoted characters from j: no quote, whitespace or operator; escapes are kept."""
+    n = len(s)
+    while j < n:
+        c = s[j]
+        if c == "\\":
+            j += 2 if j + 1 < n else 1
+        elif c in QUOTES or c.isspace() or c in OPERATORS:
+            break
+        else:
+            j += 1
+    return j
+
+
+def _candidates(s):
+    """Yield (s, start, end, memo) for each shell word of s that could be a command's executable: each
+    whole word, and the unquoted run after each closing quote. The content of each closed quoted run is
+    a command of its own (`bash -c 'git push'`) and is scanned the same way. Words and runs are disjoint
+    within one string, and quoted runs nest at most two deep (a quote cannot sit inside a run of its own
+    kind), so the scan is linear. ``memo`` is shared by the candidates of one string (see _push_end)."""
+    memo = {}
+    n = len(s)
+    i = 0
+    while i < n:
+        c = s[i]
+        if c in QUOTES and s.find(c, i + 1) < 0:
+            i += 1  # an unclosed quote starts no word; the text after it does
+            continue
+        if c.isspace() or c in OPERATORS:
+            i += 1
+            continue
+        end = _piece_end(s, i)
+        yield s, i, end, memo
+        j = i
+        while j < end:
+            c = s[j]
+            if c in QUOTES:
+                close = s.find(c, j + 1)
+                yield from _candidates(s[j + 1:close])
+                after = close + 1
+                run = _run_end(s, after)
+                if run > after:
+                    yield s, after, run, memo
+                j = after
+            elif c == "\\":
+                j += 2 if j + 1 < end else 1
+            else:
+                j += 1
+        i = end
+
+
+def _token(s, j):
+    """(start, end) of the shell word at or after j, skipping spaces; None when an operator, the end of
+    the string or a quote that never closes comes first."""
+    n = len(s)
+    while j < n and s[j].isspace():
+        j += 1
+    if j >= n or s[j] in OPERATORS:
+        return None
+    end = _piece_end(s, j)
+    return (j, end) if end > j else None
+
+
+def _is_push(word):
+    """True for the word `push`, or a word that starts with it and is not a longer word (`push-x`)."""
+    return word[:4].lower() == "push" and not (len(word) > 4 and (word[4].isalnum() or word[4] == "_"))
+
+
+def _option(word):
+    """How a word reads among git's global options: ("value", name) when the next word is its value,
+    ("flag", (name, value)) for a whole option (value None when it has none), or None when the word is
+    not a global option. Names are read as git reads them, any case; quotes around a name are removed."""
+    d = dequote(word)
+    name, eq, value = d.partition("=")
+    low = name.lower()
+    if low in SEPARATE_ARG and not eq:
+        return ("value", name)
+    if low in EQUALS_OR_SEPARATE:
+        return ("flag", (name, value)) if eq else ("value", name)
+    if re.fullmatch(r"--?[A-Za-z][\w-]*", name):
+        return ("flag", (name, value if eq else None))
+    return None
+
+
+def _push_end(s, j, memo):
+    """Index just after the `push` word that ends the git global options starting at j, or None. The
+    result depends only on the word where the walk stands, so it is memoized per word start: options
+    shared by several candidates are walked once."""
+    path = []
+    found = None
+    while True:
+        tok = _token(s, j)
+        if tok is None:
+            break
+        a, b = tok
+        if a in memo:
+            found = memo[a]
+            break
+        path.append(a)
+        word = s[a:b]
+        if _is_push(word):
+            found = a + 4
+            break
+        kind = _option(word)
+        if kind is None:
+            break
+        if kind[0] == "value":
+            nxt = _token(s, b)
+            if nxt is None:
+                break
+            j = nxt[1]
+        else:
+            j = b
+    for a in path:
+        memo[a] = found
+    return found
+
+
+def _steps(s, j):
+    """The (flag, value) of each -C, --git-dir and --work-tree among the global options from j to `push`."""
+    steps = []
+    while True:
+        tok = _token(s, j)
+        if tok is None:
+            break
+        a, b = tok
+        word = s[a:b]
+        if _is_push(word):
+            break
+        kind = _option(word)
+        if kind is None:
+            break
+        if kind[0] == "value":
+            nxt = _token(s, b)
+            if nxt is None:
+                break
+            if kind[1] in STEP_FLAGS:
+                steps.append((kind[1], s[nxt[0]:nxt[1]]))
+            j = nxt[1]
+        else:
+            name, value = kind[1]
+            if name in STEP_FLAGS and value is not None:
+                steps.append((name, value))
+            j = b
+    return steps
+
+
 def unquote(word):
     """The path a shell word names: quotes removed and `~` expanded; on Windows a Git Bash `/c/...`
     becomes `C:/...`."""
@@ -116,11 +281,10 @@ def is_jnwb(path):
     return root is not None and all((root / m).is_file() for m in JNWB_MARKERS)
 
 
-def push_dirs(base, global_text, env):
+def push_dirs(base, steps, env):
     """The directories a push names. Each `-C` steps the working directory in turn; `--git-dir`,
     `--work-tree` and the GIT_ names in `env` are resolved against the directory the `-C` steps end in,
     as git does. The directory the push runs in is always one of them."""
-    steps = [(m.group(1), m.group(2)) for m in GLOBAL_OPT.finditer(global_text) if m.group(1)]
     where = base
     for flag, path in steps:
         if flag == "-C":
@@ -141,10 +305,13 @@ def verdict(payload):
         if cd:
             base = under(base, unquote(cd.group(1)))
             continue
-        for m in PUSH.finditer(seg):
-            if not is_git_exe(m.group("exe")) or temp_only(m.group("args")):
+        for s, a, b, memo in _candidates(seg):
+            if b >= len(s) or not s[b].isspace() or not is_git_exe(s[a:b]):
                 continue
-            if any(is_jnwb(where) for where in push_dirs(base, m.group("glob"), env)):
+            end = _push_end(s, b, memo)
+            if end is None or temp_only(ARGS.match(s, end).group()):
+                continue
+            if any(is_jnwb(where) for where in push_dirs(base, _steps(s, b), env)):
                 return DENY
     return None
 
@@ -158,7 +325,8 @@ def decide(raw):
     try:
         return verdict(json.loads(raw))
     except Exception as exc:
-        if re.search(r"\bgit\b[\s\S]*\bpush\b", raw):
+        first_git = re.search(r"\bgit\b", raw)
+        if first_git and re.search(r"\bpush\b", raw[first_git.start():]):
             return UNREADABLE.format(type(exc).__name__)
         return None
 

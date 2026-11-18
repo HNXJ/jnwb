@@ -389,6 +389,51 @@ def test_legitimate_commands_pass_inside_and_outside_a_jnwb_checkout(tmp_path):
         assert reply("mygit push origin dev", cwd) == {}, cwd
 
 
+# ---- 17-147-A revision 2: bounded time on pathological input --------------------------------------
+
+BOUNDED_SECONDS = 5
+
+PATHOLOGICAL_NOISE = [
+    ("5000 backslashes", "\\" * 5000),
+    ("5000 double quotes", '"' * 5000),
+    ("5000 single quotes", "'" * 5000),
+    ("50 KB double quotes", '"' * 50000),
+    ("git with 1000 option pairs", "git " + "-c -c " * 1000 + "x"),
+    ("git with 400 dash groups", "git -a -b -c " * 400),
+    ("400 push words without git", "push " * 500),
+]
+
+
+def bounded_reply(command: str, cwd: Path | str) -> dict:
+    """The hook's reply from a subprocess that must finish within BOUNDED_SECONDS; a hang fails the test."""
+    raw = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}, "cwd": Path(cwd).as_posix()})
+    try:
+        proc = subprocess.run([sys.executable, str(GUARD)], input=raw.encode("utf-8"), capture_output=True,
+                              timeout=BOUNDED_SECONDS, check=True)
+    except subprocess.TimeoutExpired:
+        pytest.fail(f"guard did not finish within {BOUNDED_SECONDS} s on a {len(command)}-character command")
+    return json.loads(proc.stdout.decode("utf-8")) if proc.stdout.strip() else {}
+
+
+@pytest.mark.parametrize("name, noise", PATHOLOGICAL_NOISE, ids=[n for n, _ in PATHOLOGICAL_NOISE])
+def test_pathological_noise_from_a_jnwb_checkout_finishes_and_is_allowed(tmp_path, name, noise):
+    clone = make_checkout(tmp_path / "_temp_patho_noise")
+    assert bounded_reply(noise, clone) == {}, name
+
+
+@pytest.mark.parametrize("name, noise", PATHOLOGICAL_NOISE, ids=[n for n, _ in PATHOLOGICAL_NOISE])
+def test_pathological_noise_ending_in_a_real_push_finishes_and_is_denied(tmp_path, name, noise):
+    clone = make_checkout(tmp_path / "_temp_patho_push")
+    reason = bounded_reply(noise + " git push origin dev", clone)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert JNWB_REASON in reason, name
+
+
+def test_a_repeated_push_word_finishes_and_is_denied(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_patho_repeat")
+    reason = bounded_reply("git push " * 500, clone)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert JNWB_REASON in reason
+
+
 # ---- 17-143: `jnwb_push.sh <dir> --tag vX.Y.Z` and the artifacts-only stack checks ---------------
 #
 # CI reads go to the local stand-in server of test_jnwb_push.py (`ci_api`); the remote is a local bare
