@@ -80,6 +80,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.release_gate import (RECEIPT_PATH as CLOSURE_RECEIPT_PATH,  # noqa: E402
                                   blocker_fixpoint_receipt)
 from scripts.stack_parse import cells as _cells  # noqa: E402
+from scripts.gates.boundary import git  # noqa: E402
 CLOSURE_RECEIPT = REPO_ROOT / CLOSURE_RECEIPT_PATH
 VALIDATION_HTML = ASSETS / "validations"
 SECTIONS =("generated", "release", "releases", "ci", "api", "verified", "performance",
@@ -138,8 +139,7 @@ def _note(message: str) -> None:
 
 
 def _git(*args: str) -> str:
-    proc = subprocess.run(["git", *args], cwd=REPO_ROOT, capture_output=True, text=True,
-                          check=False)
+    proc = git(*args, cwd=REPO_ROOT)
     if proc.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
     return proc.stdout.strip()

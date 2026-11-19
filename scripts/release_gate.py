@@ -61,6 +61,7 @@ from scripts.stack_parse import (  # noqa: E402
     parse_todo_stack as _parse_todo_stack,
     sections as _todo_sections,
 )
+from scripts.gates.boundary import git  # noqa: E402
 
 
 #: Extras whose tooling must be present for release qualification to mean anything: every extra
@@ -1505,20 +1506,17 @@ def receipt_commit_violation(root: pathlib.Path, commit: str,
     if commit == head:
         return None
 
-    def git(*args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
-
-    if git("cat-file", "-e", f"{commit}^{{commit}}").returncode != 0:
+    if git("cat-file", "-e", f"{commit}^{{commit}}", cwd=root).returncode != 0:
         return (f"{RECEIPT_PATH} records commit {commit[:12]}, which this repository does not "
                 "know, so the closure pass cannot be tied to the tree being released")
-    ancestry = git("merge-base", "--is-ancestor", commit, head)
+    ancestry = git("merge-base", "--is-ancestor", commit, head, cwd=root)
     if ancestry.returncode == 1:
         return (f"{RECEIPT_PATH} records commit {commit[:12]}, which is not an ancestor of HEAD "
                 f"{head[:12]}: the closure pass ran against a different history")
     if ancestry.returncode != 0:
         return (f"whether {RECEIPT_PATH}'s commit {commit[:12]} is an ancestor of HEAD "
                 f"{head[:12]} could not be determined: {ancestry.stderr.strip()[:120]}")
-    diff = git("diff", "--name-only", "-z", commit, head)
+    diff = git("diff", "--name-only", "-z", commit, head, cwd=root)
     if diff.returncode != 0:
         return (f"the files changed between {RECEIPT_PATH}'s commit {commit[:12]} and HEAD "
                 f"{head[:12]} could not be listed: {diff.stderr.strip()[:120]}")
@@ -2054,22 +2052,20 @@ def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
     ``origin/main`` (else ``main``) must be an ancestor of it; with neither, the answer is
     unknown and refused. Nothing here fetches.
     """
-    def git(*args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
-
     target = head or "HEAD"
-    listed = git("rev-list", "--parents", "-n", "1", target)
+    listed = git("rev-list", "--parents", "-n", "1", target, cwd=root)
     words = listed.stdout.split()
     if listed.returncode != 0 or not words:
         return [f"{target[:12]} does not resolve, so whether it contains main is unknown"]
     full, parents = words[0], words[1:]
     ref = next((r for r in ("origin/main", "main")
-                if git("rev-parse", "--verify", "--quiet", f"{r}^{{commit}}").returncode == 0),
+                if git("rev-parse", "--verify", "--quiet", f"{r}^{{commit}}",
+                       cwd=root).returncode == 0),
                None)
     if ref is None:
         return ["neither origin/main nor main resolves, so whether main is an ancestor of "
                 "the commit being released is unknown"]
-    main_sha = git("rev-parse", f"{ref}^{{commit}}").stdout.strip()
+    main_sha = git("rev-parse", f"{ref}^{{commit}}", cwd=root).stdout.strip()
     # A merge commit is a release merge only when it is main or merges onto main; any other
     # two-parent commit (a branch merged into dev) is read as a plain commit.
     if len(parents) == 2 and main_sha in (full, parents[0]):
@@ -2079,7 +2075,7 @@ def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
     else:
         contained, container = ref, target
         what, where = ref, target[:12]
-    ancestry = git("merge-base", "--is-ancestor", contained, container)
+    ancestry = git("merge-base", "--is-ancestor", contained, container, cwd=root)
     if ancestry.returncode == 0:
         return []
     if ancestry.returncode == 1:
