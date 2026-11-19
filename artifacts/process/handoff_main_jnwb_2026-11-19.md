@@ -8,19 +8,18 @@ unless marked inferred. Earlier handoff: `handoff_main_jnwb_2026-11-18.md`. Scor
 
 | Item | Value |
 |---|---|
-| `origin/dev` | `e6baac97` (17-79 landed; pushed through `scripts/jnwb_push.sh`, no bypass) |
-| Suite | 11021 passed, 0 failed on `e6baac97`, in the main clone and in the lane clone |
-| CI/CD on `e6baac97` | two runs (44601543097, 44601555186): read them first; they were in progress at the last check |
-| Stack edits not yet on `dev` | commit `74149db7` on remote `_temp_mainjnwb_stacks` (WIP): 17-79 closed, plan id removed, 17-94 unblocked, two open rows, checklist 12/100. It also sits as a local commit on `dev` in `D:/repos/_work/jnwb_mainjnwb` (local `dev` is one ahead of `origin/dev`) |
-| Score | 12/100 verified after that commit lands (17-103, 17-79 closed); gates 0 of 6 complete |
+| `origin/dev` | `5a935e55` (code at `e6baac97`, 17-79 landed; stacks, plan and checklist closure on top; pushed through `scripts/jnwb_push.sh`, no bypass; local `dev` equals it) |
+| Suite | 11021 passed, 0 failed on `e6baac97`, in the main clone and in the lane clone; the later commits change artifacts only (harness gate 22 of 22) |
+| CI/CD on `e6baac97` | both runs completed and succeeded (44601543097, 44601555186) |
+| CI/CD on `5a935e55` | not read at the time of writing: read it first |
+| Score | 12/100 verified (17-103, 17-79 closed); gates 0 of 6 complete |
+| Cleanup done | worktree and branch `_temp_mainjnwb_79psi`, remote `_temp_mainjnwb_79psi` and `_temp_mainjnwb_stacks` deleted after containment checks; only `_temp_mainjnwb_handoff` (this note) and the `jnwb_handoff` worktree remain |
 
 ## Do first, in order
 
-1. Read both CI runs on `e6baac97` (`gh run list --branch dev`). Red or cancelled: stop and report; do not claim the closure.
-2. In `artifacts/process/release_checklist.md` replace `CI_RESULT_PLACEHOLDER` with the verified result (run ids, conclusion).
-3. `python scripts/reconstruct_state.py` (gate 20 file is generated, never committed), then commit the checklist fix with exact paths.
-4. Push `dev` only through `bash scripts/jnwb_push.sh /d/repos/_work/jnwb_mainjnwb dev </dev/null`: an artifacts-only push needs no CI in flight and the harness gate. Verify `git ls-remote origin dev`, then CI on the new tip.
-5. Clean up: lane branch `_temp_mainjnwb_79psi` (contained in `dev`; worktree `D:/repos/_work/jnwb_l79psi`, check clean first; stop fsmonitor if present) and remote `_temp_mainjnwb_stacks` after step 4. Never change a branch or worktree while a full suite runs (gate 20 reads them).
+1. Read the CI runs on `5a935e55` (`gh run list --branch dev`). Red or cancelled: report; the closure of 17-79 rests on `e6baac97`'s runs, not on this commit.
+2. Pick the next item (below). Never change a branch or worktree while a full suite runs (gate 20 reads them).
+3. When Hamm has taken this note, delete `_temp_mainjnwb_handoff` and its worktree (check containment first).
 
 ## What this session did
 
