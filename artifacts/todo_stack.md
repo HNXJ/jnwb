@@ -7,8 +7,8 @@ Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts 
 closed on 2026-11-08 (tag `v0.2.16`, `0aa220ba`; tag CI/CD run 42513450995 success, TestPyPI and PyPI
 verified, GitHub release body checked by `release_gate.py` STEP 0d). Items run fastest first.
 
-Thinning and matching from the 2026-11-02 audits, each named by SHA: seven models at `7ca5b9a6` (17-83 to 17-105) and eight auditors at `9fd2b4bd` (P-216 rows, 17-128, 17-129). Lanes form at 0.2.16's close; 17-94 waits on 17-79,
-which rewrites `_xflip.py` and `_zflip.py`. Each item applies the jarness standards: `match-cleanup` for
+Thinning and matching from the 2026-11-02 audits, each named by SHA: seven models at `7ca5b9a6` (17-83 to 17-105) and eight auditors at `9fd2b4bd` (P-216 rows, 17-128, 17-129). Lanes form at 0.2.16's close; 17-79 (which rewrote `_xflip.py`
+and `_zflip.py`) landed at e6baac97, so 17-94 is unblocked. Each item applies the jarness standards: `match-cleanup` for
 removals, `match-code-style` for code, `match-writing-style` for prose, `match-visual-style` for figures.
 
 ## How this stack is executed
@@ -55,17 +55,10 @@ Writes: `artifacts/benchmarks/realdata/isi_cv_recompute.py`, `artifacts/benchmar
   Observed 2026-11-12: path missing; SHAs not in this clone or on `origin`. Check: each on `dev` in that
   order, suite passes, jaxfne-orchestrator told; then `E:/cl-jnwb16e` may go.
 
-### 17-79 Complexity of the largest functions
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: nothing (moved from 0.2.16 by the lane ruling of 2026-11-02).
-Writes: `jnwb/laminar/_xflip.py`, `jnwb/laminar/_zflip.py`, `jnwb/laminar/_vflip.py`, `jnwb/jrsa/__init__.py`, `jnwb/connectivity/_psi.py`.
-- 17-79: at 93fd20e1, 977 functions, median cyclomatic complexity 4; 151 above 10, 56 above 20, 13 above 40; the largest are `xflip` 109, `jrsa` 93, `zflip` 80, `vflip` 71, `phase_slope_index` 67. None has a `frozen_validated.json` entry, so gate 19 does not hold them; the suite and calibration receipts do. This is size only. Check: each named function split into helpers with the suite and its calibration receipt unchanged, and none above 40.
-
 ### 17-94 One home per helper in jnwb
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-79 (shared files).
+Role: jnwb-developer. Skill: none. Blocked by: none (17-79 landed at e6baac97; the split helpers in `_xflip.py`, `_zflip.py`, `_vflip.py`, `jrsa/__init__.py` and `_psi.py` are new private names).
 Writes: `jnwb/**/*.py`.
 - 17-94: `fs=nan` passes the `fs <= 0` guard at `filtering.py:31`, `:76`, `continuous.py:136` and `tfr.py:251`; at 2a5ef1b7 `bandpass_filter` then raises scipy's "Wn[0] must be less than Wn[1]" and `notch_filter` a `LinAlgError`, neither naming `fs` (match pass 2026-11-07). The shared check refuses NaN and Inf by name. The `fs` positive check is hand-written at about 20 sites (`filtering.py:31`, `continuous.py:136`, `tfr.py:251`, ...) beside `spectral/_common._require_positive_fs`; `jnwb/spectral` has 9 `_require_*` variants; `_bins.py:86,112` hold two onset loops differing in edge closure; three dB paths (`_decibels.py:15,24,457`); `nwb_write._sha256` equals `paths.sha256_file`; `_window_rows` twice (`_xflip.py:96`, `_zflip.py:178`). Check: one definition each, the grep returns one site, the suite passes.
 
