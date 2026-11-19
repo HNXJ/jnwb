@@ -426,6 +426,124 @@ def jrsa(
     # `correction` defaults to 'fdr_bh', or to 'max_statistic' with `sliding=True`.
     if isinstance(correction, Default):
         correction = "max_statistic" if sliding else correction.value
+    permutation_p = _check_test_options(
+        align, alternative, null, block_len, metric, stats, permutations
+    )
+    _check_sliding_options(
+        sliding, step, correction, stats, permutations, permutation_p, lag, bootstrap
+    )
+
+    # --- collect parameter snapshot -------------------------------------------
+    params = dict(
+        adim=adim, labels=labels, align=align,
+        reduction=reduction, metric=metric, lag=lag, window=window,
+        sliding=sliding, step=step, normalize=normalize, standardize=standardize,
+        detrend=detrend, nan_policy=nan_policy, stats=stats,
+        permutations=permutations, bootstrap=bootstrap, correction=correction,
+        alpha=alpha, alternative=alternative, null=null, block_len=block_len,
+        backend=backend, device=device,
+        n_jobs=n_jobs, batch_size=batch_size, random_state=random_state,
+        return_type=return_type, return_null=return_null,
+        return_input=return_input, verbose=verbose, **kwargs,
+    )
+
+    # --- pipeline -------------------------------------------------------------
+    rng = resolve_rng(random_state, func_name="jrsa")
+    resolved_device = _resolve_jrsa_device(device)
+    # `_get_backend` stays in this frame: its warning's stacklevel counts jrsa's own frame.
+    bk = _get_backend(backend, resolved_device)
+
+    _refuse_complex_input("x1", x1)
+    _refuse_complex_input("x2", x2)
+    x1, x2 = _prepare_inputs(x1, x2, bk)
+    x1, x2 = _validate_inputs(x1, x2, nan_policy, metric)
+    x1, x2, axis_map = _standardize_dimensions(x1, x2, adim, labels)
+    ndim_in = x1.ndim
+    x1, x2, aligned_axes = _align_dimensions(
+        x1, x2, axis_map, align, verbose
+    )
+    x1, x2, window_axes = _reduce_and_window_axes(
+        x1, x2, axis_map, reduction, window, metric, adim_given
+    )
+    x1, x2 = _apply_preprocessing(x1, x2, normalize, standardize, detrend)
+    if sliding:
+        x1_wins, x2_wins, windows = _sliding_windows(x1, x2, window_axes, window, step)
+    else:
+        x1, x2, windows = _make_windows(x1, x2, window_axes, window, sliding)
+    # --- dispatch metric ------------------------------------------------------
+    metric_key, metric_fn = _dispatch_metric(metric, kwargs)
+
+    # Shuffle the axis the metric actually treats as observations. See
+    # _OBSERVATION_AXIS_0_METRICS: for those, axis=-1 is the feature axis and shuffling it
+    # is a no-op, which collapsed the null to a point mass and returned p = 1.0 always.
+    perm_axis = 0 if metric_key in _OBSERVATION_AXIS_0_METRICS else -1
+    null_scheme = _check_resampling(
+        x1, metric, adim, axis_map, ndim_in, perm_axis, sliding, window_axes,
+        permutation_p, null, bootstrap, lag,
+    )
+
+    if verbose:
+        print(f"[jrsa] computing {metric!r} …")
+
+    # --- temporal lag iteration -----------------------------------------------
+    # np.ndim, not isinstance(int): a NumPy integer or 0-d array is one lag.
+    lags = [lag] if np.ndim(lag) == 0 else list(np.asarray(lag).ravel())
+    xp = _get_xp(x1)
+    if sliding:
+        (value, statistic, effect, p_raw, df, null_dist, ci, q_corrected) = _fit_sliding(
+            x1_wins, x2_wins, axis_map, lag, metric_fn, permutations, rng, perm_axis, n_jobs,
+            null_scheme, block_len, alternative, kwargs, xp,
+        )
+    elif len(lags) <= 1:
+        (value, statistic, effect, p_raw, df, null_dist, ci, q_corrected) = _fit_single_lag(
+            x1, x2, axis_map, lag, metric_fn, permutation_p, stats, permutations, rng,
+            perm_axis, n_jobs, null_scheme, block_len, bootstrap, alternative, correction,
+            alpha, kwargs,
+        )
+    else:
+        (value, statistic, effect, p_raw, df, null_dist, ci, q_corrected) = _fit_lags(
+            x1, x2, axis_map, lags, metric_fn, permutation_p, stats, permutations, rng,
+            perm_axis, n_jobs, null_scheme, block_len, bootstrap, alternative, correction,
+            alpha, kwargs, xp,
+        )
+
+    # --- build result ---------------------------------------------------------
+    exec_meta = _execution_record(
+        bk, resolved_device, t0, random_state, null_scheme, permutation_p, block_len,
+        null_dist, x1, x2, perm_axis, lags, sliding, windows,
+    )
+
+    result = _make_result(
+        value=value,
+        statistic=statistic,
+        effect=effect,
+        p=p_raw,
+        q=q_corrected,
+        df=df,
+        ci=ci,
+        metric=metric,
+        axes=tuple(axis_map.values()),
+        aligned_axes=aligned_axes,
+        labels=labels,
+        parameters=params,
+        null_distribution=null_dist if return_null else None,
+        aligned_x1=x1 if return_input else None,
+        aligned_x2=x2 if return_input else None,
+        execution=exec_meta,
+    )
+
+    # --- return_type conversion -----------------------------------------------
+    return _return_as(result, return_type)
+
+
+# ===========================================================================
+# PRIVATE – the steps of `jrsa`, split out for size. Each keeps its statements in their
+# order. A warning raised here counts one more frame than it did inside `jrsa`, so its
+# stacklevel is raised by one where it reaches the caller of `jrsa`.
+# ===========================================================================
+
+def _check_test_options(align, alternative, null, block_len, metric, stats, permutations):
+    """Refuse the options checked before any data is touched; return whether a null is formed."""
     # `_align_dimensions` resamples only an axis whose lengths differ, so an unknown `align`
     # on equal lengths reached no check and ran while `parameters['align']` echoed it.
     if align not in ALIGN_MODES + ("none", "dtw"):
@@ -447,8 +565,12 @@ def jrsa(
             "one-sided p cannot be formed by halving, as it is for a signed statistic. Use "
             "alternative='two-sided', or a permutation null (stats=True, permutations > 0)."
         )
+    return permutation_p
 
-    # --- sliding windows ------------------------------------------------------
+
+def _check_sliding_options(sliding, step, correction, stats, permutations, permutation_p,
+                           lag, bootstrap):
+    """Refuse the `sliding`, `step` and `correction` combinations that cannot be formed."""
     if sliding:
         if str(correction).lower() != "max_statistic":
             raise ValueError(
@@ -475,22 +597,9 @@ def jrsa(
     elif str(correction).lower() == "max_statistic":
         raise ValueError("jrsa: correction='max_statistic' needs sliding=True; got sliding=False.")
 
-    # --- collect parameter snapshot -------------------------------------------
-    params = dict(
-        adim=adim, labels=labels, align=align,
-        reduction=reduction, metric=metric, lag=lag, window=window,
-        sliding=sliding, step=step, normalize=normalize, standardize=standardize,
-        detrend=detrend, nan_policy=nan_policy, stats=stats,
-        permutations=permutations, bootstrap=bootstrap, correction=correction,
-        alpha=alpha, alternative=alternative, null=null, block_len=block_len,
-        backend=backend, device=device,
-        n_jobs=n_jobs, batch_size=batch_size, random_state=random_state,
-        return_type=return_type, return_null=return_null,
-        return_input=return_input, verbose=verbose, **kwargs,
-    )
 
-    # --- pipeline -------------------------------------------------------------
-    rng = resolve_rng(random_state, func_name="jrsa")
+def _resolve_jrsa_device(device):
+    """Resolve `device` for jrsa. A CUDA request is announced and the CPU computes it."""
     # `device` used to be recorded verbatim, so `device='bogus_device'` ran and was
     # reported as the device, while all 15 `resolve_device` sites raise for the same
     # string. Routing it here makes jrsa refuse an unknown device like every other
@@ -499,7 +608,7 @@ def jrsa(
     # back and the computation is NumPy either way. `execution` now says so.
     resolved_device = resolve_device(
         None if str(device).strip().lower() == "auto" else device,
-        context="jrsa", prefer="cupy", stacklevel=3,
+        context="jrsa", prefer="cupy", stacklevel=4,
     )
     if resolved_device == CUDA:
         # The resolver found a GPU, but jrsa will not use it: every metric calls
@@ -509,20 +618,14 @@ def jrsa(
             "jrsa: device='cuda' was requested, but every jrsa metric computes in NumPy "
             "on the CPU. The result is unchanged and execution['device'] records 'cpu'.",
             RuntimeWarning,
-            stacklevel=3,
+            stacklevel=4,
         )
         resolved_device = CPU
-    bk = _get_backend(backend, resolved_device)
+    return resolved_device
 
-    _refuse_complex_input("x1", x1)
-    _refuse_complex_input("x2", x2)
-    x1, x2 = _prepare_inputs(x1, x2, bk)
-    x1, x2 = _validate_inputs(x1, x2, nan_policy, metric)
-    x1, x2, axis_map = _standardize_dimensions(x1, x2, adim, labels)
-    ndim_in = x1.ndim
-    x1, x2, aligned_axes = _align_dimensions(
-        x1, x2, axis_map, align, verbose
-    )
+
+def _reduce_and_window_axes(x1, x2, axis_map, reduction, window, metric, adim_given):
+    """Apply `reduction`; return the arrays and the axes that `window` and the null act on."""
     window_axes = axis_map
     if reduction is not None:
         x1, x2 = _reduce_dimensions(x1, x2, axis_map, reduction)
@@ -535,12 +638,11 @@ def jrsa(
         # the features of these metrics, while `lag` and the null acted on the
         # observations; it now cuts the observations.
         window_axes = {"observations": 0}
-    x1, x2 = _apply_preprocessing(x1, x2, normalize, standardize, detrend)
-    if sliding:
-        x1_wins, x2_wins, windows = _sliding_windows(x1, x2, window_axes, window, step)
-    else:
-        x1, x2, windows = _make_windows(x1, x2, window_axes, window, sliding)
-    # --- dispatch metric ------------------------------------------------------
+    return x1, x2, window_axes
+
+
+def _dispatch_metric(metric, kwargs):
+    """Return ``(metric_key, metric_fn)``; refuse a legacy name, an unknown metric, an option."""
     _LEGACY_JRSA_METRIC_NAMES = {
         "granger": "granger_ssr_ftest",
         "transfer_entropy": "transfer_entropy_histogram_nats",
@@ -570,11 +672,15 @@ def jrsa(
             f"jrsa() got unexpected keyword argument(s) {sorted(_extra)} for "
             f"metric '{metric}'. That metric accepts: {_accepted or 'no extra options'}."
         )
+    return metric_key, metric_fn
 
-    # Shuffle the axis the metric actually treats as observations. See
-    # _OBSERVATION_AXIS_0_METRICS: for those, axis=-1 is the feature axis and shuffling it
-    # is a no-op, which collapsed the null to a point mass and returned p = 1.0 always.
-    perm_axis = 0 if metric_key in _OBSERVATION_AXIS_0_METRICS else -1
+
+def _check_resampling(x1, metric, adim, axis_map, ndim_in, perm_axis, sliding, window_axes,
+                      permutation_p, null, bootstrap, lag):
+    """Refuse the axis, null and bootstrap combinations that cannot follow `adim`.
+
+    Returns the null scheme that the permutation test and the bootstrap use.
+    """
     _refuse_an_adim_the_resampling_ignores(
         metric, adim, axis_map, ndim_in, x1.ndim < ndim_in, perm_axis,
         permutation_p=permutation_p, bootstrap=bootstrap, lag=lag,
@@ -609,126 +715,137 @@ def jrsa(
             "coefficient 0.9 the 95% interval of pearson covered 0 for 0.475 of pairs. Name "
             "null='iid' to declare the samples exchangeable, or set bootstrap=0."
         )
+    return null_scheme
 
-    if verbose:
-        print(f"[jrsa] computing {metric!r} …")
 
-    # --- temporal lag iteration -----------------------------------------------
-    # np.ndim, not isinstance(int): a NumPy integer or 0-d array is one lag.
-    lags = [lag] if np.ndim(lag) == 0 else list(np.asarray(lag).ravel())
-    xp = _get_xp(x1)
+def _stack_lags(lst, xp):
+    """Stack one value per lag along axis 0; a ``None`` item becomes NaN."""
     # Helper to stack along axis=0 if components are arrays/tensors or numeric values
-    def _stack_lags(lst):
-        if all(item is None for item in lst):
-            return None
-        # If items are numeric scalars or arrays, stack them
-        first = next(item for item in lst if item is not None)
-        if isinstance(first, (int, float, np.number)) or (hasattr(first, "ndim") and first.ndim == 0):
-            return xp.array([float(item) if item is not None else np.nan for item in lst])
-        # Filter None to prevent stack crash, although they should all be same shape
-        return xp.stack([item if item is not None else xp.full_like(first, xp.nan) for item in lst], axis=0)
+    if all(item is None for item in lst):
+        return None
+    # If items are numeric scalars or arrays, stack them
+    first = next(item for item in lst if item is not None)
+    if isinstance(first, (int, float, np.number)) or (hasattr(first, "ndim") and first.ndim == 0):
+        return xp.array([float(item) if item is not None else np.nan for item in lst])
+    # Filter None to prevent stack crash, although they should all be same shape
+    return xp.stack([item if item is not None else xp.full_like(first, xp.nan) for item in lst],
+                    axis=0)
 
-    if sliding:
-        # One window at a time, each lagged on its own samples; the null is shared by the windows.
-        lagged = [_apply_lag(a, b, axis_map, lag, axis=perm_axis) for a, b in zip(x1_wins, x2_wins)]
-        observed = [metric_fn(a, b, axis=-1, **kwargs) for a, b in lagged]
-        null_dist = _sliding_null(lagged, metric_fn, permutations, rng, axis=perm_axis,
-                                  n_jobs=n_jobs, scheme=null_scheme, block_len=block_len, **kwargs)
-        value_list = [out[0] for out in observed]
-        value = _stack_lags(value_list)
-        statistic = _stack_lags([out[1] for out in observed])
-        effect = _stack_lags([out[2] for out in observed])
-        df = _stack_lags([out[4] for out in observed])
-        p_raw = _stack_lags([_p_from_null(v, null_dist[:, k], alternative)
-                             for k, v in enumerate(value_list)])
-        q_corrected = _family_wise_p(value_list, null_dist, alternative)
-        ci = None
-    elif len(lags) <= 1:
-        x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, lag, axis=perm_axis)
-        value, statistic, effect, p_raw, df = metric_fn(
-            x1_lagged, x2_lagged, axis=-1, **kwargs
+
+def _multiple_p(p_raw, stats, correction, alpha):
+    """The multiple-comparison correction of `p_raw`, or None when none is asked for."""
+    if stats and p_raw is not None and correction.lower() != "none":
+        return _multiple_correction(p_raw, correction, alpha)
+    return None
+
+
+def _fit_sliding(x1_wins, x2_wins, axis_map, lag, metric_fn, permutations, rng, perm_axis,
+                 n_jobs, null_scheme, block_len, alternative, kwargs, xp):
+    """Each window's statistic, the null shared by the windows, and the family-wise p."""
+    # One window at a time, each lagged on its own samples; the null is shared by the windows.
+    lagged = [_apply_lag(a, b, axis_map, lag, axis=perm_axis) for a, b in zip(x1_wins, x2_wins)]
+    observed = [metric_fn(a, b, axis=-1, **kwargs) for a, b in lagged]
+    null_dist = _sliding_null(lagged, metric_fn, permutations, rng, axis=perm_axis,
+                              n_jobs=n_jobs, scheme=null_scheme, block_len=block_len, **kwargs)
+    value_list = [out[0] for out in observed]
+    value = _stack_lags(value_list, xp)
+    statistic = _stack_lags([out[1] for out in observed], xp)
+    effect = _stack_lags([out[2] for out in observed], xp)
+    df = _stack_lags([out[4] for out in observed], xp)
+    p_raw = _stack_lags([_p_from_null(v, null_dist[:, k], alternative)
+                         for k, v in enumerate(value_list)], xp)
+    q_corrected = _family_wise_p(value_list, null_dist, alternative)
+    return value, statistic, effect, p_raw, df, null_dist, None, q_corrected
+
+
+def _fit_single_lag(x1, x2, axis_map, lag, metric_fn, permutation_p, stats, permutations, rng,
+                    perm_axis, n_jobs, null_scheme, block_len, bootstrap, alternative,
+                    correction, alpha, kwargs):
+    """One lag: the metric, then its permutation null and its bootstrap interval."""
+    x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, lag, axis=perm_axis)
+    value, statistic, effect, p_raw, df = metric_fn(
+        x1_lagged, x2_lagged, axis=-1, **kwargs
+    )
+    null_dist = None
+    ci = None
+    if not permutation_p:
+        p_raw = _one_sided_parametric_p(value, p_raw, alternative)
+
+    if permutation_p:
+        null_dist = _permutation_test(
+            x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs,
+            scheme=null_scheme, block_len=block_len, **kwargs
         )
-        null_dist = None
-        ci = None
+        # The permutation p wins whenever it was computed. `if p_raw is None` let the
+        # metric's own cell-wise parametric p pre-empt it, so `rsa`, `pearson`,
+        # `spearman`, `kendall`, `phase_slope` and `granger_ssr_ftest` returned a p that
+        # did not move between permutations=10 and permutations=2000 -- it was
+        # `rdm_similarity(v1, v2, "spearman")[1]`, which rsa.py:177 states "is not a
+        # valid test of RDM relatedness". The valid null was computed and discarded.
+        p_raw = _p_from_null(value, null_dist, alternative)
+
+    if bootstrap > 0:
+        # `perm_axis`, not -1. The observation axis is axis 0 for the six metrics in
+        # `_OBSERVATION_AXIS_0_METRICS`; resampling axis -1 there bootstrapped the
+        # *features*, so the interval answered "how much does this depend on which
+        # columns I measured" instead of "on which observations I sampled".
+        ci = _bootstrap(
+            x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=perm_axis,
+            n_jobs=n_jobs, **kwargs
+        )
+
+    q_corrected = _multiple_p(p_raw, stats, correction, alpha)
+    return value, statistic, effect, p_raw, df, null_dist, ci, q_corrected
+
+
+def _fit_lags(x1, x2, axis_map, lags, metric_fn, permutation_p, stats, permutations, rng,
+              perm_axis, n_jobs, null_scheme, block_len, bootstrap, alternative, correction,
+              alpha, kwargs, xp):
+    """One fit per lag, each on its own overlap; the results are stacked along axis 0."""
+    val_list, stat_list, eff_list, p_list, df_list = [], [], [], [], []
+    null_dist_list, ci_list = [], []
+    for l in lags:
+        x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, l, axis=perm_axis)
+        v, s, e, p, d = metric_fn(x1_lagged, x2_lagged, axis=-1, **kwargs)
         if not permutation_p:
-            p_raw = _one_sided_parametric_p(value, p_raw, alternative)
+            p = _one_sided_parametric_p(v, p, alternative)
+        val_list.append(v)
+        stat_list.append(s)
+        eff_list.append(e)
+        p_list.append(p)
+        df_list.append(d)
 
         if permutation_p:
-            null_dist = _permutation_test(
-                x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs,
-                scheme=null_scheme, block_len=block_len, **kwargs
+            nd = _permutation_test(
+                x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis,
+                n_jobs=n_jobs, scheme=null_scheme, block_len=block_len, **kwargs
             )
-            # The permutation p wins whenever it was computed. `if p_raw is None` let the
-            # metric's own cell-wise parametric p pre-empt it, so `rsa`, `pearson`,
-            # `spearman`, `kendall`, `phase_slope` and `granger_ssr_ftest` returned a p that
-            # did not move between permutations=10 and permutations=2000 -- it was
-            # `rdm_similarity(v1, v2, "spearman")[1]`, which rsa.py:177 states "is not a
-            # valid test of RDM relatedness". The valid null was computed and discarded.
-            p_parametric = p_raw
-            p_raw = _p_from_null(value, null_dist, alternative)
+            # See the single-lag fit: the permutation p wins when it exists.
+            p = _p_from_null(v, nd, alternative)
+            p_list[-1] = p
+            null_dist_list.append(nd)
 
         if bootstrap > 0:
-            # `perm_axis`, not -1. The observation axis is axis 0 for the six metrics in
-            # `_OBSERVATION_AXIS_0_METRICS`; resampling axis -1 there bootstrapped the
-            # *features*, so the interval answered "how much does this depend on which
-            # columns I measured" instead of "on which observations I sampled".
-            ci = _bootstrap(
+            c_val = _bootstrap(
                 x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=perm_axis,
                 n_jobs=n_jobs, **kwargs
             )
+            ci_list.append(c_val)
 
-        q_corrected = None
-        if stats and p_raw is not None and correction.lower() != "none":
-            q_corrected = _multiple_correction(p_raw, correction, alpha)
-    else:
-        # Loop over each individual lag and stack the results
-        val_list, stat_list, eff_list, p_list, df_list = [], [], [], [], []
-        null_dist_list, ci_list = [], []
-        
-        for l in lags:
-            x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, l, axis=perm_axis)
-            v, s, e, p, d = metric_fn(x1_lagged, x2_lagged, axis=-1, **kwargs)
-            if not permutation_p:
-                p = _one_sided_parametric_p(v, p, alternative)
-            val_list.append(v)
-            stat_list.append(s)
-            eff_list.append(e)
-            p_list.append(p)
-            df_list.append(d)
-            
-            nd = None
-            c_val = None
-            if permutation_p:
-                nd = _permutation_test(
-                    x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis,
-                    n_jobs=n_jobs, scheme=null_scheme, block_len=block_len, **kwargs
-                )
-                # See the single-lag branch: the permutation p wins when it exists.
-                p = _p_from_null(v, nd, alternative)
-                p_list[-1] = p
-                null_dist_list.append(nd)
-                
-            if bootstrap > 0:
-                c_val = _bootstrap(
-                    x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=perm_axis,
-                    n_jobs=n_jobs, **kwargs
-                )
-                ci_list.append(c_val)
-        
-            
-        value = _stack_lags(val_list)
-        statistic = _stack_lags(stat_list)
-        effect = _stack_lags(eff_list)
-        p_raw = _stack_lags(p_list)
-        df = _stack_lags(df_list)
-        null_dist = _stack_lags(null_dist_list) if null_dist_list else None
-        ci = _stack_lags(ci_list) if ci_list else None
-        
-        q_corrected = None
-        if stats and p_raw is not None and correction.lower() != "none":
-            q_corrected = _multiple_correction(p_raw, correction, alpha)
+    value = _stack_lags(val_list, xp)
+    statistic = _stack_lags(stat_list, xp)
+    effect = _stack_lags(eff_list, xp)
+    p_raw = _stack_lags(p_list, xp)
+    df = _stack_lags(df_list, xp)
+    null_dist = _stack_lags(null_dist_list, xp) if null_dist_list else None
+    ci = _stack_lags(ci_list, xp) if ci_list else None
+    q_corrected = _multiple_p(p_raw, stats, correction, alpha)
+    return value, statistic, effect, p_raw, df, null_dist, ci, q_corrected
 
-    # --- build result ---------------------------------------------------------
+
+def _execution_record(bk, resolved_device, t0, random_state, null_scheme, permutation_p,
+                      block_len, null_dist, x1, x2, perm_axis, lags, sliding, windows):
+    """The `execution` record: what ran, with the null and the overlap it used."""
     exec_meta = _make_exec_meta(bk, resolved_device, t0, random_state)
     exec_meta["null"] = null_scheme if permutation_p else None
     exec_meta["null_block_len"] = block_len if permutation_p and null_scheme == "block" else None
@@ -744,27 +861,11 @@ def jrsa(
         exec_meta["n_overlap"] = width - abs(int(lags[0])) if x2 is not None else width
         exec_meta["windows"] = windows
         exec_meta["correction"] = "max_statistic"
+    return exec_meta
 
-    result = _make_result(
-        value=value,
-        statistic=statistic,
-        effect=effect,
-        p=p_raw,
-        q=q_corrected,
-        df=df,
-        ci=ci,
-        metric=metric,
-        axes=tuple(axis_map.values()),
-        aligned_axes=aligned_axes,
-        labels=labels,
-        parameters=params,
-        null_distribution=null_dist if return_null else None,
-        aligned_x1=x1 if return_input else None,
-        aligned_x2=x2 if return_input else None,
-        execution=exec_meta,
-    )
 
-    # --- return_type conversion -----------------------------------------------
+def _return_as(result, return_type):
+    """The `return_type` view of `result`. An unknown name raises once the result exists."""
     if return_type == "result":
         return result
     elif return_type == "dict":
