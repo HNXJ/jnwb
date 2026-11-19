@@ -79,6 +79,8 @@ if str(REPO_ROOT) not in sys.path:
 # The closure receipt is read by the release gate's own parser, which this module calls.
 from scripts.release_gate import (RECEIPT_PATH as CLOSURE_RECEIPT_PATH,  # noqa: E402
                                   blocker_fixpoint_receipt)
+from scripts.stack_parse import cells as _cells  # noqa: E402
+from scripts.gates.boundary import git  # noqa: E402
 CLOSURE_RECEIPT = REPO_ROOT / CLOSURE_RECEIPT_PATH
 VALIDATION_HTML = ASSETS / "validations"
 SECTIONS =("generated", "release", "releases", "ci", "api", "verified", "performance",
@@ -137,8 +139,7 @@ def _note(message: str) -> None:
 
 
 def _git(*args: str) -> str:
-    proc = subprocess.run(["git", *args], cwd=REPO_ROOT, capture_output=True, text=True,
-                          check=False)
+    proc = git(*args, cwd=REPO_ROOT)
     if proc.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
     return proc.stdout.strip()
@@ -348,10 +349,6 @@ def performance_section() -> dict | None:
     else:
         _note(f"{_rel(IMPORT_BREAKDOWN)} is missing; import is left out")
     return section or None
-
-
-def _cells(line: str) -> list[str]:
-    return [cell.strip() for cell in re.split(r"(?<!\\)\|", line)[1:-1]]
 
 
 def _first_url(text: str) -> str | None:

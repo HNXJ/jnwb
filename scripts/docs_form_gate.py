@@ -75,6 +75,9 @@ import numpy as np
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # never insert(0): pyproject sets pythonpath = ["."]
+from scripts.stack_parse import cells as _cells  # noqa: E402
 
 CONTRACT = Path("docs") / "documentation_form.md"
 
@@ -282,7 +285,7 @@ def parse_vocabulary(contract_text: str) -> List[VocabularyRow]:
         line = line.strip()
         if not line.startswith("|") or "|---" in line:
             continue
-        cells = [c.strip() for c in line.strip("|").split("|")]
+        cells = _cells(line)
         if len(cells) != 3 or cells[0].lower() == "concept":
             continue
         preferred = BACKTICKED.findall(cells[1])

@@ -30,6 +30,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from scripts import reconstruct_state as _state
 from scripts.obligation_diff import WORD, clauses
+from scripts.stack_parse import cells as _cells
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LEDGER = Path("artifacts/process/defect_classes.md")
@@ -47,10 +48,6 @@ DRAFT = re.compile(r"Draft:\s*`([^`]+)`")
 FORBIDDEN = re.compile(r'Forbidden:\s*"([^"]+)"')
 #: Tracked text under these trees is not searched for a forbidden phrase.
 NOT_SEARCHED = ("artifacts/rulings", "artifacts/archive", "artifacts/evidence")
-
-
-def _cells(line: str) -> List[str]:
-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
 
 
 def ledger_rows(text: str) -> List[Tuple[str, int, int]]:

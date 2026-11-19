@@ -87,14 +87,25 @@ def _canonical(path: Path) -> str:
     return os.path.normcase(str(Path(path).resolve()))
 
 
+def git(*args: str, cwd: Optional[Path | str] = None, timeout: Optional[float] = None,
+        env: Optional[Dict[str, str]] = None, encoding: Optional[str] = None,
+        errors: Optional[str] = None) -> subprocess.CompletedProcess:
+    """``git *args`` run in ``cwd`` and captured as text; the caller reads the return code.
+
+    With no options this is ``subprocess.run(["git", ...], capture_output=True, text=True)``: the
+    locale encoding, no timeout, the inherited environment. Scripts that read git share it.
+    """
+    return subprocess.run(["git", *args], cwd=None if cwd is None else str(cwd),
+                          capture_output=True, text=True, encoding=encoding, errors=errors,
+                          env=env, timeout=timeout)
+
+
 def _run_git(directory: Path, *args: str) -> subprocess.CompletedProcess:
     """``git -C directory *args`` with discovery redirection stripped; GitUnavailable if git cannot run."""
     env = {k: v for k, v in os.environ.items() if k not in _GIT_DISCOVERY_ENV}
     try:
-        return subprocess.run(
-            ["git", "-C", str(directory), *args],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=60,
-        )
+        return git("-C", str(directory), *args, encoding="utf-8", errors="replace", env=env,
+                   timeout=60)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise GitUnavailable(f"git could not be run in {directory}: {exc}") from exc
 
