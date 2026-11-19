@@ -16,7 +16,7 @@ Dataset-agnostic Python library for Neurodata Without Borders (NWB 2.0+) electro
 
 **Documentation**: [https://jnwb.readthedocs.io/](https://jnwb.readthedocs.io/) | **Source**: [https://github.com/HNXJ/jnwb](https://github.com/HNXJ/jnwb)
 
-`jnwb` is a toolbox, not a pipeline. It supplies small operations over NWB files, arrays, and metadata tables. Task structure, condition codes, and experimental hypotheses stay in project code.
+`jnwb` supplies operations over NWB files, arrays, and metadata tables. Task structure, condition codes, and experimental hypotheses stay in project code.
 
 - **Dataset-agnostic.** No experiment condition names or manuscript results live in the library.
 - **Explicit nulls.** Label permutation requires an exchangeability scheme (`global` or `within_group`).
