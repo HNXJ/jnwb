@@ -204,6 +204,265 @@ def _window_rows(window: Any, n_channels: int) -> Tuple[int, int]:
     return first, last
 
 
+def _check_orientation(orientation: Any) -> Tuple[str, Optional[VFlip2Result]]:
+    """The orientation as zflip spells it, and the accepted vflip2 result it came from, if any."""
+    orientation_vflip2: Optional[VFlip2Result] = None
+    if isinstance(orientation, VFlip2Result):
+        _require_accepted_vflip2(orientation, "orientation")
+        orientation_vflip2 = orientation
+        orientation = _VFLIP2_TO_ZFLIP_ORIENTATION[orientation.orientation]
+    if orientation not in _ZFLIP_ORIENTATIONS:
+        raise ValueError(
+            f"zflip needs orientation='superficial_to_deep' (row 0 is the most superficial "
+            f"contact) or 'deep_to_superficial' (row 0 is the deepest); got {orientation!r}. "
+            "directionality names a direction in depth from row order, and the row order of "
+            "an electrode table can run either way."
+        )
+    return orientation, orientation_vflip2
+
+
+def _check_matrix_shape(lfp: np.ndarray) -> Tuple[int, int]:
+    """(n_channels, n_samples) of a 2D input with at least 3 channels."""
+    if lfp.ndim != 2:
+        raise ValueError(
+            f"zflip requires a 2D array of shape (n_channels, n_samples); got shape {lfp.shape}."
+        )
+    n_channels, n_samples = lfp.shape
+    if n_channels < 3:
+        raise ValueError(f"zflip requires at least 3 channels along the probe shaft; got {n_channels}.")
+    return n_channels, n_samples
+
+
+def _select_window(lfp: np.ndarray, window: Any,
+                   orientation_vflip2: Optional[VFlip2Result]
+                   ) -> Tuple[Optional[Tuple[int, int]], int, np.ndarray]:
+    """The window's probe rows (None when unused), the row offset, and the rows the fit uses."""
+    if window is None:
+        return None, 0, lfp
+    window_rows = _window_rows(window, lfp.shape[0])
+    if (isinstance(window, VFlip2Result) and orientation_vflip2 is not None
+            and _vflip2_fields(window) != _vflip2_fields(orientation_vflip2)):
+        raise ValueError(
+            "zflip got two different vflip2 results: window "
+            f"({window.proximal_channel}, {window.distal_channel}, {window.orientation!r}) and "
+            f"orientation ({orientation_vflip2.proximal_channel}, "
+            f"{orientation_vflip2.distal_channel}, {orientation_vflip2.orientation!r}); "
+            "pass one result for both."
+        )
+    return window_rows, window_rows[0], lfp[window_rows[0]:window_rows[1] + 1]
+
+
+def _check_rate_and_input(fs: Any, pitch_um: Optional[float], lfp: np.ndarray) -> None:
+    """Refuse a non-positive or non-finite fs, a bad pitch, and non-finite samples in the fit."""
+    if fs <= 0 or not np.isfinite(fs):
+        raise ValueError(f"fs must be strictly positive and finite; got {fs}.")
+    if pitch_um is not None and (pitch_um <= 0 or not np.isfinite(pitch_um)):
+        raise ValueError(f"pitch_um must be strictly positive if provided; got {pitch_um}.")
+    if not np.all(np.isfinite(lfp)):
+        raise ValueError(
+            "zflip requires finite input; NaN or Inf in any contact propagates into every "
+            "segment that contains it. Remove or repair those samples first."
+        )
+
+
+def _check_freq_range(freq_range: Tuple[float, float]) -> None:
+    """Refuse a band that is not an increasing non-negative pair."""
+    lo, hi = float(freq_range[0]), float(freq_range[1])
+    if not (np.isfinite(lo) and np.isfinite(hi) and 0.0 <= lo < hi):
+        raise ValueError(f"freq_range must be an increasing non-negative pair; got {freq_range}.")
+
+
+def _check_thresholds(alpha: Any, n_surrogates: Any, min_linearity_r2: Any, min_wpli: Any,
+                      min_band_power_fraction: Any) -> None:
+    """Refuse alpha outside (0, 1), a surrogate count that is not a non-negative integer, and
+    a threshold outside [0, 1]."""
+    if not (0.0 < alpha < 1.0):
+        raise ValueError(f"alpha must lie in (0, 1); got {alpha}.")
+    if int(n_surrogates) != n_surrogates or n_surrogates < 0:
+        raise ValueError(f"n_surrogates must be a non-negative integer; got {n_surrogates}.")
+    for name, value in (("min_linearity_r2", min_linearity_r2), ("min_wpli", min_wpli),
+                        ("min_band_power_fraction", min_band_power_fraction)):
+        if not (0.0 <= value <= 1.0):
+            raise ValueError(f"{name} must lie in [0, 1]; got {value}.")
+
+
+def _segmentation(n_samples: int, nperseg: Optional[int],
+                  noverlap: Optional[int]) -> Tuple[int, int]:
+    """Welch segment length and overlap, defaulted as documented; refuses a single segment."""
+    if nperseg is None:
+        # n // 2 rather than the coherence family's n // 8: the phase slope needs >= 3 bins
+        # inside a narrow band, so segment length is kept. Unchanged for n >= 512.
+        nperseg = min(max(n_samples // 2, MIN_COHERENCE_NPERSEG), 256)
+    if noverlap is None:
+        noverlap = nperseg // 2
+    # One segment saturates wPLI at 1.0 for any input, which would make min_wpli inert.
+    _require_identifiable_segmentation(n_samples, nperseg, noverlap, "zflip", "adjacent wPLI")
+    return nperseg, noverlap
+
+
+def _too_few_bins_result(n_channels: int, freq_range: Tuple[float, float], n_freq_bins: int,
+                         pitch_um: Optional[float], orientation: str,
+                         window_rows: Optional[Tuple[int, int]]) -> ZFlipResult:
+    """The result for a band with fewer than 3 frequency bins: nothing is identifiable."""
+    return ZFlipResult(
+        adjacent_wpli=np.full(n_channels - 1, np.nan),
+        adjacent_delays_s=np.full(n_channels - 1, np.nan),
+        adjacent_linearity_r2=np.full(n_channels - 1, np.nan),
+        adjacent_identifiable=np.zeros(n_channels - 1, dtype=bool),
+        mean_wpli=float("nan"),
+        apparent_velocity_m_s=None,
+        tau_per_channel_s=float("nan"),
+        directionality="unidentifiable",
+        delay_identifiable=False,
+        p_value=float("nan"),
+        accepted=False,
+        rejection_reason=f"Insufficient frequency bins in freq_range {freq_range} (got {n_freq_bins} bins, need >= 3)",
+        n_channels=n_channels,
+        pitch_um=pitch_um,
+        orientation=orientation,
+        window=window_rows,
+    )
+
+
+def _max_unambiguous_tau(freqs: np.ndarray) -> float:
+    """The unambiguous delay bound 1 / (2 df), df the bin spacing of the segment spectrum."""
+    df = float(freqs[1] - freqs[0]) if len(freqs) > 1 else 1.0
+    return 1.0 / (2.0 * df) if df > 0 else np.inf
+
+
+def _flat_contacts(lfp: np.ndarray) -> Tuple[List[int], List[int], List[int]]:
+    """The constant contacts, the linear-in-time ramp contacts, and both together, sorted."""
+    # A pair with a constant contact has no phase lag to weigh; its wPLI, linearity and
+    # delay are NaN and it is not identifiable, as in jnwb.wpli, so rounding residue in the
+    # constant contact's spectrum enters neither mean_wpli nor the delay fit. A contact that is
+    # an exact linear ramp is flat in the same sense: the per-segment linear detrend reduces
+    # it to round-off residue, which could otherwise fit a phase and a delay.
+    constant_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
+    ramp_contacts = [c for c in np.flatnonzero(_linear_to_roundoff(lfp)).tolist()
+                     if c not in constant_contacts]
+    flat_contacts = sorted(constant_contacts + ramp_contacts)
+    return constant_contacts, ramp_contacts, flat_contacts
+
+
+def _out_of_band_contacts(band_fraction: np.ndarray, flat_contacts: List[int],
+                          min_band_power_fraction: float, n_channels: int) -> List[int]:
+    """The contacts, flat ones excepted, whose in-band power fraction is below the gate."""
+    return [c for c in range(n_channels) if c not in flat_contacts
+            and not band_fraction[c] >= min_band_power_fraction]
+
+
+def _phase_slope(Sxy_mean: np.ndarray, mask: np.ndarray, f_band: np.ndarray) -> Tuple[float, float]:
+    """(R^2 of the linear fit, delay tau in seconds) of the unwrapped phase in the band."""
+    phi = np.unwrap(np.angle(Sxy_mean[mask]))
+    res = stats.linregress(f_band, phi)
+    r2 = float(res.rvalue ** 2) if np.isfinite(res.rvalue) else 0.0
+    slope = float(res.slope)
+    tau = -slope / (2.0 * np.pi)
+    return r2, tau
+
+
+def _pair_identifiable(phase_ok: bool, wpli: float, min_wpli: float,
+                       out_of_band_contacts: List[int], i: int) -> bool:
+    """A pair's phase, coupling and in-band gates; its surrogate null is tested afterwards."""
+    return bool(phase_ok and wpli >= min_wpli
+                and i not in out_of_band_contacts and i + 1 not in out_of_band_contacts)
+
+
+def _tested_pairs(flat_contacts: List[int], n_channels: int) -> List[int]:
+    """The adjacent pairs with no flat contact: the pairs that draw a surrogate null."""
+    return [i for i in range(n_channels - 1)
+            if i not in flat_contacts and i + 1 not in flat_contacts]
+
+
+def _depth_gradient(adj_delays: np.ndarray, n_channels: int, orientation: str,
+                    max_tau_unambiguous: float) -> Tuple[float, str, Optional[str], bool]:
+    """(tau per contact, directionality, depth-fit refusal or None, identifiable) from the
+    cumulative pair delays. Called only when every adjacent pair is identifiable."""
+    # Cumulative phase delay along the array
+    cum_delay = np.zeros(n_channels, dtype=float)
+    cum_delay[1:] = np.cumsum(adj_delays)
+    coords = np.arange(n_channels, dtype=float)
+    reg_spatial = stats.linregress(coords, cum_delay)
+    tau_per_channel = float(reg_spatial.slope)
+    spatial_r2 = float(reg_spatial.rvalue ** 2) if np.isfinite(reg_spatial.rvalue) else 0.0
+
+    if spatial_r2 < 0.50:
+        reason = (f"Cumulative delay not linear in contact index "
+                  f"(R^2 = {spatial_r2:.4f} < 0.5)")
+        return float("nan"), "unidentifiable", reason, False
+    # tau_per_channel > 0: the lower-index contact leads, so the wave runs in row
+    # order, which is the anatomical direction the caller named for row order. A
+    # gradient within round-off of zero, relative to the largest delay the fit can
+    # represent, has no sign and no velocity. No input is known to reach this: a pair
+    # whose phase lag is below the wPLI zero-lag tolerance has wPLI 0 and fails its
+    # pair test first, so the branch is a backstop against a zero division.
+    zero_width = 8.0 * np.finfo(float).eps * max_tau_unambiguous
+    if abs(tau_per_channel) > zero_width:
+        row_order_leads = tau_per_channel > 0
+        if orientation == "superficial_to_deep":
+            directionality = ("superficial_to_deep" if row_order_leads
+                              else "deep_to_superficial")
+        else:
+            directionality = ("deep_to_superficial" if row_order_leads
+                              else "superficial_to_deep")
+        return tau_per_channel, directionality, None, True
+    return (float("nan"), "unidentifiable",
+            "Delay gradient across contacts is zero to round-off", False)
+
+
+def _pair_reasons(adj_wpli: np.ndarray, pair_p: np.ndarray, min_wpli: float, alpha: float,
+                  row0: int) -> List[str]:
+    """The adjacent pairs below min_wpli, then the pairs whose surrogate null fails."""
+    reasons: List[str] = []
+    weak_pairs = [(row0 + i, row0 + i + 1) for i in range(len(adj_wpli))
+                  if adj_wpli[i] < min_wpli]
+    if weak_pairs:
+        reasons.append(f"Adjacent pair(s) {weak_pairs} wPLI below min_wpli ({min_wpli:.4f}): "
+                       "delay not identified")
+    uncoupled_pairs = [(row0 + i, row0 + i + 1) for i in range(len(pair_p))
+                       if pair_p[i] > alpha]
+    if uncoupled_pairs:
+        reasons.append(f"Adjacent pair(s) {uncoupled_pairs} wPLI not significant against "
+                       f"its own phase surrogates (p > {alpha}): delay not identified")
+    return reasons
+
+
+def _rejection_reason(*, accepted: bool, row0: int, constant_contacts: List[int],
+                      ramp_contacts: List[int], n_surrogates: int, is_sig: bool, p_val: float,
+                      alpha: float, has_coupling: bool, mean_wpli_val: float, min_wpli: float,
+                      adj_wpli: np.ndarray, pair_p: np.ndarray, out_of_band_contacts: List[int],
+                      min_band_power_fraction: float, freq_range: Tuple[float, float],
+                      phase_failed_pairs: List[int], depth_fit_reason: Optional[str]
+                      ) -> Optional[str]:
+    """The refusal reasons in gate order, joined; None when the shaft is accepted."""
+    reasons: List[str] = []
+    flat = bool(constant_contacts or ramp_contacts)
+    if flat:
+        if constant_contacts:
+            reasons.append(f"Contact(s) {[row0 + c for c in constant_contacts]} constant: "
+                           "adjacent wPLI and delay undefined, mean wPLI not tested")
+        if ramp_contacts:
+            reasons.append(f"Contact(s) {[row0 + c for c in ramp_contacts]} linear in time to "
+                           "round-off: adjacent wPLI and delay undefined, mean wPLI not tested")
+    elif n_surrogates == 0:
+        reasons.append("Surrogate test not performed (n_surrogates=0): surrogates are needed "
+                       "to establish a delay, so no adjacent pair is identifiable")
+    elif not is_sig:
+        reasons.append(f"Non-significant coupling vs phase surrogates (p = {p_val:.4f} > {alpha})")
+    if not has_coupling and not flat:
+        reasons.append(f"Mean adjacent wPLI ({mean_wpli_val:.4f}) below min_wpli ({min_wpli:.4f})")
+    reasons.extend(_pair_reasons(adj_wpli, pair_p, min_wpli, alpha, row0))
+    if out_of_band_contacts:
+        reasons.append(f"Contact(s) {[row0 + c for c in out_of_band_contacts]} carry less than "
+                       f"{min_band_power_fraction:.4f} of their power inside freq_range "
+                       f"{freq_range}: delay not identified")
+    if phase_failed_pairs:
+        reasons.append("Phase-frequency relation failed linear identifiability gate")
+    if depth_fit_reason is not None:
+        reasons.append(depth_fit_reason)
+    return None if accepted else "; ".join(reasons)
+
+
 def zflip(
     lfp_matrix: np.ndarray,
     fs: float,
@@ -365,73 +624,17 @@ def zflip(
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='zflip')
     gen, seed_entropy = recorded_rng(seed, "zflip")
-    orientation_vflip2: Optional[VFlip2Result] = None
-    if isinstance(orientation, VFlip2Result):
-        _require_accepted_vflip2(orientation, "orientation")
-        orientation_vflip2 = orientation
-        orientation = _VFLIP2_TO_ZFLIP_ORIENTATION[orientation.orientation]
-    if orientation not in _ZFLIP_ORIENTATIONS:
-        raise ValueError(
-            f"zflip needs orientation='superficial_to_deep' (row 0 is the most superficial "
-            f"contact) or 'deep_to_superficial' (row 0 is the deepest); got {orientation!r}. "
-            "directionality names a direction in depth from row order, and the row order of "
-            "an electrode table can run either way."
-        )
+    orientation, orientation_vflip2 = _check_orientation(orientation)
     lfp = np.asarray(lfp_matrix, dtype=float)
-    if lfp.ndim != 2:
-        raise ValueError(
-            f"zflip requires a 2D array of shape (n_channels, n_samples); got shape {lfp.shape}."
-        )
-    n_channels, n_samples = lfp.shape
-    if n_channels < 3:
-        raise ValueError(f"zflip requires at least 3 channels along the probe shaft; got {n_channels}.")
+    n_channels, n_samples = _check_matrix_shape(lfp)
     # Contact indices below are window rows; row0 turns them into probe rows.
-    window_rows: Optional[Tuple[int, int]] = None
-    row0 = 0
-    if window is not None:
-        window_rows = _window_rows(window, n_channels)
-        if (isinstance(window, VFlip2Result) and orientation_vflip2 is not None
-                and _vflip2_fields(window) != _vflip2_fields(orientation_vflip2)):
-            raise ValueError(
-                "zflip got two different vflip2 results: window "
-                f"({window.proximal_channel}, {window.distal_channel}, {window.orientation!r}) and "
-                f"orientation ({orientation_vflip2.proximal_channel}, "
-                f"{orientation_vflip2.distal_channel}, {orientation_vflip2.orientation!r}); "
-                "pass one result for both."
-            )
-        row0 = window_rows[0]
-        lfp = lfp[window_rows[0]:window_rows[1] + 1]
-        n_channels = lfp.shape[0]
-    if fs <= 0 or not np.isfinite(fs):
-        raise ValueError(f"fs must be strictly positive and finite; got {fs}.")
-    if pitch_um is not None and (pitch_um <= 0 or not np.isfinite(pitch_um)):
-        raise ValueError(f"pitch_um must be strictly positive if provided; got {pitch_um}.")
-    if not np.all(np.isfinite(lfp)):
-        raise ValueError(
-            "zflip requires finite input; NaN or Inf in any contact propagates into every "
-            "segment that contains it. Remove or repair those samples first."
-        )
-    lo, hi = float(freq_range[0]), float(freq_range[1])
-    if not (np.isfinite(lo) and np.isfinite(hi) and 0.0 <= lo < hi):
-        raise ValueError(f"freq_range must be an increasing non-negative pair; got {freq_range}.")
-    if not (0.0 < alpha < 1.0):
-        raise ValueError(f"alpha must lie in (0, 1); got {alpha}.")
-    if int(n_surrogates) != n_surrogates or n_surrogates < 0:
-        raise ValueError(f"n_surrogates must be a non-negative integer; got {n_surrogates}.")
+    window_rows, row0, lfp = _select_window(lfp, window, orientation_vflip2)
+    n_channels = lfp.shape[0]
+    _check_rate_and_input(fs, pitch_um, lfp)
+    _check_freq_range(freq_range)
+    _check_thresholds(alpha, n_surrogates, min_linearity_r2, min_wpli, min_band_power_fraction)
     n_surrogates = int(n_surrogates)
-    for name, value in (("min_linearity_r2", min_linearity_r2), ("min_wpli", min_wpli),
-                        ("min_band_power_fraction", min_band_power_fraction)):
-        if not (0.0 <= value <= 1.0):
-            raise ValueError(f"{name} must lie in [0, 1]; got {value}.")
-
-    if nperseg is None:
-        # n // 2 rather than the coherence family's n // 8: the phase slope needs >= 3 bins
-        # inside a narrow band, so segment length is kept. Unchanged for n >= 512.
-        nperseg = min(max(n_samples // 2, MIN_COHERENCE_NPERSEG), 256)
-    if noverlap is None:
-        noverlap = nperseg // 2
-    # One segment saturates wPLI at 1.0 for any input, which would make min_wpli inert.
-    _require_identifiable_segmentation(n_samples, nperseg, noverlap, "zflip", "adjacent wPLI")
+    nperseg, noverlap = _segmentation(n_samples, nperseg, noverlap)
 
     # Multi-channel STFT: (n_channels, n_freqs, n_segments). Each segment's linear trend is
     # removed first: shared slow power or drift otherwise leaks into the band through the
@@ -445,42 +648,17 @@ def zflip(
     mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
     n_freq_bins = int(np.sum(mask))
     if n_freq_bins < 3:
-        return ZFlipResult(
-            adjacent_wpli=np.full(n_channels - 1, np.nan),
-            adjacent_delays_s=np.full(n_channels - 1, np.nan),
-            adjacent_linearity_r2=np.full(n_channels - 1, np.nan),
-            adjacent_identifiable=np.zeros(n_channels - 1, dtype=bool),
-            mean_wpli=float("nan"),
-            apparent_velocity_m_s=None,
-            tau_per_channel_s=float("nan"),
-            directionality="unidentifiable",
-            delay_identifiable=False,
-            p_value=float("nan"),
-            accepted=False,
-            rejection_reason=f"Insufficient frequency bins in freq_range {freq_range} (got {n_freq_bins} bins, need >= 3)",
-            n_channels=n_channels,
-            pitch_um=pitch_um,
-            orientation=orientation,
-            window=window_rows,
-        )
+        return _too_few_bins_result(n_channels, freq_range, n_freq_bins, pitch_um, orientation,
+                                    window_rows)
 
     f_band = freqs[mask]
-    df = float(freqs[1] - freqs[0]) if len(freqs) > 1 else 1.0
-    max_tau_unambiguous = 1.0 / (2.0 * df) if df > 0 else np.inf
+    max_tau_unambiguous = _max_unambiguous_tau(freqs)
 
     adj_wpli = np.zeros(n_channels - 1, dtype=float)
     adj_delays = np.zeros(n_channels - 1, dtype=float)
     adj_r2 = np.zeros(n_channels - 1, dtype=float)
     adj_identifiable = np.zeros(n_channels - 1, dtype=bool)
-    # A pair with a constant contact has no phase lag to weigh; its wPLI, linearity and
-    # delay are NaN and it is not identifiable, as in jnwb.wpli, so rounding residue in the
-    # constant contact's spectrum enters neither mean_wpli nor the delay fit. A contact that is
-    # an exact linear ramp is flat in the same sense: the per-segment linear detrend reduces
-    # it to round-off residue, which could otherwise fit a phase and a delay.
-    constant_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
-    ramp_contacts = [c for c in np.flatnonzero(_linear_to_roundoff(lfp)).tolist()
-                     if c not in constant_contacts]
-    flat_contacts = sorted(constant_contacts + ramp_contacts)
+    constant_contacts, ramp_contacts, flat_contacts = _flat_contacts(lfp)
     # A contact whose power lies outside freq_range has no in-band phase to measure: its
     # in-band cross-spectrum is window leakage, which can fit a linear phase and a delay.
     # The fraction is read from the detrended segment spectra the phase slope uses, so a DC
@@ -489,8 +667,8 @@ def zflip(
     seg_power = np.mean(np.abs(Z) ** 2, axis=-1)  # (n_channels, n_freqs)
     with np.errstate(invalid="ignore", divide="ignore"):
         band_fraction = seg_power[:, mask].sum(axis=1) / seg_power.sum(axis=1)
-    out_of_band_contacts = [c for c in range(n_channels) if c not in flat_contacts
-                            and not band_fraction[c] >= min_band_power_fraction]
+    out_of_band_contacts = _out_of_band_contacts(band_fraction, flat_contacts,
+                                                 min_band_power_fraction, n_channels)
     phase_failed_pairs: List[int] = []
 
     for i in range(n_channels - 1):
@@ -504,21 +682,15 @@ def zflip(
 
         # Phase slope from average cross-spectrum across segments
         Sxy_mean = np.mean(Sxy, axis=1)
-        phi = np.unwrap(np.angle(Sxy_mean[mask]))
-        res = stats.linregress(f_band, phi)
-        r2 = float(res.rvalue ** 2) if np.isfinite(res.rvalue) else 0.0
+        r2, tau = _phase_slope(Sxy_mean, mask, f_band)
         adj_r2[i] = r2
-
-        slope = float(res.slope)
-        tau = -slope / (2.0 * np.pi)
         adj_delays[i] = tau
 
         phase_ok = r2 >= min_linearity_r2 and abs(tau) < max_tau_unambiguous
         if not phase_ok:
             phase_failed_pairs.append(i)
-        if (phase_ok and adj_wpli[i] >= min_wpli
-                and i not in out_of_band_contacts and i + 1 not in out_of_band_contacts):
-            adj_identifiable[i] = True
+        adj_identifiable[i] = _pair_identifiable(phase_ok, adj_wpli[i], min_wpli,
+                                                 out_of_band_contacts, i)
 
     mean_wpli_val = float(np.mean(adj_wpli))
 
@@ -531,8 +703,7 @@ def zflip(
     pair_p = np.full(n_channels - 1, np.nan)
     # A pair with a flat contact has no wPLI to test, and the mean over pairs is then NaN, so
     # neither draws a null; every other pair still draws its own.
-    tested_pairs = [i for i in range(n_channels - 1)
-                    if i not in flat_contacts and i + 1 not in flat_contacts]
+    tested_pairs = _tested_pairs(flat_contacts, n_channels)
     surrogates_run = n_surrogates > 0 and bool(tested_pairs)
     if surrogates_run:
         exceed_count = 0
@@ -556,8 +727,6 @@ def zflip(
         if not flat_contacts:
             p_val = float((1 + exceed_count) / (1 + n_surrogates))
         pair_p[tested_pairs] = (1 + pair_exceed[tested_pairs]) / (1 + n_surrogates)
-    uncoupled_pairs = [(row0 + i, row0 + i + 1) for i in range(n_channels - 1)
-                       if pair_p[i] > alpha]
     # No pair is identifiable without its null: a pair whose surrogates were not drawn
     # (n_surrogates=0, or a flat contact in the pair) has a NaN p and fails.
     adj_identifiable &= pair_p <= alpha
@@ -568,93 +737,27 @@ def zflip(
     # was accepted with the wrong sign.
     delay_identifiable = bool(np.all(adj_identifiable))
     depth_fit_reason: Optional[str] = None
-
+    tau_per_channel = float("nan")
+    apparent_velocity = None
+    directionality = "unidentifiable"
     if delay_identifiable:
-        # Cumulative phase delay along the array
-        cum_delay = np.zeros(n_channels, dtype=float)
-        cum_delay[1:] = np.cumsum(adj_delays)
-        coords = np.arange(n_channels, dtype=float)
-        reg_spatial = stats.linregress(coords, cum_delay)
-        tau_per_channel = float(reg_spatial.slope)
-        spatial_r2 = float(reg_spatial.rvalue ** 2) if np.isfinite(reg_spatial.rvalue) else 0.0
-
-        if spatial_r2 < 0.50:
-            depth_fit_reason = (f"Cumulative delay not linear in contact index "
-                                f"(R^2 = {spatial_r2:.4f} < 0.5)")
-            delay_identifiable = False
-            tau_per_channel = float("nan")
-            apparent_velocity = None
-            directionality = "unidentifiable"
-        else:
-            # tau_per_channel > 0: the lower-index contact leads, so the wave runs in row
-            # order, which is the anatomical direction the caller named for row order. A
-            # gradient within round-off of zero, relative to the largest delay the fit can
-            # represent, has no sign and no velocity. No input is known to reach this: a pair
-            # whose phase lag is below the wPLI zero-lag tolerance has wPLI 0 and fails its
-            # pair test first, so the branch is a backstop against a zero division.
-            zero_width = 8.0 * np.finfo(float).eps * max_tau_unambiguous
-            if abs(tau_per_channel) > zero_width:
-                row_order_leads = tau_per_channel > 0
-                if orientation == "superficial_to_deep":
-                    directionality = ("superficial_to_deep" if row_order_leads
-                                      else "deep_to_superficial")
-                else:
-                    directionality = ("deep_to_superficial" if row_order_leads
-                                      else "superficial_to_deep")
-            else:
-                depth_fit_reason = "Delay gradient across contacts is zero to round-off"
-                delay_identifiable = False
-                tau_per_channel = float("nan")
-                directionality = "unidentifiable"
-
-            if pitch_um is not None and np.isfinite(tau_per_channel):
-                pitch_m = float(pitch_um) * 1e-6
-                apparent_velocity = float(abs(pitch_m / tau_per_channel))
-            else:
-                apparent_velocity = None
-    else:
-        tau_per_channel = float("nan")
-        apparent_velocity = None
-        directionality = "unidentifiable"
+        tau_per_channel, directionality, depth_fit_reason, delay_identifiable = _depth_gradient(
+            adj_delays, n_channels, orientation, max_tau_unambiguous)
+        if pitch_um is not None and np.isfinite(tau_per_channel):
+            pitch_m = float(pitch_um) * 1e-6
+            apparent_velocity = float(abs(pitch_m / tau_per_channel))
 
     # No test performed means no inferential acceptance.
     is_sig = bool(np.isfinite(p_val) and p_val <= alpha)
     has_coupling = (mean_wpli_val >= min_wpli)
     accepted = bool(is_sig and has_coupling and delay_identifiable)
-
-    reasons: List[str] = []
-    if flat_contacts:
-        if constant_contacts:
-            reasons.append(f"Contact(s) {[row0 + c for c in constant_contacts]} constant: "
-                           "adjacent wPLI and delay undefined, mean wPLI not tested")
-        if ramp_contacts:
-            reasons.append(f"Contact(s) {[row0 + c for c in ramp_contacts]} linear in time to "
-                           "round-off: adjacent wPLI and delay undefined, mean wPLI not tested")
-    elif n_surrogates == 0:
-        reasons.append("Surrogate test not performed (n_surrogates=0): surrogates are needed "
-                       "to establish a delay, so no adjacent pair is identifiable")
-    elif not is_sig:
-        reasons.append(f"Non-significant coupling vs phase surrogates (p = {p_val:.4f} > {alpha})")
-    if not has_coupling and not flat_contacts:
-        reasons.append(f"Mean adjacent wPLI ({mean_wpli_val:.4f}) below min_wpli ({min_wpli:.4f})")
-    weak_pairs = [(row0 + i, row0 + i + 1) for i in range(n_channels - 1)
-                  if adj_wpli[i] < min_wpli]
-    if weak_pairs:
-        reasons.append(f"Adjacent pair(s) {weak_pairs} wPLI below min_wpli ({min_wpli:.4f}): "
-                       "delay not identified")
-    if uncoupled_pairs:
-        reasons.append(f"Adjacent pair(s) {uncoupled_pairs} wPLI not significant against "
-                       f"its own phase surrogates (p > {alpha}): delay not identified")
-    if out_of_band_contacts:
-        reasons.append(f"Contact(s) {[row0 + c for c in out_of_band_contacts]} carry less than "
-                       f"{min_band_power_fraction:.4f} of their power inside freq_range "
-                       f"{freq_range}: delay not identified")
-    if phase_failed_pairs:
-        reasons.append("Phase-frequency relation failed linear identifiability gate")
-    if depth_fit_reason is not None:
-        reasons.append(depth_fit_reason)
-
-    rejection_reason = "; ".join(reasons) if not accepted else None
+    rejection_reason = _rejection_reason(
+        accepted=accepted, row0=row0, constant_contacts=constant_contacts,
+        ramp_contacts=ramp_contacts, n_surrogates=n_surrogates, is_sig=is_sig, p_val=p_val,
+        alpha=alpha, has_coupling=has_coupling, mean_wpli_val=mean_wpli_val, min_wpli=min_wpli,
+        adj_wpli=adj_wpli, pair_p=pair_p, out_of_band_contacts=out_of_band_contacts,
+        min_band_power_fraction=min_band_power_fraction, freq_range=freq_range,
+        phase_failed_pairs=phase_failed_pairs, depth_fit_reason=depth_fit_reason)
 
     # Replace non-identifiable individual adjacent delays with NaN
     cleaned_delays = adj_delays.copy()
