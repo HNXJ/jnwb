@@ -1,19 +1,38 @@
 {
-  "estimator_sha256": "6ab1dd7b004c7da46cc480b22bd7fcb66a98370b4dd0c5a9025aa83992d60fac",
+  "estimator_sha256": "686b499454cfc9f500b2dcfb63688fd32d4f6088191b50441c946bb6129b7624",
   "estimator_functions": [
     "XFlipResult",
+    "_candidate_counts",
+    "_check_layer4_and_spacing",
+    "_check_run_parameters",
     "_compute_contrast",
     "_compute_correlation_matrix",
+    "_decide_acceptance",
+    "_flat_channel_refusal",
     "_homogeneous_factor",
     "_in_probe_rows",
+    "_is_correlation_matrix",
     "_label_change_boundaries",
+    "_local_contrasts",
+    "_local_labels",
+    "_matrix_probe",
+    "_null_tallies",
     "_optimal_contiguous_partition",
     "_partition_is_contiguous",
+    "_partition_of",
+    "_partitions",
+    "_permuted_correlation",
+    "_raw_probe",
     "_refuse_short_window",
+    "_resolve_surrogate_method",
     "_select_count_by_min_p",
     "_surrogate_homogeneous",
+    "_surrogate_p_values",
     "_surrogate_phase_randomize",
+    "_surrogate_raw",
     "_surrogate_wishart",
+    "_tally_surrogate",
+    "_too_few_channels",
     "_unrestricted_partition",
     "_window_rows",
     "jnwb._dictlike.DictAccessMixin",
@@ -403,11 +422,11 @@
     ]
   },
   "environment": {
-    "jnwb": "0.2.13",
+    "jnwb": "0.2.16",
     "python": "3.14.3",
     "numpy": "2.4.6",
     "scipy": "1.18.0",
     "platform": "Windows-11-10.0.26300-SP0"
   },
-  "elapsed_s": 533.9
+  "elapsed_s": 658.4
 }
