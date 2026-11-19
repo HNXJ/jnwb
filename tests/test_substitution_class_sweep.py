@@ -651,9 +651,10 @@ ACCEPTED_CHAIN_ELSE = {
      ("greater", "less"), 1):
         "_count_at_least_as_extreme checks alternative against _TAILS and raises; the else "
         "is the 'two-sided' branch.",
-    ("laminar/_vflip.py", "vflip", "CHAIN_ELSE", "orientation", ("auto", "superficial_to_deep"), 1):
-        "orientation is checked against valid_orientations and raises; the else is the "
-        "'deep_to_superficial' branch.",
+    ("laminar/_vflip.py", "_resolve_orientation", "CHAIN_ELSE", "orientation",
+     ("auto", "superficial_to_deep"), 1):
+        "vflip checks orientation against valid_orientations and raises before it calls "
+        "_resolve_orientation; the else is the 'deep_to_superficial' branch.",
     ("spectral/_decibels.py", "relative_power", "CHAIN_ELSE", "model",
      ("mean_of_ratios", "ratio_of_means"), 1):
         "model is checked against RELATIVE_POWER_MODELS and raises; the else is the "
