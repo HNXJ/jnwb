@@ -58,9 +58,9 @@ Writes: `artifacts/benchmarks/realdata/isi_cv_recompute.py`, `artifacts/benchmar
 ### 17-94 One home per helper in jnwb
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none (17-79 landed at e6baac97; the split helpers in `_xflip.py`, `_zflip.py`, `_vflip.py`, `jrsa/__init__.py` and `_psi.py` are new private names).
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `jnwb/**/*.py`.
-- 17-94: `fs=nan` passes the `fs <= 0` guard at `filtering.py:31`, `:76`, `continuous.py:136` and `tfr.py:251`; at 2a5ef1b7 `bandpass_filter` then raises scipy's "Wn[0] must be less than Wn[1]" and `notch_filter` a `LinAlgError`, neither naming `fs` (match pass 2026-11-07). The shared check refuses NaN and Inf by name. The `fs` positive check is hand-written at about 20 sites (`filtering.py:31`, `continuous.py:136`, `tfr.py:251`, ...) beside `spectral/_common._require_positive_fs`; `jnwb/spectral` has 9 `_require_*` variants; `_bins.py:86,112` hold two onset loops differing in edge closure; three dB paths (`_decibels.py:15,24,457`); `nwb_write._sha256` equals `paths.sha256_file`; `_window_rows` twice (`_xflip.py:96`, `_zflip.py:178`). Check: one definition each, the grep returns one site, the suite passes.
+- 17-94: the splits that landed at e6baac97 added private helpers in `_xflip.py`, `_zflip.py`, `_vflip.py`, `jrsa/__init__.py` and `_psi.py`; the survey below predates them. `fs=nan` passes the `fs <= 0` guard at `filtering.py:31`, `:76`, `continuous.py:136` and `tfr.py:251`; at 2a5ef1b7 `bandpass_filter` then raises scipy's "Wn[0] must be less than Wn[1]" and `notch_filter` a `LinAlgError`, neither naming `fs` (match pass 2026-11-07). The shared check refuses NaN and Inf by name. The `fs` positive check is hand-written at about 20 sites (`filtering.py:31`, `continuous.py:136`, `tfr.py:251`, ...) beside `spectral/_common._require_positive_fs`; `jnwb/spectral` has 9 `_require_*` variants; `_bins.py:86,112` hold two onset loops differing in edge closure; three dB paths (`_decibels.py:15,24,457`); `nwb_write._sha256` equals `paths.sha256_file`; `_window_rows` twice (`_xflip.py:96`, `_zflip.py:178`). Check: one definition each, the grep returns one site, the suite passes.
 
 ### 17-95 One home per helper in scripts and tests
 
