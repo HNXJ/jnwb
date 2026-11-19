@@ -7,8 +7,8 @@ score and its method.
 
 ## Result
 
-Release readiness for 0.2.17: **0/100 verified, 2/100 pending one suite run** (provisional weights, not an
-authoritative score). No scope row is closed; no required gate is complete. Next release is far (observed:
+Release readiness for 0.2.17: **2/100 verified** at `9ad92d4b` (suite 11021 passed, 0 failed; CI/CD success on
+both runs; `origin/dev` = that SHA; provisional weights, not an authoritative score). No scope row is closed; no required gate is complete. Next release is far (observed:
 19 todo items open, 6 open rows, `dev` still declares 0.2.16, last tag `v0.2.16`).
 
 ## Why the score is low
@@ -53,6 +53,8 @@ Checklist, stack rows and this note are the artifacts of the session.
 - Machine contention: the suite lock serialised jnwb behind other agents for about 1 h per run; one run hung
   at about 99% for 1.5 h (row `17-147-hang`; cause unknown, not diagnosed). Capture the stuck test before
   killing a stalled run (`faulthandler_timeout`, `-v`).
+- Do not create or remove a branch or worktree while a suite runs: gate 20 reads them and fails
+  `test_every_gate_runs` (one run lost at `9ad92d4b`).
 - `jnwb_push.sh` needs a local branch named `dev`; a gate-20 failure on an artifacts-only push is cleared by
   `python scripts/reconstruct_state.py` (the file is generated, never committed).
 - Figure image comparison is not possible on this host (no Liberation Sans); fig26's stream equivalence rests

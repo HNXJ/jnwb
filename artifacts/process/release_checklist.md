@@ -8,7 +8,7 @@ replace. Scope source: `artifacts/process/release_plan.json`; item text: `artifa
 row in the commit that closes its item (minor update); rewrite the whole checklist after the release
 (major update).
 
-Current (2026-11-18, stacks read at `9ad92d4b`): **0/100 verified; 2/100 when the full suite passes on `9ad92d4b`**, which is what lets 17-103 count as closed. Gates 0 of 6 complete. Progress 0 of 60 verified, 2 pending the suite.
+Current (2026-11-19, stacks read at `9ad92d4b`): **2/100 verified**. Full suite on `9ad92d4b`: 11021 passed, 0 failed; both `CI/CD` runs at that SHA succeeded (44457630305, 44457634622); `origin/dev` = `9ad92d4b`. Gates 0 of 6 complete. Progress 2 of 60 (17-103 closed). These receipts bind to `9ad92d4b` only; a later commit needs its own.
 
 ## Required gates (40): all-or-nothing, each complete only when every requirement passes
 
@@ -17,7 +17,7 @@ The release needs all six. A gate earns its 5 or 10 points only when complete; a
 | # | Gate | Pts | Requirements (all) | State |
 |---|---|---|---|---|
 | A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | incomplete: six rows (OCMA-5, 17-144-src, 17-152-over, 17-147-guard, 17-147-gate15, 17-147-hang) |
-| A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | incomplete: suite 0 failed at `9479505e`; 1 failed at `77e9682a` (a new test missed the wheel-leg import guard, repaired in `9ad92d4b`); suite on `9ad92d4b` pending; CI success at `e3af332f` (runs 44427602431, 44427609433) |
+| A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | incomplete: suite 0 failed at `9479505e`; 1 failed at `77e9682a` (wheel-leg import guard, repaired in `9ad92d4b`); suite 0 failed at `9ad92d4b` (11021 passed) and CI success at `9ad92d4b`; gate stays incomplete because the other gates and open rows remain and the receipts bind to this SHA only |
 | A3 | Documentation low-verbosity and consistently formed | 5 | `harness_gate.py` 22 of 22; `docs_build.py` strict passes; docs-form tests pass; AGENTS.md §11 verbosity review | incomplete: harness gate 22 of 22 and docs-form tests pass at `77e9682a`; docs build and the verbosity review not run |
 | A4 | Code low-complexity | 5 | no function above 40 by the item 17-79 measure | incomplete: 13 above 40 at `93fd20e1` |
 | A5 | `scripts/release_gate.py` STEP 0 passes | 5 | `python scripts/release_gate.py` | incomplete: not run |
@@ -87,4 +87,5 @@ One row in the §2 project-state table: `| release checklist | artifacts/process
 | 2026-11-18 | `b442e2b1` | Created. Provisional score 5/100 (acceptance 5 for the harness gate alone; scope 0). Superseded by the next row; kept as history. |
 | 2026-11-18 | `b442e2b1` | Rescored 0/100. Gates are all-or-nothing, so A3 earns 0 while the docs build and review are open. Weights labelled provisional; mapping audited; conflicts listed. |
 | 2026-11-18 | the commit that lands 17-103 | 17-103 closed (reviewer ACCEPT on 3a1a26c2; full suite on the landing SHA, see its push). S4 1 of 5; score 2/100. 17-95 stays open with a reduced bullet. |
+| 2026-11-19 | `9ad92d4b` | Suite 11021 passed, 0 failed; CI/CD success on both runs; `dev` pushed. Verified score 2/100; weights and denominator unchanged. `17-147-hang` stays open: one hung run (stopped, unexplained), the rerun passed, which does not explain it. Rule added: no branch or worktree changes during a suite run (gate 20 reads them). |
 | 2026-11-18 | `9ad92d4b` | Re-read from the open and todo stacks and the roadmap: stack snapshot added; gate states refreshed (A2: the suite failed once on `77e9682a`, repaired). Verified score 0/100; 2/100 once the suite passes on `9ad92d4b`. |
