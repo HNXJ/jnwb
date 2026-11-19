@@ -539,7 +539,9 @@ def jrsa(
 # ===========================================================================
 # PRIVATE – the steps of `jrsa`, split out for size. Each keeps its statements in their
 # order. A warning raised here counts one more frame than it did inside `jrsa`, so its
-# stacklevel is raised by one where it reaches the caller of `jrsa`.
+# stacklevel is raised by one to keep the location it reported before the split. The
+# device='cuda' warning (stacklevel 4 here, 3 before) reports the caller's caller, as it
+# did before the split; that off-by-one predates it and is kept.
 # ===========================================================================
 
 def _check_test_options(align, alternative, null, block_len, metric, stats, permutations):
