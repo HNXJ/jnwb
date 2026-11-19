@@ -8,7 +8,7 @@ replace. Scope source: `artifacts/process/release_plan.json`; item text: `artifa
 row in the commit that closes its item (minor update); rewrite the whole checklist after the release
 (major update).
 
-Current: **0/100** at `b442e2b1` (2026-11-18). Gates 0 of 6 complete. Progress 0 of 60.
+Current: **2/100** (2026-11-18, the commit that lands 17-103; see the update log). Gates 0 of 6 complete. Progress 2 of 60.
 
 ## Required gates (40): all-or-nothing, each complete only when every requirement passes
 
@@ -35,12 +35,12 @@ reviewer accepted it. An item in flight earns nothing.
 | S1 | The largest functions split below a stated complexity | 10 | 17-79 | 0 of 1 | 0 |
 | S2 | One home per helper in jnwb, scripts and tests; dead code and unused constants removed | 10 | 17-94, 17-95, 17-96, 17-142 | 0 of 4 | 0 |
 | S3 | Tests named by subject, not by the event that produced them | 10 | 17-97, 17-98 | 0 of 2 | 0 |
-| S4 | Docs and examples thinned; one home per invariant | 10 | 17-99, 17-100, 17-101, 17-102, 17-103 | 0 of 5 | 0 |
+| S4 | Docs and examples thinned; one home per invariant | 10 | 17-99, 17-100, 17-101, 17-102, ~~17-103~~ | 1 of 5 | 2 |
 | S5 | Code and prose matched to the style standards; the fact graph build made faster | 10 | 17-104, 17-127, 17-128, 17-129 | 0 of 4 | 0 |
 | S6 | Validations on external ground truth | 10 | 17-144, roadmap 15-11, 12-21, 16-12 | 0 of 4 | 0 |
 
-In flight: 17-103 (committed in a lane, not reviewed or merged), 17-95 (running), 17-147 (parts landed,
-item open).
+Closed items are struck through in the Items column. In flight: 17-95 (cells and the first git runner
+landed; sites remain, item open), 17-147 (parts landed, item open).
 
 ## Mapping audit, 2026-11-18
 
@@ -70,3 +70,4 @@ One row in the §2 project-state table: `| release checklist | artifacts/process
 |---|---|---|
 | 2026-11-18 | `b442e2b1` | Created. Provisional score 5/100 (acceptance 5 for the harness gate alone; scope 0). Superseded by the next row; kept as history. |
 | 2026-11-18 | `b442e2b1` | Rescored 0/100. Gates are all-or-nothing, so A3 earns 0 while the docs build and review are open. Weights labelled provisional; mapping audited; conflicts listed. |
+| 2026-11-18 | the commit that lands 17-103 | 17-103 closed (reviewer ACCEPT on 3a1a26c2; full suite on the landing SHA, see its push). S4 1 of 5; score 2/100. 17-95 stays open with a reduced bullet. |

@@ -74,7 +74,7 @@ Writes: `jnwb/**/*.py`.
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/stack_parse.py`, `scripts/release_gate.py`, `scripts/build_fact_graph.py`, `scripts/learning_gate.py`, `scripts/build_dashboard.py`, `scripts/docs_form_gate.py`, `scripts/reconstruct_state.py`, `scripts/measure_peak_memory.py`, `scripts/mutation_harness.py`, `scripts/verify_lane.py`, `scripts/gates/boundary.py`, `tests/conftest.py`, `tests/test_*.py`.
-- 17-95: the markdown table cell splitter is written 8 times in `scripts/` and only `build_dashboard.py:342` honours escaped pipes; 13 `_git` wrappers across tests and scripts. Check: one `cells()` and one `git()` each, `harness_gate.py` 22 of 22 and the named tests pass.
+- 17-95: left after a7063e2c and 613714e6 (`stack_parse.cells` and `gates.boundary.git` landed; the table-cell splitter in `scripts/` went from 8 sites to one shared function and two wrappers, and honours escaped pipes everywhere): the inline splitter at `reconstruct_state.py:224` (tests copy that script alone); about 12 inline `strip("|").split("|")` copies in tests (`test_api_surface.py:107`, `test_computational_order_sources_agree.py:23,83,147`, `test_docs_call_shapes.py:415`, `test_docs_operation_statements.py:42,503,542`, `test_execution_switch.py:542`, `test_connectivity_pitfalls.py:1597`, ...); about 35 raw `subprocess.run(["git", ...])` lines in `scripts/` (`release_gate.py` about 10, `build_dashboard.py:677,684`, `build_fact_graph.py:1080,1137,3357`, `learning_gate.py:131`, `obligation_diff.py:76`, ...); the standalone `_git` of `measure_peak_memory.py`, `mutation_harness.py`, `verify_lane.py` and `learning_gate._git_show`; 13 test `_git` helpers. `cells` also changes `build_dashboard` on an unterminated row and a `>`-prefixed line, with no real input affected and no test. Check: one `cells()` and one `git()` each, or each remaining site named with its reason; `harness_gate.py` 22 of 22 and the named tests pass.
 
 ### 17-96 Dead code and unused constants
 
@@ -124,13 +124,6 @@ Release: deferred-0.2.17.
 Role: human. Skill: none. Blocked by: Hamm rules which are receipts of record.
 Writes: `artifacts/showcases/openscope_glo/**`, `artifacts/benchmarks/calibration/curation_calibration_0.2.13_raw.json`.
 - 17-102: 14 of 24 `openscope_glo/scripts/` files and 8 of its 23 `receipts/` (823 KB) are named by no tracked file (`aggregate_s2` is cited by `results/s2v2/receipt.json`); `curation_calibration_0.2.13_raw.json` (49,820 lines) is named by nothing. Check: each kept file is named by a receipt or `openscope_glo.json`, the rest removed.
-
-### 17-103 CONTRIBUTING pointers out of date
-
-Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: nothing; a change of meaning needs Hamm's word.
-Writes: `.github/CONTRIBUTING.md`.
-- 17-103: `CONTRIBUTING.md:343` names `harness_gate.py` as the root allowlist's home (it is `scripts/gates/boundary.py:335-336`); `:350-356` lists three `artifacts/` entries of nine folders; `:117` states the peak-memory margin (25%) but not `release_gate.py`'s 20% growth limit. Check: each pointer resolves to the defining symbol.
 
 ### 17-104 Two oversized structures
 
