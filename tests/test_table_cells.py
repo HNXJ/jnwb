@@ -5,7 +5,14 @@ every pipe, so a cell holding a literal pipe read as two cells there; only the d
 honoured the escape.
 """
 
-from scripts import build_fact_graph, stack_parse
+import pathlib
+import sys
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts import build_fact_graph, stack_parse  # noqa: E402
 
 
 def test_outer_pipes_are_optional_and_dropped():
