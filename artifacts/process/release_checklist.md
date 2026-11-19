@@ -8,7 +8,7 @@ replace. Scope source: `artifacts/process/release_plan.json`; item text: `artifa
 row in the commit that closes its item (minor update); rewrite the whole checklist after the release
 (major update).
 
-Current (2026-11-19, stacks read at `e6baac97`): **12/100 verified**. Full suite on `e6baac97`: 11021 passed, 0 failed (run in this clone, stamp equal to HEAD); `origin/dev` = `e6baac97`; `CI/CD` runs at that SHA: CI_RESULT_PLACEHOLDER. Gates 0 of 6 complete. Progress 12 of 60 (17-103 and 17-79 closed). Receipts bind to the SHA they name; a later commit needs its own.
+Current (2026-11-19, stacks read at `e6baac97`): **12/100 verified**. Full suite on `e6baac97`: 11021 passed, 0 failed (run in this clone, stamp equal to HEAD); `origin/dev` = `e6baac97`; `CI/CD` runs at that SHA: both completed and succeeded (44601543097, 44601555186). Gates 0 of 6 complete. Progress 12 of 60 (17-103 and 17-79 closed). Receipts bind to the SHA they name; a later commit needs its own.
 
 ## Required gates (40): all-or-nothing, each complete only when every requirement passes
 
@@ -17,7 +17,7 @@ The release needs all six. A gate earns its 5 or 10 points only when complete; a
 | # | Gate | Pts | Requirements (all) | State |
 |---|---|---|---|---|
 | A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | incomplete: eight rows (OCMA-5, 17-144-src, 17-152-over, 17-147-guard, 17-147-gate15, 17-147-hang, vflip2-receipt, fact-zflip-cite) |
-| A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | incomplete: suite 0 failed at `9479505e`; 1 failed at `77e9682a` (wheel-leg import guard, repaired in `9ad92d4b`); suite 0 failed at `9ad92d4b` and at `e6baac97` (11021 passed each) and CI success at `9ad92d4b`; CI at `e6baac97` pending when written (see Current); incomplete until the tip at release carries its own suite and CI receipts |
+| A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | incomplete: suite 0 failed at `9479505e`; 1 failed at `77e9682a` (wheel-leg import guard, repaired in `9ad92d4b`); suite 0 failed at `9ad92d4b` and at `e6baac97` (11021 passed each) and CI success at both SHAs (`e6baac97`: runs 44601543097, 44601555186); incomplete until the tip at release carries its own suite and CI receipts |
 | A3 | Documentation low-verbosity and consistently formed | 5 | `harness_gate.py` 22 of 22; `docs_build.py` strict passes; docs-form tests pass; AGENTS.md §11 verbosity review | incomplete: harness gate 22 of 22 and docs-form tests pass at `77e9682a`; docs build and the verbosity review not run |
 | A4 | Code low-complexity | 5 | no function above 40 by the item 17-79 measure | incomplete: the five functions named in 17-79 are split (all at most 28 by the AST counter used for the item); 8 other functions stay above 40 at `e6baac97` by that counter (`curate_and_label` 64, `label_layers` 50, `compare_groups` 49, `check_waveform_blocks` 49, `probe_geometry` 49, `vflip2` 46, `_stream_slice` 44, `screen_units_against_labels` 42); the item's own counter has no producer in the repo (it gave 67, 80, 93, 109 where the AST counter gives 70, 84, 83, 104 for four of the five) |
 | A5 | `scripts/release_gate.py` STEP 0 passes | 5 | `python scripts/release_gate.py` | incomplete: not run |
