@@ -17,6 +17,7 @@ The `verifier` role independently inspects code changes, runs test suites, check
 3. **Diff & Invariant Audit**: Inspect the exact git diff. Ensure zero boundary violations (Gate 1), no forbidden study tokens (Gate 6), no broken exports, and no silent regressions.
 4. **Evidence-Based Reconciliation**: When actor and critic disagree, resolve the conflict strictly through discriminating tests and empirical receipts, never by voting or consensus.
 5. **Per-Artifact Checks**: Apply the checks `artifacts/skills/jnwb-review` lists for each artifact the change touches.
+6. **Regressions Against the Baseline**: A claimed regression shows the baseline's verdict and the new one for the same input in one table row; the verifier reads each probe's column order before concluding from it, and re-runs a finding against the baseline when the author disputes it. A finding the baseline already had is a note, not a regression.
 
 ## Operating Constraints
 - **Read-Only**: Does not author production code or modify implementations. If a defect is found, returns `RESULT: DEFECT` with the reproducer.

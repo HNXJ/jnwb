@@ -8,7 +8,7 @@ replace. Scope source: `artifacts/process/release_plan.json`; item text: `artifa
 row in the commit that closes its item (minor update); rewrite the whole checklist after the release
 (major update).
 
-Current: **2/100** (2026-11-18, the commit that lands 17-103; see the update log). Gates 0 of 6 complete. Progress 2 of 60.
+Current (2026-11-18, stacks read at `9ad92d4b`): **0/100 verified; 2/100 when the full suite passes on `9ad92d4b`**, which is what lets 17-103 count as closed. Gates 0 of 6 complete. Progress 0 of 60 verified, 2 pending the suite.
 
 ## Required gates (40): all-or-nothing, each complete only when every requirement passes
 
@@ -16,9 +16,9 @@ The release needs all six. A gate earns its 5 or 10 points only when complete; a
 
 | # | Gate | Pts | Requirements (all) | State |
 |---|---|---|---|---|
-| A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | incomplete: six rows |
-| A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | incomplete: suite green at `9479505e`, CI success at `b442e2b1` (runs 44403457956, 44403468332); neither at the final tip |
-| A3 | Documentation low-verbosity and consistently formed | 5 | `harness_gate.py` 22 of 22; `docs_build.py` strict passes; docs-form tests pass; AGENTS.md §11 verbosity review | incomplete: harness gate 22 of 22 at `9479505e` is one requirement; docs build and review not run |
+| A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | incomplete: six rows (OCMA-5, 17-144-src, 17-152-over, 17-147-guard, 17-147-gate15, 17-147-hang) |
+| A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | incomplete: suite 0 failed at `9479505e`; 1 failed at `77e9682a` (a new test missed the wheel-leg import guard, repaired in `9ad92d4b`); suite on `9ad92d4b` pending; CI success at `e3af332f` (runs 44427602431, 44427609433) |
+| A3 | Documentation low-verbosity and consistently formed | 5 | `harness_gate.py` 22 of 22; `docs_build.py` strict passes; docs-form tests pass; AGENTS.md §11 verbosity review | incomplete: harness gate 22 of 22 and docs-form tests pass at `77e9682a`; docs build and the verbosity review not run |
 | A4 | Code low-complexity | 5 | no function above 40 by the item 17-79 measure | incomplete: 13 above 40 at `93fd20e1` |
 | A5 | `scripts/release_gate.py` STEP 0 passes | 5 | `python scripts/release_gate.py` | incomplete: not run |
 | A6 | Independent closure pass finds no new blocker | 5 | a `reviewer` run on the tip; each advertised scientific claim checked against the deferred rows; report under `artifacts/evidence/` | incomplete: not run |
@@ -41,6 +41,22 @@ reviewer accepted it. An item in flight earns nothing.
 
 Closed items are struck through in the Items column. In flight: 17-95 (cells and the first git runner
 landed; sites remain, item open), 17-147 (parts landed, item open).
+
+## Stack snapshot, 2026-11-18 at `9ad92d4b`
+
+Read from `artifacts/todo_stack.md` (19 items, all `deferred-0.2.17`), `artifacts/open_stack.md` (6 rows)
+and `artifacts/roadmap.md` (15 rows: 3 for 0.2.17, 12 for 0.2.18 and later, which do not count here).
+
+| State | Items |
+|---|---|
+| Eligible now, no blocker | 17-79, 17-97, 17-98, 17-100, 17-104; the remainders of 17-95 and 17-147 |
+| Waits on another item | 17-94 (17-79); 17-128 (17-94); 17-142 (17-94, 17-95); 17-127 (17-104); 17-150 (17-147); 17-129 (17-99, 17-100); 17-151 (17-99, 17-100, 17-129) |
+| Waits on Hamm | 17-96 (public names), 17-99 (AGENTS.md, CONTRIBUTING.md, fact stack), 17-101 (track or drop), 17-102 (which files are receipts), 17-151 (any changed product promise), 17-147 (gate 15: row `17-147-gate15`) |
+| Waits on an outside input | 17-144 (the three isi_cv commits, row `17-144-src`); roadmap 15-11 and 12-21 (Bastos simulation code, a broadband jaxfne field); 16-12 (real-data receipts computed without jnwb) |
+
+Open rows that block gate A1: `OCMA-5`, `17-144-src`, `17-152-over`, `17-147-gate15` (Hamm), `17-147-guard`,
+`17-147-hang` (main-jnwb; the guard row closes with the 17-147 closure tests, the hang row on a diagnosed
+or twice-absent recurrence).
 
 ## Mapping audit, 2026-11-18
 
@@ -71,3 +87,4 @@ One row in the §2 project-state table: `| release checklist | artifacts/process
 | 2026-11-18 | `b442e2b1` | Created. Provisional score 5/100 (acceptance 5 for the harness gate alone; scope 0). Superseded by the next row; kept as history. |
 | 2026-11-18 | `b442e2b1` | Rescored 0/100. Gates are all-or-nothing, so A3 earns 0 while the docs build and review are open. Weights labelled provisional; mapping audited; conflicts listed. |
 | 2026-11-18 | the commit that lands 17-103 | 17-103 closed (reviewer ACCEPT on 3a1a26c2; full suite on the landing SHA, see its push). S4 1 of 5; score 2/100. 17-95 stays open with a reduced bullet. |
+| 2026-11-18 | `9ad92d4b` | Re-read from the open and todo stacks and the roadmap: stack snapshot added; gate states refreshed (A2: the suite failed once on `77e9682a`, repaired). Verified score 0/100; 2/100 once the suite passes on `9ad92d4b`. |

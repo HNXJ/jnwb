@@ -52,6 +52,12 @@ The role set stays orthogonal. This role does not replace any of it.
   `verifier` pass inspects the diff and re-runs the evidence before the item is reconciled.
 - **Reads before overwriting**: Reads the target before deleting or overwriting it, and stages
   exact paths.
+- **Acceptance covers what a targeted run skips**: the dispatcher runs the full suite, so a
+  packet names the guard tests its change can trip and runs them: a new test module runs
+  `tests/test_test_imports_survive_the_wheel_leg.py`; an edit to a file `CODE_FILES` in
+  `scripts/figures/figure_registry.py` names reruns the registry generator and
+  `tests/test_figure_registry_current.py`. A packet whose change replaces one helper with a shared one
+  carries a differential of old against new over every real input its callers read.
 - **Does not author facts**: `artifacts/fact_stack.md` is human-authorized. Evidence against a
   fact is surfaced, never applied.
 - **Orthogonal to domain**: Scientific meaning comes from the domain skill named in the packet,
