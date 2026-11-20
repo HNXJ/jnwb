@@ -16,7 +16,7 @@ The release needs all six. A gate earns its 5 or 10 points only when complete; a
 
 | # | Gate | Pts | Requirements (all) | State |
 |---|---|---|---|---|
-| A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | incomplete: eight rows (OCMA-5, 17-144-src, 17-152-over, 17-147-guard, 17-147-gate15, 17-147-hang, vflip2-receipt, fact-zflip-cite) |
+| A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | incomplete: seven rows (OCMA-5, 17-144-src, 17-152-over, 17-147-guard, 17-147-gate15, 17-147-hang, fact-zflip-cite) |
 | A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | incomplete: suite 0 failed at `9479505e`; 1 failed at `77e9682a` (wheel-leg import guard, repaired in `9ad92d4b`); suite 0 failed at `9ad92d4b` and at `e6baac97` (11021 passed each) and CI success at both SHAs (`e6baac97`: runs 44601543097, 44601555186); incomplete until the tip at release carries its own suite and CI receipts |
 | A3 | Documentation low-verbosity and consistently formed | 5 | `harness_gate.py` 22 of 22; `docs_build.py` strict passes; docs-form tests pass; AGENTS.md §11 verbosity review | incomplete: harness gate 22 of 22 and docs-form tests pass at `77e9682a`; docs build and the verbosity review not run |
 | A4 | Code low-complexity | 5 | no function above 40 by the item 17-79 measure | incomplete: the five functions named in 17-79 are split (all at most 28 by the AST counter used for the item); 8 other functions stay above 40 at `e6baac97` by that counter (`curate_and_label` 64, `label_layers` 50, `compare_groups` 49, `check_waveform_blocks` 49, `probe_geometry` 49, `vflip2` 46, `_stream_slice` 44, `screen_units_against_labels` 42); the item's own counter has no producer in the repo (it gave 67, 80, 93, 109 where the AST counter gives 70, 84, 83, 104 for four of the five) |
@@ -44,7 +44,7 @@ landed; sites remain, item open), 17-147 (parts landed, item open).
 
 ## Stack snapshot, 2026-11-19 at `e6baac97`
 
-Read from `artifacts/todo_stack.md` (18 items, all `deferred-0.2.17`), `artifacts/open_stack.md` (8 rows)
+Read from `artifacts/todo_stack.md` (18 items, all `deferred-0.2.17`), `artifacts/open_stack.md` (7 rows)
 and `artifacts/roadmap.md` (15 rows: 3 for 0.2.17, 12 for 0.2.18 and later, which do not count here).
 
 | State | Items |
@@ -55,9 +55,8 @@ and `artifacts/roadmap.md` (15 rows: 3 for 0.2.17, 12 for 0.2.18 and later, whic
 | Waits on an outside input | 17-144 (the three isi_cv commits, row `17-144-src`); roadmap 15-11 and 12-21 (Bastos simulation code, a broadband jaxfne field); 16-12 (real-data receipts computed without jnwb) |
 
 Open rows that block gate A1: `OCMA-5`, `17-144-src`, `17-152-over`, `17-147-gate15`, `fact-zflip-cite` (Hamm),
-`17-147-guard`, `17-147-hang`, `vflip2-receipt` (main-jnwb; the guard row closes with the 17-147 closure tests,
-the hang row on a diagnosed or twice-absent recurrence, the receipt row with a hash-currency test and a
-regenerated receipt).
+`17-147-guard`, `17-147-hang` (main-jnwb; the guard row closes with the 17-147 closure tests,
+the hang row on a diagnosed or twice-absent recurrence).
 
 ## Mapping audit, 2026-11-18
 
@@ -85,6 +84,7 @@ One row in the §2 project-state table: `| release checklist | artifacts/process
 
 | Date | SHA | Change |
 |---|---|---|
+| 2026-11-20 | the commit that closes `vflip2-receipt` | Closed open row `vflip2-receipt`: regenerated `vflip2_separation_0.2.14` at 0.2.16 (all 400 draws, seeds, and threshold `22.800214862368193` identical; `estimator_sha256`, `declared_version`, and `environment.jnwb` updated) and added hash-currency tests in `tests/test_fusion_agreement.py` and `tests/test_calibration_hash_walker.py`. Gate A1 open rows reduced 8 -> 7; score stays 12/100. |
 | 2026-11-18 | `b442e2b1` | Created. Provisional score 5/100 (acceptance 5 for the harness gate alone; scope 0). Superseded by the next row; kept as history. |
 | 2026-11-18 | `b442e2b1` | Rescored 0/100. Gates are all-or-nothing, so A3 earns 0 while the docs build and review are open. Weights labelled provisional; mapping audited; conflicts listed. |
 | 2026-11-18 | the commit that lands 17-103 | 17-103 closed (reviewer ACCEPT on 3a1a26c2; full suite on the landing SHA, see its push). S4 1 of 5; score 2/100. 17-95 stays open with a reduced bullet. |

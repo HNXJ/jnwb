@@ -31,9 +31,15 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
-from scripts.calibrate_vflip2_separation import gap_for_seed, run, threshold  # noqa: E402
+from scripts.calibrate_vflip2_separation import (  # noqa: E402
+    estimator_shas,
+    gap_for_seed,
+    run,
+    threshold,
+)
 
 RAW = REPO_ROOT / "artifacts" / "benchmarks" / "calibration" / "vflip2_separation_0.2.14_raw.json"
+REPORT = REPO_ROOT / "artifacts" / "benchmarks" / "calibration" / "vflip2_separation_0.2.14.md"
 
 
 def _band(rng, shape, lo, hi):
@@ -123,6 +129,22 @@ def test_a_bad_spacing_is_refused(spacing):
 def test_the_shipped_constant_is_the_receipt_threshold():
     raw = json.loads(RAW.read_text(encoding="utf-8"))
     assert raw["threshold_contacts"] == T
+
+
+def test_receipt_was_generated_from_the_current_estimators():
+    raw = json.loads(RAW.read_text(encoding="utf-8"))
+    assert raw["estimator_sha256"] == estimator_shas(), (
+        "an estimator changed since the separation receipt was generated; "
+        "rerun `python scripts/calibrate_vflip2_separation.py`"
+    )
+    assert raw["declared_version"] == jnwb.__version__, (
+        "the separation receipt was generated under another declared version; "
+        "rerun `python scripts/calibrate_vflip2_separation.py`"
+    )
+    report = REPORT.read_text(encoding="utf-8")
+    for sha in raw["estimator_sha256"].values():
+        assert sha[:16] in report
+    assert f"`{raw['threshold_contacts']:.4f}`" in report
 
 
 def test_the_threshold_is_the_95th_percentile_of_the_defined_gaps():
