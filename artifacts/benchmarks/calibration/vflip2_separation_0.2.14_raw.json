@@ -1,6 +1,6 @@
 {
  "release": "0.2.14",
- "declared_version": "0.2.13",
+ "declared_version": "0.2.16",
  "generator": "jnwb.testing.synth_laminar_motif",
  "fixed": {
   "n_contacts": 32,
@@ -18,8 +18,8 @@
   "vflip2_from_lfp"
  ],
  "estimator_sha256": {
-  "vflip_from_lfp": "b2502142dab9870c181a3f7c4e02d6cf7f7fed54e5608f482fb677fd2812a06a",
-  "vflip2_from_lfp": "6aa906f40c2de637c274530167cd5846721aafbb33b4275cf2ee3c439a2233e4"
+  "vflip_from_lfp": "d16f47cf313b6ee64c63139de62e70f3c846d69862f8f77dfbb19094650a4fe3",
+  "vflip2_from_lfp": "b9adcf4888333f29c2fbac3dec09979f3496c2715dd24b9b161533709bfad85e"
  },
  "n_draws": 400,
  "seeds": [
@@ -2832,7 +2832,7 @@
  "gap_max_contacts": 27.276744635577565,
  "threshold_contacts": 22.800214862368193,
  "environment": {
-  "jnwb": "0.2.13",
+  "jnwb": "0.2.16",
   "numpy": "2.4.6",
   "scipy": "1.18.0",
   "python": "3.14.3",

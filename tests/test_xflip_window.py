@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from jnwb.laminar import VFlip2Result, vflip2, xflip
+from jnwb.laminar import vflip2, xflip
 from jnwb.laminar._vflip2 import LAYER4_THICKNESS_MM
 
 DOC = json.loads((Path(__file__).resolve().parent / "fixtures"

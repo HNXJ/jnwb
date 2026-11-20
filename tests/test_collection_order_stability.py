@@ -6,7 +6,7 @@ the block is evicted on exit. `tests/test_analyzers_coverage.py` blocked cupy th
 reach the PyTorch fallback in `PopulationAnalyzer.population_trajectory`; that fallback
 performs the process's first `import torch`, putting 730 `torch*` entries into
 `sys.modules`, and the restore removed all 730 while torch's C extensions stayed loaded in
-the process. The next `import torch` -- `jnwb/_backend.py:76`, reached from
+the process. The next `import torch` -- `jnwb/_backend.py:118`, reached from
 `tests/test_backend.py::TestCapabilityProbes` -- re-executed `torch/__init__.py` against an
 already-initialised `torch._C` and took an access violation (0xC0000005).
 

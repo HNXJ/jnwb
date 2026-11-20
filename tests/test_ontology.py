@@ -1,7 +1,7 @@
 """`jnwb.ontology` -- the exported objects, and what they actually promise.
 
 The audit reported this module as 11 public symbols with zero call sites, zero behavioural
-tests, and zero mentions outside `docs/`, and proposed removal. The 2026-09-16 ruling
+tests, and zero mentions outside `docs/`, and proposed removal. That evaluation
 rejected removal-by-call-site-count: a public library exists for callers a repository
 search cannot observe, so each export is judged on
 `distinct useful operation AND documented AND tested AND generic` instead.
@@ -77,7 +77,7 @@ def parts():
 
 
 class TestEveryExportIsReachableAndExercised:
-    """The ruling's criterion applied mechanically, so a future export cannot skip it."""
+    """The export criterion applied mechanically, so a future export cannot skip it."""
 
     def test_the_export_list_is_what_this_file_covers(self, parts):
         assert set(EXPORTS) == set(parts), (
@@ -281,7 +281,9 @@ class TestFrozenDoesNotFreezeWhatTheFieldsPointAt:
     """The module docstring used to say "All are immutable unless otherwise specified"."""
 
     def test_rebinding_a_field_is_refused(self, parts):
-        with pytest.raises(Exception):  # FrozenInstanceError
+        import dataclasses
+
+        with pytest.raises(dataclasses.FrozenInstanceError):
             parts["Dataset"].sessions = ["other"]
 
     def test_but_mutating_the_contained_list_is_not_and_the_docstring_admits_it(self, parts):

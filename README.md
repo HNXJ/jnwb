@@ -16,7 +16,7 @@ Dataset-agnostic Python library for Neurodata Without Borders (NWB 2.0+) electro
 
 **Documentation**: [https://jnwb.readthedocs.io/](https://jnwb.readthedocs.io/) | **Source**: [https://github.com/HNXJ/jnwb](https://github.com/HNXJ/jnwb)
 
-`jnwb` is a toolbox, not a pipeline. It supplies small operations over NWB files, arrays, and metadata tables. Task structure, condition codes, and experimental hypotheses stay in project code.
+`jnwb` provides composable operations over NWB files, arrays, and metadata tables for electrophysiology analysis. Researchers and analysis agents assemble these operations into project-specific workflows; task structure, condition codes, and experimental hypotheses are defined by the consuming project.
 
 - **Dataset-agnostic.** No experiment condition names or manuscript results live in the library.
 - **Explicit nulls.** Label permutation requires an exchangeability scheme (`global` or `within_group`).
@@ -148,7 +148,7 @@ import jnwb
 rng = np.random.default_rng(0)
 x = rng.normal(size=5000)
 y = 0.6 * np.roll(x, 3) + rng.normal(size=5000)
-gc = jnwb.granger(x, y, order=5)
+gc = jnwb.granger(x, y, order=5, signal_class="lfp")
 print(f"x->y {gc.x_to_y:.3f} (p={gc.p_x_to_y:.3f}), y->x {gc.y_to_x:.3f} (p={gc.p_y_to_x:.3f})")
 # x->y 0.311 (p=0.000), y->x 0.001 (p=0.452)
 ```
@@ -197,7 +197,7 @@ Guides, the public API (every symbol in `jnwb.__all__`), and common mistakes are
 Setup, the checks to run, the branch model and the release procedure are in
 [CONTRIBUTING.md](https://github.com/HNXJ/jnwb/blob/main/.github/CONTRIBUTING.md). Work lands on `dev`; `main` holds releases.
 
-For AI agents: see [Analyzing with an Agent](https://jnwb.readthedocs.io/en/latest/agents/).
+For AI agents: see [Analyzing with an Agent](https://jnwb.readthedocs.io/en/latest/agents/) and the [agent entry page](https://github.com/HNXJ/jnwb/blob/main/artifacts/agents.md).
 
 ## License
 

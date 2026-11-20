@@ -196,7 +196,7 @@ class TestTheScalarRepairStillDoesItsJob:
         from jnwb.nwb_io import _repair_builder
 
         gb = GroupBuilder(name="units", attributes={"colnames": "spike_times"})
-        _repair_builder(gb, None)
+        _repair_builder(gb)
         assert list(gb.attributes["colnames"]) == ["spike_times"]
 
     def test_bytes_and_str_colnames_repair_to_the_same_names(self):
@@ -218,7 +218,21 @@ class TestTheScalarRepairStillDoesItsJob:
             )
             assert isinstance(gb.attributes["colnames"][0], bytes) == (label == "bytes"), (
                 "fixture must store the column names as " + label)
-            _repair_builder(gb, None)
+            _repair_builder(gb)
             repaired[label] = list(gb.attributes["colnames"])
         assert repaired["str"] == data_cols
         assert repaired["bytes"] == repaired["str"]
+
+    def test_repair_outside_a_read_does_not_grow_the_shared_default(self):
+        """Outside `hdmf_build_repair_context` a squeeze used to append to the one default list
+        every thread shares, so it grew without bound and no read ever reported it."""
+        from hdmf.build import GroupBuilder
+
+        from jnwb.nwb_io import _SQUEEZED, _repair_builder
+
+        for _ in range(2):
+            gb = GroupBuilder(name="device",
+                              attributes={"description": np.array([b"probe desc"], dtype=object)})
+            _repair_builder(gb)
+            assert gb.attributes["description"] == "probe desc"  # a squeeze happened
+        assert not _SQUEEZED.get()

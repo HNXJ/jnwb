@@ -1,0 +1,13 @@
+doc-form tests passed
+suite lock: /c/Users/nejath/.claude/bin/suite_lock.py
+head=f967d2ee suite_rc=1
+  C:\Python314\Lib\site-packages\sklearn\model_selection\_validation.py:927: UserWarning: Scoring failed. The score on this train-test partition for these parameters will be set to nan. Details: 
+  8 fits failed out of a total of 12.
+  8 fits failed with the following error:
+    warnings.warn(some_fits_failed_message, FitFailedWarning)
+FAILED tests/test_lane_verifies_its_own_baseline.py::test_a_push_without_an_item_is_unchanged
+FAILED tests/test_lane_verifies_its_own_baseline.py::test_a_push_for_an_item_passes_a_diff_inside_its_writes
+FAILED tests/test_lane_verifies_its_own_baseline.py::test_a_push_for_several_items_joins_their_writes
+3 failed, 10893 passed, 82 skipped, 38 xfailed, 1510 warnings, 36 subtests passed in 665.47s (0:11:05)
+wrapper_rc=1
+harness_gate_rc=0 head=f967d2ee

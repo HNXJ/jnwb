@@ -9,8 +9,8 @@ separator rows are not cells. The Data format bullets sit outside a table, so th
 A cell's key is its section (the `##` heading) and its reference cell's text through the first
 `(YYYY)`.
 
-The page had 83 body rows at the 2026-10-20 reference check (commit 00947a48) and 93 now; the 10
-rows added since have no grade from that check.
+The page had 83 body rows at the 2026-10-20 reference check (commit 00947a48) and 92 now (Geyer 1992
+row removed 2026-11-12 under the 2026-11-09 ruling); rows added since that check have no grade from it.
 
 Verdicts: `cut` is a claim narrowed to what the title, abstract and code decide, as the commit
 messages use the word. `reworded` is a claim a commit narrowed or rephrased. `confirmed` is a claim
@@ -20,8 +20,8 @@ no cell, so those 7 are among the `unrecorded` lines unless a later record names
 
 Source read names the commit whose diff of the cell was read, or the ruling, or `none`. A cell read against its text names the URL read and the quote (at most 15 words) that decides it; `none: <what was tried>` when no text was reachable or the text cannot decide the claim.
 
-- claim cells: 93
-- cut: 60
+- claim cells: 92
+- cut: 59
 - reworded: 6
 - confirmed: 13
 - kept: 14
@@ -69,7 +69,6 @@ Source read names the commit whose diff of the cell was read, or the ruling, or 
 | Statistics | Pitman, E. J. G. (1937) | claim | cut | 84ba900b diff: claim cut to what the abstract and the code decide |
 | Statistics | Mann, H. B., & Whitney, D. R. (1947) | claim | cut | 84ba900b diff: claim cut to what the abstract and the code decide |
 | Statistics | Efron, B. (1979) | claim | cut | 3ba28202 diff: claim cut to what the title, abstract and code decide |
-| Statistics | Geyer, C. J. (1992) | claim | cut | 84ba900b diff: claim cut to what the abstract and the code decide |
 | Spiking population measures | Fleiss, J. L. (1971) | claim | cut | 84ba900b diff: claim cut to what the abstract and the code decide |
 | Spiking population measures | Cohen, M. R., & Kohn, A. (2011) | claim | cut | 3ba28202 diff: claim cut to what the title, abstract and code decide |
 | Spiking population measures | de la Rocha, J., Doiron, B., Shea-Brown, E., Josić, K., & Reyes, A. (2007) | claim | cut | 3ba28202 diff: claim cut to what the title, abstract and code decide |

@@ -85,7 +85,7 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 | S12 | GPU results | a result computed on GPU records that it was | `test:tests/test_execution_switch.py::TestTheResultRecordsTheDevice::test_every_export_with_a_cuda_path_records_its_device`, `test:tests/test_execution_switch.py::TestCudaAgreesWithTheCpu::test_within_tolerance_and_recorded` | `AGENTS.md` §4.6; moved 2026-09-29 (Q3) |
 | S13 | delay and velocity claims | a physical latency or conduction velocity is claimed only under a verified linear unwrapped phase-frequency relation and predeclared identifiability criteria, and is reported unavailable otherwise | `todo:12-21` | `AGENTS.md` §4.8; moved 2026-09-29 (Q3) |
 | S14 | every text | no vocabulary of `immunity vocabulary` is used of volume conduction or reference contamination; the claim is reduced sensitivity to zero-phase-lag coupling | `computed:immunity_vocabulary` | `AGENTS.md` §4.8; Q12 2026-09-29 |
-| S15 | routed exports | every routed export that implements a published method cites it; the predicate passes when each routed export without a citation is on the recorded exclusion list, and it does not check that methods cite | `computed:routed_citations` | 2026-10-22 |
+| S15 | routed exports | every routed export cites a source or is on the recorded exclusion list (narrowed 2026-11-09; whether a method cites the paper it implements is not checked) | `computed:routed_citations` | 2026-11-09 |
 
 ## Skills
 

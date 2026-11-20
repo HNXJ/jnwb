@@ -1,0 +1,24 @@
+=== Running Harness Pre-Flight Verification Gates ===
+PASS: jnwb/ frozen boundary clean (zero unauthorized project imports).
+PASS: One skill tree: every SKILL.md is under skills/, or under artifacts/skills/ without repeating a shipped skill.
+PASS: Tests free of machine-local hardcoded drive paths.
+PASS: Repository root strictly frozen & clean.
+PASS: 100% of public symbols documented in docs/.
+PASS: No forbidden study tokens on Gate 6 scan surface (jnwb/, skills/, docs/**, examples/**, root user-facing docs).
+PASS: Package and pyproject.toml versions synchronized.
+PASS: Python >=3.12 floor, classifiers ['3.12', '3.13', '3.14', '3.15'], CI covering ['3.12', '3.13', '3.14', '3.15'] all agree.
+PASS: docs/api.md matches jnwb.__all__ and the runtime API generator.
+PASS: Documentation versions derive from jnwb.__version__.
+PASS: No unowned importable package at the repository root.
+PASS: No project identifiers in jnwb/ code strings or names.
+PASS: NWB onboarding workflow aligned across README, tutorials, skill, and MkDocs.
+PASS: No internal process vocabulary in docs/, skills/, README.md or artifacts/agents.md (15 gated terms; 'agent', 'skill' and 'routing' are public capabilities and are not among them), no item or problem identifier in jnwb/, docs/ or a file a page includes, and CHANGELOG.md holds the entry template: six kinds, one line of at most 120 characters naming its file, a seed kind on [results change], 5 releases, and no process phrase.
+PASS: Stack form consistent (every declared write set names comparable paths and is not truncated by a stray full stop; no 'Blocked by: none' is contradicted by its own item's text; every summary count agrees with the items it names; no summary states an item total the stack does not hold; every table row in the open stack carries its own table's column count; every GENERATED_FROM entry resolves against the tree); every defect-class count matches its instances, and every date a file cites has a dated record; examined: 0 mapping tables (0 obligation clauses; before, after, never, must, only) and 1 forbidden phrases.
+PASS: Line endings consistent (no tracked text file mixes CRLF and bare LF).
+PASS: Stack pointers resolve (every 'Skill:' names a skills/*/SKILL.md or a declared placeholder, every 'Role:' an artifacts/agents/*.md or a human, and every 'Blocked by:' item id is live).
+PASS: docs/api.md Type column and each signature's parameter kinds agree with the runtime object, on an oracle that does not import the generator.
+PASS: Every frozen-validated function matches its verified body and names a killing test that exists.
+PASS: artifacts/state.md is absent or records the live HEAD and carries its generated worktree, branch and open-defect rows (read only; the generator runs this harness, so this gate never regenerates the file).
+PASS: Computational contract holds (every device, backend and n_jobs argument reaches its deciding mechanism, every precision request is honoured or refused, and every export has a recorded computational order), and no declared raw-power estimand takes its log before its mean (the log-last rule over jnwb/; examined: 2 declared raw-power estimands).
+PASS: No typed fact of artifacts/fact_stack.md is VIOLATED on the generated fact graph (HELD 44, UNHELD 1; each UNHELD fact names the live item that holds it).
+ALL HARNESS GATES PASSED. 22 of 22 gates executed.

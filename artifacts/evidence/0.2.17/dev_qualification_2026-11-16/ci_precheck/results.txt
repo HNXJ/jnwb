@@ -1,0 +1,69 @@
+== wsl312_fabe_full
+HEAD fabe3c021f26a0b8d8d9b5fe0ceb33cdc26986b0; Python 3.12.3; python=/home/nejath/_temp_jnwb_ci/venv_312/bin/python; cores=24
+failed or errored test lines: 0
+= 10872 passed, 93 skipped, 38 xfailed, 1579 warnings, 36 subtests passed in 692.40s (0:11:32) =
+== wsl312_shfabe_subset
+HEAD fabe3c021f26a0b8d8d9b5fe0ceb33cdc26986b0; Python 3.12.3; python=/home/nejath/_temp_jnwb_ci/venv_312/bin/python; cores=24
+failed or errored test lines: 0
+========== 1908 passed, 11 skipped, 27 warnings in 329.09s (0:05:29) ===========
+== wsl312_shtip_subset
+HEAD 4dfb398d3cfc19c1844b02d60bca2d01be7948b4; Python 3.12.3; python=/home/nejath/_temp_jnwb_ci/venv_312/bin/python; cores=24
+failed or errored test lines: 0
+========== 1924 passed, 11 skipped, 27 warnings in 352.70s (0:05:52) ===========
+== wsl31318_shfabe_full
+HEAD fabe3c021f26a0b8d8d9b5fe0ceb33cdc26986b0; Python 3.13.18; python=/home/nejath/_temp_jnwb_ci/venv_31318/bin/python; cores=24
+failed or errored test lines: 0
+= 10868 passed, 97 skipped, 38 xfailed, 1575 warnings, 36 subtests passed in 696.40s (0:11:36) =
+== wsl3152_shfabe_full
+HEAD fabe3c021f26a0b8d8d9b5fe0ceb33cdc26986b0; Python 3.15.2; python=/home/nejath/_temp_jnwb_ci/venv_3152/bin/python; cores=24
+failed or errored test lines: 0
+= 10868 passed, 97 skipped, 38 xfailed, 1571 warnings, 36 subtests passed in 651.21s (0:10:51) =
+== wsl_floors_fabe_full
+HEAD fabe3c021f26a0b8d8d9b5fe0ceb33cdc26986b0; Python 3.12.0; python=/home/nejath/_temp_jnwb_ci/venv_floorsfabe/bin/python; cores=24
+failed or errored test lines: 0
+= 10799 passed, 166 skipped, 38 xfailed, 6494 warnings, 36 subtests passed in 1040.83s (0:17:20) =
+== win314_fabe_full
+HEAD fabe3c021f26a0b8d8d9b5fe0ceb33cdc26986b0; Python 3.14.3; python=/d/repos/_work/_temp_jnwb_ci/venv_win314/Scripts/python
+failed or errored test lines: 0
+= 10874 passed, 91 skipped, 38 xfailed, 1574 warnings, 36 subtests passed in 786.71s (0:13:06) =
+== win314_shfabe_subset
+HEAD fabe3c021f26a0b8d8d9b5fe0ceb33cdc26986b0; Python 3.14.3; python=/d/repos/_work/_temp_jnwb_ci/venv_win314/Scripts/python
+failed or errored test lines: 0
+========== 1911 passed, 8 skipped, 27 warnings in 710.18s (0:11:50) ===========
+== win314_shtip_subset
+HEAD 4dfb398d3cfc19c1844b02d60bca2d01be7948b4; Python 3.14.3; python=/d/repos/_work/_temp_jnwb_ci/venv_win314/Scripts/python
+failed or errored test lines: 0
+========== 1927 passed, 8 skipped, 27 warnings in 530.27s (0:08:50) ===========
+== wsl_build_fabe
+=== harness gate
+=== Running Harness Pre-Flight Verification Gates ===
+PASS: 100% of public symbols documented in docs/.
+=== twine check
+=== manifest check
+PASS: Distribution manifests clean.
+=== clean venv
+=== clean venv pip
+=== install the wheel
+=== pip check
+=== smoke installed 0.2.16
+PASS: 231 public exports resolved or name their extra
+PASS: installed jnwb 0.2.16 verified in a clean environment
+=== write test requirements
+=== install test requirements
+=== wheel suite
+=============================== warnings summary ===============================
+10870 passed, 95 skipped, 38 xfailed, 1572 warnings, 36 subtests passed in 743.46s (0:12:23)
+wheel suite rc=0
+=== tutorials
+PASS: 00_your_own_file.py
+PASS: 01_nwb_basics.py
+PASS: 02_addressing_and_metadata.py
+PASS: 03_spiking.py
+PASS: 04_lfp_and_spectral.py
+PASS: 05_statistics.py
+PASS: 06_laminar.py
+PASS: 07_ensembles.py
+PASS: 08_end_to_end_pipeline.py
+PASS: 09_open_data.py
+PASS: 10_wavemap.py
+build job rc=0

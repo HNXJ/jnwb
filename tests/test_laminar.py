@@ -4,6 +4,8 @@ from __future__ import annotations
 import inspect
 import pathlib
 import types
+from dataclasses import FrozenInstanceError
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -299,7 +301,7 @@ class TestVFlipResultInterface:
         psd = np.ones((16, 50))
         res = vflip(psd, freqs)
 
-        with pytest.raises(Exception):  # FrozenInstanceError
+        with pytest.raises(FrozenInstanceError):
             res.accepted = True  # type: ignore
 
 

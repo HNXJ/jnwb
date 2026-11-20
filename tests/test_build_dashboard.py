@@ -490,16 +490,16 @@ def test_methods_follows_the_record_except_the_partially_rerun_entry(data):
         positions[ident] = position + 1
 
 
-def test_paper_and_methods_chips_show_the_ruled_verdict_word(data):
-    """The ruled vocabulary (2026-10-24) reads reproduces as reproduced, partial as mixed
-    and does_not as failed. The renderer shows the ruled word on the Paper and Methods
+def test_paper_and_methods_chips_show_the_display_verdict_word(data):
+    """The display vocabulary reads reproduces as reproduced, partial as mixed
+    and does_not as failed. The renderer shows the display word on the Paper and Methods
     chips, so no chip shows a raw record word; the Library axis keeps its own words
     (verified, partial, unverified), which the build still emits."""
     builder = _builder()
     source = (REPO_ROOT / "scripts" / "dashboard" / "app.js").read_text(encoding="utf-8")
-    for raw, ruled in builder.VERDICT_LABELS.items():
-        assert f"{raw}: '{ruled}'" in source, \
-            f"the renderer does not map {raw} to {ruled}"
+    for raw, display in builder.VERDICT_LABELS.items():
+        assert f"{raw}: '{display}'" in source, \
+            f"the renderer does not map {raw} to {display}"
     assert "['Paper', row.paper, true]" in source, "the Paper axis is not mapped"
     assert "['Methods', row.methods, true]" in source, "the Methods axis is not mapped"
     assert "['Library', row.library, false]" in source, "the Library axis is not left alone"

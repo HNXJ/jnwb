@@ -193,7 +193,6 @@ def test_mkdocs_tutorials_nav_order():
 
 def test_tutorial_docs_include_executable_sources():
     for n in ("01", "02", "03", "04", "05", "06", "07", "08"):
-        md = (REPO_ROOT / "docs" / "tutorials" / f"{n}_*.md")
         matches = list(REPO_ROOT.glob(f"docs/tutorials/{n}_*.md"))
         assert len(matches) == 1
         text = matches[0].read_text(encoding="utf-8")

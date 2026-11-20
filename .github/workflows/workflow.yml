@@ -192,9 +192,11 @@ jobs:
     # The interpreter is the declared floor's first patch release: `requires-python >=3.12`
     # admits 3.12.0, and "3.12" would install the newest 3.12 patch, which no user is held to.
     # On a tag push the steps skip as the matrix legs' do, for the reason given there.
-    name: Test (dependency floors, Python 3.12.0 on ubuntu-latest)
+    # Pinned to ubuntu-24.04: setup-python has no 3.12.0 build for Ubuntu 26.04, which
+    # ubuntu-latest became on 2026-11-08 (CI/CD run 42526411394).
+    name: Test (dependency floors, Python 3.12.0 on ubuntu-24.04)
     needs: qualified
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       FLOOR_PYTHON: "3.12.0"

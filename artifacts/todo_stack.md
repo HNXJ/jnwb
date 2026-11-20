@@ -1,30 +1,15 @@
-# 0.2.16
+# 0.2.17
 
-Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. 0.2.15
-closed on 2026-11-02 (tag `v0.2.15`, `5822c3e9`; PyPI, GitHub release, omission told,
-`artifacts/rulings/2026-11-01.md`). Items run fastest first; the lanes below split them into parallel
-writers that share no file.
+Context audit (2026-11-13): current priorities and midterm dependencies are indexed in `artifacts/ref/context_audit_2026-11-13.md`; existing item IDs, write scopes, release rulings and acceptance checks remain authoritative. Open blockers: OCMA-5 and 17-144-src. No item was closed or rescored by this documentation audit.
 
-## 0.2.16 checklist and score
 
-Scope: the 0.2.16 row of `artifacts/process/release_plan.json` (ruled 2026-11-05). Weights sum to 100: packages
-70, exit gates 30. A row earns its weight only when its "Done when" check holds; partial credit is the share of
-its named checks that hold. A package moved out of the cycle by ruling earns its weight, as a moved open row does in 16G. Score 2026-11-06: **80/100** (packages 70 of 70, gates 10 of 30; 72.3 before 17-77 closed, 71.5 before 17-75 closed, 56.5 before 16E moved, 44.4 before the open rows moved, 43.4 before P-216-06 closed, 34.9 before 17-70 and 17-76, 33.3 before #39 closed).
+Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. 0.2.16
+closed on 2026-11-08 (tag `v0.2.16`, `0aa220ba`; tag CI/CD run 42513450995 success, TestPyPI and PyPI
+verified, GitHub release body checked by `release_gate.py` STEP 0d). Items run fastest first.
 
-| Id | Weight | Package | Done when | Evidence 2026-11-05 | Score |
-|---|---|---|---|---|---|
-| 16A Audit defects | 15 | 17-83 to 17-127 of the 0.2.16 lanes | every 0.2.16 lane item landed with its failing-first test | all batches landed (2026-11-02 to -03); no 0.2.16 lane item left in this stack | 15 |
-| 16B GitHub issues | 8 | hnxj/jnwb#35 to #39 | each closed on GitHub with its repro | #35 to #39 closed; #39 by a9fccc01, CI/CD green on bb068aec; #40 closed 2026-11-06 (item 4, 674aa0d8); 0 issues and 0 pull requests open | 8 |
-| 16C GPU Granger | 7 | `granger(device=)`, `granger_causality` removed | parity test within its stated tolerance; CI green on `dev` | c594ae51, CI/CD run 41920337297 success | 7 |
-| 16D psth bin edges | 6 | 17-70 | `UnitAnalyzer.psth` right-open, with a `[results change]` entry | landed 2026-11-06 with failing-first tests and the entry; independent review ACCEPT, the old code fails 4 tests | 6 |
-| 16E External ground truth | 15 | 15-11, 12-21, 16-12 | each recovery table or receipt committed | moved to 0.2.17 (ruling of 2026-11-06, "Defer 16E, release"); handed to jaxfne-orchestrator to plan, a Haiku 5.5 subagent executes once the plan is agreed | 15 |
-| 16F Workspace and pointers | 5 | 17-75, 17-76, 17-77 | each item's check holds | 17-75 done 2026-11-06 (worktree removed, its commit archived as a patch on `E:`; `git worktree list` shows one entry; 36 stale clones and `_temp_oc` deleted); 17-76 done (agy answered, ruling of 2026-10-28); 17-77 done 2026-11-06 (ebbd8ecb; S13's `todo:12-21` stays, the fact gate reads roadmap ids as live) | 5 |
-| 16G Open rows | 14 | the open stack's 0.2.16 rows | each repaired, shown false or moved with its release | P-216-05 repaired; P-216-06 repaired (#40 item 4, ruling of 2026-11-06); the other 13 moved 2026-11-06 by the release plan to 17-128, 17-129 and roadmap 17-130 to 17-141; the open stack is empty | 14 |
-| Gate 1 packages closed or moved | 6 | — | 16A to 16G closed, or moved by ruling | 7 of 7 closed or moved | 6 |
-| Gate 2 gates, suite, CI | 8 | — | harness gates and full suite pass at the release SHA; CI green on `dev` there | no release SHA yet; at 3fb5f94b all three held | 4 |
-| Gate 3 release gate | 6 | — | `python scripts/release_gate.py` passes | not run | 0 |
-| Gate 4 closure pass | 5 | — | an independent blocker-focused pass finds no new blocker (`AGENTS.md` §11) | not run | 0 |
-| Gate 5 tag, main, PyPI | 5 | — | v0.2.16 on PyPI from the tagged SHA | not started | 0 |
+Thinning and matching from the 2026-11-02 audits, each named by SHA: seven models at `7ca5b9a6` (17-83 to 17-105) and eight auditors at `9fd2b4bd` (P-216 rows, 17-128, 17-129). Lanes form at 0.2.16's close; 17-79 (which rewrote `_xflip.py`
+and `_zflip.py`) landed at e6baac97, so 17-94 is unblocked. Each item applies the jarness standards: `match-cleanup` for
+removals, `match-code-style` for code, `match-writing-style` for prose, `match-visual-style` for figures.
 
 ## How this stack is executed
 
@@ -40,48 +25,49 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
-## Lanes
-
-Sources: the seven-model audit of `7ca5b9a6` (17-83 to 17-105) and the eight-auditor audit of
-`9fd2b4bd` (17-106 to 17-117; open rows P-216-08 to -32), each finding re-checked by the integrator.
-Defects and correctness go in 0.2.16; thinning and matching in 0.2.17. Lanes ruled 2026-11-02 (Hamm,
-"Yes, as proposed"): claimed by the files in their items' Writes; no file is in two lanes of one batch,
-and an item that shares a file with another lane names it in Blocked by.
-
-No lane is open. Batches: A, B, C (2026-11-02); D, E, G, then C, H, F, then A, D, B, then I, E, K
-(2026-11-03), all landed.
-
-- No item blocks the 0.2.16 tag; the release steps remain (Gates 2 to 5). The open stack is empty: its 13 rows moved on 2026-11-06 to
-  17-128 and 17-129 here and to roadmap 17-130 to 17-141, by the release plan.
-- Off the path, blocking nothing: Hamm reads `artifacts/evidence/0.2.15/tiered_ci_plan.md` (plan only);
-  approved, a 0.2.16 item changes `workflow.yml`.
-
-# 0.2.17
-
-Thinning and matching from the 2026-11-02 audit. Lanes form at 0.2.16's close; 17-94 waits on 17-79,
-which rewrites `_xflip.py` and `_zflip.py`. Each item applies the jarness standards: `match-cleanup` for
-removals, `match-code-style` for code, `match-writing-style` for prose, `match-visual-style` for figures.
-
-### 17-79 Complexity of the largest functions
+### 17-151 Public docs state the AI-assisted and autonomous analysis direction
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: nothing (moved from 0.2.16 by the lane ruling of 2026-11-02).
-Writes: `jnwb/laminar/_xflip.py`, `jnwb/laminar/_zflip.py`, `jnwb/laminar/_vflip.py`, `jnwb/jrsa/__init__.py`, `jnwb/connectivity/_psi.py`.
-- 17-79: at 93fd20e1, 977 functions, median cyclomatic complexity 4; 151 above 10, 56 above 20, 13 above 40; the largest are `xflip` 109, `jrsa` 93, `zflip` 80, `vflip` 71, `phase_slope_index` 67. None has a `frozen_validated.json` entry, so gate 19 does not hold them; the suite and calibration receipts do. This is size only. Check: each named function split into helpers with the suite and its calibration receipt unchanged, and none above 40.
+Role: jnwb-developer. Skill: none. Blocked by: 17-99, 17-100 and 17-129 (shared `README.md`, `docs/index.md`, `docs/architecture.md`, `docs/agents.md`); Hamm's approval for any changed public product promise.
+Writes: `README.md`, `docs/index.md`, `docs/architecture.md`, `docs/agents.md`.
+- 17-151: public-facing language does not yet state the adopted `artifacts/direction.md`: jnwb is a dataset-agnostic, scientifically testable toolbox used directly by researchers and composed by AI agents for assisted or autonomous neural analysis and discovery. Prose follows the host `match-writing-style` rule; no new page. Explain the core and skills boundary, supported task routing, explicit scientific choices, independent verification and correct decline on unsupported or non-identifiable inference; project-specific hypotheses stay downstream; promise no capability not implemented. Check: a reviewer maps each added claim to a current export, doc, test or skill, finds no duplicate API authority and no unsupported feature claim, `python scripts/docs_build.py` and `python scripts/harness_gate.py` pass, and the researcher-first quickstart in `README.md` is unchanged.
+
+### 17-150 AST scan for NaN-passing sign guards
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: 17-147 (shared `scripts/learning_gate.py`).
+Writes: `scripts/learning_gate.py`, `tests/test_nan_passes_sign_guard_scan.py`.
+- 17-150: state-4 of the 2026-11-08 audit: `nan-passes-sign-guard` in `artifacts/process/defect_classes.md` still proposes an AST scan for a bare `<= 0` / `< 0` guard with no finiteness test. Check: a gate or test fails when such a guard is planted, and the eight listed sites stay covered.
+
+### 17-147 Audit 2026-11-08: scripts and tests that cannot fail
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/measure_agents_md_duplication.py`, `scripts/vflip2_recovery.py`, `scripts/figures/generate_figures.py`, `scripts/figures/figure_registry.toml`, `tests/test_*.py`.
+- 17-147: left after 9479505e (scripts-5 to -8, tests-2, -4 (six of seven sites), -5, -6, -9 and the quoted `git.exe` and `GIT_DIR` push spellings landed 2026-11-18): scripts-2 (gate 15 passes on zero tables; `tests/test_learning_gate.py:212` pins that; Hamm rules delete the check or make zero red); tests-4 at `tests/test_nwb_read_tolerance_and_visibility.py:229` (callers expect four exception classes); push_guard reads text only and still allows a `cd` after `then`, `do`, `!`, `time`, `NAME=v`, `command` or `builtin`, `cd -P J` / `cd -- J`, `cd J>/dev/null`, `cd -`, `bash -c "cd J && git push"`, `$GIT push`, `eval`, a line continuation inside `git push`. Check: one failing-first test per case in `tests/test_push_guard.py` (each denied from a non-jnwb cwd, or refused with a stated reason); `ruff check tests --select F401,F541,F821,F841` clean.
+
+### 17-144 The jaxfne isi_cv commits
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: 17-144-src (open stack; `E:/cl-jnwb16e` gone, SHAs not on origin).
+Writes: `artifacts/benchmarks/realdata/isi_cv_recompute.py`, `artifacts/benchmarks/realdata/isi_cv_recompute_receipt.json`, `artifacts/benchmarks/realdata/build_isi_cv_fixture.py`, `tests/fixtures/isi_cv_realdata_subsample.json`, `tests/test_isi_cv_realdata.py`.
+- 17-144: three 16-12 commits on `E:/cl-jnwb16e` (0e06993c, 9980f58d, 5fa63dd3) for jaxfne-orchestrator.
+  Observed 2026-11-12: path missing; SHAs not in this clone or on `origin`. Check: each on `dev` in that
+  order, suite passes, jaxfne-orchestrator told; then `E:/cl-jnwb16e` may go.
 
 ### 17-94 One home per helper in jnwb
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-79.
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `jnwb/**/*.py`.
-- 17-94: `fs=nan` passes the `fs <= 0` guard at `filtering.py:31`, `:76`, `continuous.py:136` and `tfr.py:251`; at 2a5ef1b7 `bandpass_filter` then raises scipy's "Wn[0] must be less than Wn[1]" and `notch_filter` a `LinAlgError`, neither naming `fs` (match pass 2026-11-07). The shared check refuses NaN and Inf by name. The `fs` positive check is hand-written at about 20 sites (`filtering.py:31`, `continuous.py:136`, `tfr.py:251`, ...) beside `spectral/_common._require_positive_fs`; `jnwb/spectral` has 9 `_require_*` variants; `_bins.py:86,112` hold two onset loops differing in edge closure; three dB paths (`_decibels.py:15,24,457`); `nwb_write._sha256` equals `paths.sha256_file`; `_window_rows` twice (`_xflip.py:96`, `_zflip.py:178`). Check: one definition each, the grep returns one site, the suite passes.
+- 17-94: the splits that landed at e6baac97 added private helpers in `_xflip.py`, `_zflip.py`, `_vflip.py`, `jrsa/__init__.py` and `_psi.py`; the survey below predates them. `fs=nan` passes the `fs <= 0` guard at `filtering.py:31`, `:76`, `continuous.py:136` and `tfr.py:251`; at 2a5ef1b7 `bandpass_filter` then raises scipy's "Wn[0] must be less than Wn[1]" and `notch_filter` a `LinAlgError`, neither naming `fs` (match pass 2026-11-07). The shared check refuses NaN and Inf by name. The `fs` positive check is hand-written at about 20 sites (`filtering.py:31`, `continuous.py:136`, `tfr.py:251`, ...) beside `spectral/_common._require_positive_fs`; `jnwb/spectral` has 9 `_require_*` variants; `_bins.py:86,112` hold two onset loops differing in edge closure; three dB paths (`_decibels.py:15,24,457`); `nwb_write._sha256` equals `paths.sha256_file`; `_window_rows` twice (`_xflip.py:96`, `_zflip.py:178`). Check: one definition each, the grep returns one site, the suite passes.
 
 ### 17-95 One home per helper in scripts and tests
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/stack_parse.py`, `scripts/release_gate.py`, `scripts/build_fact_graph.py`, `scripts/learning_gate.py`, `scripts/build_dashboard.py`, `scripts/docs_form_gate.py`, `scripts/reconstruct_state.py`, `scripts/measure_peak_memory.py`, `scripts/mutation_harness.py`, `scripts/verify_lane.py`, `scripts/gates/boundary.py`, `tests/conftest.py`, `tests/test_*.py`.
-- 17-95: the markdown table cell splitter is written 8 times in `scripts/` and only `build_dashboard.py:342` honours escaped pipes; 13 `_git` wrappers across tests and scripts. Check: one `cells()` and one `git()` each, `harness_gate.py` 22 of 22 and the named tests pass.
+- 17-95: left after a7063e2c and 613714e6 (`stack_parse.cells` and `gates.boundary.git` landed; the table-cell splitter in `scripts/` went from 8 sites to one shared function and two wrappers, and honours escaped pipes everywhere): the inline splitter at `reconstruct_state.py:224` (tests copy that script alone); about 12 inline `strip("|").split("|")` copies in tests (`test_api_surface.py:107`, `test_computational_order_sources_agree.py:23,83,147`, `test_docs_call_shapes.py:415`, `test_docs_operation_statements.py:42,503,542`, `test_execution_switch.py:542`, `test_connectivity_pitfalls.py:1597`, ...); about 35 raw `subprocess.run(["git", ...])` lines in `scripts/` (`release_gate.py` about 10, `build_dashboard.py:677,684`, `build_fact_graph.py:1080,1137,3357`, `learning_gate.py:131`, `obligation_diff.py:76`, ...); the standalone `_git` of `measure_peak_memory.py`, `mutation_harness.py`, `verify_lane.py` and `learning_gate._git_show`; 13 test `_git` helpers. `cells` also changes `build_dashboard` on an unterminated row and a `>`-prefixed line, with no real input affected and no test. Check: one `cells()` and one `git()` each, or each remaining site named with its reason; `harness_gate.py` 22 of 22 and the named tests pass.
 
 ### 17-96 Dead code and unused constants
 
@@ -97,24 +83,17 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `tests/test_*.py`.
 - 17-97: `test_batch_a_regressions.py`, `test_independent_audit_semantics.py`, `test_integration_0_2_1.py`, `test_audit_reproducers.py` are named by event; 29 same-subject files (`test_rng_*` 4, `test_vflip2*` 6, `test_xflip*` 7, `test_zflip*` 3, `test_api_md_*` 3, ...) split 3 to 7 ways. Check: merged by subject with the collected test count unchanged.
 
-### 17-98 Process vocabulary in tests, scripts and jnwb comments
-
-Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: nothing.
-Writes: `tests/*.py`, `scripts/**/*.py`, `jnwb/__init__.py`, `jnwb/_backend.py`, `jnwb/_declarations.py`.
-- 17-98: 130 hits of "ruled", "ruling" or "Hamm" in 36 files under `tests/` and `scripts/` (AGENTS.md top paragraph); "harness" in `jnwb/__init__.py:20` and `_backend.py:31`; "the fact stack's" in `_declarations.py:36`; five "Important" labels in `jnwb/`. Check: the grep, minus machine literals and the tests that read the stacks, returns 0.
-
 ### 17-99 One home per invariant across rule and doc files
 
 Release: deferred-0.2.17.
-Role: human. Skill: none. Blocked by: `AGENTS.md`, `CONTRIBUTING.md` and the fact stack need Hamm's word.
+Role: human. Skill: none. Blocked by: `AGENTS.md`, `CONTRIBUTING.md` and the fact stack need Hamm's word (shared `README.md`).
 Writes: `.github/CONTRIBUTING.md`, `docs/architecture.md`, `README.md`, `docs/index.md`, `docs/glossary.md`, `artifacts/agents.md`.
 - 17-99: `CONTRIBUTING.md:359-370` and `docs/architecture.md:128-171` restate the invariants AGENTS.md §4 keeps in the fact stack; the spikes-and-LFP rule is in five files and no fact row; "four outcomes" in three; "toolbox, not a pipeline" on four surfaces; the Python matrix on three pages. Check: each fact has one home and the others link to it.
 
 ### 17-100 Docs and examples thinning
 
 Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: nothing.
+Role: docs-harness. Skill: none. Blocked by: none (shared `docs/references.md`, `README.md` with 17-129).
 Writes: `docs/01_architecture_and_philosophy.md`, `docs/02_paths_addressing_metadata.md`, `docs/03_representational_similarity_jrsa.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/09_decoding_and_visual_qc.md`, `docs/10_operation_specifications.md`, `docs/agents.md`, `docs/architecture.md`, `docs/coherence_and_tfr.md`, `docs/common_mistakes.md`, `docs/documentation_form.md`, `docs/errors.md`, `docs/execution.md`, `docs/glossary.md`, `docs/index.md`, `docs/install.md`, `docs/laminar.md`, `docs/quickstart.md`, `docs/reading_nwb.md`, `docs/recipes.md`, `docs/references.md`, `docs/repairing_nwb.md`, `docs/unit_quality_example.md`, `docs/vis.md`, `docs/writing_nwb.md`, `docs/assets/**`, `README.md`, `examples/**/*.py`, `mkdocs.yml`.
 - 17-100: figures fig14 and fig18 repeated in `common_mistakes.md` and pages 06 and 08; the README quickstart repeats `docs/quickstart.md:38-60`; the redirect stub `docs/01_architecture_and_philosophy.md`; `docs/vis.md:51` alone under `assets/vis/`; the 10-line `sys.path` guard in 11 example scripts; the check log in `references.md:5-11`; "labelled" 37 times beside "labeled" 12; `CHANGELOG.md` path forms mixed (the integrator's file); figure ids skip fig22 and fig23. Check: `docs_build.py` strict passes and each listed grep returns its one form.
 
@@ -131,13 +110,6 @@ Release: deferred-0.2.17.
 Role: human. Skill: none. Blocked by: Hamm rules which are receipts of record.
 Writes: `artifacts/showcases/openscope_glo/**`, `artifacts/benchmarks/calibration/curation_calibration_0.2.13_raw.json`.
 - 17-102: 14 of 24 `openscope_glo/scripts/` files and 8 of its 23 `receipts/` (823 KB) are named by no tracked file (`aggregate_s2` is cited by `results/s2v2/receipt.json`); `curation_calibration_0.2.13_raw.json` (49,820 lines) is named by nothing. Check: each kept file is named by a receipt or `openscope_glo.json`, the rest removed.
-
-### 17-103 CONTRIBUTING pointers out of date
-
-Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: nothing; a change of meaning needs Hamm's word.
-Writes: `.github/CONTRIBUTING.md`.
-- 17-103: `CONTRIBUTING.md:343` names `harness_gate.py` as the root allowlist's home (it is `scripts/gates/boundary.py:335-336`); `:350-356` lists three `artifacts/` entries of nine folders; `:117` states the peak-memory margin (25%) but not `release_gate.py`'s 20% growth limit. Check: each pointer resolves to the defining symbol.
 
 ### 17-104 Two oversized structures
 

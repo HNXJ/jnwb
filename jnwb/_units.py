@@ -3,7 +3,7 @@
 A time parameter whose name carries no unit puts a 1000x error one keystroke away. The
 package already has the divergence: 23 parameters end in ``_ms`` and 7 in ``_s``, and
 ``examples/tutorials/03_spiking.py`` calls ``raster_psth(..., win_ms=(-100., 400.))`` at
-line 38 and ``compute_response_metrics(..., baseline_window=(-0.2, 0.0))`` at line 61 in
+line 56 and ``compute_response_metrics(..., baseline_window_s=(-0.2, 0.0))`` at line 82 in
 the same body -- both take a float 2-tuple, and only one says what a float means.
 
 The remedy is the one ``band_power(fs=, sampling_rate=)`` already implements: the canonical

@@ -23,7 +23,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
-from scripts import harness_gate  # noqa: E402
 from scripts.gates import boundary as boundary_gate  # noqa: E402
 from scripts.harness_gate import check_frozen_boundary  # noqa: E402
 JNWB_DIR = REPO_ROOT / "jnwb"
@@ -60,7 +59,7 @@ class TestJnwbFrozenBoundary:
         violations = check_frozen_boundary(JNWB_DIR)
         assert not violations, (
             "jnwb/ imports from omission/ (see AUTHORIZED_JNWB_EXCEPTIONS in "
-            "scripts/harness_gate.py). Either this is a new coupling that needs Hamm's explicit "
+            "scripts/harness_gate.py). Either this is a new coupling that needs explicit "
             "authorization before it can land, or a listed exception is no longer lazy:\n"
             + "\n".join(violations)
         )

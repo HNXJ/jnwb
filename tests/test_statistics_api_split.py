@@ -418,7 +418,6 @@ class TestClusterPermutation:
             )
 
     def test_invalid_arguments_raise(self):
-        rng = np.random.default_rng(0)
         X = np.ones((5, 10))
         Y = np.ones((5, 10))
         with pytest.raises(ValueError, match="strictly positive"):

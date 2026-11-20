@@ -21,7 +21,6 @@ from ._rng import DEFAULT_SEED, RNGLike
 from .trajectory import _kept_components
 import pandas as pd
 from scipy import stats
-import matplotlib.pyplot as plt
 
 from .statistics import StatisticalAnalysis
 from .spiking import _count_fano

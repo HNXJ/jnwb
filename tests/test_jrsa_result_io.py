@@ -147,7 +147,7 @@ def test_summary_prints_and_returns_the_fields(scalar_result, capsys):
     assert capsys.readouterr().out.strip() == text.strip()
     lines = text.splitlines()
     assert lines[0] == "JRSAResult Summary"
-    assert f"  metric     : rsa" in lines
+    assert "  metric     : rsa" in lines
     assert f"  p (raw)    : {scalar_result.p}" in lines
 
 

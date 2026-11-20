@@ -243,6 +243,284 @@ def _unit_range(values: np.ndarray) -> np.ndarray:
     return (values - lo) / span
 
 
+def _check_freqs(freqs: Any) -> np.ndarray:
+    """The frequency grid as float64: 1D, at least 4 bins, finite and strictly increasing."""
+    freqs_arr = np.asarray(freqs, dtype=np.float64)
+    if freqs_arr.ndim != 1:
+        raise ValueError(f"freqs must be 1D, got ndim={freqs_arr.ndim}")
+    if len(freqs_arr) < 4:
+        raise ValueError(f"freqs must have at least 4 frequency bins, got {len(freqs_arr)}")
+    if not np.all(np.isfinite(freqs_arr)):
+        raise ValueError("freqs contains non-finite (NaN or Inf) values")
+    if not np.all(np.diff(freqs_arr) > 0):
+        raise ValueError("freqs must be strictly increasing")
+    return freqs_arr
+
+
+def _check_bands(
+    freqs_arr: np.ndarray, band_low: Tuple[float, float], band_high: Tuple[float, float]
+) -> Tuple[np.ndarray, np.ndarray, int, int]:
+    """The low and high band masks over `freqs_arr`, and their bin counts, after the band checks."""
+    if len(band_low) != 2 or len(band_high) != 2:
+        raise ValueError(f"band_low and band_high must be 2-tuples, got {band_low} and {band_high}")
+    l_min, l_max = float(band_low[0]), float(band_low[1])
+    h_min, h_max = float(band_high[0]), float(band_high[1])
+    if l_min <= 0 or h_min <= 0 or l_min >= l_max or h_min >= h_max:
+        raise ValueError(f"Invalid band ranges: band_low=({l_min}, {l_max}), band_high=({h_min}, {h_max})")
+    if l_max > h_min:
+        raise ValueError(f"band_low ({band_low}) and band_high ({band_high}) must not overlap (l_max <= h_min)")
+
+    mask_low = (freqs_arr >= l_min) & (freqs_arr <= l_max)
+    mask_high = (freqs_arr >= h_min) & (freqs_arr <= h_max)
+    n_low_bins = int(np.sum(mask_low))
+    n_high_bins = int(np.sum(mask_high))
+    if n_low_bins < 2:
+        raise ValueError(f"Insufficient frequency bins in band_low ({band_low}): found {n_low_bins}, minimum 2")
+    if n_high_bins < 2:
+        raise ValueError(f"Insufficient frequency bins in band_high ({band_high}): found {n_high_bins}, minimum 2")
+    return mask_low, mask_high, n_low_bins, n_high_bins
+
+
+def _check_psd(psd: Any, freqs_arr: np.ndarray) -> Tuple[np.ndarray, int, int]:
+    """The PSD matrix as float64, checked against the frequency grid; returns it with its shape."""
+    psd_arr = np.asarray(psd, dtype=np.float64)
+    if psd_arr.ndim != 2:
+        raise ValueError(f"psd must be a 2D array of shape (n_channels, n_freqs), got shape {psd_arr.shape}")
+    n_channels, n_freqs = psd_arr.shape
+    if n_freqs != len(freqs_arr):
+        raise ValueError(f"psd n_freqs ({n_freqs}) does not match freqs length ({len(freqs_arr)})")
+    if np.any(psd_arr < 0):
+        raise ValueError("psd contains negative values. Power must be non-negative.")
+    return psd_arr, n_channels, n_freqs
+
+
+def _check_geometry(
+    probe_geometry: Any,
+    contact_spacing: Optional[float],
+    depth_axis: Optional[str],
+    shallow_end: Optional[str],
+    n_channels: int,
+) -> Tuple[Optional[float], Any, str]:
+    """The contact spacing, the shaft order and its depth anchor, checked against `probe_geometry`."""
+    effective_spacing = contact_spacing
+    order = None
+    if probe_geometry is not None:
+        if not getattr(probe_geometry, "is_linear", False):
+            raise ValueError("probe_geometry must describe a linear electrode shaft (is_linear=True)")
+        if len(probe_geometry.channel_ids) != n_channels:
+            raise ValueError(
+                f"probe_geometry channel count ({len(probe_geometry.channel_ids)}) "
+                f"does not match psd channels ({n_channels})"
+            )
+        nominal = getattr(probe_geometry, "nominal_pitch", None)
+        if effective_spacing is None:
+            effective_spacing = nominal
+        elif nominal is not None and not np.isclose(
+            float(effective_spacing), float(nominal), rtol=1e-9, atol=0.0
+        ):
+            # label_layers measures depth as rank times nominal_pitch, so a depth computed
+            # with another spacing would select different contacts through depth_range_um.
+            raise ValueError(
+                f"contact_spacing={contact_spacing} disagrees with probe_geometry.nominal_pitch="
+                f"{nominal}; label_layers measures depth with nominal_pitch, so the crossover "
+                "depth would not be in its frame. Omit contact_spacing, or build the geometry "
+                "with nominal_pitch=contact_spacing."
+            )
+        order = getattr(probe_geometry, "linear_order", None)
+    order, depth_anchor = _depth_anchored_order(
+        probe_geometry, order, depth_axis, shallow_end, "vflip"
+    )
+    return effective_spacing, order, depth_anchor
+
+
+def _check_bad_mask(bad_channel_mask: Any, psd_arr: np.ndarray, n_channels: int) -> np.ndarray:
+    """The contacts flagged bad by the caller or by a non-finite row, as one boolean mask."""
+    if bad_channel_mask is None:
+        bad_mask = np.zeros(n_channels, dtype=bool)
+    else:
+        bad_mask = np.asarray(bad_channel_mask, dtype=bool).ravel()
+        if len(bad_mask) != n_channels:
+            raise ValueError(f"bad_channel_mask length ({len(bad_mask)}) != n_channels ({n_channels})")
+
+    # Automatically flag non-finite channels as bad
+    non_finite_rows = ~np.all(np.isfinite(psd_arr), axis=1)
+    return bad_mask | non_finite_rows
+
+
+def _relative_power(
+    psd_work: np.ndarray, bad_mask: np.ndarray, n_missing: int, n_channels: int, n_freqs: int
+) -> np.ndarray:
+    """Missing contacts interpolated along depth, the PSD scaled by its maximum, then min-max per frequency."""
+    clean_psd = psd_work.copy()
+    # Interpolate missing channels along depth before standardization
+    valid_idx = np.where(~bad_mask)[0]
+    if n_missing > 0:
+        for f_idx in range(n_freqs):
+            clean_psd[:, f_idx] = np.interp(np.arange(n_channels), valid_idx, clean_psd[valid_idx, f_idx])
+
+    # Express the PSD relative to its largest value first. Z-scoring is unchanged by that
+    # rescaling except where the std floor below applies; with the floor applied to the raw PSD
+    # the result depended on amplitude units (a motif accepted at unit scale was rejected when
+    # the same LFP was expressed in volts).
+    psd_scale = float(np.max(np.abs(clean_psd)))
+    if psd_scale > 0:
+        clean_psd = clean_psd / psd_scale
+
+    # Min-max normalize per frequency across contacts, to relative power in [0, 1].
+    #
+    # This replaces the columnwise z-score used through 0.2.3. Z-scoring forces every
+    # frequency column to zero mean across contacts, so both band profiles carry zero
+    # spatial mean and the difference profile Delta(c) = H(c) - L(c) sums to zero
+    # identically. The zero crossing of a zero-sum profile sits near the centre of the
+    # sampled contacts whatever the true crossover is: for a profile linear in contact
+    # index it is pinned to the midpoint exactly. Measured on a known motif at SNR 100,
+    # true crossovers of 5.5 / 7.5 / 11.5 / 15.5 / 18.5 were returned with bias
+    # +3.98 / +2.17 / -0.01 / -1.92 / -4.75 contacts, a slope of about 0.31 estimated
+    # contacts per true contact, and the shift equalled the removed spatial mean.
+    #
+    # The relative power fraction P(c, f) / sum_k P(k, f) is the other reading of the
+    # published convention. It constrains each column to sum to one, so both band
+    # profiles have spatial mean 1/C and Delta(c) again sums to zero: measured bias
+    # +3.81 / +2.25 / +0.11 / -1.79 / -4.43, indistinguishable from z-scoring. Any
+    # normalization that fixes a column's mean or sum carries this defect.
+    #
+    # Min-max constrains the extremes instead of the mean, leaving the spatial mean of
+    # Delta free to encode where the motif actually reverses.
+    col_min = np.min(clean_psd, axis=0)
+    col_max = np.max(clean_psd, axis=0)
+    col_range = col_max - col_min
+    col_range[col_range < 1e-12] = 1e-12
+    return (clean_psd - col_min) / col_range
+
+
+def _resolve_orientation(
+    orientation: str,
+    low_peak: int,
+    high_peak: int,
+    low_profile: np.ndarray,
+    high_profile: np.ndarray,
+    low_located: np.ndarray,
+    high_located: np.ndarray,
+) -> Tuple[str, np.ndarray, np.ndarray]:
+    """The resolved orientation, the signed profile (for the support score) and the located profile (for the crossover)."""
+    if orientation == "auto":
+        if high_peak < low_peak:
+            resolved_orientation = "superficial_to_deep"
+            signed_profile = high_profile - low_profile
+            located_profile = high_located - low_located
+        elif low_peak < high_peak:
+            resolved_orientation = "deep_to_superficial"
+            signed_profile = low_profile - high_profile
+            located_profile = low_located - high_located
+        else:
+            resolved_orientation = "undetermined"
+            signed_profile = high_profile - low_profile
+            located_profile = high_located - low_located
+    elif orientation == "superficial_to_deep":
+        resolved_orientation = "superficial_to_deep"
+        signed_profile = high_profile - low_profile
+        located_profile = high_located - low_located
+    else:  # deep_to_superficial
+        resolved_orientation = "deep_to_superficial"
+        signed_profile = low_profile - high_profile
+        located_profile = low_located - high_located
+    return resolved_orientation, signed_profile, located_profile
+
+
+def _orientation_consistent(orientation: str, low_peak: int, high_peak: int) -> bool:
+    """Whether the peak order agrees with the requested orientation."""
+    if orientation == "superficial_to_deep" and high_peak >= low_peak:
+        return False
+    if orientation == "deep_to_superficial" and low_peak >= high_peak:
+        return False
+    if orientation == "auto" and low_peak == high_peak:
+        return False
+    return True
+
+
+def _crossover_contact(located_profile: np.ndarray, c_sup: int, c_deep: int) -> Optional[float]:
+    """The steepest zero crossing of the located profile between the two peaks, or None if there is none."""
+    # Search for zero-crossings between c_sup and c_deep
+    # Signed profile: positive at c_sup, negative at c_deep
+    cross_candidates = []
+    for i in range(c_sup, c_deep):
+        v1 = located_profile[i]
+        v2 = located_profile[i + 1]
+        if (v1 > 0 and v2 <= 0) or (v1 >= 0 and v2 < 0):
+            denom = v1 - v2
+            sub_c = float(i + (v1 / denom))
+            # Keep within interval
+            sub_c = min(float(i + 1), max(float(i), sub_c))
+            steepness = v1 - v2
+            cross_candidates.append((sub_c, steepness))
+
+    if not cross_candidates:
+        return None
+    # Select candidate maximizing transition steepness
+    cross_candidates.sort(key=lambda x: x[1], reverse=True)
+    return cross_candidates[0][0]
+
+
+def _crossover_depth_z(
+    crossover_c: float,
+    effective_spacing: Optional[float],
+    probe_geometry: Any,
+    order: Any,
+    n_channels: int,
+) -> Tuple[Optional[float], Optional[float]]:
+    """The crossover's depth in um and its geometry z, each None when it cannot be stated."""
+    crossover_depth = None
+    crossover_z = None
+    # Depth is always shaft rank times pitch, the frame `label_layers` places
+    # contacts in. The geometry's own z is reported separately: it can run in
+    # either direction along the shaft and carries the table's origin, so it is a
+    # different quantity rather than a more precise depth.
+    if effective_spacing is not None:
+        crossover_depth = float(crossover_c * effective_spacing)
+    if probe_geometry is not None and order is not None and len(order) == n_channels:
+        sorted_z = np.asarray(probe_geometry.contact_positions, dtype=float)[order, 2]
+        if np.ptp(sorted_z) > 1e-6:
+            crossover_z = float(np.interp(crossover_c, np.arange(n_channels), sorted_z))
+    return crossover_depth, crossover_z
+
+
+def _acceptance(
+    orientation_matches: bool,
+    peak_sep: int,
+    min_peak_distance: int,
+    crossover_c: Optional[float],
+    c_sup: int,
+    c_deep: int,
+    support_score: float,
+    min_support_score: float,
+    depth_anchor: str,
+    resolved_orientation: str,
+) -> Tuple[bool, Optional[str]]:
+    """Whether the fit is accepted, and the reason it is not, given the first test it fails."""
+    accepted = True
+    rejection_reason = None
+
+    if not orientation_matches:
+        accepted = False
+        rejection_reason = "orientation_mismatch"
+    elif peak_sep < min_peak_distance:
+        accepted = False
+        rejection_reason = "insufficient_peak_distance"
+    elif crossover_c is None or not (c_sup < crossover_c < c_deep):
+        accepted = False
+        rejection_reason = "no_crossover"
+    elif support_score < min_support_score:
+        accepted = False
+        rejection_reason = "insufficient_support"
+    elif depth_anchor == "shallowest" and resolved_orientation == "deep_to_superficial":
+        # Checked last: only a motif that passes every other test can contradict the
+        # declaration. On noise the peak order is a coin toss, and reporting it as a
+        # contradiction would name the wrong reason for a fit that has no support.
+        accepted = False
+        rejection_reason = "declaration_contradicted"
+    return accepted, rejection_reason
+
+
 def vflip(
     psd: np.ndarray,
     freqs: np.ndarray,
@@ -395,76 +673,20 @@ def vflip(
     # `device='cuda'` request can never be honoured here -- the resolver's answer used
     # to be assigned to `_` and thrown away, which meant a caller with no GPU was warned
     # and a caller with a working A4000 was not.
+    # stacklevel=3 names the caller of vflip. Called through vflip_from_lfp, that caller is this
+    # module, so the warning reports _vflip.py rather than the user: a pre-existing off-by-one,
+    # kept as it was (17-79 changes size only, not reported locations).
     if resolve_device(device, context="vflip", prefer="cupy", stacklevel=3) == CUDA:
         warn_no_gpu_path("vflip", "vflip has no GPU implementation", stacklevel=3)
 
-    freqs_arr = np.asarray(freqs, dtype=np.float64)
-    if freqs_arr.ndim != 1:
-        raise ValueError(f"freqs must be 1D, got ndim={freqs_arr.ndim}")
-    if len(freqs_arr) < 4:
-        raise ValueError(f"freqs must have at least 4 frequency bins, got {len(freqs_arr)}")
-    if not np.all(np.isfinite(freqs_arr)):
-        raise ValueError("freqs contains non-finite (NaN or Inf) values")
-    if not np.all(np.diff(freqs_arr) > 0):
-        raise ValueError("freqs must be strictly increasing")
+    freqs_arr = _check_freqs(freqs)
+    mask_low, mask_high, n_low_bins, n_high_bins = _check_bands(freqs_arr, band_low, band_high)
 
-    # Validate bands
-    if len(band_low) != 2 or len(band_high) != 2:
-        raise ValueError(f"band_low and band_high must be 2-tuples, got {band_low} and {band_high}")
-    l_min, l_max = float(band_low[0]), float(band_low[1])
-    h_min, h_max = float(band_high[0]), float(band_high[1])
-    if l_min <= 0 or h_min <= 0 or l_min >= l_max or h_min >= h_max:
-        raise ValueError(f"Invalid band ranges: band_low=({l_min}, {l_max}), band_high=({h_min}, {h_max})")
-    if l_max > h_min:
-        raise ValueError(f"band_low ({band_low}) and band_high ({band_high}) must not overlap (l_max <= h_min)")
-
-    mask_low = (freqs_arr >= l_min) & (freqs_arr <= l_max)
-    mask_high = (freqs_arr >= h_min) & (freqs_arr <= h_max)
-    n_low_bins = int(np.sum(mask_low))
-    n_high_bins = int(np.sum(mask_high))
-    if n_low_bins < 2:
-        raise ValueError(f"Insufficient frequency bins in band_low ({band_low}): found {n_low_bins}, minimum 2")
-    if n_high_bins < 2:
-        raise ValueError(f"Insufficient frequency bins in band_high ({band_high}): found {n_high_bins}, minimum 2")
-
-    # Validate PSD
-    psd_arr = np.asarray(psd, dtype=np.float64)
-    if psd_arr.ndim != 2:
-        raise ValueError(f"psd must be a 2D array of shape (n_channels, n_freqs), got shape {psd_arr.shape}")
-    n_channels, n_freqs = psd_arr.shape
-    if n_freqs != len(freqs_arr):
-        raise ValueError(f"psd n_freqs ({n_freqs}) does not match freqs length ({len(freqs_arr)})")
-    if np.any(psd_arr < 0):
-        raise ValueError("psd contains negative values. Power must be non-negative.")
+    psd_arr, n_channels, n_freqs = _check_psd(psd, freqs_arr)
 
     # Validate geometry
-    effective_spacing = contact_spacing
-    order = None
-    if probe_geometry is not None:
-        if not getattr(probe_geometry, "is_linear", False):
-            raise ValueError("probe_geometry must describe a linear electrode shaft (is_linear=True)")
-        if len(probe_geometry.channel_ids) != n_channels:
-            raise ValueError(
-                f"probe_geometry channel count ({len(probe_geometry.channel_ids)}) "
-                f"does not match psd channels ({n_channels})"
-            )
-        nominal = getattr(probe_geometry, "nominal_pitch", None)
-        if effective_spacing is None:
-            effective_spacing = nominal
-        elif nominal is not None and not np.isclose(
-            float(effective_spacing), float(nominal), rtol=1e-9, atol=0.0
-        ):
-            # label_layers measures depth as rank times nominal_pitch, so a depth computed
-            # with another spacing would select different contacts through depth_range_um.
-            raise ValueError(
-                f"contact_spacing={contact_spacing} disagrees with probe_geometry.nominal_pitch="
-                f"{nominal}; label_layers measures depth with nominal_pitch, so the crossover "
-                "depth would not be in its frame. Omit contact_spacing, or build the geometry "
-                "with nominal_pitch=contact_spacing."
-            )
-        order = getattr(probe_geometry, "linear_order", None)
-    order, depth_anchor = _depth_anchored_order(
-        probe_geometry, order, depth_axis, shallow_end, "vflip"
+    effective_spacing, order, depth_anchor = _check_geometry(
+        probe_geometry, contact_spacing, depth_axis, shallow_end, n_channels
     )
 
     if effective_spacing is not None:
@@ -473,16 +695,7 @@ def vflip(
             raise ValueError(f"contact_spacing must be strictly positive and finite, got {effective_spacing}")
 
     # 2. Bad channel and missing contact handling
-    if bad_channel_mask is None:
-        bad_mask = np.zeros(n_channels, dtype=bool)
-    else:
-        bad_mask = np.asarray(bad_channel_mask, dtype=bool).ravel()
-        if len(bad_mask) != n_channels:
-            raise ValueError(f"bad_channel_mask length ({len(bad_mask)}) != n_channels ({n_channels})")
-
-    # Automatically flag non-finite channels as bad
-    non_finite_rows = ~np.all(np.isfinite(psd_arr), axis=1)
-    bad_mask = bad_mask | non_finite_rows
+    bad_mask = _check_bad_mask(bad_channel_mask, psd_arr, n_channels)
 
     effective_bad_input = bad_mask.copy()
 
@@ -527,46 +740,7 @@ def vflip(
         )
 
     # 3. Frequency standardization across valid contacts along the shaft
-    clean_psd = psd_work.copy()
-    # Interpolate missing channels along depth before standardization
-    valid_idx = np.where(~bad_mask)[0]
-    if n_missing > 0:
-        for f_idx in range(n_freqs):
-            clean_psd[:, f_idx] = np.interp(np.arange(n_channels), valid_idx, clean_psd[valid_idx, f_idx])
-
-    # Express the PSD relative to its largest value first. Z-scoring is unchanged by that
-    # rescaling except where the std floor below applies; with the floor applied to the raw PSD
-    # the result depended on amplitude units (a motif accepted at unit scale was rejected when
-    # the same LFP was expressed in volts).
-    psd_scale = float(np.max(np.abs(clean_psd)))
-    if psd_scale > 0:
-        clean_psd = clean_psd / psd_scale
-
-    # Min-max normalize per frequency across contacts, to relative power in [0, 1].
-    #
-    # This replaces the columnwise z-score used through 0.2.3. Z-scoring forces every
-    # frequency column to zero mean across contacts, so both band profiles carry zero
-    # spatial mean and the difference profile Delta(c) = H(c) - L(c) sums to zero
-    # identically. The zero crossing of a zero-sum profile sits near the centre of the
-    # sampled contacts whatever the true crossover is: for a profile linear in contact
-    # index it is pinned to the midpoint exactly. Measured on a known motif at SNR 100,
-    # true crossovers of 5.5 / 7.5 / 11.5 / 15.5 / 18.5 were returned with bias
-    # +3.98 / +2.17 / -0.01 / -1.92 / -4.75 contacts, a slope of about 0.31 estimated
-    # contacts per true contact, and the shift equalled the removed spatial mean.
-    #
-    # The relative power fraction P(c, f) / sum_k P(k, f) is the other reading of the
-    # published convention. It constrains each column to sum to one, so both band
-    # profiles have spatial mean 1/C and Delta(c) again sums to zero: measured bias
-    # +3.81 / +2.25 / +0.11 / -1.79 / -4.43, indistinguishable from z-scoring. Any
-    # normalization that fixes a column's mean or sum carries this defect.
-    #
-    # Min-max constrains the extremes instead of the mean, leaving the spatial mean of
-    # Delta free to encode where the motif actually reverses.
-    col_min = np.min(clean_psd, axis=0)
-    col_max = np.max(clean_psd, axis=0)
-    col_range = col_max - col_min
-    col_range[col_range < 1e-12] = 1e-12
-    normed_psd = (clean_psd - col_min) / col_range
+    normed_psd = _relative_power(psd_work, bad_mask, n_missing, n_channels, n_freqs)
 
     # 4. Band profiles
     low_profile = np.mean(normed_psd[:, mask_low], axis=1)
@@ -591,36 +765,12 @@ def vflip(
     high_peak = int(np.argmax(high_profile))
 
     # 5. Orientation resolution
-    if orientation == "auto":
-        if high_peak < low_peak:
-            resolved_orientation = "superficial_to_deep"
-            signed_profile = high_profile - low_profile
-            located_profile = high_located - low_located
-        elif low_peak < high_peak:
-            resolved_orientation = "deep_to_superficial"
-            signed_profile = low_profile - high_profile
-            located_profile = low_located - high_located
-        else:
-            resolved_orientation = "undetermined"
-            signed_profile = high_profile - low_profile
-            located_profile = high_located - low_located
-    elif orientation == "superficial_to_deep":
-        resolved_orientation = "superficial_to_deep"
-        signed_profile = high_profile - low_profile
-        located_profile = high_located - low_located
-    else:  # deep_to_superficial
-        resolved_orientation = "deep_to_superficial"
-        signed_profile = low_profile - high_profile
-        located_profile = low_located - high_located
+    resolved_orientation, signed_profile, located_profile = _resolve_orientation(
+        orientation, low_peak, high_peak, low_profile, high_profile, low_located, high_located
+    )
 
     # 6. Orientation consistency check
-    orientation_matches = True
-    if orientation == "superficial_to_deep" and high_peak >= low_peak:
-        orientation_matches = False
-    elif orientation == "deep_to_superficial" and low_peak >= high_peak:
-        orientation_matches = False
-    elif orientation == "auto" and low_peak == high_peak:
-        orientation_matches = False
+    orientation_matches = _orientation_consistent(orientation, low_peak, high_peak)
 
     # 7. Crossover zero-crossing search
     # In resolved coordinate frame: superficial peak is at lower index, deep peak at higher index
@@ -633,34 +783,11 @@ def vflip(
     crossover_z: Optional[float] = None
 
     if orientation_matches and peak_sep >= min_peak_distance:
-        # Search for zero-crossings between c_sup and c_deep
-        # Signed profile: positive at c_sup, negative at c_deep
-        cross_candidates = []
-        for i in range(c_sup, c_deep):
-            v1 = located_profile[i]
-            v2 = located_profile[i + 1]
-            if (v1 > 0 and v2 <= 0) or (v1 >= 0 and v2 < 0):
-                denom = v1 - v2
-                sub_c = float(i + (v1 / denom))
-                # Keep within interval
-                sub_c = min(float(i + 1), max(float(i), sub_c))
-                steepness = v1 - v2
-                cross_candidates.append((sub_c, steepness))
-
-        if cross_candidates:
-            # Select candidate maximizing transition steepness
-            cross_candidates.sort(key=lambda x: x[1], reverse=True)
-            crossover_c = cross_candidates[0][0]
-            # Depth is always shaft rank times pitch, the frame `label_layers` places
-            # contacts in. The geometry's own z is reported separately: it can run in
-            # either direction along the shaft and carries the table's origin, so it is a
-            # different quantity rather than a more precise depth.
-            if effective_spacing is not None:
-                crossover_depth = float(crossover_c * effective_spacing)
-            if probe_geometry is not None and order is not None and len(order) == n_channels:
-                sorted_z = np.asarray(probe_geometry.contact_positions, dtype=float)[order, 2]
-                if np.ptp(sorted_z) > 1e-6:
-                    crossover_z = float(np.interp(crossover_c, np.arange(n_channels), sorted_z))
+        crossover_c = _crossover_contact(located_profile, c_sup, c_deep)
+        if crossover_c is not None:
+            crossover_depth, crossover_z = _crossover_depth_z(
+                crossover_c, effective_spacing, probe_geometry, order, n_channels
+            )
 
     # 8. Support score (jnwb's own; not vFLIP2's omega)
     # Density-normalized so the score does not scale with the number of channels.
@@ -708,27 +835,10 @@ def vflip(
     support_score = float(np.log(metric)) if metric > 0 else -np.inf
 
     # 9. Acceptance determination
-    accepted = True
-    rejection_reason = None
-
-    if not orientation_matches:
-        accepted = False
-        rejection_reason = "orientation_mismatch"
-    elif peak_sep < min_peak_distance:
-        accepted = False
-        rejection_reason = "insufficient_peak_distance"
-    elif crossover_c is None or not (c_sup < crossover_c < c_deep):
-        accepted = False
-        rejection_reason = "no_crossover"
-    elif support_score < min_support_score:
-        accepted = False
-        rejection_reason = "insufficient_support"
-    elif depth_anchor == "shallowest" and resolved_orientation == "deep_to_superficial":
-        # Checked last: only a motif that passes every other test can contradict the
-        # declaration. On noise the peak order is a coin toss, and reporting it as a
-        # contradiction would name the wrong reason for a fit that has no support.
-        accepted = False
-        rejection_reason = "declaration_contradicted"
+    accepted, rejection_reason = _acceptance(
+        orientation_matches, peak_sep, min_peak_distance, crossover_c, c_sup, c_deep,
+        support_score, min_support_score, depth_anchor, resolved_orientation,
+    )
 
     # Enforce failure invariants: rejected fit implies None crossover
     final_cross_c = crossover_c if accepted else None

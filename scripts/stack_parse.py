@@ -1,4 +1,5 @@
-"""The one reader of the coordination stacks: headings, items and their Release fields.
+"""The one reader of the coordination stacks: headings, items and their Release fields, and the
+one splitter of a Markdown table row into cells (`cells`).
 
 Gate 15 and gate 17 (`scripts/harness_gate.py`), STEP 0a (`scripts/release_gate.py`) and the
 stack editor (`scripts/stack_edit.py`) read headings through this module, so an item one of them
@@ -157,6 +158,22 @@ def stack_items(text: str) -> List[Tuple[int, str, str]]:
     return [(lineno, ident, text[start:end]) for lineno, ident, start, end in item_spans(text)]
 
 
+#: A pipe that no backslash escapes: the cell separator of a Markdown table row.
+_CELL_SEPARATOR = re.compile(r"(?<!\\)\|")
+_LEADING_PIPES = re.compile(r"^\|+")
+_TRAILING_PIPES = re.compile(r"(?<!\\)\|+$")
+
+
+def cells(line: str) -> List[str]:
+    """The cells of one table row, each stripped.
+
+    The outer pipes are optional and dropped. An escaped pipe (``\\|``) stays in its cell, raw.
+    Any line is split; a caller that needs a table row tests for one first.
+    """
+    body = _TRAILING_PIPES.sub("", _LEADING_PIPES.sub("", line.strip()))
+    return [cell.strip() for cell in _CELL_SEPARATOR.split(body)]
+
+
 def section_release(body: List[str]) -> Tuple[str, Optional[str]]:
     """``(value, first noncanonical line)`` for a section's own ``Release:`` field.
 
@@ -165,7 +182,7 @@ def section_release(body: List[str]) -> Tuple[str, Optional[str]]:
     of these reads as deferred. An entity-encoded colon (``Release&#58;``) reads as a colon.
     """
     lines = [_field_line(line) for line in body]
-    values = [m.group(1).strip().rstrip(".").strip()
+    values = [m.group(1).strip().removesuffix(".").strip()
               for m in map(RELEASE_VALUE.match, lines) if m]
     # Capture to end of line and strip one trailing sentence period. Stopping at the first `.`
     # would truncate `deferred-0.2.7` to `deferred-0`, and the truncated value compares unequal

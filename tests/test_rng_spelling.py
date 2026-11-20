@@ -91,7 +91,7 @@ class TestOneSpellingAcrossThePublicApi:
                 continue
             try:
                 params = inspect.signature(obj).parameters
-            except (ValueError, TypeError):
+            except ValueError:
                 continue
             legacy = {"seed", "random_state", "random_seed"} & set(params)
             if legacy and "rng" not in params:

@@ -619,7 +619,7 @@ def pair_stats(kind: str, count: int, z0s: List[int], tables: Dict[tuple, dict])
     """The disagreement between the A and B records at one count, over all depths.
 
     Gated: a defined window where both oracles find a planted crossover must agree within one
-    contact. Indeterminate: a defined window where exactly one finds one (ruled; not gated).
+    contact. Indeterminate: a defined window where exactly one finds one (not gated).
     Uncertainty only: the picked crossovers, the picked bands and their edge shifts.
     """
     n_windows = n_defined = n_indet = planted_bad = planted_nan_both = picked_bad = 0
@@ -975,7 +975,7 @@ def render(n: int, measures: dict, stats: dict, chosen: dict, counts, smoke: boo
         f"{p2['accepted_indeterminate_oracle']} | none |",
         f"| 3 | Unconditional recovery (accepted, scored, within 1 contact, / n) | {fmt(p3)}; "
         f"target 90 of 100: {met(p3.get('target_met'))} | at least 90 of 100 |",
-        f"| 4 | Error against planted depth, accepted (contacts: count) | "
+        "| 4 | Error against planted depth, accepted (contacts: count) | "
         + ", ".join(f"{k}: {v}" for k, v in p4.items()) + " | none |",
         f"| 5 | Window selection: window contains z0 | {p5['z0_inside']} of {p5['n_with_window']}; "
         f"{p5['distinct_windows']} distinct windows | none |",

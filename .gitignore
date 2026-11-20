@@ -80,6 +80,7 @@ gallery_src/
 !artifacts/process/frozen_validated.json
 !artifacts/process/public_surface.json
 !artifacts/process/release_plan.json
+!artifacts/process/ocma.schema.json
 !artifacts/evidence/0.2.13/vflip2_oracle.json
 !artifacts/evidence/0.2.13/vflip2_recovery.json
 !artifacts/evidence/0.2.13/vflip2_nuisance.json

@@ -192,7 +192,7 @@ def test_h2_the_time_major_default_spelling_must_raise_or_agree(consumer: str) -
         time_major = _laminar(
             consumer, jnwb.bandpass_filter(lfp.T, fs=FS, low_cut=LOW_CUT, high_cut=HIGH_CUT)
         )
-    except (ValueError, TypeError):
+    except ValueError:
         return  # refused at one end or the other: the invariant holds
 
     assert time_major.shape == reference.T.shape, (
@@ -306,7 +306,7 @@ def test_h3_a_transposed_trial_array_must_not_read_as_no_coupling(estimator: str
 
     try:
         transposed = fn(x.T, y.T, **kwargs)
-    except (ValueError, TypeError):
+    except ValueError:
         return  # refused: the invariant holds
 
     assert transposed.x_to_y > 0.5 * reference.x_to_y, (
@@ -394,7 +394,7 @@ def test_h4_a_time_major_array_must_not_yield_a_verdict_over_samples() -> None:
     try:
         corr = jnwb.channel_correlation_matrix(lfp.T)
         bad, _summary, _z = jnwb.bad_channels_from_correlation(corr)
-    except (ValueError, TypeError):
+    except ValueError:
         return  # refused at one end or the other: the invariant holds
 
     assert bad.shape == (N_CHANNELS,), (

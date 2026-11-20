@@ -77,8 +77,8 @@ A fit with no support at all scores `-inf`, so no finite `min_support_score` acc
 `vflip2` ports vFLIP2.m of Major et al. (2025) step by step; its docstring lists the steps
 with their MATLAB lines and the known differences from the vFLIP2 description, which the port
 reproduces rather than fixes. It searches every window of rows at least one layer 4 thick
-(0.586 mm by default), finds a low band (4-70 Hz) and a high band (40-150 Hz) where the two
-halves of the window differ, and scores the window by omega. The window is accepted when
+(0.586 mm by default), finds a low band (between 4 and 70 Hz, exclusive) and a high band
+(between 40 and 150 Hz, exclusive) where the two halves of the window differ, and scores the window by omega. The window is accepted when
 omega exceeds `omega_cut`, 6 by default; a rejected window keeps its values so they can be
 read. The cut matches vFLIP2.m; on noise-only synthetic probes it accepts 18 of 100, and
 24 of 100 (95% CI 0.16 to 0.34) at matched SNR 0, so an accepted fit is not by itself evidence

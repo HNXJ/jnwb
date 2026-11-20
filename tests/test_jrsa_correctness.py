@@ -285,7 +285,7 @@ class TestANumpyIntegerAdimIsTheSameAxis:
 
 
 class TestARowMetricWindowsTheObservationsByDefault:
-    """IB-58 (ruled 2026-10-06): with `adim` not passed the six axis-0 metrics window axis 0,
+    """IB-58: with `adim` not passed the six axis-0 metrics window axis 0,
     the observations `lag` and the null act on. They windowed the last axis, the features.
     A passed ``adim=-1`` still windows the features, and ``adim=0`` the observations."""
 

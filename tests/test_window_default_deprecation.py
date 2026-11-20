@@ -2,7 +2,7 @@
 
 `UnitAnalyzer.psth`, `UnitAnalyzer.raster`, `build_time_resolved_matrix` and
 `compute_population_trajectory` defaulted their window to (-1000, 2000) ms with no cited
-reason. The default warned from 0.2.14 and is removed in 0.2.15 (ruling 2026-10-24). A passed
+reason. The default warned from 0.2.14 and is removed in 0.2.15. A passed
 window warns nothing. `psth` takes its window keyword-only, because `bin_size_ms` precedes it.
 """
 

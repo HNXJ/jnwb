@@ -1236,7 +1236,7 @@ class TestALinkAliasIsTheDatasetItNames:
 
     @pytest.mark.parametrize("named", ["alias", "target", "both"])
     def test_every_hard_link_name_opens_the_one_cast_dataset(self, src, tmp_path, named):
-        """Ruled 2026-10-18: casting under one name left the other hard link at float64, and
+        """Casting under one name left the other hard link at float64, and
         `verify` checked only the named one. Each name now opens the same float32 dataset."""
         alias = "aliases/hard_other"
         self._assert_alias(src, alias, OTHER)

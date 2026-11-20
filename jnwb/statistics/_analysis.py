@@ -20,7 +20,7 @@ def fdr_correct(
     """Benjamini-Hochberg (or compatible) FDR across a hypothesis family.
 
     This one forwards the other way: `StatisticalAnalysis.fdr_correct` holds the
-    implementation and this module-level name delegates to it. The other four
+    implementation and this module-level name delegates to it. The other three
     module/class pairs in this file run class -> module.
 
     Args:
@@ -85,8 +85,20 @@ class StatisticalAnalysis:
     """
 
     ALPHA = 0.05
-    # Back-compat alias
-    ALPHA_FDR = 0.05
+
+    class _AlphaFdr:
+        """Deprecated alias of ``ALPHA``; warn on every access."""
+
+        def __get__(self, obj, owner=None):
+            warnings.warn(
+                "StatisticalAnalysis.ALPHA_FDR is deprecated and will be removed in the next "
+                "version; use StatisticalAnalysis.ALPHA",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return 0.05
+
+    ALPHA_FDR = _AlphaFdr()
 
     @staticmethod
     def fdr_correct(

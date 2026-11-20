@@ -165,12 +165,10 @@ def exact_sign_flip(
     obs_mean = float(np.mean(arr))
 
     # Attainable non-zero p-value floor
-    if n <= 60:
+    if n <= 20:
         total_flips = 1 << n
         one_sided_floor = 1.0 / float(total_flips)
         p_floor = min(1.0, 2.0 * one_sided_floor) if alt == "two-sided" else one_sided_floor
-    else:
-        p_floor = 0.0
 
     tol = _tie_tolerance(arr)
 

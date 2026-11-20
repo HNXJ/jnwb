@@ -339,7 +339,6 @@ class TestXFlipSurrogatesAndInference:
 
     def test_untested_noise_is_not_accepted(self):
         """The case the old assertion licensed."""
-        rng = np.random.default_rng(0)
         accepted = sum(
             xflip(
                 np.random.default_rng(seed).standard_normal((16, 2000)),

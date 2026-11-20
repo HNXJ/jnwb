@@ -9,6 +9,7 @@ import ast
 import re
 import sys
 from pathlib import Path
+from typing import Tuple, Union
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 #: The contributor-process skill. It is not part of the shipped `skills/` tree.
@@ -39,8 +40,28 @@ from scripts.harness_gate import (
     check_stack_form_consistency,
     check_stack_pointers_resolve,
     check_state_file_head,
-    validate_receipt_provenance,
 )
+
+
+def validate_receipt_provenance(claim_name: str, receipt_path: Union[str, Path]) -> Tuple[bool, str]:
+    """Receipt provenance check (not a numbered preflight gate; argument-driven).
+
+    Verifies that an empirical receipt exists on disk, is readable, and is non-empty.
+    IMPORTANT EPISTEMIC DISTINCTION: Receipt existence is provenance/artifact validation,
+    NOT empirical scientific verification. True scientific verification requires verified code,
+    valid nulls, and exact claim-to-estimator linkage.
+    """
+    path = Path(receipt_path)
+    if not path.is_absolute():
+        path = REPO_ROOT / path
+
+    if not path.exists():
+        return False, f"MISSING_RECEIPT: Claim '{claim_name}' references non-existent receipt artifact: {path}"
+
+    if path.stat().st_size == 0:
+        return False, f"EMPTY_RECEIPT: Claim '{claim_name}' references zero-byte artifact: {path}"
+
+    return True, f"PROVENANCE_VALID: Claim '{claim_name}' artifact exists: {path} ({path.stat().st_size} bytes)"
 
 
 class TestHarnessAdversarialProbes:
