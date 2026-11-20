@@ -179,7 +179,7 @@ class TestTheFactStackResolves:
         assert not missing, f"artifacts/fact_stack.md cites paths that do not exist: {missing}"
 
     def test_a_moved_path_is_found(self, tracked):
-        doc = "Ruled against `artifacts/todo_stack.md` and `artifacts/deleted_stack.md`.\n"
+        doc = "Checked against `artifacts/todo_stack.md` and `artifacts/deleted_stack.md`.\n"
         assert unresolved_paths(doc, REPO_ROOT, tracked) == ["artifacts/deleted_stack.md"]
 
     def test_a_bare_filename_is_resolved_too(self, tracked):

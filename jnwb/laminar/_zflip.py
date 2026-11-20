@@ -492,7 +492,7 @@ def zflip(
 
     where :math:`\Delta \tau = -\frac{1}{2\pi} \frac{d\Delta \phi}{df}`.
 
-    Important Epistemic Invariants & Identifiability Gates:
+    Epistemic Invariants & Identifiability Gates:
     1. **Coupling vs. Direction**: wPLI evaluates coupling consistency with reduced
        sensitivity to zero-phase-lag mixing, but is strictly unsigned (:math:`\ge 0`).
        Directionality and delay are derived from the signed phase slope, not wPLI magnitude.

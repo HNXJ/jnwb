@@ -9,7 +9,7 @@
 #     not count (scripts/ci_gate.py --tip; override: JNWB_PUSH_OVER_RED=1, for the push that carries
 #     the fix).
 # An artifacts-only push first runs the stack checks: scripts/harness_gate.py (gate 15 among them)
-# and tests/test_stack_item_length.py (ruled 2026-11-09).
+# and tests/test_stack_item_length.py.
 # Usage: jnwb_push.sh <dir> [branch=dev] [--item <id>]
 #   --item <id>: also refuse a push whose diff against origin/<branch> leaves the Writes of that
 #   todo item (read from origin/<branch>), beyond the always-writable stacks and changelog paths.

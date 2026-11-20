@@ -8,7 +8,7 @@ replace. Scope source: `artifacts/process/release_plan.json`; item text: `artifa
 row in the commit that closes its item (minor update); rewrite the whole checklist after the release
 (major update).
 
-Current (2026-11-19, stacks read at `e6baac97`): **12/100 verified**. Full suite on `e6baac97`: 11021 passed, 0 failed (run in this clone, stamp equal to HEAD); `origin/dev` = `e6baac97`; `CI/CD` runs at that SHA: both completed and succeeded (44601543097, 44601555186). Gates 0 of 6 complete. Progress 12 of 60 (17-103 and 17-79 closed). Receipts bind to the SHA they name; a later commit needs its own.
+Current (2026-11-20, stacks updated for `17-98`): **17/100 verified**. Full suite on `6d49f88c`: 11031 passed, 0 failed (run in this clone, stamp equal to HEAD); `origin/dev` = `6d49f88c` (CI runs `44820956865`, `44820970267`). Gates 0 of 6 complete. Progress 17 of 60 (17-103, 17-79 and 17-98 closed). Receipts bind to the SHA they name; a later commit needs its own.
 
 ## Required gates (40): all-or-nothing, each complete only when every requirement passes
 
@@ -34,7 +34,7 @@ reviewer accepted it. An item in flight earns nothing.
 |---|---|---|---|---|---|
 | S1 | The largest functions split below a stated complexity | 10 | ~~17-79~~ | 1 of 1 | 10 |
 | S2 | One home per helper in jnwb, scripts and tests; dead code and unused constants removed | 10 | 17-94, 17-95, 17-96, 17-142 | 0 of 4 | 0 |
-| S3 | Tests named by subject, not by the event that produced them | 10 | 17-97, 17-98 | 0 of 2 | 0 |
+| S3 | Tests named by subject, not by the event that produced them | 10 | 17-97, ~~17-98~~ | 1 of 2 | 5 |
 | S4 | Docs and examples thinned; one home per invariant | 10 | 17-99, 17-100, 17-101, 17-102, ~~17-103~~ | 1 of 5 | 2 |
 | S5 | Code and prose matched to the style standards; the fact graph build made faster | 10 | 17-104, 17-127, 17-128, 17-129 | 0 of 4 | 0 |
 | S6 | Validations on external ground truth | 10 | 17-144, roadmap 15-11, 12-21, 16-12 | 0 of 4 | 0 |
@@ -44,12 +44,12 @@ landed; sites remain, item open), 17-147 (parts landed, item open).
 
 ## Stack snapshot, 2026-11-19 at `e6baac97`
 
-Read from `artifacts/todo_stack.md` (18 items, all `deferred-0.2.17`), `artifacts/open_stack.md` (7 rows)
+Read from `artifacts/todo_stack.md` (17 items, all `deferred-0.2.17`), `artifacts/open_stack.md` (7 rows)
 and `artifacts/roadmap.md` (15 rows: 3 for 0.2.17, 12 for 0.2.18 and later, which do not count here).
 
 | State | Items |
 |---|---|
-| Eligible now, no blocker | 17-94, 17-97, 17-98, 17-100, 17-104; the remainders of 17-95 and 17-147 |
+| Eligible now, no blocker | 17-94, 17-97, 17-100, 17-104; the remainders of 17-95 and 17-147 |
 | Waits on another item | 17-128 (17-94); 17-142 (17-94, 17-95); 17-127 (17-104); 17-150 (17-147); 17-129 (17-99, 17-100); 17-151 (17-99, 17-100, 17-129) |
 | Waits on Hamm | 17-96 (public names), 17-99 (AGENTS.md, CONTRIBUTING.md, fact stack), 17-101 (track or drop), 17-102 (which files are receipts), 17-151 (any changed product promise), 17-147 (gate 15: row `17-147-gate15`) |
 | Waits on an outside input | 17-144 (the three isi_cv commits, row `17-144-src`); roadmap 15-11 and 12-21 (Bastos simulation code, a broadband jaxfne field); 16-12 (real-data receipts computed without jnwb) |
@@ -84,6 +84,7 @@ One row in the §2 project-state table: `| release checklist | artifacts/process
 
 | Date | SHA | Change |
 |---|---|---|
+| 2026-11-20 | the commit that closes `17-98` | 17-98 closed: removed internal process vocabulary across `jnwb/`, `scripts/`, and `tests/`, and expanded `tests/test_shipped_code_names_no_process_ids.py` to enforce the boundary. S3 1 of 2 (+5 pts); score 12/100 -> 17/100. |
 | 2026-11-20 | the commit that closes `vflip2-receipt` | Closed open row `vflip2-receipt`: regenerated `vflip2_separation_0.2.14` at 0.2.16 (all 400 draws, seeds, and threshold `22.800214862368193` identical; `estimator_sha256`, `declared_version`, and `environment.jnwb` updated) and added hash-currency tests in `tests/test_fusion_agreement.py` and `tests/test_calibration_hash_walker.py`. Gate A1 open rows reduced 8 -> 7; score stays 12/100. |
 | 2026-11-18 | `b442e2b1` | Created. Provisional score 5/100 (acceptance 5 for the harness gate alone; scope 0). Superseded by the next row; kept as history. |
 | 2026-11-18 | `b442e2b1` | Rescored 0/100. Gates are all-or-nothing, so A3 earns 0 while the docs build and review are open. Weights labelled provisional; mapping audited; conflicts listed. |

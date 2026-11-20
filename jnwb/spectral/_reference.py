@@ -155,7 +155,7 @@ def voltage_curvature_1d(
     Estimates spatial voltage curvature (Nicholson & Freeman, 1975):
         Curvature(z_i) = (V[i+1] - 2*V[i] + V[i-1]) / (pitch_um * 1e-6)^2
 
-    Important Scientific Distinction:
+    Scientific Distinction:
         Voltage curvature is the purely electrical second derivative (in V/m^2 when potential is in Volts).
         It does NOT assume a tissue conductivity tensor and is NOT physical Current Source Density (CSD).
         To compute physical CSD in A/m^3, call ``current_source_density_1d(..., conductivity_s_per_m=...)``.

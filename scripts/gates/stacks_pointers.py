@@ -137,14 +137,14 @@ def check_stack_pointers_resolve(repo_root: Optional[Path] = None) -> List[str]:
             name = _declared_name(raw)
 
             if label == "Blocked by":
-                # Prose blockers ("all repairs", "a Hamm ruling ...") name no item and resolve to
+                # Prose blockers ("all repairs", "a human decision ...") name no item and resolve to
                 # nothing. Only the ids are resolvable, and each one must be live.
                 #
                 # `name`, the first sentence, and NOT the whole label-bounded span. Measured: the
                 # span version reported 12 violations on a pristine tree and every one was the
                 # parser's. An item that has been unblocked records why on the line after the
                 # field -- 06-06 declares `Blocked by: none.` and then "06-01 and 06-02 were both
-                # ruled 2026-09-19 and deleted as complete" -- so a span running to the next
+                # closed 2026-09-19 and deleted as complete" -- so a span running to the next
                 # field label reads the history as the declaration and flags exactly the items
                 # that are correctly maintained. **What the narrowing cannot see:** an id in a
                 # second sentence of the field. That is deliberate -- after the first full stop

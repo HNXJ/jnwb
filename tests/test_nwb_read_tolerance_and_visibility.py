@@ -1,6 +1,6 @@
 """The read path refuses by default, tolerates on request, and says what it repaired.
 
-Two rulings, 2026-09-19.
+Two contracts, 2026-09-19.
 
 ``allow_missing`` exists because a consumer's 9 of 22 files lack ``session_description`` on disk.
 jnwb refused them at ``nwb_io.py``, and so does bare pynwb. ``artifacts/goal.md`` section 4 was

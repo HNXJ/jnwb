@@ -256,7 +256,7 @@ def spectral_tilt(
     Fits log10(Power) = log10(Offset) + slope * log10(freq) over the specified
     frequency range.
 
-    Important Scientific Distinction:
+    Scientific Distinction:
         This routine performs an unconstrained linear fit across the chosen band; it does
         NOT model or isolate narrow-band oscillatory peaks (e.g. alpha or gamma rhythms).
         Prominent rhythms falling within `freq_range` will tilt the regression line. Select
@@ -455,7 +455,7 @@ def aperiodic_fit(
     `L(f) = b - chi * log10(f)`. In `'knee'` mode, `k > 0` is optimized to capture
     a low-frequency plateau.
 
-    Important Scientific Distinctions:
+    Scientific Distinctions:
         - This function operates strictly on pre-computed `(freqs, psd)` arrays;
           it does not recompute Welch periodograms or require time-series data.
         - By neuroscience convention (Donoghue et al. 2020), `exponent` (chi) is

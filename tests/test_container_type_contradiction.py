@@ -213,7 +213,7 @@ def test_a_clean_file_raises_no_contradiction_warning(tmp_path):
 def test_a_container_wrapping_many_series_warns_once(tmp_path):
     """The stop condition, as a test.
 
-    A warning nobody can read through is not the ruled behaviour. An `LFP` container wrapping
+    A warning nobody can read through is not the intended behaviour. An `LFP` container wrapping
     three mistyped series is one container, so it produces one warning naming all three, not
     three warnings.
     """
@@ -254,8 +254,8 @@ def test_a_series_with_no_unit_does_not_warn(tmp_path):
 
 
 def test_the_warning_is_exported_by_name():
-    """A caller filters or catches it as `jnwb.ContainerTypeContradictionWarning` (ruled
-    2026-09-29, D8 (a)), the same class `inspect` raises."""
+    """A caller filters or catches it as `jnwb.ContainerTypeContradictionWarning`,
+    the same class `inspect` raises."""
     assert "ContainerTypeContradictionWarning" in jnwb.__all__
     assert jnwb.ContainerTypeContradictionWarning is ContainerTypeContradictionWarning
 

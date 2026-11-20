@@ -394,7 +394,7 @@ _WINDOWED = [
 
 
 class TestAWindowPassedPositionally:
-    """The window of the six windowed functions is keyword-capable (ruling 2026-10-28).
+    """The window of the six windowed functions is keyword-capable.
 
     A positional window still works and warns FutureWarning naming the keyword; an omitted
     window and two positional windows raise TypeError.

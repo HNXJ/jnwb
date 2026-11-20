@@ -222,7 +222,7 @@ class TestReleaseGateOrder:
             assert main.index(cheaper) < suite, f"{cheaper} runs after the suite"
 
     def test_step_7_runs_the_installed_smoke_script_as_ci_does(self):
-        """Hamm 2026-10-13: one installed smoke. STEP 7 runs scripts/smoke_installed.py with the
+        """One installed smoke. STEP 7 runs scripts/smoke_installed.py with the
         arguments CI passes, from the staging directory, with PYTHONPATH stripped."""
         main = self._main_source()
         step_7 = main[main.index("=== STEP 7"):main.index("=== STEP 8")]

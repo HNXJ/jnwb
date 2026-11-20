@@ -1208,9 +1208,9 @@
   var REPLICATION_COLUMNS = ['Verdict', 'By', 'Date', 'Scope', 'Seed', 'Report sha256', 'Note'];
   var DIGEST_CHARS = 12;
 
-  // The record's verdict words with the dashboard's ruled word for each (2026-10-24):
+  // The record's verdict words with the dashboard's display word for each:
   // reproduces reads reproduced, partial reads mixed, does_not reads failed. Paper and
-  // Methods chips show the ruled word; the Library axis keeps its own words (verified,
+  // Methods chips show the display word; the Library axis keeps its own words (verified,
   // partial, unverified).
   var RECORD_LABELS = { reproduces: 'reproduced', partial: 'mixed', does_not: 'failed' };
 

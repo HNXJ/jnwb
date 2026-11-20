@@ -619,7 +619,7 @@ def pair_stats(kind: str, count: int, z0s: List[int], tables: Dict[tuple, dict])
     """The disagreement between the A and B records at one count, over all depths.
 
     Gated: a defined window where both oracles find a planted crossover must agree within one
-    contact. Indeterminate: a defined window where exactly one finds one (ruled; not gated).
+    contact. Indeterminate: a defined window where exactly one finds one (not gated).
     Uncertainty only: the picked crossovers, the picked bands and their edge shifts.
     """
     n_windows = n_defined = n_indet = planted_bad = planted_nan_both = picked_bad = 0

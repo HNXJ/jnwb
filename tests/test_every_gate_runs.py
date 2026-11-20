@@ -1,6 +1,6 @@
 """The harness reports every gate's state, and PASS means every gate ran and passed.
 
-Recorded as the second of three repairs ruled on 2026-09-19. The runner returned at the first
+Recorded as the second of three repairs of 2026-09-19. The runner returned at the first
 failing gate. Agent worktrees inside the repository tripped gate 2, the runner stopped, and gates
 3 through 13 did not execute -- including gate 4, which held a second and genuine instance of the
 same defect and became visible only once gate 2 was fixed. One PASS line where thirteen were

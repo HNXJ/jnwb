@@ -83,13 +83,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `tests/test_*.py`.
 - 17-97: `test_batch_a_regressions.py`, `test_independent_audit_semantics.py`, `test_integration_0_2_1.py`, `test_audit_reproducers.py` are named by event; 29 same-subject files (`test_rng_*` 4, `test_vflip2*` 6, `test_xflip*` 7, `test_zflip*` 3, `test_api_md_*` 3, ...) split 3 to 7 ways. Check: merged by subject with the collected test count unchanged.
 
-### 17-98 Process vocabulary in tests, scripts and jnwb comments
-
-Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: none.
-Writes: `tests/*.py`, `scripts/**/*.py`, `jnwb/__init__.py`, `jnwb/_backend.py`, `jnwb/_declarations.py`.
-- 17-98: 130 hits of "ruled", "ruling" or "Hamm" in 36 files under `tests/` and `scripts/` (AGENTS.md top paragraph); "harness" in `jnwb/__init__.py:20` and `_backend.py:31`; "the fact stack's" in `_declarations.py:36`; five "Important" labels in `jnwb/`. Check: the grep, minus machine literals and the tests that read the stacks, returns 0.
-
 ### 17-99 One home per invariant across rule and doc files
 
 Release: deferred-0.2.17.
