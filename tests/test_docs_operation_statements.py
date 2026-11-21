@@ -23,6 +23,7 @@ import pytest
 
 import jnwb
 from jnwb._lazy_exports import OPTIONAL_SUBMODULES
+from scripts import stack_parse
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS = REPO_ROOT / "docs"
@@ -39,7 +40,7 @@ def _flat(text: str) -> str:
 
 def _table_row(text: str, first_cell: str) -> list[str]:
     for line in text.splitlines():
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        cells = stack_parse.cells(line)
         if line.startswith("|") and cells and cells[0] == first_cell:
             return cells
     raise AssertionError(f"no table row starting with {first_cell!r}")
@@ -448,7 +449,7 @@ def test_the_structured_return_bullet_splits_every_result_class_by_mapping_acces
     page = _page("docs/10_operation_specifications.md")
     table = page.split("\n## 2. Operation Specifications\n", 1)[1]
     returned = {n for line in table.splitlines() if line.startswith("| `")
-                for n in _ticked(line.strip("|").split("|")[5])
+                for n in _ticked(stack_parse.cells(line)[5])
                 if re.fullmatch(r"[A-Z]\w+", n) and _result_class(n)}
     section = page.split("### 4. Structured Return Types", 1)[1].split("###", 1)[0]
     examples = set(_ticked(re.search(r"\(e\.g\. ([^)]*)\)", section).group(1)))
@@ -500,7 +501,7 @@ def test_every_parallel_draw_is_made_before_the_workers_start(monkeypatch):
             "`rng` before any worker starts") in flat
     rows = {cells[0]: cells[1] for line in page.splitlines()
             if line.startswith("| `") and line.count("|") == 3
-            for cells in [[c.strip() for c in line.strip().strip("|").split("|")]]}
+            for cells in [stack_parse.cells(line)]}
     assert set(rows) == {"`cluster_permutation_test`", "`jrsa`", "`cross_area_coherence`"}, rows
 
     # cluster_permutation_test: the workers get spawn_seeds(rng, n_permutations).

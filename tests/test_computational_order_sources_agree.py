@@ -9,6 +9,8 @@ method, scale set or receipt behind it.
 import re
 from pathlib import Path
 
+from scripts import stack_parse
+
 ROOT = Path(__file__).resolve().parents[1]
 INVENTORY = ROOT / "artifacts" / "benchmarks" / "performance" / "complexity_inventory.md"
 BENCHMARK = ROOT / "artifacts" / "evidence" / "0.2.6" / "computational_order.md"
@@ -20,7 +22,7 @@ def inventory_rows(text):
     """Map each ``INV-NN`` label to its cells, from the bounds table."""
     rows = {}
     for line in text.splitlines():
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        cells = stack_parse.cells(line)
         if cells and re.fullmatch(r"INV-\d{2}", cells[0]):
             assert cells[0] not in rows, f"label {cells[0]} appears twice"
             rows[cells[0]] = cells
@@ -80,7 +82,7 @@ def citation_defects(benchmark_text, inventory_text):
     rows = inventory_rows(inventory_text)
     defects = []
     for line in benchmark_text.splitlines():
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        cells = stack_parse.cells(line)
         if not cells or not re.fullmatch(r"INV-\d{2}", cells[0]):
             continue
         label = cells[0]
@@ -144,7 +146,7 @@ def table_rows(text, required):
         if not line.startswith("|"):
             header = None
             continue
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        cells = stack_parse.cells(line)
         if header is None:
             header = cells if set(required) <= set(cells) else []
         elif header and not all(re.fullmatch(r":?-+:?", c) for c in cells):
