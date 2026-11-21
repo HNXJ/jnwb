@@ -45,7 +45,7 @@ paths = canvas.save_and_seal("figures", "sorted_heatmap", argument)
 # paths: {'argument', 'html', 'svg', 'png'} -> Path
 ```
 
-![Sorted heatmap of 40 synthetic units across 70 time bins, exported by jnwb.vis](assets/vis_sorted_heatmap.png)
+![Sorted heatmap of 40 synthetic units across 70 time bins, exported by jnwb.vis](assets/jnwb_vis_sorted_heatmap.png)
 
 Synthetic: the heatmap the snippet above draws, exported by `save_and_seal` as PNG.
 

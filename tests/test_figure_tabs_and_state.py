@@ -41,7 +41,7 @@ PAIR = (
 OUTSIDE_THE_HOOK = {
     "index.md": "the Figures gallery is raw HTML tiles, where the hook cannot place tabs",
     "quickstart.md": "assets/jnwb_quickstart.png comes from examples/quickstart_jnwb.py, which has no registry entry",
-    "vis.md": "assets/vis/sorted_heatmap.png is a jnwb.vis Plotly export, which has no registry entry",
+    "vis.md": "assets/jnwb_vis_sorted_heatmap.png is a jnwb.vis Plotly export, which has no registry entry",
 }
 FIGURE_REF = re.compile(r"assets/(?:figures|vis)/|assets/jnwb_[a-z_]+\.png")
 
