@@ -27,6 +27,8 @@ from ._spread import is_constant
 from .decoding import _fit_predict_linear_svm, fold_majority_baseline
 from .statistics import StatisticalAnalysis
 
+_SAME_DISTANCE_RTOL = 1e-9  # relative tolerance on equal peak distances; numerical, no source
+
 
 #: Two durations closer than this compare as equal: below one sample at any rate under
 #: 1 GHz, and above the rounding error of an interval between spike times stored as
@@ -506,7 +508,7 @@ def spatial_derivative_sharpness(waveform, channel_positions, *, threshold: floa
             f"peak channel's position; distance to them is zero."
         )
     d = float(dist[others].min())
-    nearest = np.flatnonzero(others & np.isclose(dist, d, rtol=1e-9, atol=0.0))
+    nearest = np.flatnonzero(others & np.isclose(dist, d, rtol=_SAME_DISTANCE_RTOL, atol=0.0))
     drops = (amplitudes[peak] - amplitudes[nearest]) / (amplitudes[peak] * d)
     sharpness = float(drops.mean())
     return {

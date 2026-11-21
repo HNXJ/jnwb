@@ -729,6 +729,13 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
     When ``name`` is omitted:
     - use the sole continuous series when exactly one exists (in acquisitions or processing modules);
     - otherwise raise :class:`AmbiguousAcquisitionError`.
+
+    Raises:
+        AcquisitionNotFoundError: the file holds no acquisition or processing continuous series, or
+            `name` names none of them.
+        AmbiguousAcquisitionError: `name` is omitted and several continuous series exist; `name`
+            names a series in more than one container, or names both an acquisition and a processing
+            series; or a bare processing name is shared by several processing entries.
     """
     def _resolve(nwb: NWBFile) -> str:
         acq_names = sorted(nwb.acquisition.keys()) if nwb.acquisition else []
@@ -821,6 +828,12 @@ def unit_spike_times(path_or_nwb: InspectInput, unit_index: int = 0) -> np.ndarr
         NWB path or in-memory :class:`pynwb.NWBFile`.
     unit_index:
         Row index in the units table (0-based).
+
+    Raises
+    ------
+    UnitNotFoundError
+        the file has no units table, `unit_index` is outside `0..n_units - 1`, or the units table
+        has no `spike_times` column.
     """
 
     def _read(nwb: NWBFile) -> np.ndarray:

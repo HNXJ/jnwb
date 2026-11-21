@@ -47,6 +47,8 @@ import numpy as np
 
 from ._bins import refuse_nonfinite_times
 
+_MAD_FLOOR = 1e-9  # floor for a zero median absolute deviation; numerical guard, no external source
+
 Z_THRESH = 6.0                       # cross-channel-synchrony threshold, see docstring above
 
 
@@ -136,7 +138,7 @@ def _floored_robust_z(values, centre):
     """Robust z over the last axis: (values - centre) / (1.4826 * MAD), with the MAD floored at
     1e-9 so a constant channel gives z = 0, not NaN."""
     mad = np.median(np.abs(values - centre), axis=2, keepdims=True) * 1.4826
-    mad = np.where(mad < 1e-9, 1e-9, mad)
+    mad = np.where(mad < _MAD_FLOOR, _MAD_FLOOR, mad)
     return (values - centre) / mad
 
 

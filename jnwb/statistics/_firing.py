@@ -100,6 +100,10 @@ def paired_fire_prob_test(
         zero. Stat. Appl. Genet. Mol. Biol. doi:10.2202/1544-6115.1585. The
         risk-difference interval is a paired percentile bootstrap and the odds
         ratio a McNemar-style discordant-pair estimate, neither paper's.
+
+    Raises:
+        ValueError: `fires_target` and `fires_null` differ in length, or `n_shuffles` or
+            `n_bootstrap` is below 1.
     """
     rng, seed_entropy = surrogate_rng(rng, "paired_fire_prob_test")
     refuse_nonfinite_times(fires_target, "paired_fire_prob_test", "fires_target")

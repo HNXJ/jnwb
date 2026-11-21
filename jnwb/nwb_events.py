@@ -110,6 +110,9 @@ def resolve_interval_table(path_or_nwb: NWBInput, table: str | None = None) -> s
     * use ``trials`` if present;
     * else use the sole interval table when exactly one exists;
     * else raise :class:`AmbiguousIntervalTableError`.
+
+    Raises:
+        TypeError: `path_or_nwb` is neither a path (`str` or `Path`) nor an open `pynwb.NWBFile`.
     """
     if not isinstance(path_or_nwb, (NWBFile, str, Path)):
         raise TypeError(
@@ -326,6 +329,12 @@ def events(
     -------
     EventTable
         All rows from the selected table in original order. Onsets are in seconds.
+
+    Raises
+    ------
+    ColumnNotFoundError
+        `code_column` is given explicitly and is not a column of the table; the message lists the
+        columns. The default `codes` name only warns.
     """
     def _build(nwb: NWBFile) -> EventTable:
         name, df = _read_interval_dataframe(nwb, table)
@@ -552,6 +561,11 @@ def edges_near_events(
         ``rising_lag_s``, ``falling_edge_s`` and ``falling_lag_s``. The edge is the candidate
         nearest the event (ties to the earlier one); a lag is ``edge_s - event_s``, so negative
         means the edge came first. NaN where the window holds no edge of that kind.
+
+    Raises
+    ------
+    ValueError
+        `threshold` is not finite.
     """
     before_s, after_s = _window_bounds(window_s)
     if not np.isfinite(float(threshold)):

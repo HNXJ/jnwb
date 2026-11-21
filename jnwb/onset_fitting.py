@@ -17,6 +17,9 @@ from ._spread import is_constant, r_squared
 from ._units import resolve_unit_alias
 from .unit_quality import _positive_finite
 
+_MIN_AMPLITUDE = 1e-6  # floor on the initial amplitude guess; numerical guard, no external source
+_BOUNDARY_TOL_FLOOR = 1e-9  # t0-boundary tolerance floor; numerical guard, no external source
+
 DEFAULT_TAU_MS = 30.0
 
 
@@ -247,7 +250,7 @@ def fit_exponential_onset(
         n0 = max(1, t_ms.size // 10)
         baseline0 = float(np.mean(rate[:n0]))
 
-    amp0 = float(max(rate.max() - baseline0, 1e-6))
+    amp0 = float(max(rate.max() - baseline0, _MIN_AMPLITUDE))
     t0_lo = t0_bounds_ms[0] if t0_bounds_ms[0] is not None else float(t_ms.min())
     t0_hi = t0_bounds_ms[1] if t0_bounds_ms[1] is not None else float(t_ms.max())
     if t0_hi <= t0_lo:
@@ -306,7 +309,7 @@ def fit_exponential_onset(
     # Boundary constraint status on outer t0_bounds:
     # "lower" | "upper" means the optimizer solution is constrained against outer bounds.
     span = max(t0_hi - t0_lo, 1.0)
-    tol = max(np.finfo(float).eps * span * 100.0, 1e-9)
+    tol = max(np.finfo(float).eps * span * 100.0, _BOUNDARY_TOL_FLOOR)
     if (res.active_mask[0] == -1 and refine_lo == t0_lo) or (t0 <= t0_lo + tol):
         bound_status = "lower"
     elif (res.active_mask[0] == 1 and refine_hi == t0_hi) or (t0 >= t0_hi - tol):

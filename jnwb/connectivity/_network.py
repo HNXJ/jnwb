@@ -99,6 +99,9 @@ def directed_connectivity(X, Y, method: str = "granger", **kwargs) -> DirectedRe
     Example:
         >>> for m in ('granger', 'psi', 'te'):
         ...     r = directed_connectivity(v1, pfc, method=m, **({'fs': 1000.} if m == 'psi' else {}))
+
+    Raises:
+        ValueError: `method` is not a known directed method.
     """
     key = str(method).lower()
     if key not in DIRECTED_METHODS:
@@ -172,6 +175,10 @@ def directed_network(
         Geweke, J. F. (1984). Measures of conditional linear dependence and feedback
         between time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1984.10477110
         -- the conditional measure ``conditional=True`` fits for each pair.
+
+    Raises:
+        ValueError: fewer than two signals are given; `labels` differs in length from the signals;
+            `conditional=True` with a pairwise method; or `conditional=True` together with `Z`.
     """
     _check_signal_class("directed_network", signal_class, 1)
     if isinstance(signals, dict):

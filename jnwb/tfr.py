@@ -122,6 +122,12 @@ def morlet_wavelet(
         ``sigma_t = n_cycles / (2 pi f0)``. ``normalization='energy'`` is the paper's
         unit-energy normalization (section 3c, eq. 6); the default ``'amplitude'`` is
         this function's own, chosen so a unit cosine reads as amplitude 1.
+
+    Raises:
+        ValueError: `f0` or `fs` is not finite, or `f0` is not positive, or `f0` is at or above
+            `fs / 2`; `fs` is not positive; `n_cycles` is not finite or not positive; `cutoff_sigma`
+            is not finite or is negative; or `normalization` is neither `'amplitude'` nor
+            `'energy'`.
     """
     if not np.isfinite(f0):
         raise ValueError(f"f0 must be finite, got {f0}")
@@ -246,6 +252,14 @@ def complex_tfr(
         paper draws the cone at the e-folding time sqrt(2) s of the Morlet wavelet
         (Table 1), which is ``coi_sigma=np.sqrt(2)`` here. The default masks every sample
         the kernel's zero padding reaches, 4 sigma_t by default, which is wider.
+
+    Raises:
+        TypeError: `data` is not numeric.
+        ValueError: `data` holds NaN or Inf; `fs` is not positive; `coi_sigma` is negative; `dtype`
+            is not complex; `freqs` is not a non-empty 1-D array, holds a non-positive value, is not
+            strictly increasing, or reaches `fs / 2`; `n_cycles` is not positive, or is an array
+            whose shape differs from `freqs` or holds a non-positive value.
+        IndexError: `time_axis` is out of bounds for `data`.
     """
     arr = np.asarray(data)
     if not np.issubdtype(arr.dtype, np.number):
