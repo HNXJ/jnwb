@@ -6,8 +6,6 @@ from __future__ import annotations
 
 import numpy as np
 
-_BIN_EDGE_TOL_ABS = 1e-9  # bin-edge tolerance floor; numerical guard, no external source
-
 
 def _count_tolerance(start: float, end: float, width: float) -> float:
     """How far from an integer a bin count over ``[start, end)`` can land from rounding alone.
@@ -15,7 +13,7 @@ def _count_tolerance(start: float, end: float, width: float) -> float:
     It grows with the magnitude of the endpoints, because an absolute window hours into a
     recording carries rounding of order 1e-8 bins at 1 ms.
     """
-    return _BIN_EDGE_TOL_ABS + 16 * np.finfo(float).eps * max(abs(start), abs(end)) / width
+    return 1e-9 + 16 * np.finfo(float).eps * max(abs(start), abs(end)) / width
 
 
 def bins_within(span, bin_width) -> int:
