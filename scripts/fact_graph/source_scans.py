@@ -6,10 +6,11 @@ import ast
 import io
 import json
 import re
-import subprocess
 import tokenize
 from pathlib import Path, PurePosixPath
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
+
+from scripts.gates.boundary import git
 
 # ------------------------------------------------------------------------ source scans
 
@@ -615,8 +616,8 @@ def silent_handler_violations(source: str, path: str,
 
 def _tracked_files(root: Path) -> List[str]:
     """Every tracked file of the repository, as sorted posix paths."""
-    listed = subprocess.run(["git", "-C", str(root), "ls-files"],
-                            capture_output=True, text=True, encoding="utf-8", check=True)
+    listed = git("-C", str(root), "ls-files", encoding="utf-8")
+    listed.check_returncode()
     return sorted(line for line in listed.stdout.splitlines() if line)
 
 
@@ -672,8 +673,8 @@ def _text_scans(root: Path, prose: Sequence[str], skill_files: Sequence[str],
 
 def _tracked_python(root: Path) -> List[str]:
     """Every tracked Python file of the repository, as sorted posix paths."""
-    listed = subprocess.run(["git", "-C", str(root), "ls-files", "--", "*.py"],
-                            capture_output=True, text=True, encoding="utf-8", check=True)
+    listed = git("-C", str(root), "ls-files", "--", "*.py", encoding="utf-8")
+    listed.check_returncode()
     return sorted(line for line in listed.stdout.splitlines() if line)
 
 

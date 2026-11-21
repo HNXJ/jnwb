@@ -33,7 +33,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 import tomllib
 from collections import Counter
@@ -674,15 +673,13 @@ def _digest(path: Path) -> str:
 
 
 def _tracked(rel: str) -> bool:
-    proc = subprocess.run(["git", "ls-files", "--error-unmatch", "--", rel], cwd=REPO_ROOT,
-                          capture_output=True, text=True, check=False)
+    proc = git("ls-files", "--error-unmatch", "--", rel, cwd=REPO_ROOT)
     return proc.returncode == 0
 
 
 def _uncommitted(rel: str) -> bool:
     """True when the file differs from HEAD, so its bytes are not the committed ones."""
-    proc = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", rel], cwd=REPO_ROOT,
-                          capture_output=True, text=True, check=False)
+    proc = git("diff", "--quiet", "HEAD", "--", rel, cwd=REPO_ROOT)
     return proc.returncode != 0
 
 
