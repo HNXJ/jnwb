@@ -252,7 +252,7 @@ def complex_tfr(
         raise TypeError(f"data must be numeric, got dtype {arr.dtype}")
     if not np.all(np.isfinite(arr)):
         raise ValueError("data contains NaN or Inf values")
-    if not (np.isfinite(fs) and fs > 0):
+    if fs <= 0:
         raise ValueError(f"fs must be positive, got {fs}")
     if coi_sigma is not None and coi_sigma < 0:
         raise ValueError(f"complex_tfr: coi_sigma must be non-negative, got {coi_sigma}")

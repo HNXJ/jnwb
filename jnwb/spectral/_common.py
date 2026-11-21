@@ -88,5 +88,3 @@ def _resolve_fs(
     if sampling_rate is not None:
         return _require_positive_fs(sampling_rate, func_name)
     raise ValueError(f"{func_name} requires sampling rate `fs` (in Hz).")
-
-
