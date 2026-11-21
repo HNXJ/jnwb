@@ -38,8 +38,9 @@ or `builtin` may or may not run, so the
 directories are the union of both readings: a push is denied if any of them is a jnwb checkout. Each
 cd names two words, the one read as before (`cd -P X` reads `-P`) and the one after its options
 (`cd -- X`, `cd X>/dev/null`), and `cd -` names no directory, so a push after it is denied. A push
-whose command is a `$` word, a `$(...)` or `eval` is refused with a reason: the guard cannot read what
-it runs. A backslash-newline is joined and the joined text is checked too. The guard reads text, not a
+whose command is a `$` word (`$X push`) or a `$(...)` is refused with a reason: the guard cannot read what
+it runs. Any `eval` is denied unconditionally, push or not (an accepted over-denial). A backslash-newline is
+joined and the joined text is checked too. The guard reads text, not a
 shell. A payload that cannot be read or interpreted is denied with a message: the guard cannot tell
 what it would push.
 
@@ -521,9 +522,11 @@ def _cd_target(s, j):
 
 
 @lru_cache(maxsize=4096)
-def _cd_dirs(base, old_raw, new_raw):
+def _cd_dirs(base, old_raw, new_raw, home):
     """The directories one cd can leave ``base`` in: the word read as before, and the word after the options.
-    A word of `-`, or no word, leaves an unknown directory (None), which a push from is denied."""
+    A word of `-`, or no word, leaves an unknown directory (None), which a push from is denied. ``home`` is
+    ``os.path.expanduser("~")``, the value `~` expands to in unquote; it is part of the cache key, so a changed
+    HOME is never answered from a result computed for another."""
     dirs = [under(base, unquote(old_raw))]
     if new_raw is None or _shell_value(new_raw) == "-":
         dirs.append(None)
@@ -558,7 +561,8 @@ def _settle(actions, index, pos, bases, stack):
                 bases = stack.pop()[1]
         else:
             old_raw, new_raw, prefixed = payload
-            moved = tuple(d for base in bases for d in _cd_dirs(base, old_raw, new_raw))
+            home = os.path.expanduser("~")
+            moved = tuple(d for base in bases for d in _cd_dirs(base, old_raw, new_raw, home))
             bases = _limit(bases + moved if prefixed else moved)
         index += 1
     return index, bases

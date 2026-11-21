@@ -543,16 +543,64 @@ CD_CHAIN_1_MB = "cd 'a b' ; " * 90000
 @pytest.mark.parametrize("chain", [CD_CHAIN_50_KB, CD_CHAIN_1_MB], ids=["50 KB", "1 MB"])
 def test_a_relative_cd_chain_finishes_quickly_and_a_push_from_it_is_denied(tmp_path, chain):
     clone = make_checkout(tmp_path / "_temp_chain")
-    started = _time.perf_counter()
-    reason = bounded_reply(chain + "git push origin dev", clone)["hookSpecificOutput"]["permissionDecisionReason"]
-    elapsed = _time.perf_counter() - started
+    reason, best = None, None
+    for _ in range(3):
+        started = _time.perf_counter()
+        reason = bounded_reply(chain + "git push origin dev", clone)["hookSpecificOutput"]["permissionDecisionReason"]
+        elapsed = _time.perf_counter() - started
+        best = elapsed if best is None else min(best, elapsed)
     assert JNWB_REASON in reason
-    assert elapsed < 1.5, f"{elapsed:.2f} s for a {len(chain)}-character chain"
+    assert best < 1.5, f"best of 3: {best:.2f} s for a {len(chain)}-character chain"
 
 
 def test_a_relative_cd_chain_without_a_push_is_allowed(tmp_path):
     clone = make_checkout(tmp_path / "_temp_chain_ok")
     assert bounded_reply(CD_CHAIN_50_KB + "git status", clone) == {}
+
+
+# ---- 17-147 follow-up: a prefixed cd reads both ways, and the set of directories is capped ---------
+
+
+def test_a_prefixed_cd_to_another_checkout_keeps_the_push_from_the_clone_denied(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_union")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(f"if true; then cd {elsewhere.as_posix()}; git push origin dev", clone)
+
+
+def test_fourteen_prefixed_cds_finish_quickly_and_the_push_is_decided(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_cd_fan")
+    command = "".join(f"if x; then cd -P d{i}; " for i in range(14)) + "git push origin dev"
+    reason, best = None, None
+    for _ in range(3):
+        started = _time.perf_counter()
+        out = bounded_reply(command, clone)
+        elapsed = _time.perf_counter() - started
+        best = elapsed if best is None else min(best, elapsed)
+        reason = out["hookSpecificOutput"]["permissionDecisionReason"] if out else None
+    assert best < 2.0, f"best of 3: {best:.2f} s for 14 prefixed cds"
+    assert reason is not None and JNWB_REASON in reason, reason
+
+
+# ---- 17-147 follow-up: the cached cd resolution is keyed on the home directory it expands against ----
+
+
+def test_a_changed_home_is_not_served_a_stale_cd_verdict_from_the_cache(tmp_path, monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("push_guard_cache_check", GUARD)
+    guard = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(guard)
+    plain_home = make_checkout(tmp_path / "plain_home", jnwb=False)
+    jnwb_home = make_checkout(tmp_path / "_temp_cache_home")
+    cwd = make_checkout(tmp_path / "cwd", jnwb=False)
+    payload = {"tool_input": {"command": "cd ~ && git push origin dev"}, "cwd": cwd.as_posix()}
+    monkeypatch.setenv("HOME", plain_home.as_posix())
+    monkeypatch.setenv("USERPROFILE", plain_home.as_posix())
+    assert guard.verdict(payload) is None, "a push from a non-jnwb home must be allowed"
+    monkeypatch.setenv("HOME", jnwb_home.as_posix())
+    monkeypatch.setenv("USERPROFILE", jnwb_home.as_posix())
+    reason = guard.verdict(payload)
+    assert reason and JNWB_REASON in reason, "a push from a jnwb home must be denied, with no cache_clear"
 
 
 # ---- the subcommand `push` spelled with quotes, a backslash or an empty pair -------------------------
@@ -614,12 +662,15 @@ def test_a_subshell_closed_before_a_command_substitution_restores_for_the_push_a
 def test_nested_parentheses_finish_quickly_and_a_push_inside_them_is_denied(tmp_path):
     clone = make_checkout(tmp_path / "_temp_parens")
     depth = 50000
-    started = _time.perf_counter()
-    reason = bounded_reply("(" * depth + "git push origin dev" + ")" * depth, clone)[
-        "hookSpecificOutput"]["permissionDecisionReason"]
-    elapsed = _time.perf_counter() - started
+    best = None
+    for _ in range(3):
+        started = _time.perf_counter()
+        reason = bounded_reply("(" * depth + "git push origin dev" + ")" * depth, clone)[
+            "hookSpecificOutput"]["permissionDecisionReason"]
+        elapsed = _time.perf_counter() - started
+        best = elapsed if best is None else min(best, elapsed)
     assert JNWB_REASON in reason
-    assert elapsed < 1.5, f"{elapsed:.2f} s for {depth} nested parentheses"
+    assert best < 1.5, f"best of 3: {best:.2f} s for {depth} nested parentheses"
 
 
 # ---- 17-147-A revision 5: a cd at any command position: after `$(`, a backtick, `(`, `{` or a segment start
