@@ -83,6 +83,31 @@ def onset_window(st, onsets, start_s: float, stop_s: float, *, right_closed: boo
     return lo, np.maximum(hi, lo)
 
 
+def _onset_counts(spike_times, onsets, start_s, stop_s, edges, scale: float,
+                  *, right: bool, right_closed: bool) -> np.ndarray:
+    """Shared body of :func:`onset_locked_counts` and :func:`onset_locked_counts_right`.
+
+    ``right`` selects the right-labelled rule: window ``(start_s, stop_s]``, bins
+    ``(edges[i], edges[i + 1]]`` by searchsorted, low clip just above ``edges[0]``. Otherwise the
+    window is ``[start_s, stop_s)`` (``right_closed`` closes its right end), bins are
+    :func:`numpy.histogram`'s, and the clip is onto ``edges[0]``.
+    """
+    st = np.sort(np.asarray(spike_times, dtype=float), axis=None)
+    onsets = np.asarray(onsets, dtype=float).ravel()
+    lo = _first_not_below(st, onsets, float(start_s), inclusive=right)
+    hi = np.maximum(_first_not_below(st, onsets, float(stop_s), inclusive=right or right_closed), lo)
+    counts = np.zeros((onsets.size, len(edges) - 1))
+    low = np.nextafter(edges[0], np.inf) if right else edges[0]
+    for i, t0 in enumerate(onsets):
+        rel = np.clip((st[lo[i]:hi[i]] - t0) * scale, low, edges[-1])
+        if right:
+            counts[i] = np.bincount(np.searchsorted(edges, rel, side="left") - 1,
+                                    minlength=len(edges) - 1)
+        else:
+            counts[i], _ = np.histogram(rel, bins=edges)
+    return counts
+
+
 def onset_locked_counts(spike_times, onsets, start_s, stop_s, edges, scale: float,
                         *, right_closed: bool) -> np.ndarray:
     """Spike counts of each onset's window in ``edges``, counting every selected spike.
@@ -99,14 +124,8 @@ def onset_locked_counts(spike_times, onsets, start_s, stop_s, edges, scale: floa
     The train is sorted once, in float64, and each window is a binary search. A NaN sorts
     last and is never selected. Returns a float array ``(n_onsets, len(edges) - 1)``.
     """
-    st = np.sort(np.asarray(spike_times, dtype=float), axis=None)
-    onsets = np.asarray(onsets, dtype=float).ravel()
-    lo, hi = onset_window(st, onsets, start_s, stop_s, right_closed=right_closed)
-    counts = np.zeros((onsets.size, len(edges) - 1))
-    for i, t0 in enumerate(onsets):
-        rel = np.clip((st[lo[i]:hi[i]] - t0) * scale, edges[0], edges[-1])
-        counts[i], _ = np.histogram(rel, bins=edges)
-    return counts
+    return _onset_counts(spike_times, onsets, start_s, stop_s, edges, scale,
+                         right=False, right_closed=right_closed)
 
 
 def onset_locked_counts_right(spike_times, onsets, start_s, stop_s, edges,
@@ -120,17 +139,8 @@ def onset_locked_counts_right(spike_times, onsets, start_s, stop_s, edges,
     ``edges[0]``, so a selected spike that rounds onto that edge is kept. Returns a float array
     ``(n_onsets, len(edges) - 1)``.
     """
-    st = np.sort(np.asarray(spike_times, dtype=float), axis=None)
-    onsets = np.asarray(onsets, dtype=float).ravel()
-    lo = _first_not_below(st, onsets, float(start_s), inclusive=True)
-    hi = np.maximum(_first_not_below(st, onsets, float(stop_s), inclusive=True), lo)
-    counts = np.zeros((onsets.size, len(edges) - 1))
-    low = np.nextafter(edges[0], np.inf)
-    for i, t0 in enumerate(onsets):
-        rel = np.clip((st[lo[i]:hi[i]] - t0) * scale, low, edges[-1])
-        counts[i] = np.bincount(np.searchsorted(edges, rel, side="left") - 1,
-                                minlength=len(edges) - 1)
-    return counts
+    return _onset_counts(spike_times, onsets, start_s, stop_s, edges, scale,
+                         right=True, right_closed=True)
 
 
 def check_bin_label(label, func_name: str) -> None:
