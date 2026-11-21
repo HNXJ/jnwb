@@ -21,6 +21,17 @@ LAYER4_THICKNESS_MM = 127.1 / 1000 + 211.4 / 1000 + 247.5 / 1000
 #: vFLIP2.m's `omega_cut`: a best window with omega at or below it returns no result.
 OMEGA_CUT = 6.0
 
+#: vFLIP2's band limits, exclusive, in Hz: the low band lies strictly between the first pair, the
+#: high band between the second. Source: `vflip2` docstring, step 4 (vFLIP2.m get_freqbands).
+_LOW_BAND_HZ = (4, 70)
+_HIGH_BAND_HZ = (40, 150)
+#: Fewest bins a band run needs, for either sign of S1 - S2 (`vflip2` docstring, step 4).
+_MIN_LOW_BAND_BINS = 5
+#: Fewest bins a high band needs (`vflip2` docstring, step 4).
+_MIN_HIGH_BAND_BINS = 20
+#: A high band must end at or above this frequency (`vflip2` docstring, step 4; vFLIP2.m line 264).
+_HIGH_BAND_TOP_MIN_HZ = 70
+
 _ORIENTATIONS = {"both": 0, "upright": 1, "inverted": -1}
 
 
@@ -107,23 +118,23 @@ def _longest_true_run(mask: np.ndarray) -> np.ndarray:
 
 def _freqbands(freqs: np.ndarray, s1: np.ndarray, s2: np.ndarray):
     """vFLIP2.m's get_freqbands: (deep band, superficial band, orientation)."""
-    low = (freqs > 4) & (freqs < 70)
-    high = (freqs > 40) & (freqs < 150)
+    low = (freqs > _LOW_BAND_HZ[0]) & (freqs < _LOW_BAND_HZ[1])
+    high = (freqs > _HIGH_BAND_HZ[0]) & (freqs < _HIGH_BAND_HZ[1])
     run1 = _longest_true_run((s1 > s2) & low)
     run2 = _longest_true_run((s1 < s2) & low)
     deep, sup, orientation = np.array([]), np.array([]), 0
-    if run1.size >= 5 and run2.size >= 5:
+    if run1.size >= _MIN_LOW_BAND_BINS and run2.size >= _MIN_LOW_BAND_BINS:
         if freqs[run1].min() < freqs[run2].min():
             deep, orientation, ind_high = freqs[run1], -1, (s1 < s2) & high
         else:
             deep, orientation, ind_high = freqs[run2], 1, (s1 > s2) & high
-    elif run1.size >= 5:
+    elif run1.size >= _MIN_LOW_BAND_BINS:
         deep, orientation, ind_high = freqs[run1], -1, (s1 < s2) & high
-    elif run2.size >= 5:
+    elif run2.size >= _MIN_LOW_BAND_BINS:
         deep, orientation, ind_high = freqs[run2], 1, (s1 > s2) & high
     if orientation != 0:
         sup = freqs[_longest_true_run(ind_high)]
-        if sup.size < 20 or sup[-1] < 70:
+        if sup.size < _MIN_HIGH_BAND_BINS or sup[-1] < _HIGH_BAND_TOP_MIN_HZ:
             sup = np.array([])
     return deep, sup, orientation
 
@@ -527,7 +538,7 @@ def vflip2_from_lfp(
     fs = float(fs)
     if not (np.isfinite(fs) and fs > 0):
         raise ValueError(f"fs must be finite and positive, got {fs}")
-    if fs / 2 < 150:
+    if fs / 2 < _HIGH_BAND_HZ[1]:
         raise ValueError(
             f"vflip2_from_lfp: fs must be at least 300 Hz, so that the Nyquist frequency fs / 2 "
             f"reaches the 150 Hz band edge; got fs={fs:g}")
