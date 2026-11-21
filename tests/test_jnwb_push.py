@@ -18,7 +18,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-PUSH = REPO_ROOT / "scripts" / "jnwb_push.sh"
+# Appended, not prepended: prepending would put the checkout's jnwb/ ahead of an installed copy.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
+
+PUSH =REPO_ROOT / "scripts" / "jnwb_push.sh"
 CI_GATE = REPO_ROOT / "scripts" / "ci_gate.py"
 OLDER_SHA = "b" * 40
 
@@ -34,7 +40,8 @@ def _bash() -> str:
 
 
 def _git(cwd: pathlib.Path, *args: str) -> str:
-    proc = subprocess.run(("git",) + args, cwd=str(cwd), capture_output=True, text=True, check=True)
+    proc = git(*args, cwd=str(cwd))
+    proc.check_returncode()
     return (proc.stdout or "").strip()
 
 

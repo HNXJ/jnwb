@@ -28,7 +28,13 @@ import sys
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-GENERATOR = ROOT / "scripts" / "reconstruct_state.py"
+# Appended, not prepended: prepending would put the checkout's jnwb/ ahead of an installed copy.
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
+
+GENERATOR =ROOT / "scripts" / "reconstruct_state.py"
 HARNESS_GATE = ROOT / "scripts" / "harness_gate.py"
 STATE_FILE = ROOT / "artifacts" / "state.md"
 
@@ -54,14 +60,12 @@ def _git(root: pathlib.Path, *args: str) -> subprocess.CompletedProcess:
     # Identity is supplied per invocation, and signing is disabled for this throwaway fixture
     # repository only: a contributor with `commit.gpgsign = true` would otherwise block on a
     # passphrase prompt inside a test.
-    command = [
-        "git",
+    proc = git(
         "-c", "user.name=state basis fixture",
         "-c", "user.email=fixture@example.invalid",
         "-c", "commit.gpgsign=false",
-        *args,
-    ]
-    proc = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=120)
+        *args, cwd=root, timeout=120,
+    )
     assert proc.returncode == 0, f"{' '.join(args)} failed: {proc.stderr.strip()}"
     return proc
 

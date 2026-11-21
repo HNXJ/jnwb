@@ -25,10 +25,16 @@ from __future__ import annotations
 
 import pathlib
 import subprocess
+import sys
 
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+# Appended, not prepended: prepending would put the checkout's jnwb/ ahead of an installed copy.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
 
 # The cache directory. A git pathspec, so forward slashes on every platform.
 CACHE_DIR = "artifacts/developer/.cache"
@@ -45,11 +51,7 @@ ESCAPING_NAMES = [
 
 
 def _git(*args: str, repo: pathlib.Path | None = None) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["git", "-C", str(repo or REPO_ROOT), *args],
-        capture_output=True,
-        text=True,
-    )
+    return git("-C", str(repo or REPO_ROOT), *args)
 
 
 def _check_ignore(path: str) -> tuple[bool, str]:

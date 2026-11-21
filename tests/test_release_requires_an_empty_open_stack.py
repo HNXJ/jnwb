@@ -39,6 +39,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
+from scripts.gates.boundary import git  # noqa: E402
 from scripts.release_gate import (  # noqa: E402
     NEXT_CYCLE,
     RELEASE_CYCLE,
@@ -116,10 +117,10 @@ jobs:
 
 
 def _git(root, *args):
-    return subprocess.run(
-        ["git", "-C", str(root), "-c", "user.name=jnwb-test", "-c",
-         "user.email=test@example.invalid", "-c", "commit.gpgsign=false", *args],
-        capture_output=True, text=True, check=True).stdout.strip()
+    proc = git("-C", str(root), "-c", "user.name=jnwb-test", "-c",
+               "user.email=test@example.invalid", "-c", "commit.gpgsign=false", *args)
+    proc.check_returncode()
+    return proc.stdout.strip()
 
 
 def _commit(root, message):
