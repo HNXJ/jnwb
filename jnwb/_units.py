@@ -16,7 +16,32 @@ from __future__ import annotations
 import warnings
 from typing import Any
 
+import numpy as np
+
 __all__ = ["resolve_unit_alias"]
+
+
+def require_positive_fs(fs, func_name: str) -> float:
+    """A sampling rate is strictly positive and finite, everywhere in this package.
+
+    This check used to be absent, so each caller failed in its own way further down --
+    or not at all. `wpli(x, y, fs=0.0)` raised `ZeroDivisionError`; `fs=-1000.0` raised a
+    ValueError describing a frequency grid running "0 to -500 Hz in steps of -3.90625
+    Hz"; `imaginary_coherency` got a clean message only because it reached scipy's own
+    guard, which names scipy's parameter rather than this contract. A NaN or Inf `fs`
+    passes `fs <= 0` and reached scipy's "Wn[0] must be less than Wn[1]" in the filters.
+    """
+    try:
+        value = float(fs)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"{func_name}: fs must be a number in Hz; got {fs!r}."
+        ) from None
+    if not np.isfinite(value) or value <= 0.0:
+        raise ValueError(
+            f"{func_name}: fs must be finite and strictly positive (Hz); got {fs!r}."
+        )
+    return value
 
 
 _MISSING = object()

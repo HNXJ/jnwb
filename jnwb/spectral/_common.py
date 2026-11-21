@@ -3,6 +3,7 @@
 from typing import Dict, Optional, Tuple
 import numpy as np
 from .._spread import is_constant as _is_constant
+from .._units import require_positive_fs as _require_positive_fs
 
 
 def _require_band_bins(
@@ -89,23 +90,3 @@ def _resolve_fs(
     raise ValueError(f"{func_name} requires sampling rate `fs` (in Hz).")
 
 
-def _require_positive_fs(fs, func_name: str) -> float:
-    """A sampling rate is strictly positive and finite, everywhere in this module.
-
-    This check used to be absent, so each caller failed in its own way further down --
-    or not at all. `wpli(x, y, fs=0.0)` raised `ZeroDivisionError`; `fs=-1000.0` raised a
-    ValueError describing a frequency grid running "0 to -500 Hz in steps of -3.90625
-    Hz"; `imaginary_coherency` got a clean message only because it reached scipy's own
-    guard, which names scipy's parameter rather than this contract.
-    """
-    try:
-        value = float(fs)
-    except (TypeError, ValueError):
-        raise ValueError(
-            f"{func_name}: fs must be a number in Hz; got {fs!r}."
-        ) from None
-    if not np.isfinite(value) or value <= 0.0:
-        raise ValueError(
-            f"{func_name}: fs must be finite and strictly positive (Hz); got {fs!r}."
-        )
-    return value

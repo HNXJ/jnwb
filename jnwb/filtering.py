@@ -9,6 +9,8 @@ from __future__ import annotations
 import numpy as np
 from scipy import signal
 
+from ._units import require_positive_fs
+
 
 def bandpass_filter(
     data: np.ndarray,
@@ -28,8 +30,7 @@ def bandpass_filter(
         (butter) with zero-phase forward-backward (sosfiltfilt) or causal forward
         (sosfilt) application. The paper describes the library, not this filter.
     '''
-    if fs <= 0:
-        raise ValueError(f"Sampling frequency fs must be strictly positive; got {fs}.")
+    require_positive_fs(fs, "bandpass_filter")
     nyquist = fs / 2.0
     if low_cut <= 0:
         raise ValueError(f"low_cut must be strictly positive; got {low_cut}.")
@@ -73,8 +74,7 @@ def notch_filter(
         transfer-function to SOS conversion (tf2sos), and zero-phase (sosfiltfilt)
         or causal (sosfilt) application. The paper describes the library, not this filter.
     '''
-    if fs <= 0:
-        raise ValueError(f"Sampling frequency fs must be strictly positive; got {fs}.")
+    require_positive_fs(fs, "notch_filter")
     nyquist = fs / 2.0
     if freq <= 0:
         raise ValueError(f"Notch center frequency must be strictly positive; got {freq}.")
