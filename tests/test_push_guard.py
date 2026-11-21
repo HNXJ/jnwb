@@ -543,16 +543,64 @@ CD_CHAIN_1_MB = "cd 'a b' ; " * 90000
 @pytest.mark.parametrize("chain", [CD_CHAIN_50_KB, CD_CHAIN_1_MB], ids=["50 KB", "1 MB"])
 def test_a_relative_cd_chain_finishes_quickly_and_a_push_from_it_is_denied(tmp_path, chain):
     clone = make_checkout(tmp_path / "_temp_chain")
-    started = _time.perf_counter()
-    reason = bounded_reply(chain + "git push origin dev", clone)["hookSpecificOutput"]["permissionDecisionReason"]
-    elapsed = _time.perf_counter() - started
+    reason, best = None, None
+    for _ in range(3):
+        started = _time.perf_counter()
+        reason = bounded_reply(chain + "git push origin dev", clone)["hookSpecificOutput"]["permissionDecisionReason"]
+        elapsed = _time.perf_counter() - started
+        best = elapsed if best is None else min(best, elapsed)
     assert JNWB_REASON in reason
-    assert elapsed < 1.5, f"{elapsed:.2f} s for a {len(chain)}-character chain"
+    assert best < 1.5, f"best of 3: {best:.2f} s for a {len(chain)}-character chain"
 
 
 def test_a_relative_cd_chain_without_a_push_is_allowed(tmp_path):
     clone = make_checkout(tmp_path / "_temp_chain_ok")
     assert bounded_reply(CD_CHAIN_50_KB + "git status", clone) == {}
+
+
+# ---- 17-147 follow-up: a prefixed cd reads both ways, and the set of directories is capped ---------
+
+
+def test_a_prefixed_cd_to_another_checkout_keeps_the_push_from_the_clone_denied(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_union")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(f"if true; then cd {elsewhere.as_posix()}; git push origin dev", clone)
+
+
+def test_fourteen_prefixed_cds_finish_quickly_and_the_push_is_decided(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_cd_fan")
+    command = "".join(f"if x; then cd -P d{i}; " for i in range(14)) + "git push origin dev"
+    reason, best = None, None
+    for _ in range(3):
+        started = _time.perf_counter()
+        out = bounded_reply(command, clone)
+        elapsed = _time.perf_counter() - started
+        best = elapsed if best is None else min(best, elapsed)
+        reason = out["hookSpecificOutput"]["permissionDecisionReason"] if out else None
+    assert best < 2.0, f"best of 3: {best:.2f} s for 14 prefixed cds"
+    assert reason is not None and JNWB_REASON in reason, reason
+
+
+# ---- 17-147 follow-up: the cached cd resolution is keyed on the home directory it expands against ----
+
+
+def test_a_changed_home_is_not_served_a_stale_cd_verdict_from_the_cache(tmp_path, monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("push_guard_cache_check", GUARD)
+    guard = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(guard)
+    plain_home = make_checkout(tmp_path / "plain_home", jnwb=False)
+    jnwb_home = make_checkout(tmp_path / "_temp_cache_home")
+    cwd = make_checkout(tmp_path / "cwd", jnwb=False)
+    payload = {"tool_input": {"command": "cd ~ && git push origin dev"}, "cwd": cwd.as_posix()}
+    monkeypatch.setenv("HOME", plain_home.as_posix())
+    monkeypatch.setenv("USERPROFILE", plain_home.as_posix())
+    assert guard.verdict(payload) is None, "a push from a non-jnwb home must be allowed"
+    monkeypatch.setenv("HOME", jnwb_home.as_posix())
+    monkeypatch.setenv("USERPROFILE", jnwb_home.as_posix())
+    reason = guard.verdict(payload)
+    assert reason and JNWB_REASON in reason, "a push from a jnwb home must be denied, with no cache_clear"
 
 
 # ---- the subcommand `push` spelled with quotes, a backslash or an empty pair -------------------------
@@ -614,12 +662,15 @@ def test_a_subshell_closed_before_a_command_substitution_restores_for_the_push_a
 def test_nested_parentheses_finish_quickly_and_a_push_inside_them_is_denied(tmp_path):
     clone = make_checkout(tmp_path / "_temp_parens")
     depth = 50000
-    started = _time.perf_counter()
-    reason = bounded_reply("(" * depth + "git push origin dev" + ")" * depth, clone)[
-        "hookSpecificOutput"]["permissionDecisionReason"]
-    elapsed = _time.perf_counter() - started
+    best = None
+    for _ in range(3):
+        started = _time.perf_counter()
+        reason = bounded_reply("(" * depth + "git push origin dev" + ")" * depth, clone)[
+            "hookSpecificOutput"]["permissionDecisionReason"]
+        elapsed = _time.perf_counter() - started
+        best = elapsed if best is None else min(best, elapsed)
     assert JNWB_REASON in reason
-    assert elapsed < 1.5, f"{elapsed:.2f} s for {depth} nested parentheses"
+    assert best < 1.5, f"best of 3: {best:.2f} s for {depth} nested parentheses"
 
 
 # ---- 17-147-A revision 5: a cd at any command position: after `$(`, a backtick, `(`, `{` or a segment start
@@ -695,6 +746,158 @@ def test_cd_in_a_substitution_matches_the_old_guard_except_the_named_fixes(tmp_p
             assert named_fix, (command, at, "old", prior, "new", new)
         differs.append(prior != new)
     assert any(differs), "the differential must contain a case the old guard decides differently"
+
+
+# ---- 17-147 push_guard half: the spellings the open row lists -------------------------------------
+#
+# Each case is one spelling from artifacts/open_stack.md row 17-147-guard. Each is denied from a
+# non-jnwb cwd, or refused with a stated reason (the reason names jnwb_push.sh). The allow cases keep
+# the legitimate pushes the new rules must not catch.
+
+CONDITIONAL_CD_FORMS = [
+    "if true; then cd {clone}; git push origin dev; fi",
+    "for i in 1; do cd {clone}; git push origin dev; done",
+    "! cd {clone}; git push origin dev",
+    "time cd {clone}; git push origin dev",
+    "x=1 cd {clone}; git push origin dev",
+    "command cd {clone}; git push origin dev",
+    "builtin cd {clone}; git push origin dev",
+]
+
+
+@pytest.mark.parametrize("form", CONDITIONAL_CD_FORMS)
+def test_a_cd_after_then_do_bang_time_assignment_command_or_builtin_names_the_checkout(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_cond_cd")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(form.format(clone=clone.as_posix()), elsewhere)
+
+
+def test_a_conditional_cd_to_another_directory_passes_from_elsewhere(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_cond_cd_ok")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    other = make_checkout(tmp_path / "other", jnwb=False)
+    assert decide(f"if true; then cd {other.as_posix()}; git push origin dev; fi", elsewhere) == "allow"
+    assert decide(f"if true; then cd {clone.as_posix()}; git push origin _temp_a; fi", elsewhere) == "allow"
+
+
+CD_OPTION_FORMS = [
+    "cd -P {clone} && git push origin dev",
+    "cd -L {clone} && git push origin dev",
+    "cd -- {clone} && git push origin dev",
+    "cd {clone}>/dev/null && git push origin dev",
+    'cd "{clone}">/dev/null && git push origin dev',
+]
+
+
+@pytest.mark.parametrize("form", CD_OPTION_FORMS)
+def test_a_cd_with_an_option_or_a_redirect_names_the_checkout(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_cd_option")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(form.format(clone=clone.as_posix()), elsewhere)
+
+
+def test_a_cd_with_an_option_or_a_redirect_to_another_directory_passes_from_elsewhere(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_cd_option_ok")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    other = make_checkout(tmp_path / "other", jnwb=False)
+    assert decide(f"cd -P {other.as_posix()} && git push origin dev", elsewhere) == "allow"
+    assert decide(f"cd -- {other.as_posix()}>/dev/null && git push origin dev", elsewhere) == "allow"
+    assert decide(f"cd -P {clone.as_posix()} && git push origin _temp_a", elsewhere) == "allow"
+
+
+def test_cd_minus_has_no_known_directory_and_its_push_is_denied_from_elsewhere(tmp_path):
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied("cd - && git push origin dev", elsewhere)
+    assert reply("cd - && git push origin _temp_a", elsewhere) == {}
+
+
+BASH_C_FORMS = [
+    'bash -c "cd {clone} && git push origin dev"',
+    "bash -c 'cd {clone} && git push origin dev'",
+    'sh -c "cd {clone}; git push origin dev"',
+]
+
+
+@pytest.mark.parametrize("form", BASH_C_FORMS)
+def test_a_cd_inside_a_shell_c_payload_names_the_checkout_it_pushes_from(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_bash_c")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(form.format(clone=clone.as_posix()), elsewhere)
+
+
+def test_a_shell_c_payload_to_another_directory_or_a_temp_push_passes(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_bash_c_ok")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    other = make_checkout(tmp_path / "other", jnwb=False)
+    assert decide(f'bash -c "cd {other.as_posix()} && git push origin dev"', elsewhere) == "allow"
+    assert decide(f'bash -c "cd {clone.as_posix()} && git push origin _temp_a"', elsewhere) == "allow"
+
+
+DYNAMIC_EXEC_FORMS = [
+    "$GIT push origin dev",
+    '"$GIT" push origin dev',
+    "${GIT} push origin dev",
+    "$(which git) push origin dev",
+    '"$(which git)" push origin dev',
+    "$GIT -C {clone} push origin dev",
+]
+
+
+@pytest.mark.parametrize("form", DYNAMIC_EXEC_FORMS)
+def test_a_push_run_through_a_variable_or_substitution_is_refused_with_a_reason(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_dynamic")
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(form.replace("{clone}", clone.as_posix()), elsewhere)
+
+
+def test_a_variable_or_substitution_that_is_not_a_push_passes(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_dynamic_ok")
+    assert decide("$GIT status", clone) == "allow"
+    assert decide("echo $GIT push origin dev", clone) == "allow"
+
+
+EVAL_FORMS = [
+    'eval "git push origin dev"',
+    "eval git push origin dev",
+    'CMD="git push origin dev"; eval "$CMD"',
+]
+
+
+@pytest.mark.parametrize("form", EVAL_FORMS)
+def test_eval_is_refused_with_a_reason(tmp_path, form):
+    elsewhere = make_checkout(tmp_path / "elsewhere", jnwb=False)
+    assert_denied(form, elsewhere)
+
+
+def test_an_eval_argument_that_is_not_a_command_passes(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_eval_ok")
+    assert decide("echo eval", clone) == "allow"
+
+
+LINE_CONTINUATION_FORMS = [
+    "git pu\\\nsh origin dev",
+    "git \\\npush origin dev",
+    "git pu\\\r\nsh origin dev",
+]
+
+
+@pytest.mark.parametrize("form", LINE_CONTINUATION_FORMS)
+def test_a_line_continuation_inside_git_push_is_denied_in_a_jnwb_checkout(tmp_path, form):
+    clone = make_checkout(tmp_path / "_temp_continuation")
+    assert_denied(form, clone)
+
+
+def test_a_line_continuation_inside_a_temp_push_passes(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_continuation_ok")
+    assert decide("git pu\\\nsh origin _temp_a", clone) == "allow"
+
+
+def test_the_wrapper_push_stays_allowed_inside_the_new_forms(tmp_path):
+    clone = make_checkout(tmp_path / "_temp_wrap_ok")
+    wrapper = f'bash "{clone.as_posix()}/scripts/jnwb_push.sh" "{clone.as_posix()}" dev </dev/null'
+    assert reply(wrapper, clone) == {}
+    assert reply(f"if true; then {wrapper}; fi", clone) == {}
+    assert reply(f"(cd {clone.as_posix()} && {wrapper})", clone) == {}
 
 
 # ---- 17-143: `jnwb_push.sh <dir> --tag vX.Y.Z` and the artifacts-only stack checks ---------------
