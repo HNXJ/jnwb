@@ -31,11 +31,17 @@ A command is split at `;`, `&&`, `||`, `|`, `&` and newlines, and each segment i
 A push is read wherever its executable starts a word: after a quote, a backtick, `$(`, `!`, `{` or a
 wrapper word (`bash -c 'git push ...'`, `` `git push ...` ``). The scan is linear in the command length:
 each word is read once, each quoted run's content once per nesting level (at most two), and the global
-options of each executable are walked once. Not read: a `cd` or `&&` inside a quoted string
-(`bash -c "cd X && git push"`), since the split cuts there and the push runs in the outer directory;
-and a command or path that a substitution or variable builds (`$(which git)`, `$GIT`, `eval`). The
-guard reads text, not a shell. A payload that cannot be read or interpreted is denied with a message: the
-guard cannot tell what it would push.
+options of each executable are walked once. A quoted run is one unit, and the text inside it is read as
+a command run from the directory the quote sits in: `bash -c "cd X && git push"` pushes from X. A cd
+reached through `then`, `do`, `else`, `if`, `while`, `until`, `!`, `time`, a `NAME=v` prefix, `command`
+or `builtin` may or may not run, so the
+directories are the union of both readings: a push is denied if any of them is a jnwb checkout. Each
+cd names two words, the one read as before (`cd -P X` reads `-P`) and the one after its options
+(`cd -- X`, `cd X>/dev/null`), and `cd -` names no directory, so a push after it is denied. A push
+whose command is a `$` word, a `$(...)` or `eval` is refused with a reason: the guard cannot read what
+it runs. A backslash-newline is joined and the joined text is checked too. The guard reads text, not a
+shell. A payload that cannot be read or interpreted is denied with a message: the guard cannot tell
+what it would push.
 
 Wire it in `.claude/settings.json` under hooks.PreToolUse with matcher "Bash":
     python <repo>/scripts/push_guard.py
@@ -46,6 +52,7 @@ import json
 import os
 import re
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 GIT_ENV = ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR")
@@ -56,6 +63,20 @@ ARGS = re.compile(r"[^;&|<>\n]*")
 TEMP = re.compile(r"_temp(?:orary)?_")
 ALL_REFS = {"--all", "--mirror", "--tags"}
 SEGMENT_SEP = re.compile(r"&&|\|\||[;&|\n]")
+# A separator outside quotes; a quoted run and an escape are matched only to be skipped.
+TOKEN_SPLIT = re.compile(r"\"[^\"]*\"|'[^']*'|\\.|&&|\|\||[;&|\n]", re.S)
+CONTINUATION = re.compile(r"\\\r?\n")
+# Words that may stand before a command without ending its command position: a cd after one may or may not run.
+PREFIX_WORDS = frozenset({"then", "do", "else", "elif", "if", "while", "until", "!", "time", "command", "builtin"})
+PREFIX_ASSIGN = re.compile(r"[A-Za-z_]\w*=")
+CD_OPTION = re.compile(r"-[LPe@]+|--")
+CD_WORD = re.compile(r"\b(?:cd|pushd)\b")
+# What may lead a command word: separators, openers, reserved words and prefix assignments.
+CMD_LEAD = (r"(?:[\s(){}!`]|\$\()*(?:(?:then|do|else|elif|if|while|until|time|command|builtin|"
+            r"[A-Za-z_]\w*=\S*)\s+(?:[\s(){}!`]|\$\()*)*")
+DYNAMIC_START = re.compile(CMD_LEAD + r"(?P<w>[\"']?)\$")
+EVAL_START = re.compile(CMD_LEAD + r"eval(?![\w./-])")
+MAX_BASES = 32  # directories one command may run in; more collapse to an unknown one, which is denied
 # Possessive quantifiers: a cd line is read once, with no backtracking over its spaces.
 QUOTES = "\"'"
 OPERATORS = ";&|<>()`!{}"
@@ -67,6 +88,10 @@ JNWB_MARKERS = ("jnwb/__init__.py", "scripts/jnwb_push.sh")
 DENY = ("plain `git push` in jnwb skips the suite stamp and CI checks; run "
         "`bash <repo>/scripts/jnwb_push.sh <repo> dev </dev/null`.")
 UNREADABLE = "push_guard could not read the hook payload ({}); a command it cannot check is denied."
+DENY_DYNAMIC = ("a push whose command is a `$` word or substitution cannot be read, so it is refused; "
+                "run `bash <repo>/scripts/jnwb_push.sh <repo> dev </dev/null`.")
+DENY_EVAL = ("`eval` runs text the guard cannot read, so it is refused; "
+             "run `bash <repo>/scripts/jnwb_push.sh <repo> dev </dev/null` for a push.")
 
 
 def temp_only(args):
@@ -347,30 +372,99 @@ def push_dirs(base, steps, env):
     return [where, *named]
 
 
+def _subst_end(s, p):
+    """The index after the `)` that closes the `$(` at p, or len(s) when it never closes."""
+    depth = 0
+    for k in range(p + 1, len(s)):
+        if s[k] == "(":
+            depth += 1
+        elif s[k] == ")":
+            depth -= 1
+            if depth == 0:
+                return k + 1
+    return len(s)
+
+
+def _dynamic_push(seg, p):
+    """True when the word at p (a `$` expansion, optionally in quotes) is the command of a push."""
+    d = p + 1 if seg[p] in QUOTES else p
+    if seg.startswith("$(", d):
+        end = _subst_end(seg, d)
+        end += end < len(seg) and seg[end] in QUOTES
+    elif seg.startswith("${", d):
+        close = seg.find("}", d)
+        end = close + 1 if close >= 0 else len(seg)
+    else:
+        end = _piece_end(seg, p)
+    return _push_end(seg, end, {}) is not None
+
+
+def _segments(text, quoted):
+    """The segments of text. Unquoted: cut at each `;`, `&&`, `||`, `|`, `&` and newline, quotes ignored (the
+    reading the guard always made). Quoted: the same cuts, but not inside a quoted run, so a quoted command
+    stays whole. Both readings are checked, so a quote that joins words (`git 'push'`) is read either way."""
+    if not quoted:
+        return SEGMENT_SEP.split(text)
+    out, last = [], 0
+    for m in TOKEN_SPLIT.finditer(text):
+        if m.group()[0] not in "\"'\\":
+            out.append(text[last:m.start()])
+            last = m.end()
+    out.append(text[last:])
+    return out
+
+
 def verdict(payload):
-    """Return the deny reason for a plain `git push` in a jnwb checkout, else None."""
+    """Return the deny reason for a plain `git push` in a jnwb checkout, else None. The command is read as
+    written and with each backslash-newline joined; a deny from either reading stands."""
     cmd = (payload.get("tool_input") or {}).get("command") or ""
     base = _bounded(payload.get("cwd") or "")
-    env = {}
-    stack = []  # (kind, directory to return to) for each open `(`, `$(` or backtick, across segments
-    for seg in SEGMENT_SEP.split(cmd):
+    for text in dict.fromkeys((cmd, CONTINUATION.sub("", cmd))):
+        reason = _run(text, (base,), {}, False)
+        if reason is None and _segments(text, True) != _segments(text, False):
+            reason = _run(text, (base,), {}, True)  # the quoted reading differs only where a quote hides a cut
+        if reason:
+            return reason
+    return None
+
+
+def _run(text, bases, env, quoted):
+    """The deny reason for one command text run from the directories ``bases`` (a tuple), else None. Each
+    segment is read for a `$` command, an `eval`, a push, and the cds that move ``bases``. ``quoted`` picks
+    the segmenting (see _segments) and reads each quoted command inside the text as a command of its own."""
+    env = dict(env)
+    stack = []  # (kind, directories to return to) for each open `(`, `$(` or backtick, across segments
+    for seg in _segments(text, quoted):
         env.update(ENV_ASSIGN.findall(seg))
+        dynamic = DYNAMIC_START.match(seg)
+        if dynamic and _dynamic_push(seg, dynamic.start("w")):
+            return DENY_DYNAMIC
+        if EVAL_START.match(seg):
+            return DENY_EVAL
         actions = _segment_actions(seg)
         index = 0
+        last_inner = None
         # A word names git only when its quotes and backslashes, removed, spell git: without that text
         # no candidate needs reading, and the segment's directory changes still settle below.
         if "git" in seg.replace('"', "").replace("'", "").replace("\\", "").lower():
             for s, a, b, memo in _candidates(seg):
                 if s is seg:
-                    index, base = _settle(actions, index, a, base, stack)
+                    index, bases = _settle(actions, index, a, bases, stack)
+                elif quoted and s is not last_inner:
+                    last_inner = s  # a quoted run is a command: its cds and pushes are read as its own
+                    if "push" in s.lower() and CD_WORD.search(s):
+                        reason = _run(s, bases, env, True)
+                        if reason:
+                            return reason
                 if b >= len(s) or not s[b].isspace() or not is_git_exe(s[a:b]):
                     continue
                 end = _push_end(s, b, memo)
                 if end is None or temp_only(ARGS.match(s, end).group()):
                     continue
-                if any(where is None or is_jnwb(where) for where in push_dirs(base, _steps(s, b), env)):
+                if any(where is None or is_jnwb(where)
+                       for base in bases for where in push_dirs(base, _steps(s, b), env)):
                     return DENY
-        _, base = _settle(actions, index, len(seg) + 1, base, stack)
+        _, bases = _settle(actions, index, len(seg) + 1, bases, stack)
     return None
 
 
@@ -383,6 +477,7 @@ CMD_TOKEN = re.compile(
 )
 
 
+@lru_cache(maxsize=1024)
 def _segment_actions(seg):
     """The parentheses, backticks and cds of ``seg`` in position order, as (position, kind, path): "open" for
     a `(` (a subshell, or a substitution `$(`), "close" for a `)`, "tick" for a backtick (which opens or closes
@@ -390,48 +485,83 @@ def _segment_actions(seg):
     `(`, `{`, or backtick. A cd anywhere else is an argument, not a directory change."""
     actions = []
     command = True
+    prefixed = False  # after a prefix word (then, !, NAME=v, command ...): the cd may or may not run
     for m in CMD_TOKEN.finditer(seg):
         tok = m.group()
         if tok == "(":
             actions.append((m.start(), "open", None))
-            command = True
+            command, prefixed = True, False
         elif tok == ")":
             actions.append((m.start(), "close", None))
-            command = False
+            command, prefixed = False, False
         elif tok == "`":
             actions.append((m.start(), "tick", None))
-            command = True
+            command, prefixed = True, False
         elif tok == "{":
-            command = True
+            command, prefixed = True, False
         elif m.group("cd") is not None:
             if command:
-                actions.append((m.start(), "cd", m.group("path")))
-            command = False
+                keyword = re.match(r"\w+", m.group("cd")).group()
+                actions.append((m.start(), "cd", (m.group("path"), _cd_target(seg, m.start("cd") + len(keyword)),
+                                                  prefixed)))
+            command, prefixed = False, False
+        elif command and (tok in PREFIX_WORDS or PREFIX_ASSIGN.match(tok) or (prefixed and tok.startswith("-"))):
+            prefixed = True
         else:
-            command = False
-    return actions
+            command, prefixed = False, False
+    return tuple(actions)
 
 
-def _settle(actions, index, pos, base, stack):
-    """Apply the actions of a segment before position ``pos``. A `(` pushes the directory it was entered with;
-    its `)` returns to it, and a backtick returns at its closing backtick; a `)` with nothing open does
-    nothing. A cd sets the directory. Returns the next index and the directory in effect."""
+def _cd_target(s, j):
+    """The raw word a cd names after its options (`-P`, `-L`, `-e`, `-@`, `--`), or None when none follows."""
+    tok = _token(s, j)
+    while tok and CD_OPTION.fullmatch(s[tok[0]:tok[1]]):
+        tok = _token(s, tok[1])
+    return s[tok[0]:tok[1]] if tok else None
+
+
+@lru_cache(maxsize=4096)
+def _cd_dirs(base, old_raw, new_raw):
+    """The directories one cd can leave ``base`` in: the word read as before, and the word after the options.
+    A word of `-`, or no word, leaves an unknown directory (None), which a push from is denied."""
+    dirs = [under(base, unquote(old_raw))]
+    if new_raw is None or _shell_value(new_raw) == "-":
+        dirs.append(None)
+    elif new_raw != old_raw:
+        dirs.append(under(base, unquote(new_raw)))
+    return tuple(dirs)
+
+
+def _limit(bases):
+    """``bases`` without repeats; more than MAX_BASES collapse to one unknown directory."""
+    unique = tuple(dict.fromkeys(bases))
+    return unique if len(unique) <= MAX_BASES else (None,)
+
+
+def _settle(actions, index, pos, bases, stack):
+    """Apply the actions of a segment before position ``pos`` to ``bases``, the directories the command may
+    run in. A `(` pushes the set it was entered with; its `)` returns to it, and a backtick returns at its
+    closing backtick; a `)` with nothing open does nothing. A cd moves every directory in the set. A cd
+    after a prefix word may or may not run, so its directories are added to the set and not swapped in.
+    Returns the next index and the set in effect."""
     while index < len(actions) and actions[index][0] < pos:
-        _, kind, path = actions[index]
+        _, kind, payload = actions[index]
         if kind == "open":
-            stack.append(("(", base))
+            stack.append(("(", bases))
         elif kind == "tick":
             if stack and stack[-1][0] == "`":
-                base = stack.pop()[1]
+                bases = stack.pop()[1]
             else:
-                stack.append(("`", base))
+                stack.append(("`", bases))
         elif kind == "close":
             if stack:
-                base = stack.pop()[1]
+                bases = stack.pop()[1]
         else:
-            base = under(base, unquote(path))
+            old_raw, new_raw, prefixed = payload
+            moved = tuple(d for base in bases for d in _cd_dirs(base, old_raw, new_raw))
+            bases = _limit(bases + moved if prefixed else moved)
         index += 1
-    return index, base
+    return index, bases
 
 
 def decide(raw):
