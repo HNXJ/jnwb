@@ -511,14 +511,6 @@ REQUIRED_MATCH = (
 
 
 def assert_mergeable(attrs_a: Dict, attrs_b: Dict) -> None:
-    """Raise unless two provenance attribute dicts agree.
-
-    Raises:
-        KeyError: a required provenance attribute is missing from `attrs_a` or `attrs_b`; the
-            message names it.
-        ValueError: a required provenance attribute differs between `attrs_a` and `attrs_b`
-            (`np.array_equal`); the message names it and both values.
-    """
     for k in REQUIRED_MATCH:
         if k not in attrs_a or k not in attrs_b:
             raise KeyError(f"missing required provenance attribute: {k}")
