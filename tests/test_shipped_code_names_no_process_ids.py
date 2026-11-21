@@ -31,9 +31,11 @@ STACK_TEST_FILES = frozenset({
 })
 ALLOWED_SCRIPT_PATTERNS = {
     "scripts/learning_gate.py": (),  # reads "Ruled <date>" citations in artifacts/
-    "scripts/build_fact_graph.py": (
+    "scripts/fact_graph/_base.py": (
         "FACT_HEADER =",
         "CONSTANT_HEADER =",
+    ),
+    "scripts/fact_graph/facts.py": (
         "fact_id, domain, predicate, held_by, ruled = row",
         '"ruled": ruled,',
     ),
