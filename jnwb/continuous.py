@@ -11,6 +11,8 @@ from scipy import signal
 
 from ._bins import refuse_infinite
 
+_CONTAINMENT_EPS = 1e-9  # relative containment tolerance floor; numerical guard, no external source
+
 
 BoundaryPolicy = Literal["nan", "error", "drop"]
 OnsetUnit = Literal["seconds", "samples"]
@@ -23,7 +25,7 @@ def _containment_sample(t_s: float, fs: float) -> int:
     0.07 * 100 is 7.000000000000001, and the window (0, 0.07) s at 100 Hz holds 7 samples.
     """
     x = t_s * fs
-    eps = 1e-9 * max(1.0, abs(x))
+    eps = _CONTAINMENT_EPS * max(1.0, abs(x))
     return int(np.ceil(x - eps))
 
 

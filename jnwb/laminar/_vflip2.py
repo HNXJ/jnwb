@@ -12,6 +12,8 @@ from scipy import stats
 from .._dictlike import DictAccessMixin
 from .._spread import r_squared
 
+_FREQ_GRID_RTOL = 1e-9  # relative tolerance on uniform frequency spacing; numerical, no source
+
 #: Layer IVA, IVB and IVC of macaque area 17 in mm (O'Kusky and Colonnier 1982), summed by
 #: vFLIP2.m into the shortest channel window it searches. Summed as vFLIP2.m sums them, each
 #: divided by 1000 first: the result is 1 ulp above 0.586, which moves ceil(layer4 / spacing)
@@ -312,7 +314,7 @@ def vflip2(
     if freqs.ndim != 1 or freqs.size != psd.shape[1] or freqs.size < 2:
         raise ValueError(f"freqs must be 1-D with {psd.shape[1]} entries, got shape {freqs.shape}")
     binsize = float(freqs[1] - freqs[0])
-    if not (binsize > 0 and np.allclose(np.diff(freqs), binsize, rtol=1e-9, atol=0)):
+    if not (binsize > 0 and np.allclose(np.diff(freqs), binsize, rtol=_FREQ_GRID_RTOL, atol=0)):
         raise ValueError("freqs must be uniformly spaced and increasing")
     if not (np.isfinite(contact_spacing) and contact_spacing > 0):
         raise ValueError(f"contact_spacing must be finite and positive, got {contact_spacing}")

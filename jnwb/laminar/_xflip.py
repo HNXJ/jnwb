@@ -16,6 +16,8 @@ from scipy.spatial.distance import squareform
 from scipy.stats import rankdata
 from ..permutation import _TIE_RTOL, _count_at_least_as_extreme, _count_each_at_least_as_extreme
 
+_DIST_FLOOR = 1e-12  # floor on a distance before inversion; numerical guard, no external source
+
 
 @dataclass(frozen=True)
 class XFlipResult(DictAccessMixin):
@@ -211,7 +213,7 @@ def _compute_correlation_matrix(data: np.ndarray, method: str,
             theta = np.linalg.pinv(cov)
 
         d = np.diag(theta)
-        d_pos = np.maximum(d, 1e-12)
+        d_pos = np.maximum(d, _DIST_FLOOR)
         denom = np.sqrt(np.outer(d_pos, d_pos))
         p_corr = -theta / denom
         np.fill_diagonal(p_corr, 1.0)

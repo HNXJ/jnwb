@@ -17,6 +17,8 @@ from ..spectral._coupling import MIN_COHERENCE_NPERSEG, MIN_IDENTIFIABLE_SEGMENT
 from ._common import DirectedResult, _fixed_order, _surrogate_p, _surrogate_rng, _surrogate_scheme, _surrogate_source
 from ._trials import _detrend_trials, _pair_trials, as_trials
 
+_NEG_SPECTRAL_TOL = 1e-8  # negative spectral GC beyond this is unstable; numerical, no source
+
 log = logging.getLogger(__package__)
 
 
@@ -1075,7 +1077,7 @@ def granger_spectral(
 
     warnings_all: List[str] = []
     min_val = float(min(gc_x_to_y.min(), gc_y_to_x.min()))
-    if min_val < -1e-8:
+    if min_val < -_NEG_SPECTRAL_TOL:
         warnings_all.append(f"negative_spectral_gc_{min_val:.2e}_numerically_unstable")
     # Geweke GC is non-negative analytically; clip float noise only.
     gc_x_to_y = np.clip(gc_x_to_y, 0.0, None)
@@ -1320,7 +1322,7 @@ def granger_nonparametric(
         gc_y_to_x, gc_x_to_y = _geweke_gc(h_grid, sigma)
 
     min_val = float(min(gc_x_to_y.min(), gc_y_to_x.min()))
-    if min_val < -1e-8:
+    if min_val < -_NEG_SPECTRAL_TOL:
         warnings_all.append(f"negative_spectral_gc_{min_val:.2e}_numerically_unstable")
     # Geweke GC is non-negative analytically; clip float noise only.
     gc_x_to_y = np.clip(gc_x_to_y, 0.0, None)

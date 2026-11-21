@@ -78,6 +78,8 @@ from pathlib import Path
 import h5py
 import numpy as np
 
+_ROUNDTRIP_MAX_ERR = 1e-6  # round-trip error still called redundant; numerical, no external source
+
 FILT = dict(compression="gzip", compression_opts=1, shuffle=True)
 
 # Stamped into every file this module writes, as `conversion_script` and inside each converted
@@ -383,7 +385,7 @@ def _timestamps_fate(src: h5py.File, ts_path: str, data, soft_targets: set) -> t
         )
     reconstructed = existing[()] + np.arange(len(values)) / existing_rate
     err = float(np.max(np.abs(reconstructed - values))) if len(values) else 0.0
-    if err < 1e-6:
+    if err < _ROUNDTRIP_MAX_ERR:
         return "redundant", err
     return "inconsistent", err
 
@@ -874,7 +876,7 @@ def verify_roundtrip(
                     err = max(err, float(np.max(np.abs(chunk - predicted))))
                 rec(
                     f"{grp} timestamps reconstruction max abs err over all {total} samples",
-                    err < 1e-6,
+                    err < _ROUNDTRIP_MAX_ERR,
                     f"{err:.6e}",
                 )
             else:
