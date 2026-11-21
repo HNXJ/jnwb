@@ -2,13 +2,7 @@
 
 Published sources for the methods jnwb implements. Each row names the result jnwb implements and
 the functions that implement it, and each of those functions cites the same DOI in its docstring;
-a test holds the two to each other. Every DOI below resolved at doi.org on 2026-09-23 (Lütkepohl
-2005 on 2026-09-25, Przyborowski and Wilenski 1940 on 2026-09-26, the unit-quality sources and
-the papers by Bastos, Vezoli, Friston, Barnett and their coauthors on 2026-10-04, the WaveMAP
-sources on 2026-10-08, Major et al. 2025 and the Dryad dataset on 2026-10-13, the SciPy, CircStat, Pitman, Mann
-and Whitney, Efron, Shannon, Nawrot, Cunningham and Yu, Varma and Simon, Cortes and Vapnik,
-PREP, Leys, and Gerstein and Kiang sources on 2026-10-13, and Nejat and Hajipour Sardouie 2021 on 2026-10-21). Each matched the title, authors and year of its Crossref record, except
-the arXiv entries, matched to their DataCite records, Llobet et al. 2022, matched to bioRxiv's record of its version 1, and the Dryad dataset, matched to its DataCite record. The Rübel et al. 2022 source matched the title, authors and year of its Crossref record on 2026-10-22. The ISBNs of the core texts were checked on Open Library on 2026-10-20; each row gives the record's year, and names an edition only where the record does. The studies' DOIs were checked on Crossref on 2026-10-20, and Hill et al. (2011) against its article on PubMed Central. Where
+a test holds the two to each other. Each DOI was checked against its Crossref or DataCite record, and each ISBN on Open Library; the check dates are in this file's git history. Each row gives the record's year, and names an edition only where the record does. Where
 jnwb departs from the published result, the row and the docstring say how. The
 [Pitfalls](#pitfalls) table lists papers that state a pitfall rather than a method jnwb
 implements; the functions it names are those the pitfall concerns, and their docstrings do not
