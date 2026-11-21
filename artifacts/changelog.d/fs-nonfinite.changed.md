@@ -1,0 +1,4 @@
+- `jnwb/filtering.py`: `bandpass_filter` and `notch_filter` refuse a NaN or Inf `fs` by name.
+- `jnwb/filtering.py`: a non-numeric `fs` (None, list) in both filters raises `ValueError` instead of `TypeError`.
+- `jnwb/filtering.py`: the `fs` error now reads `<function>: fs must be finite and strictly positive (Hz)`.
+- `jnwb/continuous.py`: `epoch_continuous` refuses a NaN or Inf `fs` with `Sampling rate fs must be positive`.

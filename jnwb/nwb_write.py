@@ -17,7 +17,6 @@ the destination's dtype.
 
 from __future__ import annotations
 
-import hashlib
 import os
 import posixpath
 import tempfile
@@ -32,6 +31,7 @@ from pynwb import NWBFile
 
 from jnwb.nwb_io import MissingRequiredNWBFieldError
 from jnwb.ontology import Lineage, Provenance
+from jnwb.paths import sha256_file as _sha256
 
 #: The mutation category ``verify_nwb`` records on its report.
 CATEGORY = "verify written output"
@@ -106,14 +106,6 @@ class MutationReport:
 def _norm(path: str) -> str:
     """One spelling for a dataset path: no leading, trailing or doubled separators."""
     return posixpath.normpath(path.strip()).lstrip("/")
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _version(dist: str) -> str | None:

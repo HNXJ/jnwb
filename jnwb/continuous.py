@@ -133,7 +133,7 @@ def epoch_continuous(
         raise ValueError(f"Continuous data must be 1D or 2D, got shape {arr.shape}")
     if arr.dtype.kind in "fciub":
         refuse_infinite(arr, "epoch_continuous", "data")
-    if fs <= 0.0:
+    if not (np.isfinite(fs) and fs > 0.0):
         raise ValueError(f"Sampling rate fs must be positive, got {fs}")
     start_s = float(start_s)
     if not np.isfinite(start_s):
