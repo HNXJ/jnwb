@@ -26,6 +26,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # the installed-wheel run clears pythonpath
 
 from scripts import build_fact_graph  # noqa: E402
+from scripts.fact_graph import signatures  # noqa: E402
 
 PACKAGE = Path(jnwb.__file__).resolve().parent
 
@@ -273,7 +274,7 @@ def _reported_by_name(found):
 
 
 def test_a_drawing_callee_reached_without_an_rng_argument_is_flagged(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    monkeypatch.setattr(signatures, "S11_EXCUSED", {})
     draws, _ = build_fact_graph._reach(planted_bootstrap_without_rng, None, set(),
                                        draw=build_fact_graph._resolver_call)
     assert "surrogate_rng" in draws, "the fixture must reach the bootstrap's draw"
@@ -285,7 +286,7 @@ def test_a_drawing_callee_reached_without_an_rng_argument_is_flagged(monkeypatch
 
 
 def test_a_drawing_callee_given_its_rng_by_keyword_or_position_is_not_flagged(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    monkeypatch.setattr(signatures, "S11_EXCUSED", {})
     examined, found = build_fact_graph.rng_scan(
         _scanned_package(planted_bootstrap_with_rng, planted_bootstrap_positional_rng))
     assert examined == 2
@@ -293,7 +294,7 @@ def test_a_drawing_callee_given_its_rng_by_keyword_or_position_is_not_flagged(mo
 
 
 def test_a_literal_zero_count_draws_nothing_so_its_call_is_not_flagged(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    monkeypatch.setattr(signatures, "S11_EXCUSED", {})
     draws, _ = build_fact_graph._reach(planted_granger_with_no_null, None, set(),
                                        draw=build_fact_graph._resolver_call)
     assert draws, "the fixture must reach granger's draw"
@@ -303,14 +304,14 @@ def test_a_literal_zero_count_draws_nothing_so_its_call_is_not_flagged(monkeypat
 
 
 def test_a_count_that_is_not_a_literal_zero_still_needs_an_rng(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    monkeypatch.setattr(signatures, "S11_EXCUSED", {})
     examined, found = build_fact_graph.rng_scan(_scanned_package(planted_granger_with_a_null))
     assert examined == 1
     assert set(_reported_by_name(found)) == {"planted_granger_with_a_null"}, found
 
 
 def test_a_generator_passed_by_position_under_a_suffixed_name_is_not_flagged(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    monkeypatch.setattr(signatures, "S11_EXCUSED", {})
     examined, found = build_fact_graph.rng_scan(_scanned_package(planted_surrogate_rng_by_position))
     assert examined == 1
     assert found == [], found
