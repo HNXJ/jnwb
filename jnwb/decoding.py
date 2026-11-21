@@ -447,6 +447,9 @@ def assign_outer_folds(
         A copy of ``trials`` with added ``outer_fold`` (int, -1 if unassigned),
         ``outer_group`` (the group id), and ``outer_fold_status`` (``"valid"`` or
         ``"insufficient_groups"`` when a stratum has fewer than 2 distinct groups).
+
+    Raises:
+        ValueError: the trial table lacks the fold columns.
     """
     required = set(analysis_cols) | {group_col, "trial_id"}
     missing = required.difference(trials.columns)
@@ -565,6 +568,11 @@ def build_representation_ladder(
     Returns:
         dict with X_rate, X_vec, X_structured, and a ``contract`` sub-dict documenting the
         R0/R1/R2 semantics and space-axis topology.
+
+    Raises:
+        ValueError: `raster` is not 3-D `(n_trials, n_space, n_time)`; `raster` holds NaN or Inf;
+            `modality` is neither `'SPK'` nor `'LFP'`; or `modality='LFP'` without
+            `spatial_axis_metadata`.
     """
     x = np.asarray(raster)
     if x.ndim != 3:

@@ -491,6 +491,9 @@ def phase_slope_index(
         jackknife leaves out one epoch, a block of several segments, at a time; this one
         does so from three trials on, a trial being the epoch, and below that leaves out
         one Welch segment, adjacent segments overlapping by ``noverlap``.
+
+    Raises:
+        ValueError: `fs` is None, not finite, or not positive.
     """
     _check_signal_class("phase_slope_index", signal_class, 2)
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='phase_slope_index')

@@ -344,6 +344,9 @@ def nwb_read_io(
     ``"w"`` cannot truncate it; write with ``pynwb.NWBHDF5IO``.
 
     A non-finite ``path`` (NaN or infinite) is refused with ``ValueError`` naming it.
+
+    Raises:
+        ValueError: `mode` is not `'r'`. Write NWB files with `pynwb.NWBHDF5IO`.
     """
     _refuse_nonfinite_path(path, "nwb_read_io")
     if mode != "r":

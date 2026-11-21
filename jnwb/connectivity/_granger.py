@@ -1013,6 +1013,10 @@ def granger_spectral(
         time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803 -- the
         frequency decomposition of the measure of linear feedback, from the transfer
         function of the fitted VAR.
+
+    Raises:
+        ValueError: `fs` is None, not finite, or not positive; the VAR residual covariance is
+            degenerate (constant input); or `bands` is a string other than `'canonical'`.
     """
     _check_signal_class("granger_spectral", signal_class, 2)
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_spectral')

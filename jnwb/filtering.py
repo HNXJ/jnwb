@@ -23,6 +23,23 @@ def bandpass_filter(
 ) -> np.ndarray:
     '''Apply a Butterworth bandpass filter using Second-Order Sections (SOS).
 
+    Args:
+        data: Samples, any units, of any float-convertible dtype; filtered along `axis`. Must be
+            finite.
+        fs: Sampling rate in Hz; strictly positive.
+        low_cut: Lower band edge in Hz; strictly positive and below `high_cut`.
+        high_cut: Upper band edge in Hz; below the Nyquist frequency `fs / 2`.
+        order: Butterworth order; at least 1. Zero-phase filtering doubles the effective order.
+        zero_phase: `True` for forward-backward filtering (acausal, no phase delay); `False` for
+            causal forward-only filtering, which keeps the filter delay.
+        axis: Axis of `data` along which to filter (the sample axis).
+
+    Raises:
+        ValueError: `fs` is not finite and positive; `low_cut` is not positive; `high_cut` is at or
+            above the Nyquist frequency `fs / 2`; `low_cut` is not below `high_cut`; `order` is
+            below 1; `data` holds NaN or Inf; or the signal along `axis` is too short for zero-phase
+            filtering.
+
     References:
         Virtanen, P., et al. (2020). SciPy 1.0: fundamental algorithms for
         scientific computing in Python. Nat. Methods. doi:10.1038/s41592-019-0686-2
@@ -66,6 +83,23 @@ def notch_filter(
     axis: int = -1,
 ) -> np.ndarray:
     '''Apply an IIR notch filter using Second-Order Sections (SOS) conversion.
+
+    Args:
+        data: Samples, any units, of any float-convertible dtype; filtered along `axis`. Must be
+            finite.
+        fs: Sampling rate in Hz; strictly positive.
+        freq: Notch centre frequency in Hz; strictly positive and below the Nyquist frequency
+            `fs / 2`.
+        q: Quality factor, dimensionless: `freq` divided by the -3 dB bandwidth in Hz; strictly
+            positive.
+        zero_phase: `True` for forward-backward filtering (acausal, no phase delay); `False` for
+            causal forward-only filtering, which keeps the filter delay.
+        axis: Axis of `data` along which to filter (the sample axis).
+
+    Raises:
+        ValueError: `fs` is not finite and positive; `freq` is not positive; `freq` is at or above
+            the Nyquist frequency `fs / 2`; `q` is not positive; `data` holds NaN or Inf; or the
+            signal along `axis` is too short for zero-phase filtering.
 
     References:
         Virtanen, P., et al. (2020). SciPy 1.0: fundamental algorithms for
