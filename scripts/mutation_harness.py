@@ -589,7 +589,7 @@ JOURNAL_STATUSES: tuple[str, ...] = (JOURNAL_PRESENT, JOURNAL_ABSENT, JOURNAL_UN
 class JournalState:
     """What the journal says, and whether it is in a position to say anything.
 
-    The defect this replaces: ``_read_journal`` answered ``[]`` for a missing file, an
+    The defect this replaces: ``read_journal`` used to answer ``[]`` for a missing file, an
     unparseable file, and a file recording nothing outstanding. "No mutant is open" and "I have
     no idea" were the same sentence, so a report that the journal was empty carried no
     information about the tree at all -- and a live mutant sat behind exactly that sentence for

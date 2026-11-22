@@ -44,7 +44,7 @@ Returns exit code 0 on PASS, 1 on FAIL.
 from __future__ import annotations
 
 import os
-import subprocess
+import subprocess  # noqa: F401  # read by tests/test_gate2_ignores_nested_checkouts.py
 import sys
 from pathlib import Path
 from typing import Any, List, Tuple
@@ -58,31 +58,28 @@ elif str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 # The one stack reader, shared with STEP 0a (scripts/stack_parse.py): gates 15 and 17 read the
 # same items, at any heading depth, that STEP 0a reads.
-from scripts.stack_parse import item_spans, stack_items as _stack_items  # noqa: E402
+from scripts.stack_parse import stack_items as _stack_items  # noqa: E402,F401  # read by tests/test_stack_item_length.py, tests/test_stack_metadata_contradictions.py
 JNWB_DIR = REPO_ROOT / "jnwb"
 OMISSION_DIR = REPO_ROOT / "omission"
 
 from scripts.gates.boundary import (
-    AUTHORIZED_JNWB_EXCEPTIONS,
     check_frozen_boundary,
-    _canonical,
-    _run_git,
-    _git_identity,
-    _is_checkout_of,
+    _canonical,  # noqa: F401  # read by tests/test_gate2_ignores_nested_checkouts.py
+    _git_identity,  # noqa: F401  # read by tests/test_gate2_ignores_nested_checkouts.py
+    _is_checkout_of,  # noqa: F401  # read by tests/test_gate2_ignores_nested_checkouts.py
     check_skill_tree_uniqueness,
     check_no_hardcoded_test_paths,
-    INTERNAL_ROOT_PACKAGES,
-    EPHEMERAL_ROOT_DIRS,
-    TOOL_ROOT_DIRS,
-    ALLOWED_ROOT_DIRS,
-    ALLOWED_ROOT_FILES,
+    INTERNAL_ROOT_PACKAGES,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py, tests/test_gates_reject_the_trees_they_passed.py
+    EPHEMERAL_ROOT_DIRS,  # noqa: F401  # read by tests/test_gate2_ignores_nested_checkouts.py, tests/test_gates_reject_the_trees_they_passed.py
+    TOOL_ROOT_DIRS,  # noqa: F401  # read by tests/test_gate2_ignores_nested_checkouts.py
+    ALLOWED_ROOT_FILES,  # noqa: F401  # read by tests/test_every_declaration_has_a_caller.py, tests/test_gates_reject_the_trees_they_passed.py, tests/test_harness_adversarial_gates.py, tests/test_single_agent_instruction_file.py
     check_root_allowlist,
     check_no_shadow_packages,
     check_logarithm_last_in_package,
-    check_logarithm_last_rule,
+    check_logarithm_last_rule,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py
     count_declared_raw_power_estimands,
-    _convention,
-    _wholesale_conversions,
+    _convention,  # noqa: F401  # read by tests/test_line_endings_survive_an_edit.py
+    _wholesale_conversions,  # noqa: F401  # read by tests/test_line_endings_survive_an_edit.py
     check_line_ending_consistency,
 )
 
@@ -95,68 +92,62 @@ from scripts.gates.versions import (
 )
 
 from scripts.gates.docs import (
-    GENERATED_REFERENCE,
+    GENERATED_REFERENCE,  # noqa: F401  # read by scripts/fact_graph/entities.py
     check_public_symbols_documented,
     check_documented_api_matches_all,
     check_docs_version_matches_package,
-    DATASET_SCAN_ROOT_DOCS,
-    DATASET_SCAN_EXEMPT,
+    DATASET_SCAN_ROOT_DOCS,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py
+    DATASET_SCAN_EXEMPT,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py
     check_dataset_leakage,
-    NWB_ONBOARDING_SYMBOLS,
+    NWB_ONBOARDING_SYMBOLS,  # noqa: F401  # read by tests/test_gates_reject_the_trees_they_passed.py
     check_nwb_onboarding_alignment,
 )
 
 from scripts.gates.vocabulary import (
     check_no_project_identifiers_in_code,
     INTERNAL_PROCESS_TERMS,
-    _internal_term_pattern,
+    _internal_term_pattern,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py
     check_internal_process_vocabulary,
-    CHANGELOG_KINDS,
+    CHANGELOG_KINDS,  # noqa: F401  # read by tests/test_changelog_fragments.py, tests/test_harness_gate.py
     CHANGELOG_RELEASES_KEPT,
     CHANGELOG_ENTRY_LIMIT,
-    _changelog_entry_violations,
+    _changelog_entry_violations,  # noqa: F401  # read by tests/test_changelog_fragments.py
     check_changelog_form,
-    PROCESS_IDENTIFIER,
-    _rel,
     check_no_process_identifiers_in_library,
 )
 
 from scripts.gates.stacks_form import (
-    TODO_STACK,
-    OPEN_STACK,
-    _code_span_mask,
-    _writes_fields,
-    _writes_field_spans,
-    _suspected_truncated_writes,
-    _BLOCK_ASSERTIONS,
-    _ANY_BLOCK_ASSERTION,
-    _ITEM_ID,
-    _FIELD_LABEL,
-    _unwrapped_spans,
-    _stop_clause_spans,
-    _unwrapped_sentences,
-    _blocked_by_none_contradictions,
-    _miscounted_summaries,
-    _stale_item_totals,
+    TODO_STACK,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py
+    _writes_fields,  # noqa: F401  # read by tests/test_generation_closure_is_declared.py, tests/test_harness_adversarial_gates.py, tests/test_stack_metadata_contradictions.py
+    _writes_field_spans,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _suspected_truncated_writes,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _BLOCK_ASSERTIONS,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _ANY_BLOCK_ASSERTION,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _ITEM_ID,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _unwrapped_spans,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _stop_clause_spans,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _unwrapped_sentences,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _blocked_by_none_contradictions,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _miscounted_summaries,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _stale_item_totals,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py
 )
 
 from scripts.gates.stacks_closure import (
-    GENERATED_FROM,
+    GENERATED_FROM,  # noqa: F401  # read by tests/test_generation_closure_is_declared.py, tests/test_harness_adversarial_gates.py
     check_stack_form_consistency,
 )
 
 from scripts.gates.stacks_pointers import check_stack_pointers_resolve
 
 from scripts.gates.api_types import (
-    API_MD_ROW,
-    api_member_kind,
-    api_md_parameter_kinds,
+    API_MD_ROW,  # noqa: F401  # read by tests/test_api_md_member_types.py
+    api_member_kind,  # noqa: F401  # read by tests/test_api_md_member_types.py
+    api_md_parameter_kinds,  # noqa: F401  # read by tests/test_api_md_member_types.py
     check_api_md_member_types,
 )
 
 from scripts.gates.frozen import (
-    _canonical_ast,
-    frozen_body_hash,
+    frozen_body_hash,  # noqa: F401  # read by tests/test_frozen_validated.py
     check_frozen_validated,
 )
 
