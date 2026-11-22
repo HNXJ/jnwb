@@ -42,13 +42,13 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
+from scripts.gates.boundary import git  # noqa: E402
 from scripts.verify_lane import check, in_linked_worktree  # noqa: E402
 
 
 def _git(cwd: pathlib.Path, *args: str) -> str:
-    proc = subprocess.run(
-        ("git",) + args, cwd=str(cwd), capture_output=True, text=True, check=True
-    )
+    proc = git(*args, cwd=str(cwd))
+    proc.check_returncode()
     return (proc.stdout or "").strip()
 
 

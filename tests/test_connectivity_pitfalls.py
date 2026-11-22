@@ -25,6 +25,7 @@ import numpy as np
 import pytest
 
 import jnwb
+from scripts import stack_parse
 
 FS = 500.0
 N_TIMES = 4000
@@ -1594,7 +1595,7 @@ class TestEveryPitfallRowIsHeldOrNamesItsGap:
                 if rows:
                     break
                 continue
-            cells = [cell.strip() for cell in line.strip("|").split("|")]
+            cells = stack_parse.cells(line)
             if (
                 len(cells) == 3
                 and cells[0] not in ("Pitfall",)

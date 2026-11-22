@@ -18,6 +18,7 @@ if str(Path(__file__).resolve().parents[1]) not in sys.path:
 
 from tests._api_surface import MODULE_DISPOSITION, NON_PUBLIC_MODULES  # noqa: E402
 from jnwb._lazy_exports import EXPORT_MODULES, SUBMODULES  # noqa: E402
+from scripts import stack_parse  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 JNWB_DIR = REPO_ROOT / "jnwb"
@@ -104,7 +105,7 @@ def _module_map_rows() -> dict[str, list[str]]:
     for line in section.splitlines():
         if not line.startswith("| `"):
             continue
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        cells = stack_parse.cells(line)
         rows[cells[0].strip("`")] = re.findall(r"`([A-Za-z_]\w*)`", cells[-1])
     return rows
 

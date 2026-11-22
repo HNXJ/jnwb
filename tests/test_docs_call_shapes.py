@@ -59,6 +59,7 @@ matplotlib.use("Agg")  # headless, as in the other test modules that draw
 pytest.importorskip("plotly", reason="the vis extra is not installed")
 
 import jnwb
+from scripts import stack_parse
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGES = sorted((ROOT / "docs").rglob("*.md")) + [ROOT / "README.md"]
@@ -415,7 +416,7 @@ def _spec_table_rows():
         body = line.strip().strip("|")
         if set(body) <= set("-| "):
             continue  # the |---|---| separator
-        cells = [c.strip() for c in body.split("|")]
+        cells = stack_parse.cells(line)
         if cells[0] == "Operation":
             continue  # the header
         rows.append((cells[0], cells[1], cells[2]))

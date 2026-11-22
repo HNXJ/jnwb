@@ -10,6 +10,12 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+# Appended, not prepended: prepending would put the checkout's jnwb/ ahead of an installed copy.
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
+
 SCRIPT = ROOT / "scripts" / "jnwb_suite.sh"
 
 FAKE_LOCK = """\
@@ -33,10 +39,9 @@ def _bash():
 
 
 def _git(repo, *args):
-    return subprocess.run(
-        ["git", "-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", *args],
-        cwd=repo, check=True, capture_output=True, text=True,
-    ).stdout.strip()
+    proc = git("-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", *args, cwd=repo)
+    proc.check_returncode()
+    return proc.stdout.strip()
 
 
 DOC_FORM_TESTS = ("test_changelog_fragments.py", "test_docs_form_gate.py", "test_documentation_form.py")

@@ -52,6 +52,7 @@ from jnwb import tfr as tfr_module
 from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 from jnwb._parallel import parallel_map
 from jnwb.trajectory import compute_population_trajectory
+from scripts import stack_parse
 
 CUDA_RTOL = 1e-9
 METAL_RTOL = 1e-5
@@ -539,7 +540,7 @@ class TestTheDeviceDocumentationMatchesTheCode:
 
         text = (_DOCS / "10_operation_specifications.md").read_text(encoding="utf-8")
         table = text.split("## 2. Operation Specifications", 1)[1]
-        rows = [[c.strip() for c in line.strip().strip("|").split("|")]
+        rows = [stack_parse.cells(line)
                 for line in table.splitlines() if line.startswith("|")]
         header, body = rows[0], [r for r in rows[2:] if len(r) == len(rows[0])]
         assert len(body) == len(rows) - 2, "a row has a different cell count from the header"

@@ -160,7 +160,6 @@ import inspect
 import json
 import os
 import re
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence
@@ -175,6 +174,7 @@ elif str(REPO_ROOT) not in sys.path:
 
 
 from scripts.computational_contract_gate import EXECUTION_PARAMETERS  # noqa: E402
+from scripts.gates.boundary import git  # noqa: E402
 from scripts.fact_graph._base import (  # noqa: E402
     FACT_GRAPH_PATH,  # noqa: F401
     FACT_STACK,  # noqa: F401
@@ -293,8 +293,7 @@ def _gates() -> Dict[str, str]:
 
 
 def _head(root: Path) -> Optional[str]:
-    done = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"],
-                          capture_output=True, text=True)
+    done = git("-C", str(root), "rev-parse", "HEAD")
     head = done.stdout.strip()
     return head if done.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", head) else None
 
