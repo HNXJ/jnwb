@@ -72,6 +72,10 @@ Use of jnwb from outside: a new dataset, a downstream agent, tutorial figures.
 
 | ID | Theme | Defect | Waits | Release |
 |---|---|---|---|---|
+| 17-151 | Public docs state the adopted direction (`artifacts/direction.md`) | `README.md`, `docs/index.md`, `docs/architecture.md`, `docs/agents.md` lack the AI-assisted and autonomous analysis direction; Check as in the todo stack at `7ecaf327` | ruled 2026-11-22 off the 0.2.17 critical path; 17-99, 17-100 and 17-129 share its files | deferred-0.2.18 |
+| 17-155 | Removal of three deprecated public names | `TFRAnalyzer.LEGACY_VIZ_BANDS`, `DEFAULT_BANDS`, `nwb_read_io(mode=)` deprecated in 0.2.17 (17-96) | ruled 2026-11-22: removal only after a check of compatibility commitments and downstream use | deferred-0.2.18 |
+| 17-156 | Four cardless-receipt OCMA card specs (open row `OCMA-5`) | four drafts under `artifacts/process/ocma_card_specs/`, each `STATUS: draft-awaiting-Hamm`, with their flags (release mismatch, claim class, `synth_laminar_motif` outside `jnwb.__all__`, SciPy parity wording, Welch crossings) | ruled 2026-11-22 (A4): drafts and open decisions kept; Hamm rules each before card code | deferred-0.2.20 |
+| 17-102 | Showcase and calibration files nothing names | 14 of 24 `openscope_glo/scripts/` and 8 of 23 `receipts/` (823 KB) named by no tracked file; `curation_calibration_0.2.13_raw.json` (49,820 lines) named by nothing | ruled 2026-11-22: the 0.2.20 scope reduces these to receipts of record; files and references kept until then | deferred-0.2.20 |
 
 ## Harness and gates
 

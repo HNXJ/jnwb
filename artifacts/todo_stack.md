@@ -25,12 +25,19 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
-### 17-151 Public docs state the AI-assisted and autonomous analysis direction
+### 17-154 The full suite stalls at about 99%
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-99, 17-100 and 17-129 (shared `README.md`, `docs/index.md`, `docs/architecture.md`, `docs/agents.md`); Hamm's approval for any changed public product promise.
-Writes: `README.md`, `docs/index.md`, `docs/architecture.md`, `docs/agents.md`.
-- 17-151: public-facing language lacks the adopted `artifacts/direction.md`: jnwb is a dataset-agnostic, scientifically testable toolbox used directly by researchers and composed by AI agents for assisted or autonomous neural analysis and discovery. Prose follows the host `match-writing-style` rule; no new page. Explain the core and skills boundary, supported task routing, explicit scientific choices, independent verification and correct decline on unsupported or non-identifiable inference; project-specific hypotheses stay downstream; promise only implemented capabilities. Check: a reviewer maps each added claim to a current export, doc, test or skill, finds no duplicate API authority and no unsupported feature claim, `python scripts/docs_build.py` and `python scripts/harness_gate.py` pass, and the `## Quickstart (arrays)` section of `README.md` is unchanged.
+Role: jnwb-developer. Skill: none. Blocked by: the `_temp_17-152-hang` lane (adds `-o faulthandler_timeout=900` to `scripts/jnwb_suite.sh`).
+Writes: `scripts/jnwb_suite.sh`, `tests/test_*.py`.
+- 17-154: from open row `17-147-hang` (ruled 2026-11-22, A6 modified): two stalls at about 99% with 12 idle workers (9479505e on 2026-11-18, 9ad92d4b on 2026-11-19), stuck test unidentified; suspects by file time only: the wheel and foreign-NWB tests. Check: two clean full-suite runs under the dump configuration, each log and SHA cited; or a dump names the stalled test and a verified repair removes the stall. A dump alone is diagnosis and closes nothing.
+
+### 17-153 The fact gate reads each cited line
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/fact_gate.py`, `scripts/fact_graph/*.py`, `tests/test_fact_gate.py`.
+- 17-153: ruled 2026-11-22 (A1): the fact gate passed while eight cites in six fact rows pointed at moved lines (defect class seen three times: the 17-79 split, the 17-128 docstrings, the 2026-11-21 review). Check: for each `path:line` cite in a default row of `artifacts/fact_stack.md`, the gate fails when the cited line lacks the row's default literal; a planted stale cite turns it red; the existing fact gate passing does not close this item.
 
 ### 17-150 AST scan for NaN-passing sign guards
 
@@ -42,9 +49,9 @@ Writes: `scripts/learning_gate.py`, `tests/test_nan_passes_sign_guard_scan.py`.
 ### 17-147 Audit 2026-11-08: scripts and tests that cannot fail
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: scripts-2 only, on Hamm's ruling (open row `17-147-gate15`).
+Role: jnwb-developer. Skill: none. Blocked by: none (scripts-2 runs in lane `_temp_gate15-c901`).
 Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/measure_agents_md_duplication.py`, `scripts/vflip2_recovery.py`, `scripts/figures/generate_figures.py`, `scripts/figures/figure_registry.toml`, `tests/test_*.py`.
-- 17-147: push_guard half landed 2026-11-21 (merge 264ea80d): each spelling this item listed is denied with a failing-first test; an independent differential over 90,000 pairs found no denial loosened; any `eval` and any `$X push` are denied (accepted over-denial). Left: scripts-2 (gate 15 passes on zero tables; `tests/test_learning_gate.py:212` pins that; Hamm rules delete the check or make zero red); tests-4 at `tests/test_nwb_read_tolerance_and_visibility.py:230` (`_refusal` catches `Exception`; its callers assert `MissingRequiredNWBFieldError`); the spellings open row `17-147-guard` lists as still allowed. Check: one failing-first test per case in `tests/test_push_guard.py` (each denied from a non-jnwb cwd, or refused with a stated reason); `ruff check tests --select F401,F541,F821,F841` clean.
+- 17-147: push_guard half landed 2026-11-21 (merge 264ea80d) and closes on its bounded requirement (ruled 2026-11-22, A6): the text guard denies the set merged there; known limit, no general push enforcement claimed: a directory reached through a variable, substitution, `env -C`, `sudo -D` or `find -execdir`; cd or push spelled through quoting, `$IFS`, an alias, `send-pack` or a glob; a junction; another interpreter. The push wrapper and CI gate stay the enforcing gate. Left: scripts-2 (ruled option 2: zero mapping tables pass only when no obligation clause of the rule files was lost against the base; changed, unchanged and missing-base tests); tests-4 at `tests/test_nwb_read_tolerance_and_visibility.py:230` (`_refusal` catches `Exception`; its callers assert `MissingRequiredNWBFieldError`). Check: gate 15 fails on zero tables with a lost clause or a missing base; `_refusal` catches the named error only; `ruff check tests --select F401,F541,F821,F841` clean.
 
 ### 17-144 The jaxfne isi_cv commits
 
@@ -72,21 +79,21 @@ Writes: `scripts/stack_parse.py`, `scripts/release_gate.py`, `scripts/build_fact
 ### 17-96 Dead code and unused constants
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: public names (`LEGACY_VIZ_BANDS`, `DEFAULT_BANDS`, `nwb_read_io(mode=)`) need Hamm's word.
-Writes: `jnwb/visual_qc.py`, `jnwb/artifact_repair.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/nwb_io.py`, `tests/test_no_unreferenced_symbols.py`.
-- 17-96: five unused `MADELANE_*` constants held by an allowlist (`visual_qc.py:21-25`); `__main__` self-tests no test runs (`artifact_repair.py:468`, `onset_fitting.py:327`, 115 lines); `TFRAnalyzer.LEGACY_VIZ_BANDS` read only by tests; a third band table `DEFAULT_BANDS`; `nwb_read_io(mode=)` accepts one value. Check: removed or moved into tests, the allowlist shrinks, the suite passes.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `jnwb/visual_qc.py`, `jnwb/artifact_repair.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/nwb_io.py`, `tests/test_no_unreferenced_symbols.py`, a deprecation test file, `artifacts/changelog.d/*.md`.
+- 17-96: five unused `MADELANE_*` constants held by an allowlist (`visual_qc.py:21-25`); `__main__` self-tests no test runs (`artifact_repair.py:468`, `onset_fitting.py:327`, 115 lines); `TFRAnalyzer.LEGACY_VIZ_BANDS` read only by tests; a third band table `DEFAULT_BANDS`; `nwb_read_io(mode=)` accepts one value. Ruled 2026-11-22: the three public names are deprecated in 0.2.17, behaviour kept; removal in 0.2.18 needs a check of compatibility commitments and downstream use (roadmap 17-155). Check: the internal four removed or moved into tests, the allowlist shrinks; each public name warns `DeprecationWarning` and returns its old value or behaviour, by test; a changelog fragment announces it; the suite passes.
 
 ### 17-97 Tests named by process, split by accident
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: Hamm's word on dated evidence records (ruling packet 2026-11-22, row 17-97).
+Role: jnwb-developer. Skill: none. Blocked by: none (ruled 2026-11-22: merge the seven; dated records stay unchanged).
 Writes: `tests/test_*.py`.
 - 17-97: slice 1 landed 2026-11-22 (merge 4f84cf5c): the four event-named files, `test_rng_*` and `test_api_md_*` merged by subject; 11201 collected before and after, test-name set equal. Left: seven laminar files named only by `artifacts/evidence/0.2.15/tiered_ci_plan.md` and `artifacts/evidence/0.2.14/verification_inventory.md:84` (`test_vflip2_nuisance`, `_sensitivity`, `_simulation`, `test_xflip_homogeneous_null`, `_nuisance`, `_null_method`, `test_zflip_audit`); the other nine laminar files keep their names, cited by `standing.md`, a calibration receipt, `scripts/`, `jnwb/laminar/_vflip2.py`, a fixture or `CHANGELOG.md`. Event-named classes (`TestIntegration021`, `TestFinalAuditRecurrence`) stay to keep node ids. Check: the seven merged or ruled to stay, collected count unchanged.
 
 ### 17-99 One home per invariant across rule and doc files
 
 Release: deferred-0.2.17.
-Role: human. Skill: none. Blocked by: `AGENTS.md`, `CONTRIBUTING.md` and the fact stack need Hamm's word (shared `README.md`).
+Role: jnwb-developer. Skill: none. Blocked by: Hamm adds the spikes-and-LFP fact row (the fact stack is his; ruled 2026-11-22: the fact stack is each invariant's home, other files link); shared `README.md`.
 Writes: `.github/CONTRIBUTING.md`, `docs/architecture.md`, `README.md`, `docs/index.md`, `docs/glossary.md`, `artifacts/agents.md`.
 - 17-99: `CONTRIBUTING.md:368-380` and `docs/architecture.md:128-171` restate the invariants AGENTS.md §4 keeps in the fact stack; the spikes-and-LFP rule ("never pool") is in 17 tracked files (`git grep -il 'never pool'`) and no fact row; "four outcomes" in three of the Writes files; the Python matrix on four pages. Check: each fact has one home and the others link to it.
 
@@ -100,16 +107,9 @@ Writes: `docs/01_architecture_and_philosophy.md`, `docs/02_paths_addressing_meta
 ### 17-101 Tracked rules that depend on untracked local files
 
 Release: deferred-0.2.17.
-Role: human. Skill: none. Blocked by: Hamm decides: track or drop.
+Role: jnwb-developer. Skill: none. Blocked by: none (ruled 2026-11-22: rules point to the tracked `artifacts/agents/` roles; machine paths stay only in dated records).
 Writes: `artifacts/process/cooperation.md`, `artifacts/rulings/standing.md`, `artifacts/benchmarks/calibration/cuda_parity_0.2.4.md`.
 - 17-101: verifier dispatch lives only in git-ignored `.claude/agents/` (`cooperation.md:79`, `standing.md:37`); 15 tracked files cite `scratchpad` or `C:/Users/nejath` paths, e.g. `cuda_parity_0.2.4.md:67` cites `scratchpad/parity44.py`. Check: `git grep -lE 'scratchpad|C:/Users/nejath'` over tracked rules returns only records.
-
-### 17-102 Showcase and calibration files nothing names
-
-Release: deferred-0.2.17.
-Role: human. Skill: none. Blocked by: Hamm rules which are receipts of record.
-Writes: `artifacts/showcases/openscope_glo/**`, `artifacts/benchmarks/calibration/curation_calibration_0.2.13_raw.json`.
-- 17-102: 14 of 24 `openscope_glo/scripts/` files (by file stem) and 8 of its 23 `receipts/` (823 KB) are named by no tracked file (`aggregate_s2` is cited by `results/s2v2/receipt.json`); `curation_calibration_0.2.13_raw.json` (49,820 lines) is named by nothing. Check: each kept file is named by a receipt or `openscope_glo.json`, the rest removed.
 
 ### 17-104 Two oversized structures
 
@@ -130,7 +130,7 @@ Writes: `scripts/build_fact_graph.py`, `scripts/fact_graph/*.py`, `tests/test_fa
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: 17-94 (shares `jnwb/**/*.py`).
 Writes: `jnwb/**/*.py`.
-- 17-128: landed 2026-11-21 (merge c8bbee69): Raises sections on 24 public functions, filtering Args with units, 20 tolerance literals named in 13 modules (values equal, signatures unchanged). Left: Raises for `inspect`, `bipolar_reference`, `granger`, `assert_mergeable` (an INTERNAL name in `tests/test_skill_symbol_coverage.py`; documenting it needs a skill row), helper-raised exceptions and `FileNotFoundError` not listed; the `_vflip2` band literals and the `_vflip.py`, `_xflip.py`, `_bins.py` sites, whose code the curation, vflip and xflip calibration receipts hash (a change needs the calibrate script rerun); `harmonic_analysis` (frozen); the 96 float defaults in the signatures of the 163 functions in `jnwb.__all__` keep their text, which the Check below forbids (needs Hamm's word: name them or narrow the Check). From P-216-25 (the names went to roadmap 17-130): 23 of those 163 functions raise in their own body without a Raises section (AST count, 2026-11-21); unnamed band constants in `_vflip2.py`; 98 uncited float defaults and 43 tolerance literals at P-216-25 (`_psd.py:217` `fundamental_freq * 0.1`). Check: each public raise site has a Raises entry, each float default and tolerance is a named constant with its source, the suite passes.
+- 17-128: landed 2026-11-21 (merge c8bbee69): Raises sections on 24 public functions, filtering Args with units, 20 tolerance literals named in 13 modules (values equal, signatures unchanged). Left: Raises for `inspect`, `bipolar_reference`, `granger`, `assert_mergeable` (an INTERNAL name in `tests/test_skill_symbol_coverage.py`; documenting it needs a skill row), helper-raised exceptions and `FileNotFoundError` not listed; the `_vflip2` band literals and the `_vflip.py`, `_xflip.py`, `_bins.py` sites, whose code the curation, vflip and xflip calibration receipts hash (a change needs the calibrate script rerun); `harmonic_analysis` (frozen); the 96 float defaults in the signatures of the 163 functions in `jnwb.__all__` keep their text (ruled 2026-11-22: the Check covers tolerance literals and raise sites only). From P-216-25 (the names went to roadmap 17-130): 23 of those 163 functions raise in their own body without a Raises section (AST count, 2026-11-21); unnamed band constants in `_vflip2.py`; 98 uncited float defaults and 43 tolerance literals at P-216-25 (`_psd.py:217` `fundamental_freq * 0.1`). Check: each public raise site has a Raises entry, each tolerance literal is a named constant with its source, the suite passes.
 
 ### 17-142 Unused names, stale pointers and two duplicate helpers
 
