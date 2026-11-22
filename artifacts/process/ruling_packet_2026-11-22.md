@@ -98,8 +98,18 @@ Each must move to the todo stack with its evidence or come to you.
 | 17-97 | Whether dated evidence records pin test file names | seven laminar test files (`test_vflip2_nuisance`, `_sensitivity`, `_simulation`, `test_xflip_homogeneous_null`, `_nuisance`, `_null_method`, `test_zflip_audit`) are named only by `artifacts/evidence/0.2.15/tiered_ci_plan.md` (per-file durations) and `artifacts/evidence/0.2.14/verification_inventory.md:84` (a node id); slice 1 (`a938713f`) already merged files that `tiered_ci_plan.md` names, treating it as a record of its own version | (1) a dated record cites the tree at its version; merge the seven, records unchanged; (2) keep the seven; 17-97 closes with them named |
 | 17-151 | Its release mark | marked `deferred-0.2.17`, absent from the plan's 19 items; today's ruling keeps it off the critical path | (1) re-mark `deferred-0.2.18` |
 
-## C. After these rulings
+## C. Gate A4 has no defined measure
+
+Changes: which counter decides "no function above 40". Evidence: the 17-79 counter has no producer
+in the repo; the AST counter used for 17-79 gives 8 functions above 40 at `e6baac97`
+(`curate_and_label` 64); ruff 0.16.10 McCabe gives none at `81e36e3e` (largest
+`cluster_permutation_test` 39). Options: (1) ruff C901 with `max-complexity = 40` in
+`pyproject.toml`, a lint any run reproduces; (2) commit the AST counter as a script and keep its
+numbers (8 functions to split).
+
+## D. After these rulings
 
 Agent-executable blockers left for A1 and A2: none beyond applying the rulings; A2 then needs suite
-and CI green at the release tip. Gates A3 to A6 are independent of these rulings; their status is
-in `artifacts/process/release_checklist.md`.
+and CI green at the release tip. A3 needs the verbosity review; A5 also needs a fresh closure receipt
+(A6) and the changelog fragments assembled at release; status in
+`artifacts/process/release_checklist.md`.
