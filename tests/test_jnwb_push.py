@@ -289,6 +289,44 @@ def test_the_override_pushes_over_a_red_run(tmp_path, ci_api):
     assert _ref(bare) == head
 
 
+def test_the_override_refuses_a_tip_with_no_run(tmp_path, ci_api):
+    """A3: the override covers a completed red run at the tip. A tip no run covers refuses, even with it set."""
+    state, url = ci_api
+    repo, bare, tip, _head = _repo(tmp_path)
+    state["body"] = _body([_run("CI/CD", OLDER_SHA, "failure"), _run("dashboard", OLDER_SHA, "success")])
+    proc = _run_push(tmp_path, repo, url, override=True)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode == 1, out
+    assert f"no run at the branch tip {tip[:8]}" in out, out
+    assert "pushing anyway" not in out, out
+    assert _ref(bare) == tip, "the override pushed a tip that no CI run covers"
+
+
+def test_the_override_refuses_a_pending_run(tmp_path, ci_api):
+    """A3: a run still pending at the tip is not a red run; the override does not push over it."""
+    state, url = ci_api
+    repo, bare, tip, _head = _repo(tmp_path)
+    state["body"] = _body([_run("CI/CD", tip, "failure"), _run("dashboard", tip, None, status="in_progress")])
+    proc = _run_push(tmp_path, repo, url, override=True)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode == 1, out
+    assert "not completed" in out, out
+    assert "pushing anyway" not in out, out
+    assert _ref(bare) == tip, "the override pushed over a run still pending at the tip"
+
+
+def test_the_override_refuses_a_branch_the_remote_does_not_hold(tmp_path, ci_api):
+    """A3: with no dev on origin no run can sit at its tip; the override does not push to it."""
+    state, url = ci_api
+    repo, bare, tip, head = _repo(tmp_path, remote_has_dev=False)
+    state["body"] = _body([_run("CI/CD", tip, "success"), _run("CI/CD", head, "success")])
+    proc = _run_push(tmp_path, repo, url, override=True)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode == 1, out
+    assert "origin has no dev" in out, out
+    assert _ref(bare) is None, "the override pushed to a branch with no CI-read tip"
+
+
 @pytest.mark.parametrize("body", [b'{"message": "API rate limit exceeded"}', b"not json"])
 def test_an_unreadable_response_refuses_even_with_the_override(tmp_path, ci_api, body):
     state, url = ci_api
@@ -313,3 +351,20 @@ def test_ci_gate_refuses_a_tip_that_is_not_a_full_sha(ci_api, tip):
                           env=env, capture_output=True, text=True, timeout=60, check=False)
     assert proc.returncode == 2, proc.stdout + proc.stderr
     assert not state["paths"], "the gate read CI before it refused the tip"
+
+
+def test_ci_gate_exits_3_for_a_red_run_and_1_for_no_run(ci_api):
+    """The push wrapper overrides only exit 3 (a completed run that did not succeed), so the codes must differ."""
+    state, url = ci_api
+    env = dict(os.environ)
+    env["JNWB_CI_API"] = url
+    env["NO_PROXY"] = env["no_proxy"] = "127.0.0.1,localhost"
+    red_tip = "a" * 40
+    state["body"] = _body([_run("CI/CD", red_tip, "failure")])
+    red = subprocess.run([sys.executable, CI_GATE.as_posix(), "hnxj/jnwb", "dev", "--tip", red_tip],
+                         env=env, capture_output=True, text=True, timeout=60, check=False)
+    assert red.returncode == 3, red.stdout + red.stderr
+    state["body"] = _body([_run("CI/CD", OLDER_SHA, "failure")])
+    none = subprocess.run([sys.executable, CI_GATE.as_posix(), "hnxj/jnwb", "dev", "--tip", red_tip],
+                          env=env, capture_output=True, text=True, timeout=60, check=False)
+    assert none.returncode == 1, none.stdout + none.stderr

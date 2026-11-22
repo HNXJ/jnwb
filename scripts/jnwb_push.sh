@@ -6,8 +6,9 @@
 #   - no Actions run on the branch is in flight, and
 #   - CI ran at origin's tip of the branch, read from the remote at push time: at least one run is
 #     listed at that SHA and every run there completed and succeeded; a run at an earlier SHA does
-#     not count (scripts/ci_gate.py --tip; override: JNWB_PUSH_OVER_RED=1, for the push that carries
-#     the fix).
+#     not count (scripts/ci_gate.py --tip). Override: JNWB_PUSH_OVER_RED=1 pushes over one case only,
+#     a completed run at the tip that did not succeed (ci_gate exit 3), for the push that carries the
+#     fix. Every other refusal, a tip with no run or a pending run among them, stays a refusal.
 # An artifacts-only push first runs the stack checks: scripts/harness_gate.py (gate 15 among them)
 # and tests/test_stack_item_length.py.
 # Usage: jnwb_push.sh <dir> [branch=dev] [--item <id>]
@@ -108,11 +109,12 @@ fi
 case "$gate_rc" in
   0) ;;
   2) echo "CI conclusion unreadable: $gate_out"; exit 1 ;;
-  *) if [ "${JNWB_PUSH_OVER_RED:-}" = "1" ]; then
+  3) if [ "${JNWB_PUSH_OVER_RED:-}" = "1" ]; then
        echo "CI gate on $branch: $gate_out; pushing anyway (JNWB_PUSH_OVER_RED=1)"
      else
        echo "CI gate on $branch: $gate_out; refusing. Read its failure; to push the fix, set JNWB_PUSH_OVER_RED=1"
        exit 1
      fi ;;
+  *) echo "CI gate on $branch: $gate_out; refusing"; exit 1 ;;
 esac
 git push origin "$branch" </dev/null
