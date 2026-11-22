@@ -40,3 +40,27 @@ def test_an_integral_order_is_accepted_in_every_spelling(name):
 def test_order_zero_no_longer_reads_as_no_coupling():
     fitted = CALLS["granger"](2)
     assert fitted.x_to_y > 0.1
+
+
+class TestGrangerAutoOrder:
+    def test_auto_order_matches_select_optimal_lag(self):
+        from jnwb.connectivity import select_optimal_lag
+
+        rng = np.random.default_rng(1)
+        x = rng.normal(size=400)
+        y = rng.normal(size=400)
+        lag_xy = select_optimal_lag(x, y, max_lag=8, criterion="bic")
+        res = jnwb.granger(
+            x, y, order="auto", max_lag=8, criterion="bic", n_surrogates=0, detrend=None
+        )
+        assert res.params["order_x_to_y"] == lag_xy
+
+
+class TestFinalAuditRecurrence:
+
+    def test_granger_accepts_minimal_dof_order(self):
+        rng = np.random.default_rng(1)
+        x = rng.normal(size=20)
+        y = rng.normal(size=20)
+        res = jnwb.granger(x[None, :], y[None, :], order=6, n_surrogates=0, detrend=None)
+        assert res.params["order_x_to_y"] == 6

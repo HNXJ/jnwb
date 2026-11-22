@@ -87,7 +87,7 @@ class TestTFRAnalyzerBandExtraction(unittest.TestCase):
         mutations that change every returned number while preserving shape passed this
         whole file: dropping the band's upper bound, and replacing the frequency-axis
         mean with a sum. Measured, the suite does catch both -- through
-        `tests/test_audit_reproducers.py`, and for the sum also through
+        `tests/test_tfr_extract_band_regressions.py`, and for the sum also through
         `tests/test_jnwb_core.py` -- so the file was blind, not the suite. Core
         arithmetic should not depend on an audit probe for its only oracle.
 

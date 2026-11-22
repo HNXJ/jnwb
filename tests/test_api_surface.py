@@ -236,3 +236,23 @@ def test_the_scan_reports_a_planted_generator_import(tmp_path):
     violations = _synthetic_violations(package)
     assert len(violations) == 1, violations
     assert violations[0].startswith("jnwb/sub/leak.py imports ['jnwb.testing.synth'"), violations
+
+
+class TestIntegration021:
+
+    def test_all_five_primitives_exported_at_top_level(self):
+        """Verify export and availability of all new 0.2.1 symbols."""
+        expected_symbols = [
+            "aperiodic_fit",
+            "AperiodicFitResult",
+            "relative_power",
+            "exact_sign_flip",
+            "mann_whitney_p_floor",
+            "clopper_pearson",
+            "stream_npz_array",
+            "probe_geometry",
+            "ProbeGeometry",
+        ]
+        for sym in expected_symbols:
+            assert sym in jnwb.__all__, f"{sym} missing from jnwb.__all__"
+            assert hasattr(jnwb, sym), f"{sym} missing from jnwb module namespace"
