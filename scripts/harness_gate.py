@@ -159,6 +159,7 @@ from scripts.gates.state import (
 )
 
 from scripts.learning_gate import (
+    RULE_FILES,
     awareness_violations,
     citation_violations,
     examined_counts,
@@ -266,7 +267,9 @@ def _stack_and_record_checks() -> List[Tuple[str, List[str]]]:
 
 def _stack_and_record_pass_line() -> str:
     """The stack and record checks' PASS line, naming what they read; nothing read says 0."""
-    tables, read, phrases = examined_counts()
+    tables, read, phrases, base = examined_counts()
+    rule_files = (f", with no mapping table, {' and '.join(RULE_FILES)} against {base}"
+                  if base else "")
     return ("PASS: Stack form consistent (every declared write set names comparable paths and "
             "is not truncated by a stray full stop; no 'Blocked by: none' is contradicted by "
             "its own item's text; every summary count agrees with the items it names; "
@@ -275,7 +278,7 @@ def _stack_and_record_pass_line() -> str:
             "every GENERATED_FROM entry resolves against the tree); every defect-class count "
             "matches its instances, and every date a file cites has a dated record; examined: "
             f"{tables} mapping tables ({read} obligation clauses; before, after, never, must, "
-            f"only) and {phrases} forbidden phrases.")
+            f"only{rule_files}) and {phrases} forbidden phrases.")
 
 
 def _state_file_checks() -> List[Tuple[str, List[str]]]:
