@@ -10,7 +10,9 @@ Checks, each run by a harness gate (`scripts/harness_gate.py`):
 * A mapping table (a table with "Old location" and "Where now" columns) keeps the obligation
   words of its old rule file: "before", "after", "never", "must" and "only" in an old clause must
   appear in the closest clause of the draft its preamble names. Clauses are aligned as
-  `scripts/obligation_diff.py` aligns them.
+  `scripts/obligation_diff.py` aligns them. With no mapping table, `AGENTS.md` and
+  `.github/CONTRIBUTING.md` at HEAD keep every obligation clause they held at the newest `v*` tag
+  that is an ancestor of HEAD; no such tag is a violation.
 * A dated row may name a phrase it forbids, as a cell `Forbidden: "<phrase>"`; the phrase must not
   appear in tracked text outside the dated, archived and evidence trees.
 * The generated rows of `artifacts/state.md` (worktrees, local branches, open defect classes)
@@ -46,6 +48,8 @@ OBLIGATION_WORDS = frozenset({"before", "after", "never", "must", "only"})
 OLD_FILE = re.compile(r"Old file:\s*`([^`]+)`\s+at\s+`([0-9a-fA-F]{7,40})`")
 DRAFT = re.compile(r"Draft:\s*`([^`]+)`")
 FORBIDDEN = re.compile(r'Forbidden:\s*"([^"]+)"')
+#: With no mapping table, these rule files keep every obligation clause of the newest release tag.
+RULE_FILES = ("AGENTS.md", ".github/CONTRIBUTING.md")
 #: Tracked text under these trees is not searched for a forbidden phrase.
 NOT_SEARCHED = ("artifacts/rulings", "artifacts/archive", "artifacts/evidence")
 
@@ -185,17 +189,65 @@ def obligation_losses(old: str, new: str) -> Tuple[int, List[Tuple[List[str], st
     return read, lost
 
 
+def newest_release_tag() -> Optional[str]:
+    """The newest ``v*`` tag that is an ancestor of HEAD, or None when none is reachable.
+
+    ``git describe`` walks HEAD's ancestry only, so a tag it names is an ancestor of HEAD. A
+    shallow clone without tags resolves none.
+    """
+    done = subprocess.run(["git", "-C", str(REPO_ROOT), "describe", "--tags", "--abbrev=0",
+                           "--match", "v*"], capture_output=True, text=True)
+    return (done.stdout.strip() or None) if done.returncode == 0 else None
+
+
+def rule_file_check(read_old: Callable[[str, str], Optional[str]],
+                    base: Optional[str]) -> Tuple[int, List[str]]:
+    """(obligation clauses read, violations) for RULE_FILES at HEAD against ``base``.
+
+    Ruled 2026-11-22 (option 2): with no mapping table, the clause passes only when the rule files
+    are unchanged against a defined base. Base: the newest ``v*`` tag that is an ancestor of HEAD
+    (``newest_release_tag``). Changed: an obligation clause of the file at base is lost in the
+    file at HEAD, as ``obligation_losses`` measures it; a file absent at HEAD loses every clause.
+    An unresolved base, or a file that cannot be read at base, is a violation, never a pass.
+    """
+    if not base:
+        return 0, [f"no mapping table, and no v* tag is an ancestor of HEAD, so "
+                   f"{' and '.join(RULE_FILES)} cannot be shown to keep their obligation clauses "
+                   "(a clone without tags resolves none: fetch with fetch-depth 0)"]
+    read = 0
+    found: List[str] = []
+    for path in RULE_FILES:
+        old = read_old(base, path)
+        if old is None:
+            found.append(f"no mapping table, and {path} at {base} cannot be read, so its "
+                         "obligation clauses cannot be shown kept")
+            continue
+        new = read_old("HEAD", path)
+        count, lost = obligation_losses(old, new if new is not None else "")
+        read += count
+        found += [f"no mapping table, so {path} must keep every obligation clause of {base}: "
+                  f"{', '.join(missing)} lost from '{clause[:100]}' "
+                  f"(closest clause at HEAD: '{best[:100]}')" for missing, clause, best in lost]
+    return read, found
+
+
 def mapping_check(root: Path = REPO_ROOT,
                   read_old: Callable[[str, str], Optional[str]] = _git_show,
+                  base: Callable[[], Optional[str]] = newest_release_tag,
                   ) -> Tuple[int, int, List[str]]:
     """(mapping tables, obligation clauses read, violations) for each mapping table under root.
 
     ``read_old`` returns the old file at a commit, or None when it cannot be read. A table that
     names no old file, or whose old file or draft cannot be read, is a violation, never a pass.
+    With no table, ``rule_file_check`` reads RULE_FILES against the tag ``base`` returns.
     """
     tables = read = 0
     found: List[str] = []
-    for table, rev, old_path, draft in mapping_tables(root):
+    listed = mapping_tables(root)
+    if not listed:
+        read, found = rule_file_check(read_old, base())
+        return 0, read, found
+    for table, rev, old_path, draft in listed:
         tables += 1
         unnamed = [name for name, value in (("old file", old_path), ("old commit", rev),
                                             ("draft", draft)) if not value]
@@ -253,8 +305,10 @@ def forbidden_violations(sources: List[Tuple[str, str]], rev: Optional[str] = No
     return found
 
 
-def examined_counts(root: Path = REPO_ROOT) -> Tuple[int, int, int]:
-    """(mapping tables, obligation clauses, forbidden phrases) the checks read; the PASS line names
-    them, so a check that read nothing does not pass as if it had checked something."""
+def examined_counts(root: Path = REPO_ROOT) -> Tuple[int, int, int, Optional[str]]:
+    """(mapping tables, obligation clauses, forbidden phrases, base tag when no table exists) the
+    checks read; the PASS line names them, so a check that read nothing does not pass as if it had
+    checked something."""
     tables, read, _ = mapping_check(root)
-    return tables, read, len(forbidden_sources(root))
+    return (tables, read, len(forbidden_sources(root)),
+            None if tables else newest_release_tag())

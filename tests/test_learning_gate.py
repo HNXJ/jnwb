@@ -209,9 +209,53 @@ def test_a_mapping_table_that_names_no_draft_is_red_not_passed(tmp_path):
     assert found and "names no draft" in found[0], found
 
 
-def test_a_tree_with_no_mapping_table_examines_none_and_says_so(tmp_path):
-    root = _tree(tmp_path, {"artifacts/a.md": "No table here.\n"})
-    assert lg.mapping_check(root, read_old=lambda rev, path: "") == (0, 0, [])
+AGENTS_AT_BASE = "## 1. Loop\n\nRun the check before its first write.\n"
+CONTRIBUTING_AT_BASE = "## Push\n\nPush only after the suite passes.\n"
+
+
+def _rule_files(agents_at_head):
+    """read_old over the rule files: base holds both obligations; HEAD's AGENTS.md is given."""
+    def read(rev, path):
+        if path == "AGENTS.md":
+            return AGENTS_AT_BASE if rev == "v0.0.1" else agents_at_head
+        return CONTRIBUTING_AT_BASE
+    return read
+
+
+def _no_table(tmp_path):
+    return _tree(tmp_path, {"artifacts/a.md": "No table here.\n"})
+
+
+def test_no_mapping_table_and_unchanged_rule_files_pass_and_read_both(tmp_path):
+    tables, read, found = lg.mapping_check(_no_table(tmp_path), read_old=_rule_files(
+        AGENTS_AT_BASE), base=lambda: "v0.0.1")
+    assert (tables, read, found) == (0, 2, []), (tables, read, found)
+
+
+def test_no_mapping_table_and_a_lost_obligation_clause_is_red(tmp_path):
+    found = lg.mapping_check(_no_table(tmp_path), read_old=_rule_files(
+        "## 1. Loop\n\nRun the check first.\n"), base=lambda: "v0.0.1")[2]
+    assert len(found) == 1, found
+    assert "AGENTS.md" in found[0] and "before its first write" in found[0], found
+    assert "v0.0.1" in found[0], found
+
+
+def test_no_mapping_table_and_a_deleted_rule_file_loses_every_clause(tmp_path):
+    found = lg.mapping_check(_no_table(tmp_path), read_old=_rule_files(None),
+                             base=lambda: "v0.0.1")[2]
+    assert len(found) == 1 and "before its first write" in found[0], found
+
+
+def test_no_mapping_table_and_no_base_tag_is_red_not_passed(tmp_path):
+    found = lg.mapping_check(_no_table(tmp_path), read_old=_rule_files(AGENTS_AT_BASE),
+                             base=lambda: None)[2]
+    assert found and "no v* tag is an ancestor of HEAD" in found[0], found
+
+
+def test_no_mapping_table_and_a_rule_file_unreadable_at_base_is_red(tmp_path):
+    found = lg.mapping_check(_no_table(tmp_path), read_old=lambda rev, path: None,
+                             base=lambda: "v0.0.1")[2]
+    assert len(found) == 2 and all("cannot be read" in v for v in found), found
 
 
 @pytest.mark.requires_git_checkout
@@ -254,16 +298,29 @@ def test_a_forbidden_phrase_in_a_tracked_file_is_red_and_an_archived_one_is_not(
 @pytest.mark.requires_git_checkout
 def test_the_live_tree_holds_no_forbidden_phrase_and_no_mapping_drop():
     assert lg.forbidden_violations(lg.forbidden_sources(REPO_ROOT)) == []
+    if not lg.mapping_tables(REPO_ROOT) and lg.newest_release_tag() is None:
+        pytest.skip("no v* tag is an ancestor of HEAD in this clone (CI's shallow checkout); "
+                    "the build job runs gate 15 on a full clone")
     assert lg.mapping_check(REPO_ROOT)[2] == []
 
 
 def test_gate_15_pass_line_names_what_it_examined(monkeypatch):
     from scripts import harness_gate
 
-    monkeypatch.setattr(harness_gate, "examined_counts", lambda: (3, 41, 2))
+    monkeypatch.setattr(harness_gate, "examined_counts", lambda: (3, 41, 2, None))
     line = harness_gate._stack_and_record_pass_line()
     assert line.startswith("PASS:") and "3 mapping tables" in line, line
     assert "2 forbidden phrases" in line, line
+    assert "with no mapping table" not in line, line
+
+
+def test_gate_15_pass_line_names_the_base_and_rule_files_when_no_table_exists(monkeypatch):
+    from scripts import harness_gate
+
+    monkeypatch.setattr(harness_gate, "examined_counts", lambda: (0, 85, 2, "v9.9.9"))
+    line = harness_gate._stack_and_record_pass_line()
+    assert "0 mapping tables (85 obligation clauses" in line, line
+    assert "AGENTS.md and .github/CONTRIBUTING.md against v9.9.9" in line, line
 
 
 @pytest.mark.requires_git_checkout
