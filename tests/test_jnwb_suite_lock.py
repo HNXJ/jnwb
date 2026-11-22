@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
 
 from scripts.gates.boundary import git  # noqa: E402
 
-SCRIPT =ROOT / "scripts" / "jnwb_suite.sh"
+SCRIPT = ROOT / "scripts" / "jnwb_suite.sh"
 
 FAKE_LOCK = """\
 import json, os, subprocess, sys

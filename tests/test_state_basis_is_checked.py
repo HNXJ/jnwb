@@ -34,7 +34,7 @@ if str(ROOT) not in sys.path:
 
 from scripts.gates.boundary import git  # noqa: E402
 
-GENERATOR =ROOT / "scripts" / "reconstruct_state.py"
+GENERATOR = ROOT / "scripts" / "reconstruct_state.py"
 HARNESS_GATE = ROOT / "scripts" / "harness_gate.py"
 STATE_FILE = ROOT / "artifacts" / "state.md"
 

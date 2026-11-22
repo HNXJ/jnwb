@@ -24,7 +24,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.gates.boundary import git  # noqa: E402
 
-PUSH =REPO_ROOT / "scripts" / "jnwb_push.sh"
+PUSH = REPO_ROOT / "scripts" / "jnwb_push.sh"
 CI_GATE = REPO_ROOT / "scripts" / "ci_gate.py"
 OLDER_SHA = "b" * 40
 
