@@ -31,7 +31,7 @@ fi
 echo "doc-form tests passed"
 python scripts/reconstruct_state.py >/dev/null || { echo "reconstruct failed"; exit 2; }
 python scripts/reconstruct_state.py --check >/dev/null || { echo "state check failed"; exit 2; }
-pytest_cmd=(python -m pytest tests/ -q -n 12 -p no:cacheprovider -rf)
+pytest_cmd=(python -m pytest tests/ -q -n 12 -p no:cacheprovider -rf -o faulthandler_timeout=900)
 [ -n "$basetemp" ] && pytest_cmd+=(--basetemp "$basetemp")
 lock="${JNWB_SUITE_LOCK:-$HOME/.claude/bin/suite_lock.py}"
 if [ -f "$lock" ]; then

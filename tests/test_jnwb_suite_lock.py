@@ -128,6 +128,8 @@ def test_present_lock_runs_the_pytest_command_through_it(tmp_path):
     pytest_cmd = record[3:]
     assert pytest_cmd[:3] == ["python", "-m", "pytest"], pytest_cmd
     assert "tests/" in pytest_cmd, pytest_cmd
+    flag = pytest_cmd.index("faulthandler_timeout=900")
+    assert pytest_cmd[flag - 1] == "-o", pytest_cmd
     assert "4 passed" in log.read_text(encoding="utf-8")
     assert proc.returncode == 0, proc.stdout + proc.stderr
     head = _git(repo, "rev-parse", "HEAD")
