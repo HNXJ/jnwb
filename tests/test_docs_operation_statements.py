@@ -13,6 +13,7 @@ import ast
 import importlib
 import inspect
 import re
+import sys
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,9 +24,13 @@ import pytest
 
 import jnwb
 from jnwb._lazy_exports import OPTIONAL_SUBMODULES
-from scripts import stack_parse
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts import stack_parse  # noqa: E402
+
 DOCS = REPO_ROOT / "docs"
 
 

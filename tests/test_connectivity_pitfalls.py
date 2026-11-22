@@ -25,7 +25,12 @@ import numpy as np
 import pytest
 
 import jnwb
-from scripts import stack_parse
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts import stack_parse  # noqa: E402
 
 FS = 500.0
 N_TIMES = 4000

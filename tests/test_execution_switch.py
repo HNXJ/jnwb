@@ -39,6 +39,7 @@ import subprocess
 import sys
 import warnings
 from dataclasses import fields, is_dataclass
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -52,7 +53,12 @@ from jnwb import tfr as tfr_module
 from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 from jnwb._parallel import parallel_map
 from jnwb.trajectory import compute_population_trajectory
-from scripts import stack_parse
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts import stack_parse  # noqa: E402
 
 CUDA_RTOL = 1e-9
 METAL_RTOL = 1e-5

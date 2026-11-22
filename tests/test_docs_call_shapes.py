@@ -38,6 +38,7 @@ import builtins
 import importlib
 import inspect
 import re
+import sys
 import tomllib
 import types
 import typing
@@ -59,9 +60,13 @@ matplotlib.use("Agg")  # headless, as in the other test modules that draw
 pytest.importorskip("plotly", reason="the vis extra is not installed")
 
 import jnwb
-from scripts import stack_parse
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts import stack_parse  # noqa: E402
+
 PAGES = sorted((ROOT / "docs").rglob("*.md")) + [ROOT / "README.md"]
 BLOCK = re.compile(r"^```python\n(.*?)^```", re.M | re.S)
 

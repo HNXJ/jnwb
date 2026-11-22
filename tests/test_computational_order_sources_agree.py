@@ -7,11 +7,15 @@ the inventory carries no measured exponent of its own -- an exponent there would
 method, scale set or receipt behind it.
 """
 import re
+import sys
 from pathlib import Path
 
-from scripts import stack_parse
-
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts import stack_parse  # noqa: E402
+
 INVENTORY = ROOT / "artifacts" / "benchmarks" / "performance" / "complexity_inventory.md"
 BENCHMARK = ROOT / "artifacts" / "evidence" / "0.2.6" / "computational_order.md"
 

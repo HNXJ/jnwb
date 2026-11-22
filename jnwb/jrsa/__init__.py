@@ -782,7 +782,7 @@ def _fit_single_lag(x1, x2, axis_map, lag, metric_fn, permutation_p, stats, perm
         # metric's own cell-wise parametric p pre-empt it, so `rsa`, `pearson`,
         # `spearman`, `kendall`, `phase_slope` and `granger_ssr_ftest` returned a p that
         # did not move between permutations=10 and permutations=2000 -- it was
-        # `rdm_similarity(v1, v2, "spearman")[1]`, which rsa.py:177 states "is not a
+        # `rdm_similarity(v1, v2, "spearman")[1]`, which rsa.py:180 states "is not a
         # valid test of RDM relatedness". The valid null was computed and discarded.
         p_raw = _p_from_null(value, null_dist, alternative)
 
