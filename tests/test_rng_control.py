@@ -473,7 +473,7 @@ signature now says `rng: RNGLike = DEFAULT_SEED`. A bare call is unchanged, beca
 `default_rng(42)` and `default_rng(SeedSequence(42))` are the same stream; an explicit
 `rng=None` now means fresh OS entropy, as it does everywhere else in the package.
 
-**Why this module exists when `test_rng_control.py` already guards the silent fixed seed.** That module
+**Why these tests exist beside the silent-fixed-seed tests earlier in this file.** Those tests
 could not see the deviation, for three independent reasons, each closed by a different
 assertion here -- and each still open for the next one:
 

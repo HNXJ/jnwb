@@ -20,8 +20,15 @@ drift, and this file kept the assertions.
 
 from __future__ import annotations
 
+import concurrent.futures
+import hashlib
 import inspect
+import json.decoder
+import os
+import pathlib
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Iterator, List, Tuple
@@ -45,13 +52,6 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts.harness_gate import API_MD_ROW, api_member_kind  # noqa: E402
-import concurrent.futures
-import hashlib
-import json.decoder
-import os
-import pathlib
-import shutil
-import subprocess
 
 API_MD = REPO_ROOT / "docs" / "api.md"
 

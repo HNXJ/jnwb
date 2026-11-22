@@ -1,3 +1,7 @@
+"""Composition of five primitives in one pipeline: `probe_geometry`, `stream_npz_array`,
+`aperiodic_fit`, `relative_power` and the exact statistics, with their cross-primitive
+assumptions, boundary neutrality and failure semantics."""
+
 import numpy as np
 import pandas as pd
 import pytest
