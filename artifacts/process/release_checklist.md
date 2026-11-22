@@ -8,7 +8,7 @@ replace. Scope source: `artifacts/process/release_plan.json`; item text: `artifa
 row in the commit that closes its item (minor update); rewrite the whole checklist after the release
 (major update).
 
-Current (2026-11-21, stacks updated for the partial landing of `17-94`, `17-100` and `17-104`): **17/100 verified** (no item closed). Full suite on `2a1814a0` (local merge, unpushed, run in a shared clone): 11042 passed, 83 skipped, 38 xfailed, 0 failed; `harness_gate.py` 22 of 22 there; no CI run exists for that SHA. `origin/dev` = `0feb6fa9`. Gates 0 of 6 complete. Progress 17 of 60 (17-103, 17-79 and 17-98 closed). Receipts bind to the SHA they name; a later commit needs its own.
+Current (2026-11-21, stacks updated for the partial landing of `17-94`, `17-100`, `17-104`, `17-95`, `17-128` and `17-147`): **17/100 verified** (no item closed). `origin/dev` = `5e1932a7`: CI/CD runs `44945988837` and `44945993762` succeeded on every test leg at that SHA. The partial landings of `17-95`, `17-128` and `17-147` (merge `91424ae7`) carry their own suite and CI receipts in the commit that pushes them. Gates 0 of 6 complete. Progress 17 of 60 (17-103, 17-79 and 17-98 closed). Receipts bind to the SHA they name; a later commit needs its own.
 
 ## Required gates (40): all-or-nothing, each complete only when every requirement passes
 
