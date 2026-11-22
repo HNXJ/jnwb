@@ -10,12 +10,19 @@ is copied onto `docs/agents.md` for readers without a checkout, and the copy is 
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
 import yaml
 
 import jnwb
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts import stack_parse  # noqa: E402
 
 SKILLS = Path(__file__).resolve().parents[1] / "skills"
 ROUTER = SKILLS / "jnwb" / "SKILL.md"
@@ -256,9 +263,9 @@ def _router_rows(text: str) -> list[str]:
 
 def _task_skills(text: str, task: str) -> set[str]:
     """The skills named by the one router row whose task cell holds `task`."""
-    hits = [row for row in _router_rows(text) if task in row.split("|")[1].lower()]
+    hits = [row for row in _router_rows(text) if task in stack_parse.cells(row)[0].lower()]
     assert len(hits) == 1, f"{len(hits)} router rows route {task!r}; a task needs exactly one"
-    return set(re.findall(r"`(jnwb(?:-[\w-]+)?)`", hits[0].split("|")[2]))
+    return set(re.findall(r"`(jnwb(?:-[\w-]+)?)`", stack_parse.cells(hits[0])[1]))
 
 
 def test_the_task_skill_sets_name_only_skills_that_exist() -> None:

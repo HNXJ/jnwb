@@ -39,6 +39,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
+from scripts import stack_parse  # noqa: E402
 from scripts.reconstruct_state import (  # noqa: E402
     HEAD_ROW_RE,
     STATE_PATH,
@@ -244,7 +245,7 @@ def test_the_measured_values_match_the_tree(generated: str):
     skills = sorted(p.parent.name for p in (REPO_ROOT / "skills").glob("*/SKILL.md"))
     roles = sorted(p.stem for p in (REPO_ROOT / "artifacts" / "agents").glob("*.md"))
     rows = {
-        row.split("|")[1].strip(): row.split("|")[2].strip()
+        stack_parse.cells(row)[0]: stack_parse.cells(row)[1]
         for row in generated.splitlines()
         if row.startswith("|") and row.count("|") >= 3
     }

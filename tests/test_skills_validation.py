@@ -8,6 +8,7 @@ import dataclasses
 import importlib.util
 import inspect
 import re
+import sys
 try:
     import yaml
     def _yaml_load(s: str) -> dict:
@@ -48,6 +49,11 @@ CANONICAL_SKILLS = {
 }
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))  # needed: the installed-wheel run clears pythonpath
+
+from scripts import stack_parse  # noqa: E402
+
 SKILLS_DIR = ROOT_DIR / "skills"
 DOCS_DIR = ROOT_DIR / "docs"
 #: The contributor-process skill. It governs how this repository is changed, not how jnwb is
@@ -1918,8 +1924,8 @@ def _skill_template() -> List[str]:
     text = CONTRIBUTING.read_text(encoding="utf-8")
     block = text.split("### What a skill contains", 1)[1].split("\n### ", 1)[0]
     rows = [line for line in block.splitlines() if line.startswith("|")]
-    names = [row.split("|")[1].strip() for row in rows[2:]]
-    assert rows and rows[0].split("|")[1].strip() == "Section" and len(names) >= 2, (
+    names = [stack_parse.cells(row)[0] for row in rows[2:]]
+    assert rows and stack_parse.cells(rows[0])[0] == "Section" and len(names) >= 2, (
         f"the section table in CONTRIBUTING.md was not found or is empty: {rows}"
     )
     return names
