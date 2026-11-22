@@ -7,7 +7,7 @@ the release itself is decided by `AGENTS.md` §11 and `scripts/release_gate.py`;
 row in the commit that closes its item (minor update); rewrite the whole checklist after the release
 (major update).
 
-Current (2026-11-21, stacks updated for the partial landing of `17-94`, `17-100`, `17-104`, `17-95`, `17-128` and `17-147`): **17/100 verified** (no item closed). `origin/dev` = `5e1932a7`: CI/CD runs `44945988837` and `44945993762` succeeded on every test leg at that SHA. The partial landings of `17-95`, `17-128` and `17-147` (merge `91424ae7`) carry their own suite and CI receipts in the commit that pushes them. Gates 0 of 6 complete. Progress 17 of 60 (17-103, 17-79 and 17-98 closed). Receipts bind to the SHA they name; a later commit needs its own.
+Current (2026-11-22, partial landings of `17-97` and `17-142`): **17/100 verified** (no item closed). `origin/dev` = `c24898eb`: both CI/CD runs at that SHA succeeded; the commit that pushes these landings carries its own suite and CI receipts. Owner decisions that block A1: `artifacts/process/ruling_packet_2026-11-22.md`. Gates 0 of 6 complete. Progress 17 of 60 (17-103, 17-79 and 17-98 closed). Receipts bind to the SHA they name; a later commit needs its own.
 
 ## Required gates (40): all-or-nothing, each complete only when every requirement passes
 
@@ -17,7 +17,7 @@ The release needs all six. A gate earns its 5 or 10 points only when complete; a
 |---|---|---|---|---|
 | A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | incomplete: eight rows (OCMA-5, 17-144-src, 17-152-over, 17-147-guard, 17-147-gate15, 17-147-hang, fact-zflip-cite, fact-cites-1121) |
 | A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | incomplete: suite 0 failed at `9479505e`; 1 failed at `77e9682a` (wheel-leg import guard, repaired in `9ad92d4b`); suite 0 failed at `9ad92d4b` and at `e6baac97` (11021 passed each) and CI success at both SHAs (`e6baac97`: runs 44601543097, 44601555186); incomplete until the tip at release carries its own suite and CI receipts |
-| A3 | Documentation low-verbosity and consistently formed | 5 | `harness_gate.py` 22 of 22; `docs_build.py` strict passes; docs-form tests pass; AGENTS.md §11 verbosity review | incomplete: harness gate 22 of 22 and docs-form tests pass at `77e9682a`; docs build and the verbosity review not run |
+| A3 | Documentation low-verbosity and consistently formed | 5 | `harness_gate.py` 22 of 22; `docs_build.py` strict passes; docs-form tests pass; AGENTS.md §11 verbosity review | incomplete: harness gate 22 of 22 and docs-form tests pass at `77e9682a`; `docs_build.py` strict passed at `c24898eb` (2026-11-22, rc 0); the verbosity review not run |
 | A4 | Code low-complexity | 5 | no function above 40 by the item 17-79 measure | incomplete: the five functions named in 17-79 are split (all at most 28 by the AST counter used for the item); 8 other functions stay above 40 at `e6baac97` by that counter (`curate_and_label` 64, `label_layers` 50, `compare_groups` 49, `check_waveform_blocks` 49, `probe_geometry` 49, `vflip2` 46, `_stream_slice` 44, `screen_units_against_labels` 42); an approximate cyclomatic count at `e5dd5aec` (2026-11-21) gives 10, adding `cluster_permutation_test` 43 and `release_gate.py` `main` 43, with `probe_geometry` 50 and `_stream_slice` 46; the item's own counter has no producer in the repo (it gave 67, 80, 93, 109 where the AST counter gives 70, 84, 83, 104 for four of the five) |
 | A5 | `scripts/release_gate.py` STEP 0 passes | 5 | `python scripts/release_gate.py` | incomplete: not run |
 | A6 | Independent closure pass finds no new blocker | 5 | a `reviewer` run on the tip; each advertised scientific claim checked against the deferred rows; report under `artifacts/evidence/` | incomplete: not run |
@@ -39,7 +39,7 @@ reviewer accepted it. An item in flight earns nothing.
 | S6 | Validations on external ground truth | 10 | 17-144, roadmap 15-11, 12-21, 16-12 | 0 of 4 | 0 |
 
 Closed items are struck through in the Items column. In flight: 17-94, 17-95, 17-100, 17-104, 17-128
-and 17-147 (partial landings 2026-11-21; each item open).
+and 17-147 (partial landings 2026-11-21), 17-97 and 17-142 (2026-11-22); each item open.
 
 ## Stack snapshot, 2026-11-19 at `e6baac97` (the 2026-11-21 partial landings postdate it; `artifacts/todo_stack.md` holds the current state)
 
@@ -92,3 +92,4 @@ One row in the §2 project-state table: `| release checklist | artifacts/process
 | 2026-11-20 | the commit that closes `17-98` | 17-98 closed: removed internal process vocabulary across `jnwb/`, `scripts/`, and `tests/`, and expanded `tests/test_shipped_code_names_no_process_ids.py` to enforce the boundary. S3 1 of 2 (+5 pts); score 12/100 -> 17/100. |
 | 2026-11-20 | the commit that closes `vflip2-receipt` | Closed open row `vflip2-receipt`: regenerated `vflip2_separation_0.2.14` at 0.2.16 (all 400 draws, seeds, and threshold `22.800214862368193` identical; `estimator_sha256`, `declared_version`, and `environment.jnwb` updated) and added hash-currency tests in `tests/test_fusion_agreement.py` and `tests/test_calibration_hash_walker.py`. Gate A1 open rows reduced 8 -> 7; score stays 12/100. |
 | 2026-11-21 | the commit that records this review | Partial landings of 17-94, 17-100, 17-104, 17-95, 17-128 and 17-147 (merges 9427c84a, 63b1874c, 2a1814a0, 91424ae7, c8bbee69, 264ea80d) and repair `e5dd5aec`; suite 11081 passed, 0 failed at `e5dd5aec`. Review round of the todo and open stacks (three reviews, an independent check): stale merges, cites and counts fixed; open row `fact-cites-1121` added (A1 7 -> 8). Score stays 17/100: no item closed. |
+| 2026-11-22 | the commit that records these landings | Partial landings of 17-142 (merge ff703205) and 17-97 slice 1 (merge 4f84cf5c), each independently verified. Provisional rulings recorded (`artifacts/rulings/2026-11-22.md`); owner decisions for A1 in `artifacts/process/ruling_packet_2026-11-22.md`, which adds two stale second cites to row `fact-cites-1121`'s scope. A3: docs build passes at `c24898eb`. Score stays 17/100: no item closed. |

@@ -79,9 +79,9 @@ Writes: `jnwb/visual_qc.py`, `jnwb/artifact_repair.py`, `jnwb/onset_fitting.py`,
 ### 17-97 Tests named by process, split by accident
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-95 and 17-147 (shared `tests/test_*.py`).
+Role: jnwb-developer. Skill: none. Blocked by: Hamm's word on dated evidence records (ruling packet 2026-11-22, row 17-97).
 Writes: `tests/test_*.py`.
-- 17-97: `test_batch_a_regressions.py`, `test_independent_audit_semantics.py`, `test_integration_0_2_1.py`, `test_audit_reproducers.py` are named by event; 29 same-subject files (`test_rng_*` 4, `test_vflip2*` 6, `test_xflip*` 7, `test_zflip*` 3, `test_api_md_*` 3, ...) split 3 to 7 ways. Check: merged by subject with the collected test count unchanged.
+- 17-97: slice 1 landed 2026-11-22 (merge 4f84cf5c): the four event-named files, `test_rng_*` and `test_api_md_*` merged by subject; 11201 collected before and after, test-name set equal. Left: seven laminar files named only by `artifacts/evidence/0.2.15/tiered_ci_plan.md` and `artifacts/evidence/0.2.14/verification_inventory.md:84` (`test_vflip2_nuisance`, `_sensitivity`, `_simulation`, `test_xflip_homogeneous_null`, `_nuisance`, `_null_method`, `test_zflip_audit`); the other nine laminar files keep their names, cited by `standing.md`, a calibration receipt, `scripts/`, `jnwb/laminar/_vflip2.py`, a fixture or `CHANGELOG.md`. Event-named classes (`TestIntegration021`, `TestFinalAuditRecurrence`) stay to keep node ids. Check: the seven merged or ruled to stay, collected count unchanged.
 
 ### 17-99 One home per invariant across rule and doc files
 
@@ -135,9 +135,9 @@ Writes: `jnwb/**/*.py`.
 ### 17-142 Unused names, stale pointers and two duplicate helpers
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-94 and 17-95 (shared files).
-Writes: `jnwb/jrsa/__init__.py`, `jnwb/statistics/_regression.py`, `jnwb/statistics/__init__.py`, `jnwb/connectivity/_granger.py`, `jnwb/jrsa/_backends.py`, `scripts/gates/boundary.py`, `scripts/gates/vocabulary.py`, `scripts/mutation_harness.py`, `scripts/learning_gate.py`.
-- 17-142: match pass 2026-11-07 at 2a5ef1b7, each confirmed by `ruff check --select F401,F811,F821,F841`: `resolve_rng` (`statistics/_regression.py:8`) and `MIN_COHERENCE_NPERSEG` (`connectivity/_granger.py:16`) imported and unused; `Union` undefined in an annotation (`scripts/gates/boundary.py:432`); F401 reports 49 names outside `__init__` files at e5dd5aec. Comments name functions that no longer exist: `_autodetect_backend` (`jrsa/_backends.py:40`), `_read_journal` (`scripts/mutation_harness.py:592`); `scripts/gates/vocabulary.py:80` cites "batch jobs" at `docs/02:11`, which now sits in `docs/reading_nwb.md:33`. `_mean_over` is defined twice in `_granger.py` (:1088, :1331). Re-exports in `__init__` files are out of scope. Check: ruff F811, F821 and F841 report zero over `jnwb/` and `scripts/`, F401 reports no name outside a re-exporting `__init__.py`, each named pointer resolves, each helper has one definition; the suite passes.
+Role: jnwb-developer. Skill: none. Blocked by: the `_temp_17-95-left` lane, which edits `scripts/gates/boundary.py`.
+Writes: `scripts/gates/boundary.py`.
+- 17-142: landed 2026-11-22 (merge ff703205): 12 unused imports removed; 37 kept in `scripts/harness_gate.py` with `# noqa: F401` naming the test that reads each through the module; one module-level `_mean_over` in `_granger.py` (granger outputs bitwise-equal); the three stale pointers fixed. Left: `Union` undefined in an annotation (`scripts/gates/boundary.py:432`). Check: ruff F811, F821 and F841 report zero over `jnwb/` and `scripts/`, F401 reports no name outside a re-exporting `__init__.py`, each named pointer resolves, each helper has one definition; the suite passes.
 
 ### 17-129 Prose against the writing style
 
