@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from .._bins import refuse_nonfinite_times
-from .._rng import RNGLike, recorded_rng, resolve_rng, Default, resolve_seed_alias, surrogate_rng
+from .._rng import RNGLike, recorded_rng, Default, resolve_seed_alias, surrogate_rng
 from .._spread import is_constant as _is_constant
 from ..permutation import _count_at_least_as_extreme, permute_labels
 from ._tests import _require_shuffle_inputs
