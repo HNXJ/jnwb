@@ -237,7 +237,7 @@ PROCESS_TESTS = (
     "tests/test_agents_md_stays_a_router.py",
     "tests/test_release_recovery_gates.py",
     "tests/test_jrsa.py",
-    "tests/test_api_md_is_interpreter_independent.py",
+    "tests/test_api_md_member_types.py",
     "tests/test_workflow_release_policy.py",
     "tests/test_state_reconstruction.py",
     "tests/test_state_basis_is_checked.py",

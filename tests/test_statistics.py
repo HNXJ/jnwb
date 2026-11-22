@@ -22,6 +22,7 @@ from jnwb.statistics import (
     clopper_pearson, mann_whitney_p_floor, exact_sign_flip, fdr_correct,
     StatisticalAnalysis,
 )
+from jnwb.statistics import (cluster_permutation_test)
 
 
 class TestFiresInWindow:
@@ -1165,7 +1166,6 @@ def test_constant_groups_leave_real_data_and_eta_squared_exact():
 def test_cluster_t_map_recognises_constant_points_whatever_the_value():
     """A constant non-zero paired difference is NaN and two equal constant groups are 0.0 at
     that point, as the zero-standard-error rule says; at 0.3 they read 1.8e16 and 3.3."""
-    from jnwb.statistics import cluster_permutation_test
 
     rng = np.random.default_rng(0)
     X, Y = rng.normal(size=(12, 6)), rng.normal(size=(12, 6))
@@ -1183,7 +1183,6 @@ def test_each_cluster_statistic_is_the_sum_of_its_mask_bitwise(tail):
     """Cluster sums come from one sort of the labelled points, not a mask per cluster; each
     must still equal ``np.sum(stat_map[mask])`` to the last bit, for many small clusters and
     for clusters past numpy's 8- and 128-element pairwise-summation blocks."""
-    from jnwb.statistics import cluster_permutation_test
 
     rng = np.random.default_rng(11)
     X, Y = rng.normal(size=(10, 60, 70)), rng.normal(size=(10, 60, 70))
@@ -1206,7 +1205,6 @@ def test_the_null_is_the_extremal_cluster_of_each_tail():
     """Swapping X and Y negates every paired t map exactly under the same sign flips, so the
     'less' null is the negated 'greater' null of the swapped data, and 'both' takes the
     larger magnitude of the two at each draw."""
-    from jnwb.statistics import cluster_permutation_test
 
     rng = np.random.default_rng(12)
     X, Y = rng.normal(size=(9, 40, 30)), rng.normal(size=(9, 40, 30))
@@ -1225,7 +1223,6 @@ def test_the_null_is_the_extremal_cluster_of_each_tail():
 def test_a_null_draw_with_no_cluster_contributes_zero(tail):
     """No point crosses the threshold in any draw, so every null statistic is 0.0 and no
     cluster is reported."""
-    from jnwb.statistics import cluster_permutation_test
 
     rng = np.random.default_rng(13)
     X, Y = rng.normal(size=(8, 50)), rng.normal(size=(8, 50))
@@ -1239,7 +1236,6 @@ def test_a_null_draw_with_no_cluster_contributes_zero(tail):
 def test_the_paired_null_reports_global_with_and_without_groups():
     """A paired test draws sign flips across pairs whether or not `groups` is given, so it
     reports 'global' either way. `groups` does not change the null: the draws are identical."""
-    from jnwb.statistics import cluster_permutation_test
 
     rng = np.random.default_rng(14)
     X, Y = rng.normal(size=(8, 30)), rng.normal(size=(8, 30))
@@ -1254,7 +1250,6 @@ def test_the_paired_null_reports_global_with_and_without_groups():
 
 
 def test_the_unpaired_scheme_still_follows_groups():
-    from jnwb.statistics import cluster_permutation_test
 
     rng = np.random.default_rng(15)
     X, Y = rng.normal(size=(6, 20)), rng.normal(size=(7, 20))
@@ -1270,7 +1265,6 @@ def test_the_unpaired_scheme_still_follows_groups():
 def test_constant_groups_at_a_non_finite_value_have_no_test(a, b):
     """A silent channel in decibels is -inf in every trial. The unbounded t is for finite
     constants: a group constant at inf or -inf has no t-test and no eta_squared."""
-    from jnwb.statistics import cluster_permutation_test
 
     res = StatisticalAnalysis.exploratory_compare(np.full(6, a), np.full(6, b), n_bootstrap=20)
     par = res["parametric"]
@@ -1576,3 +1570,65 @@ def test_bootstrap_ci_keeps_its_interval_at_0_9_on_a_fixed_input():
     np.testing.assert_allclose(res["bootstrap_ci"],
                                [-0.3205184816062278, 0.1500022579842534], rtol=1e-12)
 
+
+class TestCompareGroupsPairedContract:
+    def test_paired_length_mismatch_raises(self):
+        with pytest.raises(ValueError, match="paired=True"):
+            StatisticalAnalysis.compare_groups([1, 2, 3, 4], [1, 2, 3], paired=True)
+
+    def test_paired_equal_lengths_use_paired_test(self):
+        res = StatisticalAnalysis.compare_groups([1, 2, 3], [2, 3, 4], paired=True)
+        assert res["parametric"]["test"] == "paired_t_test"
+
+    def test_paired_asymmetric_nan_pairwise_alignment(self):
+        """Asymmetric NaNs must not shift pair alignment.
+        True paired diff across complete pairs (idx 0 and 3) is exactly 0.0."""
+        g1 = np.array([10.0, 100.0, np.nan, 20.0])
+        g2 = np.array([10.0, np.nan, 200.0, 20.0])
+        res = StatisticalAnalysis.compare_groups(g1, g2, paired=True, n_bootstrap=100)
+        assert res["n1"] == 2
+        assert res["n2"] == 2
+        assert res["mean_diff_ci"]["observed_mean_diff"] == pytest.approx(0.0)
+        # Every difference is zero, so the t statistic is 0/0: no test, not p = 1.
+        assert np.isnan(res["parametric"]["pval"])
+        assert np.isnan(res["parametric"]["effect_size"])
+        assert np.isnan(res["parametric"]["df"])
+        assert res["significant_parametric"] is False
+
+    def test_paired_insufficient_finite_pairs_raises(self):
+        """When fewer than 2 pairs are mutually finite, ValueError must be raised."""
+        g1 = np.array([10.0, np.nan, np.nan])
+        g2 = np.array([10.0, 20.0, 30.0])
+        with pytest.raises(ValueError, match="at least two paired observations"):
+            StatisticalAnalysis.compare_groups(g1, g2, paired=True)
+
+
+class TestFinalAuditRecurrence:
+
+    def test_compare_groups_paired_single_pair_raises(self):
+        with pytest.raises(ValueError, match="at least two paired"):
+            StatisticalAnalysis.compare_groups([5.0], [7.0], paired=True)
+
+
+class TestIntegration021:
+
+    def test_statistical_analysis_parity(self):
+        """Verify StatisticalAnalysis exposes the exact statistics methods."""
+        sa = jnwb.StatisticalAnalysis
+        assert hasattr(sa, "exact_sign_flip")
+        assert hasattr(sa, "mann_whitney_p_floor")
+        assert hasattr(sa, "clopper_pearson")
+
+        # Check equivalence of calling via top-level vs StatisticalAnalysis
+        diffs = [0.5, 1.2, -0.3, 0.8, 0.4]
+        res1 = jnwb.exact_sign_flip(diffs, alternative="greater")
+        res2 = sa.exact_sign_flip(diffs, alternative="greater")
+        assert res1 == res2
+
+        floor1 = jnwb.mann_whitney_p_floor(5, 5, alternative="two-sided")
+        floor2 = sa.mann_whitney_p_floor(5, 5, alternative="two-sided")
+        assert floor1 == floor2
+
+        ci1 = jnwb.clopper_pearson(7, 10, alpha=0.05)
+        ci2 = sa.clopper_pearson(7, 10, alpha=0.05)
+        assert ci1 == ci2
