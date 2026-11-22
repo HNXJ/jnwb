@@ -1,8 +1,7 @@
 # Release checklist, 0.2.17
 
-A tracking artifact. It is not an authoritative release score until Hamm approves its scoring contract;
-the release itself is decided by `AGENTS.md` §11 and `scripts/release_gate.py`, which this file does not
-replace. Scope source: `artifacts/process/release_plan.json`; item text: `artifacts/todo_stack.md`.
+A tracking artifact. Its score is authoritative only after Hamm approves its scoring contract;
+the release itself is decided by `AGENTS.md` §11 and `scripts/release_gate.py`; this file only tracks them. Scope source: `artifacts/process/release_plan.json`; item text: `artifacts/todo_stack.md`.
 
 **Done = 100/100**: every scope row closed and every required gate passing at the tip of `dev`. Update a
 row in the commit that closes its item (minor update); rewrite the whole checklist after the release
@@ -16,10 +15,10 @@ The release needs all six. A gate earns its 5 or 10 points only when complete; a
 
 | # | Gate | Pts | Requirements (all) | State |
 |---|---|---|---|---|
-| A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | incomplete: seven rows (OCMA-5, 17-144-src, 17-152-over, 17-147-guard, 17-147-gate15, 17-147-hang, fact-zflip-cite) |
+| A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | incomplete: eight rows (OCMA-5, 17-144-src, 17-152-over, 17-147-guard, 17-147-gate15, 17-147-hang, fact-zflip-cite, fact-cites-1121) |
 | A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | incomplete: suite 0 failed at `9479505e`; 1 failed at `77e9682a` (wheel-leg import guard, repaired in `9ad92d4b`); suite 0 failed at `9ad92d4b` and at `e6baac97` (11021 passed each) and CI success at both SHAs (`e6baac97`: runs 44601543097, 44601555186); incomplete until the tip at release carries its own suite and CI receipts |
 | A3 | Documentation low-verbosity and consistently formed | 5 | `harness_gate.py` 22 of 22; `docs_build.py` strict passes; docs-form tests pass; AGENTS.md §11 verbosity review | incomplete: harness gate 22 of 22 and docs-form tests pass at `77e9682a`; docs build and the verbosity review not run |
-| A4 | Code low-complexity | 5 | no function above 40 by the item 17-79 measure | incomplete: the five functions named in 17-79 are split (all at most 28 by the AST counter used for the item); 8 other functions stay above 40 at `e6baac97` by that counter (`curate_and_label` 64, `label_layers` 50, `compare_groups` 49, `check_waveform_blocks` 49, `probe_geometry` 49, `vflip2` 46, `_stream_slice` 44, `screen_units_against_labels` 42); the item's own counter has no producer in the repo (it gave 67, 80, 93, 109 where the AST counter gives 70, 84, 83, 104 for four of the five) |
+| A4 | Code low-complexity | 5 | no function above 40 by the item 17-79 measure | incomplete: the five functions named in 17-79 are split (all at most 28 by the AST counter used for the item); 8 other functions stay above 40 at `e6baac97` by that counter (`curate_and_label` 64, `label_layers` 50, `compare_groups` 49, `check_waveform_blocks` 49, `probe_geometry` 49, `vflip2` 46, `_stream_slice` 44, `screen_units_against_labels` 42); an approximate cyclomatic count at `e5dd5aec` (2026-11-21) gives 10, adding `cluster_permutation_test` 43 and `release_gate.py` `main` 43, with `probe_geometry` 50 and `_stream_slice` 46; the item's own counter has no producer in the repo (it gave 67, 80, 93, 109 where the AST counter gives 70, 84, 83, 104 for four of the five) |
 | A5 | `scripts/release_gate.py` STEP 0 passes | 5 | `python scripts/release_gate.py` | incomplete: not run |
 | A6 | Independent closure pass finds no new blocker | 5 | a `reviewer` run on the tip; each advertised scientific claim checked against the deferred rows; report under `artifacts/evidence/` | incomplete: not run |
 
@@ -39,13 +38,13 @@ reviewer accepted it. An item in flight earns nothing.
 | S5 | Code and prose matched to the style standards; the fact graph build made faster | 10 | 17-104, 17-127, 17-128, 17-129 | 0 of 4 | 0 |
 | S6 | Validations on external ground truth | 10 | 17-144, roadmap 15-11, 12-21, 16-12 | 0 of 4 | 0 |
 
-Closed items are struck through in the Items column. In flight: 17-95 (cells and the first git runner
-landed; sites remain, item open), 17-147 (parts landed, item open).
+Closed items are struck through in the Items column. In flight: 17-94, 17-95, 17-100, 17-104, 17-128
+and 17-147 (partial landings 2026-11-21; each item open).
 
-## Stack snapshot, 2026-11-19 at `e6baac97`
+## Stack snapshot, 2026-11-19 at `e6baac97` (the 2026-11-21 partial landings postdate it; `artifacts/todo_stack.md` holds the current state)
 
 Read from `artifacts/todo_stack.md` (17 items, all `deferred-0.2.17`), `artifacts/open_stack.md` (7 rows)
-and `artifacts/roadmap.md` (15 rows: 3 for 0.2.17, 12 for 0.2.18 and later, which do not count here).
+and `artifacts/roadmap.md` (15 rows: 3 for 0.2.17, 12 for 0.2.18 and later, excluded here).
 
 | State | Items |
 |---|---|
@@ -54,7 +53,7 @@ and `artifacts/roadmap.md` (15 rows: 3 for 0.2.17, 12 for 0.2.18 and later, whic
 | Waits on Hamm | 17-96 (public names), 17-99 (AGENTS.md, CONTRIBUTING.md, fact stack), 17-101 (track or drop), 17-102 (which files are receipts), 17-151 (any changed product promise), 17-147 (gate 15: row `17-147-gate15`) |
 | Waits on an outside input | 17-144 (the three isi_cv commits, row `17-144-src`); roadmap 15-11 and 12-21 (Bastos simulation code, a broadband jaxfne field); 16-12 (real-data receipts computed without jnwb) |
 
-Open rows that block gate A1: `OCMA-5`, `17-144-src`, `17-152-over`, `17-147-gate15`, `fact-zflip-cite` (Hamm),
+Open rows that block gate A1: `OCMA-5`, `17-144-src`, `17-152-over`, `17-147-gate15`, `fact-zflip-cite`, `fact-cites-1121` (Hamm),
 `17-147-guard`, `17-147-hang` (main-jnwb; the guard row closes with the 17-147 closure tests,
 the hang row on a diagnosed or twice-absent recurrence).
 
@@ -67,14 +66,14 @@ item is an inference from the item's text and is open to correction.
 |---|---|---|
 | Six rows are the six `scope` lines of the plan, in order | `release_plan.json`, version 0.2.17 | none |
 | 17-147, 17-150 (scripts and tests that cannot fail) and 17-151 (public docs) fit no scope line | the plan's scope text names no such work | ruling: add scope lines, or fold into S3 and S4 |
-| 17-151 is in `artifacts/todo_stack.md` marked `deferred-0.2.17` but not in the plan's `items` list | plan `items` has 22 ids, none is 17-151 | ruling: add it to the plan or re-mark it |
+| 17-151 is in `artifacts/todo_stack.md` marked `deferred-0.2.17` but not in the plan's `items` list | plan 0.2.17 `items` has 19 ids, none is 17-151 | ruling: add it to the plan or re-mark it |
 | 15-11, 12-21 and 16-12 are roadmap rows, not todo items | `artifacts/roadmap.md` lines 22 to 24 | none; counted as S6 items |
 | 17-144 closes only when its three source commits exist | open row `17-144-src` | Hamm / jaxfne-orchestrator |
 | S6 depends on inputs the plan lists as needs: the Bastos lab simulation code and a broadband jaxfne field | `release_plan.json` `needs` | Hamm |
 | No item sits in two rows | each id appears once above | none |
 
 Until the two rulings, 17-147, 17-150 and 17-151 earn no progress points and must still be closed for the
-cycle (their `Release` mark), so a 60 in progress does not by itself mean the scope is done.
+cycle (their `Release` mark), so 60 points in progress leave the scope open until these close.
 
 ## Proposed AGENTS.md routing (not applied; AGENTS.md is Hamm's)
 
@@ -84,11 +83,12 @@ One row in the §2 project-state table: `| release checklist | artifacts/process
 
 | Date | SHA | Change |
 |---|---|---|
-| 2026-11-20 | the commit that closes `17-98` | 17-98 closed: removed internal process vocabulary across `jnwb/`, `scripts/`, and `tests/`, and expanded `tests/test_shipped_code_names_no_process_ids.py` to enforce the boundary. S3 1 of 2 (+5 pts); score 12/100 -> 17/100. |
-| 2026-11-20 | the commit that closes `vflip2-receipt` | Closed open row `vflip2-receipt`: regenerated `vflip2_separation_0.2.14` at 0.2.16 (all 400 draws, seeds, and threshold `22.800214862368193` identical; `estimator_sha256`, `declared_version`, and `environment.jnwb` updated) and added hash-currency tests in `tests/test_fusion_agreement.py` and `tests/test_calibration_hash_walker.py`. Gate A1 open rows reduced 8 -> 7; score stays 12/100. |
 | 2026-11-18 | `b442e2b1` | Created. Provisional score 5/100 (acceptance 5 for the harness gate alone; scope 0). Superseded by the next row; kept as history. |
 | 2026-11-18 | `b442e2b1` | Rescored 0/100. Gates are all-or-nothing, so A3 earns 0 while the docs build and review are open. Weights labelled provisional; mapping audited; conflicts listed. |
 | 2026-11-18 | the commit that lands 17-103 | 17-103 closed (reviewer ACCEPT on 3a1a26c2; full suite on the landing SHA, see its push). S4 1 of 5; score 2/100. 17-95 stays open with a reduced bullet. |
-| 2026-11-19 | `e6baac97` | 17-79 closed: the five named functions split in five commits, each independently reviewed (differentials of 1112 to 19400 bitwise-equal calls with planted controls; calibration receipts regenerated with identical values); suite 11021 passed, 0 failed on `e6baac97`; landed on `dev`. S1 1 of 1, score 12/100. Gate A4 stays incomplete: 8 other functions above 40. Open rows `vflip2-receipt` and `fact-zflip-cite` added. |
-| 2026-11-19 | `9ad92d4b` | Suite 11021 passed, 0 failed; CI/CD success on both runs; `dev` pushed. Verified score 2/100; weights and denominator unchanged. `17-147-hang` stays open: one hung run (stopped, unexplained), the rerun passed, which does not explain it. Rule added: no branch or worktree changes during a suite run (gate 20 reads them). |
 | 2026-11-18 | `9ad92d4b` | Re-read from the open and todo stacks and the roadmap: stack snapshot added; gate states refreshed (A2: the suite failed once on `77e9682a`, repaired). Verified score 0/100; 2/100 once the suite passes on `9ad92d4b`. |
+| 2026-11-19 | `9ad92d4b` | Suite 11021 passed, 0 failed; CI/CD success on both runs; `dev` pushed. Verified score 2/100; weights and denominator unchanged. `17-147-hang` stays open: one hung run (stopped), the rerun passed; the stall stays unexplained. Rule added: no branch or worktree changes during a suite run (gate 20 reads them). |
+| 2026-11-19 | `e6baac97` | 17-79 closed: the five named functions split in five commits, each independently reviewed (differentials of 1112 to 19400 bitwise-equal calls with planted controls; calibration receipts regenerated with identical values); suite 11021 passed, 0 failed on `e6baac97`; landed on `dev`. S1 1 of 1, score 12/100. Gate A4 stays incomplete: 8 other functions above 40. Open rows `vflip2-receipt` and `fact-zflip-cite` added. |
+| 2026-11-20 | the commit that closes `17-98` | 17-98 closed: removed internal process vocabulary across `jnwb/`, `scripts/`, and `tests/`, and expanded `tests/test_shipped_code_names_no_process_ids.py` to enforce the boundary. S3 1 of 2 (+5 pts); score 12/100 -> 17/100. |
+| 2026-11-20 | the commit that closes `vflip2-receipt` | Closed open row `vflip2-receipt`: regenerated `vflip2_separation_0.2.14` at 0.2.16 (all 400 draws, seeds, and threshold `22.800214862368193` identical; `estimator_sha256`, `declared_version`, and `environment.jnwb` updated) and added hash-currency tests in `tests/test_fusion_agreement.py` and `tests/test_calibration_hash_walker.py`. Gate A1 open rows reduced 8 -> 7; score stays 12/100. |
+| 2026-11-21 | the commit that records this review | Partial landings of 17-94, 17-100, 17-104, 17-95, 17-128 and 17-147 (merges 9427c84a, 63b1874c, 2a1814a0, 91424ae7, c8bbee69, 264ea80d) and repair `e5dd5aec`; suite 11081 passed, 0 failed at `e5dd5aec`. Review round of the todo and open stacks (three reviews, an independent check): stale merges, cites and counts fixed; open row `fact-cites-1121` added (A1 7 -> 8). Score stays 17/100: no item closed. |
