@@ -1377,3 +1377,22 @@ class TestTheUploadToPyPIIsVerifiedAfterIt:
         problem = wheel_problem(built, fetched)
         assert hashlib.sha256(b"the build artifact").hexdigest() in problem, problem
         assert hashlib.sha256(b"a different wheel").hexdigest() in problem, problem
+
+
+def test_every_job_that_runs_the_gates_checks_out_the_tags():
+    """Gate 15 resolves the newest v* tag HEAD descends from and fails in a clone with none, so
+    a job that runs pytest (tests/test_every_gate_runs.py runs every gate) or harness_gate.py
+    must check out full history: a shallow checkout turned every test leg red at c53c78fe."""
+    examined, shallow = [], []
+    for name, job in _load_workflow()["jobs"].items():
+        steps = job.get("steps", [])
+        runs = " ".join(str(step.get("run", "")) for step in steps)
+        if "pytest" not in runs and "harness_gate.py" not in runs:
+            continue
+        examined.append(name)
+        for step in steps:
+            if str(step.get("uses", "")).startswith("actions/checkout@"):
+                if (step.get("with") or {}).get("fetch-depth") != 0:
+                    shallow.append(name)
+    assert len(examined) >= 3, examined  # test, test-floors, the pandas leg and build at least
+    assert not shallow, f"jobs that run the gates from a shallow checkout: {shallow}"
