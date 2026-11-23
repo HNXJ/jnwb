@@ -25,7 +25,18 @@ def test_epoch_continuous_refuses_nonfinite_fs(bad):
         continuous.epoch_continuous(x, [0.5], win_s=(0.0, 0.1), fs=bad)
 
 
-@pytest.mark.parametrize("bad", [None, [1000.0]])
+@pytest.mark.parametrize("bad", ["1000", b"1000"])
+def test_a_numeric_string_fs_is_refused_where_it_reached_arithmetic(bad):
+    from jnwb.testing.synth import synth_phase_gradient
+
+    with pytest.raises(ValueError, match="fs must be a number in Hz"):
+        synth_phase_gradient(4, 1000, bad, rng=0)
+    x = np.ones(2000)
+    with pytest.raises(ValueError, match="epoch_continuous: fs must be a number in Hz"):
+        continuous.epoch_continuous(x, [0.5], win_s=(0.0, 0.1), fs=bad)
+
+
+@pytest.mark.parametrize("bad", [None, [1000.0], "1000", b"1000"])
 def test_filters_refuse_nonnumeric_fs_as_value_error(bad):
     x = np.ones((2, 2000))
     with pytest.raises(ValueError, match="fs must be a number in Hz"):
