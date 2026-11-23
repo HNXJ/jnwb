@@ -165,7 +165,8 @@ def grid_psd(trials: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 # ---------------------------------------------------------------- estimator-helper window table
 
 def window_table(psd: np.ndarray, freqs: np.ndarray, low_weight: np.ndarray) -> List[dict]:
-    """Every window vflip2 visits (`_vflip2.py:324-327`), with the helpers of its loop (`:328-365`).
+    """Every window vflip2 visits (the `proximal` and `distal` loops of `_vflip2.vflip2`), with the
+    helpers of that loop.
 
     Crossovers are 0-based absolute rows (vflip2's `crossover_channel`). They are NaN where the
     crossover is undefined or absent; in undefined windows both crossovers are null by rule.

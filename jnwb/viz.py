@@ -18,6 +18,10 @@ from ._rng import Default, RNGLike, resolve_rng, resolve_seed_alias
 
 log = logging.getLogger(__name__)
 
+#: Floor on the y-range :func:`apply_tight_auto_axis` pads, so flat lines still get a visible
+#: margin; a plotting choice, no external source.
+_MIN_Y_RANGE = 1e-3
+
 
 def setup_vector_graphics():
     """Enforce editable vector SVG font rendering in Adobe Illustrator / Inkscape."""
@@ -42,7 +46,7 @@ def apply_tight_auto_axis(ax, x_span: Tuple[float, float] = (-500, 4124), y_marg
                 all_y.extend(ydata[~np.isnan(ydata)])
         if all_y:
             ymin, ymax = np.min(all_y), np.max(all_y)
-            rng = max(ymax - ymin, 1e-3)
+            rng = max(ymax - ymin, _MIN_Y_RANGE)
             low = ymin - y_margin * rng
             ax.set_ylim(max(0, low) if ymin >= 0 else low, ymax + y_margin * rng)
 

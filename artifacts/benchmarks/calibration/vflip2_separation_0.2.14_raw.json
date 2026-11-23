@@ -18,8 +18,8 @@
   "vflip2_from_lfp"
  ],
  "estimator_sha256": {
-  "vflip_from_lfp": "8b5848486384465c41060535a4a5ea7b0f7202d543996262adbd1a149419b606",
-  "vflip2_from_lfp": "81f112e0cc423a0f7b126a2d49915636051bcd4d4088933d670523e19bc86883"
+  "vflip_from_lfp": "c47c47b5ec860fdf30e589e206cb3830f0887acf28ac1c4c0d2e171505f3f347",
+  "vflip2_from_lfp": "74c121071b89a0c9ec6899c3716baa9b12ea61f1049b9cc0890c25aff8a6cbef"
  },
  "n_draws": 400,
  "seeds": [

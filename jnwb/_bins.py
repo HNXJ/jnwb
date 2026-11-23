@@ -6,6 +6,15 @@ from __future__ import annotations
 
 import numpy as np
 
+#: Floor, in bins, of the rounding tolerance on a bin count; a numerical guard, no external source.
+_BIN_COUNT_TOL_FLOOR = 1e-9
+#: Ulps of the larger endpoint, per bin width, added to that floor; a numerical guard, no
+#: external source.
+_BIN_COUNT_TOL_ULPS = 16
+#: Ulps of ``|onset| + |w|`` by which the onset-window search brackets widen; a numerical guard,
+#: no external source.
+_ONSET_SEARCH_PAD_ULPS = 8
+
 
 def _count_tolerance(start: float, end: float, width: float) -> float:
     """How far from an integer a bin count over ``[start, end)`` can land from rounding alone.
@@ -13,7 +22,7 @@ def _count_tolerance(start: float, end: float, width: float) -> float:
     It grows with the magnitude of the endpoints, because an absolute window hours into a
     recording carries rounding of order 1e-8 bins at 1 ms.
     """
-    return 1e-9 + 16 * np.finfo(float).eps * max(abs(start), abs(end)) / width
+    return _BIN_COUNT_TOL_FLOOR + _BIN_COUNT_TOL_ULPS * np.finfo(float).eps * max(abs(start), abs(end)) / width
 
 
 def bins_within(span, bin_width) -> int:
@@ -52,7 +61,7 @@ def _first_not_below(st, onsets, w: float, *, inclusive: bool) -> np.ndarray:
     widened by a few ulps bracket the end of that prefix, and a bisection on ``st - onset``
     itself, vectorised over onsets, finds it inside the bracket in ``log2`` of its width.
     """
-    pad = 8 * np.finfo(float).eps * (np.abs(onsets) + abs(w))
+    pad = _ONSET_SEARCH_PAD_ULPS * np.finfo(float).eps * (np.abs(onsets) + abs(w))
     lo = np.searchsorted(st, onsets + w - pad, side="left")
     hi = np.searchsorted(st, onsets + w + pad, side="right")
     while np.any(lo < hi):

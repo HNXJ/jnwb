@@ -151,6 +151,17 @@ _DEPTH_AXES = ("x", "y", "z")
 _SHALLOW_ENDS = ("min", "max")
 #: Fewest frequency bins :func:`vflip` accepts, as its own check on ``freqs`` states.
 _MIN_FREQ_BINS = 4
+#: Two depths within this many um count as level, as the `depth_axis` entry of the
+#: :func:`vflip` docstring states; a numerical guard, no external source.
+_LEVEL_TOL_UM = 1e-6
+#: Floor on a min-max span before division; a numerical guard, no external source.
+_SPAN_FLOOR = 1e-12
+#: Relative tolerance between ``effective_spacing`` and the geometry's ``nominal_pitch``; a
+#: numerical guard, no external source.
+_PITCH_RTOL = 1e-9
+#: Floor on the band contrast in the support metric, so a zero contrast does not zero it; a
+#: jnwb choice, no external source.
+_CONTRAST_FLOOR = 1e-4
 
 
 def _refuse_a_deep_first_declaration(
@@ -211,7 +222,7 @@ def _depth_anchored_order(
             "every contact"
         )
     first, last = positions[order[0], column], positions[order[-1], column]
-    if not (np.isfinite(first) and np.isfinite(last)) or abs(last - first) <= 1e-6:
+    if not (np.isfinite(first) and np.isfinite(last)) or abs(last - first) <= _LEVEL_TOL_UM:
         raise ValueError(
             f"{func_name}: {depth_axis!r} does not change between the two ends of the shaft "
             f"({first} and {last} um), so it cannot say which end is shallow"
@@ -219,7 +230,7 @@ def _depth_anchored_order(
     # Depth is monotone along the shaft; a column that rises and falls along it, as the
     # lateral column of a staggered shaft does, is not depth.
     steps = np.diff(positions[np.asarray(order), column])
-    if not np.all(np.isfinite(steps)) or (np.any(steps > 1e-6) and np.any(steps < -1e-6)):
+    if not np.all(np.isfinite(steps)) or (np.any(steps > _LEVEL_TOL_UM) and np.any(steps < -_LEVEL_TOL_UM)):
         raise ValueError(
             f"{func_name}: {depth_axis!r} is not monotone along the shaft, as the lateral "
             "column of a staggered shaft is not, so it is not a depth axis"
@@ -239,7 +250,7 @@ def _unit_range(values: np.ndarray) -> np.ndarray:
     lo = float(np.min(values))
     hi = float(np.max(values))
     span = hi - lo
-    if span < 1e-12:
+    if span < _SPAN_FLOOR:
         return np.zeros_like(values)
     return (values - lo) / span
 
@@ -317,7 +328,7 @@ def _check_geometry(
         if effective_spacing is None:
             effective_spacing = nominal
         elif nominal is not None and not np.isclose(
-            float(effective_spacing), float(nominal), rtol=1e-9, atol=0.0
+            float(effective_spacing), float(nominal), rtol=_PITCH_RTOL, atol=0.0
         ):
             # label_layers measures depth as rank times nominal_pitch, so a depth computed
             # with another spacing would select different contacts through depth_range_um.
@@ -390,7 +401,7 @@ def _relative_power(
     col_min = np.min(clean_psd, axis=0)
     col_max = np.max(clean_psd, axis=0)
     col_range = col_max - col_min
-    col_range[col_range < 1e-12] = 1e-12
+    col_range[col_range < _SPAN_FLOOR] = _SPAN_FLOOR
     return (clean_psd - col_min) / col_range
 
 
@@ -480,7 +491,7 @@ def _crossover_depth_z(
         crossover_depth = float(crossover_c * effective_spacing)
     if probe_geometry is not None and order is not None and len(order) == n_channels:
         sorted_z = np.asarray(probe_geometry.contact_positions, dtype=float)[order, 2]
-        if np.ptp(sorted_z) > 1e-6:
+        if np.ptp(sorted_z) > _LEVEL_TOL_UM:
             crossover_z = float(np.interp(crossover_c, np.arange(n_channels), sorted_z))
     return crossover_depth, crossover_z
 
@@ -829,8 +840,8 @@ def vflip(
     # 4. Spatial separation in channels
     sep_metric = float(max(1, peak_sep))
 
-    metric = (p_dist * band_dist * max(1e-4, contrast) * sep_metric) / density_scale
-    # Contrast is floored at 1e-4 in the line above; the metric itself has no floor: a floor
+    metric = (p_dist * band_dist * max(_CONTRAST_FLOOR, contrast) * sep_metric) / density_scale
+    # Contrast is floored at _CONTRAST_FLOOR in the line above; the metric itself has no floor: a floor
     # on it reported every metric below it as one finite score, which a caller threshold under
     # that score accepted. A metric of zero has no support at all.
     support_score = float(np.log(metric)) if metric > 0 else -np.inf

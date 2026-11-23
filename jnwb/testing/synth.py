@@ -19,6 +19,10 @@ from ..addressing import ProbeGeometry, probe_geometry
 from .._rng import RNGLike, resolve_rng
 from .._units import require_positive_fs
 
+#: Floor on the eigenvalues of a block correlation matrix that is not positive semi-definite,
+#: before it is rebuilt and rescaled to a unit diagonal; a numerical guard, no external source.
+_EIGENVALUE_FLOOR = 1e-10
+
 
 @dataclass(frozen=True)
 class SynthLaminarReceipt:
@@ -283,7 +287,7 @@ def synth_correlation_blocks(
     eigenvals, eigenvecs = np.linalg.eigh(true_corr)
     if np.any(eigenvals < 0):
         # Clip negative eigenvalues to ensure numerical validity
-        eigenvals = np.maximum(eigenvals, 1e-10)
+        eigenvals = np.maximum(eigenvals, _EIGENVALUE_FLOOR)
         true_corr = eigenvecs @ np.diag(eigenvals) @ eigenvecs.T
         # Rescale diagonal to 1.0
         d_inv = 1.0 / np.sqrt(np.diag(true_corr))

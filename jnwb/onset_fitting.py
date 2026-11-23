@@ -19,6 +19,7 @@ from .unit_quality import _positive_finite
 
 _MIN_AMPLITUDE = 1e-6  # floor on the initial amplitude guess; numerical guard, no external source
 _BOUNDARY_TOL_FLOOR = 1e-9  # t0-boundary tolerance floor; numerical guard, no external source
+_BOUNDARY_TOL_ULPS = 100.0  # t0-boundary tolerance in ulps of the bounds' span; numerical guard, no external source
 
 DEFAULT_TAU_MS = 30.0
 
@@ -61,8 +62,10 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
 
     rate: (n_times,) binned rate (Hz or counts, either works -- only smoothing, no rescaling).
     Returns smoothed rate, same shape as input.
-    Raises ValueError if ``rate`` is not one-dimensional or ``bin_ms`` or ``tau_ms``
-    is not finite and positive.
+
+    Raises:
+        ValueError: If ``rate`` is not one-dimensional or ``bin_ms`` or ``tau_ms`` is not
+            finite and positive.
 
     References:
         Nawrot, M. P., Aertsen, A., & Rotter, S. (1999). Single-trial estimation
@@ -109,7 +112,10 @@ def causal_gaussian_smooth(rate: np.ndarray, sigma_bins: float) -> tuple[np.ndar
     rate: (n_times,) binned rate, in any units (only smoothing, no rescaling).
     sigma_bins: Gaussian standard deviation, in bins.
     Returns (smoothed, mean_lag_bins): the smoothed rate, same shape as the input, and the lag.
-    Raises ValueError if ``rate`` is not one-dimensional or ``sigma_bins`` is not finite and positive.
+
+    Raises:
+        ValueError: If ``rate`` is not one-dimensional or ``sigma_bins`` is not finite and
+            positive.
 
     References:
         Nawrot, M. P., Aertsen, A., & Rotter, S. (1999). Single-trial estimation
@@ -309,7 +315,7 @@ def fit_exponential_onset(
     # Boundary constraint status on outer t0_bounds:
     # "lower" | "upper" means the optimizer solution is constrained against outer bounds.
     span = max(t0_hi - t0_lo, 1.0)
-    tol = max(np.finfo(float).eps * span * 100.0, _BOUNDARY_TOL_FLOOR)
+    tol = max(np.finfo(float).eps * span * _BOUNDARY_TOL_ULPS, _BOUNDARY_TOL_FLOOR)
     if (res.active_mask[0] == -1 and refine_lo == t0_lo) or (t0 <= t0_lo + tol):
         bound_status = "lower"
     elif (res.active_mask[0] == 1 and refine_hi == t0_hi) or (t0 >= t0_hi - tol):

@@ -1001,6 +1001,12 @@ def enrich_units_dataframe(
 # counts as two contacts sitting at distinct depths. Contacts that share a depth (a planar
 # grid, a paired ladder) fall far below this and do not describe a shaft.
 _MIN_AXIAL_STEP_FRACTION = 0.2
+# Floor, in um, on the lateral extent a shaft may have and still count as collinear; a
+# numerical guard, no external source.
+_COLLINEAR_TOL_FLOOR_UM = 1e-4
+# Slack, in um, added to the pitch tolerance when testing axial steps for uniformity; a
+# numerical guard, no external source.
+_PITCH_SLACK_UM = 1e-6
 
 
 @dataclass(frozen=True)
@@ -1119,6 +1125,9 @@ def probe_geometry(
         duplicate coordinates are detected, table is empty, multiple probes are present
         without specifying ``probe_name``, the specified probe is not found, or
         ``strict_linear=True`` on non-linear geometry.
+    TypeError
+        If ``electrodes_table`` is not an NWB electrodes table, a pandas DataFrame or an
+        ``(n_channels, 3)`` coordinate array.
     """
     if pitch_tolerance < 0.0 or not np.isfinite(pitch_tolerance):
         raise ValueError(f"pitch_tolerance must be a non-negative finite float, got {pitch_tolerance}")
@@ -1392,12 +1401,13 @@ def probe_geometry(
         raise ValueError(f"Probe geometry is non-linear: {reason}")
 
     # A shaft is staggered when its lateral extent puts it outside collinearity.
-    collinear_tol = max(pitch_tolerance * nom_pitch_um, 1e-4) if nom_pitch_um > 0 else 1e-4
+    collinear_tol = (max(pitch_tolerance * nom_pitch_um, _COLLINEAR_TOL_FLOOR_UM)
+                     if nom_pitch_um > 0 else _COLLINEAR_TOL_FLOOR_UM)
     is_staggered = bool(stagger_um > collinear_tol)
 
     # Uniformity condition: axial steps within pitch_tolerance of nominal pitch
     pitch_err = np.abs(axial_steps - nom_pitch_um)
-    is_uniform = bool(is_linear and np.all(pitch_err <= (pitch_tolerance * nom_pitch_um + 1e-6)))
+    is_uniform = bool(is_linear and np.all(pitch_err <= (pitch_tolerance * nom_pitch_um + _PITCH_SLACK_UM)))
 
     return ProbeGeometry(
         contact_positions=coords_um,

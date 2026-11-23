@@ -1502,7 +1502,7 @@ def repair_nwb(src: str | Path, *, dst: str | Path, repairs,
     Raises
     ------
     TypeError
-        ``repairs`` is None.
+        ``repairs`` is None or a single string.
     ValueError
         A name not in ``jnwb.REPAIRS``; an empty ``repairs``; ``dst``
         resolving to ``src``.
@@ -1514,6 +1514,8 @@ def repair_nwb(src: str | Path, *, dst: str | Path, repairs,
         is unknown.
     FileExistsError
         ``dst`` exists and ``overwrite`` is False.
+    NWBMutationError
+        The repaired copy fails NWB schema validation; nothing is written.
     NWBVerificationError
         ``verify`` is True and a post-write check failed; ``dst`` is left in place
         for inspection.
