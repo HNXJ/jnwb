@@ -40,6 +40,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts import stack_parse  # noqa: E402
+from scripts.gates.boundary import git  # noqa: E402
 from scripts.reconstruct_state import (  # noqa: E402
     HEAD_ROW_RE,
     STATE_PATH,
@@ -104,9 +105,7 @@ def test_the_state_file_is_not_committed():
     assert tracked.startswith("UNRESOLVED"), (
         "artifacts/state.md is tracked; it must be generated and ignored"
     )
-    ignored = subprocess.run(
-        ["git", "check-ignore", "-q", "artifacts/state.md"], cwd=REPO_ROOT
-    )
+    ignored = git("check-ignore", "-q", "artifacts/state.md", cwd=REPO_ROOT)
     assert ignored.returncode == 0, "artifacts/state.md is neither tracked nor ignored"
 
 
@@ -327,8 +326,9 @@ def test_it_reports_worktrees_branches_the_dev_run_and_open_defect_classes(gener
     assert "## Awareness" in generated
     assert f"| `{REPO_ROOT.as_posix()}` |" in generated, "the main worktree must be listed"
     # The checked-out branch, not `dev`: CI on `main` checks out `main`, the only local branch.
-    branch = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=REPO_ROOT,
-                            capture_output=True, text=True, check=True).stdout.strip()
+    head = git("rev-parse", "--abbrev-ref", "HEAD", cwd=REPO_ROOT)
+    head.check_returncode()
+    branch = head.stdout.strip()
     assert f"| `{branch}` |" in generated or "(detached)" in generated
     assert "| Newest CI run on `dev` |" in generated
     assert "| Open defect classes |" in generated

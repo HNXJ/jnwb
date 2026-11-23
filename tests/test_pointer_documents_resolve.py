@@ -29,7 +29,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.gates.boundary import git  # noqa: E402
 
-AGENTS =REPO_ROOT / "AGENTS.md"
+AGENTS = REPO_ROOT / "AGENTS.md"
 TODO_STACK = REPO_ROOT / "artifacts" / "todo_stack.md"
 FACT_STACK = REPO_ROOT / "artifacts" / "fact_stack.md"
 

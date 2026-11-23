@@ -18,7 +18,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.gates.boundary import git  # noqa: E402
 
-_POS =inspect.Parameter.POSITIONAL_OR_KEYWORD
+_POS = inspect.Parameter.POSITIONAL_OR_KEYWORD
 
 
 class TestGrangercausalitytestsCompatibility:
