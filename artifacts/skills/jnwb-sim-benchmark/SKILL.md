@@ -37,7 +37,7 @@ print(fit.accepted, fit.crossover_channel, probe.z0)
 ```
 
 ## 5. Verification
-- Every public generator is used by a test. `tests/test_testing_synth.py` names eight of the nine public functions in `jnwb/testing/synth.py`. `synth_vflip2_crossover` is not among them; it is used by `tests/test_vflip2_recovery.py`, `tests/test_vflip2.py`, `tests/test_laminar_curation.py` and `tests/test_vflip2_nuisance.py`.
+- Every public generator is used by a test. `tests/test_testing_synth.py` names eight of the nine public functions in `jnwb/testing/synth.py`. `synth_vflip2_crossover` is not among them; it is used by `tests/test_vflip2_recovery.py`, `tests/test_vflip2.py` and `tests/test_laminar_curation.py`.
 - The recovery run: `tests/test_vflip2_recovery.py` checks the generator's definitions, the window definition, the frozen oracle and the script's caller path. Its outcomes live in `artifacts/evidence/0.2.13/vflip2_recovery.md`, not in the tests.
 - The calibration receipts are checked against a hash of the code they describe; see [`references/recovery_runs.md`](references/recovery_runs.md).
 
