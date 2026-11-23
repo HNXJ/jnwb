@@ -1,11 +1,30 @@
-"""Tests for jnwb.laminar: Cross-Channel Laminar Correlation Profile (xFLIP)."""
+"""Tests for jnwb.laminar: Cross-Channel Laminar Correlation Profile (xFLIP).
+
+The sections after the class-based body are marked by comments. The homogeneous-null section is
+slow, roughly three minutes: test_false_positive_rate_on_boundary_free_probes runs 200 probes and
+takes about 160 s of it. The suite has no slow marker, so the note stands in for one.
+"""
 from __future__ import annotations
+
+import json
+import math
+import pathlib
+import sys
+import time
+import warnings
 
 import numpy as np
 import pytest
 
+import jnwb
 from jnwb.laminar import XFlipResult, xflip
 from jnwb.testing import synth_ar_noise, synth_correlation_blocks, synth_white_noise
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+from scripts import calibrate_xflip as receipt  # noqa: E402
+from scripts import xflip_nuisance as nuisance  # noqa: E402
 
 
 class TestXFlipInputs:
@@ -912,3 +931,306 @@ class TestOneBlockBesideAnUncorrelatedBackground:
                 assert res.boundaries == (6,), f"seed={seed}: accepted a cut at {res.boundaries}"
         # The block is real, so rejecting everything would pass the loop above vacuously.
         assert accepted >= 8, f"only {accepted} of 10 seeds accepted the block"
+
+
+# Homogeneous null on boundary-free and two-block probes
+#
+# xFLIP's default null against probes with no boundary and against a two-block probe.
+#
+# Phase-randomized surrogates make channels independent, so a volume-conducted probe with no
+# boundary sits at the omnibus p floor. The homogeneous null keeps the probe's lag-averaged
+# correlation, so a partition is significant only beyond smooth spatial decay.
+#
+# This module is slow, roughly three minutes: test_false_positive_rate_on_boundary_free_probes
+# runs 200 probes and takes about 160 s of it. The suite has no slow marker, so the note stands
+# in for one.
+
+
+
+N_T = 4000
+ALPHA = 0.05
+N_SURROGATES = 100
+
+
+def _volume_conducted(seed, n_ch=24, n_t=N_T, scale=3.0):
+    """Every contact sees the same sources through one smooth kernel; nothing changes along the shaft."""
+    rng = np.random.default_rng(seed)
+    sources = rng.standard_normal((n_ch * 3, n_t))
+    pos_src = np.linspace(-6, n_ch + 6, n_ch * 3)
+    pos_ch = np.arange(n_ch)
+    kernel = np.exp(-np.abs(pos_ch[:, None] - pos_src[None, :]) / scale)
+    return kernel @ sources + 0.2 * rng.standard_normal((n_ch, n_t))
+
+
+def _two_blocks(seed, n_t=N_T):
+    """Contacts 0-11 and 12-23, each driven by its own disjoint sources through the same kernel."""
+    rng = np.random.default_rng(seed)
+    lfp = np.empty((24, n_t))
+    for first in (0, 12):
+        contacts = np.arange(first, first + 12)
+        sources = rng.standard_normal((36, n_t))
+        pos_src = np.linspace(first - 6, first + 17, 36)
+        kernel = np.exp(-np.abs(contacts[:, None] - pos_src[None, :]) / 3.0)
+        lfp[first:first + 12] = kernel @ sources
+    return lfp + 0.2 * rng.standard_normal((24, n_t))
+
+
+def test_a_volume_conducted_probe_is_not_significant_under_the_default_null():
+    """24 contacts, kernel scale 3, seeds 0-9, 100 surrogates."""
+    old_p, new_p = [], []
+    for seed in range(10):
+        lfp = _volume_conducted(seed)
+        corr = np.corrcoef(lfp)
+        assert corr[0, 1] > corr[0, 5] > corr[0, 12] > 0.0, "fixture must decay with distance"
+        old = jnwb.xflip(lfp, n_surrogates=N_SURROGATES, rng=seed,
+                         surrogate_method="autocorr_preserving")
+        new = jnwb.xflip(lfp, n_surrogates=N_SURROGATES, rng=seed)
+        old_p.append(old.p_values["omnibus"])
+        new_p.append(new.p_values["omnibus"])
+    floor = 1 / (N_SURROGATES + 1)
+    assert sum(math.isclose(p, floor) for p in old_p) >= 9, (
+        f"the fixture must be the independent-channel case: old-null p per seed {old_p}"
+    )
+    assert sum(p > ALPHA for p in new_p) >= 9, (
+        f"default-null omnibus p per seed {new_p}; need p > {ALPHA} on at least 9 of 10"
+    )
+
+
+def test_b_two_blocks_with_disjoint_sources_are_accepted_at_the_boundary():
+    """Contacts 0-11 and 12-23, disjoint sources per block, seeds 0-9, 100 surrogates."""
+    accepted_boundaries = []
+    n_accepted = 0
+    for seed in range(10):
+        lfp = _two_blocks(seed)
+        corr = np.corrcoef(lfp)
+        within = corr[:12, :12][~np.eye(12, dtype=bool)].mean()
+        across = corr[:12, 12:].mean()
+        assert within > across + 0.3, "fixture must have two blocks"
+        res = jnwb.xflip(lfp, n_surrogates=N_SURROGATES, rng=seed)
+        if res.accepted:
+            n_accepted += 1
+            accepted_boundaries.append(res.boundaries)
+    assert n_accepted >= 9, f"accepted on {n_accepted} of 10 seeds; need at least 9"
+    assert all(len(b) == 1 and abs(b[0] - 12) <= 1 for b in accepted_boundaries), (
+        f"boundaries of the accepted seeds {accepted_boundaries}; each must be 12 +- 1"
+    )
+
+
+def test_false_positive_rate_on_boundary_free_probes_is_at_the_nominal_level():
+    """200 boundary-free probes, seeds 0-199, 100 surrogates, omnibus p at alpha 0.05."""
+    n = 200
+    hits = 0
+    for seed in range(n):
+        lfp = _volume_conducted(seed)
+        corr = np.corrcoef(lfp)
+        assert corr[0, 1] > corr[0, 12], "fixture must decay with distance"
+        res = jnwb.xflip(lfp, n_surrogates=N_SURROGATES, rng=seed)
+        hits += int(res.p_values["omnibus"] <= ALPHA)
+    bound = ALPHA + 2 * math.sqrt(ALPHA * (1 - ALPHA) / n)
+    assert hits / n <= bound, (
+        f"{hits} of {n} boundary-free probes have omnibus p <= {ALPHA}; bound {bound:.4f}"
+    )
+
+
+def test_correlation_matrix_with_n_samples_is_not_significant_on_a_boundary_free_probe():
+    """Five boundary-free seeds, passed as correlation matrices with n_samples."""
+    n_above = 0
+    for seed in range(5):
+        corr = np.corrcoef(_volume_conducted(seed))
+        assert np.allclose(np.diag(corr), 1.0), "fixture must be a correlation matrix"
+        res = jnwb.xflip(corr, n_surrogates=N_SURROGATES, rng=seed, n_samples=N_T)
+        assert res.method == "precomputed"
+        n_above += int(res.p_values["omnibus"] > ALPHA)
+    assert n_above >= 4, f"omnibus p > {ALPHA} on {n_above} of 5 seeds; need at least 4"
+
+
+def test_correlation_matrix_with_n_samples_accepts_two_blocks():
+    """The Wishart null must still reject a real boundary: five two-block seeds as matrices."""
+    n_accepted = 0
+    for seed in range(5):
+        corr = np.corrcoef(_two_blocks(seed))
+        assert corr[:12, :12][~np.eye(12, dtype=bool)].mean() > corr[:12, 12:].mean() + 0.3, (
+            "fixture must have two blocks")
+        res = jnwb.xflip(corr, n_surrogates=N_SURROGATES, rng=seed, n_samples=N_T)
+        assert res.method == "precomputed"
+        n_accepted += int(res.accepted and abs(res.boundaries[0] - 12) <= 1)
+    assert n_accepted >= 4, f"accepted at 12 +- 1 on {n_accepted} of 5 seeds; need at least 4"
+
+
+def test_correlation_matrix_without_n_samples_warns_once_and_names_the_limit():
+    corr = np.corrcoef(_volume_conducted(0))
+    assert np.allclose(np.diag(corr), 1.0), "fixture must be a correlation matrix"
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        res = jnwb.xflip(corr, n_surrogates=N_SURROGATES, rng=0)
+    assert res.method == "precomputed"
+    notes = [w for w in caught
+             if issubclass(w.category, UserWarning) and "n_samples" in str(w.message)]
+    assert len(notes) == 1, [str(w.message) for w in caught]
+    assert "independent channels" in str(notes[0].message)
+
+
+def test_n_samples_is_refused_for_raw_data_and_homogeneous_needs_it_for_a_matrix():
+    lfp = _volume_conducted(0)
+    with pytest.raises(ValueError, match="n_samples"):
+        jnwb.xflip(lfp, n_surrogates=5, rng=0, n_samples=N_T)
+    corr = np.corrcoef(lfp)
+    assert np.allclose(np.diag(corr), 1.0), "fixture must be a correlation matrix"
+    with pytest.raises(ValueError, match="n_samples"):
+        jnwb.xflip(corr, n_surrogates=5, rng=0, surrogate_method="homogeneous")
+
+
+# Null under nuisance structure (receipt operating point)
+#
+# xFLIP's null under nuisance structure: the operating point and the length-4 generator are the
+# receipt's, the interval is the library's exact Clopper-Pearson, the planted average-reference cell
+# is referenced to its channel average, and a smoke run on two seeds puts every count inside its
+# interval.
+
+
+
+RAW = ROOT / "artifacts" / "benchmarks" / "calibration" / "xflip_calibration_0.2.5_raw.json"
+
+
+def test_the_operating_point_is_the_receipts():
+    raw = json.loads(RAW.read_text(encoding="utf-8"))
+    assert nuisance.N_SURROGATES == raw["n_surrogates"]
+    assert nuisance.N_SAMPLES == raw["n_samples"]
+    assert nuisance.MIN_BLOCK_SIZE == raw["min_block_size"]
+    assert nuisance.ALPHA == raw["alpha"]
+
+
+def test_length_four_draws_the_receipts_smooth_gradient_cell():
+    for seed in (0, 7):
+        mine = nuisance.toeplitz_null(seed, 4.0)
+        theirs, _ = receipt._smooth_spatial_gradient(seed)
+        assert mine.shape == (16, nuisance.N_SAMPLES)
+        assert np.array_equal(mine, theirs), f"seed {seed}: length 4 must draw the receipt's cell"
+
+
+def test_clopper_pearson_with_no_successes_has_its_exact_upper_bound():
+    low, high = jnwb.clopper_pearson(0, 30, alpha=0.05)
+    assert low == 0.0
+    assert abs(high - (1.0 - 0.025 ** (1.0 / 30))) < 1e-9
+
+
+def test_unit_power_scales_a_component_to_unit_mean_power():
+    x = nuisance.toeplitz_null(5, 4.0)
+    assert abs(float(np.mean(np.var(nuisance._unit_power(x), axis=1))) - 1.0) < 1e-12
+
+
+def test_the_average_reference_planted_cell_is_referenced_to_its_channel_average():
+    data = nuisance.planted_average_reference(3)
+    assert data.shape == (16, nuisance.N_SAMPLES)
+    assert np.allclose(data.mean(axis=0), 0.0, atol=1e-12)
+
+
+def test_smoke_path_on_one_null_cell_counts_sit_inside_their_intervals():
+    started = time.perf_counter()
+    rows = nuisance.run_cell(lambda seed: nuisance.toeplitz_null(seed, 4.0), n_seeds=2,
+                             n_surrogates=nuisance.N_SURROGATES)
+    elapsed = time.perf_counter() - started
+    assert len(rows) == 2, "the cell must run both seeds"
+    assert all(np.isfinite(row[key]["p_omnibus"]) for row in rows for key in nuisance.BLOCK_COUNTS)
+    for key in nuisance.BLOCK_COUNTS:
+        summary = nuisance.null_summary(rows, key)
+        for entry in summary.values():
+            assert entry["n"] == 2
+            low, high = entry["ci"]
+            assert low <= entry["k"] / entry["n"] <= high
+    assert elapsed < 20, f"the smoke path took {elapsed:.1f} s"
+
+
+# XFlipResult.null_method: the surrogate null that produced p_values
+#
+# XFlipResult.null_method: the surrogate null that produced `p_values`.
+
+
+
+
+def _raw():
+    data, _, _ = synth_correlation_blocks([4, 4], n_samples=300, rng=0)
+    return data
+
+
+def _matrix():
+    return np.array([
+        [1.0, 0.6, 0.1, 0.1],
+        [0.6, 1.0, 0.1, 0.1],
+        [0.1, 0.1, 1.0, 0.7],
+        [0.1, 0.1, 0.7, 1.0],
+    ])
+
+
+def test_auto_raw_data_resolves_homogeneous():
+    res = xflip(_raw(), n_surrogates=10, rng=11)
+    assert res.null_method == "homogeneous"
+
+
+def test_auto_matrix_with_n_samples_resolves_homogeneous():
+    res = xflip(_matrix(), is_corr_matrix=True, n_samples=300, n_surrogates=10, rng=11)
+    assert res.null_method == "homogeneous"
+
+
+def test_auto_matrix_without_n_samples_falls_back_to_permute_channels():
+    with pytest.warns(UserWarning, match="n_samples"):
+        res = xflip(_matrix(), is_corr_matrix=True, n_surrogates=10, rng=42)
+    assert res.null_method == "permute_channels"
+
+
+@pytest.mark.parametrize(
+    "method", ["homogeneous", "autocorr_preserving", "permute_channels"]
+)
+def test_explicit_method_records_itself(method):
+    res = xflip(_raw(), n_surrogates=10, surrogate_method=method, rng=11)
+    assert res.null_method == method
+
+
+@pytest.mark.parametrize(
+    ("alias", "canonical"),
+    [("phase_randomize", "autocorr_preserving"), ("channel_permute", "permute_channels")],
+)
+def test_alias_records_canonical_name(alias, canonical):
+    res = xflip(_raw(), n_surrogates=10, surrogate_method=alias, rng=11)
+    assert res.null_method == canonical
+
+
+def test_n_surrogates_zero_records_none():
+    res = xflip(_raw(), n_surrogates=0, rng=11)
+    assert res.null_method is None
+
+
+def test_zero_variance_refusal_records_none():
+    raw = _raw()
+    raw[0, :] = 1.0
+    res = xflip(raw, n_surrogates=10, rng=11)
+    assert res.accepted is False
+    assert "Zero-variance" in (res.rejection_reason or "")
+    assert res.null_method is None
+
+
+def test_structural_refusal_records_none():
+    res = xflip(_raw()[:4], n_blocks=3, n_surrogates=10, rng=11)
+    assert res.accepted is False
+    assert "insufficient" in (res.rejection_reason or "")
+    assert res.null_method is None
+
+
+def test_to_dict_carries_null_method():
+    res = xflip(_raw(), n_surrogates=10, rng=11)
+    assert res.to_dict()["null_method"] == "homogeneous"
+    res_none = xflip(_raw(), n_surrogates=0, rng=11)
+    assert res_none.to_dict()["null_method"] is None
+
+
+def test_p_values_match_baseline():
+    raw = _raw()
+    res = xflip(raw, n_surrogates=10, rng=11)
+    np.testing.assert_allclose(res.p_values["omnibus"], 1 / 11, rtol=1e-12)
+    np.testing.assert_allclose(res.p_values["boundary_4"], 1 / 11, rtol=1e-12)
+    res_perm = xflip(raw, n_surrogates=10, surrogate_method="permute_channels", rng=11)
+    np.testing.assert_allclose(res_perm.p_values["omnibus"], 1 / 11, rtol=1e-12)
+    np.testing.assert_allclose(res_perm.p_values["boundary_4"], 1 / 11, rtol=1e-12)
+    res_mat = xflip(_matrix(), is_corr_matrix=True, n_samples=300, n_surrogates=10, rng=11)
+    np.testing.assert_allclose(res_mat.p_values["omnibus"], 1 / 11, rtol=1e-12)
+    np.testing.assert_allclose(res_mat.p_values["boundary_2"], 1 / 11, rtol=1e-12)
