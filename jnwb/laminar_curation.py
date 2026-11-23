@@ -73,6 +73,7 @@ VFLIP2_VFLIP_AGREEMENT_T_CONTACTS: float = 22.800214862368193
 #: external source.
 _RANGE_FLOOR = 1e-30
 
+
 def _robust_z_std_fallback(values: np.ndarray) -> np.ndarray:
     """Median/MAD z-score; the standard deviation stands in for a zero MAD."""
     values = np.asarray(values, dtype=float)

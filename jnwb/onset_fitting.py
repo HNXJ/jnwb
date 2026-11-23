@@ -19,6 +19,7 @@ from .unit_quality import _positive_finite
 
 _MIN_AMPLITUDE = 1e-6  # floor on the initial amplitude guess; numerical guard, no external source
 _BOUNDARY_TOL_FLOOR = 1e-9  # t0-boundary tolerance floor; numerical guard, no external source
+_BOUNDARY_TOL_ULPS = 100.0  # t0-boundary tolerance in ulps of the bounds' span; numerical guard, no external source
 
 DEFAULT_TAU_MS = 30.0
 
@@ -314,7 +315,7 @@ def fit_exponential_onset(
     # Boundary constraint status on outer t0_bounds:
     # "lower" | "upper" means the optimizer solution is constrained against outer bounds.
     span = max(t0_hi - t0_lo, 1.0)
-    tol = max(np.finfo(float).eps * span * 100.0, _BOUNDARY_TOL_FLOOR)
+    tol = max(np.finfo(float).eps * span * _BOUNDARY_TOL_ULPS, _BOUNDARY_TOL_FLOOR)
     if (res.active_mask[0] == -1 and refine_lo == t0_lo) or (t0 <= t0_lo + tol):
         bound_status = "lower"
     elif (res.active_mask[0] == 1 and refine_hi == t0_hi) or (t0 >= t0_hi - tol):

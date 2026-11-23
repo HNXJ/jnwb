@@ -396,7 +396,7 @@ def _depth_gradient(adj_delays: np.ndarray, n_channels: int, orientation: str,
     # represent, has no sign and no velocity. No input is known to reach this: a pair
     # whose phase lag is below the wPLI zero-lag tolerance has wPLI 0 and fails its
     # pair test first, so the branch is a backstop against a zero division.
-    zero_width = 8.0 * np.finfo(float).eps * max_tau_unambiguous
+    zero_width = _ZERO_GRADIENT_ULPS * np.finfo(float).eps * max_tau_unambiguous
     if abs(tau_per_channel) > zero_width:
         row_order_leads = tau_per_channel > 0
         if orientation == "superficial_to_deep":
@@ -782,3 +782,11 @@ def zflip(
         surrogate_seed_entropy=seed_entropy if surrogates_run else None,
         window=window_rows,
     )
+
+
+# A tolerance the functions above read at call time. It sits at the end of the module so that
+# line references into it stay valid.
+
+#: Ulps of the largest representable delay within which a delay gradient counts as zero, with
+#: no sign and no velocity; a numerical guard, no external source.
+_ZERO_GRADIENT_ULPS = 8.0
