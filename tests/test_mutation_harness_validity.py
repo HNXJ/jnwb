@@ -619,7 +619,7 @@ def test_a_relative_escape_is_refused(session) -> None:
 def test_state_for_two_worktrees_never_collides_even_with_the_same_leaf_name(
     tmp_path: Path,
 ) -> None:
-    """Two lanes overwrote each other's state in a shared scratchpad. Leaf names repeat."""
+    """Two lanes overwrote each other's state in a shared scratch directory. Leaf names repeat."""
     a = tmp_path / "a" / "jnwb"
     b = tmp_path / "b" / "jnwb"
     a.mkdir(parents=True)

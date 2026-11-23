@@ -216,8 +216,8 @@ A mutation run — editing the tree to check that a test can fail, then restorin
 `scripts/mutation_harness.py`. Do not hand-roll one.
 
 The harness derives its state directory from the worktree being operated on, refuses to touch a
-path outside that worktree, and admits one session per worktree under an OS-level lock. A worktree isolates the repository and **not** the session scratchpad, so two
-lanes writing a file called `mutate.py` into the shared scratchpad collide — measured three
+path outside that worktree, and admits one session per worktree under an OS-level lock. A worktree isolates the repository and **not** the session's scratch directory, so two
+lanes writing a file called `mutate.py` into the shared scratch directory collide — measured three
 times across two batches, once between a live mutation harness and another lane's harness
 pointing at a third worktree.
 

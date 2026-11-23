@@ -13,8 +13,8 @@ answer* rather than an error:
 * **A write-restore harness left live mutants**, because the restore was verified once at the
   end of the run instead of after each mutant. Every restore is verified by sha256, per mutant,
   in a ``finally``.
-* **Two lanes overwrote each other's harness state** in a shared session scratchpad. A
-  worktree isolates the repository, not the scratchpad. State lives under a path derived from
+* **Two lanes overwrote each other's harness state** in a shared session scratch directory. A
+  worktree isolates the repository, not the scratch directory. State lives under a path derived from
   the worktree being operated on, a path outside that worktree is never written or restored,
   and one worktree admits one session at a time under an OS-level lock.
 * **A fixture that did not build the case it was named after.** A ``nested-clone`` fixture built

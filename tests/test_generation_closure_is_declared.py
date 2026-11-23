@@ -193,14 +193,14 @@ def test_the_contract_requires_the_canonical_mutation_harness():
 
     `scripts/mutation_harness.py` derives its state directory from the worktree, refuses a path
     outside it, and locks one session per worktree -- and for three collisions across two
-    batches every lane still hand-rolled a harness into the shared scratchpad, because nothing
+    batches every lane still hand-rolled a harness into the shared scratch directory, because nothing
     in the contract said otherwise. The repair is the sentence, so the sentence is what is
     pinned here.
     """
     contributing = (REPO_ROOT / ".github" / "CONTRIBUTING.md").read_text(encoding="utf-8")
     assert "scripts/mutation_harness.py" in contributing, (
         "CONTRIBUTING.md must name the canonical mutation harness; an unmentioned mechanism "
-        "is one every lane reimplements in the shared scratchpad"
+        "is one every lane reimplements in the shared scratch directory"
     )
     assert "restore" in contributing.lower(), (
         "the reason must travel with the rule: the danger is the restore targeting a tree the "
