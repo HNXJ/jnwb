@@ -19,6 +19,26 @@ log = logging.getLogger(__name__)
 # Palette constants duplicated here so jnwb/ has no downstream-project import dependency.
 MADELANE_GOLD = "#CFB87C"
 
+#: Palette members nothing in jnwb uses; deprecated in 0.2.17, served by __getattr__.
+_DEPRECATED_PALETTE = {
+    "MADELANE_VIOLET": "#9400D3",
+    "MADELANE_WHITE": "#FFFFFF",
+    "MADELANE_GRAY": "#D3D3D3",
+    "MADELANE_TEAL": "#00FFCC",
+    "MADELANE_ORANGE": "#FF5E00",
+}
+
+
+def __getattr__(name):
+    if name in _DEPRECATED_PALETTE:
+        warnings.warn(
+            f"jnwb.visual_qc.{name} is deprecated and will be removed in 0.2.18; no replacement",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _DEPRECATED_PALETTE[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 # A value that is NaN is drawn in this colour and marked "unknown", never as failing.
 UNKNOWN_COLOR = "lightgray"
 

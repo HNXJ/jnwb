@@ -1,13 +1,50 @@
 """Unit tests for jnwb.onset_fitting -- causal PSTH smoothing + causality-bounded exponential
-onset-latency fit. These mirror the module's own `if __name__ == "__main__"`
-synthetic self-tests, converted to pytest so they run under the standard suite.
+onset-latency fit. They include the synthetic self-tests the module once ran under
+`if __name__ == "__main__"`, converted to pytest so they run under the standard suite.
 """
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset, onset_model
+from jnwb.onset_fitting import (DEFAULT_TAU_MS, causal_exp_smooth, fit_exponential_onset,
+                                onset_model)
+
+#: The module self-test's recovery grid, (t0, tau, amplitude, baseline, n_trials), in its order.
+#: The last case is a broad rise (tau 120 ms), where t0 and tau trade off most.
+SELF_TEST_CASES = [
+    (50.0, 20.0, 30.0, 5.0, 60),
+    (150.0, 40.0, 15.0, 8.0, 40),
+    (40.0, 15.0, 50.0, 3.0, 80),
+    (300.0, 60.0, 10.0, 6.0, 30),
+    (45.0, 120.0, 12.0, 4.0, 60),
+]
+
+
+@pytest.fixture(scope="module")
+def self_test_fits():
+    """The five fits as the removed self-test made them: one Generator(0) drawn in case order."""
+    rng = np.random.default_rng(0)
+    bin_ms = 5.0
+    t_ms = np.arange(-100.0, 600.0, bin_ms)[:-1] + bin_ms / 2.0
+    fits = []
+    for t0, tau, amp, base, n_trials in SELF_TEST_CASES:
+        true_rate = np.clip(onset_model(t_ms, t0, tau, amp, base), 0.0, None)
+        counts = rng.poisson(true_rate * (bin_ms / 1000.0) * n_trials)
+        noisy_rate = counts / (n_trials * (bin_ms / 1000.0))
+        smoothed = causal_exp_smooth(noisy_rate, bin_ms, tau_ms=30.0)
+        fits.append(fit_exponential_onset(t_ms, smoothed, t0_bounds=(0.0, 600.0),
+                                          baseline_window=(-100.0, 0.0)))
+    return fits
+
+
+@pytest.mark.parametrize("index", range(len(SELF_TEST_CASES)),
+                         ids=[f"t0={c[0]:g},tau={c[1]:g}" for c in SELF_TEST_CASES])
+def test_the_self_test_grid_recovers_each_onset(self_test_fits, index):
+    """Within two smoothing constants of the true onset, the self-test's own bound: the causal
+    smoother delays a step by about tau, so exact recovery is not the bar."""
+    fit = self_test_fits[index]
+    assert abs(fit["t0"] - SELF_TEST_CASES[index][0]) < 2 * DEFAULT_TAU_MS
 
 
 class TestCausalExpSmooth:

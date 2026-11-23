@@ -5,7 +5,7 @@ All functions take plain (t, rate) arrays. ``causal_exp_smooth`` applies a forwa
 exponential kernel so post-onset activity cannot leak into pre-onset bins. ``fit_exponential_onset``
 constrains onset time t0 inside caller-supplied bounds during the fit (not as a post-hoc filter).
 
-See ``if __name__ == "__main__"`` for synthetic recovery checks before trusting on real data.
+See ``tests/test_onset_fitting.py`` for synthetic recovery checks before trusting on real data.
 """
 from __future__ import annotations
 

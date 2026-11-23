@@ -40,8 +40,8 @@ ALLOWED = {
     # the whole suite, so tests/test_estimator_values_are_pinned.py now calls it and the
     # exemption is spent. The downstream callers are still real; they are no longer the
     # only ones.
-    # The five unused MADELANE_* palette members were exempted here; they were deleted in
-    # 0.2.17, and MADELANE_GOLD, the one in use, never needed an exemption.
+    # The five unused MADELANE_* palette members were exempted here. Deprecated in 0.2.17, they
+    # are served by jnwb.visual_qc.__getattr__ and are no longer module-level assignments.
 }
 
 

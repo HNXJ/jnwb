@@ -37,8 +37,8 @@ METHOD (cross-trial-median substitution on trial segments)
     Operates on the (n_trials, n_channels, n_times) contract directly. n_trials < 5 is
     refused (cross-trial median undefined at low replicate count).
 
-UNIT TEST: see `if __name__ == "__main__"` below -- synthetic array with an injected cross-channel
-spike, checked before trusting on real data.
+TESTS: `tests/test_artifact_repair.py` -- synthetic arrays with an injected cross-channel spike,
+checked before trusting on real data.
 """
 from __future__ import annotations
 
@@ -46,6 +46,13 @@ import warnings
 import numpy as np
 
 from ._bins import refuse_nonfinite_times
+
+# DEFAULT_BANDS is deprecated (module __getattr__); listed so a star-import still binds it.
+__all__ = [
+    "Z_THRESH", "flagged_to_intervals", "interpolate_intervals", "repair_lfp_trials",
+    "DEFAULT_BANDS", "TFR_Z_THRESH", "DETECTION_TAILS", "detect_band_outliers",
+    "repair_band_artifacts",
+]
 
 _MAD_FLOOR = 1e-9  # floor for a zero median absolute deviation; numerical guard, no external source
 
@@ -312,7 +319,8 @@ TFR_Z_THRESH = 6.0
 
 
 def __getattr__(name):
-    # DEFAULT_BANDS is deprecated in 0.2.17; band_ranges=None keeps reading the same table.
+    # DEFAULT_BANDS is deprecated in 0.2.17. It returns the live default object, so an in-place
+    # edit still changes what band_ranges=None reads, as it did before.
     if name == "DEFAULT_BANDS":
         warnings.warn(
             "jnwb.artifact_repair.DEFAULT_BANDS is deprecated and will be removed in 0.2.18; "
@@ -320,8 +328,12 @@ def __getattr__(name):
             DeprecationWarning,
             stacklevel=2,
         )
-        return dict(_REPAIR_BANDS)
+        return _REPAIR_BANDS
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted([*globals(), "DEFAULT_BANDS"])
 
 
 #: Accepted tails for :func:`detect_band_outliers`. ``"upper"`` is the default because the

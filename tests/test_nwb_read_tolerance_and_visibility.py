@@ -139,7 +139,9 @@ def test_a_mode_other_than_read_is_refused_before_the_file_opens(
     shutil.copy(base_file, path)
     os.utime(path, ns=(10**18, 10**18))
     before, mtime = path.read_bytes(), path.stat().st_mtime_ns
-    with pytest.raises(ValueError, match=r"pynwb\.NWBHDF5IO"):
+    # Passing mode is deprecated (0.2.17); the refusal is kept and asserted alongside the warning.
+    with pytest.warns(DeprecationWarning, match="mode"), \
+            pytest.raises(ValueError, match=r"pynwb\.NWBHDF5IO"):
         with nwb_read_io(str(path), mode, allow_missing=allow_missing):
             pass  # pragma: no cover - the raise happens before the body
     assert path.read_bytes() == before

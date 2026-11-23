@@ -137,15 +137,18 @@ class TestTFRExtractBandRegressions:
     def test_legacy_viz_bands_available_by_name(self):
         """Verify historical 7-band table is accessible explicitly via LEGACY_VIZ_BANDS."""
         assert "LEGACY_VIZ_BANDS" in dir(TFRAnalyzer)
-        assert TFRAnalyzer.LEGACY_VIZ_BANDS["alpha"] == (8.0, 15.0)
-        assert TFRAnalyzer.LEGACY_VIZ_BANDS["low_gamma"] == (30.0, 60.0)
-        
+        # Deprecated in 0.2.17; each access warns.
+        with pytest.warns(DeprecationWarning, match="LEGACY_VIZ_BANDS"):
+            legacy = TFRAnalyzer.LEGACY_VIZ_BANDS
+        assert legacy["alpha"] == (8.0, 15.0)
+        assert legacy["low_gamma"] == (30.0, 60.0)
+
         # Caller can explicitly use legacy definitions
         freqs = np.array([8.0, 12.0, 14.5, 16.0])
         tfr_data = np.ones((1, 4, 2, 1))
         # 14.5 Hz is inside legacy alpha (8-15)
         res_legacy = TFRAnalyzer.extract_band(
-            tfr_data, "alpha", freqs=freqs, band_defs=TFRAnalyzer.LEGACY_VIZ_BANDS
+            tfr_data, "alpha", freqs=freqs, band_defs=legacy
         )
         assert res_legacy.shape == (1, 2, 1)
 

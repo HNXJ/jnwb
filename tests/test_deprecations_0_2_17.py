@@ -117,6 +117,79 @@ class TestDefaultBands:
         with pytest.raises(AttributeError, match="NO_SUCH_NAME"):
             artifact_repair.NO_SUCH_NAME
 
+    def test_star_import_still_binds_it(self):
+        namespace = {}
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            exec("from jnwb.artifact_repair import *", namespace)
+        assert namespace["DEFAULT_BANDS"] == OLD_DEFAULT_BANDS
+        assert "repair_band_artifacts" in namespace
+
+    def test_dir_lists_it(self):
+        assert "DEFAULT_BANDS" in dir(artifact_repair)
+
+    def test_an_in_place_edit_still_changes_the_default(self):
+        """Before the deprecation the name was the default's own dict, so an edit to it changed
+        what band_ranges=None reads. A copy would keep the values and lose that."""
+        rng = np.random.default_rng(2)
+        freqs = np.arange(3.0, 101.0, 2.0)
+        power = 5.0 + rng.normal(0.0, 0.3, size=(10, 1, freqs.size, 20))
+        with pytest.warns(DeprecationWarning, match="DEFAULT_BANDS"):
+            table = artifact_repair.DEFAULT_BANDS
+        table["Probe(90-100Hz)"] = (90, 100)
+        try:
+            _, frac = artifact_repair.repair_band_artifacts(power, freqs)
+        finally:
+            del table["Probe(90-100Hz)"]
+        assert "Probe(90-100Hz)" in frac
+        _, frac_after = artifact_repair.repair_band_artifacts(power, freqs)
+        assert list(frac_after) == list(OLD_DEFAULT_BANDS)
+
+
+class TestLegacyVizBandsIdentity:
+    def test_every_access_returns_one_object(self):
+        """The class attribute was one dict; an edit through one access shows in the next."""
+        with pytest.warns(DeprecationWarning, match="LEGACY_VIZ_BANDS"):
+            first = TFRAnalyzer.LEGACY_VIZ_BANDS
+        with pytest.warns(DeprecationWarning, match="LEGACY_VIZ_BANDS"):
+            second = TFRAnalyzer.LEGACY_VIZ_BANDS
+        assert first is second
+
+
+OLD_PALETTE = {
+    "MADELANE_VIOLET": "#9400D3",
+    "MADELANE_WHITE": "#FFFFFF",
+    "MADELANE_GRAY": "#D3D3D3",
+    "MADELANE_TEAL": "#00FFCC",
+    "MADELANE_ORANGE": "#FF5E00",
+}
+
+
+class TestUnusedPalette:
+    @pytest.mark.parametrize("name", sorted(OLD_PALETTE))
+    def test_each_warns_and_returns_its_old_value(self, name):
+        import jnwb.visual_qc as visual_qc
+
+        with pytest.warns(DeprecationWarning, match=name) as record:
+            value = getattr(visual_qc, name)
+        assert value == OLD_PALETTE[name]
+        message = str(_only_deprecations(record)[0].message)
+        assert "no replacement" in message
+        assert "0.2.18" in message
+
+    def test_from_import_warns(self):
+        with pytest.warns(DeprecationWarning, match=REMOVAL):
+            from jnwb.visual_qc import MADELANE_TEAL
+        assert MADELANE_TEAL == "#00FFCC"
+
+    def test_the_colour_in_use_does_not_warn(self):
+        import jnwb.visual_qc as visual_qc
+
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            assert visual_qc.MADELANE_GOLD == "#CFB87C"
+        assert not _only_deprecations(record)
+
 
 class TestNwbReadIoMode:
     def test_mode_r_warns_and_reads_the_same_file(self, nwb_path):

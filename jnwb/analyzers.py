@@ -44,7 +44,17 @@ class TFRAnalyzer:
     }
 
     class _LegacyVizBands:
-        """Deprecated in 0.2.17: warns on access and returns a copy of the historical table."""
+        """Deprecated in 0.2.17: warns on access and returns the one historical table object."""
+
+        table = {
+            'delta':      (1.0,   4.0),
+            'theta':      (4.0,   8.0),
+            'alpha':      (8.0,  15.0),
+            'beta':       (15.0,  30.0),
+            'low_gamma':  (30.0,  60.0),
+            'high_gamma': (60.0, 120.0),
+            'broadband':  (1.0,  150.0),
+        }
 
         def __get__(self, obj, owner=None):
             warnings.warn(
@@ -53,15 +63,7 @@ class TFRAnalyzer:
                 DeprecationWarning,
                 stacklevel=2,
             )
-            return {
-                'delta':      (1.0,   4.0),
-                'theta':      (4.0,   8.0),
-                'alpha':      (8.0,  15.0),
-                'beta':       (15.0,  30.0),
-                'low_gamma':  (30.0,  60.0),
-                'high_gamma': (60.0, 120.0),
-                'broadband':  (1.0,  150.0),
-            }
+            return self.table
 
     LEGACY_VIZ_BANDS = _LegacyVizBands()
 
