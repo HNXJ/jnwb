@@ -1396,3 +1396,31 @@ def test_every_job_that_runs_the_gates_checks_out_the_tags():
                     shallow.append(name)
     assert len(examined) >= 3, examined  # test, test-floors, the pandas leg and build at least
     assert not shallow, f"jobs that run the gates from a shallow checkout: {shallow}"
+
+
+RUFF_PINNED_INSTALL = re.compile(r"pip install.*\bruff==\d+\.\d+\.\d+")
+RUFF_C901_COMMAND = "ruff check --select C901 jnwb/"
+
+
+def test_one_ci_job_installs_a_pinned_ruff_and_runs_the_c901_ceiling():
+    """tests/test_complexity_ceiling.py skips wherever ruff is absent, and no CI job installed it,
+    so the A4 ceiling never ran in CI. One job installs a pinned ruff, then runs the C901 check."""
+    # Positions are (step index, line index in the step's run block): the install comes first
+    # when it is an earlier step, or an earlier line of the same run block.
+    installs, checks = [], []
+    for name, job in _load_workflow()["jobs"].items():
+        for index, step in enumerate(job.get("steps", [])):
+            lines = [line.strip() for line in str(step.get("run", "")).splitlines()]
+            for line_no, line in enumerate(lines):
+                if RUFF_PINNED_INSTALL.search(line):
+                    installs.append((name, index, line_no))
+                if line == RUFF_C901_COMMAND:
+                    checks.append((name, index, line_no))
+                    guard = str(step.get("if", ""))
+    assert len(installs) == 1, f"lines that install a pinned ruff: {installs}"
+    # One leg: the step's condition pins both matrix axes, so it neither runs everywhere nor nowhere.
+    assert checks and "matrix.os == 'ubuntu-latest'" in guard, f"ruff step condition: {checks and guard!r}"
+    assert "matrix.python-version == '3.12'" in guard, f"ruff step condition: {guard!r}"
+    assert len(checks) == 1, f"lines that run `{RUFF_C901_COMMAND}`: {checks}"
+    assert installs[0][0] == checks[0][0], f"install and check in different jobs: {installs} {checks}"
+    assert installs[0][1:] < checks[0][1:], f"the check runs before ruff is installed: {installs} {checks}"
