@@ -14,7 +14,7 @@ its full suite. Open stack: one row (`17-144-src`). Owner decisions: section 9.
 | Field | Value |
 |---|---|
 | Target | `0.2.17rc1`: an untagged commit on `dev` at which gates A1 to A6 pass, CI is green and every 0.2.17 scope item is closed or ruled out of scope, independently verified (Q2, ruled 2026-11-22). A tag (`v0.2.17rc1` publishes to TestPyPI only, `.github/workflows/workflow.yml:579-595`), a `main` merge and publication are Hamm's (D3) |
-| Scope | The six scope lines of `release_plan.json` 0.2.17 (rows S1 to S6, section 6), plus the cycle-required items no scope line names: 17-147, 17-150, 17-153, 17-154, 17-157, 17-158 (in the plan's `items` since Q3, 2026-11-22; 17-154 closed) |
+| Scope | The six scope lines of `release_plan.json` 0.2.17 (rows S1 to S6, section 6), plus the cycle-required items no scope line names: 17-147, 17-150, 17-153, 17-154, 17-157, 17-158 (in the plan's `items` since Q3, 2026-11-22; 17-147, 17-153, 17-154, 17-157 closed) |
 | Acceptance | `AGENTS.md` §11 (full text `artifacts/rulings/standing.md`); gates A1 to A6 below, each with a receipt at the RC SHA |
 | Excluded | Everything in `artifacts/roadmap.md` (0.2.18 and later, including 17-102, 17-151, 17-155, 17-156 moved there 2026-11-22); Python 3.15 on Windows (goal 12); GPU paths, which CI cannot run (declared unverified, goal 11; tiered CI is 0.2.19) |
 | Owner-gated, never by an agent | version bump and CHANGELOG assembly (the release step, `AUTONOMY: none`), any push to `main`, any tag, TestPyPI or PyPI publication, GitHub release, a scope change (goal 9) |
@@ -57,15 +57,13 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | 0 | Suite at the merged tip (17-97, 17-101, 17-157, 17-158), push, CI | integration | integrator | none | CI green at `68995c90` (attempt 2) and `c52d64cb`; if red: logs, diagnose, repair, normal gates, no override |
 | 2 | 17-95 test git sites | 17-95 (S2) | `jnwb-actor-haiku` | 0 | listed sites merged 1eeda9d2; convert or name about 59 test git lines and the stored-argv calls |
 | 6 | Tracked rules cite tracked roles | 17-101 (S4) | integrator | D4 | merged 22eca3d2; two live hits left, both owner-gated |
-| 7 | Gate-15 follow-ups and tests-4 | 17-147 | `jnwb-actor-haiku` | 0 | D1 prose narrowed to what `obligation_losses` checks; D2 ancestor-tag test; `_refusal` |
 | 8b | Kernel start survives a port race on Windows | 17-158 | `jnwb-actor` | 0 | POSIX done (`ipc`); Windows retry with a planted collision; `try/finally`; precondition assert |
-| 9 | The fact gate reads each cited line | 17-153 | `jnwb-actor` | 0 | planted stale cite turns it red |
 | 10 | One home per helper in `jnwb/` | 17-94 (S2) | `jnwb-actor` | 4 (file overlap) | after 17-96 lands |
 | 11 | Docstrings and tolerance constants | 17-128 (S5) | `jnwb-actor` | 10 | narrowed Check (ruled) |
 | 12 | Docs thinning remainder | 17-100 (S4) | `docs-harness` | 0 | widen Writes to the named blocking tests |
 | 13 | Fact graph build under 60 s | 17-127 (S5) | `jnwb-actor` | 0 | profile first; graph byte-identical |
 | 14 | `growth_rows` counts `scripts/fact_graph/` | 17-104 (S5) | `jnwb-actor-haiku` | 0 | imports and CRLF parts dropped (Q6) |
-| 15 | NaN-passing sign guard scan | 17-150 | `jnwb-actor-haiku` | 7 (shared file) | |
+| 15 | NaN-passing sign guard scan | 17-150 | `jnwb-actor-haiku` | 0 | |
 | 16 | One home per invariant | 17-99 (S4) | `jnwb-developer` | D2 | |
 | 17 | Prose against the writing style | 17-129 (S5) | `docs-harness` | 12, 16 | spelling clause narrowed to new prose (Q5) |
 | 18 | External ground truth | 17-144, 15-11, 12-21, 16-12 (S6) | human input | D1 | in scope (Q1); raise D1 when it is the critical path |
@@ -82,8 +80,8 @@ or only tasks blocked on section 9 remain.
 
 | Class | Items |
 |---|---|
-| Verified closed (receipts in the update log) | 17-79, 17-97, 17-98, 17-103, 17-154 (section 7), 17-157, 17-96, 17-142 (both pending the suite at the integration tip); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
-| Landed, item still open | 17-94, 17-95, 17-100, 17-104, 17-128, 17-142, 17-147 (partials 2026-11-21 and 2026-11-22) |
+| Verified closed (receipts in the update log) | 17-79, 17-97, 17-98, 17-103, 17-154 (section 7), 17-157, 17-96, 17-142, 17-147, 17-153 (pending the suite at the integration tip); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
+| Landed, item still open | 17-94, 17-95, 17-100, 17-104, 17-128, 17-158 (partials 2026-11-21 to 2026-11-23) |
 | Pending verification | full suite and CI at the merged tip |
 | Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4) |
 | Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
@@ -117,10 +115,10 @@ the plan's `items` list; 17-102 left it on 2026-11-22 (Q3), so S4 counts four it
 | CI red at `8d5fb637`: explicit `git clone --local` dies on a failed cross-drive hardlink | run 45073612887 | Windows legs | repaired `68995c90`; CI pending |
 | Notebook kernel lost a port race in the wheel leg | push run 45083350199 attempt 1, `ZMQError: Address already in use`; the pull-request run at the same SHA passed | `tests/test_notebooks.py`, any leg | 17-158; failed job rerun once, result read before any push |
 | C901 margin 1 | `ruff check --select C901 jnwb/`: max 39; enforced on the ubuntu 3.12 leg since 17-157 (merge 84c34d56); the policy test checks the leg condition by substring, so an `||` condition would pass | A4 | watch; a function at 41 turns that leg red |
-| Gate 15 matches clauses by word overlap: a deleted clause passes when another keeps its obligation word | verifier, merge `3f6f7e86` | gate 15 | 17-147 (D1) |
+| Gate 15 matches clauses by word overlap: a deleted clause passes when another keeps its obligation word | verifier, merge `3f6f7e86` | gate 15 | repaired, merge `952cb357` (17-147 D1; the old rule as a mutant fails a test) |
 | Installed jnwb 0.2.11 shadows the tree for `release_gate.py` run as a script | `ImportError: _declarations` | local A5 runs | ruled workaround `PYTHONPATH` |
 | `pandas3` leg is non-blocking | `workflow.yml` | CI | failures read and recorded, not waived |
-| Superseded unmerged lanes | `_temp_17-103-contributing`, `_temp_17-143-tag-push` on `origin` (items closed by other commits) | none | kept; deleting an unmerged branch is Hamm's |
+| Superseded unmerged lanes | `_temp_17-103-contributing`, `_temp_17-143-tag-push` on `origin` (items closed by other commits) | none | archived to `F:/warehouse/jnwb_branch_archive/superseded_2026-11-23.bundle` (verified), deleted from `origin` 2026-11-23 |
 | Uncommitted work in `D:/repos/_wt/jnwb/17-104` | 3 tracked files modified, branch merged | 17-104 | read before any reuse; never discarded without a look |
 
 ## 9. Owner decisions
@@ -137,6 +135,10 @@ blocks the critical path.
 | D2 | The spikes-and-LFP fact-row wording for 17-99 | 17-99 | 17-99 is on the critical path |
 | D3 | Tag, `main` merge and publication of the verified RC | R4 | R3 passes |
 | D4 | 17-101 remainder: roadmap 17-138 (vendor `suite_lock.py` or name the dependency, `memory.md:7`); rewording "the scratchpad" in the corpus-access ruling (`standing.md:20`) | 17-101, S4 | 17-101 is the last open S4 item besides 17-99 |
+
+Recorded for review, not blocking: 17-153's check tests the first `path:line` cite of each B3 exception
+row; a continuation cite after `;` (reason code, not the default) is exempt. The independent verifier read
+all 11 continuation cites the strict form fails; each points at reason code and none is stale.
 
 ## Update log
 
@@ -155,3 +157,4 @@ blocks the critical path.
 | 2026-11-22 | merge `cfa5ab9f` | 17-97 closed: slice 2 (`325481d3`) merged the seven laminar files; collected 11213 before and after, name multiset equal, verifier ACCEPT with a full suite at `325481d3` (11092 passed, 0 failed). S3 2 of 2; score 22.5/100 diagnostic. |
 | 2026-11-22 | merges `22eca3d2`, `84c34d56`, `7ccd4001` | CI green at `c52d64cb` (push 45093499657, pull request 45093504959). 17-101 merged, remainder owner-gated (D4). 17-157 closed: ruff 0.16.10 C901 step on the ubuntu 3.12 leg; a planted complexity-41 function fails it; verifier ACCEPT on `2a9d98f7` after rejecting a CI-wide fail clause. 17-158 POSIX repaired (`ipc`), Windows open. |
 | 2026-11-23 | merges `1eeda9d2`, `bd425e49`, `7e1fc279` | 17-95 listed sites merged (verifier ACCEPT, 274 rows split identically by old and new splitter), remainder named. 17-96 closed: three names deprecated with tests, palette and `DEFAULT_BANDS` kept importable and live, `nwb_read_io` re-frozen at `03fdbc45` (independent kills M1 to M4); verifier and critic, ACCEPT on `7c7dad80`. 17-142 closed: ruff F811/F821/F841 zero over `jnwb/` and `scripts/`. A suite at `eda122a6` timed out after 3600 s in the machine suite lock; never run. Superseded lanes 17-103 and 17-143 archived to `F:/warehouse/jnwb_branch_archive/superseded_2026-11-23.bundle` and deleted from `origin`. Score 27.5/100 diagnostic. |
+| 2026-11-23 | merges `6cffdc42`, `952cb357` | 17-153 closed: the fact gate reads each B3 exception cite (a planted stale cite turns it red; verifier ACCEPT on `ad9f0d3e`); it found three stale cites (row 189, and two shifted by 17-96), each re-cited. 17-147 closed: D1 match rule tightened, D2 ancestor-tag test, `_refusal` names its error; verifier ACCEPT on `e8036d0b` (65 passed, D1 and D2 mutants killed). Score unchanged (neither is in a scope row). |

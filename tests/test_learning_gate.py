@@ -252,7 +252,7 @@ DOCTRINE = 'Say "policy" or "rule", never "doctrine" or "governance".'
 
 
 def test_a_deleted_clause_is_lost_although_another_clause_carries_its_obligation_word():
-    """The 17-147 instance: "never doctrine" deleted while "never pooled" stays (Jaccard 0.11)."""
+    """A word-only match fails here: "never doctrine" deleted while "never pooled" stays (Jaccard 0.11)."""
     read, lost = lg.obligation_losses(f"{POOLED}\n{DOCTRINE}\n", f"{POOLED}\n")
     # Precondition: the surviving clause carries "never", so a word-only match would pass.
     kept, deleted = (set(lg.WORD.findall(lg.clauses(t)[0])) for t in (POOLED, DOCTRINE))
@@ -269,7 +269,7 @@ def test_a_reworded_clause_sharing_half_its_words_and_its_obligation_word_is_kep
 
 
 def _git_at(repo: pathlib.Path, date: str, *args: str) -> None:
-    env = {**os.environ,"GIT_COMMITTER_DATE": date, "GIT_AUTHOR_DATE": date}
+    env = {**os.environ, "GIT_COMMITTER_DATE": date, "GIT_AUTHOR_DATE": date}
     subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
                     "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false", *args],
                    check=True, capture_output=True, env=env)

@@ -32,26 +32,12 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `tests/test_notebooks.py`.
 - 17-158: CI push run 45083350199 (attempt 1) at `68995c90`: `tests/test_notebooks.py::test_stalled_cell_fails_within_the_cell_bound` failed in the installed-wheel leg, the kernel never started (`zmq.error.ZMQError: Address already in use (addr='tcp://127.0.0.1:34637')`, then "Kernel didn't respond in 120 seconds"); the pull-request run at the same SHA passed it (wheel leg 11079 passed). Log kept at `D:/tmp/jnwb_int/ci_689_failed.log`. POSIX repaired (merge 7ccd4001, lane `98b48ed0`, verifier ACCEPT): kernels start on `ipc`; the held-port test is red on the old start line under WSL with the CI library versions. Left: Windows still binds TCP ports; the temp dir is removed outside a `try/finally` (`tests/test_notebooks.py:62-90`); the held-port test does not assert its own `transport == "ipc"` precondition. Check: on Windows a kernel start that loses a port bind is retried within the cell bound, by a planted collision test that runs on Windows; the two test defects repaired.
 
-### 17-153 The fact gate reads each cited line
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/fact_gate.py`, `scripts/fact_graph/*.py`, `tests/test_fact_gate.py`.
-- 17-153: ruled 2026-11-22 (A1): the fact gate passed while eight cites in six fact rows pointed at moved lines (defect class seen three times: the 17-79 split, the 17-128 docstrings, the 2026-11-21 review). Check: for each `path:line` cite in a default row of `artifacts/fact_stack.md`, the gate fails when the cited line lacks the row's default literal; a planted stale cite turns it red; the existing fact gate passing does not close this item.
-
 ### 17-150 AST scan for NaN-passing sign guards
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-147 (shared `scripts/learning_gate.py`).
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/learning_gate.py`, `tests/test_nan_passes_sign_guard_scan.py`.
 - 17-150: state-4 of the 2026-11-08 audit: `nan-passes-sign-guard` in `artifacts/process/defect_classes.md` still proposes an AST scan for a bare `<= 0` / `< 0` guard with no finiteness test. Check: a gate or test fails when such a guard is planted, and the eight sites of row `nan-passes-sign-guard` in `artifacts/process/defect_classes.md` stay covered.
-
-### 17-147 Audit 2026-11-08: scripts and tests that cannot fail
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none (scripts-2 runs in lane `_temp_gate15-c901`).
-Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/measure_agents_md_duplication.py`, `scripts/vflip2_recovery.py`, `scripts/figures/generate_figures.py`, `scripts/figures/figure_registry.toml`, `tests/test_*.py`.
-- 17-147: push_guard half landed 2026-11-21 (merge 264ea80d) and closes on its bounded requirement (ruled 2026-11-22, A6): the text guard denies the set merged there; known limit, no general push enforcement claimed: a directory reached through a variable, substitution, `env -C`, `sudo -D` or `find -execdir`; cd or push spelled through quoting, `$IFS`, an alias, `send-pack` or a glob; a junction; another interpreter. The push wrapper and CI gate stay the enforcing gate. scripts-2 landed 2026-11-22 (merge 3f6f7e86, verified): zero tables pass only when `AGENTS.md` and `CONTRIBUTING.md` lose no obligation clause against the newest `v*` tag; missing base fails. Left from its verification: D1, a deleted clause passes when another clause shares its obligation word (`AGENTS.md` "never doctrine" matched "never pooled" at Jaccard 0.11), so `scripts/learning_gate.py:13-15` and `CONTRIBUTING.md:80-82` ("keep every obligation clause") overstate the check: narrow the prose to what the check does (keep every obligation word gate 15 reads in those files); D2, no test pins `newest_release_tag` to an ancestor tag (`learning_gate.py:192-200`; a creation-date mutant survives); tests-4 at `tests/test_nwb_read_tolerance_and_visibility.py:230` (`_refusal` catches `Exception`; its callers assert `MissingRequiredNWBFieldError`). Check: gate 15 fails on zero tables with a lost clause or a missing base; `_refusal` catches the named error only; `ruff check tests --select F401,F541,F821,F841` clean.
 
 ### 17-144 The jaxfne isi_cv commits
 
