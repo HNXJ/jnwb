@@ -30,14 +30,7 @@ At most eight lines per item.
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `tests/test_notebooks.py`.
-- 17-158: CI push run 45083350199 (attempt 1) at `68995c90`: `tests/test_notebooks.py::test_stalled_cell_fails_within_the_cell_bound` failed in the installed-wheel leg, the kernel never started (`zmq.error.ZMQError: Address already in use (addr='tcp://127.0.0.1:34637')`, then "Kernel didn't respond in 120 seconds"); the pull-request run at the same SHA passed it (wheel leg 11079 passed). Log kept at `D:/tmp/jnwb_int/ci_689_failed.log`. Check: a kernel start that loses a port bind is retried or uses a transport without TCP ports (e.g. `ipc` on POSIX), so the test fails only on its own bound; a planted port collision no longer fails the test.
-
-### 17-157 ruff C901 runs on a CI leg
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `.github/workflows/workflow.yml`, `tests/test_complexity_ceiling.py`, `tests/test_workflow_release_policy.py`.
-- 17-157: gate A4's measure (ruff C901 at 40 over `jnwb/`, ruled 2026-11-22, merge 3f6f7e86) runs only where ruff is installed; no dependency or workflow installs it, so `tests/test_complexity_ceiling.py` skips on every CI leg, and the largest function sits at 39 (margin 1). Check: one CI job installs a pinned ruff and runs the C901 check over `jnwb/`; a planted function of complexity 41 fails that job's command; publication order and the other jobs unchanged.
+- 17-158: CI push run 45083350199 (attempt 1) at `68995c90`: `tests/test_notebooks.py::test_stalled_cell_fails_within_the_cell_bound` failed in the installed-wheel leg, the kernel never started (`zmq.error.ZMQError: Address already in use (addr='tcp://127.0.0.1:34637')`, then "Kernel didn't respond in 120 seconds"); the pull-request run at the same SHA passed it (wheel leg 11079 passed). Log kept at `D:/tmp/jnwb_int/ci_689_failed.log`. POSIX repaired (merge 7ccd4001, lane `98b48ed0`, verifier ACCEPT): kernels start on `ipc`; the held-port test is red on the old start line under WSL with the CI library versions. Left: Windows still binds TCP ports; the temp dir is removed outside a `try/finally` (`tests/test_notebooks.py:62-90`); the held-port test does not assert its own `transport == "ipc"` precondition. Check: on Windows a kernel start that loses a port bind is retried within the cell bound, by a planted collision test that runs on Windows; the two test defects repaired.
 
 ### 17-153 The fact gate reads each cited line
 

@@ -54,14 +54,13 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 
 | Order | Task | Item (row) | Role | Blocked by | Next action |
 |---|---|---|---|---|---|
-| 0 | CI at `68995c90`; push the records commit; fast-forward `D:/repos/jnwb` | integration | integrator | CI run | read CI; if red: logs, diagnose, repair, normal gates, no override |
+| 0 | Suite at the merged tip (17-97, 17-101, 17-157, 17-158), push, CI | integration | integrator | none | CI green at `68995c90` (attempt 2) and `c52d64cb`; if red: logs, diagnose, repair, normal gates, no override |
 | 2 | Resume the 17-95 remainder | 17-95 (S2) | `jnwb-actor-haiku` | 0 | lane `_temp_17-95-left` (`a01f06c8`, WIP, 8 files, on `origin`): merge `dev`, finish, verify |
 | 3 | `Union` in `scripts/gates/boundary.py:432` | 17-142 (S2) | `jnwb-actor-haiku` | 2 | after 17-95 merges |
 | 4 | Deprecate the three public names | 17-96 (S2) | `jnwb-actor` | 0 | warning and retained behaviour by test; changelog fragment; two reviews |
 | 6 | Tracked rules cite tracked roles | 17-101 (S4) | integrator | D4 | merged 22eca3d2; two live hits left, both owner-gated |
 | 7 | Gate-15 follow-ups and tests-4 | 17-147 | `jnwb-actor-haiku` | 0 | D1 prose narrowed to what `obligation_losses` checks; D2 ancestor-tag test; `_refusal` |
-| 8 | ruff C901 on a CI leg | 17-157 (A4) | `jnwb-actor-haiku` | 0 | pinned ruff in the build job; the C901 test runs there |
-| 8b | Kernel start survives a port race | 17-158 | `jnwb-actor-haiku` | 0 | retry or `ipc` transport; planted collision |
+| 8b | Kernel start survives a port race on Windows | 17-158 | `jnwb-actor` | 0 | POSIX done (`ipc`); Windows retry with a planted collision; `try/finally`; precondition assert |
 | 9 | The fact gate reads each cited line | 17-153 | `jnwb-actor` | 0 | planted stale cite turns it red |
 | 10 | One home per helper in `jnwb/` | 17-94 (S2) | `jnwb-actor` | 4 (file overlap) | after 17-96 lands |
 | 11 | Docstrings and tolerance constants | 17-128 (S5) | `jnwb-actor` | 10 | narrowed Check (ruled) |
@@ -85,9 +84,9 @@ or only tasks blocked on section 9 remain.
 
 | Class | Items |
 |---|---|
-| Verified closed (receipts in the update log) | 17-79, 17-97, 17-98, 17-103, 17-154 (section 7); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
+| Verified closed (receipts in the update log) | 17-79, 17-97, 17-98, 17-103, 17-154 (section 7), 17-157; open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
 | Landed, item still open | 17-94, 17-95, 17-100, 17-104, 17-128, 17-142, 17-147 (partials 2026-11-21 and 2026-11-22) |
-| Pending verification | CI at `68995c90` |
+| Pending verification | full suite and CI at the merged tip |
 | Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4) |
 | Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
 
@@ -119,7 +118,7 @@ the plan's `items` list; 17-102 left it on 2026-11-22 (Q3), so S4 counts four it
 | CI red at `c53c78fe`: gate 15 found no `v*` tag in shallow test checkouts | runs 45066157361, 45066162229 | all test legs | repaired `8d5fb637`, guard test added |
 | CI red at `8d5fb637`: explicit `git clone --local` dies on a failed cross-drive hardlink | run 45073612887 | Windows legs | repaired `68995c90`; CI pending |
 | Notebook kernel lost a port race in the wheel leg | push run 45083350199 attempt 1, `ZMQError: Address already in use`; the pull-request run at the same SHA passed | `tests/test_notebooks.py`, any leg | 17-158; failed job rerun once, result read before any push |
-| C901 margin 1 and not in CI | `ruff check --select C901 jnwb/`: max 39 | A4 | 17-157 |
+| C901 margin 1 | `ruff check --select C901 jnwb/`: max 39; enforced on the ubuntu 3.12 leg since 17-157 (merge 84c34d56); the policy test checks the leg condition by substring, so an `||` condition would pass | A4 | watch; a function at 41 turns that leg red |
 | Gate 15 matches clauses by word overlap: a deleted clause passes when another keeps its obligation word | verifier, merge `3f6f7e86` | gate 15 | 17-147 (D1) |
 | Installed jnwb 0.2.11 shadows the tree for `release_gate.py` run as a script | `ImportError: _declarations` | local A5 runs | ruled workaround `PYTHONPATH` |
 | `pandas3` leg is non-blocking | `workflow.yml` | CI | failures read and recorded, not waived |
@@ -156,3 +155,4 @@ blocks the critical path.
 | 2026-11-22 | `8d5fb637`, `68995c90` | Two CI repairs pushed under Hamm's one-time authorizations; suite 11093 passed at each; CI at `68995c90` pending. Checklist rewritten as the RC plan (target, environments, ordered tasks, status, risks, owner questions); the 2026-11-19 snapshot and the 2026-11-18 mapping audit retired into sections 4 and 9. Score 17/100. |
 | 2026-11-22 | this commit | Hamm ruled Q1 to Q6 and goal mode; `release_plan.json` reconciled (17-102 to 0.2.20; 17-153, 17-157, 17-158 into 0.2.17); 17-104 and 17-129 Checks narrowed as ruled; 17-154 closed (verifier ACCEPT). Score 17.5/100 diagnostic, the change from the S4 denominator only. |
 | 2026-11-22 | merge `cfa5ab9f` | 17-97 closed: slice 2 (`325481d3`) merged the seven laminar files; collected 11213 before and after, name multiset equal, verifier ACCEPT with a full suite at `325481d3` (11092 passed, 0 failed). S3 2 of 2; score 22.5/100 diagnostic. |
+| 2026-11-22 | merges `22eca3d2`, `84c34d56`, `7ccd4001` | CI green at `c52d64cb` (push 45093499657, pull request 45093504959). 17-101 merged, remainder owner-gated (D4). 17-157 closed: ruff 0.16.10 C901 step on the ubuntu 3.12 leg; a planted complexity-41 function fails it; verifier ACCEPT on `2a9d98f7` after rejecting a CI-wide fail clause. 17-158 POSIX repaired (`ipc`), Windows open. |
