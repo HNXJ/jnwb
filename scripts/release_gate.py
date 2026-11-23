@@ -1701,9 +1701,7 @@ def uncommitted_paths(root: pathlib.Path) -> Optional[List[str]]:
     The whole tree, not only :data:`STEP_0A_PATHS`: the build in STEP 3 packages the working
     copy, so uncommitted code would ship under a receipt that names a commit without it.
     """
-    status = subprocess.run(
-        ["git", "status", "--porcelain", "-z", "--untracked-files=all"],
-        cwd=root, capture_output=True, text=True)
+    status = git("status", "--porcelain", "-z", "--untracked-files=all", cwd=root)
     if status.returncode != 0:
         return None
     named = set()

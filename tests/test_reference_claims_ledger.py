@@ -20,6 +20,7 @@ if str(Path(__file__).resolve().parents[1]) not in sys.path:
     sys.path.append(str(Path(__file__).resolve().parents[1]))  # needed: wheel run clears pythonpath
 
 from scripts.build_fact_graph import reference_table_rows  # noqa: E402
+from scripts.stack_parse import cells as _cells  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGE = ROOT / "docs" / "references.md"
@@ -47,10 +48,10 @@ def claim_cells(page: str) -> dict[tuple[str, str], str]:
 
 
 def _body_cells(line: str) -> list[str] | None:
-    match = LEDGER_ROW.match(line.rstrip("\r\n"))
-    if not match:
+    row = line.rstrip("\r\n")
+    if not LEDGER_ROW.match(row):
         return None
-    cells = [cell.strip() for cell in match.group(1).split("|")]
+    cells = _cells(row)
     if len(cells) != 5 or cells[0] == "Section" or set(cells[0]) <= {"-"}:
         return None
     return cells

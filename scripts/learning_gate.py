@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from scripts import reconstruct_state as _state
+from scripts.gates.boundary import git
 from scripts.obligation_diff import WORD, clauses
 from scripts.stack_parse import cells as _cells
 
@@ -195,8 +196,7 @@ def newest_release_tag() -> Optional[str]:
     ``git describe`` walks HEAD's ancestry only, so a tag it names is an ancestor of HEAD. A
     shallow clone without tags resolves none.
     """
-    done = subprocess.run(["git", "-C", str(REPO_ROOT), "describe", "--tags", "--abbrev=0",
-                           "--match", "v*"], capture_output=True, text=True)
+    done = git("-C", str(REPO_ROOT), "describe", "--tags", "--abbrev=0", "--match", "v*")
     return (done.stdout.strip() or None) if done.returncode == 0 else None
 
 
@@ -291,11 +291,11 @@ def forbidden_violations(sources: List[Tuple[str, str]], rev: Optional[str] = No
     """
     found: List[str] = []
     for source, phrase in sources:
-        cmd = ["git", "-C", str(root), "grep", "-n", "-I", "-F", "-e", phrase]
+        args = ["-C", str(root), "grep", "-n", "-I", "-F", "-e", phrase]
         if rev:
-            cmd.append(rev)
-        cmd += ["--", ".", *(f":(exclude){tree}" for tree in NOT_SEARCHED)]
-        done = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+            args.append(rev)
+        args += ["--", ".", *(f":(exclude){tree}" for tree in NOT_SEARCHED)]
+        done = git(*args, encoding="utf-8")
         if done.returncode not in (0, 1):  # git grep exits 1 for no match
             found.append(f"{source}: git grep could not read the tree for {phrase!r}: "
                          f"{done.stderr.strip()}")

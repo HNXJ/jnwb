@@ -12,7 +12,6 @@ Shingled Jaccard on 4-grams of words, which survives rewording better than a lit
 import fnmatch
 import pathlib
 import re
-import subprocess
 import sys
 import unicodedata
 
@@ -32,9 +31,13 @@ AGENTS = ROOT / "AGENTS.md"
 
 #: Tracked files only. A git-ignored file is present on one machine and absent on the next, so
 #: measuring it made the counts, and the ratchet over them, a property of whichever checkout ran.
-TRACKED = set(subprocess.run(
-    ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True,
-).stdout.splitlines())
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # run by path, so `scripts` is not importable without it
+from scripts.gates.boundary import git  # noqa: E402
+
+_LISTED = git("ls-files", cwd=ROOT)
+_LISTED.check_returncode()
+TRACKED = set(_LISTED.stdout.splitlines())
 if not TRACKED:
     sys.exit("git ls-files listed nothing; the corpus cannot be read")
 

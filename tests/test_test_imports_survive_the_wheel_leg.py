@@ -161,6 +161,36 @@ def _offenders() -> list[tuple[str, int, str]]:
     return rows
 
 
+def _deferred_imports(tree: ast.Module) -> list[tuple[str, int]]:
+    """``(top_level_name, lineno)`` for every import that runs only when a function is called."""
+    eager = set(_module_scope_imports(tree))
+    found: list[tuple[str, int]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.extend((alias.name.split(".")[0], node.lineno) for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            found.append((node.module.split(".")[0], node.lineno))
+    return [entry for entry in found if entry not in eager]
+
+
+def _deferred_offenders() -> list[tuple[str, int, str]]:
+    """Imports of ``scripts`` inside a function, in a module that never reaches for it.
+
+    Such an import passes in the wheel leg only when an earlier module happened to append the
+    root, so it fails when its module runs alone or the file order changes. ``scripts`` only:
+    the function-scope imports of ``tests`` are a separate question.
+    """
+    unshipped = _unshipped_repo_paths() & {"scripts"}
+    rows: list[tuple[str, int, str]] = []
+    for path in sorted(TESTS_DIR.glob("test_*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        if _sys_path_extension_lines(tree):
+            continue
+        rows.extend((path.name, lineno, name) for name, lineno in _deferred_imports(tree)
+                    if name in unshipped)
+    return rows
+
+
 # --------------------------------------------------------------------------------------------
 # Self-checks. Each one fails if this file's derivation has quietly stopped deriving anything.
 # --------------------------------------------------------------------------------------------
@@ -250,4 +280,23 @@ def test_no_test_module_imports_an_unshipped_path_without_reaching_for_it():
             "checkout is not on sys.path. In the full run they are masked by an earlier "
             "module's sys.path.append, so the suite looks green:\n"
             f"{listing}\n\nFor each, {_REPAIR}"
+        )
+
+
+def test_the_deferred_import_walk_finds_an_import_inside_a_function():
+    """A walk that saw no function-scope import would pass the check below vacuously."""
+    tree = ast.parse("import os\n\ndef f():\n    from scripts import stack_parse\n")
+    assert _deferred_imports(tree) == [("scripts", 4)]
+
+
+def test_no_test_module_imports_an_unshipped_path_inside_a_function_without_reaching_for_it():
+    offenders = _deferred_offenders()
+    if offenders:
+        listing = "\n".join(
+            f"  {name}:{lineno} imports `{package}` inside a function, and the module never "
+            "appends the repository root" for name, lineno, package in offenders
+        )
+        pytest.fail(
+            "these imports pass in the wheel-qualification leg only when an earlier module has "
+            f"appended the repository root:\n{listing}\n\nFor each module, {_REPAIR}"
         )

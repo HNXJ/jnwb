@@ -14,7 +14,11 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "stack_edit.py"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+SCRIPT = REPO_ROOT / "scripts" / "stack_edit.py"
 _spec = importlib.util.spec_from_file_location("_stack_edit", SCRIPT)
 se = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = se  # dataclasses resolve their module through sys.modules

@@ -597,7 +597,7 @@ def test_the_errors_page_lists_every_layout_basis():
     }
     page = _page("docs/errors.md")
     section = page.split("### `ChannelIndexError`", 1)[1].split("\n### ", 1)[0]
-    listed = {row.split("|")[1].strip().strip("`") for row in section.splitlines()
+    listed = {stack_parse.cells(row)[0].strip("`") for row in section.splitlines()
               if row.startswith("| `")}
     assert produced == listed == {"electrode_count", "schema", "shape"}, (produced, listed)
 

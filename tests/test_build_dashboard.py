@@ -22,6 +22,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
+from scripts import stack_parse  # noqa: E402
+
 SCHEMA_PATH = REPO_ROOT / "scripts" / "dashboard" / "data.schema.json"
 PEAK_MEMORY_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "performance" / "peak_memory.json"
 ORDER_RECORD_PATH = REPO_ROOT / "artifacts" / "evidence" / "0.2.6" / "computational_order.md"
@@ -720,7 +722,7 @@ def test_each_studies_row_is_a_card_naming_its_tests(data):
     cards = [card for card in _cards(data) if card["section"] == "studies"]
     assert rows and len(cards) == len(rows), (len(cards), len(rows))
     for card, row in zip(cards, rows):
-        assert card["title"] == row.split("|")[1].strip()
+        assert card["title"] == stack_parse.cells(row)[0]
         assert card["path"] == "docs/references.md"
         assert len(card["fields"]["tests"]) == len(re.findall(r"test_\w+\.py::\w+", row))
 
@@ -831,7 +833,8 @@ def test_a_replication_verdict_outside_the_record_vocabulary_is_refused(point_at
 def test_the_deferred_section_is_the_tagged_roadmap_rows_and_reads_not_started(data):
     rows = [line for line in ROADMAP_PATH.read_text(encoding="utf-8").splitlines()
             if line.startswith("| ") and "| deferred-" in line]
-    validating = [line for line in rows if line.split("|")[2].strip().endswith(VALIDATION_TAG)]
+    validating = [line for line in rows
+                  if stack_parse.cells(line)[1].endswith(VALIDATION_TAG)]
     assert validating, "the roadmap must hold a tagged deferred validation row"
     deferred = data["deferred"]
     assert len(deferred) == len(validating), (len(deferred), len(validating))
@@ -858,6 +861,25 @@ def test_a_deferred_row_is_a_validation_only_when_its_theme_carries_the_tag(tmp_
     assert [row["id"] for row in rows] == ["row-b"], rows
     assert rows[0]["theme"] == "A model recovers a planted signal", rows[0]["theme"]
     assert rows[0]["label"] == "not started"
+
+
+def test_a_row_without_a_closing_pipe_keeps_its_last_cell_and_a_quoted_row_is_not_read(
+        tmp_path, monkeypatch):
+    """The dashboard splits rows with `stack_parse.cells`. A row with no closing pipe keeps its
+    last cell (the splitter it replaced dropped it, and the row fell out at four cells); a line
+    that opens with `>` is no table row and is skipped."""
+    builder = _builder()
+    roadmap = tmp_path / "roadmap.md"
+    roadmap.write_text(
+        "| ID | Theme | Defect | Waits | Release |\n"
+        "|---|---|---|---|---|\n"
+        "| row-a | A (validation) | Defect | Waits | deferred-0.2.15\n"
+        "> | row-b | B (validation) | Defect | Waits | deferred-0.2.15 |\n",
+        encoding="utf-8", newline="\n")
+    monkeypatch.setattr(builder, "ROADMAP", roadmap)
+    rows = builder.deferred_section()
+    assert [row["id"] for row in rows] == ["row-a"], rows
+    assert rows[0]["release"] == "deferred-0.2.15", rows[0]
 
 
 def test_the_schema_declares_the_deferred_section_and_the_replication_label():

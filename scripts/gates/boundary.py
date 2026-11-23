@@ -582,10 +582,9 @@ def _wholesale_conversions(root: Path) -> List[str]:
     ).returncode != 0:
         return []
     try:
-        changed = subprocess.run(
-            ["git", "diff", "--name-only", "-z", "HEAD"],
-            cwd=root, capture_output=True, text=True, check=True,
-        ).stdout.split("\0")
+        done = git("diff", "--name-only", "-z", "HEAD", cwd=root)
+        done.check_returncode()
+        changed = done.stdout.split("\0")
     except Exception as exc:
         return [f"LINE_ENDINGS: could not compare against HEAD under {root} ({exc})"]
 
@@ -633,13 +632,9 @@ def check_line_ending_consistency(repo_root: Optional[Path] = None) -> List[str]
     """
     root = repo_root or REPO_ROOT
     try:
-        tracked = subprocess.run(
-            ["git", "ls-files", "-z"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.split("\0")
+        done = git("ls-files", "-z", cwd=root)
+        done.check_returncode()
+        tracked = done.stdout.split("\0")
     except Exception as exc:  # no git, or not a checkout: say so rather than passing
         return [f"LINE_ENDINGS: could not list tracked files under {root} ({exc})"]
 
