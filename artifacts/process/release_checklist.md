@@ -5,7 +5,7 @@ file tracks them and is the work plan toward the RC. Scope source: `artifacts/pr
 item text and Checks: `artifacts/todo_stack.md`; rulings: `artifacts/rulings/2026-11-22.md` and
 `artifacts/rulings/standing.md`. Update a row in the commit that changes it; the update log holds history.
 
-Current (2026-11-23): **30/100, diagnostic** (Q3; 0.5 of it is the S4 denominator after 17-102 left the plan, not a closure; 17-104 counts once the suite at the integration tip passes); gates 0 of 6 complete. `origin/dev` =
+Current (2026-11-23): **32.5/100, diagnostic** (Q3; 0.5 of it is the S4 denominator after 17-102 left the plan, not a closure; 17-95 counts once the suite at the integration tip passes); gates 0 of 6 complete. `origin/dev` =
 `e1201abb` (suite 11154 passed, 0 failed), CI pending; CI green at `d918bf46` (push 45180968913, pull request
 45180979412). Integration tip on `_temp_rc-integration`. Open stack: one row (`17-144-src`). Owner decisions: section 9.
 
@@ -55,7 +55,6 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | Order | Task | Item (row) | Role | Blocked by | Next action |
 |---|---|---|---|---|---|
 | 0 | Suite at the merged tip, push, CI | integration | integrator | none | `e1201abb` pushed (suite 11154 passed), CI pending; next tip carries the 17-127 speedup; if red: logs, diagnose, repair, normal gates, no override |
-| 2 | 17-95 test git sites | 17-95 (S2) | `jnwb-actor-haiku` | 0 | listed sites merged 1eeda9d2; convert or name about 59 test git lines and the stored-argv calls |
 | 6 | Tracked rules cite tracked roles | 17-101 (S4) | integrator | D4 | merged 22eca3d2; two live hits left, both owner-gated |
 | 10 | One home per helper in `jnwb/` | 17-94 (S2) | `jnwb-actor` | 4 (file overlap) | after 17-96 lands |
 | 11 | Docstrings and tolerance constants | 17-128 (S5) | `jnwb-actor` | 10 | narrowed Check (ruled) |
@@ -78,7 +77,7 @@ or only tasks blocked on section 9 remain.
 | Class | Items |
 |---|---|
 | Verified closed (receipts in the update log) | 17-79, 17-97, 17-98, 17-103, 17-154 (section 7), 17-157, 17-96, 17-142, 17-147, 17-153 (suite 11147 passed at `d918bf46`), 17-150 (pending the suite at the integration tip); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
-| Landed, item still open | 17-94, 17-95, 17-100, 17-128 (partials 2026-11-21 to 2026-11-23) |
+| Landed, item still open | 17-94, 17-100, 17-128 (partials 2026-11-21 to 2026-11-23) |
 | Pending verification | full suite and CI at the merged tip |
 | Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4) |
 | Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
@@ -92,7 +91,7 @@ the plan's `items` list; 17-102 left it on 2026-11-22 (Q3), so S4 counts four it
 | # | Plan scope row | Pts | Items | Closed | Earned |
 |---|---|---|---|---|---|
 | S1 | The largest functions split below a stated complexity | 10 | ~~17-79~~ | 1 of 1 | 10 |
-| S2 | One home per helper in jnwb, scripts and tests; dead code and unused constants removed | 10 | 17-94, 17-95, ~~17-96~~, ~~17-142~~ | 2 of 4 | 5 |
+| S2 | One home per helper in jnwb, scripts and tests; dead code and unused constants removed | 10 | 17-94, ~~17-95~~, ~~17-96~~, ~~17-142~~ | 3 of 4 | 7.5 |
 | S3 | Tests named by subject, not by the event that produced them | 10 | ~~17-97~~, ~~17-98~~ | 2 of 2 | 10 |
 | S4 | Docs and examples thinned; one home per invariant | 10 | 17-99, 17-100, 17-101, ~~17-103~~ | 1 of 4 | 2.5 |
 | S5 | Code and prose matched to the style standards; the fact graph build made faster | 10 | ~~17-104~~, 17-127, 17-128, 17-129 | 1 of 4 | 2.5 |
@@ -157,3 +156,4 @@ all 11 continuation cites the strict form fails; each points at reason code and 
 | 2026-11-23 | merges `6cffdc42`, `952cb357` | 17-153 closed: the fact gate reads each B3 exception cite (a planted stale cite turns it red; verifier ACCEPT on `ad9f0d3e`); it found three stale cites (row 189, and two shifted by 17-96), each re-cited. 17-147 closed: D1 match rule tightened, D2 ancestor-tag test, `_refusal` names its error; verifier ACCEPT on `e8036d0b` (65 passed, D1 and D2 mutants killed). Score unchanged (neither is in a scope row). |
 | 2026-11-23 | `d918bf46`, merge `b83bc468`, `507e4cfb` | Suite at `8769bc5e` failed 1 (17-96 deprecation notes undeclared in the version-claim test); declared at `d918bf46`; suite 11147 passed there; pushed to `dev`. 17-150 closed: AST sign-guard scan, verifier ACCEPT on `7340b8bf` (mutants red, stale allow-list entry fails); it found `classify_layer_from_depth` accepting a NaN `threshold`, refused at `507e4cfb` (test red first; critic REJECT on a stale docstring and fragment length, repaired `18fed6d5`); `enrich_units_dataframe` keeps the silent path (roadmap 17-159). 17-158 closed: Windows bind retry, verifier ACCEPT on `2a040727`. 17-104 closed (merge `ab5a2909`): `growth_rows` counts every `.py` under `scripts/`, verifier ACCEPT on `6c4330b1` after a first review found `gates/` and `figures/` uncounted too; S5 1 of 4; score 30/100 diagnostic. |
 | 2026-11-23 | `e1201abb`, merge `790b1a10` | CI green at `d918bf46`; suite 11154 passed at `e1201abb`, pushed to `dev`. 17-127 speedup merged (verifier ACCEPT on correctness); under 60 s not shown: 88-114 s at 100% host load, item open. |
+| 2026-11-23 | merge `4b24f244` | 17-95 closed: 40 test git sites on `gates.boundary.git`, the rest named with reasons, 14 function-scope `tests` imports guarded and the wheel-leg check extended to them (red on the base tree); verifier REJECT on two unnamed sites, repaired, ACCEPT on `b611d0b2`. S2 3 of 4; score 32.5/100 diagnostic. |

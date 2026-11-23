@@ -41,13 +41,6 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `jnwb/**/*.py`.
 - 17-94: landed 2026-11-21 (merge 9427c84a): `_units.require_positive_fs` (bandpass, notch, spectral; NaN and Inf refused by name), `nwb_write._sha256` is `paths.sha256_file`, one `_onset_counts` in `_bins.py`, tests in `tests/test_fs_nonfinite.py`; `_decibels` is already one home (`_decibels.py:15,24,52`). Left: the `fs` positive check hand-written at 17 code lines (`grep -rnE '\bfs\s*(<=|<|>=|>)\s*0\b' jnwb`; e.g. `tfr.py:269` in `complex_tfr`, where NaN reaches `morlet_wavelet`, which refuses it at `tfr.py:136-137`); 8 `_require_*` definitions in `jnwb/spectral`; inventory in `artifacts/evidence/0.2.17/fs_inventory_17-94.md` (52 rows: SAME-CHECK 22, DIFFERENT-MESSAGE 11; REDUNDANT-WITH 7 `_require_*` definitions); `_window_rows` twice (`_xflip.py:96`, `_zflip.py:178`); the private helpers the 17-79 splits added in `_xflip.py`, `_zflip.py`, `_vflip.py`, `jrsa/__init__.py` and `_psi.py`, unsurveyed. Check: one definition each, the grep returns one site, the suite passes.
 
-### 17-95 One home per helper in scripts and tests
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/stack_parse.py`, `scripts/release_gate.py`, `scripts/build_fact_graph.py`, `scripts/learning_gate.py`, `scripts/build_dashboard.py`, `scripts/docs_form_gate.py`, `scripts/reconstruct_state.py`, `scripts/measure_peak_memory.py`, `scripts/mutation_harness.py`, `scripts/verify_lane.py`, `scripts/gates/boundary.py`, `tests/conftest.py`, `tests/test_*.py`.
-- 17-95: landed 2026-11-21 (merge 91424ae7) and 2026-11-22 (merge 1eeda9d2, lane `7ec6279b`, verifier ACCEPT): every site the item listed is on `stack_parse.cells` or `gates.boundary.git`; the kept-raw sites keep their reasons (byte capture, injected runner, `reconstruct_state.py` copied alone, `verify_lane`, `mutation_harness`, `measure_peak_memory`, `obligation_diff`); `build_dashboard` keeps the last cell of a row with no closing pipe (pinned by test); function-scope `from scripts` imports need a module-level root guard (new wheel-leg check). Left: about 59 raw git lines in 27 test files, plus calls through a stored argv list (`test_harness_adversarial.py:2388-2391`, `test_release_recovery.py:242-245`), each a repository call, a fixture builder or a mock; `verify_lane.py:290` and `reconstruct_state.py:224` unnamed; 14 unguarded function-scope `from tests` imports in 8 files. Check: each remaining test git site converted or named with its reason; `harness_gate.py` 22 of 22; `tests/test_table_cells.py` and `tests/test_test_imports_survive_the_wheel_leg.py` pass.
-
 ### 17-99 One home per invariant across rule and doc files
 
 Release: deferred-0.2.17.
