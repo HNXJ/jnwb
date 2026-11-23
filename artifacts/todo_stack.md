@@ -25,13 +25,6 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
-### 17-154 The full suite stalls at about 99%
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none (merge 7bc91d79 adds `-o faulthandler_timeout=900` to `scripts/jnwb_suite.sh`; the dump does not stop a stalled run, so a stall still needs a manual stop after its dump).
-Writes: `scripts/jnwb_suite.sh`, `tests/test_*.py`.
-- 17-154: from open row `17-147-hang` (ruled 2026-11-22, A6 modified): two stalls at about 99% with 12 idle workers (9479505e on 2026-11-18, 9ad92d4b on 2026-11-19), stuck test unidentified; suspects by file time only: the wheel and foreign-NWB tests. Check: two clean full-suite runs under the dump configuration, each log and SHA cited; or a dump names the stalled test and a verified repair removes the stall. A dump alone is diagnosis and closes nothing. Evidence awaiting a verifier (2026-11-22): full runs under the flag at `c53c78fe` (11092 passed), `8d5fb637` and `68995c90` (11093 passed each), 0 failed, no stall; logs `D:/tmp/jnwb_int/suite_<sha>.log`.
-
 ### 17-158 A notebook test fails when its kernel loses a port race
 
 Release: deferred-0.2.17.
@@ -101,8 +94,8 @@ Writes: `jnwb/visual_qc.py`, `jnwb/artifact_repair.py`, `jnwb/onset_fitting.py`,
 
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none (ruled 2026-11-22: merge the seven; dated records stay unchanged).
-Writes: `tests/test_*.py`.
-- 17-97: slice 1 landed 2026-11-22 (merge 4f84cf5c): the four event-named files, `test_rng_*` and `test_api_md_*` merged by subject; 11201 collected before and after, test-name set equal. Left: seven laminar files named only by `artifacts/evidence/0.2.15/tiered_ci_plan.md` and `artifacts/evidence/0.2.14/verification_inventory.md:84` (`test_vflip2_nuisance`, `_sensitivity`, `_simulation`, `test_xflip_homogeneous_null`, `_nuisance`, `_null_method`, `test_zflip_audit`); the other nine laminar files keep their names, cited by `standing.md`, a calibration receipt, `scripts/`, `jnwb/laminar/_vflip2.py`, a fixture or `CHANGELOG.md`. Event-named classes (`TestIntegration021`, `TestFinalAuditRecurrence`) stay to keep node ids. Check: the seven merged or ruled to stay, collected count unchanged.
+Writes: `tests/test_*.py`, `artifacts/skills/jnwb-sim-benchmark/SKILL.md`.
+- 17-97: slice 1 landed 2026-11-22 (merge 4f84cf5c): the four event-named files, `test_rng_*` and `test_api_md_*` merged by subject; 11201 collected before and after, test-name set equal. Left: seven laminar files named by the dated records `artifacts/evidence/0.2.15/tiered_ci_plan.md` and `artifacts/evidence/0.2.14/verification_inventory.md:84`, and by one live pointer, `artifacts/skills/jnwb-sim-benchmark/SKILL.md:40` (repointed with the merge) (`test_vflip2_nuisance`, `_sensitivity`, `_simulation`, `test_xflip_homogeneous_null`, `_nuisance`, `_null_method`, `test_zflip_audit`); the other nine laminar files keep their names, cited by `standing.md`, a calibration receipt, `scripts/`, `jnwb/laminar/_vflip2.py`, a fixture or `CHANGELOG.md`. Event-named classes (`TestIntegration021`, `TestFinalAuditRecurrence`) stay to keep node ids. Check: the seven merged or ruled to stay, collected count unchanged.
 
 ### 17-99 One home per invariant across rule and doc files
 

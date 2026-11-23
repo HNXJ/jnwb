@@ -55,7 +55,6 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | Order | Task | Item (row) | Role | Blocked by | Next action |
 |---|---|---|---|---|---|
 | 0 | CI at `68995c90`; push the records commit; fast-forward `D:/repos/jnwb` | integration | integrator | CI run | read CI; if red: logs, diagnose, repair, normal gates, no override |
-| 1 | Close the suite-hang item | 17-154 | `jnwb-verifier` | 0 | verify three clean runs under the dump configuration (section 7), then close |
 | 2 | Resume the 17-95 remainder | 17-95 (S2) | `jnwb-actor-haiku` | 0 | lane `_temp_17-95-left` (`a01f06c8`, WIP, 8 files, on `origin`): merge `dev`, finish, verify |
 | 3 | `Union` in `scripts/gates/boundary.py:432` | 17-142 (S2) | `jnwb-actor-haiku` | 2 | after 17-95 merges |
 | 4 | Deprecate the three public names | 17-96 (S2) | `jnwb-actor` | 0 | warning and retained behaviour by test; changelog fragment; two reviews |
@@ -87,11 +86,11 @@ or only tasks blocked on section 9 remain.
 
 | Class | Items |
 |---|---|
-| Verified closed (receipts in the update log) | 17-79, 17-98, 17-103; open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
+| Verified closed (receipts in the update log) | 17-79, 17-98, 17-103, 17-154 (section 7); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
 | Landed, item still open | 17-94, 17-95, 17-100, 17-104, 17-128, 17-142, 17-147 (partials 2026-11-21 and 2026-11-22), 17-97 slice 1 |
-| Pending verification | CI at `68995c90`; 17-154 closure evidence |
+| Pending verification | CI at `68995c90` |
 | Blocked on owner | Q1 (S6, `17-144-src`), Q4 (17-99), Q5 (17-129 spelling clause), Q6 (two 17-104 parts), Q2 (R4) |
-| Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (17-154, none since the dump flag) |
+| Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
 
 ## 6. Weighted progress (60): provisional weights (scoring contract: Q3)
 
@@ -108,11 +107,11 @@ the plan's `items` list until Hamm changes it (17-102 stays counted in S4 until 
 | S5 | Code and prose matched to the style standards; the fact graph build made faster | 10 | 17-104, 17-127, 17-128, 17-129 | 0 of 4 | 0 |
 | S6 | Validations on external ground truth | 10 | 17-144, roadmap 15-11, 12-21, 16-12 | 0 of 4 | 0 |
 
-## 7. Evidence awaiting a verifier
+## 7. Closure receipts awaiting the update log
 
-| Claim | Receipt |
+| Item | Receipt |
 |---|---|
-| 17-154: two clean full runs under the dump configuration | `scripts/jnwb_suite.sh` carries `-o faulthandler_timeout=900` since merge `7bc91d79`, an ancestor of each SHA; full runs at `c53c78fe` (11092 passed), `8d5fb637` and `68995c90` (11093 passed each), 0 failed, no stall, each stamp equal to its SHA; logs `D:/tmp/jnwb_int/suite_<sha>.log` (outside the repository) |
+| 17-154 closed 2026-11-22, independent verifier ACCEPT | `scripts/jnwb_suite.sh` full-run command carries `-o faulthandler_timeout=900` at each SHA (merge `7bc91d79` an ancestor); full runs at `c53c78fe` (11092 passed, 877.75 s), `8d5fb637` (11093 passed, 880.29 s), `68995c90` (11093 passed, 836.00 s); 0 failed, 0 `Timeout (`, 0 `Thread 0x`; run windows inside each SHA's reflog interval; stamp proven only for `68995c90`. Two stalls in about five runs on 2026-11-18/19 make clean runs weak evidence against a rare stall; a recurrence reopens it |
 
 ## 8. Known failures, waivers and risks
 
