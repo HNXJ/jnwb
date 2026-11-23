@@ -34,6 +34,8 @@ OBLIGATION = re.compile(
 TIMING = {"before", "after", "until", "first", "once", "then", "while", "when"}
 SPLIT = re.compile(r"(?<=[.;:!?])\s+|\s*\|\s*|\n+")
 WORD = re.compile(r"[a-z0-9_]+")
+#: The share of a clause's words (Jaccard) its closest new clause needs to count as the same rule.
+KEPT = 0.5
 
 
 def clauses(text: str) -> list[str]:
@@ -63,7 +65,7 @@ def compare(old: str, new: str) -> list[tuple[str, str, str]]:
         words = _words(clause)
         score, best = max(((len(words & w) / len(words | w), c) for w, c in new_words),
                           default=(0.0, ""))
-        if score < 0.5:
+        if score < KEPT:
             report.append(("dropped", clause, best))
         elif (words & TIMING) - _words(best):
             report.append(("timing lost", clause, best))

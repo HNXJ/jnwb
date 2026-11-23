@@ -33,7 +33,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from scripts import reconstruct_state as _state
 from scripts.gates.boundary import git
-from scripts.obligation_diff import WORD, clauses
+from scripts.obligation_diff import KEPT, WORD, clauses
 from scripts.stack_parse import cells as _cells
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -46,9 +46,6 @@ FROZEN = ("artifacts/evidence/", "artifacts/archive/", "artifacts/benchmarks/")
 CITATION = re.compile(r"\b[Rr]uled (?:on )?(20\d\d-\d\d-\d\d)")
 #: The words a rewrite must keep: a rule that says "before" or "never" must still say it.
 OBLIGATION_WORDS = frozenset({"before", "after", "never", "must", "only"})
-#: The share of a clause's words (Jaccard) its closest new clause needs to count as the same rule;
-#: below it scripts/obligation_diff.py reports the clause dropped.
-KEPT = 0.5
 #: A mapping table's preamble names its old file and the commit it was read at, then its draft.
 OLD_FILE = re.compile(r"Old file:\s*`([^`]+)`\s+at\s+`([0-9a-fA-F]{7,40})`")
 DRAFT = re.compile(r"Draft:\s*`([^`]+)`")
