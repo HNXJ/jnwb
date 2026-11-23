@@ -1,10 +1,11 @@
 """Every exception a public function raises in its own body is named in its Raises section.
 
 The walk covers each function in `jnwb.__all__`: the `raise` statements in the function's own
-body (nested functions, lambdas and classes excluded; a bare re-raise skipped) against the
-words of its docstring's Raises section, Google (`Raises:`) or NumPy (`Raises` / `------`)
-form. A raised call to a helper whose return annotation names a class counts as that class.
-Exceptions raised inside called helpers are out of scope.
+body, and in each nested function it defines and uses (calls, or passes on as a callback),
+directly or through another nested function it uses, against the words of its docstring's
+Raises section, Google (`Raises:`) or NumPy (`Raises` / `------`) form. Classes and nested
+functions never used are skipped, as is a bare re-raise. A raised call to a helper whose return annotation names a class
+counts as that class. Exceptions raised inside module-level helpers are out of scope.
 """
 from __future__ import annotations
 
@@ -54,6 +55,52 @@ def _own_raises(node: ast.AST):
         if isinstance(sub, ast.Raise):
             yield sub
         stack.extend(ast.iter_child_nodes(sub))
+
+
+def _used_names(node: ast.AST) -> set[str]:
+    """Names read in `node`'s own body (called, or passed on as a callback such as
+    `_with_nwb(path, _read)`), nested defs and classes excluded; a lambda's body counts."""
+    out: set[str] = set()
+    stack = list(ast.iter_child_nodes(node))
+    while stack:
+        sub = stack.pop()
+        if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Load):
+            out.add(sub.id)
+        stack.extend(ast.iter_child_nodes(sub))
+    return out
+
+
+def _nested_defs(node: ast.AST) -> dict[str, ast.AST]:
+    """Functions defined anywhere inside `node`, classes excluded: name -> the last definition."""
+    out: dict[str, ast.AST] = {}
+    stack = list(ast.iter_child_nodes(node))
+    while stack:
+        sub = stack.pop(0)
+        if isinstance(sub, (ast.ClassDef, ast.Lambda)):
+            continue
+        if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            out[sub.name] = sub
+        stack.extend(ast.iter_child_nodes(sub))
+    return out
+
+
+def _reached_raises(node: ast.AST):
+    """`raise` nodes in `node`'s own body and in each nested def it uses, transitively."""
+    nested = _nested_defs(node)
+    reached, frontier = [node], [node]
+    seen = {id(node)}
+    while frontier:
+        current = frontier.pop()
+        for name in _used_names(current):
+            target = nested.get(name)
+            if target is not None and id(target) not in seen:
+                seen.add(id(target))
+                reached.append(target)
+                frontier.append(target)
+    for scope in reached:
+        yield from _own_raises(scope)
 
 
 def _factories(scopes) -> dict[str, str]:
@@ -116,7 +163,7 @@ def audit(module=jnwb):
         factories = {**_factories(top), **_factories([node])}
         documented = set(re.findall(r"\b\w+\b", raises_section(ast.get_docstring(node))))
         undocumented: dict[str, int] = {}
-        for raise_node in _own_raises(node):
+        for raise_node in _reached_raises(node):
             if raise_node.exc is None:
                 continue
             exc = _exception_name(raise_node, factories)
@@ -163,10 +210,15 @@ def test_the_walk_flags_a_planted_undocumented_raise():
         "    '''Doc.\n\n    Raises:\n        ValueError: If x is negative.\n    '''\n"
         "    if x < 0:\n        raise ValueError(x)\n"
         "    if x > 9:\n        raise TypeError(x)\n"
-        "    def g():\n        raise KeyError(x)\n"
+        "    def never_called():\n        raise KeyError(x)\n"
+        "    def called():\n        return reached()\n"
+        "    def reached():\n        raise LookupError(x)\n"
+        "    def callback():\n        raise OSError(x)\n"
+        "    called()\n"
+        "    run_with(callback)\n"
         "    raise\n")
     node = ast.parse(source).body[0]
     documented = set(re.findall(r"\b\w+\b", raises_section(ast.get_docstring(node))))
-    raised = {_exception_name(r, {}) for r in _own_raises(node) if r.exc is not None}
-    assert raised == {"ValueError", "TypeError"}, raised
-    assert raised - documented == {"TypeError"}
+    raised = {_exception_name(r, {}) for r in _reached_raises(node) if r.exc is not None}
+    assert raised == {"ValueError", "TypeError", "LookupError", "OSError"}, raised
+    assert raised - documented == {"TypeError", "LookupError", "OSError"}

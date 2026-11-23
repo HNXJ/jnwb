@@ -997,6 +997,18 @@ def acquisition_channel(
         When the series' ``starting_time`` is not 0. Sample 0 is at ``starting_time`` in
         session time, so subtract it from session-time event onsets before
         :func:`epoch_continuous`. :func:`inspect` reports it per series as ``starting_time``.
+
+    Raises
+    ------
+    AcquisitionNotFoundError
+        The series has no readable data array, stores timestamps instead of a rate, or has a
+        rate that is not finite and positive.
+    ChannelIndexError
+        ``channel`` is out of range, or not 0 for a 1D series.
+    AmbiguousLayoutError
+        The electrode count matches neither dimension of a 2D array, or both.
+    ValueError
+        The data array is neither 1D nor 2D.
     """
 
     def _read(nwb: NWBFile) -> tuple[np.ndarray, float]:

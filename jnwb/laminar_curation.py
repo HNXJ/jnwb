@@ -69,6 +69,10 @@ POWER_BAND_HZ: Tuple[float, float] = (1.0, 150.0)
 #: ``artifacts/benchmarks/calibration/vflip2_separation_0.2.14.md``.
 VFLIP2_VFLIP_AGREEMENT_T_CONTACTS: float = 22.800214862368193
 
+#: Floor on a range before a profile is rescaled to [0, 1] by it; a numerical guard, no
+#: external source.
+_RANGE_FLOOR = 1e-30
+
 def _robust_z_std_fallback(values: np.ndarray) -> np.ndarray:
     """Median/MAD z-score; the standard deviation stands in for a zero MAD."""
     values = np.asarray(values, dtype=float)
@@ -531,9 +535,9 @@ def _band_profiles(psd: np.ndarray, freqs: np.ndarray, use: np.ndarray,
     out = []
     for a, b in (low, high):
         q = psd[:, (freqs >= a) & (freqs <= b)]
-        rel = (q - q[use].min(axis=0)) / np.maximum(np.ptp(q[use], axis=0), 1e-30)
+        rel = (q - q[use].min(axis=0)) / np.maximum(np.ptp(q[use], axis=0), _RANGE_FLOOR)
         p = rel.mean(axis=1)
-        p = (p - p[use].min()) / max(float(np.ptp(p[use])), 1e-30)
+        p = (p - p[use].min()) / max(float(np.ptp(p[use])), _RANGE_FLOOR)
         p[~use] = np.nan
         out.append(p)
     return out[0], out[1]

@@ -7,7 +7,9 @@ was examined.
 
 Receipts: at baseline fc0d61da, 163 functions examined, 10 undocumented (assert_mergeable,
 bipolar_reference, causal_exp_smooth, causal_gaussian_smooth, epoch_continuous, granger,
-inspect, label_layers, probe_geometry, repair_nwb), 0 unresolved.
+inspect, label_layers, probe_geometry, repair_nwb), 0 unresolved. With the walk extended to
+nested functions the public function uses, at 75a6312a: 2 undocumented (acquisition_channel,
+assert_mergeable).
 """
 from __future__ import annotations
 

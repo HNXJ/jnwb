@@ -193,7 +193,7 @@ def _compute_correlation_matrix(data: np.ndarray, method: str,
         why = None
         try:
             cond = np.linalg.cond(cov)
-            if cond > 1e12 or not np.isfinite(cond):
+            if cond > _COV_COND_MAX or not np.isfinite(cond):
                 why = f"condition number {cond:.3g}"
             else:
                 theta = np.linalg.inv(cov)
@@ -254,7 +254,7 @@ def _homogeneous_factor(corr: np.ndarray) -> np.ndarray:
     psd = (vectors * np.maximum(values, 0.0)) @ vectors.T
     scale = np.sqrt(np.diag(psd))
     unit = psd / np.outer(scale, scale)
-    for jitter in (1e-10, 1e-9, 1e-8, 1e-7):
+    for jitter in _CHOLESKY_JITTERS:
         try:
             return np.linalg.cholesky(unit + jitter * np.eye(n))
         except np.linalg.LinAlgError:
@@ -1215,3 +1215,9 @@ _CORR_ATOL = 1e-4
 #: Absolute tolerance on a precomputed correlation matrix's unit diagonal; a numerical guard,
 #: no external source.
 _CORR_DIAG_ATOL = 1e-3
+#: Condition number above which the covariance counts as singular and partial correlations use
+#: its pseudo-inverse; a numerical guard, no external source.
+_COV_COND_MAX = 1e12
+#: Diagonal jitters tried, smallest first, to factor the homogeneous null's correlation, as
+#: :func:`_homogeneous_factor` states; a numerical guard, no external source.
+_CHOLESKY_JITTERS = (1e-10, 1e-9, 1e-8, 1e-7)

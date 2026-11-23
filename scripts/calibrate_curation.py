@@ -521,8 +521,8 @@ def render(data: dict) -> str:
         "`tests/test_laminar_curation.py` (`synth`: `n_ep=40`, `n_s=1000`).",
         "- Truth: `crossover_depth_um` in the generator's receipt, which is `crossover_contact` "
         "times the pitch. `anchor_um` is `crossover_contact * pitch` "
-        "(`jnwb/laminar_curation.py:957`). `crossover_contact` is a 0-based row index "
-        "(`jnwb/laminar/_vflip.py:639-653`); the generator's band weights are 0.5 and 0.5 at the "
+        "(`jnwb/laminar_curation.py`, `curate_and_label`). `crossover_contact` is a 0-based row "
+        "index (`jnwb/laminar/_vflip.py`, `VFlipResult.crossover_contact`); the generator's band weights are 0.5 and 0.5 at the "
         "crossover contact (`jnwb/testing/synth.py`, `synth_laminar_motif`). Positions run from the "
         "first contact, with no half-pitch offset.",
         "- Recovery: `|anchor_um - truth_um| <= 100` um, one pitch with the bound included. A "
@@ -652,7 +652,7 @@ def render(data: dict) -> str:
         "## Sources of the numbers",
         "",
         "- Defaults and held inputs: `inspect.signature(curate_and_label)`, read at run time "
-        "(`jnwb/laminar_curation.py:672`; raw keys `defaults` and `held`).",
+        "(`jnwb/laminar_curation.py`, `curate_and_label`; raw keys `defaults` and `held`).",
         "- Factors, seeds, epoch and sample counts, `z0` range, pitch, fs, snr, recovery tolerance "
         "and accepted grades: constants of `scripts/calibrate_curation.py` (raw key `fixed`). The "
         "generator and its defaults: `inspect.signature(synth_laminar_motif)`, read at run time "
@@ -664,7 +664,8 @@ def render(data: dict) -> str:
         "`offset_distribution`.",
         "- Families, movement and unreached defaults: raw keys `families`, `summary` "
         "(`family`, `moved`, `moved_values`, `grades`, `counts`) and `unreached`.",
-        "- Truth and anchor: `jnwb/laminar_curation.py:957`, `jnwb/laminar/_vflip.py:639-653`, "
+        "- Truth and anchor: `jnwb/laminar_curation.py` (`curate_and_label`), `jnwb/laminar/_vflip.py` "
+        "(`VFlipResult.crossover_contact`), "
         "`jnwb/testing/synth.py` (`synth_laminar_motif`).",
         "- Planted and null probes: `jnwb/testing/synth.py` (`synth_laminar_motif`).",
         "- Epoch layout: `tests/test_laminar_curation.py:30`.",

@@ -1052,6 +1052,11 @@ def fano_factor(
     }
 
 
+#: Relative tolerance of the burst threshold and duration comparisons in
+#: :func:`network_burst_index`; a numerical guard, no external source.
+_BURST_RTOL = 1e-9
+
+
 def network_burst_index(
     spike_times,
     *_positional,
@@ -1104,7 +1109,7 @@ def network_burst_index(
     counts = _unit_counts([pooled], window_s, bin_ms)[0]
     # Compared in counts and bins, with a relative tolerance: 7 spikes in a 70 ms bin is
     # 99.99999999999999 Hz in floating point, and "at or above 100 Hz" must include it.
-    tol = 1.0 - 1e-9
+    tol = 1.0 - _BURST_RTOL
     above = np.concatenate([[False], counts >= threshold_hz * bin_ms / 1000.0 * tol, [False]])
     edges = np.flatnonzero(np.diff(above.astype(int)))
     starts, stops = edges[0::2], edges[1::2]
