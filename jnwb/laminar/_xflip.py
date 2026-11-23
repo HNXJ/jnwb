@@ -16,16 +16,6 @@ from scipy.spatial.distance import squareform
 from scipy.stats import rankdata
 from ..permutation import _TIE_RTOL, _count_at_least_as_extreme, _count_each_at_least_as_extreme
 
-#: Floor on the precision-matrix diagonal before partial correlations divide by its square
-#: root; a numerical guard, no external source.
-_PRECISION_DIAG_FLOOR = 1e-12
-#: Absolute tolerance on a precomputed correlation matrix's symmetry and its [-1, 1] range;
-#: a numerical guard, no external source.
-_CORR_ATOL = 1e-4
-#: Absolute tolerance on a precomputed correlation matrix's unit diagonal; a numerical guard,
-#: no external source.
-_CORR_DIAG_ATOL = 1e-3
-
 
 @dataclass(frozen=True)
 class XFlipResult(DictAccessMixin):
@@ -1211,3 +1201,17 @@ def xflip(
         surrogate_seed_entropy=seed_entropy if surrogates_run else None,
         null_method=eff_surrogate_method if surrogates_run else None,
     ), rows, contact_spacing)
+
+
+# Tolerances the functions above read at call time. They sit at the end of the module so that
+# line references into it stay valid.
+
+#: Floor on the precision-matrix diagonal before partial correlations divide by its square
+#: root; a numerical guard, no external source.
+_PRECISION_DIAG_FLOOR = 1e-12
+#: Absolute tolerance on a precomputed correlation matrix's symmetry and its [-1, 1] range;
+#: a numerical guard, no external source.
+_CORR_ATOL = 1e-4
+#: Absolute tolerance on a precomputed correlation matrix's unit diagonal; a numerical guard,
+#: no external source.
+_CORR_DIAG_ATOL = 1e-3
