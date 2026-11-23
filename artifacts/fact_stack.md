@@ -149,7 +149,7 @@ evidence and a critic's sign-off.
 | `jnwb.statistics._firing.fire_indicator` | `window_ms` | `_REQUIRED` | as above | as above |
 | `jnwb.statistics._firing.rate_in_window` | `window_ms` | `_REQUIRED` | as above | as above |
 | `jnwb.analyzers.TFRAnalyzer.correlate_areas` | `band` | `'alpha'` | the default band name looked up in `TFRAnalyzer.BANDS` | `jnwb.analyzers.TFRAnalyzer.correlate_areas(band)` |
-| `jnwb.analyzers.TFRAnalyzer.correlate_areas` | `band_defs` | `None` | None uses `TFRAnalyzer.BANDS`; an empty dict is refused | `jnwb/analyzers.py:268`; resolved in `jnwb.analyzers.TFRAnalyzer.extract_band(band_defs)` |
+| `jnwb.analyzers.TFRAnalyzer.correlate_areas` | `band_defs` | `None` | None uses `TFRAnalyzer.BANDS`; an empty dict is refused | `jnwb/analyzers.py:282`; resolved in `jnwb.analyzers.TFRAnalyzer.extract_band(band_defs)` |
 | `jnwb.analyzers.TFRAnalyzer.extract_band` | `band_defs` | `None` | None uses `TFRAnalyzer.BANDS`; an empty dict raises | `jnwb.analyzers.TFRAnalyzer.extract_band(band_defs)` |
 | `jnwb.connectivity._granger.granger_spectral` | `bands` | `None` | None is the whole spectrum, so the frequency average matches the time-domain value | `jnwb.connectivity._granger.granger_spectral(bands)` |
 | `jnwb.connectivity._psi.phase_slope_index` | `bands` | `None` | one estimate over the whole spectrum except DC (`df`..`fs/2`); PSI needs power spread across a band | `jnwb.connectivity._psi.phase_slope_index(bands)` |
@@ -165,7 +165,7 @@ evidence and a critic's sign-off.
 | `jnwb.artifact_repair.repair_lfp_trials` | `reward_window_ms` | `None` | deprecated alias of `exclude_window_ms`; None disables | `jnwb.artifact_repair.repair_lfp_trials(reward_window_ms)` |
 | `jnwb.laminar_curation.evoked_csd_sink` | `sink_window_ms` | `(40.0, 150.0)` | search window (ms) of the strongest-sink contact; the CSD itself is Mitzdorf 1985 | `jnwb.laminar_curation.evoked_csd_sink(sink_window_ms)` |
 | `jnwb.analyzers.UnitAnalyzer.autocorrelogram` | `bin_size_ms` | `1` | 1 ms bins centred on multiples of the width | `jnwb.analyzers.UnitAnalyzer.autocorrelogram(bin_size_ms)` |
-| `jnwb.analyzers.UnitAnalyzer.psth` | `bin_size_ms` | `10` | 10 ms PSTH bins; the window span must be a whole number of them | `jnwb/analyzers.py:343`; `jnwb.analyzers.UnitAnalyzer.psth(bin_size_ms)` |
+| `jnwb.analyzers.UnitAnalyzer.psth` | `bin_size_ms` | `10` | 10 ms PSTH bins; the window span must be a whole number of them | `jnwb/analyzers.py:357`; `jnwb.analyzers.UnitAnalyzer.psth(bin_size_ms)` |
 | `jnwb.connectivity._information.spike_mutual_information` | `bin_size_ms` | `10.0` | 10 ms bins of the binned trains the MI is computed on, with no bias correction (Shannon 1948 is cited for the MI, not the width) | `jnwb.connectivity._information.spike_mutual_information(bin_size_ms)` |
 | `jnwb.connectivity._trials.bin_spikes` | `bin_size_ms` | `10.0` | 10 ms bin width; the count K must be whole | `jnwb.connectivity._trials.bin_spikes(bin_size_ms)` |
 | `jnwb.connectivity._transfer_entropy.transfer_entropy` | `bins` | `4` | 4 states for the quantile/uniform estimators; the null calibration in the docstring is measured at bins 4 | `jnwb.connectivity._transfer_entropy.transfer_entropy(bins)` |
