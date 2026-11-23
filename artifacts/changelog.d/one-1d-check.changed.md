@@ -1,0 +1,1 @@
+- `jnwb/spectral/_coupling.py`: `partial_coherence`, `wpli`, `imaginary_coherency` share one 1-D refusal text.
