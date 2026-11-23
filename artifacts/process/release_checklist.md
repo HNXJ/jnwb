@@ -5,7 +5,7 @@ file tracks them and is the work plan toward the RC. Scope source: `artifacts/pr
 item text and Checks: `artifacts/todo_stack.md`; rulings: `artifacts/rulings/2026-11-22.md` and
 `artifacts/rulings/standing.md`. Update a row in the commit that changes it; the update log holds history.
 
-Current (2026-11-23): **35/100, diagnostic** (Q3; 0.5 of it is the S4 denominator after 17-102 left the plan, not a closure; 17-94 counted); gates 0 of 6 complete. `origin/dev` =
+Current (2026-11-23): **37.5/100, diagnostic** (Q3; 0.5 of it is the S4 denominator after 17-102 left the plan, not a closure; 17-127 counted); gates 0 of 6 complete. `origin/dev` =
 `86f2e3c7`; suite 11162 passed at `e9b0f358`. Integration tip on `_temp_rc-integration`. Open stack: one row (`17-144-src`). Owner decisions: section 9.
 
 ## 1. RC target
@@ -57,7 +57,6 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | 6 | Tracked rules cite tracked roles | 17-101 (S4) | integrator | D4 | merged 22eca3d2; two live hits left, both owner-gated |
 | 11 | Docstrings and tolerance constants | 17-128 (S5) | `jnwb-actor` | 0 | narrowed Check (ruled) |
 | 12 | Docs thinning remainder | 17-100 (S4) | `docs-harness` | 0 | widen Writes to the named blocking tests |
-| 13 | Fact graph build under 60 s | 17-127 (S5) | `jnwb-actor` | 0 | speedup merged `790b1a10`; idle-host timing by a non-author, or one shared parse per file |
 | 16 | One home per invariant | 17-99 (S4) | `jnwb-developer` | D2 | |
 | 17 | Prose against the writing style | 17-129 (S5) | `docs-harness` | 12, 16 | spelling clause narrowed to new prose (Q5) |
 | 18 | External ground truth | 17-144, 15-11, 12-21, 16-12 (S6) | human input | D1 | in scope (Q1); raise D1 when it is the critical path |
@@ -75,7 +74,7 @@ or only tasks blocked on section 9 remain.
 | Class | Items |
 |---|---|
 | Verified closed (receipts in the update log) | 17-79, 17-97, 17-98, 17-103, 17-154 (section 7), 17-157, 17-96, 17-142, 17-147, 17-153 (suite 11147 passed at `d918bf46`), 17-150 (pending the suite at the integration tip); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
-| Landed, item still open | 17-100, 17-127, 17-128 (partials 2026-11-21 to 2026-11-23) |
+| Landed, item still open | 17-100, 17-128 (partials 2026-11-21 to 2026-11-23) |
 | Pending verification | full suite and CI at the merged tip |
 | Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4) |
 | Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
@@ -92,7 +91,7 @@ the plan's `items` list; 17-102 left it on 2026-11-22 (Q3), so S4 counts four it
 | S2 | One home per helper in jnwb, scripts and tests; dead code and unused constants removed | 10 | ~~17-94~~, ~~17-95~~, ~~17-96~~, ~~17-142~~ | 4 of 4 | 10 |
 | S3 | Tests named by subject, not by the event that produced them | 10 | ~~17-97~~, ~~17-98~~ | 2 of 2 | 10 |
 | S4 | Docs and examples thinned; one home per invariant | 10 | 17-99, 17-100, 17-101, ~~17-103~~ | 1 of 4 | 2.5 |
-| S5 | Code and prose matched to the style standards; the fact graph build made faster | 10 | ~~17-104~~, 17-127, 17-128, 17-129 | 1 of 4 | 2.5 |
+| S5 | Code and prose matched to the style standards; the fact graph build made faster | 10 | ~~17-104~~, ~~17-127~~, 17-128, 17-129 | 2 of 4 | 5 |
 | S6 | Validations on external ground truth | 10 | 17-144, roadmap 15-11, 12-21, 16-12 | 0 of 4 | 0 |
 
 ## 7. Closure receipts awaiting the update log
@@ -157,3 +156,4 @@ all 11 continuation cites the strict form fails; each points at reason code and 
 | 2026-11-23 | merge `4b24f244` | 17-95 closed: 40 test git sites on `gates.boundary.git`, the rest named with reasons, 14 function-scope `tests` imports guarded and the wheel-leg check extended to them (red on the base tree); verifier REJECT on two unnamed sites, repaired, ACCEPT on `b611d0b2`. S2 3 of 4; score 32.5/100 diagnostic. |
 | 2026-11-23 | `604ac36d`, merge `950a9fb5` | CI green at `e1201abb`; suite 11154 passed at `604ac36d`, pushed. 17-94 `fs` slice: 16 sites on `require_positive_fs`, numeric outputs identical (hash per call); verifier and critic REJECT on a numeric-string `fs` passing the helper, repaired (helper refuses strings, red first), ACCEPT on `029a6c4d`. |
 | 2026-11-23 | `86f2e3c7`, merges `6bcf22cd`, `cffa5f8c` | 17-94 closed: `partial_coherence` on the shared 1-D check (slice 3); the spectral `_require_*` pairs and `_window_rows` shown distinct checks; a survey of 104 private helpers in the split modules finds no duplicate (verifier ACCEPT on `62335c79`, planted duplicates found). Calibration receipts regenerated after the `fs` routing (hashes only). Suite 11162 passed at `e9b0f358`. The verifier's `_psi.py` coherency retype went to roadmap 17-160. S2 4 of 4; score 35/100 diagnostic. |
+| 2026-11-23 | merge `8c383df7` | 17-127 closed: one read and parse per file per build (`scripts/fact_graph/_sources.py`), `ast.parse` calls 6266 to 1270; verifier ACCEPT on `8b8cd3e0`: graph identical apart from the change's own entries, three idle builds by the verifier 17.5 to 20.5 s, three mutants caught, full suite 11162 passed at `8b8cd3e0`. S5 2 of 4; score 37.5/100 diagnostic. |
