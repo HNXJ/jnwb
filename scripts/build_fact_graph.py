@@ -181,6 +181,7 @@ from scripts.fact_graph._base import (  # noqa: E402
     FACT_TABLES,  # noqa: F401
     FactSourceError,  # noqa: F401
 )
+from scripts.fact_graph._sources import shared_sources  # noqa: E402
 from scripts.fact_graph.boundary import boundary_unit_scan  # noqa: E402,F401
 from scripts.fact_graph.claims import (  # noqa: E402
     HIGHER_CLASS_TERMS,  # noqa: F401
@@ -300,7 +301,13 @@ def _head(root: Path) -> Optional[str]:
 
 def build(package: Any = None, root: Path = REPO_ROOT,
           facts_path: Optional[Path] = None) -> Dict[str, Any]:
-    """The fact graph of the tree at ``root`` as a JSON-ready dict."""
+    """The fact graph of the tree at ``root`` as a JSON-ready dict. Every scan reads each
+    source once and shares its parse (``shared_sources``)."""
+    with shared_sources():
+        return _build(package, root, facts_path)
+
+
+def _build(package: Any, root: Path, facts_path: Optional[Path]) -> Dict[str, Any]:
     if package is None:
         import jnwb as package
 

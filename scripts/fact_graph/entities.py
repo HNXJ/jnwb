@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from scripts.computational_contract_gate import _dataclass_field
 from scripts.fact_graph._base import _ADDRESS, _BACKTICKED, _HEADING_LINE, _IDENTIFIER, _JNWB_NAME, _LINE_SPAN, _PARENTHESISED, _ROUTING_LINE, _ROW_HEAD_END
+from scripts.fact_graph._sources import parse_source, read_source, walk_tree
 from scripts.fact_graph.facts import _all_tables
 
 # ------------------------------------------------------------------------ generated graph
@@ -174,7 +175,7 @@ def resolves_in_source(package_dir: Path, target: str) -> bool:
 
 def _top_level_names(path: Path) -> set:
     names = set()
-    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+    for node in parse_source(read_source(path)).body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             names.add(node.name)
         elif isinstance(node, (ast.Assign, ast.AnnAssign)):
@@ -214,7 +215,7 @@ def references(source: str, names: Sequence[str]) -> List[str]:
     after ``import jnwb.sub as O`` or ``from jnwb import sub as O``).
     """
     wanted = set(names)
-    nodes = list(ast.walk(ast.parse(source)))  # walked once, read twice
+    nodes = walk_tree(parse_source(source))
     aliases = set()
     found = set()
     for node in nodes:
@@ -244,7 +245,7 @@ def references(source: str, names: Sequence[str]) -> List[str]:
 def test_functions(source: str) -> List[str]:
     """Each test function of a module, qualified by its class when it has one."""
     found = []
-    for node in ast.parse(source).body:
+    for node in parse_source(source).body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith(
                 "test"):
             found.append(node.name)
@@ -259,7 +260,7 @@ def _tests(root: Path, names: Sequence[str]):
     tests: Dict[str, List[str]] = {}
     verifies: List[List[str]] = []
     for path in sorted((root / "tests").glob("test_*.py")):
-        source = path.read_text(encoding="utf-8")
+        source = read_source(path)
         rel = _rel(path, root)
         tests[rel] = sorted(test_functions(source))
         verifies.extend([rel, n] for n in references(source, names))

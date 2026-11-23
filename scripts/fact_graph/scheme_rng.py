@@ -5,8 +5,8 @@ from __future__ import annotations
 import ast
 import inspect
 import re
-import textwrap
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from scripts.fact_graph._sources import function_tree, walk_tree
 from scripts.fact_graph.source_scans import _dotted, _final
 
 # ------------------------------------------------------------------------ scheme scan (fact S10)
@@ -91,7 +91,7 @@ def _result_keys(tree: ast.AST) -> set:
     that builds a result (``RESULT_CALLS`` and capitalised constructors). A keyword of any other
     call is an argument to it, not a key of a result."""
     keys = set()
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if isinstance(node, ast.Dict):
             keys |= {k.value for k in node.keys
                      if isinstance(k, ast.Constant) and isinstance(k.value, str)}
@@ -130,8 +130,8 @@ def _body(fn: Any, parsed: Optional[Dict[Any, Tuple[List[ast.Call], frozenset]]]
     scan. Raises OSError when the source cannot be read."""
     if parsed is not None and fn in parsed:
         return parsed[fn]
-    tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
-    body = ([node for node in ast.walk(tree) if isinstance(node, ast.Call)],
+    tree, _ = function_tree(fn)
+    body = ([node for node in walk_tree(tree) if isinstance(node, ast.Call)],
             frozenset(_result_keys(tree)))
     if parsed is not None:
         parsed[fn] = body

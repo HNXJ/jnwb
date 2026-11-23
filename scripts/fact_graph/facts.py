@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple
 from scripts.stack_parse import cells as _cells
 from scripts.fact_graph._base import B3_EXCEPTIONS_HEADER, B3_EXCEPTIONS_HEADING, CONSTANTS_HEADING, CONSTANT_HEADER, FACT_HEADER, FACT_TABLES, FactSourceError, _BACKTICKED
+from scripts.fact_graph._sources import read_source
 
 # ------------------------------------------------------------------------ owned tables
 
@@ -189,7 +190,7 @@ def b3_exception_cites(text: str, root: Path) -> Tuple[int, List[str]]:
             if match.group(1):
                 path = match.group(1)
                 file = root / path
-                lines = file.read_text(encoding="utf-8").splitlines() if file.is_file() else None
+                lines = read_source(file).splitlines() if file.is_file() else None
                 if lines is None:
                     found.append(f"{where} names no file")
                     continue

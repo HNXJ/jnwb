@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 from typing import Dict, FrozenSet, List, Optional, Sequence, Tuple
 from scripts.fact_graph._base import _BACKTICKED
+from scripts.fact_graph._sources import parse_source, read_source, walk_tree
 from scripts.fact_graph.entities import _rel
 from scripts.fact_graph.facts import _all_tables
 from scripts.fact_graph.source_scans import JNWB_PACKAGE, _final
@@ -157,7 +158,7 @@ def _bound_names(tree: ast.AST) -> Dict[str, str]:
     text joined, so a term in any binding is read wherever the name is used. A name bound to
     another name takes that name's text; chains resolve up to the module's assignment count."""
     assignments = []
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if isinstance(node, ast.Assign):
             assignments.append((node.targets, node.value))
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)) and node.value is not None:
@@ -185,7 +186,7 @@ def _label_sites(tree: ast.Module) -> List[Tuple[int, str]]:
     counts as every text an assignment in the module binds it to."""
     names = _bound_names(tree)
     sites = []
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if not (isinstance(node, ast.Call) and _final(node.func) in LABEL_CALLEES):
             continue
         for arg in list(node.args) + [kw.value for kw in node.keywords
@@ -202,7 +203,7 @@ def _unit_sites(tree: ast.AST) -> List[Tuple[int, str, str]]:
     to."""
     names = _bound_names(tree)
     sites = []
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if not (isinstance(node, ast.Call) and _final(node.func).endswith(RESULT_SUFFIX)):
             continue
         for keyword in node.keywords:
@@ -258,8 +259,7 @@ def claim_class_scan(root: Path, python: Sequence[str]) -> Tuple[Dict[str, int],
     for rel in python:
         if rel.startswith(TESTS_TREE):
             continue
-        source = (root / rel).read_text(encoding="utf-8")
-        tree = ast.parse(source)
+        tree = parse_source(read_source(root / rel))
         dotted = rel[:-len(".py")].replace("/", ".")
         tops = {node.name for node in tree.body
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}

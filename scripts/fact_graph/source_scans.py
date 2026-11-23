@@ -10,6 +10,7 @@ import tokenize
 from pathlib import Path, PurePosixPath
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
+from scripts.fact_graph._sources import parse_source, read_source, walk_tree
 from scripts.gates.boundary import git
 
 # ------------------------------------------------------------------------ source scans
@@ -116,7 +117,7 @@ def _final(node: ast.AST) -> str:
 def _bindings(tree: ast.AST) -> Dict[str, str]:
     """Each name an import binds, mapped to the dotted path it stands for."""
     bound: Dict[str, str] = {}
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.asname:
@@ -140,9 +141,9 @@ def global_seed_calls(source: str) -> List[str]:
     """Each call that seeds the global random state, read through the module's own imports:
     ``np.random.seed``, ``random.seed``, and the same seed reached by an alias or a ``from``
     import. A seeded instance (``random.Random(0).seed``) is not the global state."""
-    tree = ast.parse(source)
+    tree = parse_source(source)
     bound = _bindings(tree)
-    hits = sorted((node.lineno, _dotted(node.func)) for node in ast.walk(tree)
+    hits = sorted((node.lineno, _dotted(node.func)) for node in walk_tree(tree)
                   if isinstance(node, ast.Call) and _target(node.func, bound) in GLOBAL_SEEDS)
     return [f"line {line}: {spelled}" for line, spelled in hits]
 
@@ -192,7 +193,7 @@ def _workers_of_an_rng(tree: ast.AST) -> set:
     """The ids of the functions defined inside a function that takes ``rng``: workers whose own
     parameters carry seeds drawn from the caller's rng."""
     found = set()
-    for outer in ast.walk(tree):
+    for outer in walk_tree(tree):
         if (isinstance(outer, (ast.FunctionDef, ast.AsyncFunctionDef))
                 and RNG_PARAMETER in _parameters(outer)):
             found.update(id(node) for node in ast.walk(outer) if node is not outer
@@ -205,11 +206,11 @@ def rng_violations(source: str) -> List[str]:
     every draw in it is seeded by a ``random_state``, by a SeedSequence child, or, in a worker
     defined inside a function that takes ``rng``, by one of the worker's own parameters. Code
     outside any function, such as a script's self-test, is not a function and is not read."""
-    tree = ast.parse(source)
+    tree = parse_source(source)
     bound = _bindings(tree)
     workers = _workers_of_an_rng(tree)
     found = []
-    for fn in ast.walk(tree):
+    for fn in walk_tree(tree):
         if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         draws = [call for call in _own_calls(fn) if _draws(_target(call.func, bound))]
@@ -249,8 +250,8 @@ def db_average_violations(source: str, constants: Dict[str, List[str]]) -> List[
             raise ValueError(f"the constants name no {key}")
     log_names, log_suffixes, _ = _lexicon(constants["dB log forms"])
     avg_names, _, numerators = _lexicon(constants["dB averaging forms"])
-    tree = ast.parse(source)
-    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    tree = parse_source(source)
+    parents = {child: node for node in walk_tree(tree) for child in ast.iter_child_nodes(node)}
 
     def is_log(call: ast.Call) -> bool:
         name = _final(call.func)
@@ -298,7 +299,7 @@ def db_average_violations(source: str, constants: Dict[str, List[str]]) -> List[
                             grew = True
         return tainted
 
-    scopes = [(tree, set())] + [(fn, named_dB(fn)) for fn in ast.walk(tree)
+    scopes = [(tree, set())] + [(fn, named_dB(fn)) for fn in walk_tree(tree)
                                 if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef))]
     found = set()
     for scope, tainted in scopes:
@@ -431,7 +432,7 @@ def python_prose(source: str) -> str:
     for token in tokenize.generate_tokens(io.StringIO(source).readline):
         if token.type == tokenize.COMMENT:
             lines[token.start[0] - 1] = token.string.lstrip("#").strip()
-    for node in ast.walk(ast.parse(source)):
+    for node in walk_tree(parse_source(source)):
         if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         first = node.body[0] if node.body else None
@@ -507,7 +508,7 @@ def _relative_imports(tree: ast.AST, path: str) -> Dict[str, Tuple[str, str]]:
     """Each name bound by ``from .module import name`` or ``from ..module import name``, at any
     level, as alias -> (the module's path without its suffix, name), resolved from ``path``."""
     bound: Dict[str, Tuple[str, str]] = {}
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if isinstance(node, ast.ImportFrom) and node.level >= 1 and node.module:
             package = PurePosixPath(path).parent
             for _ in range(node.level - 1):
@@ -532,7 +533,7 @@ def _callee_reports(name: str, defs: Dict[str, ast.AST], bound: Dict[str, str],
     for candidate in (f"{base}.py", f"{base}/__init__.py"):
         text = read(candidate)
         if text is not None:
-            tree = ast.parse(text)
+            tree = parse_source(text)
             defs_of = _top_defs(tree)
             return original in defs_of and _body_reports(defs_of[original], _bindings(tree))
     return False
@@ -582,13 +583,13 @@ def silent_handler_sites(source: str, path: str,
     spelled by the line of its handler's first body statement, with that line's text, and paired
     with the qualified name of the function it sits in (``_handler_owners``)."""
     lines = source.split("\n")
-    tree = ast.parse(source)
+    tree = parse_source(source)
     bound = _bindings(tree)
     defs = _top_defs(tree)
     imports = _relative_imports(tree, path)
     owners = _handler_owners(tree)
     found = []
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if not isinstance(node, ast.ExceptHandler):
             continue
         if node.type is None:
@@ -650,13 +651,13 @@ def _text_scans(root: Path, prose: Sequence[str], skill_files: Sequence[str],
     scans: Dict[str, List[List[str]]] = {"immunity_vocabulary": [], "skill_contracts": [],
                                          "silent_handlers": []}
     for rel in prose:
-        text = (root / rel).read_text(encoding="utf-8")
+        text = read_source(root / rel)
         scans["immunity_vocabulary"].extend(
             [rel, reason] for reason in immunity_scan(rel, text, constants["immunity vocabulary"]))
     for rel in skill_files:
-        text = (root / rel).read_text(encoding="utf-8")
+        text = read_source(root / rel)
         scans["skill_contracts"].extend([rel, reason] for reason in skill_contract_violations(text))
-    package = {rel: (root / rel).read_text(encoding="utf-8")
+    package = {rel: read_source(root / rel)
                for rel in python if rel.startswith(JNWB_PACKAGE)}
     flagged = set()
     for rel, text in package.items():
@@ -683,7 +684,7 @@ def _source_scans(root: Path, python: Sequence[str], constants: Dict[str, List[s
     scans: Dict[str, List[List[str]]] = {"global_seeds": [], "rng_parameters": [],
                                          "db_averages": []}
     for rel in python:
-        text = (root / rel).read_text(encoding="utf-8")
+        text = read_source(root / rel)
         if rel.startswith(JNWB_PACKAGE):  # S5 reads the package; tests/ is outside it
             scans["global_seeds"].extend([rel, reason] for reason in global_seed_calls(text))
         if rel.startswith(SCANNED_FOR_RNG):

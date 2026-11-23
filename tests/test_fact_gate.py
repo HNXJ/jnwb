@@ -7,6 +7,8 @@ into this tree's graph fails it.
 
 from __future__ import annotations
 
+import ast
+import collections
 import copy
 import functools
 import hashlib
@@ -367,9 +369,37 @@ def test_a_malformed_fact_source_is_refused(tmp_path, text, message):
 
 
 @pytest.fixture(scope="module")
-def live():
+def live_build():
+    """The live graph, built once for the module, and how often the build parsed each text."""
     source = build_fact_graph.FACT_STACK
-    return source, build_fact_graph.build(None, REPO_ROOT, source)
+    parses = collections.Counter()
+    parse = ast.parse
+
+    def counted(text, *args, **kwargs):
+        parses[text] += 1
+        return parse(text, *args, **kwargs)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(ast, "parse", counted)
+        graph = build_fact_graph.build(None, REPO_ROOT, source)
+    return source, graph, parses
+
+
+@pytest.fixture(scope="module")
+def live(live_build):
+    source, graph, _ = live_build
+    return source, graph
+
+
+def test_the_live_build_parses_each_python_file_once(live_build):
+    """Every scan shares one parse of a file: a file text parsed twice is a scan that parsed
+    its file afresh."""
+    _, g, parses = live_build
+    python = g["entities"]["python"]
+    counts = {rel: parses[(REPO_ROOT / rel).read_text(encoding="utf-8")] for rel in python}
+    package = [rel for rel in python if rel.startswith("jnwb/")]
+    assert package and all(counts[rel] for rel in package), "the build must parse every jnwb file"
+    assert {rel: n for rel, n in counts.items() if n > 1} == {}
 
 
 def test_the_live_tree_has_no_violated_fact_and_counts_the_unheld(live, capsys):
