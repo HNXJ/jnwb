@@ -2611,3 +2611,89 @@ def test_the_k5_line_reports_the_examined_planned_skill_count(monkeypatch):
     monkeypatch.setitem(fact_gate.PLANNED_SKILLS, "jnwb-new",
                         {"K1": "HELD", "K5": "HELD", "reason": "reviewed"})
     assert fact_gate.planned_scope_line() == "planned_skills examined 1 planned skills"
+
+
+# ------------------------------------------------------------------------ B3 exception cites
+
+PLANTED_SOURCE = ("def planted(\n"
+                  "    x,\n"
+                  "    n_surrogates: int = 200,\n"
+                  "    method: str = \"pearson\",\n"
+                  "    n_shuffle: int = 2000,\n"
+                  "):\n"
+                  "    return x\n")
+
+
+def cite_run(tmp_path, evidence, parameter="n_surrogates", default="`200`"):
+    """The VIOLATED rows of the gate's own ``run`` over a fact source whose one B3 exceptions
+    row cites ``evidence`` into ``jnwb/planted.py`` under ``tmp_path``."""
+    (tmp_path / "jnwb").mkdir(exist_ok=True)
+    (tmp_path / "jnwb" / "planted.py").write_bytes(PLANTED_SOURCE.encode("utf-8"))
+    source = tmp_path / "facts.md"
+    source.write_bytes((fact_source() + CONSTANTS_SECTION + "\n## B3 exceptions\n\n"
+                        "| Operation | Parameter | Default | Reason | Evidence |\n"
+                        "|---|---|---|---|---|\n"
+                        f"| `planted` | `{parameter}` | {default} | planted | {evidence} |\n"
+                        ).encode("utf-8"))
+    _, results = fact_gate.run(root=tmp_path, facts_path=source, graph=graph(),
+                               roadmap_path=tmp_path / "no_roadmap.md")
+    return {fact: reasons for fact, state, reasons in results if state == fact_gate.VIOLATED}
+
+
+def test_a_cite_on_the_line_of_the_default_holds(tmp_path):
+    assert cite_run(tmp_path, "`jnwb/planted.py:3`") == {}
+    assert fact_gate.CITE_REPORT["examined"] == 1
+    assert fact_gate.cite_scope_line() == "b3_exception_cites examined 1 line cites"
+
+
+def test_a_stale_cite_fails_the_gate(tmp_path):
+    """The line moved: line 4 holds another parameter, not ``n_surrogates = 200``."""
+    assert "n_surrogates: int = 200" not in PLANTED_SOURCE.splitlines()[3], "line 4 must be stale"
+    assert cite_run(tmp_path, "`jnwb/planted.py:4`") == {"B3 exceptions": [
+        "planted n_surrogates: `jnwb/planted.py:4` holds no line with n_surrogates "
+        "and the default `200`"]}
+
+
+def test_a_range_holds_when_one_of_its_lines_carries_the_default(tmp_path):
+    """The default sits on the range's last line, so a check of its first line alone fails."""
+    assert cite_run(tmp_path, "`jnwb/planted.py:2-3`") == {}
+    assert set(cite_run(tmp_path, "`jnwb/planted.py:4-6`")) == {"B3 exceptions"}
+
+
+def test_one_stale_cite_among_several_fails_the_row(tmp_path):
+    found = cite_run(tmp_path, "`jnwb/planted.py:3`; `jnwb/planted.py:6`")
+    assert fact_gate.CITE_REPORT["examined"] == 2
+    assert found == {"B3 exceptions": [
+        "planted n_surrogates: `jnwb/planted.py:6` holds no line with n_surrogates "
+        "and the default `200`"]}
+
+
+def test_a_line_naming_the_parameter_without_its_default_is_stale(tmp_path):
+    """``2000`` is not the token ``200``, and the parameter name alone is not the default."""
+    assert set(cite_run(tmp_path, "`jnwb/planted.py:5`", parameter="n_shuffle")) == {
+        "B3 exceptions"}
+    assert cite_run(tmp_path, "`jnwb/planted.py:5`", parameter="n_shuffle",
+                    default="`2000`") == {}
+
+
+def test_a_string_default_matches_either_quote_style(tmp_path):
+    assert cite_run(tmp_path, "`jnwb/planted.py:4`", parameter="method",
+                    default="`'pearson'`") == {}
+
+
+def test_a_continuation_cite_needs_only_its_lines_to_exist(tmp_path):
+    assert cite_run(tmp_path, "`jnwb/planted.py:3`; `:6-7`") == {}
+    found = cite_run(tmp_path, "`jnwb/planted.py:3`; `:6-9`")["B3 exceptions"]
+    assert found == ["planted n_surrogates: `:6-9` cites lines past 7 or runs backwards"]
+    assert cite_run(tmp_path, "`:3`")["B3 exceptions"] == [
+        "planted n_surrogates: `:3` continues no path cite"]
+
+
+def test_a_cite_into_a_missing_file_fails(tmp_path):
+    assert cite_run(tmp_path, "`jnwb/gone.py:3`")["B3 exceptions"] == [
+        "planted n_surrogates: `jnwb/gone.py:3` names no file"]
+
+
+def test_a_table_with_no_line_cite_is_no_pass(tmp_path):
+    assert cite_run(tmp_path, "`jnwb.planted(n_surrogates)`")["B3 exceptions"] == [
+        "the table holds no line cite, so no cite could be checked"]

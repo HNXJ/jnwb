@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import ast
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple
 from scripts.stack_parse import cells as _cells
@@ -143,3 +145,66 @@ def read_b3_exceptions(text: str) -> List[Dict[str, str]]:
         entry["Operation"] = entry["Operation"].strip("`")
         entry["Parameter"] = entry["Parameter"].strip("`")
     return entries
+
+
+#: A backticked line cite of an Evidence cell: ``path:N`` or ``path:N-M``, or the continuation
+#: ``:N`` / ``:N-M``, which takes the path of the last ``path:`` cite before it in the cell.
+_CITE = re.compile(r"([\w./-]+\.\w+)?:(\d+)(?:-(\d+))?")
+
+
+def _literal_forms(default: str) -> List[str]:
+    """The spellings of a Default cell in source: a string literal in either quote style,
+    anything else as written."""
+    try:
+        value = ast.literal_eval(default)
+    except (ValueError, SyntaxError):
+        return [default]
+    return [f"'{value}'", f'"{value}"'] if isinstance(value, str) else [default]
+
+
+def b3_exception_cites(text: str, root: Path) -> Tuple[int, List[str]]:
+    """(cites examined, findings) for the line cites of the ``## B3 exceptions`` Evidence cells.
+
+    A ``path:N`` or ``path:N-M`` cite holds when one line of ``N..M`` (``N`` alone without a
+    range) of ``root/path`` carries both the row's parameter name and its default literal,
+    each as a whole token. Every such cite of a row is checked on its own, so one stale cite
+    among several makes the row a finding. A continuation cite ``:N`` cites the body that
+    carries the row's reason, where the default need not appear; it holds when its lines exist
+    in the file of the cite before it. A missing file, a line past the end, a range that runs
+    backwards, or a continuation with no path before it is a finding.
+    """
+    examined, found = 0, []
+    for row in read_b3_exceptions(text):
+        param = row["Parameter"]
+        forms = _literal_forms(row["Default"].strip("`"))
+        name = re.compile(rf"(?<!\w){re.escape(param)}(?!\w)")
+        literal = re.compile("|".join(rf"(?<![\w.]){re.escape(f)}(?![\w.])" for f in forms))
+        path, lines = None, None
+        for span in _BACKTICKED.findall(row["Evidence"]):
+            match = _CITE.fullmatch(span)
+            if not match:
+                continue
+            examined += 1
+            where = f"{row['Operation']} {param}: `{span}`"
+            if match.group(1):
+                path = match.group(1)
+                file = root / path
+                lines = file.read_text(encoding="utf-8").splitlines() if file.is_file() else None
+                if lines is None:
+                    found.append(f"{where} names no file")
+                    continue
+            elif path is None:
+                found.append(f"{where} continues no path cite")
+                continue
+            if lines is None:
+                continue  # the path cite it continues names no file, already a finding
+            first = int(match.group(2))
+            last = int(match.group(3) or first)
+            if not 1 <= first <= last <= len(lines):
+                found.append(f"{where} cites lines past {len(lines)} or runs backwards")
+                continue
+            if match.group(1) and not any(name.search(line) and literal.search(line)
+                                          for line in lines[first - 1:last]):
+                found.append(f"{where} holds no line with {param} and the default "
+                             f"{row['Default']}")
+    return examined, found

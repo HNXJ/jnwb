@@ -186,7 +186,7 @@ evidence and a critic's sign-off.
 | `jnwb.spectral._coupling.partial_coherence` | `n_surrogates` | `50` | as above; below 1 is refused | `jnwb/spectral/_coupling.py:608`; `:636-637`, `:673-674` |
 | `jnwb.statistics._analysis.StatisticalAnalysis.permutation_test` | `n_permutations` | `5000` | 5000 flat-shuffle draws of the mean-difference null | `jnwb.statistics._analysis.StatisticalAnalysis.permutation_test(n_permutations)` |
 | `jnwb.statistics._cluster.cluster_permutation_test` | `n_permutations` | `1000` | 1000 permutation draws; p = (1 + k) / (B + 1) (Maris & Oostenveld 2007) | `jnwb/statistics/_cluster.py:22`; `:66`, `:96-99` |
-| `jnwb.statistics._regression.cross_modal_comparison` | `n_permutations` | `1000` | 1000 circular shifts in the lag-corrected null | `jnwb/statistics/_regression.py:148`; `jnwb.statistics._regression.cross_modal_comparison(n_permutations)` |
+| `jnwb.statistics._regression.cross_modal_comparison` | `n_permutations` | `1000` | 1000 circular shifts in the lag-corrected null | `jnwb/statistics/_regression.py:153`; `jnwb.statistics._regression.cross_modal_comparison(n_permutations)` |
 | `jnwb.statistics._regression.shuffle_r2_ci` | `n_shuffle` | `200` | 200 label shuffles form the null CI and p | `jnwb.statistics._regression.shuffle_r2_ci(n_shuffle)` |
 | `jnwb.connectivity._network.directed_connectivity` | `method` | `'granger'` | the default of the three estimators (`granger`/`psi`/`te`) | `jnwb.connectivity._network.directed_connectivity(method)` |
 | `jnwb.connectivity._network.directed_network` | `method` | `'granger'` | as above | `jnwb/connectivity/_network.py:116`; `jnwb.connectivity._network.directed_network(method)` |
