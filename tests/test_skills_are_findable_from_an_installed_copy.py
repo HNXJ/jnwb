@@ -17,7 +17,7 @@ tests hold the pointer honest and keep the second tree from appearing.
 from __future__ import annotations
 
 import re
-import subprocess
+import sys
 import tarfile
 from pathlib import Path
 
@@ -26,6 +26,11 @@ import pytest
 import jnwb
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
+
 SKILLS = ROOT / "skills"
 
 
@@ -119,10 +124,9 @@ def test_there_is_exactly_one_skill_tree() -> None:
     Scanned over tracked files rather than the working directory: a local `.venv` carries
     other packages' skill trees, and those are not this repository's problem.
     """
-    tracked = subprocess.run(
-        ["git", "ls-files", "*SKILL.md"],
-        cwd=ROOT, capture_output=True, text=True, check=True,
-    ).stdout.split()
+    done = git("ls-files", "*SKILL.md", cwd=ROOT)
+    done.check_returncode()
+    tracked = done.stdout.split()
     assert tracked, "git ls-files found no SKILL.md at all; this test would pass vacuously"
     # `artifacts/skills/` holds the skills about working on this repository; `artifacts/` is
     # pruned from the sdist, and no name may appear in both places.

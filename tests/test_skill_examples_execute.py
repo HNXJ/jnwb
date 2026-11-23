@@ -21,11 +21,14 @@ from __future__ import annotations
 
 import re
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 SKILLS = REPO_ROOT / "skills"
 ROUTER = "jnwb"
 

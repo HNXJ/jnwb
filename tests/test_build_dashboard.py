@@ -10,7 +10,6 @@ import hashlib
 import importlib
 import json
 import re
-import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
@@ -23,6 +22,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts import stack_parse  # noqa: E402
+from scripts.gates.boundary import git  # noqa: E402
 
 SCHEMA_PATH = REPO_ROOT / "scripts" / "dashboard" / "data.schema.json"
 PEAK_MEMORY_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "performance" / "peak_memory.json"
@@ -573,15 +573,14 @@ def _dump(record, path):
 def test_validations_cards_name_tracked_receipts(data):
     for card in _cards(data):
         assert (REPO_ROOT / card["path"]).is_file(), f"{card['path']} is not a file"
-        listed = subprocess.run(["git", "ls-files", "--error-unmatch", "--", card["path"]],
-                                cwd=REPO_ROOT, capture_output=True, check=False)
+        listed = git("ls-files", "--error-unmatch", "--", card["path"], cwd=REPO_ROOT)
         assert listed.returncode == 0, f"{card['path']} is not tracked by git"
 
 
 def test_validations_card_holds_commit_and_digest(data):
     for card in _cards(data):
-        log = subprocess.run(["git", "log", "-1", "--format=%H", "--", card["path"]],
-                             cwd=REPO_ROOT, capture_output=True, text=True, check=True)
+        log = git("log", "-1", "--format=%H", "--", card["path"], cwd=REPO_ROOT)
+        log.check_returncode()
         assert card["commit"] == log.stdout.strip(), card["id"]
         digest = hashlib.sha256((REPO_ROOT / card["path"]).read_bytes()).hexdigest()
         assert card["sha256"] == digest, card["id"]
@@ -752,17 +751,18 @@ def test_performance_files_no_parser_reads_get_no_card(data):
 
 def _committed_repo(root):
     """A temporary git repository whose only file, receipt.md, is committed. Returns the git runner."""
-    def git(*args):
-        return subprocess.run(["git", "-c", "commit.gpgsign=false", "-c", "user.name=test",
-                               "-c", "user.email=test@example.invalid", *args], cwd=root,
-                              check=True, capture_output=True, text=True)
+    def run(*args):
+        done = git("-c", "commit.gpgsign=false", "-c", "user.name=test",
+                   "-c", "user.email=test@example.invalid", *args, cwd=root)
+        done.check_returncode()
+        return done
 
     root.mkdir(parents=True, exist_ok=True)
-    git("init", "-q")
+    run("init", "-q")
     (root / "receipt.md").write_text("# Receipt\n", encoding="utf-8", newline="\n")
-    git("add", "receipt.md")
-    git("commit", "-q", "-m", "receipt")
-    return git
+    run("add", "receipt.md")
+    run("commit", "-q", "-m", "receipt")
+    return run
 
 
 def test_a_tracked_receipt_with_uncommitted_changes_is_refused(monkeypatch, tmp_path):

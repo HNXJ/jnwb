@@ -18,13 +18,18 @@ matching is the same defect one level up.
 from __future__ import annotations
 
 import re
-import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-AGENTS = REPO_ROOT / "AGENTS.md"
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
+
+AGENTS =REPO_ROOT / "AGENTS.md"
 TODO_STACK = REPO_ROOT / "artifacts" / "todo_stack.md"
 FACT_STACK = REPO_ROOT / "artifacts" / "fact_stack.md"
 
@@ -94,9 +99,9 @@ def completed_work_markers(text: str) -> list[str]:
 
 
 def _tracked_basenames() -> set[str]:
-    listing = subprocess.run(
-        ["git", "ls-files"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
-    ).stdout.split()
+    done = git("ls-files", cwd=REPO_ROOT)
+    done.check_returncode()
+    listing = done.stdout.split()
     assert len(listing) > 100, f"git ls-files returned {len(listing)} paths; the sweep is wrong"
     return {Path(name).name for name in listing}
 

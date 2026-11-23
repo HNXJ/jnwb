@@ -194,6 +194,7 @@ PUSH = REPO_ROOT / "scripts" / "jnwb_push.sh"
 
 #: Stands in for scripts/reconstruct_state.py where a test must regenerate: the real script runs
 #: the harness and reads the network. Its --check reads the HEAD row the same way the real one does.
+#: Its git call stays raw: the stub runs alone in a fixture repository that holds no scripts/gates.
 STATE_STUB = '''\
 import os, pathlib, re, subprocess, sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent

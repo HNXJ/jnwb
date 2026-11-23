@@ -14,7 +14,6 @@ import importlib.util
 import os
 import shutil
 import stat
-import subprocess
 import sys
 from pathlib import Path
 
@@ -43,6 +42,7 @@ from scripts.harness_gate import (  # noqa: E402
     check_skill_tree_uniqueness,
     check_version_consistency,
 )
+from scripts.gates.boundary import git  # noqa: E402
 
 
 # --------------------------------------------------------------------------- Gate 11
@@ -545,11 +545,9 @@ class TestGate4AllowlistCarriesNoDeadEntries:
         """
         lines = (REPO_ROOT / "scripts" / "gates" / "boundary.py").read_text(encoding="utf-8").splitlines()
         comments = [ln for ln in lines if ln.lstrip().startswith("#")]
-        tracked = set(
-            subprocess.run(
-                ["git", "ls-files"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
-            ).stdout.split()
-        )
+        listing = git("ls-files", cwd=REPO_ROOT)
+        listing.check_returncode()
+        tracked = set(listing.stdout.split())
         assert len(tracked) > 100, f"git ls-files returned {len(tracked)} paths"
         unexplained = sorted(
             name

@@ -51,6 +51,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
+from scripts.gates.boundary import git  # noqa: E402
 from scripts.mutation_harness import (  # noqa: E402
     CONDITIONS,
     JOURNAL_ABSENT,
@@ -157,19 +158,13 @@ def _write_fixture_repo(root: Path) -> Path:
     _write(root / CALC_REL, CALC_SOURCE)
     _write(root / "tests" / "test_calc.py", CALC_TESTS)
     _write(root / "tests" / "test_broken.py", BROKEN_TESTS)
-    subprocess.run(["git", "init", "-q"], cwd=root, check=True, timeout=120)
+    git("init", "-q", cwd=root, timeout=120).check_returncode()
     for key, value in (("user.email", "harness@example.invalid"), ("user.name", "Harness")):
-        subprocess.run(["git", "config", key, value], cwd=root, check=True, timeout=120)
+        git("config", key, value, cwd=root, timeout=120).check_returncode()
     # Exact paths, never `git add -A`: the habit is the point even in a throwaway tree.
-    subprocess.run(
-        ["git", "add", "pytest.ini", CALC_REL, "tests/test_calc.py", "tests/test_broken.py"],
-        cwd=root,
-        check=True,
-        timeout=120,
-    )
-    subprocess.run(
-        ["git", "commit", "-q", "-m", "fixture"], cwd=root, check=True, timeout=120
-    )
+    git("add", "pytest.ini", CALC_REL, "tests/test_calc.py", "tests/test_broken.py",
+        cwd=root, timeout=120).check_returncode()
+    git("commit", "-q", "-m", "fixture", cwd=root, timeout=120).check_returncode()
     return resolve_worktree(root)
 
 
@@ -225,13 +220,7 @@ def test_the_fixture_is_a_real_git_worktree(fixture_repo: Path) -> None:
     """A tree that is not a worktree makes every git-backed guard pass by never firing."""
     assert (fixture_repo / ".git").exists()
     assert resolve_worktree(fixture_repo / CALC_REL) == fixture_repo
-    status = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=fixture_repo,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
+    status = git("status", "--porcelain", cwd=fixture_repo, timeout=120)
     assert status.returncode == 0 and status.stdout.strip() == "", status.stdout
 
 
@@ -1242,7 +1231,7 @@ def test_the_release_step_fails_when_the_gap_run_fails(tmp_path: Path) -> None:
     calls: list[list[str]] = []
 
     def runner(harness_rc: int):
-        def run(cmd, **_kwargs):
+        def run(cmd, **_kwargs):  # mock: the injected runner records git argv, runs nothing
             calls.append(list(cmd))
             rc = harness_rc if "--known-gaps" in cmd else 0
             if cmd[:3] == ["git", "worktree", "add"]:

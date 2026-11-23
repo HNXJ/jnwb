@@ -13,7 +13,12 @@ import numpy as np
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-_POS = inspect.Parameter.POSITIONAL_OR_KEYWORD
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
+
+_POS =inspect.Parameter.POSITIONAL_OR_KEYWORD
 
 
 class TestGrangercausalitytestsCompatibility:
@@ -178,8 +183,6 @@ class TestReleaseGateCoverage:
         """
         import yaml
 
-        if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import REQUIRED_EXTRAS
 
         wf = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "workflow.yml")
@@ -237,18 +240,16 @@ class TestReleaseGateOrder:
 
         env = {k: v for k, v in os.environ.items()
                if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE")}
-        git = ["git", "-C", str(root), "-c", "user.name=jnwb-test",
-               "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false"]
-        subprocess.run(git + ["init", "-q"], check=True, capture_output=True, env=env)
-        subprocess.run(git + ["commit", "-q", "--allow-empty", "-m", "base"],
-                       check=True, capture_output=True, env=env)
-        return subprocess.run(git + ["rev-parse", "HEAD"], check=True, capture_output=True,
-                              text=True, env=env).stdout.strip()
+        config = ("-C", str(root), "-c", "user.name=jnwb-test",
+                  "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false")
+        git(*config, "init", "-q", env=env).check_returncode()
+        git(*config, "commit", "-q", "--allow-empty", "-m", "base", env=env).check_returncode()
+        done = git(*config, "rev-parse", "HEAD", env=env)
+        done.check_returncode()
+        return done.stdout.strip()
 
     @pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
     def test_a_stale_state_file_is_refused(self, tmp_path):
-        if str(REPO_ROOT) not in sys.path:
-            sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
         from scripts.release_gate import check_state_is_current
 
         head = self._repository(tmp_path)

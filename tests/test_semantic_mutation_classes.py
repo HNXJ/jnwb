@@ -81,6 +81,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
+from scripts.gates.boundary import git  # noqa: E402
 from scripts.mutation_harness import (  # noqa: E402
     MutationCase,
     MutationHarnessError,
@@ -623,16 +624,9 @@ def _rmtree(path: Path) -> None:
         shutil.rmtree(path, onerror=lambda f, t, e: _clear_readonly(f, t, e))
 
 
-CLONE_COMMAND = ("git", "clone")  # no --local: with it a failed hardlink is fatal, not a copy
-
-
 def _clone_the_checkout(destination: Path) -> None:
-    proc = subprocess.run(
-        [*CLONE_COMMAND, str(REPO_ROOT), str(destination)],
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
+    # No --local: with it a failed hardlink is fatal, not a copy.
+    proc = git("clone", str(REPO_ROOT), str(destination), timeout=600)
     assert proc.returncode == 0, (
         f"could not clone {REPO_ROOT} into {destination}: {proc.stderr.strip()}"
     )
@@ -840,13 +834,7 @@ def _assert_the_checkout_was_never_written() -> None:
     including the tests that read library source as text.
     """
     paths = sorted({m.case.path for m in CASES})
-    proc = subprocess.run(
-        ["git", "status", "--porcelain", "--", *paths],
-        cwd=str(REPO_ROOT),
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
+    proc = git("status", "--porcelain", "--", *paths, cwd=REPO_ROOT, timeout=120)
     assert proc.returncode == 0, f"git status failed in {REPO_ROOT}: {proc.stderr.strip()}"
     assert not proc.stdout.strip(), (
         "the mutation targets are modified in this checkout:\n" + proc.stdout

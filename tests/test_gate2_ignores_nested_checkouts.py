@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import os
 import pathlib
-import subprocess
 import sys
 
 import pytest
@@ -35,16 +34,14 @@ from scripts.harness_gate import (  # noqa: E402
     check_root_allowlist,
     check_skill_tree_uniqueness,
 )
+from scripts.gates.boundary import git  # noqa: E402
 
 _GIT_ENV = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR")}
 
 
 def _git(cwd: pathlib.Path, *args: str) -> None:
-    subprocess.run(
-        ["git", "-C", str(cwd), "-c", "user.name=jnwb-test", "-c", "user.email=test@example.invalid",
-         "-c", "commit.gpgsign=false", *args],
-        check=True, capture_output=True, env=_GIT_ENV,
-    )
+    git("-C", str(cwd), "-c", "user.name=jnwb-test", "-c", "user.email=test@example.invalid",
+        "-c", "commit.gpgsign=false", *args, env=_GIT_ENV).check_returncode()
 
 
 def _repository(root: pathlib.Path) -> pathlib.Path:
@@ -335,12 +332,7 @@ def test_every_live_worktree_is_a_real_checkout():
     If the fan-out ever created worktree directories without a ``.git`` entry, the skip above
     would stop firing and gate 2 would fail again -- but for a reason nothing here explains.
     """
-    listed = subprocess.run(
-        ["git", "worktree", "list", "--porcelain"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-    )
+    listed = git("worktree", "list", "--porcelain", cwd=REPO_ROOT)
     if listed.returncode != 0:
         pytest.skip("git worktree list unavailable")
 

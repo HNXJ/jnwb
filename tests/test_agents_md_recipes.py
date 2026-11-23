@@ -15,12 +15,17 @@ statistics skill did not route to.
 from __future__ import annotations
 
 import re
-import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
+
 AGENTS = REPO_ROOT / "AGENTS.md"
 RECIPES = REPO_ROOT / "docs" / "recipes.md"
 
@@ -65,10 +70,7 @@ def test_every_repository_path_agents_md_cites_exists():
 
 def _is_generated_by_a_script(rel_path: str) -> bool:
     """True only for a git-ignored path that some `scripts/*.py` names as an output."""
-    ignored = subprocess.run(
-        ["git", "check-ignore", "-q", rel_path], cwd=REPO_ROOT, capture_output=True
-    )
-    if ignored.returncode != 0:
+    if git("check-ignore", "-q", rel_path, cwd=REPO_ROOT).returncode != 0:
         return False
     name = Path(rel_path).name
     return any(

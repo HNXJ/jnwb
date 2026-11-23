@@ -21,7 +21,6 @@ would make the fixture agree with the defect.
 """
 
 import pathlib
-import subprocess
 import sys
 
 import pytest
@@ -36,13 +35,14 @@ from scripts.harness_gate import (  # noqa: E402
     _wholesale_conversions,
     check_line_ending_consistency,
 )
+from scripts.gates.boundary import git  # noqa: E402
 
 LF_BODY = b"first line\nsecond line\nthird line\n"
 CRLF_BODY = b"first line\r\nsecond line\r\nthird line\r\n"
 
 
 def _git(root: pathlib.Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    git(*args, cwd=root).check_returncode()
 
 
 @pytest.fixture
