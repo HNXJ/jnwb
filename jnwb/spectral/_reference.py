@@ -56,6 +56,10 @@ def bipolar_reference(channel_data: np.ndarray, channel_order: Optional[np.ndarr
     Returns:
         (n_channels - 1, n_samples) bipolar-referenced array.
 
+    Raises:
+        ValueError: If ``channel_data`` holds NaN or Inf, is not 2-D or has fewer than 2
+            channels, or ``channel_order`` is not a permutation of ``range(n_channels)``.
+
     References:
         Bastos, A. M., et al. (2020). Layer and rhythm specificity for predictive routing.
         PNAS. doi:10.1073/pnas.2014868117 -- Experimental Procedures, "Local Field Potential

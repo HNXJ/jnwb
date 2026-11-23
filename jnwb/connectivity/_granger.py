@@ -526,6 +526,11 @@ def granger(
         Under the null the estimate approaches zero (non-negative under plain OLS since
         unrestricted RSS <= restricted RSS); read magnitude together with the p-value.
 
+    Raises:
+        ValueError: If ``criterion`` is not ``'aic'``, ``'bic'`` or ``'hqic'``, ``max_lag < 1``,
+            a trial is too short for the lag order, a ``Z`` signal's shape differs from that of
+            X and Y, or an order leaves no more observations than parameters.
+
     Note:
         This is time-domain GC. Band-resolved directionality is *not* obtained by
         band-passing the input — filtering distorts the very lag structure GC
