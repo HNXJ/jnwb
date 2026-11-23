@@ -40,11 +40,8 @@ ALLOWED = {
     # the whole suite, so tests/test_estimator_values_are_pinned.py now calls it and the
     # exemption is spent. The downstream callers are still real; they are no longer the
     # only ones.
-    "MADELANE_VIOLET": "Palette member; MADELANE_GOLD from the same set is used.",
-    "MADELANE_WHITE": "Palette member; MADELANE_GOLD from the same set is used.",
-    "MADELANE_GRAY": "Palette member; MADELANE_GOLD from the same set is used.",
-    "MADELANE_TEAL": "Palette member; MADELANE_GOLD from the same set is used.",
-    "MADELANE_ORANGE": "Palette member; MADELANE_GOLD from the same set is used.",
+    # The five unused MADELANE_* palette members were exempted here; they were deleted in
+    # 0.2.17, and MADELANE_GOLD, the one in use, never needed an exemption.
 }
 
 

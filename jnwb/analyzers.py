@@ -11,6 +11,7 @@ Changes vs. previous version:
 """
 
 import logging
+import warnings
 from typing import Literal, Optional, Dict, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
@@ -42,16 +43,27 @@ class TFRAnalyzer:
         'broadband':  (1.0, 150.0),
     }
 
-    # Historical 7-band table preserved explicitly by name for legacy comparisons.
-    LEGACY_VIZ_BANDS = {
-        'delta':      (1.0,   4.0),
-        'theta':      (4.0,   8.0),
-        'alpha':      (8.0,  15.0),
-        'beta':       (15.0,  30.0),
-        'low_gamma':  (30.0,  60.0),
-        'high_gamma': (60.0, 120.0),
-        'broadband':  (1.0,  150.0),
-    }
+    class _LegacyVizBands:
+        """Deprecated in 0.2.17: warns on access and returns a copy of the historical table."""
+
+        def __get__(self, obj, owner=None):
+            warnings.warn(
+                "TFRAnalyzer.LEGACY_VIZ_BANDS is deprecated and will be removed in 0.2.18; "
+                "no replacement: pass the bands you need as band_defs",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return {
+                'delta':      (1.0,   4.0),
+                'theta':      (4.0,   8.0),
+                'alpha':      (8.0,  15.0),
+                'beta':       (15.0,  30.0),
+                'low_gamma':  (30.0,  60.0),
+                'high_gamma': (60.0, 120.0),
+                'broadband':  (1.0,  150.0),
+            }
+
+    LEGACY_VIZ_BANDS = _LegacyVizBands()
 
     @staticmethod
     def extract_band(

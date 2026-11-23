@@ -18,11 +18,6 @@ log = logging.getLogger(__name__)
 
 # Palette constants duplicated here so jnwb/ has no downstream-project import dependency.
 MADELANE_GOLD = "#CFB87C"
-MADELANE_VIOLET = "#9400D3"
-MADELANE_WHITE = "#FFFFFF"
-MADELANE_GRAY = "#D3D3D3"
-MADELANE_TEAL = "#00FFCC"
-MADELANE_ORANGE = "#FF5E00"
 
 # A value that is NaN is drawn in this colour and marked "unknown", never as failing.
 UNKNOWN_COLOR = "lightgray"

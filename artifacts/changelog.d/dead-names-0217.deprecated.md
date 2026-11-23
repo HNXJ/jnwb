@@ -1,0 +1,3 @@
+- `jnwb/analyzers.py`: `TFRAnalyzer.LEGACY_VIZ_BANDS` warns on access and returns the same table; no replacement, pass the bands as `band_defs`. Removed in 0.2.18.
+- `jnwb/artifact_repair.py`: `DEFAULT_BANDS` warns on access and returns the same table; no replacement, `repair_band_artifacts(band_ranges=None)` uses the same bands without warning. Removed in 0.2.18.
+- `jnwb/nwb_io.py`: `nwb_read_io(mode=)` warns when passed; no replacement, omit it. A mode other than `"r"` still raises `ValueError`. Removed in 0.2.18.
