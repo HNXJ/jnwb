@@ -251,8 +251,7 @@ PROCESS_TESTS = (
 
 
 def growth_rows() -> str:
-    scripts = sorted((REPO_ROOT / "scripts").glob("*.py")) + sorted(
-        (REPO_ROOT / "scripts" / "fact_graph").glob("*.py"))
+    scripts = sorted((REPO_ROOT / "scripts").rglob("*.py"))
     script_lines = sum(len(p.read_text(encoding="utf-8").splitlines()) for p in scripts)
     cells = [f"`scripts/` {script_lines}"]
     for rel in PROCESS_TESTS:
