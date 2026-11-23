@@ -13,7 +13,7 @@ from typing import Any, Dict, FrozenSet, List, Optional, Sequence, Tuple
 from jnwb._rng import RESOLVERS
 # The declared signal types of fact I1, read by the signature-types scan.
 from jnwb import _declarations
-from scripts.fact_graph.scheme_rng import COUNT_PREFIX, I2_UNIT_EXCUSED, I2_WRAPPER_EXCUSED, RNG_ANNOTATIONS, RNG_ARGUMENTS, RNG_KEYS, RNG_SUFFIXES, S11_EXCUSED, UNIT_FACTORS, UNIT_SUFFIXES, _POSITIONAL, _callee, _public_callables, _reach
+from scripts.fact_graph.scheme_rng import COUNT_PREFIX, I2_UNIT_EXCUSED, I2_WRAPPER_EXCUSED, RNG_ANNOTATIONS, RNG_ARGUMENTS, RNG_KEYS, RNG_SUFFIXES, S11_EXCUSED, UNIT_FACTORS, UNIT_SUFFIXES, _POSITIONAL, _body, _callee, _public_callables, _reach
 from scripts.fact_graph.source_scans import _dotted, _final, _own_calls, _own_nodes
 
 # ------------------------------------------------------------------------ signature types (fact I1)
@@ -425,28 +425,43 @@ def _count_is_zero(call: ast.Call, dotted: str, target: Any) -> bool:
                for index, param in enumerate(positional))
 
 
-def _unnamed_rng_calls(fn: Any, owner: Any, seen: set, depth: int = 0) -> set:
+def _rng_reach(fn: Any, owner: Any, memo: Optional[Dict[str, Dict[Any, Any]]] = None
+               ) -> Tuple[set, set]:
+    """``_reach`` of ``fn`` under ``_resolver_call`` from a fresh walk, a pure function of
+    (``fn``, ``owner``) over one tree. ``memo`` holds one scan's parsed bodies and walks, so
+    neither is repeated within the scan; the returned sets are shared and only read."""
+    if memo is None:
+        return _reach(fn, owner, set(), draw=_resolver_call)
+    walks = memo.setdefault("reached", {})
+    if (fn, owner) not in walks:
+        walks[(fn, owner)] = _reach(fn, owner, set(), draw=_resolver_call,
+                                    parsed=memo.setdefault("parsed", {}))
+    return walks[(fn, owner)]
+
+
+def _unnamed_rng_calls(fn: Any, owner: Any, seen: set, depth: int = 0,
+                       memo: Optional[Dict[str, Dict[Any, Any]]] = None) -> set:
     """The (caller, callee) pairs where ``fn``, or a jnwb function it reaches by name, calls a
     jnwb function that consumes randomness and is passed no generator (``_passes_rng``). A call
     with a literal 0 count draws nothing, so it is neither flagged nor followed
-    (``_count_is_zero``). A resolver call is a draw itself, not a callee, so it is not walked."""
+    (``_count_is_zero``). A resolver call is a draw itself, not a callee, so it is not walked.
+    ``memo`` is ``_rng_reach``'s."""
     key = (fn.__module__, fn.__qualname__)
     if key in seen or depth > 8:
         return set()
     seen.add(key)
-    tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+    calls, _ = _body(fn, None if memo is None else memo.setdefault("parsed", {}))
     found = set()
-    for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+    for call in calls:
         if _resolver_call(call) is not None:
             continue
         dotted = _dotted(call.func)
         target = _callee(fn, dotted, owner)
         if target is None or _count_is_zero(call, dotted, target):
             continue
-        if not _passes_rng(call, dotted, target) and _reach(
-                target, owner, set(), draw=_resolver_call)[0]:
+        if not _passes_rng(call, dotted, target) and _rng_reach(target, owner, memo)[0]:
             found.add((fn.__qualname__, dotted))
-        found |= _unnamed_rng_calls(target, owner, seen, depth + 1)
+        found |= _unnamed_rng_calls(target, owner, seen, depth + 1, memo)
     return found
 
 
@@ -457,12 +472,12 @@ def rng_scan(package: Any) -> Tuple[int, List[List[str]]]:
     [module.name, reason] pairs. A key set by a jnwb function that a callable reaches counts for
     that callable, so forwarders whose target reports are not findings. A callable whose source
     cannot be read is a finding, never a pass."""
-    examined, found, flagged = 0, [], set()
+    examined, found, flagged, memo = 0, [], set(), {}
     for qualname, fn, owner in _public_callables(package):
         examined += 1
         try:
-            draws, keys = _reach(fn, owner, set(), draw=_resolver_call)
-            unnamed = _unnamed_rng_calls(fn, owner, set())
+            draws, keys = _rng_reach(fn, owner, memo)
+            unnamed = _unnamed_rng_calls(fn, owner, set(), memo=memo)
         except (OSError, TypeError, SyntaxError):
             found.append([f"{fn.__module__}.{qualname}", "source unreadable: not checked"])
             continue

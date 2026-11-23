@@ -123,27 +123,44 @@ def _callee(fn: Any, dotted_name: str, owner: Any) -> Any:
     return None
 
 
+def _body(fn: Any, parsed: Optional[Dict[Any, Tuple[List[ast.Call], frozenset]]] = None
+          ) -> Tuple[List[ast.Call], frozenset]:
+    """The calls of a function's source, in walk order, and the result keys it sets.
+    ``parsed`` holds the bodies one scan has read already, so each source is parsed once a
+    scan. Raises OSError when the source cannot be read."""
+    if parsed is not None and fn in parsed:
+        return parsed[fn]
+    tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+    body = ([node for node in ast.walk(tree) if isinstance(node, ast.Call)],
+            frozenset(_result_keys(tree)))
+    if parsed is not None:
+        parsed[fn] = body
+    return body
+
+
 def _reach(fn: Any, owner: Any, seen: set, depth: int = 0,
-           draw: Callable[[ast.Call], Optional[str]] = None) -> Tuple[set, set]:
+           draw: Callable[[ast.Call], Optional[str]] = None,
+           parsed: Optional[Dict[Any, Tuple[List[ast.Call], frozenset]]] = None
+           ) -> Tuple[set, set]:
     """The draws and result keys of a function and of the jnwb functions it reaches by name.
     ``draw`` names the consuming call (``_draw`` for null draws, ``_resolver_call`` for
-    randomness); the default keeps the S10 scan's behaviour. Raises OSError when the source
-    cannot be read."""
+    randomness); the default keeps the S10 scan's behaviour; ``parsed`` is ``_body``'s.
+    Raises OSError when the source cannot be read."""
     if draw is None:
         draw = _draw
     key = (fn.__module__, fn.__qualname__)
     if key in seen or depth > 8:
         return set(), set()
     seen.add(key)
-    tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
-    draws, keys = set(), _result_keys(tree)
-    for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+    calls, own_keys = _body(fn, parsed)
+    draws, keys = set(), set(own_keys)
+    for call in calls:
         drawn = draw(call)
         if drawn is not None:
             draws.add(drawn)
         target = _callee(fn, _dotted(call.func), owner)
         if target is not None:
-            more_draws, more_keys = _reach(target, owner, seen, depth + 1, draw)
+            more_draws, more_keys = _reach(target, owner, seen, depth + 1, draw, parsed)
             draws |= more_draws
             keys |= more_keys
     return draws, keys
@@ -154,11 +171,11 @@ def scheme_scan(package: Any) -> Tuple[int, List[List[str]]]:
     scheme key among its results (``SCHEME_KEYS``), as sorted [module.name, reason] pairs. A key
     set by a jnwb function that a callable reaches counts for that callable. A callable whose
     source cannot be read is a finding, never a pass."""
-    examined, found, flagged = 0, [], set()
+    examined, found, flagged, parsed = 0, [], set(), {}
     for qualname, fn, owner in _public_callables(package):
         examined += 1
         try:
-            draws, keys = _reach(fn, owner, set())
+            draws, keys = _reach(fn, owner, set(), parsed=parsed)
         except (OSError, TypeError, SyntaxError):
             found.append([f"{fn.__module__}.{qualname}", "source unreadable: not checked"])
             continue
