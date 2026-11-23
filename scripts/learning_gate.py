@@ -8,11 +8,12 @@ Checks, each run by a harness gate (`scripts/harness_gate.py`):
   dated file under `artifacts/rulings/` records, or a date before the first dated file that
   `history.md` holds.
 * A mapping table (a table with "Old location" and "Where now" columns) keeps the obligation
-  words of its old rule file: "before", "after", "never", "must" and "only" in an old clause must
-  appear in the closest clause of the draft its preamble names. Clauses are aligned as
-  `scripts/obligation_diff.py` aligns them. With no mapping table, `AGENTS.md` and
-  `.github/CONTRIBUTING.md` at HEAD keep every obligation clause they held at the newest `v*` tag
-  that is an ancestor of HEAD; no such tag is a violation.
+  clauses of its old rule file: an old clause carrying "before", "after", "never", "must" or
+  "only" must appear verbatim in the draft its preamble names, or its closest draft clause (as
+  `scripts/obligation_diff.py` aligns them) must share at least half its words and carry each of
+  those words it carries. With no mapping table, `AGENTS.md` and `.github/CONTRIBUTING.md` at HEAD
+  keep, by the same test, every obligation clause they held at the newest `v*` tag that is an
+  ancestor of HEAD; no such tag is a violation.
 * A dated row may name a phrase it forbids, as a cell `Forbidden: "<phrase>"`; the phrase must not
   appear in tracked text outside the dated, archived and evidence trees.
 * The generated rows of `artifacts/state.md` (worktrees, local branches, open defect classes)
@@ -32,7 +33,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from scripts import reconstruct_state as _state
 from scripts.gates.boundary import git
-from scripts.obligation_diff import WORD, clauses
+from scripts.obligation_diff import KEPT, WORD, clauses
 from scripts.stack_parse import cells as _cells
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -167,7 +168,9 @@ def obligation_losses(old: str, new: str) -> Tuple[int, List[Tuple[List[str], st
     clause and its closest new clause).
 
     An old clause that appears exactly in the new text is kept. Any other is compared with the new
-    clause that shares the most words with it, as scripts/obligation_diff.py compares them.
+    clause that shares the most words with it, as scripts/obligation_diff.py compares them, and is
+    kept only when that clause shares at least KEPT of its words and carries each obligation word
+    it carries. Below KEPT the closest clause is another rule, so every obligation word is lost.
     """
     new_clauses = clauses(new)
     exact = set(new_clauses)
@@ -182,9 +185,9 @@ def obligation_losses(old: str, new: str) -> Tuple[int, List[Tuple[List[str], st
         read += 1
         if clause in exact:
             continue
-        _, best = max(((len(words & w) / len(words | w), c) for w, c in new_words),
-                      default=(0.0, ""))
-        missing = sorted(needed - set(WORD.findall(best)))
+        score, best = max(((len(words & w) / len(words | w), c) for w, c in new_words),
+                          default=(0.0, ""))
+        missing = sorted(needed if score < KEPT else needed - set(WORD.findall(best)))
         if missing:
             lost.append((missing, clause, best))
     return read, lost

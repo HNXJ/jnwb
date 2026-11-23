@@ -225,11 +225,14 @@ def _read(path, allow_missing=None):
     return nwbfile, {type(w.message).__name__ for w in caught}
 
 
-def _refusal(path, allow_missing=None):
-    """The exception the read raised and the names of the warning classes raised with it."""
+def _refusal(path, allow_missing=None, error=MissingRequiredNWBFieldError):
+    """The exception the read raised and the names of the warning classes raised with it.
+
+    ``error`` is the class the caller expects; a different error is a failure here, not a refusal.
+    """
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        with pytest.raises(Exception) as info:
+        with pytest.raises(error) as info:
             read_nwb(str(path), allow_missing=allow_missing)
     return info.value, {type(w.message).__name__ for w in caught}
 
@@ -243,8 +246,9 @@ def _assert_opens_both_ways_waiving_nothing(path, expected):
 
 def _assert_refused_both_ways_by_the_same_error(path):
     """The field is on disk, so the waiver has nothing to waive and cannot change the outcome."""
-    default, _ = _refusal(path)
-    waived, _ = _refusal(path, _WAIVE)
+    # These encodings fail in pynwb, not as a missing field, so any exception is the outcome.
+    default, _ = _refusal(path, error=Exception)
+    waived, _ = _refusal(path, _WAIVE, error=Exception)
     assert not isinstance(default, MissingRequiredNWBFieldError)
     assert type(waived) is type(default)
     return default
