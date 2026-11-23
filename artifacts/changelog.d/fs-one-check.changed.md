@@ -1,4 +1,5 @@
-- `fs` errors in connectivity, laminar, tfr, wavemap, epoching and synth functions name the function, as the filters do.
-- `complex_tfr` and `synth_laminar_motif` refuse a NaN or Inf `fs` by name; it was caught later under another message.
-- A non-numeric `fs` (None, a list, a string even if it spells a number) raises `ValueError` wherever `fs` is checked.
-- `synth_laminar_motif`: a non-positive `n_samples` reads `n_samples must be strictly positive`.
+- `jnwb/_units.py`: `fs` errors in connectivity, laminar, tfr, wavemap, epoching and synth functions name the function.
+- `jnwb/tfr.py`: `complex_tfr` refuses a NaN or Inf `fs` by name; `morlet_wavelet` caught it later.
+- `jnwb/testing/synth.py`: `synth_laminar_motif` refuses a NaN or Inf `fs` by name.
+- `jnwb/_units.py`: a non-numeric `fs` (None, a list, a string even if it spells a number) raises `ValueError`.
+- `jnwb/testing/synth.py`: `synth_laminar_motif` names a non-positive `n_samples` in its message.
