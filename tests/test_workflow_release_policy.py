@@ -1416,7 +1416,11 @@ def test_one_ci_job_installs_a_pinned_ruff_and_runs_the_c901_ceiling():
                     installs.append((name, index, line_no))
                 if line == RUFF_C901_COMMAND:
                     checks.append((name, index, line_no))
+                    guard = str(step.get("if", ""))
     assert len(installs) == 1, f"lines that install a pinned ruff: {installs}"
+    # One leg: the step's condition pins both matrix axes, so it neither runs everywhere nor nowhere.
+    assert checks and "matrix.os == 'ubuntu-latest'" in guard, f"ruff step condition: {checks and guard!r}"
+    assert "matrix.python-version == '3.12'" in guard, f"ruff step condition: {guard!r}"
     assert len(checks) == 1, f"lines that run `{RUFF_C901_COMMAND}`: {checks}"
     assert installs[0][0] == checks[0][0], f"install and check in different jobs: {installs} {checks}"
     assert installs[0][1:] < checks[0][1:], f"the check runs before ruff is installed: {installs} {checks}"
