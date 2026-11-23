@@ -1,0 +1,246 @@
+"""Three public names are deprecated in 0.2.17 and removed no earlier than 0.2.18.
+
+Each must warn ``DeprecationWarning`` on use, name its replacement or say there is none, and
+return what it returned before. The values below are copied from the definitions as they stood
+before the deprecation, so an edit that changed a value while adding the warning fails here.
+
+The over-warning half matters as much: ``repair_band_artifacts(band_ranges=None)`` reads the same
+band table, and ``read_nwb`` calls ``nwb_read_io``; neither may warn a caller who never named a
+deprecated thing.
+"""
+
+from __future__ import annotations
+
+import warnings
+
+import numpy as np
+import pytest
+
+import jnwb.artifact_repair as artifact_repair
+from jnwb.analyzers import TFRAnalyzer
+from jnwb.nwb_io import nwb_read_io, read_nwb
+
+OLD_LEGACY_VIZ_BANDS = {
+    'delta':      (1.0,   4.0),
+    'theta':      (4.0,   8.0),
+    'alpha':      (8.0,  15.0),
+    'beta':       (15.0,  30.0),
+    'low_gamma':  (30.0,  60.0),
+    'high_gamma': (60.0, 120.0),
+    'broadband':  (1.0,  150.0),
+}
+
+OLD_DEFAULT_BANDS = {"Theta(4-8Hz)": (4, 8), "Alpha(8-14Hz)": (8, 14), "Beta(14-30Hz)": (14, 30),
+                     "Gamma(Low,30-50Hz)": (30, 50), "Gamma(High,50-80Hz)": (50, 80)}
+
+REMOVAL = r"removed in 0\.2\.18"
+
+
+def _only_deprecations(record):
+    return [w for w in record if issubclass(w.category, DeprecationWarning)]
+
+
+@pytest.fixture(scope="module")
+def nwb_path(tmp_path_factory):
+    from jnwb.testing.nwb_fixtures import write_synth_nwb
+
+    path = tmp_path_factory.mktemp("deprecations") / "base.nwb"
+    write_synth_nwb(str(path))
+    return path
+
+
+class TestLegacyVizBands:
+    def test_class_access_warns_and_returns_the_old_table(self):
+        with pytest.warns(DeprecationWarning, match="LEGACY_VIZ_BANDS") as record:
+            value = TFRAnalyzer.LEGACY_VIZ_BANDS
+        assert value == OLD_LEGACY_VIZ_BANDS
+        message = str(_only_deprecations(record)[0].message)
+        assert "no replacement" in message
+        assert "0.2.18" in message
+        assert _only_deprecations(record)[0].filename == __file__
+
+    def test_instance_access_warns_and_returns_the_old_table(self):
+        with pytest.warns(DeprecationWarning, match="LEGACY_VIZ_BANDS"):
+            value = TFRAnalyzer().LEGACY_VIZ_BANDS
+        assert value == OLD_LEGACY_VIZ_BANDS
+
+    def test_the_returned_table_still_drives_extract_band(self):
+        rng = np.random.default_rng(0)
+        freqs = np.arange(1.0, 151.0)
+        tfr = rng.random((3, freqs.size, 5))
+        with pytest.warns(DeprecationWarning, match="LEGACY_VIZ_BANDS"):
+            table = TFRAnalyzer.LEGACY_VIZ_BANDS
+        got = TFRAnalyzer.extract_band(tfr, "alpha", freqs=freqs, band_defs=table)
+        explicit = TFRAnalyzer.extract_band(tfr, "alpha", freqs=freqs,
+                                            band_defs=OLD_LEGACY_VIZ_BANDS)
+        np.testing.assert_array_equal(got, explicit)
+
+    def test_the_canonical_table_does_not_warn(self):
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            TFRAnalyzer.BANDS
+        assert not _only_deprecations(record)
+
+
+class TestDefaultBands:
+    def test_module_attribute_warns_and_returns_the_old_table(self):
+        with pytest.warns(DeprecationWarning, match="DEFAULT_BANDS") as record:
+            value = artifact_repair.DEFAULT_BANDS
+        assert value == OLD_DEFAULT_BANDS
+        message = str(_only_deprecations(record)[0].message)
+        assert "no replacement" in message
+        assert "0.2.18" in message
+        assert _only_deprecations(record)[0].filename == __file__
+
+    def test_from_import_warns(self):
+        with pytest.warns(DeprecationWarning, match=REMOVAL):
+            from jnwb.artifact_repair import DEFAULT_BANDS
+        assert DEFAULT_BANDS == OLD_DEFAULT_BANDS
+
+    def test_the_default_band_ranges_are_the_old_table_and_do_not_warn(self):
+        rng = np.random.default_rng(1)
+        freqs = np.arange(3.0, 101.0, 2.0)
+        power = 5.0 + rng.normal(0.0, 0.3, size=(20, 2, freqs.size, 30))
+        power[3, :, (freqs >= 8) & (freqs < 14), 15] += 30.0
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            by_default, frac_default = artifact_repair.repair_band_artifacts(power, freqs)
+        assert not _only_deprecations(record)
+        explicit, frac_explicit = artifact_repair.repair_band_artifacts(
+            power, freqs, band_ranges=OLD_DEFAULT_BANDS)
+        assert list(frac_default) == list(OLD_DEFAULT_BANDS)
+        assert frac_default == frac_explicit
+        assert frac_default["Alpha(8-14Hz)"] > 0, "fixture must flag the Alpha spike"
+        np.testing.assert_array_equal(by_default, explicit)
+
+    def test_an_unknown_attribute_still_raises(self):
+        with pytest.raises(AttributeError, match="NO_SUCH_NAME"):
+            artifact_repair.NO_SUCH_NAME
+
+    def test_star_import_still_binds_it(self):
+        namespace = {}
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            exec("from jnwb.artifact_repair import *", namespace)
+        assert namespace["DEFAULT_BANDS"] == OLD_DEFAULT_BANDS
+        assert "repair_band_artifacts" in namespace
+
+    def test_dir_lists_it(self):
+        assert "DEFAULT_BANDS" in dir(artifact_repair)
+
+    def test_an_in_place_edit_still_changes_the_default(self):
+        """Before the deprecation the name was the default's own dict, so an edit to it changed
+        what band_ranges=None reads. A copy would keep the values and lose that."""
+        rng = np.random.default_rng(2)
+        freqs = np.arange(3.0, 101.0, 2.0)
+        power = 5.0 + rng.normal(0.0, 0.3, size=(10, 1, freqs.size, 20))
+        with pytest.warns(DeprecationWarning, match="DEFAULT_BANDS"):
+            table = artifact_repair.DEFAULT_BANDS
+        table["Probe(90-100Hz)"] = (90, 100)
+        try:
+            _, frac = artifact_repair.repair_band_artifacts(power, freqs)
+        finally:
+            del table["Probe(90-100Hz)"]
+        assert "Probe(90-100Hz)" in frac
+        _, frac_after = artifact_repair.repair_band_artifacts(power, freqs)
+        assert list(frac_after) == list(OLD_DEFAULT_BANDS)
+
+
+class TestLegacyVizBandsIdentity:
+    def test_every_access_returns_one_object(self):
+        """The class attribute was one dict; an edit through one access shows in the next."""
+        with pytest.warns(DeprecationWarning, match="LEGACY_VIZ_BANDS"):
+            first = TFRAnalyzer.LEGACY_VIZ_BANDS
+        with pytest.warns(DeprecationWarning, match="LEGACY_VIZ_BANDS"):
+            second = TFRAnalyzer.LEGACY_VIZ_BANDS
+        assert first is second
+
+
+OLD_PALETTE = {
+    "MADELANE_VIOLET": "#9400D3",
+    "MADELANE_WHITE": "#FFFFFF",
+    "MADELANE_GRAY": "#D3D3D3",
+    "MADELANE_TEAL": "#00FFCC",
+    "MADELANE_ORANGE": "#FF5E00",
+}
+
+
+class TestUnusedPalette:
+    @pytest.mark.parametrize("name", sorted(OLD_PALETTE))
+    def test_each_warns_and_returns_its_old_value(self, name):
+        import jnwb.visual_qc as visual_qc
+
+        with pytest.warns(DeprecationWarning, match=name) as record:
+            value = getattr(visual_qc, name)
+        assert value == OLD_PALETTE[name]
+        message = str(_only_deprecations(record)[0].message)
+        assert "no replacement" in message
+        assert "0.2.18" in message
+
+    def test_from_import_warns(self):
+        with pytest.warns(DeprecationWarning, match=REMOVAL):
+            from jnwb.visual_qc import MADELANE_TEAL
+        assert MADELANE_TEAL == "#00FFCC"
+
+    def test_the_colour_in_use_does_not_warn(self):
+        import jnwb.visual_qc as visual_qc
+
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            assert visual_qc.MADELANE_GOLD == "#CFB87C"
+        assert not _only_deprecations(record)
+
+    def test_star_import_and_dir_still_list_the_palette(self):
+        import jnwb.visual_qc as visual_qc
+
+        namespace = {}
+        with pytest.warns(DeprecationWarning, match=REMOVAL):
+            exec("from jnwb.visual_qc import *", namespace)
+        for name, value in OLD_PALETTE.items():
+            assert namespace[name] == value
+        assert set(OLD_PALETTE) <= set(dir(visual_qc))
+
+
+class TestNwbReadIoMode:
+    def test_mode_r_warns_and_reads_the_same_file(self, nwb_path):
+        with nwb_read_io(str(nwb_path)) as io:
+            expected = io.read().identifier
+        with pytest.warns(DeprecationWarning, match="mode") as record:
+            with nwb_read_io(str(nwb_path), mode="r") as io:
+                got = io.read().identifier
+        assert got == expected
+        message = str(_only_deprecations(record)[0].message)
+        assert "no replacement" in message
+        assert "0.2.18" in message
+        assert _only_deprecations(record)[0].filename == __file__
+
+    def test_positional_mode_r_warns(self, nwb_path):
+        with pytest.warns(DeprecationWarning, match=REMOVAL):
+            with nwb_read_io(str(nwb_path), "r") as io:
+                io.read()
+
+    @pytest.mark.parametrize("mode", ["w", "a", "r+"])
+    def test_another_mode_warns_and_is_still_refused_before_the_file_opens(
+        self, nwb_path, tmp_path, mode
+    ):
+        path = tmp_path / "target.nwb"
+        path.write_bytes(nwb_path.read_bytes())
+        before = path.read_bytes()
+        with pytest.warns(DeprecationWarning, match=REMOVAL):
+            with pytest.raises(ValueError, match=r"pynwb\.NWBHDF5IO"):
+                with nwb_read_io(str(path), mode):
+                    pass  # pragma: no cover - the raise happens before the body
+        assert path.read_bytes() == before
+
+    def test_omitting_mode_does_not_warn(self, nwb_path):
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            with nwb_read_io(str(nwb_path)) as io:
+                io.read()
+        assert not _only_deprecations(record)
+
+    def test_read_nwb_does_not_warn(self, nwb_path):
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            read_nwb(str(nwb_path))
+        assert not _only_deprecations(record)
