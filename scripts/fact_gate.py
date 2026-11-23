@@ -126,6 +126,11 @@ Computed predicates:
   planned_skills   each planned skill of ``PLANNED_SKILLS`` whose recorded K1 or K5 verdict is
                    not HELD; the gate checks that the reviewer recorded HELD, not that K5 is true
 
+Beside the facts, each ``path:N`` or ``path:N-M`` cite of a ``## B3 exceptions`` Evidence cell
+must reach a line carrying the row's parameter and default literal (``b3_exception_cites`` of
+``scripts/fact_graph/facts.py``); a stale cite, or no cite examined, adds a VIOLATED row named
+after the table, and the gate prints the cite count it examined.
+
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
 from __future__ import annotations
@@ -144,6 +149,8 @@ elif str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts import build_fact_graph  # noqa: E402
+from scripts.fact_graph._base import B3_EXCEPTIONS_HEADING  # noqa: E402
+from scripts.fact_graph.facts import b3_exception_cites  # noqa: E402
 from scripts.release_gate import RELEASE_CYCLE, ROADMAP_PATH as _ROADMAP, roadmap_rows  # noqa: E402
 from scripts.stack_parse import parse_todo_stack  # noqa: E402
 
@@ -633,7 +640,35 @@ def run(package: Any = None, root: Path = REPO_ROOT, facts_path: Optional[Path] 
     results = evaluate(facts, constants, graph, live_items(todo, roadmap), due=due)
     if not results:
         results = [(source.name, VIOLATED, ["the fact source holds no fact row"])]
+    cites = exception_cites(source, root)
+    if cites:
+        results.append(cites)
     return source, results
+
+
+#: The cites the last ``exception_cites`` call examined, for the gate's scope line.
+CITE_REPORT: Dict[str, int] = {}
+
+
+def exception_cites(source: Path, root: Path) -> Optional[Tuple[str, str, List[str]]]:
+    """A VIOLATED row for the ``## B3 exceptions`` table of ``source`` when one of its line
+    cites, resolved under ``root``, is stale (``b3_exception_cites``) or none was examined;
+    None when every cite holds. A source without the section is not checked: the graph
+    builder refuses one, so only a hand-made source in a test lacks it."""
+    text = source.read_text(encoding="utf-8")
+    CITE_REPORT.clear()
+    if f"## {B3_EXCEPTIONS_HEADING}" not in text.splitlines():
+        return None
+    examined, found = b3_exception_cites(text, root)
+    CITE_REPORT["examined"] = examined
+    if not examined:
+        found = ["the table holds no line cite, so no cite could be checked"]
+    return (B3_EXCEPTIONS_HEADING, VIOLATED, found) if found else None
+
+
+def cite_scope_line() -> str:
+    """How many B3 exception line cites the gate read; zero is a failure, reported."""
+    return f"b3_exception_cites examined {CITE_REPORT.get('examined', 0)} line cites"
 
 
 def summary(results: Sequence[Tuple[str, str, List[str]]]) -> Dict[str, int]:
@@ -656,6 +691,7 @@ def main() -> int:
                 print(f"  - {reason}")
     print(scope_line(graph))
     print(planned_scope_line())
+    print(cite_scope_line())
     counts = summary(results)
     print(", ".join(f"{status} {n}" for status, n in counts.items()))
     return 1 if counts[VIOLATED] else 0
