@@ -7,6 +7,7 @@ tree. A check that reads nothing must not pass, so the examined set is asserted 
 
 from __future__ import annotations
 
+import os
 import pathlib
 import subprocess
 import sys
@@ -244,6 +245,55 @@ def test_no_mapping_table_and_a_deleted_rule_file_loses_every_clause(tmp_path):
     found = lg.mapping_check(_no_table(tmp_path), read_old=_rule_files(None),
                              base=lambda: "v0.0.1")[2]
     assert len(found) == 1 and "before its first write" in found[0], found
+
+
+POOLED = "Spikes and LFP are never pooled, namespaced or not."
+DOCTRINE = 'Say "policy" or "rule", never "doctrine" or "governance".'
+
+
+def test_a_deleted_clause_is_lost_although_another_clause_carries_its_obligation_word():
+    """The 17-147 instance: "never doctrine" deleted while "never pooled" stays (Jaccard 0.11)."""
+    read, lost = lg.obligation_losses(f"{POOLED}\n{DOCTRINE}\n", f"{POOLED}\n")
+    # Precondition: the surviving clause carries "never", so a word-only match would pass.
+    kept, deleted = (set(lg.WORD.findall(lg.clauses(t)[0])) for t in (POOLED, DOCTRINE))
+    assert "never" in kept and len(kept & deleted) / len(kept | deleted) < lg.KEPT
+    assert read == 2 and len(lost) == 1, (read, lost)
+    assert lost[0][0] == ["never"] and "doctrine" in lost[0][1], lost
+
+
+def test_a_reworded_clause_sharing_half_its_words_and_its_obligation_word_is_kept():
+    reworded = 'Say "policy" or "rule", never "doctrine".'
+    old, new = (set(lg.WORD.findall(lg.clauses(t)[0])) for t in (DOCTRINE, reworded))
+    assert len(old & new) / len(old | new) >= lg.KEPT and old != new
+    assert lg.obligation_losses(f"{POOLED}\n{DOCTRINE}\n", f"{POOLED}\n{reworded}\n") == (2, [])
+
+
+def _git_at(repo: pathlib.Path, date: str, *args: str) -> None:
+    env = {**os.environ,"GIT_COMMITTER_DATE": date, "GIT_AUTHOR_DATE": date}
+    subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
+                    "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false", *args],
+                   check=True, capture_output=True, env=env)
+
+
+def test_the_base_tag_is_the_newest_ancestor_not_a_newer_tag_on_another_branch(tmp_path,
+                                                                                 monkeypatch):
+    """v0.0.9 is newer by date and by version but sits off HEAD's ancestry; v0.0.1 is the base."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git_at(repo, "2026-01-01T00:00:00Z", "init", "-q", "-b", "trunk")
+    _git_at(repo, "2026-01-01T00:00:00Z", "commit", "-q", "--allow-empty", "-m", "base")
+    _git_at(repo, "2026-01-01T00:00:00Z", "tag", "-a", "v0.0.1", "-m", "v0.0.1")
+    _git_at(repo, "2026-01-02T00:00:00Z", "checkout", "-q", "-b", "side")
+    _git_at(repo, "2026-03-01T00:00:00Z", "commit", "-q", "--allow-empty", "-m", "side")
+    _git_at(repo, "2026-03-01T00:00:00Z", "tag", "-a", "v0.0.9", "-m", "v0.0.9")
+    _git_at(repo, "2026-02-01T00:00:00Z", "checkout", "-q", "trunk")
+    _git_at(repo, "2026-02-01T00:00:00Z", "commit", "-q", "--allow-empty", "-m", "head")
+    # Precondition: the off-ancestry tag is the newest by creation date.
+    newest = subprocess.run(["git", "-C", str(repo), "tag", "-l", "v*", "--sort=-creatordate"],
+                            capture_output=True, text=True, check=True).stdout.split()
+    assert newest[0] == "v0.0.9", newest
+    monkeypatch.setattr(lg, "REPO_ROOT", repo)
+    assert lg.newest_release_tag() == "v0.0.1"
 
 
 def test_no_mapping_table_and_no_base_tag_is_red_not_passed(tmp_path):

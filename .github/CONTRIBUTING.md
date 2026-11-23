@@ -78,7 +78,8 @@ python scripts/docs_build.py
   and stack identifiers in `jnwb/`, `docs/` and the files its pages include,
   stack form and the process records (with no mapping table, `AGENTS.md` and
   `.github/CONTRIBUTING.md` keep every obligation clause of the newest `v*` tag HEAD descends
-  from; no such tag fails), line-ending consistency, stack pointers that resolve, the `docs/api.md` Type
+  from, verbatim or reworded with half its words and all its obligation words; no such tag
+  fails), line-ending consistency, stack pointers that resolve, the `docs/api.md` Type
   column and parameter kinds against the runtime object, frozen-validated functions against
   their verified bodies, the HEAD recorded in `artifacts/state.md` against the live one when
   that generated file is present (Gate 20 only reads it; regenerate with
