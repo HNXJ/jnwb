@@ -1322,6 +1322,9 @@ def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
     a file is now described by that file, which is what makes passing an open handle --
     the documented way to avoid reopening -- give the same answer as passing the path.
     An `NWBFile` with no file behind it is described from its arrays, in the same schema.
+
+    Raises:
+        FileNotFoundError: If ``path_or_nwb`` is a path and no file exists there.
     """
     if isinstance(path_or_nwb, NWBFile):
         source = getattr(path_or_nwb, "container_source", None)

@@ -1119,6 +1119,9 @@ def probe_geometry(
         duplicate coordinates are detected, table is empty, multiple probes are present
         without specifying ``probe_name``, the specified probe is not found, or
         ``strict_linear=True`` on non-linear geometry.
+    TypeError
+        If ``electrodes_table`` is not an NWB electrodes table, a pandas DataFrame or an
+        ``(n_channels, 3)`` coordinate array.
     """
     if pitch_tolerance < 0.0 or not np.isfinite(pitch_tolerance):
         raise ValueError(f"pitch_tolerance must be a non-negative finite float, got {pitch_tolerance}")

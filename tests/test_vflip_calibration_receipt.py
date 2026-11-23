@@ -208,14 +208,17 @@ def test_a_code_edit_changes_the_receipt(monkeypatch):
     generator = _generator()
     before = generator.estimator_sha256()
     real = inspect.getsource
+    hits = []
 
     def mutated(obj):
         source = real(obj)
-        assert source.count("if span < 1e-12:") <= 1
-        return source.replace("if span < 1e-12:", "if span < 2e-12:")
+        assert source.count("_SPAN_FLOOR = 1e-12") <= 1
+        hits.append(source.count("_SPAN_FLOOR = 1e-12"))
+        return source.replace("_SPAN_FLOOR = 1e-12", "_SPAN_FLOOR = 2e-12")
 
     monkeypatch.setattr(inspect, "getsource", mutated)
     assert generator.estimator_sha256() != before
+    assert sum(hits) >= 1, "the edit must reach the hashed source"
 
 
 def test_receipt_threshold_is_the_shipped_default():

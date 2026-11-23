@@ -16,6 +16,16 @@ from scipy.spatial.distance import squareform
 from scipy.stats import rankdata
 from ..permutation import _TIE_RTOL, _count_at_least_as_extreme, _count_each_at_least_as_extreme
 
+#: Floor on the precision-matrix diagonal before partial correlations divide by its square
+#: root; a numerical guard, no external source.
+_PRECISION_DIAG_FLOOR = 1e-12
+#: Absolute tolerance on a precomputed correlation matrix's symmetry and its [-1, 1] range;
+#: a numerical guard, no external source.
+_CORR_ATOL = 1e-4
+#: Absolute tolerance on a precomputed correlation matrix's unit diagonal; a numerical guard,
+#: no external source.
+_CORR_DIAG_ATOL = 1e-3
+
 
 @dataclass(frozen=True)
 class XFlipResult(DictAccessMixin):
@@ -211,7 +221,7 @@ def _compute_correlation_matrix(data: np.ndarray, method: str,
             theta = np.linalg.pinv(cov)
 
         d = np.diag(theta)
-        d_pos = np.maximum(d, 1e-12)
+        d_pos = np.maximum(d, _PRECISION_DIAG_FLOOR)
         denom = np.sqrt(np.outer(d_pos, d_pos))
         p_corr = -theta / denom
         np.fill_diagonal(p_corr, 1.0)
@@ -571,11 +581,11 @@ def _is_correlation_matrix(
     if is_corr_matrix is True:
         if arr.shape[0] != arr.shape[1]:
             raise ValueError(f"is_corr_matrix=True requires a square (n_channels, n_channels) matrix, got {arr.shape}")
-        if not np.allclose(arr, arr.T, atol=1e-4):
+        if not np.allclose(arr, arr.T, atol=_CORR_ATOL):
             raise ValueError("Precomputed correlation matrix must be symmetric.")
-        if not np.allclose(np.diag(arr), 1.0, atol=1e-3):
+        if not np.allclose(np.diag(arr), 1.0, atol=_CORR_DIAG_ATOL):
             raise ValueError("Precomputed correlation matrix diagonal elements must be 1.0.")
-        if np.any(arr < -1.0 - 1e-4) or np.any(arr > 1.0 + 1e-4):
+        if np.any(arr < -1.0 - _CORR_ATOL) or np.any(arr > 1.0 + _CORR_ATOL):
             raise ValueError("Precomputed correlation matrix elements must be in [-1, 1].")
         is_corr = True
     elif is_corr_matrix is False:
@@ -584,10 +594,10 @@ def _is_correlation_matrix(
         # Auto-detect
         if (
             arr.shape[0] == arr.shape[1]
-            and np.allclose(arr, arr.T, atol=1e-4)
-            and np.allclose(np.diag(arr), 1.0, atol=1e-3)
-            and np.all(arr >= -1.0 - 1e-4)
-            and np.all(arr <= 1.0 + 1e-4)
+            and np.allclose(arr, arr.T, atol=_CORR_ATOL)
+            and np.allclose(np.diag(arr), 1.0, atol=_CORR_DIAG_ATOL)
+            and np.all(arr >= -1.0 - _CORR_ATOL)
+            and np.all(arr <= 1.0 + _CORR_ATOL)
         ):
             is_corr = True
         else:

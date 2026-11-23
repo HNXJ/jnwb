@@ -129,7 +129,12 @@ def epoch_continuous(
     Raises
     ------
     ValueError
-        If ``start_s`` is not finite, or is non-zero with ``onset_unit="samples"``.
+        If ``data`` is not 1D or 2D; ``start_s`` is not finite, or is non-zero with
+        ``onset_unit="samples"``; ``win_s`` is not an increasing pair or spans no sample;
+        ``onset_unit`` or ``boundary_policy`` is unknown; or, with
+        ``boundary_policy="error"``, a window extends outside ``data``.
+    InvalidOnsetValueError
+        If an onset is NaN or infinite (:class:`~jnwb.nwb_events.InvalidOnsetValueError`).
     """
     arr = np.asarray(data)
     if arr.ndim not in (1, 2):

@@ -61,8 +61,10 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
 
     rate: (n_times,) binned rate (Hz or counts, either works -- only smoothing, no rescaling).
     Returns smoothed rate, same shape as input.
-    Raises ValueError if ``rate`` is not one-dimensional or ``bin_ms`` or ``tau_ms``
-    is not finite and positive.
+
+    Raises:
+        ValueError: If ``rate`` is not one-dimensional or ``bin_ms`` or ``tau_ms`` is not
+            finite and positive.
 
     References:
         Nawrot, M. P., Aertsen, A., & Rotter, S. (1999). Single-trial estimation
@@ -109,7 +111,10 @@ def causal_gaussian_smooth(rate: np.ndarray, sigma_bins: float) -> tuple[np.ndar
     rate: (n_times,) binned rate, in any units (only smoothing, no rescaling).
     sigma_bins: Gaussian standard deviation, in bins.
     Returns (smoothed, mean_lag_bins): the smoothed rate, same shape as the input, and the lag.
-    Raises ValueError if ``rate`` is not one-dimensional or ``sigma_bins`` is not finite and positive.
+
+    Raises:
+        ValueError: If ``rate`` is not one-dimensional or ``sigma_bins`` is not finite and
+            positive.
 
     References:
         Nawrot, M. P., Aertsen, A., & Rotter, S. (1999). Single-trial estimation
