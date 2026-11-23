@@ -58,6 +58,7 @@ from typing import Any, Dict, Optional, Sequence, Tuple
 import numpy as np
 
 from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
+from ._units import require_positive_fs
 
 __all__ = [
     "WaveMAPResult",
@@ -130,9 +131,7 @@ def align_waveforms(waveforms, fs: float, *, pre_s: float = 0.0004,
     """
     name = "align_waveforms"
     w = _waveform_matrix(waveforms, name)
-    fs = float(fs)
-    if not (np.isfinite(fs) and fs > 0):
-        raise ValueError(f"{name}: fs must be a finite positive number; got {fs!r}.")
+    fs = require_positive_fs(fs, name)
     for label, v in (("pre_s", pre_s), ("post_s", post_s)):
         if not (np.isfinite(v) and v >= 0):
             raise ValueError(f"{name}: {label} must be finite and >= 0; got {v!r}.")

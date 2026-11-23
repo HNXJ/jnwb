@@ -6,7 +6,7 @@ import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from .._rng import Default, RNGLike, resolve_seed_alias
-from .._units import _OMITTED, _check_signal_class
+from .._units import _OMITTED, _check_signal_class, require_positive_fs
 from scipy import stats
 from ..spectral import CANONICAL_BANDS
 from ._common import DirectedResult, _surrogate_p, _surrogate_rng, _surrogate_scheme, _surrogate_source
@@ -498,8 +498,7 @@ def phase_slope_index(
     _check_signal_class("phase_slope_index", signal_class, 2)
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='phase_slope_index')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "phase_slope_index")
-    if fs is None or not np.isfinite(fs) or fs <= 0:
-        raise ValueError(f"phase_slope_index requires a positive fs; got {fs!r}")
+    require_positive_fs(fs, "phase_slope_index")
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
     x = _detrend_trials(x, detrend)

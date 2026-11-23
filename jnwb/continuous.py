@@ -10,6 +10,7 @@ import numpy as np
 from scipy import signal
 
 from ._bins import refuse_infinite
+from ._units import require_positive_fs
 
 _CONTAINMENT_EPS = 1e-9  # relative containment tolerance floor; numerical guard, no external source
 
@@ -135,8 +136,7 @@ def epoch_continuous(
         raise ValueError(f"Continuous data must be 1D or 2D, got shape {arr.shape}")
     if arr.dtype.kind in "fciub":
         refuse_infinite(arr, "epoch_continuous", "data")
-    if not (np.isfinite(fs) and fs > 0.0):
-        raise ValueError(f"Sampling rate fs must be positive, got {fs}")
+    require_positive_fs(fs, "epoch_continuous")
     start_s = float(start_s)
     if not np.isfinite(start_s):
         raise ValueError(f"start_s must be finite, got {start_s}")

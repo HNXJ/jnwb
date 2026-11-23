@@ -460,10 +460,10 @@ class TestVFlipFromLFP:
         with pytest.raises(ValueError, match="2D array"):
             vflip_from_lfp(np.ones((2, 10, 100)), fs=1000.0)
 
-        with pytest.raises(ValueError, match="fs must be strictly positive"):
+        with pytest.raises(ValueError, match="vflip_from_lfp: fs must be finite and strictly positive"):
             vflip_from_lfp(np.ones((10, 1000)), fs=-100.0)
 
-        with pytest.raises(ValueError, match="fs must be strictly positive"):
+        with pytest.raises(ValueError, match="vflip_from_lfp: fs must be finite and strictly positive"):
             vflip_from_lfp(np.ones((10, 1000)), fs=np.nan)
 
     @pytest.mark.parametrize("fs", [0.5, 1.0])

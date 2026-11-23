@@ -10,7 +10,7 @@ from .._backend import CPU, CUDA, resolve_device, warn_device_fallback, warn_no_
 from .._spread import is_constant
 from .._layout import require_trial_length
 from .._rng import Default, RNGLike, resolve_seed_alias
-from .._units import _OMITTED, _check_signal_class
+from .._units import _OMITTED, _check_signal_class, require_positive_fs
 from scipy import signal, stats
 from ..spectral import CANONICAL_BANDS
 from ..spectral._coupling import MIN_IDENTIFIABLE_SEGMENTS, welch_segment_count
@@ -1034,8 +1034,7 @@ def granger_spectral(
     _check_signal_class("granger_spectral", signal_class, 2)
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_spectral')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger_spectral")
-    if fs is None or not np.isfinite(fs) or fs <= 0:
-        raise ValueError(f"granger_spectral requires a positive fs; got {fs!r}")
+    require_positive_fs(fs, "granger_spectral")
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
     require_trial_length(
@@ -1282,8 +1281,7 @@ def granger_nonparametric(
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_nonparametric')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger_nonparametric")
-    if fs is None or not np.isfinite(fs) or fs <= 0:
-        raise ValueError(f"granger_nonparametric requires a positive fs; got {fs!r}")
+    require_positive_fs(fs, "granger_nonparametric")
     if bands is None:
         raise ValueError(
             "granger_nonparametric needs bands: 'canonical', a (fmin, fmax) pair, or a "

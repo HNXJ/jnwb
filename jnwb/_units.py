@@ -30,8 +30,12 @@ def require_positive_fs(fs, func_name: str) -> float:
     Hz"; `imaginary_coherency` got a clean message only because it reached scipy's own
     guard, which names scipy's parameter rather than this contract. A NaN or Inf `fs`
     passes `fs <= 0` and reached scipy's "Wn[0] must be less than Wn[1]" in the filters.
+    A string is refused even when it spells a number: callers that keep the original ``fs``
+    would carry the string into arithmetic below the check.
     """
     try:
+        if isinstance(fs, (str, bytes)):
+            raise TypeError(fs)
         value = float(fs)
     except (TypeError, ValueError):
         raise ValueError(

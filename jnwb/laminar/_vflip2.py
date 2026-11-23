@@ -11,6 +11,7 @@ from scipy import stats
 
 from .._dictlike import DictAccessMixin
 from .._spread import r_squared
+from .._units import require_positive_fs
 
 #: Layer IVA, IVB and IVC of macaque area 17 in mm (O'Kusky and Colonnier 1982), summed by
 #: vFLIP2.m into the shortest channel window it searches. Summed as vFLIP2.m sums them, each
@@ -524,9 +525,7 @@ def vflip2_from_lfp(
     """
     if isinstance(fs, bool) or not isinstance(fs, (int, float, np.integer, np.floating)):
         raise ValueError(f"fs must be a real number, got {fs!r}")
-    fs = float(fs)
-    if not (np.isfinite(fs) and fs > 0):
-        raise ValueError(f"fs must be finite and positive, got {fs}")
+    fs = require_positive_fs(fs, "vflip2_from_lfp")
     if fs / 2 < 150:
         raise ValueError(
             f"vflip2_from_lfp: fs must be at least 300 Hz, so that the Nyquist frequency fs / 2 "

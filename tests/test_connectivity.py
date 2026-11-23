@@ -1603,7 +1603,9 @@ class TestNonparametricRefusals:
     @pytest.mark.parametrize("fs", [0.0, -1.0, float("nan"), float("inf")])
     def test_a_non_positive_or_non_finite_fs_is_refused(self, fs):
         x, y = _var2_x_to_y(0)
-        with pytest.raises(ValueError, match="positive fs"):
+        with pytest.raises(
+            ValueError, match="granger_nonparametric: fs must be finite and strictly positive"
+        ):
             jnwb.granger_nonparametric(x, y, fs=fs, bands=(0.0, 250.0))
 
     @pytest.mark.parametrize("n_freqs", [1, 2.5, True])
