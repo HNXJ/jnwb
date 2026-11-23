@@ -90,13 +90,6 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `jnwb/visual_qc.py`, `jnwb/artifact_repair.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/nwb_io.py`, `tests/test_no_unreferenced_symbols.py`, a deprecation test file, `artifacts/changelog.d/*.md`.
 - 17-96: five unused `MADELANE_*` constants held by an allowlist (`visual_qc.py:21-25`); `__main__` self-tests no test runs (`artifact_repair.py:468`, `onset_fitting.py:327`, 115 lines); `TFRAnalyzer.LEGACY_VIZ_BANDS` read only by tests; a third band table `DEFAULT_BANDS`; `nwb_read_io(mode=)` accepts one value. Ruled 2026-11-22: the three public names are deprecated in 0.2.17, behaviour kept; removal in 0.2.18 needs a check of compatibility commitments and downstream use (roadmap 17-155). Check: the internal four removed or moved into tests, the allowlist shrinks; each public name warns `DeprecationWarning` and returns its old value or behaviour, by test; a changelog fragment announces it; the suite passes.
 
-### 17-97 Tests named by process, split by accident
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none (ruled 2026-11-22: merge the seven; dated records stay unchanged).
-Writes: `tests/test_*.py`, `artifacts/skills/jnwb-sim-benchmark/SKILL.md`.
-- 17-97: slice 1 landed 2026-11-22 (merge 4f84cf5c): the four event-named files, `test_rng_*` and `test_api_md_*` merged by subject; 11201 collected before and after, test-name set equal. Left: seven laminar files named by the dated records `artifacts/evidence/0.2.15/tiered_ci_plan.md` and `artifacts/evidence/0.2.14/verification_inventory.md:84`, and by one live pointer, `artifacts/skills/jnwb-sim-benchmark/SKILL.md:40` (repointed with the merge) (`test_vflip2_nuisance`, `_sensitivity`, `_simulation`, `test_xflip_homogeneous_null`, `_nuisance`, `_null_method`, `test_zflip_audit`); the other nine laminar files keep their names, cited by `standing.md`, a calibration receipt, `scripts/`, `jnwb/laminar/_vflip2.py`, a fixture or `CHANGELOG.md`. Event-named classes (`TestIntegration021`, `TestFinalAuditRecurrence`) stay to keep node ids. Check: the seven merged or ruled to stay, collected count unchanged.
-
 ### 17-99 One home per invariant across rule and doc files
 
 Release: deferred-0.2.17.

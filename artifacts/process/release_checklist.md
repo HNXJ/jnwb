@@ -5,7 +5,7 @@ file tracks them and is the work plan toward the RC. Scope source: `artifacts/pr
 item text and Checks: `artifacts/todo_stack.md`; rulings: `artifacts/rulings/2026-11-22.md` and
 `artifacts/rulings/standing.md`. Update a row in the commit that changes it; the update log holds history.
 
-Current (2026-11-22): **17.5/100, diagnostic** (Q3; the 0.5 is the S4 denominator after 17-102 left the plan, not a closure); gates 0 of 6 complete. `origin/dev` =
+Current (2026-11-22): **22.5/100, diagnostic** (Q3; 0.5 of it is the S4 denominator after 17-102 left the plan, not a closure; 5 is 17-97); gates 0 of 6 complete. `origin/dev` =
 `68995c90` (pushed under Hamm's one-time override; **CI/CD pending, not verified**; no further override
 is authorized). Open stack: one row (`17-144-src`). Owner decisions: section 9.
 
@@ -58,7 +58,6 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | 2 | Resume the 17-95 remainder | 17-95 (S2) | `jnwb-actor-haiku` | 0 | lane `_temp_17-95-left` (`a01f06c8`, WIP, 8 files, on `origin`): merge `dev`, finish, verify |
 | 3 | `Union` in `scripts/gates/boundary.py:432` | 17-142 (S2) | `jnwb-actor-haiku` | 2 | after 17-95 merges |
 | 4 | Deprecate the three public names | 17-96 (S2) | `jnwb-actor` | 0 | warning and retained behaviour by test; changelog fragment; two reviews |
-| 5 | Merge the seven laminar test files | 17-97 (S3) | `jnwb-actor-haiku` | 0 | collected count and test-name set unchanged |
 | 6 | Tracked rules cite tracked roles | 17-101 (S4) | `jnwb-actor-fast` | 0 | `git grep` Check from the item |
 | 7 | Gate-15 follow-ups and tests-4 | 17-147 | `jnwb-actor-haiku` | 0 | D1 prose narrowed to what `obligation_losses` checks; D2 ancestor-tag test; `_refusal` |
 | 8 | ruff C901 on a CI leg | 17-157 (A4) | `jnwb-actor-haiku` | 0 | pinned ruff in the build job; the C901 test runs there |
@@ -86,8 +85,8 @@ or only tasks blocked on section 9 remain.
 
 | Class | Items |
 |---|---|
-| Verified closed (receipts in the update log) | 17-79, 17-98, 17-103, 17-154 (section 7); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
-| Landed, item still open | 17-94, 17-95, 17-100, 17-104, 17-128, 17-142, 17-147 (partials 2026-11-21 and 2026-11-22), 17-97 slice 1 |
+| Verified closed (receipts in the update log) | 17-79, 17-97, 17-98, 17-103, 17-154 (section 7); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
+| Landed, item still open | 17-94, 17-95, 17-100, 17-104, 17-128, 17-142, 17-147 (partials 2026-11-21 and 2026-11-22) |
 | Pending verification | CI at `68995c90` |
 | Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4) |
 | Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
@@ -102,7 +101,7 @@ the plan's `items` list; 17-102 left it on 2026-11-22 (Q3), so S4 counts four it
 |---|---|---|---|---|---|
 | S1 | The largest functions split below a stated complexity | 10 | ~~17-79~~ | 1 of 1 | 10 |
 | S2 | One home per helper in jnwb, scripts and tests; dead code and unused constants removed | 10 | 17-94, 17-95, 17-96, 17-142 | 0 of 4 | 0 |
-| S3 | Tests named by subject, not by the event that produced them | 10 | 17-97, ~~17-98~~ | 1 of 2 | 5 |
+| S3 | Tests named by subject, not by the event that produced them | 10 | ~~17-97~~, ~~17-98~~ | 2 of 2 | 10 |
 | S4 | Docs and examples thinned; one home per invariant | 10 | 17-99, 17-100, 17-101, ~~17-103~~ | 1 of 4 | 2.5 |
 | S5 | Code and prose matched to the style standards; the fact graph build made faster | 10 | 17-104, 17-127, 17-128, 17-129 | 0 of 4 | 0 |
 | S6 | Validations on external ground truth | 10 | 17-144, roadmap 15-11, 12-21, 16-12 | 0 of 4 | 0 |
@@ -155,3 +154,4 @@ blocks the critical path.
 | 2026-11-22 | `e3af6db8`, `c53c78fe` | Consolidated ruling recorded; open rows 8 to 1; A3 push override, A6 dump flag, A2 gate 15, ruff C901 merged, each verified; suite 11092 passed at `c53c78fe`; CI red there. |
 | 2026-11-22 | `8d5fb637`, `68995c90` | Two CI repairs pushed under Hamm's one-time authorizations; suite 11093 passed at each; CI at `68995c90` pending. Checklist rewritten as the RC plan (target, environments, ordered tasks, status, risks, owner questions); the 2026-11-19 snapshot and the 2026-11-18 mapping audit retired into sections 4 and 9. Score 17/100. |
 | 2026-11-22 | this commit | Hamm ruled Q1 to Q6 and goal mode; `release_plan.json` reconciled (17-102 to 0.2.20; 17-153, 17-157, 17-158 into 0.2.17); 17-104 and 17-129 Checks narrowed as ruled; 17-154 closed (verifier ACCEPT). Score 17.5/100 diagnostic, the change from the S4 denominator only. |
+| 2026-11-22 | merge `cfa5ab9f` | 17-97 closed: slice 2 (`325481d3`) merged the seven laminar files; collected 11213 before and after, name multiset equal, verifier ACCEPT with a full suite at `325481d3` (11092 passed, 0 failed). S3 2 of 2; score 22.5/100 diagnostic. |
