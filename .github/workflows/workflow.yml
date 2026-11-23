@@ -370,6 +370,14 @@ jobs:
         run: |
           python scripts/harness_gate.py
 
+      - name: Check the complexity ceiling (ruff C901 over jnwb/)
+        # tests/test_complexity_ceiling.py skips where ruff is absent and no other job installs it,
+        # so this step is where the ceiling runs in CI. The pin is the ruff the 0.2.17 qualification
+        # recorded. The step is unconditional, as the build job is.
+        run: |
+          python -m pip install "ruff==0.16.10"
+          ruff check --no-cache --select C901 --config pyproject.toml jnwb/
+
       - name: Build documentation with MkDocs (strict)
         run: |
           python scripts/docs_build.py
