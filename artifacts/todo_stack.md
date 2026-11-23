@@ -1,6 +1,6 @@
 # 0.2.17
 
-Context audit (2026-11-13): current priorities and midterm dependencies are indexed in `artifacts/ref/context_audit_2026-11-13.md`; existing item IDs, write scopes, release rulings and acceptance checks remain authoritative. Open blockers: OCMA-5 and 17-144-src. No item was closed or rescored by this documentation audit.
+Work order, roles, gates and owner questions toward the release candidate: `artifacts/process/release_checklist.md` (sections 4 and 9). The items below hold the defects and Checks; the checklist never restates a Check.
 
 
 Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. 0.2.16
@@ -30,7 +30,14 @@ At most eight lines per item.
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none (merge 7bc91d79 adds `-o faulthandler_timeout=900` to `scripts/jnwb_suite.sh`; the dump does not stop a stalled run, so a stall still needs a manual stop after its dump).
 Writes: `scripts/jnwb_suite.sh`, `tests/test_*.py`.
-- 17-154: from open row `17-147-hang` (ruled 2026-11-22, A6 modified): two stalls at about 99% with 12 idle workers (9479505e on 2026-11-18, 9ad92d4b on 2026-11-19), stuck test unidentified; suspects by file time only: the wheel and foreign-NWB tests. Check: two clean full-suite runs under the dump configuration, each log and SHA cited; or a dump names the stalled test and a verified repair removes the stall. A dump alone is diagnosis and closes nothing.
+- 17-154: from open row `17-147-hang` (ruled 2026-11-22, A6 modified): two stalls at about 99% with 12 idle workers (9479505e on 2026-11-18, 9ad92d4b on 2026-11-19), stuck test unidentified; suspects by file time only: the wheel and foreign-NWB tests. Check: two clean full-suite runs under the dump configuration, each log and SHA cited; or a dump names the stalled test and a verified repair removes the stall. A dump alone is diagnosis and closes nothing. Evidence awaiting a verifier (2026-11-22): full runs under the flag at `c53c78fe` (11092 passed), `8d5fb637` and `68995c90` (11093 passed each), 0 failed, no stall; logs `D:/tmp/jnwb_int/suite_<sha>.log`.
+
+### 17-157 ruff C901 runs on a CI leg
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `.github/workflows/workflow.yml`, `tests/test_complexity_ceiling.py`, `tests/test_workflow_release_policy.py`.
+- 17-157: gate A4's measure (ruff C901 at 40 over `jnwb/`, ruled 2026-11-22, merge 3f6f7e86) runs only where ruff is installed; no dependency or workflow installs it, so `tests/test_complexity_ceiling.py` skips on every CI leg, and the largest function sits at 39 (margin 1). Check: one CI job installs a pinned ruff and runs the C901 check over `jnwb/`; a planted function of complexity 41 fails that job's command; publication order and the other jobs unchanged.
 
 ### 17-153 The fact gate reads each cited line
 
@@ -51,7 +58,7 @@ Writes: `scripts/learning_gate.py`, `tests/test_nan_passes_sign_guard_scan.py`.
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none (scripts-2 runs in lane `_temp_gate15-c901`).
 Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/measure_agents_md_duplication.py`, `scripts/vflip2_recovery.py`, `scripts/figures/generate_figures.py`, `scripts/figures/figure_registry.toml`, `tests/test_*.py`.
-- 17-147: push_guard half landed 2026-11-21 (merge 264ea80d) and closes on its bounded requirement (ruled 2026-11-22, A6): the text guard denies the set merged there; known limit, no general push enforcement claimed: a directory reached through a variable, substitution, `env -C`, `sudo -D` or `find -execdir`; cd or push spelled through quoting, `$IFS`, an alias, `send-pack` or a glob; a junction; another interpreter. The push wrapper and CI gate stay the enforcing gate. scripts-2 landed 2026-11-22 (merge 3f6f7e86, verified): zero tables pass only when `AGENTS.md` and `CONTRIBUTING.md` lose no obligation clause against the newest `v*` tag; missing base fails. Left from its verification: D1, a deleted clause passes when another clause shares its obligation word (`AGENTS.md` "never doctrine" matched "never pooled" at Jaccard 0.11), so `scripts/learning_gate.py:13-15` and `CONTRIBUTING.md:80-82` ("keep every obligation clause") overstate the check: narrow the prose, or Hamm rules a stricter match; D2, no test pins `newest_release_tag` to an ancestor tag (`learning_gate.py:192-200`; a creation-date mutant survives); tests-4 at `tests/test_nwb_read_tolerance_and_visibility.py:230` (`_refusal` catches `Exception`; its callers assert `MissingRequiredNWBFieldError`). Check: gate 15 fails on zero tables with a lost clause or a missing base; `_refusal` catches the named error only; `ruff check tests --select F401,F541,F821,F841` clean.
+- 17-147: push_guard half landed 2026-11-21 (merge 264ea80d) and closes on its bounded requirement (ruled 2026-11-22, A6): the text guard denies the set merged there; known limit, no general push enforcement claimed: a directory reached through a variable, substitution, `env -C`, `sudo -D` or `find -execdir`; cd or push spelled through quoting, `$IFS`, an alias, `send-pack` or a glob; a junction; another interpreter. The push wrapper and CI gate stay the enforcing gate. scripts-2 landed 2026-11-22 (merge 3f6f7e86, verified): zero tables pass only when `AGENTS.md` and `CONTRIBUTING.md` lose no obligation clause against the newest `v*` tag; missing base fails. Left from its verification: D1, a deleted clause passes when another clause shares its obligation word (`AGENTS.md` "never doctrine" matched "never pooled" at Jaccard 0.11), so `scripts/learning_gate.py:13-15` and `CONTRIBUTING.md:80-82` ("keep every obligation clause") overstate the check: narrow the prose to what the check does (keep every obligation word gate 15 reads in those files); D2, no test pins `newest_release_tag` to an ancestor tag (`learning_gate.py:192-200`; a creation-date mutant survives); tests-4 at `tests/test_nwb_read_tolerance_and_visibility.py:230` (`_refusal` catches `Exception`; its callers assert `MissingRequiredNWBFieldError`). Check: gate 15 fails on zero tables with a lost clause or a missing base; `_refusal` catches the named error only; `ruff check tests --select F401,F541,F821,F841` clean.
 
 ### 17-144 The jaxfne isi_cv commits
 
@@ -72,7 +79,7 @@ Writes: `jnwb/**/*.py`.
 ### 17-95 One home per helper in scripts and tests
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
+Role: jnwb-developer. Skill: none. Blocked by: none. Resume lane `_temp_17-95-left` (WIP `a01f06c8`, 8 files, pushed to `origin` 2026-11-22): merge `dev` into it first.
 Writes: `scripts/stack_parse.py`, `scripts/release_gate.py`, `scripts/build_fact_graph.py`, `scripts/learning_gate.py`, `scripts/build_dashboard.py`, `scripts/docs_form_gate.py`, `scripts/reconstruct_state.py`, `scripts/measure_peak_memory.py`, `scripts/mutation_harness.py`, `scripts/verify_lane.py`, `scripts/gates/boundary.py`, `tests/conftest.py`, `tests/test_*.py`.
 - 17-95: landed 2026-11-21 (merge 91424ae7): 10 test splitters use `stack_parse.cells`; git calls in `release_gate`, `build_dashboard`, `build_fact_graph`, `fact_graph/source_scans` and 8 test `_git` helpers use `gates.boundary.git`. Kept raw, with reason: byte capture (`learning_gate.py:131`, `release_gate.py:1534,1623`, `gates/boundary.py:579,601`, 4 test helpers); injected runner (`release_gate.py:317,782,1251,1273`); `reconstruct_state.py` (tests copy it alone); `verify_lane._git` (lane fixture clones lack `scripts/gates`); `mutation_harness._git` (its validity test forbids root from `__file__`); `measure_peak_memory._git` (a `sys.path` append changes the jnwb its control measures); `obligation_diff.py:76` (never edits `sys.path`). Left, convertible: `measure_order.py:723,725`, `vflip2_sensitivity.py:105` (function-local import), `release_gate.py:1704`, `learning_gate.py:242`, `measure_agents_md_duplication.py:35`, `gates/boundary.py:585,636`; inline `row.split("|")[n]` in 5 test files; `from scripts ...` inside test functions with no `sys.path` guard (`test_generated_files_are_byte_stable.py:179`, `test_single_agent_instruction_file.py:69`, `test_stack_edit.py:465`; the wheel leg passes them only when an earlier module appended the root). `cells` also changes `build_dashboard` on an unterminated row and a `>`-prefixed line, with no real input affected and no test. Check: one `cells()` and one `git()` each, or each remaining site named with its reason; `harness_gate.py` 22 of 22, `tests/test_table_cells.py` and `tests/test_test_imports_survive_the_wheel_leg.py` pass.
 
@@ -121,7 +128,7 @@ Writes: `scripts/build_fact_graph.py`, `jnwb/__init__.py`.
 ### 17-127 The fact graph build takes four minutes
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-104 (shares `scripts/build_fact_graph.py`).
+Role: jnwb-developer. Skill: none. Blocked by: none (17-104's script half landed; its remaining parts write `jnwb/__init__.py`, `scripts/fact_graph/__init__.py` line endings and `scripts/reconstruct_state.py`, so a 17-127 lane must not touch those three).
 Writes: `scripts/build_fact_graph.py`, `scripts/fact_graph/*.py`, `tests/test_fact_gate.py`.
 - 17-127: one `build_fact_graph.py` run took 264 s at `2e069118` and 217 s at `a5345f79` on the Windows host (one sample each; the 17-84 call-site rule landed between); under a full suite it passed the test's 300 s cap twice, now 900 s. Check: a profile names the phases; the build runs under 60 s with the graph byte-identical.
 
@@ -135,7 +142,7 @@ Writes: `jnwb/**/*.py`.
 ### 17-142 Unused names, stale pointers and two duplicate helpers
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: the `_temp_17-95-left` lane, which edits `scripts/gates/boundary.py`.
+Role: jnwb-developer. Skill: none. Blocked by: 17-95 (lane `_temp_17-95-left`, WIP `a01f06c8` on `origin`, edits `scripts/gates/boundary.py`).
 Writes: `scripts/gates/boundary.py`.
 - 17-142: landed 2026-11-22 (merge ff703205): 12 unused imports removed; 37 kept in `scripts/harness_gate.py` with `# noqa: F401` naming the test that reads each through the module; one module-level `_mean_over` in `_granger.py` (granger outputs bitwise-equal); the three stale pointers fixed. Left: `Union` undefined in an annotation (`scripts/gates/boundary.py:432`). Check: ruff F811, F821 and F841 report zero over `jnwb/` and `scripts/`, F401 reports no name outside a re-exporting `__init__.py`, each named pointer resolves, each helper has one definition; the suite passes.
 

@@ -1,6 +1,6 @@
 # Open stack (jnwb, 2026-11-22)
 
-`dev` at `7ecaf327`: both CI/CD runs at that SHA (45047858353 push, 45047864668 pull_request) completed with success (2026-11-22). Hamm's consolidated ruling of 2026-11-22 (`artifacts/rulings/2026-11-22.md`) ruled every row of the ruling packet.
+`dev` at `68995c90` (2026-11-22): CI/CD pending; the last SHA with both runs green is `e3af6db8`; CI state per SHA in `artifacts/process/release_checklist.md` section 2. Hamm's consolidated ruling of 2026-11-22 (`artifacts/rulings/2026-11-22.md`) ruled every row of the ruling packet.
 
 Open rows: one (2026-11-22). A row leaves by being repaired, shown false, or moved into the todo stack (`AGENTS.md` §11); `git log -- artifacts/open_stack.md` holds earlier rows.
 
