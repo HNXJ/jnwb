@@ -9,6 +9,7 @@ from .._dictlike import DictAccessMixin
 from .._rng import Default, RNGLike, recorded_rng, resolve_seed_alias
 from scipy import signal, stats
 from .._spread import is_constant
+from .._units import require_positive_fs
 from ..permutation import _count_at_least_as_extreme
 from ..spectral import (
     MIN_COHERENCE_NPERSEG,
@@ -254,8 +255,7 @@ def _select_window(lfp: np.ndarray, window: Any,
 
 def _check_rate_and_input(fs: Any, pitch_um: Optional[float], lfp: np.ndarray) -> None:
     """Refuse a non-positive or non-finite fs, a bad pitch, and non-finite samples in the fit."""
-    if fs <= 0 or not np.isfinite(fs):
-        raise ValueError(f"fs must be strictly positive and finite; got {fs}.")
+    require_positive_fs(fs, "zflip")
     if pitch_um is not None and (pitch_um <= 0 or not np.isfinite(pitch_um)):
         raise ValueError(f"pitch_um must be strictly positive if provided; got {pitch_um}.")
     if not np.all(np.isfinite(lfp)):
@@ -611,7 +611,7 @@ def zflip(
             `VFlip2Result` with a window, `window` is not such a result or a pair of rows
             inside the probe spanning at least 3 contacts, `window` and `orientation` are
             different `VFlip2Result`s (their windows or orientations differ), input is not
-            a finite 2D array of at least 3 channels, `fs <= 0`,
+            a finite 2D array of at least 3 channels, `fs` is not finite and positive,
             `freq_range` is not an increasing non-negative pair, `alpha` is outside (0, 1),
             `n_surrogates < 0`, a threshold is outside [0, 1], or the segmentation yields
             fewer than 2 segments.

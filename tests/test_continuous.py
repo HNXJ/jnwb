@@ -233,7 +233,7 @@ class TestEpochContinuous:
 
     def test_invalid_arguments_raise(self):
         data = np.zeros(100)
-        with pytest.raises(ValueError, match="must be positive"):
+        with pytest.raises(ValueError, match="epoch_continuous: fs must be finite and strictly positive"):
             epoch_continuous(data, [0.0], win_s=(-0.1, 0.1), fs=0.0)
         with pytest.raises(ValueError, match="strictly less"):
             epoch_continuous(data, [0.0], win_s=(0.2, 0.1), fs=1000.0)

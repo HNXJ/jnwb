@@ -52,10 +52,6 @@ ALLOWED: dict[tuple[str, str, str], str] = {
         "int(n_surrogates) in the same test raises on NaN and Inf before the sign comparison.",
     ("spectral/_psd.py", "compute_multitaper_psd", "nw"):
         "NaN passes; refused later only by an int() conversion with an unrelated message.",
-    ("testing/synth.py", "synth_laminar_motif", "fs"):
-        "NaN passes; refused later by the gamma pass-band check.",
-    ("tfr.py", "complex_tfr", "fs"):
-        "NaN passes; morlet_wavelet refuses it later.",
     ("tfr.py", "complex_tfr", "n_cycles"):
         "NaN passes; morlet_wavelet refuses it later.",
     ("tfr.py", "complex_tfr", "coi_sigma"):
@@ -73,7 +69,8 @@ KNOWN_SITES = [
     ("filtering.py", "bandpass_filter", "fs", False),
     ("filtering.py", "notch_filter", "fs", False),
     ("continuous.py", "epoch_continuous", "fs", False),
-    ("tfr.py", "complex_tfr", "fs", True),
+    ("tfr.py", "complex_tfr", "fs", False),
+    ("testing/synth.py", "synth_laminar_motif", "fs", False),
 ]
 
 

@@ -1,0 +1,4 @@
+- `fs` errors in connectivity, laminar, tfr, wavemap, epoching and synth functions name the function, as the filters do.
+- `complex_tfr` and `synth_laminar_motif` refuse a NaN or Inf `fs` by name; it was caught later under another message.
+- A non-numeric `fs` (None, a string, a list) raises `ValueError` in every routed function, `TypeError` in some before.
+- `synth_laminar_motif`: a non-positive `n_samples` reads `n_samples must be strictly positive`.

@@ -41,6 +41,7 @@ from scipy.ndimage import gaussian_filter1d
 from ._bins import refuse_infinite
 from ._dictlike import DictAccessMixin
 from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
+from ._units import require_positive_fs
 from .laminar import VFlip2Result, VFlipResult, XFlipResult, vflip, vflip2_from_lfp, xflip
 from .spectral import voltage_curvature_1d
 
@@ -171,9 +172,7 @@ def detect_bad_channels(
         ValueError: On a non-finite input, an invalid band or fewer than 3 contacts.
     """
     arr = _check_channels_first(data, "data", (2, 3))
-    fs = float(fs)
-    if not np.isfinite(fs) or fs <= 0:
-        raise ValueError(f"fs must be positive and finite, got {fs!r}")
+    fs = require_positive_fs(fs, "detect_bad_channels")
     lo_hz, hi_hz = float(power_band_hz[0]), float(power_band_hz[1])
     if not (0 <= lo_hz < hi_hz < fs / 2):
         raise ValueError(f"power_band_hz must satisfy 0 <= low < high < fs/2, got {power_band_hz!r}")

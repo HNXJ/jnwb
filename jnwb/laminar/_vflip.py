@@ -8,6 +8,7 @@ import numpy as np
 from .._dictlike import DictAccessMixin
 from scipy import signal
 from .._backend import CUDA, resolve_device, warn_no_gpu_path
+from .._units import require_positive_fs
 
 
 CANONICAL_VFLIP_BANDS: Dict[str, Tuple[float, float]] = {
@@ -976,9 +977,7 @@ def vflip_from_lfp(
         -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     # 1. Validate inputs
-    fs = float(fs)
-    if fs <= 0 or not np.isfinite(fs):
-        raise ValueError(f"fs must be strictly positive and finite (Hz), got {fs}")
+    fs = require_positive_fs(fs, "vflip_from_lfp")
 
     _refuse_a_deep_first_declaration(orientation, depth_axis, shallow_end, "vflip_from_lfp")
     lfp_arr = np.asarray(lfp, dtype=np.float64)

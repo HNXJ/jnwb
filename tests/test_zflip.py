@@ -95,7 +95,7 @@ def test_zflip_input_validation():
         jnwb.zflip(rng.standard_normal((2, 1000)), orientation="superficial_to_deep", fs=1000.0)
 
     # Invalid fs
-    with pytest.raises(ValueError, match="fs must be strictly positive"):
+    with pytest.raises(ValueError, match="zflip: fs must be finite and strictly positive"):
         jnwb.zflip(rng.standard_normal((8, 1000)), orientation="superficial_to_deep", fs=-10.0)
 
     # Invalid pitch

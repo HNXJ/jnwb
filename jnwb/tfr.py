@@ -16,6 +16,7 @@ from scipy import signal
 
 from . import _backend
 from ._backend import CPU, CUDA, METAL, resolve_device, warn_device_fallback
+from ._units import require_positive_fs
 
 
 @dataclass(frozen=True)
@@ -133,10 +134,7 @@ def morlet_wavelet(
         raise ValueError(f"f0 must be finite, got {f0}")
     if f0 <= 0:
         raise ValueError(f"f0 must be positive, got {f0}")
-    if not np.isfinite(fs):
-        raise ValueError(f"fs must be finite, got {fs}")
-    if fs <= 0:
-        raise ValueError(f"fs must be positive, got {fs}")
+    require_positive_fs(fs, "morlet_wavelet")
     if f0 >= fs / 2.0:
         raise ValueError(f"f0 ({f0} Hz) must be below Nyquist limit ({fs / 2.0} Hz)")
     if not np.isfinite(n_cycles):
@@ -266,8 +264,7 @@ def complex_tfr(
         raise TypeError(f"data must be numeric, got dtype {arr.dtype}")
     if not np.all(np.isfinite(arr)):
         raise ValueError("data contains NaN or Inf values")
-    if fs <= 0:
-        raise ValueError(f"fs must be positive, got {fs}")
+    require_positive_fs(fs, "complex_tfr")
     if coi_sigma is not None and coi_sigma < 0:
         raise ValueError(f"complex_tfr: coi_sigma must be non-negative, got {coi_sigma}")
     if not np.issubdtype(np.dtype(dtype), np.complexfloating):

@@ -17,6 +17,7 @@ from scipy import signal
 
 from ..addressing import ProbeGeometry, probe_geometry
 from .._rng import RNGLike, resolve_rng
+from .._units import require_positive_fs
 
 
 @dataclass(frozen=True)
@@ -118,8 +119,7 @@ def synth_ar_noise(
         raise ValueError(f"n_samples must be strictly positive, got {n_samples}")
     if n_channels <= 0:
         raise ValueError(f"n_channels must be strictly positive, got {n_channels}")
-    if fs <= 0 or not np.isfinite(fs):
-        raise ValueError(f"fs must be strictly positive, got {fs}")
+    require_positive_fs(fs, "synth_ar_noise")
     if sigma_innov <= 0 or not np.isfinite(sigma_innov):
         raise ValueError(f"sigma_innov must be strictly positive, got {sigma_innov}")
 
@@ -199,8 +199,7 @@ def synth_periodic_response(
         raise ValueError(f"n_trials must be strictly positive, got {n_trials}")
     if n_samples <= 0:
         raise ValueError(f"n_samples must be strictly positive, got {n_samples}")
-    if fs <= 0 or not np.isfinite(fs):
-        raise ValueError(f"fs must be strictly positive, got {fs}")
+    require_positive_fs(fs, "synth_periodic_response")
     if not np.isfinite(freq_hz) or freq_hz <= 0 or freq_hz >= fs / 2.0:
         raise ValueError(f"freq_hz must be in (0, Nyquist); got {freq_hz}")
 
@@ -331,8 +330,7 @@ def synth_phase_gradient(
         raise ValueError(f"n_channels must be strictly positive, got {n_channels}")
     if n_samples <= 0:
         raise ValueError(f"n_samples must be strictly positive, got {n_samples}")
-    if fs <= 0 or not np.isfinite(fs):
-        raise ValueError(f"fs must be strictly positive, got {fs}")
+    require_positive_fs(fs, "synth_phase_gradient")
 
     gen = resolve_rng(rng, func_name="synth_phase_gradient")
     t = np.arange(n_samples, dtype=float) / float(fs)
@@ -421,8 +419,9 @@ def synth_laminar_motif(
     """
     if n_channels < 4:
         raise ValueError(f"n_channels must be at least 4; got {n_channels}")
-    if n_samples <= 0 or fs <= 0:
-        raise ValueError("n_samples and fs must be positive")
+    if n_samples <= 0:
+        raise ValueError(f"n_samples must be strictly positive, got {n_samples}")
+    require_positive_fs(fs, "synth_laminar_motif")
     if not (0 <= c_crossover <= n_channels - 1):
         raise ValueError(f"c_crossover ({c_crossover}) must lie within [0, {n_channels - 1}]")
     if orientation not in ("superficial_to_deep", "deep_to_superficial"):
@@ -550,8 +549,7 @@ def synth_vflip2_crossover(
         raise ValueError(f"n_channels must be at least 4; got {n_channels}")
     if n_samples < 64:
         raise ValueError(f"n_samples must be at least 64 for the zero-phase filter; got {n_samples}")
-    if fs <= 0 or not np.isfinite(fs):
-        raise ValueError(f"fs must be strictly positive, got {fs}")
+    require_positive_fs(fs, "synth_vflip2_crossover")
     if VFLIP2_HIGH_BAND_HZ[1] >= fs / 2.0:
         raise ValueError(
             f"fs={fs} Hz puts the high band {VFLIP2_HIGH_BAND_HZ} at or above Nyquist")

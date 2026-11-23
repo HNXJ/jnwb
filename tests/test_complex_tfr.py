@@ -168,9 +168,9 @@ class TestComplexTFRProbes:
         x = np.ones(200)
 
         # Non-positive fs
-        with pytest.raises(ValueError, match="fs must be positive"):
+        with pytest.raises(ValueError, match="complex_tfr: fs must be finite and strictly positive"):
             complex_tfr(x, fs=0.0, freqs=freqs)
-        with pytest.raises(ValueError, match="fs must be positive"):
+        with pytest.raises(ValueError, match="complex_tfr: fs must be finite and strictly positive"):
             complex_tfr(x, fs=-100.0, freqs=freqs)
 
         # Freqs above Nyquist
