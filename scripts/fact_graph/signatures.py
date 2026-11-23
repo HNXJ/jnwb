@@ -5,7 +5,6 @@ from __future__ import annotations
 import ast
 import importlib
 import inspect
-import textwrap
 from typing import Any, Dict, FrozenSet, List, Optional, Sequence, Tuple
 # Which resolver calls make a parameter stochastic is defined once, beside the resolvers,
 # and read by the rng-parameter walk and by this scan alike; the reachability wrapper below
@@ -13,6 +12,7 @@ from typing import Any, Dict, FrozenSet, List, Optional, Sequence, Tuple
 from jnwb._rng import RESOLVERS
 # The declared signal types of fact I1, read by the signature-types scan.
 from jnwb import _declarations
+from scripts.fact_graph._sources import function_tree
 from scripts.fact_graph.scheme_rng import COUNT_PREFIX, I2_UNIT_EXCUSED, I2_WRAPPER_EXCUSED, RNG_ANNOTATIONS, RNG_ARGUMENTS, RNG_KEYS, RNG_SUFFIXES, S11_EXCUSED, UNIT_FACTORS, UNIT_SUFFIXES, _POSITIONAL, _body, _callee, _public_callables, _reach
 from scripts.fact_graph.source_scans import _dotted, _final, _own_calls, _own_nodes
 
@@ -162,8 +162,7 @@ def _declares_unit(parameters: set) -> bool:
 def _own_tree(fn: Any) -> Tuple[ast.AST, int]:
     """The parsed source of ``fn`` with its first line number in its file. Raises OSError when
     the source cannot be read and SyntaxError when it does not parse."""
-    lines, first = inspect.getsourcelines(fn)
-    return ast.parse(textwrap.dedent("".join(lines))), first
+    return function_tree(fn)
 
 
 def _own_root(tree: ast.AST) -> ast.AST:

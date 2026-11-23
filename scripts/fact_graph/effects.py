@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 # The declared signal types of fact I1, read by the signature-types scan.
 from jnwb import _declarations
+from scripts.fact_graph._sources import parse_source, read_source, walk_tree
 from scripts.fact_graph.scheme_rng import _public_callables
 from scripts.fact_graph.signatures import _own_root, _own_tree, _private_helper, _public_target
 from scripts.fact_graph.source_scans import JNWB_PACKAGE, _dotted, _final, _own_calls
@@ -209,7 +210,7 @@ def _default_guess_sites(root: Path, python: Sequence[str]) -> List[Tuple[str, s
     for rel in python:
         if not rel.startswith(JNWB_PACKAGE):
             continue
-        tree = ast.parse((root / rel).read_text(encoding="utf-8"))
+        tree = parse_source(read_source(root / rel))
         module = rel[:-len(".py")].replace("/", ".")
         stack: List[str] = []
 
@@ -240,10 +241,10 @@ def _interval_preference(root: Path) -> List[str]:
     a literal. The ``trials``/``epochs``/``invalid_times`` census of the file inventory
     is prose about what a file holds, not a preference, and lives elsewhere."""
     try:
-        tree = ast.parse((root / "jnwb" / "nwb_events.py").read_text(encoding="utf-8"))
+        tree = parse_source(read_source(root / "jnwb" / "nwb_events.py"))
     except (OSError, SyntaxError):
         return [["trials preferred over epochs", "jnwb/nwb_events.py not readable"]]
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if isinstance(node, ast.FunctionDef) and node.name == "_resolve_interval_table":
             preferred = any(
                 isinstance(sub, ast.If) and isinstance(sub.test, ast.Compare)
@@ -272,11 +273,11 @@ def _layout_bases(root: Path) -> List[str]:
     electrode count or from the shape guess, with the schema time-first rule for types
     without an electrode region, and from nothing else."""
     try:
-        tree = ast.parse((root / "jnwb" / "nwb_inspect.py").read_text(encoding="utf-8"))
+        tree = parse_source(read_source(root / "jnwb" / "nwb_inspect.py"))
     except (OSError, SyntaxError):
         return [["layout from electrode count, shape guess otherwise",
                  "jnwb/nwb_inspect.py not readable"]]
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if isinstance(node, ast.FunctionDef) and node.name == "_resolve_layout":
             bases = {part.value for ret in ast.walk(node)
                      if isinstance(ret, ast.Return)
@@ -335,8 +336,8 @@ def cache_decisions_scan(root: Path, python: Sequence[str]) -> Tuple[int, List[L
         if not rel.startswith(JNWB_PACKAGE):
             continue
         examined += 1
-        tree = ast.parse((root / rel).read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
+        tree = parse_source(read_source(root / rel))
+        for node in walk_tree(tree):
             if isinstance(node, ast.Call) and _final(node.func) in CACHE_CALLS:
                 found.append([rel, f"line {node.lineno}: calls {_final(node.func)}"])
     return examined, sorted(found)

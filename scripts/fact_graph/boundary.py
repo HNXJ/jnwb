@@ -7,6 +7,7 @@ import io
 import tokenize
 from pathlib import Path
 from typing import Any, Callable, Dict, FrozenSet, List, Optional, Sequence, Tuple
+from scripts.fact_graph._sources import parse_source, read_source, walk_tree
 from scripts.fact_graph.scheme_rng import UNIT_SUFFIXES
 from scripts.fact_graph.source_scans import JNWB_PACKAGE, _final
 
@@ -99,7 +100,7 @@ def _boundary_default_lists(tree: ast.AST) -> Dict[str, List[Dict[str, Tuple[str
     """Each function or method name defined in one module, mapped to one literal-default
     map per definition (``_literal_defaults``), in definition order."""
     found: Dict[str, List[Dict[str, Tuple[str, Any]]]] = {}
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             found.setdefault(node.name, []).append(_literal_defaults(node))
     return found
@@ -174,14 +175,14 @@ def _boundary_definitions(tree: ast.AST) -> Dict[str, List[Tuple[Tuple[str, ...]
     ``staticmethod`` whatever its name, and every parameter's name. A name defined twice with
     the same lists appears once."""
     receivers = set()
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if isinstance(node, ast.ClassDef):
             for method in node.body:
                 if (isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef))
                         and "staticmethod" not in {_final(d) for d in method.decorator_list}):
                     receivers.add(method)
     definitions: Dict[str, List[Tuple[Tuple[str, ...], FrozenSet[str]]]] = {}
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         args = node.args
@@ -206,7 +207,7 @@ def _break_regions(source: str, tree: ast.AST) -> List[Tuple[int, int]]:
     except (SyntaxError, tokenize.TokenError):
         return regions
     spans: Dict[int, int] = {}
-    for node in ast.walk(tree):
+    for node in walk_tree(tree):
         if isinstance(node, ast.stmt):
             body = getattr(node, "body", None)
             end = body[0].lineno - 1 if isinstance(body, list) and body else node.end_lineno
@@ -252,7 +253,7 @@ def boundary_unit_scan(root: Path, python: Sequence[str]) -> Tuple[Dict[str, int
     callee_maps: Dict[str, List[Dict[str, Tuple[str, Any]]]] = {}
     trees: Dict[str, ast.AST] = {}
     for rel in files:
-        trees[rel] = ast.parse((root / rel).read_text(encoding="utf-8"))
+        trees[rel] = parse_source(read_source(root / rel))
         for name, lists in _boundary_definitions(trees[rel]).items():
             definitions.setdefault(name, []).extend(lists)
         for name, maps in _boundary_default_lists(trees[rel]).items():
@@ -260,10 +261,10 @@ def boundary_unit_scan(root: Path, python: Sequence[str]) -> Tuple[Dict[str, int
     examined: Dict[str, int] = {"edges": 0, "excused": 0}
     found: List[List[str]] = []
     for rel in files:
-        regions = _break_regions((root / rel).read_text(encoding="utf-8"), trees[rel])
+        regions = _break_regions(read_source(root / rel), trees[rel])
         excused = lambda line: any(start <= line <= end for start, end in regions)  # noqa: E731
         callers = _enclosing_defaults(trees[rel])
-        for node in ast.walk(trees[rel]):
+        for node in walk_tree(trees[rel]):
             if not isinstance(node, ast.Call):
                 continue
             func = node.func

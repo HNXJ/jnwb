@@ -7,6 +7,7 @@ import json
 import re
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
+from scripts.fact_graph._sources import parse_source, read_source, walk_tree
 from scripts.fact_graph.source_scans import _bindings, _final, _target
 
 # ----------------------------------------------------------------------- owned rules
@@ -202,8 +203,8 @@ def _modified_nodes(nodes: Sequence[ast.AST]):
 def _owned_nodes(source: str) -> List[Tuple[int, str, str, str]]:
     """Each node in one module that matches a registered expression, as (line, enclosing
     function, rule, expression text), before owners and exemptions are removed."""
-    tree = ast.parse(source)
-    nodes = list(ast.walk(tree))  # walked once, read by every matcher below
+    tree = parse_source(source)
+    nodes = walk_tree(tree)
     bound = _bindings(tree)
     scope = _scopes(tree)
     parents = {child: node for node in nodes for child in ast.iter_child_nodes(node)}
@@ -287,7 +288,7 @@ def owned_rule_scans(root: Path, tracked: Sequence[str]) -> Tuple[Dict[str, int]
             continue
         figure = rel in FIGURE_FILES or rel.startswith(FIGURE_TREES)
         try:
-            units = _owned_units(rel, (root / rel).read_text(encoding="utf-8"))
+            units = _owned_units(rel, read_source(root / rel))
         except (ValueError, KeyError) as error:
             owned.append([rel, f"cannot be read ({error})"])
             continue
@@ -295,7 +296,7 @@ def owned_rule_scans(root: Path, tracked: Sequence[str]) -> Tuple[Dict[str, int]
             try:
                 reasons = owned_rule_sites(rel, source)
                 functions = sum(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-                                for n in ast.walk(ast.parse(source))) if figure else 0
+                                for n in walk_tree(parse_source(source))) if figure else 0
             except SyntaxError as error:
                 owned.append([rel, f"{prefix}cannot be parsed ({error.msg})"])
                 continue
