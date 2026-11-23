@@ -725,7 +725,7 @@ def classify_layer_from_depth(
 
     Raises:
         ValueError: ``depth_unit`` is not a length unit or a spelling of one, or ``threshold`` is
-            negative. Data the table cannot place (an unsupported unit declared in the table, a
+            negative, NaN or infinite. Data the table cannot place (an unsupported unit declared in the table, a
             missing, NaN or infinite coordinate) still gives 'Unknown'.
     """
     _declared_depth_axis(depth_axis, shallow_end, electrodes_df, "classify_layer_from_depth")

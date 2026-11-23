@@ -1,1 +1,1 @@
-- `jnwb/addressing.py`: `classify_layer_from_depth` refuses a NaN or Inf `threshold`; the error reads `threshold must be finite and not negative`.
+- `jnwb/addressing.py`: `classify_layer_from_depth` refuses a NaN or Inf `threshold`, which gave 'Unknown' per channel.
