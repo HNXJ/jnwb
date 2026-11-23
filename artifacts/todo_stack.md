@@ -8,7 +8,7 @@ closed on 2026-11-08 (tag `v0.2.16`, `0aa220ba`; tag CI/CD run 42513450995 succe
 verified, GitHub release body checked by `release_gate.py` STEP 0d). Items run fastest first.
 
 Thinning and matching from the 2026-11-02 audits, each named by SHA: seven models at `7ca5b9a6` (17-83 to 17-105) and eight auditors at `9fd2b4bd` (P-216 rows, 17-128, 17-129). Lanes form at 0.2.16's close; 17-79 (which rewrote `_xflip.py`
-and `_zflip.py`) landed at e6baac97, so 17-94 is unblocked. Each item applies the jarness standards: `match-cleanup` for
+and `_zflip.py`) landed at e6baac97. Each item applies the jarness standards: `match-cleanup` for
 removals, `match-code-style` for code, `match-writing-style` for prose, `match-visual-style` for figures.
 
 ## How this stack is executed
@@ -33,13 +33,6 @@ Writes: `artifacts/benchmarks/realdata/isi_cv_recompute.py`, `artifacts/benchmar
 - 17-144: three 16-12 commits on `E:/cl-jnwb16e` (0e06993c, 9980f58d, 5fa63dd3) for jaxfne-orchestrator.
   Observed 2026-11-12: path missing; SHAs absent from this clone and `origin`. Check: each on `dev` in that
   order, suite passes, jaxfne-orchestrator told.
-
-### 17-94 One home per helper in jnwb
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/**/*.py`.
-- 17-94: landed 2026-11-21 (merge 9427c84a): `_units.require_positive_fs` (bandpass, notch, spectral; NaN and Inf refused by name), `nwb_write._sha256` is `paths.sha256_file`, one `_onset_counts` in `_bins.py`, tests in `tests/test_fs_nonfinite.py`; `_decibels` is already one home (`_decibels.py:15,24,52`). Landed 2026-11-23 (merge 950a9fb5, verifier ACCEPT on 029a6c4d): 16 `fs` sites on the helper, which also refuses a string `fs`; the grep returns the helper's docstring and `spectral/_psd.py:74` in `compute_psd`, kept because `compute_psd` is frozen (`frozen_validated.json`), routed only with its re-verification; `vflip2_from_lfp` keeps its earlier real-number check, unnamed. The 8 `_require_*` in `jnwb/spectral` are distinct checks (2026-11-23, author's probe `artifacts/evidence/0.2.17/probe_pair_vs_trace_17-94.py`: `_trace` and `_pair` differ on a one-sided empty, string, 0-d and complex input, against the inventory's REDUNDANT-WITH). Landed 2026-11-23 (merge 6bcf22cd, verifier ACCEPT on a58137a2): `partial_coherence` on `_require_1d_traces`; the inventory's other REDUNDANT-WITH pairs each differ (probe `artifacts/evidence/0.2.17/probe_inline_1d_17-94.py`, section B). Left: `cross_area_coherence` (`_coupling.py:417`) retypes the 1-D and length checks, kept because it is frozen; `_window_rows` in `_xflip.py:96` and `_zflip.py:178` are two checks, not one (a malformed pair raises TypeError in xflip and ValueError in zflip, zflip refuses fewer than 3 rows, `np.bool_` and messages differ); the private helpers the 17-79 splits added in `_xflip.py`, `_zflip.py`, `_vflip.py`, `jrsa/__init__.py` and `_psi.py`, unsurveyed. Check: one definition each, the grep returns one site, the suite passes.
 
 ### 17-99 One home per invariant across rule and doc files
 
@@ -72,7 +65,7 @@ Writes: `scripts/build_fact_graph.py`, `scripts/fact_graph/*.py`, `tests/test_fa
 ### 17-128 Docstrings and constants against the code style
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-94 (shares `jnwb/**/*.py`).
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `jnwb/**/*.py`.
 - 17-128: landed 2026-11-21 (merge c8bbee69): Raises sections on 24 public functions, filtering Args with units, 20 tolerance literals named in 13 modules (values equal, signatures unchanged). Left: Raises for `inspect`, `bipolar_reference`, `granger`, `assert_mergeable` (an INTERNAL name in `tests/test_skill_symbol_coverage.py`; documenting it needs a skill row), helper-raised exceptions and `FileNotFoundError` not listed; the `_vflip2` band literals and the `_vflip.py`, `_xflip.py`, `_bins.py` sites, whose code the curation, vflip and xflip calibration receipts hash (a change needs the calibrate script rerun); `harmonic_analysis` (frozen); the 96 float defaults in the signatures of the 163 functions in `jnwb.__all__` keep their text (ruled 2026-11-22: the Check covers tolerance literals and raise sites only). From P-216-25 (the names went to roadmap 17-130): 23 of those 163 functions raise in their own body without a Raises section (AST count, 2026-11-21); unnamed band constants in `_vflip2.py`; 98 uncited float defaults and 43 tolerance literals at P-216-25 (`_psd.py:217` `fundamental_freq * 0.1`). Check: each public raise site has a Raises entry, each tolerance literal is a named constant with its source, the suite passes.
 
