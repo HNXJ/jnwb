@@ -5,9 +5,9 @@ file tracks them and is the work plan toward the RC. Scope source: `artifacts/pr
 item text and Checks: `artifacts/todo_stack.md`; rulings: `artifacts/rulings/2026-11-22.md` and
 `artifacts/rulings/standing.md`. Update a row in the commit that changes it; the update log holds history.
 
-Current (2026-11-22): **22.5/100, diagnostic** (Q3; 0.5 of it is the S4 denominator after 17-102 left the plan, not a closure; 5 is 17-97); gates 0 of 6 complete. `origin/dev` =
-`68995c90` (pushed under Hamm's one-time override; **CI/CD pending, not verified**; no further override
-is authorized). Open stack: one row (`17-144-src`). Owner decisions: section 9.
+Current (2026-11-23): **27.5/100, diagnostic** (Q3; 0.5 of it is the S4 denominator after 17-102 left the plan, not a closure; 17-96 and 17-142 count once the suite at the integration tip passes); gates 0 of 6 complete. `origin/dev` =
+`c52d64cb`, CI green (push 45093499657, pull request 45093504959). Integration tip on `_temp_rc-integration`, awaiting
+its full suite. Open stack: one row (`17-144-src`). Owner decisions: section 9.
 
 ## 1. RC target
 
@@ -56,8 +56,6 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 |---|---|---|---|---|---|
 | 0 | Suite at the merged tip (17-97, 17-101, 17-157, 17-158), push, CI | integration | integrator | none | CI green at `68995c90` (attempt 2) and `c52d64cb`; if red: logs, diagnose, repair, normal gates, no override |
 | 2 | 17-95 test git sites | 17-95 (S2) | `jnwb-actor-haiku` | 0 | listed sites merged 1eeda9d2; convert or name about 59 test git lines and the stored-argv calls |
-| 3 | `Union` in `scripts/gates/boundary.py:432` | 17-142 (S2) | `jnwb-actor-haiku` | 2 | after 17-95 merges |
-| 4 | Deprecate the three public names | 17-96 (S2) | `jnwb-actor` | 0 | warning and retained behaviour by test; changelog fragment; two reviews |
 | 6 | Tracked rules cite tracked roles | 17-101 (S4) | integrator | D4 | merged 22eca3d2; two live hits left, both owner-gated |
 | 7 | Gate-15 follow-ups and tests-4 | 17-147 | `jnwb-actor-haiku` | 0 | D1 prose narrowed to what `obligation_losses` checks; D2 ancestor-tag test; `_refusal` |
 | 8b | Kernel start survives a port race on Windows | 17-158 | `jnwb-actor` | 0 | POSIX done (`ipc`); Windows retry with a planted collision; `try/finally`; precondition assert |
@@ -84,7 +82,7 @@ or only tasks blocked on section 9 remain.
 
 | Class | Items |
 |---|---|
-| Verified closed (receipts in the update log) | 17-79, 17-97, 17-98, 17-103, 17-154 (section 7), 17-157; open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
+| Verified closed (receipts in the update log) | 17-79, 17-97, 17-98, 17-103, 17-154 (section 7), 17-157, 17-96, 17-142 (both pending the suite at the integration tip); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
 | Landed, item still open | 17-94, 17-95, 17-100, 17-104, 17-128, 17-142, 17-147 (partials 2026-11-21 and 2026-11-22) |
 | Pending verification | full suite and CI at the merged tip |
 | Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4) |
@@ -99,7 +97,7 @@ the plan's `items` list; 17-102 left it on 2026-11-22 (Q3), so S4 counts four it
 | # | Plan scope row | Pts | Items | Closed | Earned |
 |---|---|---|---|---|---|
 | S1 | The largest functions split below a stated complexity | 10 | ~~17-79~~ | 1 of 1 | 10 |
-| S2 | One home per helper in jnwb, scripts and tests; dead code and unused constants removed | 10 | 17-94, 17-95, 17-96, 17-142 | 0 of 4 | 0 |
+| S2 | One home per helper in jnwb, scripts and tests; dead code and unused constants removed | 10 | 17-94, 17-95, ~~17-96~~, ~~17-142~~ | 2 of 4 | 5 |
 | S3 | Tests named by subject, not by the event that produced them | 10 | ~~17-97~~, ~~17-98~~ | 2 of 2 | 10 |
 | S4 | Docs and examples thinned; one home per invariant | 10 | 17-99, 17-100, 17-101, ~~17-103~~ | 1 of 4 | 2.5 |
 | S5 | Code and prose matched to the style standards; the fact graph build made faster | 10 | 17-104, 17-127, 17-128, 17-129 | 0 of 4 | 0 |
@@ -156,3 +154,4 @@ blocks the critical path.
 | 2026-11-22 | this commit | Hamm ruled Q1 to Q6 and goal mode; `release_plan.json` reconciled (17-102 to 0.2.20; 17-153, 17-157, 17-158 into 0.2.17); 17-104 and 17-129 Checks narrowed as ruled; 17-154 closed (verifier ACCEPT). Score 17.5/100 diagnostic, the change from the S4 denominator only. |
 | 2026-11-22 | merge `cfa5ab9f` | 17-97 closed: slice 2 (`325481d3`) merged the seven laminar files; collected 11213 before and after, name multiset equal, verifier ACCEPT with a full suite at `325481d3` (11092 passed, 0 failed). S3 2 of 2; score 22.5/100 diagnostic. |
 | 2026-11-22 | merges `22eca3d2`, `84c34d56`, `7ccd4001` | CI green at `c52d64cb` (push 45093499657, pull request 45093504959). 17-101 merged, remainder owner-gated (D4). 17-157 closed: ruff 0.16.10 C901 step on the ubuntu 3.12 leg; a planted complexity-41 function fails it; verifier ACCEPT on `2a9d98f7` after rejecting a CI-wide fail clause. 17-158 POSIX repaired (`ipc`), Windows open. |
+| 2026-11-23 | merges `1eeda9d2`, `bd425e49`, `7e1fc279` | 17-95 listed sites merged (verifier ACCEPT, 274 rows split identically by old and new splitter), remainder named. 17-96 closed: three names deprecated with tests, palette and `DEFAULT_BANDS` kept importable and live, `nwb_read_io` re-frozen at `03fdbc45` (independent kills M1 to M4); verifier and critic, ACCEPT on `7c7dad80`. 17-142 closed: ruff F811/F821/F841 zero over `jnwb/` and `scripts/`. A suite at `eda122a6` timed out after 3600 s in the machine suite lock; never run. Superseded lanes 17-103 and 17-143 archived to `F:/warehouse/jnwb_branch_archive/superseded_2026-11-23.bundle` and deleted from `origin`. Score 27.5/100 diagnostic. |

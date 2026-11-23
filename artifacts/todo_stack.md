@@ -76,13 +76,6 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/stack_parse.py`, `scripts/release_gate.py`, `scripts/build_fact_graph.py`, `scripts/learning_gate.py`, `scripts/build_dashboard.py`, `scripts/docs_form_gate.py`, `scripts/reconstruct_state.py`, `scripts/measure_peak_memory.py`, `scripts/mutation_harness.py`, `scripts/verify_lane.py`, `scripts/gates/boundary.py`, `tests/conftest.py`, `tests/test_*.py`.
 - 17-95: landed 2026-11-21 (merge 91424ae7) and 2026-11-22 (merge 1eeda9d2, lane `7ec6279b`, verifier ACCEPT): every site the item listed is on `stack_parse.cells` or `gates.boundary.git`; the kept-raw sites keep their reasons (byte capture, injected runner, `reconstruct_state.py` copied alone, `verify_lane`, `mutation_harness`, `measure_peak_memory`, `obligation_diff`); `build_dashboard` keeps the last cell of a row with no closing pipe (pinned by test); function-scope `from scripts` imports need a module-level root guard (new wheel-leg check). Left: about 59 raw git lines in 27 test files, plus calls through a stored argv list (`test_harness_adversarial.py:2388-2391`, `test_release_recovery.py:242-245`), each a repository call, a fixture builder or a mock; `verify_lane.py:290` and `reconstruct_state.py:224` unnamed; 14 unguarded function-scope `from tests` imports in 8 files. Check: each remaining test git site converted or named with its reason; `harness_gate.py` 22 of 22; `tests/test_table_cells.py` and `tests/test_test_imports_survive_the_wheel_leg.py` pass.
 
-### 17-96 Dead code and unused constants
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/visual_qc.py`, `jnwb/artifact_repair.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/nwb_io.py`, `tests/test_no_unreferenced_symbols.py`, a deprecation test file, `artifacts/changelog.d/*.md`.
-- 17-96: five unused `MADELANE_*` constants held by an allowlist (`visual_qc.py:21-25`); `__main__` self-tests no test runs (`artifact_repair.py:468`, `onset_fitting.py:327`, 115 lines); `TFRAnalyzer.LEGACY_VIZ_BANDS` read only by tests; a third band table `DEFAULT_BANDS`; `nwb_read_io(mode=)` accepts one value. Ruled 2026-11-22: the three public names are deprecated in 0.2.17, behaviour kept; removal in 0.2.18 needs a check of compatibility commitments and downstream use (roadmap 17-155). Check: the internal four removed or moved into tests, the allowlist shrinks; each public name warns `DeprecationWarning` and returns its old value or behaviour, by test; a changelog fragment announces it; the suite passes.
-
 ### 17-99 One home per invariant across rule and doc files
 
 Release: deferred-0.2.17.
@@ -124,13 +117,6 @@ Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: 17-94 (shares `jnwb/**/*.py`).
 Writes: `jnwb/**/*.py`.
 - 17-128: landed 2026-11-21 (merge c8bbee69): Raises sections on 24 public functions, filtering Args with units, 20 tolerance literals named in 13 modules (values equal, signatures unchanged). Left: Raises for `inspect`, `bipolar_reference`, `granger`, `assert_mergeable` (an INTERNAL name in `tests/test_skill_symbol_coverage.py`; documenting it needs a skill row), helper-raised exceptions and `FileNotFoundError` not listed; the `_vflip2` band literals and the `_vflip.py`, `_xflip.py`, `_bins.py` sites, whose code the curation, vflip and xflip calibration receipts hash (a change needs the calibrate script rerun); `harmonic_analysis` (frozen); the 96 float defaults in the signatures of the 163 functions in `jnwb.__all__` keep their text (ruled 2026-11-22: the Check covers tolerance literals and raise sites only). From P-216-25 (the names went to roadmap 17-130): 23 of those 163 functions raise in their own body without a Raises section (AST count, 2026-11-21); unnamed band constants in `_vflip2.py`; 98 uncited float defaults and 43 tolerance literals at P-216-25 (`_psd.py:217` `fundamental_freq * 0.1`). Check: each public raise site has a Raises entry, each tolerance literal is a named constant with its source, the suite passes.
-
-### 17-142 Unused names, stale pointers and two duplicate helpers
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-95 (lane `_temp_17-95-left`, WIP `a01f06c8` on `origin`, edits `scripts/gates/boundary.py`).
-Writes: `scripts/gates/boundary.py`.
-- 17-142: landed 2026-11-22 (merge ff703205): 12 unused imports removed; 37 kept in `scripts/harness_gate.py` with `# noqa: F401` naming the test that reads each through the module; one module-level `_mean_over` in `_granger.py` (granger outputs bitwise-equal); the three stale pointers fixed. Left: `Union` undefined in an annotation (`scripts/gates/boundary.py:432`). Check: ruff F811, F821 and F841 report zero over `jnwb/` and `scripts/`, F401 reports no name outside a re-exporting `__init__.py`, each named pointer resolves, each helper has one definition; the suite passes.
 
 ### 17-129 Prose against the writing style
 
