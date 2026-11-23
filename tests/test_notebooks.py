@@ -33,14 +33,17 @@ KERNEL_START_TIMEOUT_S = 180  # a kernel under 24 busy processes needed over 60 
 CELL_TIMEOUT_S = 300  # per cell; the first import cell took 120 s under 24 busy processes
 KERNEL_SHUTDOWN_TIMEOUT_S = 15  # graceful stop, then the manager kills the process
 
+# A TCP kernel that loses a port to another process dies at start; it is started again on fresh
+# ports, within the same summed bounds. zmq words the bind failure differently per platform.
+KERNEL_START_ATTEMPTS = 3
+PORT_TAKEN = ("Address in use", "Address already in use")
+
 
 _LAST_RUN = {}  # the manager and budget of the latest _execute, for the tests below
 
 
 def _execute(path, tmp_path, monkeypatch, kernel_argv=None):
     """Run the notebook top to bottom in a kernel on this tree; return it with its outputs."""
-    from jupyter_client.manager import AsyncKernelManager
-
     nb = nbformat.read(path, as_version=4)
     repo_root = str(NOTEBOOK_DIR.parent.parent)
     # The kernel inherits this environment and runs in tmp_path, so without the repo root on
@@ -61,43 +64,74 @@ def _execute(path, tmp_path, monkeypatch, kernel_argv=None):
     if os.name == "posix":
         ipc_dir = tempfile.mkdtemp(prefix="jnwb-kernel-")
         ipc = {"transport": "ipc", "ip": os.path.join(ipc_dir, "k")}
-    km = AsyncKernelManager(kernel_name="python3", **ipc)
-    km.kernel_spec.argv[0] = sys.executable
-    if kernel_argv is not None:
-        km.kernel_spec.argv = list(kernel_argv)
-    km.shutdown_wait_time = KERNEL_SHUTDOWN_TIMEOUT_S
-    client = nbclient.NotebookClient(
-        nb,
-        timeout=CELL_TIMEOUT_S,
-        startup_timeout=KERNEL_START_TIMEOUT_S,
-        km=km,
-        resources={"metadata": {"path": str(tmp_path)}},
-    )
+    try:
+        return _run_bounded(path, nb, tmp_path, ipc, kernel_argv)
+    finally:
+        if ipc:
+            shutil.rmtree(ipc_dir, ignore_errors=True)
+
+
+def _run_bounded(path, nb, tmp_path, ipc, kernel_argv):
+    from jupyter_client.manager import AsyncKernelManager
+
+    def new_client():
+        km = AsyncKernelManager(kernel_name="python3", **ipc)
+        km.kernel_spec.argv[0] = sys.executable
+        if kernel_argv is not None:
+            km.kernel_spec.argv = list(kernel_argv)
+        km.shutdown_wait_time = KERNEL_SHUTDOWN_TIMEOUT_S
+        _LAST_RUN.update(km=km)
+        return nbclient.NotebookClient(
+            nb,
+            timeout=CELL_TIMEOUT_S,
+            startup_timeout=KERNEL_START_TIMEOUT_S,
+            km=km,
+            resources={"metadata": {"path": str(tmp_path)}},
+        )
+
     # Backstop for a stall the bounds above do not reach: the run goes to a worker thread, and a
     # kernel that outlives the summed bounds is killed and fails this test by name.
     budget = KERNEL_START_TIMEOUT_S + CELL_TIMEOUT_S * len(nb.cells) + KERNEL_SHUTDOWN_TIMEOUT_S
-    _LAST_RUN.update(km=km, budget=budget)
-    outcome = {}
+    _LAST_RUN.update(budget=budget, starts=0)
+    outcome, clients = {}, []
+    abandoned = threading.Event()
 
     def run():
-        try:
-            outcome["nb"] = client.execute()
-        except BaseException as exc:
-            outcome["error"] = exc
+        # The kernel's stderr goes to a file so a lost port bind can be told from other failures;
+        # it is echoed to this process's stderr whenever the run fails.
+        for attempt in range(KERNEL_START_ATTEMPTS):
+            log = tmp_path / f"kernel_stderr_{attempt}.txt"
+            try:
+                clients.append(new_client())
+                _LAST_RUN["starts"] = attempt + 1
+                with open(log, "w") as stderr:
+                    outcome["nb"] = clients[-1].execute(stderr=stderr)
+                outcome.pop("error", None)
+                return
+            except BaseException as exc:
+                outcome["error"] = exc
+            text = log.read_text(errors="replace") if log.exists() else ""
+            sys.stderr.write(text)
+            lost_port = isinstance(outcome["error"], RuntimeError) and any(
+                s in text for s in PORT_TAKEN
+            )
+            if not lost_port or abandoned.is_set():
+                return
 
     worker = threading.Thread(target=run, daemon=True)
     worker.start()
     worker.join(budget)
-    if ipc:
-        shutil.rmtree(ipc_dir, ignore_errors=True)
+    if worker.is_alive():
+        abandoned.set()
     # A failed start leaves nbclient's exit hook behind, which then asserts on a dead manager.
     # The hook is a private attribute of nbclient 0.11; without it there is nothing to remove.
-    hook = getattr(client, "_cleanup_kernel", None)
-    if hook is not None:
-        atexit.unregister(hook)
+    for client in list(clients):
+        hook = getattr(client, "_cleanup_kernel", None)
+        if hook is not None:
+            atexit.unregister(hook)
     if worker.is_alive():
         try:
-            km.provisioner.process.kill()
+            _LAST_RUN["km"].provisioner.process.kill()
         except Exception:
             pass
         pytest.fail(f"{path.name}: kernel did not finish within {budget} s", pytrace=False)
@@ -151,7 +185,6 @@ def test_stalled_cell_fails_within_the_cell_bound(tmp_path, monkeypatch):
     assert time.monotonic() - began < 120 + 3 + 2 + 30
 
 
-@pytest.mark.skipif(os.name != "posix", reason="Windows kernels have only the TCP transport")
 def test_kernel_starts_when_another_process_holds_its_chosen_port(tmp_path, monkeypatch):
     # The race a parallel worker causes: the manager's first port choice lands on a port that
     # is already bound and listening by the time the kernel binds it.
@@ -178,6 +211,14 @@ def test_kernel_starts_when_another_process_holds_its_chosen_port(tmp_path, monk
     finally:
         held.close()
     assert out.cells[0].outputs[0]["text"].strip() == "42"
+    if os.name == "posix":
+        # IPC takes no port, so the held one never reaches the kernel.
+        assert _LAST_RUN["km"].transport == "ipc"
+    else:
+        # TCP: the first kernel was handed the held port and lost it; a second start on fresh
+        # ports ran the cell.
+        assert chosen, "the held port was never handed out, so the check below passes on nothing"
+        assert _LAST_RUN["starts"] == 2
 
 
 def _silent_kernel_argv(tmp_path):
@@ -197,6 +238,7 @@ def test_kernel_that_never_starts_fails_within_the_start_bound(tmp_path, monkeyp
     # Under nbclient's own 60 s default, so a dropped start bound shows.
     assert time.monotonic() - began < 30
     assert _LAST_RUN["km"].shutdown_wait_time == 1
+    assert _LAST_RUN["starts"] == 1  # only a lost port bind starts the kernel again
 
 
 def test_bounds_stay_finite_and_small():
