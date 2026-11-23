@@ -16,6 +16,7 @@ from jnwb.spiking import (
     pairwise_phase_consistency,
     gaussian_smooth_rate,
 )
+import jnwb
 
 
 class TestComputeResponseMetrics:
@@ -985,3 +986,44 @@ class TestNetworkBurstIndex:
             network_burst_index([np.array([0.1])], (0.0, 1.0), bin_ms=10.0, threshold_hz=5.0)
         with pytest.raises(ValueError, match="threshold_hz"):
             network_burst_index([np.array([0.1])], (0.0, 1.0), bin_ms=10.0, threshold_hz=0.0, min_duration_ms=0.0)
+
+
+class TestSpikeMIBinGrid:
+    def test_mi_bins_match_bin_spikes(self):
+        from jnwb.connectivity import bin_spikes, spike_mutual_information
+
+        rng = np.random.default_rng(0)
+        s1 = np.sort(rng.uniform(0, 1, 50))
+        s2 = np.sort(rng.uniform(0, 1, 50))
+        window = (0.0, 1.05)  # 30 whole bins; a partial last bin is refused
+        bin_ms = 35.0
+        n_bins = bin_spikes(s1, window=window, bin_size_ms=bin_ms).shape[1]
+        spike_mutual_information(s1, s2, time_window=window, bin_size_ms=bin_ms)
+        bin_sec = bin_ms / 1000.0
+        expected = int(round((window[1] - window[0]) / bin_sec))
+        assert n_bins == expected
+
+
+class TestFinalAuditRecurrence:
+
+    def test_psth_bins_match_bin_spikes(self):
+        from jnwb.analyzers import UnitAnalyzer
+        from jnwb.connectivity import bin_spikes
+
+        st = np.sort(np.random.default_rng(0).uniform(0, 0.6, 50))
+        psth = UnitAnalyzer.psth(
+            st, trial_onsets=np.array([0.3]), window_ms=(-100, 530), bin_size_ms=7,
+        )
+        bs = bin_spikes(st, window=(-0.1, 0.53), bin_size_ms=7)
+        assert len(psth["psth"]) == bs.shape[-1]
+
+    def test_psth_refuses_a_window_that_is_not_whole_bins(self):
+        """600 ms at 7 ms made 86 bins 6.98 ms wide, each rate divided by 7 ms."""
+        from jnwb.analyzers import UnitAnalyzer
+
+        with pytest.raises(ValueError, match=r"window_ms=\(-100, 495\) or window_ms=\(-100, 502\)"):
+            UnitAnalyzer.psth(np.array([0.31]), np.array([0.3]), bin_size_ms=7, window_ms=(-100, 500))
+
+    def test_spike_mutual_information_empty_raises(self):
+        with pytest.raises(ValueError, match="non-empty"):
+            jnwb.spike_mutual_information([], [0.1], (0.0, 1.0))

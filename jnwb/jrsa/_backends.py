@@ -37,7 +37,7 @@ def _get_backend(backend: str, device: str) -> dict:
     the executing backend is NumPy whatever was requested. This used to report the
     *request*: `jrsa(device='cuda', backend='cupy')` recorded
     `{'backend': 'cupy', 'device': 'cuda'}` for arithmetic that ran on the CPU, and
-    `_autodetect_backend` picked a name from what happened to be importable, which
+    the autodetect step picked a name from what happened to be importable, which
     likewise changed the record and nothing else. `parameters['backend']` still carries
     what the caller asked for; `execution['backend']` now carries what ran.
 

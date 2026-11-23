@@ -2,9 +2,8 @@
 # Full jnwb suite with artifacts/state.md regenerated at the current HEAD first.
 # Usage: jnwb_suite.sh <repo-or-lane-dir> <log-file> [basetemp]
 # The optional basetemp goes to pytest as an explicit argument, so it never leaks into
-# the harness's subprocess pytest calls (a PYTEST_ADDOPTS env var would). On this machine
-# a basetemp outside the repo on the repo's own drive is required: `git clone --local`
-# across drives fails with "Improper link".
+# the harness's subprocess pytest calls (a PYTEST_ADDOPTS env var would). A basetemp on the
+# repo's own drive keeps the mutation test's clone hardlinked; across drives it copies.
 # pytest runs through the machine suite lock when $JNWB_SUITE_LOCK (default $HOME/.claude/bin/suite_lock.py)
 # exists, `python <lock> --label jnwb -- <pytest command>`; otherwise directly. Either way it prints which.
 # The three doc-form tests run first; a failure there stops the run before the full suite.
@@ -31,7 +30,7 @@ fi
 echo "doc-form tests passed"
 python scripts/reconstruct_state.py >/dev/null || { echo "reconstruct failed"; exit 2; }
 python scripts/reconstruct_state.py --check >/dev/null || { echo "state check failed"; exit 2; }
-pytest_cmd=(python -m pytest tests/ -q -n 12 -p no:cacheprovider -rf)
+pytest_cmd=(python -m pytest tests/ -q -n 12 -p no:cacheprovider -rf -o faulthandler_timeout=900)
 [ -n "$basetemp" ] && pytest_cmd+=(--basetemp "$basetemp")
 lock="${JNWB_SUITE_LOCK:-$HOME/.claude/bin/suite_lock.py}"
 if [ -f "$lock" ]; then

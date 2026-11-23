@@ -77,7 +77,7 @@ def check_no_project_identifiers_in_code(repo_root: Optional[Path] = None) -> Li
 #: layer up:
 #:
 #:   "agent", "skill", "routing"  -- public capabilities; `docs/agents.md` is an entire page of them
-#:   "batch"                      -- `docs/02:11` "batch jobs", `docs/api.md` `batch_size=`
+#:   "batch"                      -- `docs/reading_nwb.md:33` "batch jobs", `docs/api.md` `batch_size=`
 #:   "authority"                  -- ordinary English; its one published use left with the process skill
 #:   "actor", "critic", "verifier" -- ordinary English before they are role names here
 #:

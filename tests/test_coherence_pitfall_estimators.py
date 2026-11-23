@@ -272,7 +272,7 @@ def _aligned_band_coherence(a, b):
 #: rounded down to 0.0023. The aligned term dominates. The floor's own Monte-Carlo standard error
 #: (0.00008 at n_draws=200) is not the binding quantity. Each seed's aligned value is the mean over
 #: the three pairs. Theta and alpha share the 8 Hz bin at this segment length, so they coincide.
-#: Measured with the probe in scratchpad file _temp_e4measure_1406r.py.
+#: Measured with a probe script not retained in the repository.
 BIAS_TOLERANCE = 0.0023
 
 

@@ -18,7 +18,7 @@
         "decisions on public names that dead-code removal touches",
         "the Bastos lab simulation code and a broadband jaxfne field"
       ],
-      "items": ["15-11", "12-21", "16-12", "17-94", "17-95", "17-96", "17-97", "17-99", "17-100", "17-101", "17-102", "17-104", "17-127", "17-128", "17-129", "17-142", "17-144", "17-147", "17-150"]
+      "items": ["15-11", "12-21", "16-12", "17-94", "17-95", "17-96", "17-99", "17-100", "17-101", "17-104", "17-127", "17-128", "17-129", "17-142", "17-144", "17-147", "17-150", "17-153", "17-158"]
     },
     {
       "version": "0.2.18",
@@ -33,7 +33,7 @@
       "needs": [
         "a decision on each estimand choice and on the public parameter names"
       ],
-      "items": ["17-132", "17-131", "17-130"]
+      "items": ["17-132", "17-131", "17-130", "17-151", "17-155"]
     },
     {
       "version": "0.2.19",
@@ -63,7 +63,7 @@
       "needs": [
         "the GLO figures and results from the Bastos lab"
       ],
-      "items": []
+      "items": ["17-102", "17-156"]
     },
     {
       "version": "0.2.21",

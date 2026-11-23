@@ -189,3 +189,20 @@ def test_cross_modal_comparison_refuses_a_negative_permutation_count_by_name():
     with pytest.raises(ValueError, match="cross_modal_comparison: n_permutations"):
         jnwb.cross_modal_comparison(tfr, spikes, lag_range_ms=(-50, 50), bin_ms=BIN_MS,
                                     n_permutations=-1, rng=3)
+
+
+class TestCrossModalComparisonAxes:
+    def test_canonical_freq_time_trials_layout(self):
+        rng = np.random.default_rng(0)
+        tfr = rng.normal(size=(4, 20, 5))  # freq, time, trials
+        spike = rng.normal(size=(20, 5))
+        out = jnwb.cross_modal_comparison(tfr, spike)
+        assert "error" not in out
+        assert out["n_samples"] == 20
+
+    def test_trials_time_freq_layout_raises(self):
+        rng = np.random.default_rng(0)
+        tfr = rng.normal(size=(5, 20, 4))  # trials, time, freq: wrong
+        spike = rng.normal(size=(5, 20))
+        with pytest.raises(ValueError, match="freq, time, trials"):
+            jnwb.cross_modal_comparison(tfr, spike)

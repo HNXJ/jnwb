@@ -1,6 +1,6 @@
 # 0.2.17
 
-Context audit (2026-11-13): current priorities and midterm dependencies are indexed in `artifacts/ref/context_audit_2026-11-13.md`; existing item IDs, write scopes, release rulings and acceptance checks remain authoritative. Open blockers: OCMA-5 and 17-144-src. No item was closed or rescored by this documentation audit.
+Work order, roles, gates and owner questions toward the release candidate: `artifacts/process/release_checklist.md` (sections 4 and 9). The items below hold the defects and Checks; the checklist never restates a Check.
 
 
 Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. 0.2.16
@@ -25,12 +25,19 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
-### 17-151 Public docs state the AI-assisted and autonomous analysis direction
+### 17-158 A notebook test fails when its kernel loses a port race
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-99, 17-100 and 17-129 (shared `README.md`, `docs/index.md`, `docs/architecture.md`, `docs/agents.md`); Hamm's approval for any changed public product promise.
-Writes: `README.md`, `docs/index.md`, `docs/architecture.md`, `docs/agents.md`.
-- 17-151: public-facing language lacks the adopted `artifacts/direction.md`: jnwb is a dataset-agnostic, scientifically testable toolbox used directly by researchers and composed by AI agents for assisted or autonomous neural analysis and discovery. Prose follows the host `match-writing-style` rule; no new page. Explain the core and skills boundary, supported task routing, explicit scientific choices, independent verification and correct decline on unsupported or non-identifiable inference; project-specific hypotheses stay downstream; promise only implemented capabilities. Check: a reviewer maps each added claim to a current export, doc, test or skill, finds no duplicate API authority and no unsupported feature claim, `python scripts/docs_build.py` and `python scripts/harness_gate.py` pass, and the `## Quickstart (arrays)` section of `README.md` is unchanged.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `tests/test_notebooks.py`.
+- 17-158: CI push run 45083350199 (attempt 1) at `68995c90`: `tests/test_notebooks.py::test_stalled_cell_fails_within_the_cell_bound` failed in the installed-wheel leg, the kernel never started (`zmq.error.ZMQError: Address already in use (addr='tcp://127.0.0.1:34637')`, then "Kernel didn't respond in 120 seconds"); the pull-request run at the same SHA passed it (wheel leg 11079 passed). Log kept at `D:/tmp/jnwb_int/ci_689_failed.log`. POSIX repaired (merge 7ccd4001, lane `98b48ed0`, verifier ACCEPT): kernels start on `ipc`; the held-port test is red on the old start line under WSL with the CI library versions. Left: Windows still binds TCP ports; the temp dir is removed outside a `try/finally` (`tests/test_notebooks.py:62-90`); the held-port test does not assert its own `transport == "ipc"` precondition. Check: on Windows a kernel start that loses a port bind is retried within the cell bound, by a planted collision test that runs on Windows; the two test defects repaired.
+
+### 17-153 The fact gate reads each cited line
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/fact_gate.py`, `scripts/fact_graph/*.py`, `tests/test_fact_gate.py`.
+- 17-153: ruled 2026-11-22 (A1): the fact gate passed while eight cites in six fact rows pointed at moved lines (defect class seen three times: the 17-79 split, the 17-128 docstrings, the 2026-11-21 review). Check: for each `path:line` cite in a default row of `artifacts/fact_stack.md`, the gate fails when the cited line lacks the row's default literal; a planted stale cite turns it red; the existing fact gate passing does not close this item.
 
 ### 17-150 AST scan for NaN-passing sign guards
 
@@ -42,9 +49,9 @@ Writes: `scripts/learning_gate.py`, `tests/test_nan_passes_sign_guard_scan.py`.
 ### 17-147 Audit 2026-11-08: scripts and tests that cannot fail
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: scripts-2 only, on Hamm's ruling (open row `17-147-gate15`).
+Role: jnwb-developer. Skill: none. Blocked by: none (scripts-2 runs in lane `_temp_gate15-c901`).
 Writes: `scripts/push_guard.py`, `scripts/learning_gate.py`, `scripts/gates/state.py`, `scripts/stack_parse.py`, `scripts/measure_agents_md_duplication.py`, `scripts/vflip2_recovery.py`, `scripts/figures/generate_figures.py`, `scripts/figures/figure_registry.toml`, `tests/test_*.py`.
-- 17-147: push_guard half landed 2026-11-21 (merge 264ea80d): each spelling this item listed is denied with a failing-first test; an independent differential over 90,000 pairs found no denial loosened; any `eval` and any `$X push` are denied (accepted over-denial). Left: scripts-2 (gate 15 passes on zero tables; `tests/test_learning_gate.py:212` pins that; Hamm rules delete the check or make zero red); tests-4 at `tests/test_nwb_read_tolerance_and_visibility.py:230` (`_refusal` catches `Exception`; its callers assert `MissingRequiredNWBFieldError`); the spellings open row `17-147-guard` lists as still allowed. Check: one failing-first test per case in `tests/test_push_guard.py` (each denied from a non-jnwb cwd, or refused with a stated reason); `ruff check tests --select F401,F541,F821,F841` clean.
+- 17-147: push_guard half landed 2026-11-21 (merge 264ea80d) and closes on its bounded requirement (ruled 2026-11-22, A6): the text guard denies the set merged there; known limit, no general push enforcement claimed: a directory reached through a variable, substitution, `env -C`, `sudo -D` or `find -execdir`; cd or push spelled through quoting, `$IFS`, an alias, `send-pack` or a glob; a junction; another interpreter. The push wrapper and CI gate stay the enforcing gate. scripts-2 landed 2026-11-22 (merge 3f6f7e86, verified): zero tables pass only when `AGENTS.md` and `CONTRIBUTING.md` lose no obligation clause against the newest `v*` tag; missing base fails. Left from its verification: D1, a deleted clause passes when another clause shares its obligation word (`AGENTS.md` "never doctrine" matched "never pooled" at Jaccard 0.11), so `scripts/learning_gate.py:13-15` and `CONTRIBUTING.md:80-82` ("keep every obligation clause") overstate the check: narrow the prose to what the check does (keep every obligation word gate 15 reads in those files); D2, no test pins `newest_release_tag` to an ancestor tag (`learning_gate.py:192-200`; a creation-date mutant survives); tests-4 at `tests/test_nwb_read_tolerance_and_visibility.py:230` (`_refusal` catches `Exception`; its callers assert `MissingRequiredNWBFieldError`). Check: gate 15 fails on zero tables with a lost clause or a missing base; `_refusal` catches the named error only; `ruff check tests --select F401,F541,F821,F841` clean.
 
 ### 17-144 The jaxfne isi_cv commits
 
@@ -65,28 +72,21 @@ Writes: `jnwb/**/*.py`.
 ### 17-95 One home per helper in scripts and tests
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
+Role: jnwb-developer. Skill: none. Blocked by: none. Resume lane `_temp_17-95-left` (WIP `a01f06c8`, 8 files, pushed to `origin` 2026-11-22): merge `dev` into it first.
 Writes: `scripts/stack_parse.py`, `scripts/release_gate.py`, `scripts/build_fact_graph.py`, `scripts/learning_gate.py`, `scripts/build_dashboard.py`, `scripts/docs_form_gate.py`, `scripts/reconstruct_state.py`, `scripts/measure_peak_memory.py`, `scripts/mutation_harness.py`, `scripts/verify_lane.py`, `scripts/gates/boundary.py`, `tests/conftest.py`, `tests/test_*.py`.
 - 17-95: landed 2026-11-21 (merge 91424ae7): 10 test splitters use `stack_parse.cells`; git calls in `release_gate`, `build_dashboard`, `build_fact_graph`, `fact_graph/source_scans` and 8 test `_git` helpers use `gates.boundary.git`. Kept raw, with reason: byte capture (`learning_gate.py:131`, `release_gate.py:1534,1623`, `gates/boundary.py:579,601`, 4 test helpers); injected runner (`release_gate.py:317,782,1251,1273`); `reconstruct_state.py` (tests copy it alone); `verify_lane._git` (lane fixture clones lack `scripts/gates`); `mutation_harness._git` (its validity test forbids root from `__file__`); `measure_peak_memory._git` (a `sys.path` append changes the jnwb its control measures); `obligation_diff.py:76` (never edits `sys.path`). Left, convertible: `measure_order.py:723,725`, `vflip2_sensitivity.py:105` (function-local import), `release_gate.py:1704`, `learning_gate.py:242`, `measure_agents_md_duplication.py:35`, `gates/boundary.py:585,636`; inline `row.split("|")[n]` in 5 test files; `from scripts ...` inside test functions with no `sys.path` guard (`test_generated_files_are_byte_stable.py:179`, `test_single_agent_instruction_file.py:69`, `test_stack_edit.py:465`; the wheel leg passes them only when an earlier module appended the root). `cells` also changes `build_dashboard` on an unterminated row and a `>`-prefixed line, with no real input affected and no test. Check: one `cells()` and one `git()` each, or each remaining site named with its reason; `harness_gate.py` 22 of 22, `tests/test_table_cells.py` and `tests/test_test_imports_survive_the_wheel_leg.py` pass.
 
 ### 17-96 Dead code and unused constants
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: public names (`LEGACY_VIZ_BANDS`, `DEFAULT_BANDS`, `nwb_read_io(mode=)`) need Hamm's word.
-Writes: `jnwb/visual_qc.py`, `jnwb/artifact_repair.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/nwb_io.py`, `tests/test_no_unreferenced_symbols.py`.
-- 17-96: five unused `MADELANE_*` constants held by an allowlist (`visual_qc.py:21-25`); `__main__` self-tests no test runs (`artifact_repair.py:468`, `onset_fitting.py:327`, 115 lines); `TFRAnalyzer.LEGACY_VIZ_BANDS` read only by tests; a third band table `DEFAULT_BANDS`; `nwb_read_io(mode=)` accepts one value. Check: removed or moved into tests, the allowlist shrinks, the suite passes.
-
-### 17-97 Tests named by process, split by accident
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-95 and 17-147 (shared `tests/test_*.py`).
-Writes: `tests/test_*.py`.
-- 17-97: `test_batch_a_regressions.py`, `test_independent_audit_semantics.py`, `test_integration_0_2_1.py`, `test_audit_reproducers.py` are named by event; 29 same-subject files (`test_rng_*` 4, `test_vflip2*` 6, `test_xflip*` 7, `test_zflip*` 3, `test_api_md_*` 3, ...) split 3 to 7 ways. Check: merged by subject with the collected test count unchanged.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `jnwb/visual_qc.py`, `jnwb/artifact_repair.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/nwb_io.py`, `tests/test_no_unreferenced_symbols.py`, a deprecation test file, `artifacts/changelog.d/*.md`.
+- 17-96: five unused `MADELANE_*` constants held by an allowlist (`visual_qc.py:21-25`); `__main__` self-tests no test runs (`artifact_repair.py:468`, `onset_fitting.py:327`, 115 lines); `TFRAnalyzer.LEGACY_VIZ_BANDS` read only by tests; a third band table `DEFAULT_BANDS`; `nwb_read_io(mode=)` accepts one value. Ruled 2026-11-22: the three public names are deprecated in 0.2.17, behaviour kept; removal in 0.2.18 needs a check of compatibility commitments and downstream use (roadmap 17-155). Check: the internal four removed or moved into tests, the allowlist shrinks; each public name warns `DeprecationWarning` and returns its old value or behaviour, by test; a changelog fragment announces it; the suite passes.
 
 ### 17-99 One home per invariant across rule and doc files
 
 Release: deferred-0.2.17.
-Role: human. Skill: none. Blocked by: `AGENTS.md`, `CONTRIBUTING.md` and the fact stack need Hamm's word (shared `README.md`).
+Role: jnwb-developer. Skill: none. Blocked by: Hamm adds the spikes-and-LFP fact row (the fact stack is his; ruled 2026-11-22: the fact stack is each invariant's home, other files link); shared `README.md`.
 Writes: `.github/CONTRIBUTING.md`, `docs/architecture.md`, `README.md`, `docs/index.md`, `docs/glossary.md`, `artifacts/agents.md`.
 - 17-99: `CONTRIBUTING.md:368-380` and `docs/architecture.md:128-171` restate the invariants AGENTS.md §4 keeps in the fact stack; the spikes-and-LFP rule ("never pool") is in 17 tracked files (`git grep -il 'never pool'`) and no fact row; "four outcomes" in three of the Writes files; the Python matrix on four pages. Check: each fact has one home and the others link to it.
 
@@ -100,28 +100,21 @@ Writes: `docs/01_architecture_and_philosophy.md`, `docs/02_paths_addressing_meta
 ### 17-101 Tracked rules that depend on untracked local files
 
 Release: deferred-0.2.17.
-Role: human. Skill: none. Blocked by: Hamm decides: track or drop.
-Writes: `artifacts/process/cooperation.md`, `artifacts/rulings/standing.md`, `artifacts/benchmarks/calibration/cuda_parity_0.2.4.md`.
-- 17-101: verifier dispatch lives only in git-ignored `.claude/agents/` (`cooperation.md:79`, `standing.md:37`); 15 tracked files cite `scratchpad` or `C:/Users/nejath` paths, e.g. `cuda_parity_0.2.4.md:67` cites `scratchpad/parity44.py`. Check: `git grep -lE 'scratchpad|C:/Users/nejath'` over tracked rules returns only records.
-
-### 17-102 Showcase and calibration files nothing names
-
-Release: deferred-0.2.17.
-Role: human. Skill: none. Blocked by: Hamm rules which are receipts of record.
-Writes: `artifacts/showcases/openscope_glo/**`, `artifacts/benchmarks/calibration/curation_calibration_0.2.13_raw.json`.
-- 17-102: 14 of 24 `openscope_glo/scripts/` files (by file stem) and 8 of its 23 `receipts/` (823 KB) are named by no tracked file (`aggregate_s2` is cited by `results/s2v2/receipt.json`); `curation_calibration_0.2.13_raw.json` (49,820 lines) is named by nothing. Check: each kept file is named by a receipt or `openscope_glo.json`, the rest removed.
+Role: jnwb-developer. Skill: none. Blocked by: Hamm's word on the roadmap row that vendors the lock helper or names the dependency (`artifacts/memory.md:7`) and on the wording of the 2026-09-22 ruling (`artifacts/rulings/standing.md:20`).
+Writes: `artifacts/memory.md`, `artifacts/rulings/standing.md`.
+- 17-101: merge 22eca3d2 (lane `7ef15176`, verifier ACCEPT): rules cite `artifacts/agents/` roles, each tier bound to one; five live "scratchpad" concept uses reworded; `parity44.py` marked not retained. Left, live non-record hits: `memory.md:7` (roadmap 17-138) cites `C:/Users/nejath/.claude/bin/suite_lock.py`; `standing.md:20` (corpus-access ruling) says "the scratchpad", no path. Check: `git grep -lE 'scratchpad|C:/Users/nejath'` over tracked rules returns only records.
 
 ### 17-104 Two oversized structures
 
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/build_fact_graph.py`, `jnwb/__init__.py`.
-- 17-104: script half landed 2026-11-21 (merge 2a1814a0): `scripts/fact_graph/` and a 442-line driver; graph differs only in head, python list and claim labels 393 to 392 (a false `set(RNG_KEYS)` site). Left: `jnwb/__init__.py` imports submodules eagerly beside `_lazy_exports` (import at 0.2.16: 11775 ms warm median, 70076 ms cold, 1381 modules, `artifacts/benchmarks/performance/import_breakdown.json`); `scripts/fact_graph/__init__.py` is committed with CRLF (the EOL guard restores it; needs Hamm's word); `reconstruct_state.growth_rows` globs `scripts/*.py` only. Check: the script splits into a module and a driver with the harness gate unchanged; the import receipt (`scripts/benchmark_import.py`) records the change.
+Writes: `scripts/reconstruct_state.py`, `tests/test_*.py`.
+- 17-104: script half landed 2026-11-21 (merge 2a1814a0): `scripts/fact_graph/` and a 442-line driver. Ruled 2026-11-22 (Q6): `jnwb/__init__.py` imports stay eager and `scripts/fact_graph/__init__.py` keeps CRLF; both parts dropped. Left: `reconstruct_state.growth_rows` globs `scripts/*.py` only, so `scripts/fact_graph/` is uncounted. Check: `growth_rows` counts `scripts/fact_graph/*.py`, by a test red on the old glob; the harness gate passes.
 
 ### 17-127 The fact graph build takes four minutes
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-104 (shares `scripts/build_fact_graph.py`).
+Role: jnwb-developer. Skill: none. Blocked by: none (17-104's script half landed; its remaining parts write `jnwb/__init__.py`, `scripts/fact_graph/__init__.py` line endings and `scripts/reconstruct_state.py`, so a 17-127 lane must not touch those three).
 Writes: `scripts/build_fact_graph.py`, `scripts/fact_graph/*.py`, `tests/test_fact_gate.py`.
 - 17-127: one `build_fact_graph.py` run took 264 s at `2e069118` and 217 s at `a5345f79` on the Windows host (one sample each; the 17-84 call-site rule landed between); under a full suite it passed the test's 300 s cap twice, now 900 s. Check: a profile names the phases; the build runs under 60 s with the graph byte-identical.
 
@@ -130,18 +123,18 @@ Writes: `scripts/build_fact_graph.py`, `scripts/fact_graph/*.py`, `tests/test_fa
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: 17-94 (shares `jnwb/**/*.py`).
 Writes: `jnwb/**/*.py`.
-- 17-128: landed 2026-11-21 (merge c8bbee69): Raises sections on 24 public functions, filtering Args with units, 20 tolerance literals named in 13 modules (values equal, signatures unchanged). Left: Raises for `inspect`, `bipolar_reference`, `granger`, `assert_mergeable` (an INTERNAL name in `tests/test_skill_symbol_coverage.py`; documenting it needs a skill row), helper-raised exceptions and `FileNotFoundError` not listed; the `_vflip2` band literals and the `_vflip.py`, `_xflip.py`, `_bins.py` sites, whose code the curation, vflip and xflip calibration receipts hash (a change needs the calibrate script rerun); `harmonic_analysis` (frozen); the 96 float defaults in the signatures of the 163 functions in `jnwb.__all__` keep their text, which the Check below forbids (needs Hamm's word: name them or narrow the Check). From P-216-25 (the names went to roadmap 17-130): 23 of those 163 functions raise in their own body without a Raises section (AST count, 2026-11-21); unnamed band constants in `_vflip2.py`; 98 uncited float defaults and 43 tolerance literals at P-216-25 (`_psd.py:217` `fundamental_freq * 0.1`). Check: each public raise site has a Raises entry, each float default and tolerance is a named constant with its source, the suite passes.
+- 17-128: landed 2026-11-21 (merge c8bbee69): Raises sections on 24 public functions, filtering Args with units, 20 tolerance literals named in 13 modules (values equal, signatures unchanged). Left: Raises for `inspect`, `bipolar_reference`, `granger`, `assert_mergeable` (an INTERNAL name in `tests/test_skill_symbol_coverage.py`; documenting it needs a skill row), helper-raised exceptions and `FileNotFoundError` not listed; the `_vflip2` band literals and the `_vflip.py`, `_xflip.py`, `_bins.py` sites, whose code the curation, vflip and xflip calibration receipts hash (a change needs the calibrate script rerun); `harmonic_analysis` (frozen); the 96 float defaults in the signatures of the 163 functions in `jnwb.__all__` keep their text (ruled 2026-11-22: the Check covers tolerance literals and raise sites only). From P-216-25 (the names went to roadmap 17-130): 23 of those 163 functions raise in their own body without a Raises section (AST count, 2026-11-21); unnamed band constants in `_vflip2.py`; 98 uncited float defaults and 43 tolerance literals at P-216-25 (`_psd.py:217` `fundamental_freq * 0.1`). Check: each public raise site has a Raises entry, each tolerance literal is a named constant with its source, the suite passes.
 
 ### 17-142 Unused names, stale pointers and two duplicate helpers
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-94 and 17-95 (shared files).
-Writes: `jnwb/jrsa/__init__.py`, `jnwb/statistics/_regression.py`, `jnwb/statistics/__init__.py`, `jnwb/connectivity/_granger.py`, `jnwb/jrsa/_backends.py`, `scripts/gates/boundary.py`, `scripts/gates/vocabulary.py`, `scripts/mutation_harness.py`, `scripts/learning_gate.py`.
-- 17-142: match pass 2026-11-07 at 2a5ef1b7, each confirmed by `ruff check --select F401,F811,F821,F841`: `resolve_rng` (`statistics/_regression.py:8`) and `MIN_COHERENCE_NPERSEG` (`connectivity/_granger.py:16`) imported and unused; `Union` undefined in an annotation (`scripts/gates/boundary.py:432`); F401 reports 49 names outside `__init__` files at e5dd5aec. Comments name functions that no longer exist: `_autodetect_backend` (`jrsa/_backends.py:40`), `_read_journal` (`scripts/mutation_harness.py:592`); `scripts/gates/vocabulary.py:80` cites "batch jobs" at `docs/02:11`, which now sits in `docs/reading_nwb.md:33`. `_mean_over` is defined twice in `_granger.py` (:1088, :1331). Re-exports in `__init__` files are out of scope. Check: ruff F811, F821 and F841 report zero over `jnwb/` and `scripts/`, F401 reports no name outside a re-exporting `__init__.py`, each named pointer resolves, each helper has one definition; the suite passes.
+Role: jnwb-developer. Skill: none. Blocked by: 17-95 (lane `_temp_17-95-left`, WIP `a01f06c8` on `origin`, edits `scripts/gates/boundary.py`).
+Writes: `scripts/gates/boundary.py`.
+- 17-142: landed 2026-11-22 (merge ff703205): 12 unused imports removed; 37 kept in `scripts/harness_gate.py` with `# noqa: F401` naming the test that reads each through the module; one module-level `_mean_over` in `_granger.py` (granger outputs bitwise-equal); the three stale pointers fixed. Left: `Union` undefined in an annotation (`scripts/gates/boundary.py:432`). Check: ruff F811, F821 and F841 report zero over `jnwb/` and `scripts/`, F401 reports no name outside a re-exporting `__init__.py`, each named pointer resolves, each helper has one definition; the suite passes.
 
 ### 17-129 Prose against the writing style
 
 Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: 17-99 and 17-100 (shared files); Hamm's word for `skills/`, `AGENTS.md` and the spelling.
+Role: docs-harness. Skill: none. Blocked by: 17-99 and 17-100 (shared files); Hamm's word for `skills/` and `AGENTS.md`. Ruled 2026-11-22 (Q5): American English for new prose; no repository-wide conversion.
 Writes: `.github/CONTRIBUTING.md`, `README.md`, `docs/quickstart.md`.
-- 17-129: from P-216-26. The 2026-11-07 match pass adds: `docs/agents.md:79-94` repeats `skills/jnwb/SKILL.md:13-25`; `CONTRIBUTING.md:39` repeats `:36` and `:64`. Sentences over 40 words in 8 of 12 skills, `AGENTS.md` (:85, :105), `CONTRIBUTING.md` (:111, :179, :185, :379; em dashes on 17 lines); "behaviour" (113 lines) and "behavior" (105) both occur (`git grep -icw`, tracked tree). Check: no sentence over 40 words in the listed files and one spelling, by grep.
+- 17-129: from P-216-26. The 2026-11-07 match pass adds: `docs/agents.md:79-94` repeats `skills/jnwb/SKILL.md:13-25`; `CONTRIBUTING.md:39` repeats `:36` and `:64`. Sentences over 40 words in 8 of 12 skills, `AGENTS.md` (:85, :105), `CONTRIBUTING.md` (:111, :179, :185, :379; em dashes on 17 lines); "behaviour" (113 lines) and "behavior" (105) both occur (`git grep -icw`, tracked tree). Check: no sentence over 40 words in the listed files, by grep; prose added in this cycle uses American spelling.

@@ -13,7 +13,7 @@ from .._rng import Default, RNGLike, resolve_seed_alias
 from .._units import _OMITTED, _check_signal_class
 from scipy import signal, stats
 from ..spectral import CANONICAL_BANDS
-from ..spectral._coupling import MIN_COHERENCE_NPERSEG, MIN_IDENTIFIABLE_SEGMENTS, welch_segment_count
+from ..spectral._coupling import MIN_IDENTIFIABLE_SEGMENTS, welch_segment_count
 from ._common import DirectedResult, _fixed_order, _surrogate_p, _surrogate_rng, _surrogate_scheme, _surrogate_source
 from ._trials import _detrend_trials, _pair_trials, as_trials
 
@@ -946,6 +946,17 @@ def _nonparametric_transfer(
     return freqs, h, sigma, n_segments, n_iter, residual
 
 
+def _mean_over(freqs: np.ndarray, values: np.ndarray, mask: np.ndarray) -> float:
+    """Trapezoidal frequency average == Geweke's integral over [0, Nyquist]."""
+    f_sel, v_sel = freqs[mask], values[mask]
+    if f_sel.size < 2:
+        return float("nan")
+    span = f_sel[-1] - f_sel[0]
+    if span <= 0:
+        return float(v_sel.mean())
+    return float(np.sum((v_sel[:-1] + v_sel[1:]) / 2.0 * np.diff(f_sel)) / span)
+
+
 def granger_spectral(
     X,
     Y,
@@ -1085,16 +1096,6 @@ def granger_spectral(
     if radius >= 1.0:
         warnings_all.append(f"var_non_stationary_spectral_radius_{radius:.3f}")
 
-    def _mean_over(values: np.ndarray, mask: np.ndarray) -> float:
-        """Trapezoidal frequency average == Geweke's integral over [0, Nyquist]."""
-        f_sel, v_sel = freqs[mask], values[mask]
-        if f_sel.size < 2:
-            return float("nan")
-        span = f_sel[-1] - f_sel[0]
-        if span <= 0:
-            return float(v_sel.mean())
-        return float(np.sum((v_sel[:-1] + v_sel[1:]) / 2.0 * np.diff(f_sel)) / span)
-
     if bands is None:
         band_map = {"full": (float(freqs[0]), float(freqs[-1]))}
     elif isinstance(bands, str):
@@ -1120,8 +1121,8 @@ def granger_spectral(
             continue
         sel = np.flatnonzero(mask)
         per_band[name] = {
-            "value": _mean_over(gc_x_to_y, mask),
-            "value_reverse": _mean_over(gc_y_to_x, mask),
+            "value": _mean_over(freqs, gc_x_to_y, mask),
+            "value_reverse": _mean_over(freqs, gc_y_to_x, mask),
             "peak_hz": float(freqs[sel[np.argmax(gc_x_to_y[sel])]]),
             "peak_hz_reverse": float(freqs[sel[np.argmax(gc_y_to_x[sel])]]),
             "band_hz": (f_lo, f_hi),
@@ -1130,8 +1131,8 @@ def granger_spectral(
         }
 
     all_mask = np.ones(len(freqs), dtype=bool)
-    total_xy = _mean_over(gc_x_to_y, all_mask)
-    total_yx = _mean_over(gc_y_to_x, all_mask)
+    total_xy = _mean_over(freqs, gc_x_to_y, all_mask)
+    total_yx = _mean_over(freqs, gc_y_to_x, all_mask)
 
     p_xy = p_yx = None
     if n_surrogates > 0:
@@ -1142,16 +1143,16 @@ def granger_spectral(
             xs = _surrogate_source(x, surrogate_rng)
             a_s, sig_s, _ = _fit_var_matrix([xs, y], p, ridge=ridge)
             tmp = _spectral_gc_from_var(a_s, sig_s, freqs, fs)
-            null_xy[i] = _mean_over(tmp[1], all_mask)
+            null_xy[i] = _mean_over(freqs, tmp[1], all_mask)
             ys = _surrogate_source(y, surrogate_rng)
             a_s2, sig_s2, _ = _fit_var_matrix([x, ys], p, ridge=ridge)
             tmp2 = _spectral_gc_from_var(a_s2, sig_s2, freqs, fs)
-            null_yx[i] = _mean_over(tmp2[0], all_mask)
+            null_yx[i] = _mean_over(freqs, tmp2[0], all_mask)
             for name, vals in per_band.items():
                 f_lo, f_hi = vals["band_hz"]
                 mask = (freqs >= f_lo) & (freqs <= f_hi)
                 if mask.sum() >= 2:
-                    null_xy_by_band[name].append(_mean_over(tmp[1], mask))
+                    null_xy_by_band[name].append(_mean_over(freqs, tmp[1], mask))
         # Each frequency's GC is a log ratio, rounded at the scale of the ratio (see granger).
         p_xy = _surrogate_p(null_xy, total_xy, "greater", scale=1.0)
         p_yx = _surrogate_p(null_yx, total_yx, "greater", scale=1.0)
@@ -1328,16 +1329,6 @@ def granger_nonparametric(
     gc_x_to_y = np.clip(gc_x_to_y, 0.0, None)
     gc_y_to_x = np.clip(gc_y_to_x, 0.0, None)
 
-    def _mean_over(values: np.ndarray, mask: np.ndarray) -> float:
-        """Trapezoidal frequency average == Geweke's integral over [0, Nyquist]."""
-        f_sel, v_sel = freqs[mask], values[mask]
-        if f_sel.size < 2:
-            return float("nan")
-        span = f_sel[-1] - f_sel[0]
-        if span <= 0:
-            return float(v_sel.mean())
-        return float(np.sum((v_sel[:-1] + v_sel[1:]) / 2.0 * np.diff(f_sel)) / span)
-
     def _peak(values: np.ndarray, sel: np.ndarray) -> float:
         if not np.all(np.isfinite(values[sel])):
             return float("nan")
@@ -1366,8 +1357,8 @@ def granger_nonparametric(
             continue
         sel = np.flatnonzero(mask)
         per_band[name] = {
-            "value": _mean_over(gc_x_to_y, mask),
-            "value_reverse": _mean_over(gc_y_to_x, mask),
+            "value": _mean_over(freqs, gc_x_to_y, mask),
+            "value_reverse": _mean_over(freqs, gc_y_to_x, mask),
             "peak_hz": _peak(gc_x_to_y, sel),
             "peak_hz_reverse": _peak(gc_y_to_x, sel),
             "band_hz": (f_lo, f_hi),
@@ -1375,8 +1366,8 @@ def granger_nonparametric(
             "p_surrogate": None,
         }
 
-    total_xy = _mean_over(gc_x_to_y, all_mask)
-    total_yx = _mean_over(gc_y_to_x, all_mask)
+    total_xy = _mean_over(freqs, gc_x_to_y, all_mask)
+    total_yx = _mean_over(freqs, gc_y_to_x, all_mask)
 
     p_xy = p_yx = None
     if n_surrogates > 0 and not constant:
@@ -1389,18 +1380,18 @@ def granger_nonparametric(
                 xs, y, fs, nperseg, noverlap, _WILSON_MAX_ITER, _WILSON_TOL
             )
             gc_yx_s, gc_xy_s = (np.clip(v, 0.0, None) for v in _geweke_gc(h_xs, sig_xs))
-            null_xy[i] = _mean_over(gc_xy_s, all_mask)
+            null_xy[i] = _mean_over(freqs, gc_xy_s, all_mask)
             ys = _surrogate_source(y, surrogate_rng)
             _, h_ys, sig_ys, _, _, _ = _nonparametric_transfer(
                 x, ys, fs, nperseg, noverlap, _WILSON_MAX_ITER, _WILSON_TOL
             )
             gc_yx_s2, _ = (np.clip(v, 0.0, None) for v in _geweke_gc(h_ys, sig_ys))
-            null_yx[i] = _mean_over(gc_yx_s2, all_mask)
+            null_yx[i] = _mean_over(freqs, gc_yx_s2, all_mask)
             for name, vals in per_band.items():
                 f_lo, f_hi = vals["band_hz"]
                 mask = (freqs >= f_lo) & (freqs <= f_hi)
                 if mask.sum() >= 2:
-                    null_xy_by_band[name].append(_mean_over(gc_xy_s, mask))
+                    null_xy_by_band[name].append(_mean_over(freqs, gc_xy_s, mask))
         # Each frequency's GC is a log ratio, rounded at the scale of the ratio (see granger).
         p_xy = _surrogate_p(null_xy, total_xy, "greater", scale=1.0)
         p_yx = _surrogate_p(null_yx, total_yx, "greater", scale=1.0)

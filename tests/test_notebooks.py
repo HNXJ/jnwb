@@ -6,7 +6,11 @@ cross_area_coherence started requiring freq_bands.
 from __future__ import annotations
 
 import atexit
+import os
+import shutil
+import socket
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -35,8 +39,6 @@ _LAST_RUN = {}  # the manager and budget of the latest _execute, for the tests b
 
 def _execute(path, tmp_path, monkeypatch, kernel_argv=None):
     """Run the notebook top to bottom in a kernel on this tree; return it with its outputs."""
-    import os
-
     from jupyter_client.manager import AsyncKernelManager
 
     nb = nbformat.read(path, as_version=4)
@@ -52,7 +54,14 @@ def _execute(path, tmp_path, monkeypatch, kernel_argv=None):
     # machine with several interpreters is a different jnwb than the one under test.
     # The async manager keeps nbclient's event loop free: with a blocking KernelManager a busy
     # kernel stops the cell timeout from ever firing and the run never returns.
-    km = AsyncKernelManager(kernel_name="python3")
+    # Over TCP the manager picks free ports and the kernel binds them later, so a parallel
+    # worker can take one in between and the kernel never answers. IPC has no ports; its socket
+    # paths need an absolute prefix, since the kernel runs in tmp_path and the client does not.
+    ipc = {}
+    if os.name == "posix":
+        ipc_dir = tempfile.mkdtemp(prefix="jnwb-kernel-")
+        ipc = {"transport": "ipc", "ip": os.path.join(ipc_dir, "k")}
+    km = AsyncKernelManager(kernel_name="python3", **ipc)
     km.kernel_spec.argv[0] = sys.executable
     if kernel_argv is not None:
         km.kernel_spec.argv = list(kernel_argv)
@@ -79,6 +88,8 @@ def _execute(path, tmp_path, monkeypatch, kernel_argv=None):
     worker = threading.Thread(target=run, daemon=True)
     worker.start()
     worker.join(budget)
+    if ipc:
+        shutil.rmtree(ipc_dir, ignore_errors=True)
     # A failed start leaves nbclient's exit hook behind, which then asserts on a dead manager.
     # The hook is a private attribute of nbclient 0.11; without it there is nothing to remove.
     hook = getattr(client, "_cleanup_kernel", None)
@@ -138,6 +149,35 @@ def test_stalled_cell_fails_within_the_cell_bound(tmp_path, monkeypatch):
     with pytest.raises(nbclient.exceptions.CellTimeoutError, match="timed out"):
         _execute(path, tmp_path, monkeypatch)
     assert time.monotonic() - began < 120 + 3 + 2 + 30
+
+
+@pytest.mark.skipif(os.name != "posix", reason="Windows kernels have only the TCP transport")
+def test_kernel_starts_when_another_process_holds_its_chosen_port(tmp_path, monkeypatch):
+    # The race a parallel worker causes: the manager's first port choice lands on a port that
+    # is already bound and listening by the time the kernel binds it.
+    from jupyter_client.connect import LocalPortCache
+
+    held = socket.socket()
+    held.bind(("127.0.0.1", 0))
+    held.listen()
+    port = held.getsockname()[1]
+    real = LocalPortCache.find_available_port
+    chosen = []
+
+    def choose(self, ip):
+        chosen.append(ip)
+        return port if len(chosen) == 1 else real(self, ip)
+
+    monkeypatch.setattr(LocalPortCache, "find_available_port", choose)
+    _shrink_bounds(monkeypatch, start=120, cell=60, shutdown=2)
+    nb = nbformat.v4.new_notebook(cells=[nbformat.v4.new_code_cell("print(6 * 7)")])
+    path = tmp_path / "held_port.ipynb"
+    nbformat.write(nb, path)
+    try:
+        out = _execute(path, tmp_path, monkeypatch)
+    finally:
+        held.close()
+    assert out.cells[0].outputs[0]["text"].strip() == "42"
 
 
 def _silent_kernel_argv(tmp_path):

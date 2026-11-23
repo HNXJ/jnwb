@@ -623,9 +623,12 @@ def _rmtree(path: Path) -> None:
         shutil.rmtree(path, onerror=lambda f, t, e: _clear_readonly(f, t, e))
 
 
+CLONE_COMMAND = ("git", "clone")  # no --local: with it a failed hardlink is fatal, not a copy
+
+
 def _clone_the_checkout(destination: Path) -> None:
     proc = subprocess.run(
-        ["git", "clone", "--local", str(REPO_ROOT), str(destination)],
+        [*CLONE_COMMAND, str(REPO_ROOT), str(destination)],
         capture_output=True,
         text=True,
         timeout=600,

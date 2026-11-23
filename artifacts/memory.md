@@ -34,6 +34,18 @@ Verified lessons the code and git do not show. This project only. No state, secr
 
 - trigger: `git clone --local D:\repos\jnwb …` fails with `detected dubious ownership` (Administrators vs current user)
   cause: `.git` is owned by `BUILTIN/Administrators`; the suite's semantic-mutation clones then exit 128
-  repair: for the suite process only, point `GIT_CONFIG_GLOBAL` at a temp config with `safe.directory = *` (do not write the user's gitconfig); pass a same-drive `--basetemp`
+  repair: for the suite process only, point `GIT_CONFIG_GLOBAL` at a temp config with `safe.directory = *` (do not write the user's gitconfig); pass a `--basetemp` outside the repo (same drive keeps the clone hardlinked; since `68995c90` a cross-drive one copies)
   evidence: suite at `d898cd17` 2026-11-12: mutation test failed without it; 10864 passed with it and `D:/pytest_temp/jnwb_bt_suite`
   scope: full `jnwb_suite.sh` on this workstation when `.git` ownership differs from the user
+
+- trigger: a change makes a gate read git history (tags, a base commit) and the local suite passes
+  cause: local clones hold full history and tags; CI's test legs checked out shallow with no tags, so `tests/test_every_gate_runs.py` failed gate 15 on every leg at `c53c78fe` while the local suite at the same SHA had 0 failed; two verifiers ran targeted tests only
+  repair: before pushing, run the affected gate tests in a `git clone --depth 1 --no-tags` clone of HEAD, or confirm every gate-running CI job checks out with `fetch-depth: 0` (`tests/test_workflow_release_policy.py::test_every_job_that_runs_the_gates_checks_out_the_tags` now holds it)
+  evidence: CI runs 45066157361 and 45066162229 (9 legs, 1 failed each); reproduced in `D:/tmp/jnwb_int/shallow_c53`; fix `8d5fb637`
+  scope: any gate or test that reads git refs, run in CI
+
+- trigger: a CI checkout changes depth (shallow to full) or a test clones the checkout
+  cause: git ignores `--local` for a shallow source, so the mutation test's explicit `git clone --local` only met its fatal-on-failed-hardlink rule once `8d5fb637` gave the legs full history; on Windows runners the checkout is on D: and the temp on C:, and every Windows leg failed "Improper link"
+  repair: clone a checkout with plain `git clone <path>` (hardlinks on one drive, copies across); after changing checkout depth, rerun clone-based tests with `--basetemp` on another drive
+  evidence: CI run 45073612887 (3 Windows legs, 1 failed each); local D: to E: repro, `--local` rc 128, plain rc 0; fix `68995c90`
+  scope: tests that clone the repository, on Windows CI

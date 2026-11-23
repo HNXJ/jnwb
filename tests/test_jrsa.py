@@ -366,3 +366,12 @@ def test_a_lag_with_an_all_zero_overlap_does_not_make_the_other_qs_nan(method):
     assert (p[:2] < 1 / 3).all(), f"precondition: the family size must change q, got {p[:2]}"
     assert np.isnan(q[2]), q
     np.testing.assert_allclose(q[:2], _independent_q(p[:2], method), rtol=1e-12, atol=0)
+
+
+class TestJrsaDtwAlignContract:
+    def test_dtw_align_fails_loudly(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=(3, 40))
+        y = rng.normal(size=(3, 40))
+        with pytest.raises((ImportError, NotImplementedError), match="dtw"):
+            jnwb.jrsa(x, y, metric="pearson", align="dtw", stats=False)

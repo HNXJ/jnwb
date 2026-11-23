@@ -31,6 +31,7 @@ from jnwb.spectral import (
     voltage_curvature_1d,
     current_source_density_1d,
 )
+from jnwb.analyzers import TFRAnalyzer
 
 
 def _advanced_once(seed):
@@ -2373,3 +2374,70 @@ class TestCoherenceWithAConstantChannel:
         out = cross_area_coherence(x, y, **self.KW)
         assert out["band_coherence"], "the result holds no band values, so the check below passes on nothing"
         assert all(np.isfinite(v) for v in out["band_coherence"].values())
+
+
+class TestBandPowerNormalize:
+    def test_normalize_without_baseline_raises(self):
+        rng = np.random.default_rng(20)
+        x = rng.standard_normal(1000)
+        with pytest.raises(ValueError, match="baseline"):
+            jnwb.band_power(x, fs=1000.0, freq_range=(10, 30), normalize=True, baseline=None)
+
+
+class TestFinalAuditRecurrence:
+
+    def test_band_power_empty_freq_range_raises(self):
+        rng = np.random.default_rng(21)
+        sig = rng.standard_normal(1000)
+        with pytest.raises(ValueError, match="no Welch bins"):
+            jnwb.band_power(sig, fs=1000.0, freq_range=(600.0, 700.0), normalize=False)
+
+
+class TestIntegration021:
+
+    def test_spectral_conventions_shared(self):
+        """Verify spectral conventions and estimand boundaries between aperiodic_fit and relative_power."""
+        freqs = np.linspace(5.0, 100.0, 96)
+        # Synthetic PSD: 1/f^2 (offset=4.0, exponent=2.0)
+        true_offset = 4.0
+        true_exponent = 2.0
+        psd_baseline = 10.0 ** (true_offset - true_exponent * np.log10(freqs))
+
+        # Condition: 20% power increase across all frequencies
+        psd_condition = psd_baseline * 1.20
+
+        # 1. Fit aperiodic model on baseline
+        fit = jnwb.aperiodic_fit(freqs, psd_baseline, freq_range=(10.0, 80.0), mode="fixed")
+        assert fit.accepted is True
+        assert fit.offset == pytest.approx(true_offset, abs=1e-4)
+        assert fit.exponent == pytest.approx(true_exponent, abs=1e-4)
+        assert fit.knee is None
+        assert fit.r_squared == pytest.approx(1.0, abs=1e-4)
+
+        # 2. Compute relative power
+        rel_mean_ratios = jnwb.relative_power(psd_condition, psd_baseline, model="mean_of_ratios", axis=0)
+        rel_ratio_means = jnwb.relative_power(psd_condition, psd_baseline, model="ratio_of_means", axis=0)
+        rel_log_ratio = jnwb.relative_power(psd_condition, psd_baseline, model="log_ratio")
+
+        assert rel_mean_ratios == pytest.approx(1.20)
+        assert rel_ratio_means == pytest.approx(1.20)
+        # Log ratio must be in dB: 10 * log10(1.20) ~= 0.7918 dB
+        assert np.allclose(rel_log_ratio, 10.0 * np.log10(1.20))
+
+
+class TestResolvedJnwbDefects:
+
+    def test_f2_band_definitions_reconciled(self):
+        """F2: TFRAnalyzer.BANDS and spectral.CANONICAL_BANDS agree across all canonical bands."""
+        for band in ("theta", "alpha", "beta", "low_gamma", "high_gamma"):
+            assert TFRAnalyzer.BANDS[band] == CANONICAL_BANDS[band]
+
+        # 14.5 Hz is consistently Beta across both tables
+        f_probe = 14.5
+        tfr_alpha = TFRAnalyzer.BANDS["alpha"][0] <= f_probe <= TFRAnalyzer.BANDS["alpha"][1]
+        canonical_alpha = CANONICAL_BANDS["alpha"][0] <= f_probe <= CANONICAL_BANDS["alpha"][1]
+        assert tfr_alpha == canonical_alpha == False
+
+        tfr_beta = TFRAnalyzer.BANDS["beta"][0] <= f_probe <= TFRAnalyzer.BANDS["beta"][1]
+        canonical_beta = CANONICAL_BANDS["beta"][0] <= f_probe <= CANONICAL_BANDS["beta"][1]
+        assert tfr_beta == canonical_beta == True

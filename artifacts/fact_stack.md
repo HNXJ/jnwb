@@ -149,7 +149,7 @@ evidence and a critic's sign-off.
 | `jnwb.statistics._firing.fire_indicator` | `window_ms` | `_REQUIRED` | as above | as above |
 | `jnwb.statistics._firing.rate_in_window` | `window_ms` | `_REQUIRED` | as above | as above |
 | `jnwb.analyzers.TFRAnalyzer.correlate_areas` | `band` | `'alpha'` | the default band name looked up in `TFRAnalyzer.BANDS` | `jnwb.analyzers.TFRAnalyzer.correlate_areas(band)` |
-| `jnwb.analyzers.TFRAnalyzer.correlate_areas` | `band_defs` | `None` | None uses `TFRAnalyzer.BANDS`; an empty dict is refused | `jnwb/analyzers.py:280`; resolved in `jnwb.analyzers.TFRAnalyzer.extract_band(band_defs)` |
+| `jnwb.analyzers.TFRAnalyzer.correlate_areas` | `band_defs` | `None` | None uses `TFRAnalyzer.BANDS`; an empty dict is refused | `jnwb/analyzers.py:268`; resolved in `jnwb.analyzers.TFRAnalyzer.extract_band(band_defs)` |
 | `jnwb.analyzers.TFRAnalyzer.extract_band` | `band_defs` | `None` | None uses `TFRAnalyzer.BANDS`; an empty dict raises | `jnwb.analyzers.TFRAnalyzer.extract_band(band_defs)` |
 | `jnwb.connectivity._granger.granger_spectral` | `bands` | `None` | None is the whole spectrum, so the frequency average matches the time-domain value | `jnwb.connectivity._granger.granger_spectral(bands)` |
 | `jnwb.connectivity._psi.phase_slope_index` | `bands` | `None` | one estimate over the whole spectrum except DC (`df`..`fs/2`); PSI needs power spread across a band | `jnwb.connectivity._psi.phase_slope_index(bands)` |
@@ -165,7 +165,7 @@ evidence and a critic's sign-off.
 | `jnwb.artifact_repair.repair_lfp_trials` | `reward_window_ms` | `None` | deprecated alias of `exclude_window_ms`; None disables | `jnwb.artifact_repair.repair_lfp_trials(reward_window_ms)` |
 | `jnwb.laminar_curation.evoked_csd_sink` | `sink_window_ms` | `(40.0, 150.0)` | search window (ms) of the strongest-sink contact; the CSD itself is Mitzdorf 1985 | `jnwb.laminar_curation.evoked_csd_sink(sink_window_ms)` |
 | `jnwb.analyzers.UnitAnalyzer.autocorrelogram` | `bin_size_ms` | `1` | 1 ms bins centred on multiples of the width | `jnwb.analyzers.UnitAnalyzer.autocorrelogram(bin_size_ms)` |
-| `jnwb.analyzers.UnitAnalyzer.psth` | `bin_size_ms` | `10` | 10 ms PSTH bins; the window span must be a whole number of them | `jnwb/analyzers.py:362`; `jnwb.analyzers.UnitAnalyzer.psth(bin_size_ms)` |
+| `jnwb.analyzers.UnitAnalyzer.psth` | `bin_size_ms` | `10` | 10 ms PSTH bins; the window span must be a whole number of them | `jnwb/analyzers.py:343`; `jnwb.analyzers.UnitAnalyzer.psth(bin_size_ms)` |
 | `jnwb.connectivity._information.spike_mutual_information` | `bin_size_ms` | `10.0` | 10 ms bins of the binned trains the MI is computed on, with no bias correction (Shannon 1948 is cited for the MI, not the width) | `jnwb.connectivity._information.spike_mutual_information(bin_size_ms)` |
 | `jnwb.connectivity._trials.bin_spikes` | `bin_size_ms` | `10.0` | 10 ms bin width; the count K must be whole | `jnwb.connectivity._trials.bin_spikes(bin_size_ms)` |
 | `jnwb.connectivity._transfer_entropy.transfer_entropy` | `bins` | `4` | 4 states for the quantile/uniform estimators; the null calibration in the docstring is measured at bins 4 | `jnwb.connectivity._transfer_entropy.transfer_entropy(bins)` |
@@ -180,8 +180,8 @@ evidence and a critic's sign-off.
 | `jnwb.connectivity._granger.granger_time_reversed` | `n_surrogates` | `0` | default 0, no p-values | `jnwb.connectivity._granger.granger_time_reversed(n_surrogates)` |
 | `jnwb.connectivity._psi.phase_slope_index` | `n_surrogates` | `0` | no coupling-surrogate test; the lead test is the jackknife | `jnwb.connectivity._psi.phase_slope_index(n_surrogates)` |
 | `jnwb.connectivity._transfer_entropy.transfer_entropy` | `n_surrogates` | `200` | 200 draws form the null the p-value and the bias correction use; 0 only when calibrating elsewhere | `jnwb.connectivity._transfer_entropy.transfer_entropy(n_surrogates)` |
-| `jnwb.laminar._xflip.xflip` | `n_surrogates` | `200` | 200 Monte Carlo draws; with 0 no p is computed (NaN) and the result is never accepted | `jnwb/laminar/_xflip.py:524`; `:607-609` |
-| `jnwb.laminar._zflip.zflip` | `n_surrogates` | `50` | per-pair phase-randomised draws, p = (1 + k) / (1 + 50); with 0 no pair is identifiable | `jnwb/laminar/_zflip.py:220`; `:256-263` |
+| `jnwb.laminar._xflip.xflip` | `n_surrogates` | `200` | 200 Monte Carlo draws; with 0 no p is computed (NaN) and the result is never accepted | `jnwb/laminar/_xflip.py:922`; `:1155-1156`, `:873` |
+| `jnwb.laminar._zflip.zflip` | `n_surrogates` | `50` | per-pair phase-randomised draws, p = (1 + k) / (1 + 50); with 0 no pair is identifiable | `jnwb/laminar/_zflip.py:479`; `:515-522` |
 | `jnwb.spectral._coupling.cross_area_coherence` | `n_surrogates` | `50` | 50 circular-shift surrogates per band; the smallest attainable p is 1/51 | `jnwb/spectral/_coupling.py:250`; `:300-304` |
 | `jnwb.spectral._coupling.partial_coherence` | `n_surrogates` | `50` | as above; below 1 is refused | `jnwb/spectral/_coupling.py:608`; `:636-637`, `:673-674` |
 | `jnwb.statistics._analysis.StatisticalAnalysis.permutation_test` | `n_permutations` | `5000` | 5000 flat-shuffle draws of the mean-difference null | `jnwb.statistics._analysis.StatisticalAnalysis.permutation_test(n_permutations)` |
@@ -189,8 +189,8 @@ evidence and a critic's sign-off.
 | `jnwb.statistics._regression.cross_modal_comparison` | `n_permutations` | `1000` | 1000 circular shifts in the lag-corrected null | `jnwb/statistics/_regression.py:148`; `jnwb.statistics._regression.cross_modal_comparison(n_permutations)` |
 | `jnwb.statistics._regression.shuffle_r2_ci` | `n_shuffle` | `200` | 200 label shuffles form the null CI and p | `jnwb.statistics._regression.shuffle_r2_ci(n_shuffle)` |
 | `jnwb.connectivity._network.directed_connectivity` | `method` | `'granger'` | the default of the three estimators (`granger`/`psi`/`te`) | `jnwb.connectivity._network.directed_connectivity(method)` |
-| `jnwb.connectivity._network.directed_network` | `method` | `'granger'` | as above | `jnwb/connectivity/_network.py:111`; `jnwb.connectivity._network.directed_network(method)` |
-| `jnwb.laminar._xflip.xflip` | `method` | `'pearson'` | the default correlation for raw time series | `jnwb/laminar/_xflip.py:520`; `:585-586` |
+| `jnwb.connectivity._network.directed_network` | `method` | `'granger'` | as above | `jnwb/connectivity/_network.py:116`; `jnwb.connectivity._network.directed_network(method)` |
+| `jnwb.laminar._xflip.xflip` | `method` | `'pearson'` | the default correlation for raw time series | `jnwb/laminar/_xflip.py:918`; `:1064-1066` |
 | `jnwb.statistics._analysis.StatisticalAnalysis.correlate` | `method` | `'both'` | both Pearson and Spearman run; naming one computes one and spends one test | `jnwb.statistics._analysis.StatisticalAnalysis.correlate(method)` |
 | `jnwb.statistics._analysis.StatisticalAnalysis.exploratory_correlate` | `method` | `'both'` | dual Pearson + Spearman report; every p raw | `jnwb.statistics._analysis.StatisticalAnalysis.exploratory_correlate(method)` |
 | `jnwb.statistics._analysis.StatisticalAnalysis.fdr_correct` | `method` | `'bh'` | the Benjamini-Hochberg step-up (Benjamini & Hochberg 1995) | `jnwb.statistics._analysis.StatisticalAnalysis.fdr_correct(method)` |

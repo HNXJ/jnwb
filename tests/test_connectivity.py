@@ -1858,3 +1858,56 @@ def test_directed_network_keeps_its_q_values_on_a_fixed_input():
         [0.9662791037032177, 0.5622007263736049, 0.35949900918963834,
          0.9662791037032177, 0.5622007263736049, 0.9662791037032177],
         rtol=1e-12)
+
+
+class TestGrangerSpectralBandPValues:
+    def test_per_band_surrogate_p_not_identical_when_bands_differ(self):
+        from scipy import signal
+
+        rng = np.random.default_rng(42)
+        fs = 1000.0
+        n = 512
+        t = np.arange(n) / fs
+        carrier = np.sin(2 * np.pi * 12.0 * t)
+        x = carrier + 0.05 * rng.normal(size=n)
+        y = np.roll(carrier, 8) + 0.05 * rng.normal(size=n)
+        # High band is uncoupled broadband noise only
+        x += signal.filtfilt(*signal.butter(4, [40 / (fs / 2), 70 / (fs / 2)], btype="band"), rng.normal(size=n))
+        y += signal.filtfilt(*signal.butter(4, [40 / (fs / 2), 70 / (fs / 2)], btype="band"), rng.normal(size=n))
+        res = jnwb.granger_spectral(
+            x, y, fs=fs, order=4, n_surrogates=60, seed=0,
+            bands={"low": (8.0, 16.0), "high": (40.0, 70.0)},
+        )
+        p_low = res.per_band["low"]["p_surrogate"]
+        p_high = res.per_band["high"]["p_surrogate"]
+        assert p_low is not None and p_high is not None
+        assert p_low < p_high
+
+
+class TestJrsaMetricIdentity:
+    def test_renamed_granger_metric_rejects_legacy_alias(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=(3, 80))
+        with pytest.raises(ValueError, match="granger_ssr_ftest"):
+            jnwb.jrsa(x, x, metric="granger", stats=False)
+
+    def test_granger_ssr_ftest_returns_f_statistic(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=(80,))
+        y = np.roll(x, 2) + 0.1 * rng.normal(size=(80,))
+        res = jnwb.jrsa(x, y, metric="granger_ssr_ftest", stats=False)
+        assert res.value > 0
+
+    def test_renamed_te_metric_rejects_legacy_alias(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=(3, 80))
+        with pytest.raises(ValueError, match="transfer_entropy_histogram_nats"):
+            jnwb.jrsa(x, x, metric="transfer_entropy", stats=False)
+
+    def test_transfer_entropy_histogram_nats_differs_from_connectivity_bits(self):
+        rng = np.random.default_rng(42)
+        x = rng.normal(size=150)
+        y = rng.normal(size=150)
+        jr = jnwb.jrsa(x, y, metric="transfer_entropy_histogram_nats", stats=False)
+        te = jnwb.transfer_entropy(x, y, n_surrogates=0)
+        assert not np.isclose(float(jr.value), float(te.x_to_y), rtol=0.05, atol=0.05)

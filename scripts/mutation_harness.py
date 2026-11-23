@@ -13,8 +13,8 @@ answer* rather than an error:
 * **A write-restore harness left live mutants**, because the restore was verified once at the
   end of the run instead of after each mutant. Every restore is verified by sha256, per mutant,
   in a ``finally``.
-* **Two lanes overwrote each other's harness state** in a shared session scratchpad. A
-  worktree isolates the repository, not the scratchpad. State lives under a path derived from
+* **Two lanes overwrote each other's harness state** in a shared session scratch directory. A
+  worktree isolates the repository, not the scratch directory. State lives under a path derived from
   the worktree being operated on, a path outside that worktree is never written or restored,
   and one worktree admits one session at a time under an OS-level lock.
 * **A fixture that did not build the case it was named after.** A ``nested-clone`` fixture built
@@ -589,7 +589,7 @@ JOURNAL_STATUSES: tuple[str, ...] = (JOURNAL_PRESENT, JOURNAL_ABSENT, JOURNAL_UN
 class JournalState:
     """What the journal says, and whether it is in a position to say anything.
 
-    The defect this replaces: ``_read_journal`` answered ``[]`` for a missing file, an
+    The defect this replaces: ``read_journal`` used to answer ``[]`` for a missing file, an
     unparseable file, and a file recording nothing outstanding. "No mutant is open" and "I have
     no idea" were the same sentence, so a report that the journal was empty carried no
     information about the tree at all -- and a live mutant sat behind exactly that sentence for

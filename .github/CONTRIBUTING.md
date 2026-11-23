@@ -38,12 +38,11 @@ python -m pytest tests/ -q
 
 Run `python -m pytest tests/ -q` before pushing; all tests should pass on your interpreter.
 CI exercises every version `pyproject.toml` declares, so a version the package claims is a
-version CI runs. On Windows, pytest's temporary directory must sit on the same drive as the
-checkout: pass `--basetemp` pointing outside the repo on that drive, since a cross-drive
-temporary directory makes tests that clone the tree fail with "Improper link". Do not set
-it through the `PYTEST_ADDOPTS` environment variable instead: that value reaches every
-pytest the harness spawns as a subprocess, including the mutation-harness runs, and breaks
-them. Pass it as an explicit command-line argument. A test that needs an optional extra skips when the extra is absent and names
+version CI runs. On Windows, pytest's temporary directory must sit outside the repo, passed as
+an explicit `--basetemp` argument; on the checkout's drive the tests that clone the tree
+hardlink it, across drives they copy. Do not set it through the `PYTEST_ADDOPTS` environment
+variable: that value reaches every pytest the harness spawns as a subprocess, including the
+mutation-harness runs, and breaks them. A test that needs an optional extra skips when the extra is absent and names
 it; `release_gate.py` refuses to run without every extra the suite uses, so no such skip
 reaches a release.
 
@@ -77,7 +76,9 @@ python scripts/docs_build.py
   docs versions derived from `__version__`, no unowned importable package at the root, project
   identifiers in code, NWB onboarding alignment, repository-process vocabulary in `docs/`
   and stack identifiers in `jnwb/`, `docs/` and the files its pages include,
-  stack form, line-ending consistency, stack pointers that resolve, the `docs/api.md` Type
+  stack form and the process records (with no mapping table, `AGENTS.md` and
+  `.github/CONTRIBUTING.md` keep every obligation clause of the newest `v*` tag HEAD descends
+  from; no such tag fails), line-ending consistency, stack pointers that resolve, the `docs/api.md` Type
   column and parameter kinds against the runtime object, frozen-validated functions against
   their verified bodies, the HEAD recorded in `artifacts/state.md` against the live one when
   that generated file is present (Gate 20 only reads it; regenerate with
@@ -176,7 +177,7 @@ All code in `jnwb` must satisfy the following implementation standards:
 2. **Explicit Dimensions, Units & Coordinates**: Always specify physical units (e.g. `fs: float` in Hz, time in seconds, frequencies in Hz). Never confuse array indices with physical coordinate values.
 3. **Stable Terminology**: Use standardized parameter names across modules (`fs` or `sampling_rate`, `time_window`, `freq_range`, `alpha`, `rng`).
 4. **Typed Public Signatures**: Type-annotate public function arguments and return types.
-5. **Deterministic Behavior & Explicit RNG**: Functions requiring stochasticity (permutation, bootstrap, cross-validation) accept `rng: RNGLike` (`jnwb._rng`, an `int` seed, a `np.random.Generator`, or `None`) and resolve it through `resolve_rng`. **The default in the signature is the seed the function will use** — `DEFAULT_SEED` (42), or the literal that function has always used, or no default where the caller must choose — so `inspect.signature` and `help()` report the stream a bare call draws. Wrap it in `_rng.Default(...)` when the parameter carries a deprecated alias and "not supplied" must stay distinguishable from an explicit `None`. `None` means fresh OS entropy, and a body must never resolve it to a fixed seed: five functions declared `rng=None` and then ran `np.random.default_rng(42)`, so two calls a caller believed were independent shared one null and agreed exactly. `jnwb/_rng.py` records that repair (05-35). Default to `None` only where fresh entropy per call is the intended contract. `tests/test_rng_convention_matches_the_signatures.py` holds the live signatures against this paragraph, so the two cannot drift apart. **Never mutate global state** (`np.random.seed()`).
+5. **Deterministic Behavior & Explicit RNG**: Functions requiring stochasticity (permutation, bootstrap, cross-validation) accept `rng: RNGLike` (`jnwb._rng`, an `int` seed, a `np.random.Generator`, or `None`) and resolve it through `resolve_rng`. **The default in the signature is the seed the function will use** — `DEFAULT_SEED` (42), or the literal that function has always used, or no default where the caller must choose — so `inspect.signature` and `help()` report the stream a bare call draws. Wrap it in `_rng.Default(...)` when the parameter carries a deprecated alias and "not supplied" must stay distinguishable from an explicit `None`. `None` means fresh OS entropy, and a body must never resolve it to a fixed seed: five functions declared `rng=None` and then ran `np.random.default_rng(42)`, so two calls a caller believed were independent shared one null and agreed exactly. `jnwb/_rng.py` records that repair (05-35). Default to `None` only where fresh entropy per call is the intended contract. `tests/test_rng_control.py` holds the live signatures against this paragraph, so the two cannot drift apart. **Never mutate global state** (`np.random.seed()`).
 6. **No Hidden Filesystem Assumptions**: Never hardcode relative paths, machine-specific drive letters, or external network dependencies in library functions.
 7. **No Silent Numerical Clipping / Censoring**: Never silently clamp, filter, or discard invalid values unless explicitly requested by a parameter.
 8. **Explicit Boundary / Failure States**: When a fit hits parameter bounds or optimization fails, return explicit status flags (e.g. `bound_status: "lower" | "upper" | None`) rather than masking errors as valid interior solutions.
@@ -215,8 +216,8 @@ A mutation run — editing the tree to check that a test can fail, then restorin
 `scripts/mutation_harness.py`. Do not hand-roll one.
 
 The harness derives its state directory from the worktree being operated on, refuses to touch a
-path outside that worktree, and admits one session per worktree under an OS-level lock. A worktree isolates the repository and **not** the session scratchpad, so two
-lanes writing a file called `mutate.py` into the shared scratchpad collide — measured three
+path outside that worktree, and admits one session per worktree under an OS-level lock. A worktree isolates the repository and **not** the session's scratch directory, so two
+lanes writing a file called `mutate.py` into the shared scratch directory collide — measured three
 times across two batches, once between a live mutation harness and another lane's harness
 pointing at a third worktree.
 
