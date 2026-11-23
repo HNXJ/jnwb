@@ -651,7 +651,7 @@ def _depth_from_shallow_contact(row, electrodes_df: pd.DataFrame, depth_axis: st
 
 
 def _refuse_bad_depth_arguments(depth_unit: Optional[str], threshold: Optional[float]) -> None:
-    """Refuse an explicit ``depth_unit`` that names no length unit, or a negative ``threshold``.
+    """Refuse an explicit ``depth_unit`` that names no length unit, or a negative or non-finite ``threshold``.
 
     Only the arguments are checked. Data the table cannot place still gives 'Unknown'.
     """
@@ -662,9 +662,10 @@ def _refuse_bad_depth_arguments(depth_unit: Optional[str], threshold: Optional[f
                 f"or a spelling of one) or None, got {depth_unit!r}"
             )
     if threshold is not None and isinstance(threshold, (int, float, np.integer, np.floating)):
-        if threshold < 0:
+        if not np.isfinite(threshold) or threshold < 0:
             raise ValueError(
-                f"classify_layer_from_depth: threshold must not be negative, got {threshold!r}"
+                "classify_layer_from_depth: threshold must be finite and not negative, "
+                f"got {threshold!r}"
             )
 
 

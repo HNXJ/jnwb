@@ -42,8 +42,6 @@ FINITENESS_HELPERS = {
 # (path relative to jnwb/, function, parameter) -> why the site is held rather than flagged.
 # Each entry is an open defect except where the reason says the NaN is refused in the same test.
 ALLOWED: dict[tuple[str, str, str], str] = {
-    ("addressing.py", "_refuse_bad_depth_arguments", "threshold"):
-        "NaN passes and reaches the depth comparison unrefused.",
     ("filtering.py", "bandpass_filter", "low_cut"):
         "NaN passes; scipy refuses it later with 'Wn[0] must be less than Wn[1]'.",
     ("filtering.py", "notch_filter", "freq"):

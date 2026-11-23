@@ -194,6 +194,12 @@ class TestClassifyLayerUnitSafety:
         with pytest.raises(ValueError, match="threshold"):
             classify_layer_from_depth(0, df, depth_unit="um", threshold=-1.0)
 
+    @pytest.mark.parametrize("threshold", [np.nan, np.inf])
+    def test_nonfinite_threshold_is_refused(self, threshold):
+        df = pd.DataFrame({"z": [500.0, 1500.0]}, index=[0, 1])
+        with pytest.raises(ValueError, match="threshold"):
+            classify_layer_from_depth(0, df, depth_unit="um", threshold=threshold)
+
     def test_missing_nan_and_infinite_depth(self):
         df = pd.DataFrame({"z": [np.nan, np.inf, -np.inf, None]}, index=[0, 1, 2, 3])
         for ch in range(4):
