@@ -6,7 +6,7 @@ item text and Checks: `artifacts/todo_stack.md`; rulings: `artifacts/rulings/202
 `artifacts/rulings/standing.md`. Update a row in the commit that changes it; the update log holds history.
 
 Current (2026-11-23): **40/100, diagnostic** (Q3; 0.5 of it is the S4 denominator after 17-102 left the plan, not a closure; 17-128 counted); gates 0 of 6 complete. `origin/dev` =
-`86f2e3c7`; suite 11162 passed at `e9b0f358`. Integration tip on `_temp_rc-integration`. Open stack: one row (`17-144-src`). Owner decisions: section 9.
+`27985e03` (suite 11166 passed there; CI green at `e9b0f358`). Integration tip on `_temp_rc-integration`. Open stack: one row (`17-144-src`). Owner decisions: section 9.
 
 ## 1. RC target
 
@@ -55,9 +55,9 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 |---|---|---|---|---|---|
 | 0 | Suite at the merged tip, push, CI | integration | integrator | none | `86f2e3c7` pushed; next tip carries 17-94's close; if red: logs, diagnose, repair, normal gates, no override |
 | 6 | Tracked rules cite tracked roles | 17-101 (S4) | integrator | D4 | merged 22eca3d2; two live hits left, both owner-gated |
-| 12 | Docs thinning remainder | 17-100 (S4) | `docs-harness` | 0 | widen Writes to the named blocking tests |
+| 12 | Docs thinning remainder | 17-100 (S4) | `docs-harness` | D5 | fig14/fig18 merged `6a7baf41`; three parts kept, Check narrowing is Hamm's |
 | 16 | One home per invariant | 17-99 (S4) | `jnwb-developer` | D2 | |
-| 17 | Prose against the writing style | 17-129 (S5) | `docs-harness` | 12, 16 | spelling clause narrowed to new prose (Q5) |
+| 17 | Prose against the writing style | 17-129 (S5) | `docs-harness` | 0 | spelling clause narrowed to new prose (Q5); runs on its Writes while 12 and 16 wait on D5 and D2 |
 | 18 | External ground truth | 17-144, 15-11, 12-21, 16-12 (S6) | human input | D1 | in scope (Q1); raise D1 when it is the critical path |
 | R1 | Refresh peak memory and import receipts | release | `jnwb-actor-haiku` | 1 to 18 | `scripts/measure_peak_memory.py`, `scripts/benchmark_import.py --write` |
 | R2 | §11 verbosity review | A3 | `reviewer` | 12, 17 | report under `artifacts/evidence/0.2.17/` |
@@ -75,7 +75,7 @@ or only tasks blocked on section 9 remain.
 | Verified closed (receipts in the update log) | 17-79, 17-97, 17-98, 17-103, 17-154 (section 7), 17-157, 17-96, 17-142, 17-147, 17-153 (suite 11147 passed at `d918bf46`), 17-150 (pending the suite at the integration tip); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
 | Landed, item still open | 17-100 (partials 2026-11-21 to 2026-11-23) |
 | Pending verification | full suite and CI at the merged tip |
-| Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4) |
+| Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4), D4 (17-101), D5 (17-100) |
 | Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
 
 ## 6. Weighted progress (60): diagnostic, not a gate (Q3, ruled 2026-11-22)
@@ -127,6 +127,7 @@ blocks the critical path.
 | D2 | The spikes-and-LFP fact-row wording for 17-99 | 17-99 | 17-99 is on the critical path |
 | D3 | Tag, `main` merge and publication of the verified RC | R4 | R3 passes |
 | D4 | 17-101 remainder: roadmap 17-138 (vendor `suite_lock.py` or name the dependency, `memory.md:7`); rewording "the scratchpad" in the corpus-access ruling (`standing.md:20`) | 17-101, S4 | 17-101 is the last open S4 item besides 17-99 |
+| D5 | 17-100 Check: accept three parts as kept (the stub serving a published readthedocs URL; the inline `sys.path` guard an installed-copy test requires; the fig22/fig23 id gap), or rule a change (a redirect plugin or dashboard redirect; moving the guard by changing that test and the docs gate; renumbering figure files) | 17-100, S4 | now: 17-100 has no other work left |
 
 Recorded for review, not blocking: 17-153's check tests the first `path:line` cite of each B3 exception
 row; a continuation cite after `;` (reason code, not the default) is exempt. The independent verifier read
@@ -157,3 +158,4 @@ all 11 continuation cites the strict form fails; each points at reason code and 
 | 2026-11-23 | `86f2e3c7`, merges `6bcf22cd`, `cffa5f8c` | 17-94 closed: `partial_coherence` on the shared 1-D check (slice 3); the spectral `_require_*` pairs and `_window_rows` shown distinct checks; a survey of 104 private helpers in the split modules finds no duplicate (verifier ACCEPT on `62335c79`, planted duplicates found). Calibration receipts regenerated after the `fs` routing (hashes only). Suite 11162 passed at `e9b0f358`. The verifier's `_psi.py` coherency retype went to roadmap 17-160. S2 4 of 4; score 35/100 diagnostic. |
 | 2026-11-23 | merge `8c383df7` | 17-127 closed: one read and parse per file per build (`scripts/fact_graph/_sources.py`), `ast.parse` calls 6266 to 1270; verifier ACCEPT on `8b8cd3e0`: graph identical apart from the change's own entries, three idle builds by the verifier 17.5 to 20.5 s, three mutants caught, full suite 11162 passed at `8b8cd3e0`. S5 2 of 4; score 37.5/100 diagnostic. |
 | 2026-11-23 | merge `ee50004a` | 17-128 closed: `tests/test_public_raises_documented.py` checks each of the 163 public functions' own and nested-helper raises against its Raises section (red on baseline and on a planted raise); 38 tolerance literals named, AST-equal with the constants inlined; curation and xflip receipts regenerated, result numbers identical. Verifier REJECT twice (unnamed literals, nested-def blind spot, ulp multipliers), repaired, ACCEPT on `e0bc166e`. Left: `assert_mergeable` (skill row, Hamm's), two frozen literals, signature defaults (ruled), `0.05` levels (roadmap 17-130), wider raise coverage (roadmap 17-161). S5 3 of 4; score 40/100 diagnostic. |
+| 2026-11-23 | `27985e03`, merge `6a7baf41` | Suite 11166 passed at `27985e03`, pushed to `dev`. 17-100 part 1 merged: fig14 and fig18 have one home, `common_mistakes.md` (verifier ACCEPT on `ac2c02ee`, six mutants red, full suite 11158 passed there); the stub, the inline guard and the id gap are kept for reasons the verifier confirmed; closing as kept narrows the Check, raised as D5. |
