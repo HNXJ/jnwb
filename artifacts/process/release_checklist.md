@@ -6,8 +6,8 @@ item text and Checks: `artifacts/todo_stack.md`; rulings: `artifacts/rulings/202
 `artifacts/rulings/standing.md`. Update a row in the commit that changes it; the update log holds history.
 
 Current (2026-11-23): **30/100, diagnostic** (Q3; 0.5 of it is the S4 denominator after 17-102 left the plan, not a closure; 17-104 counts once the suite at the integration tip passes); gates 0 of 6 complete. `origin/dev` =
-`d918bf46` (suite 11147 passed, 0 failed), CI pending (push 45180968913, pull request 45180979412). Integration tip on
-`_temp_rc-integration`, awaiting its full suite. Open stack: one row (`17-144-src`). Owner decisions: section 9.
+`e1201abb` (suite 11154 passed, 0 failed), CI pending; CI green at `d918bf46` (push 45180968913, pull request
+45180979412). Integration tip on `_temp_rc-integration`. Open stack: one row (`17-144-src`). Owner decisions: section 9.
 
 ## 1. RC target
 
@@ -54,13 +54,13 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 
 | Order | Task | Item (row) | Role | Blocked by | Next action |
 |---|---|---|---|---|---|
-| 0 | Suite at the merged tip, push, CI | integration | integrator | none | `d918bf46` pushed (suite 11147 passed), CI pending; next tip carries 17-150, 17-158, 17-104 and the threshold fix; if red: logs, diagnose, repair, normal gates, no override |
+| 0 | Suite at the merged tip, push, CI | integration | integrator | none | `e1201abb` pushed (suite 11154 passed), CI pending; next tip carries the 17-127 speedup; if red: logs, diagnose, repair, normal gates, no override |
 | 2 | 17-95 test git sites | 17-95 (S2) | `jnwb-actor-haiku` | 0 | listed sites merged 1eeda9d2; convert or name about 59 test git lines and the stored-argv calls |
 | 6 | Tracked rules cite tracked roles | 17-101 (S4) | integrator | D4 | merged 22eca3d2; two live hits left, both owner-gated |
 | 10 | One home per helper in `jnwb/` | 17-94 (S2) | `jnwb-actor` | 4 (file overlap) | after 17-96 lands |
 | 11 | Docstrings and tolerance constants | 17-128 (S5) | `jnwb-actor` | 10 | narrowed Check (ruled) |
 | 12 | Docs thinning remainder | 17-100 (S4) | `docs-harness` | 0 | widen Writes to the named blocking tests |
-| 13 | Fact graph build under 60 s | 17-127 (S5) | `jnwb-actor` | 0 | profile first; graph byte-identical |
+| 13 | Fact graph build under 60 s | 17-127 (S5) | `jnwb-actor` | 0 | speedup merged `790b1a10`; idle-host timing by a non-author, or one shared parse per file |
 | 16 | One home per invariant | 17-99 (S4) | `jnwb-developer` | D2 | |
 | 17 | Prose against the writing style | 17-129 (S5) | `docs-harness` | 12, 16 | spelling clause narrowed to new prose (Q5) |
 | 18 | External ground truth | 17-144, 15-11, 12-21, 16-12 (S6) | human input | D1 | in scope (Q1); raise D1 when it is the critical path |
@@ -156,3 +156,4 @@ all 11 continuation cites the strict form fails; each points at reason code and 
 | 2026-11-23 | merges `1eeda9d2`, `bd425e49`, `7e1fc279` | 17-95 listed sites merged (verifier ACCEPT, 274 rows split identically by old and new splitter), remainder named. 17-96 closed: three names deprecated with tests, palette and `DEFAULT_BANDS` kept importable and live, `nwb_read_io` re-frozen at `03fdbc45` (independent kills M1 to M4); verifier and critic, ACCEPT on `7c7dad80`. 17-142 closed: ruff F811/F821/F841 zero over `jnwb/` and `scripts/`. A suite at `eda122a6` timed out after 3600 s in the machine suite lock; never run. Superseded lanes 17-103 and 17-143 archived to `F:/warehouse/jnwb_branch_archive/superseded_2026-11-23.bundle` and deleted from `origin`. Score 27.5/100 diagnostic. |
 | 2026-11-23 | merges `6cffdc42`, `952cb357` | 17-153 closed: the fact gate reads each B3 exception cite (a planted stale cite turns it red; verifier ACCEPT on `ad9f0d3e`); it found three stale cites (row 189, and two shifted by 17-96), each re-cited. 17-147 closed: D1 match rule tightened, D2 ancestor-tag test, `_refusal` names its error; verifier ACCEPT on `e8036d0b` (65 passed, D1 and D2 mutants killed). Score unchanged (neither is in a scope row). |
 | 2026-11-23 | `d918bf46`, merge `b83bc468`, `507e4cfb` | Suite at `8769bc5e` failed 1 (17-96 deprecation notes undeclared in the version-claim test); declared at `d918bf46`; suite 11147 passed there; pushed to `dev`. 17-150 closed: AST sign-guard scan, verifier ACCEPT on `7340b8bf` (mutants red, stale allow-list entry fails); it found `classify_layer_from_depth` accepting a NaN `threshold`, refused at `507e4cfb` (test red first; critic REJECT on a stale docstring and fragment length, repaired `18fed6d5`); `enrich_units_dataframe` keeps the silent path (roadmap 17-159). 17-158 closed: Windows bind retry, verifier ACCEPT on `2a040727`. 17-104 closed (merge `ab5a2909`): `growth_rows` counts every `.py` under `scripts/`, verifier ACCEPT on `6c4330b1` after a first review found `gates/` and `figures/` uncounted too; S5 1 of 4; score 30/100 diagnostic. |
+| 2026-11-23 | `e1201abb`, merge `790b1a10` | CI green at `d918bf46`; suite 11154 passed at `e1201abb`, pushed to `dev`. 17-127 speedup merged (verifier ACCEPT on correctness); under 60 s not shown: 88-114 s at 100% host load, item open. |

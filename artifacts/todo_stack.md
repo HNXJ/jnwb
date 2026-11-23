@@ -74,7 +74,7 @@ Writes: `artifacts/memory.md`, `artifacts/rulings/standing.md`.
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: none. `scripts/fact_graph/__init__.py` keeps its CRLF line endings (ruled 2026-11-22, Q6).
 Writes: `scripts/build_fact_graph.py`, `scripts/fact_graph/*.py`, `tests/test_fact_gate.py`.
-- 17-127: one `build_fact_graph.py` run took 264 s at `2e069118` and 217 s at `a5345f79` on the Windows host (one sample each; the 17-84 call-site rule landed between); under a full suite it passed the test's 300 s cap twice, now 900 s. Check: a profile names the phases; the build runs under 60 s with the graph byte-identical.
+- 17-127: one `build_fact_graph.py` run took 264 s at `2e069118` and 217 s at `a5345f79` on the Windows host (one sample each; the 17-84 call-site rule landed between); under a full suite it passed the test's 300 s cap twice, now 900 s. Landed 2026-11-23 (merge 790b1a10, verifier ACCEPT): each unit walked and parsed once per scan; graph identical but the HEAD stamp; planted positives in the four scans empty on the live tree match base. Profile at base (s): rng_scan 6.4, source scans 4.2, owned rules 4.1, tests 3.9, text scans 3.2; `ast.walk` 47 of 88 s under cProfile. Timing: author 35.5 s base, 27-29 s after on an idle host; at 100% host load 88-114 s (three runs, 790b1a10). Left: three runs under 60 s on an idle host by someone other than the author, or one shared parse per file across scans. Check: a profile names the phases; the build runs under 60 s with the graph byte-identical.
 
 ### 17-128 Docstrings and constants against the code style
 
