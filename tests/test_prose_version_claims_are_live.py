@@ -109,8 +109,15 @@ FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
 # since-note) and is not listed. Above it, a note is either a plan or removal date, which
 # expires when the version reaches it, or the record of a change the next release carries,
 # which needs no declaration once that release is live.
-SOURCE_FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
+SOURCE_FORWARD_MENTIONS: dict[tuple[str, str], str] = {
+    ("jnwb/analyzers.py", "will be removed in 0.2.18"): "0.2.18",
+    ("jnwb/artifact_repair.py", "will be removed in 0.2.18"): "0.2.18",
+    ("jnwb/nwb_io.py", "will be removed in 0.2.18"): "0.2.18",
+    ("jnwb/visual_qc.py", "will be removed in 0.2.18"): "0.2.18",
+}
 SOURCE_UNRELEASED_RECORDS: dict[tuple[str, str], str] = {
+    ("jnwb/analyzers.py", "Deprecated in 0.2.17"): "0.2.17",
+    ("jnwb/nwb_io.py", "deprecated since 0.2.17"): "0.2.17",
 }
 
 # A version after a comparison operator is a dependency requirement, not a jnwb release.
