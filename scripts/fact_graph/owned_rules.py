@@ -125,8 +125,8 @@ def _statistic_of_abs(node: ast.AST, statistics: Tuple[str, ...], constant: floa
     return False
 
 
-def _db_nodes(tree: ast.AST, parents: Dict[ast.AST, ast.AST]):
-    for node in ast.walk(tree):
+def _db_nodes(nodes: Sequence[ast.AST], parents: Dict[ast.AST, ast.AST]):
+    for node in nodes:
         if not isinstance(node, ast.Call) or not node.args:
             continue
         times = parents.get(node)
@@ -138,25 +138,24 @@ def _db_nodes(tree: ast.AST, parents: Dict[ast.AST, ast.AST]):
             yield node
 
 
-def _r2_nodes(tree: ast.AST):
-    for node in ast.walk(tree):
+def _r2_nodes(nodes: Sequence[ast.AST]):
+    for node in nodes:
         if (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Sub)
                 and _is_number(node.left, (1,))
                 and isinstance(node.right, ast.BinOp) and isinstance(node.right.op, ast.Div)):
             yield node
 
 
-def _mad_scopes(tree: ast.AST, scope: Dict[ast.AST, str]) -> set:
+def _mad_scopes(nodes: Sequence[ast.AST], scope: Dict[ast.AST, str]) -> set:
     """The functions that take a MAD scale, read as ``median(abs(d)) * 1.4826``."""
-    return {scope.get(node, "") for node in ast.walk(tree)
+    return {scope.get(node, "") for node in nodes
             if _statistic_of_abs(node, _MAD, 1.4826, "MAD_SCALE")}
 
 
-def _robust_z_nodes(tree: ast.AST, scope: Dict[ast.AST, str]):
+def _robust_z_nodes(nodes: Sequence[ast.AST], scope: Dict[ast.AST, str], mad_scopes: set):
     """The fallbacks of a robust z: the mean-absolute-deviation scale and a standard deviation,
-    read in a function that also takes a MAD scale."""
-    mad_scopes = _mad_scopes(tree, scope)
-    for node in ast.walk(tree):
+    read in a function that also takes a MAD scale (``mad_scopes``)."""
+    for node in nodes:
         if scope.get(node, "") not in mad_scopes:
             continue
         if _statistic_of_abs(node, _MEAN_AD, 1.253314, "MEAN_AD_SCALE"):
@@ -165,11 +164,10 @@ def _robust_z_nodes(tree: ast.AST, scope: Dict[ast.AST, str]):
             yield node, "robust z, MAD with a standard-deviation fallback"
 
 
-def _floor_nodes(tree: ast.AST, scope: Dict[ast.AST, str]):
+def _floor_nodes(nodes: Sequence[ast.AST], scope: Dict[ast.AST, str], mad_scopes: set):
     """The 1e-9 floor of a MAD scale, ``np.where(s < 1e-9, 1e-9, s)``, in a function that
-    takes one."""
-    mad_scopes = _mad_scopes(tree, scope)
-    for node in ast.walk(tree):
+    takes one (``mad_scopes``)."""
+    for node in nodes:
         if not (isinstance(node, ast.Call) and _final(node.func) == "where" and len(node.args) == 3
                 and scope.get(node, "") in mad_scopes):
             continue
@@ -180,9 +178,9 @@ def _floor_nodes(tree: ast.AST, scope: Dict[ast.AST, str]):
             yield node
 
 
-def _pooled_nodes(tree: ast.AST):
+def _pooled_nodes(nodes: Sequence[ast.AST]):
     """A residual over ``1.4826 * scale``: the normal-consistent MAD of a pooled scale."""
-    for node in ast.walk(tree):
+    for node in nodes:
         if (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div)
                 and isinstance(node.right, ast.BinOp) and isinstance(node.right.op, ast.Mult)
                 and (_is_number(node.right.left, (1.4826,))
@@ -190,9 +188,9 @@ def _pooled_nodes(tree: ast.AST):
             yield node
 
 
-def _modified_nodes(tree: ast.AST):
+def _modified_nodes(nodes: Sequence[ast.AST]):
     """``0.6745 * d / median(d)``: the modified z-score of a deviation, with no fallback."""
-    for node in ast.walk(tree):
+    for node in nodes:
         if (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div)
                 and isinstance(node.left, ast.BinOp) and isinstance(node.left.op, ast.Mult)
                 and (_is_number(node.left.left, (0.6745,))
@@ -205,28 +203,30 @@ def _owned_nodes(source: str) -> List[Tuple[int, str, str, str]]:
     """Each node in one module that matches a registered expression, as (line, enclosing
     function, rule, expression text), before owners and exemptions are removed."""
     tree = ast.parse(source)
+    nodes = list(ast.walk(tree))  # walked once, read by every matcher below
     bound = _bindings(tree)
     scope = _scopes(tree)
-    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
-    found = [(node, "dB aggregation") for node in _db_nodes(tree, parents)]
-    found += [(node, "R2") for node in _r2_nodes(tree)]
-    found += list(_robust_z_nodes(tree, scope))
+    parents = {child: node for node in nodes for child in ast.iter_child_nodes(node)}
+    mad_scopes = _mad_scopes(nodes, scope)
+    found = [(node, "dB aggregation") for node in _db_nodes(nodes, parents)]
+    found += [(node, "R2") for node in _r2_nodes(nodes)]
+    found += list(_robust_z_nodes(nodes, scope, mad_scopes))
     found += [(node, "robust z, MAD with an absolute floor of 1e-9")
-              for node in _floor_nodes(tree, scope)]
+              for node in _floor_nodes(nodes, scope, mad_scopes)]
     found += [(node, "robust z, pooled MAD scale, zero-guarded at the call site")
-              for node in _pooled_nodes(tree)]
+              for node in _pooled_nodes(nodes)]
     found += [(node, "modified z, 0.6745 over the median deviation")
-              for node in _modified_nodes(tree)]
-    found += [(node, "FDR") for node in ast.walk(tree)
+              for node in _modified_nodes(nodes)]
+    found += [(node, "FDR") for node in nodes
               if isinstance(node, ast.Call) and _target(node.func, bound).endswith(
                   "false_discovery_control")]
-    found += [(node, "Clopper-Pearson") for node in ast.walk(tree)
+    found += [(node, "Clopper-Pearson") for node in nodes
               if isinstance(node, ast.Call) and node.args
               and _target(node.func, bound).endswith("beta.ppf")
               and any(isinstance(n, ast.BinOp) and isinstance(n.op, ast.Div)
                       and _is_number(n.right, (2,)) for n in ast.walk(node.args[0]))]
     pairs: Dict[Tuple[str, str], List[ast.AST]] = {}
-    for node in ast.walk(tree):
+    for node in nodes:
         if not (isinstance(node, ast.Call) and _final(node.func) in _PERCENTILES
                 and len(node.args) >= 2):
             continue

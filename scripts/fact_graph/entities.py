@@ -214,10 +214,10 @@ def references(source: str, names: Sequence[str]) -> List[str]:
     after ``import jnwb.sub as O`` or ``from jnwb import sub as O``).
     """
     wanted = set(names)
-    tree = ast.parse(source)
+    nodes = list(ast.walk(ast.parse(source)))  # walked once, read twice
     aliases = set()
     found = set()
-    for node in ast.walk(tree):
+    for node in nodes:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if _is_jnwb(alias.name):
@@ -228,7 +228,7 @@ def references(source: str, names: Sequence[str]) -> List[str]:
                     found.add(alias.name)
                 else:  # a submodule, or a private helper; its attributes may be exports
                     aliases.add(alias.asname or alias.name)
-    for node in ast.walk(tree):
+    for node in nodes:
         if not isinstance(node, ast.Attribute):
             continue
         chain = []
