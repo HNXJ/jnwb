@@ -60,3 +60,8 @@ Verified lessons the code and git do not show. This project only. No state, secr
   repair: run `tests/test_changelog_fragments.py` in the lane and in every review of it
   evidence: the suite at `683db26e` stopped at "doc-form tests failed; the full suite did not run" on `test_every_committed_fragment_line_meets_the_entry_template`; repaired at `90e501ef`
   scope: every change that writes a changelog fragment
+- trigger: a change edits the body of a function under `jnwb/`
+  cause: calibration receipts hash the source of every function their estimator reaches; the `fs` routing changed five such bodies, both reviews ran only the touched modules' tests, and the suite at `90e501ef` failed 5 receipt tests
+  repair: run the receipt tests (`tests/test_calibration_hash_walker.py` names each `calibrate_*.py`) in the lane; when one fails, rerun its calibrate script into a scratch dir and show that only hashes and the covered-function list differ before installing
+  evidence: receipts regenerated after `90e501ef`: results identical, only `estimator_sha256` and `jnwb._units.require_positive_fs` added; 53 receipt tests passed
+  scope: every `jnwb/` body change
