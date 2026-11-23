@@ -55,7 +55,7 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | Order | Task | Item (row) | Role | Blocked by | Next action |
 |---|---|---|---|---|---|
 | 0 | Suite at the merged tip (17-97, 17-101, 17-157, 17-158), push, CI | integration | integrator | none | CI green at `68995c90` (attempt 2) and `c52d64cb`; if red: logs, diagnose, repair, normal gates, no override |
-| 2 | Resume the 17-95 remainder | 17-95 (S2) | `jnwb-actor-haiku` | 0 | lane `_temp_17-95-left` (`a01f06c8`, WIP, 8 files, on `origin`): merge `dev`, finish, verify |
+| 2 | 17-95 test git sites | 17-95 (S2) | `jnwb-actor-haiku` | 0 | listed sites merged 1eeda9d2; convert or name about 59 test git lines and the stored-argv calls |
 | 3 | `Union` in `scripts/gates/boundary.py:432` | 17-142 (S2) | `jnwb-actor-haiku` | 2 | after 17-95 merges |
 | 4 | Deprecate the three public names | 17-96 (S2) | `jnwb-actor` | 0 | warning and retained behaviour by test; changelog fragment; two reviews |
 | 6 | Tracked rules cite tracked roles | 17-101 (S4) | integrator | D4 | merged 22eca3d2; two live hits left, both owner-gated |

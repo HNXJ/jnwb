@@ -49,3 +49,9 @@ Verified lessons the code and git do not show. This project only. No state, secr
   repair: clone a checkout with plain `git clone <path>` (hardlinks on one drive, copies across); after changing checkout depth, rerun clone-based tests with `--basetemp` on another drive
   evidence: CI run 45073612887 (3 Windows legs, 1 failed each); local D: to E: repro, `--local` rc 128, plain rc 0; fix `68995c90`
   scope: tests that clone the repository, on Windows CI
+
+- trigger: deciding that a `jnwb_suite.sh` run is still queued from its log
+  cause: the log keeps the lock's "waiting in line" line until pytest's `-q` output flushes, so a started run with 12 workers looked queued; it was killed at about 30 minutes (2026-11-22, run at `80a11e8a`)
+  repair: before stopping a suite, list processes whose command line carries its `--basetemp`; a `python -m pytest` child means it is running
+  evidence: `taskkill` output of 2026-11-22 listing pytest pid 36128 and 12 worker children under the lock pid 53872
+  scope: any queued-or-running suite judgement on this workstation
