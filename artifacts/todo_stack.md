@@ -69,17 +69,10 @@ Role: jnwb-developer. Skill: none. Blocked by: Hamm's word on the roadmap row th
 Writes: `artifacts/memory.md`, `artifacts/rulings/standing.md`.
 - 17-101: merge 22eca3d2 (lane `7ef15176`, verifier ACCEPT): rules cite `artifacts/agents/` roles, each tier bound to one; five live "scratchpad" concept uses reworded; `parity44.py` marked not retained. Left, live non-record hits: `memory.md:7` (roadmap 17-138) cites `C:/Users/nejath/.claude/bin/suite_lock.py`; `standing.md:20` (corpus-access ruling) says "the scratchpad", no path. Check: `git grep -lE 'scratchpad|C:/Users/nejath'` over tracked rules returns only records.
 
-### 17-104 Two oversized structures
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/reconstruct_state.py`, `tests/test_*.py`.
-- 17-104: script half landed 2026-11-21 (merge 2a1814a0): `scripts/fact_graph/` and a 442-line driver. Ruled 2026-11-22 (Q6): `jnwb/__init__.py` imports stay eager and `scripts/fact_graph/__init__.py` keeps CRLF; both parts dropped. Left: `reconstruct_state.growth_rows` globs `scripts/*.py` only, so `scripts/fact_graph/` is uncounted. Check: `growth_rows` counts `scripts/fact_graph/*.py`, by a test red on the old glob; the harness gate passes.
-
 ### 17-127 The fact graph build takes four minutes
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none (17-104's script half landed; its remaining parts write `jnwb/__init__.py`, `scripts/fact_graph/__init__.py` line endings and `scripts/reconstruct_state.py`, so a 17-127 lane must not touch those three).
+Role: jnwb-developer. Skill: none. Blocked by: none. `scripts/fact_graph/__init__.py` keeps its CRLF line endings (ruled 2026-11-22, Q6).
 Writes: `scripts/build_fact_graph.py`, `scripts/fact_graph/*.py`, `tests/test_fact_gate.py`.
 - 17-127: one `build_fact_graph.py` run took 264 s at `2e069118` and 217 s at `a5345f79` on the Windows host (one sample each; the 17-84 call-site rule landed between); under a full suite it passed the test's 300 s cap twice, now 900 s. Check: a profile names the phases; the build runs under 60 s with the graph byte-identical.
 
