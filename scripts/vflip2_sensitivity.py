@@ -37,7 +37,6 @@ import inspect
 import json
 import os
 import statistics
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -102,8 +101,14 @@ class Skip(Exception):
 
 
 def head_commit() -> str:
-    proc = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True,
-                          text=True, check=True)
+    # Function-local, and the checkout appended rather than prepended: jnwb is imported by now,
+    # so the path entry reaches `scripts` only, also when JNWB_EXPECTED_PACKAGE_ROOT kept it off.
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.append(str(REPO_ROOT))
+    from scripts.gates.boundary import git
+
+    proc = git("rev-parse", "HEAD", cwd=REPO_ROOT)
+    proc.check_returncode()
     return proc.stdout.strip()
 
 

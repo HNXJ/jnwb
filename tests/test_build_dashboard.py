@@ -863,6 +863,25 @@ def test_a_deferred_row_is_a_validation_only_when_its_theme_carries_the_tag(tmp_
     assert rows[0]["label"] == "not started"
 
 
+def test_a_row_without_a_closing_pipe_keeps_its_last_cell_and_a_quoted_row_is_not_read(
+        tmp_path, monkeypatch):
+    """The dashboard splits rows with `stack_parse.cells`. A row with no closing pipe keeps its
+    last cell (the splitter it replaced dropped it, and the row fell out at four cells); a line
+    that opens with `>` is no table row and is skipped."""
+    builder = _builder()
+    roadmap = tmp_path / "roadmap.md"
+    roadmap.write_text(
+        "| ID | Theme | Defect | Waits | Release |\n"
+        "|---|---|---|---|---|\n"
+        "| row-a | A (validation) | Defect | Waits | deferred-0.2.15\n"
+        "> | row-b | B (validation) | Defect | Waits | deferred-0.2.15 |\n",
+        encoding="utf-8", newline="\n")
+    monkeypatch.setattr(builder, "ROADMAP", roadmap)
+    rows = builder.deferred_section()
+    assert [row["id"] for row in rows] == ["row-a"], rows
+    assert rows[0]["release"] == "deferred-0.2.15", rows[0]
+
+
 def test_the_schema_declares_the_deferred_section_and_the_replication_label():
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     assert "deferred" in schema["properties"], "the schema must name the deferred section"

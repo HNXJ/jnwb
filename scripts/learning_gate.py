@@ -196,8 +196,7 @@ def newest_release_tag() -> Optional[str]:
     ``git describe`` walks HEAD's ancestry only, so a tag it names is an ancestor of HEAD. A
     shallow clone without tags resolves none.
     """
-    done = subprocess.run(["git", "-C", str(REPO_ROOT), "describe", "--tags", "--abbrev=0",
-                           "--match", "v*"], capture_output=True, text=True)
+    done = git("-C", str(REPO_ROOT), "describe", "--tags", "--abbrev=0", "--match", "v*")
     return (done.stdout.strip() or None) if done.returncode == 0 else None
 
 

@@ -719,12 +719,16 @@ def markdown(row: Dict) -> str:
 
 
 def provenance(jnwb) -> Dict[str, object]:
+    # Function-local: importing this module must not touch sys.path, and `scripts` is reachable
+    # only once `import_checkout_jnwb` has put the checkout on it.
+    from scripts.gates.boundary import git
+
     try:
-        head = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True,
-                              text=True, check=True).stdout.strip()
-        dirty = bool(subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain",
-                                     "--untracked-files=no"], capture_output=True, text=True,
-                                    check=True).stdout.strip())
+        shown = git("-C", str(ROOT), "rev-parse", "HEAD")
+        shown.check_returncode()
+        status = git("-C", str(ROOT), "status", "--porcelain", "--untracked-files=no")
+        status.check_returncode()
+        head, dirty = shown.stdout.strip(), bool(status.stdout.strip())
     except (OSError, subprocess.CalledProcessError):
         head, dirty = "unknown", None
     return {
