@@ -75,8 +75,8 @@ asked runs it in its next turn.
 
 The integrator routes each packet to an agent tier by what decides its claims, and the tier
 follows the evidence of what review keeps finding. Up to three lanes run at once, one worker
-each, when they share no file. Agent definitions are local to this machine
-(`~/.claude/agents/` and the ignored `.claude/agents/`); the integrator always reads the diff and
+each, when they share no file. Agent roles are defined in `artifacts/agents/<role>.md`
+(`actor`, `authority`, `critic`, `docs-harness`, `jnwb-developer`, `verifier`); the integrator always reads the diff and
 re-runs the acceptance command itself.
 
 | The packet's claims are decided by | Actor | Review |

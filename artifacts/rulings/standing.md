@@ -34,7 +34,7 @@ live item that will; a ruling held by nothing else says "the ruling".
 | `AGENTS.md` §4.7 | Stays a rule; fact S7 keeps only its checkable half | 2026-09-29 | `AGENTS.md` §4 |
 | `AGENTS.md` §7 skills | Points to the one skill table in `docs/agents.md` and names the repository-only skills | 2026-09-26 | `AGENTS.md` §7 |
 | Host skills | A jnwb skill governs jnwb operations; an overlapping host skill adds only checks it leaves open | 2026-09-28 | `AGENTS.md` §7 |
-| Review checks | Live in the repository-only skill `artifacts/skills/jnwb-review`; the verifier dispatch file is a local copy under the git-ignored `.claude/agents/` | 2026-09-28, 2026-09-29 | `artifacts/skills/jnwb-review/SKILL.md` |
+| Review checks | Live in the repository-only skill `artifacts/skills/jnwb-review`; verifier dispatch is defined in `artifacts/agents/verifier.md` | 2026-09-28, 2026-09-29 | `artifacts/skills/jnwb-review/SKILL.md` |
 | Process skill | `jnwb-fact-action` does not ship; it lives at `artifacts/skills/jnwb-fact-action/SKILL.md`, and gate 2 accepts a skill there only when no shipped skill has its name | 2026-09-25 | gate 2 (`scripts/harness_gate.py`) |
 | Archive contents | `AGENTS.md` and `jnwb-fact-action` are forbidden components of a built archive | 2026-09-25 | `scripts/release_gate.py` |
 | Role definitions | The files in `artifacts/agents/` stay out of the wheel; `artifacts/agents.md` names only public capabilities and does not link them, which replaces the 2026-09-22 link (`3d7ac490`) | 2026-09-22, 2026-09-25 | gate 14 (`scripts/harness_gate.py`) |

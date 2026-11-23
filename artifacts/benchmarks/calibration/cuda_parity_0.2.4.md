@@ -64,7 +64,7 @@ away, and `fit_var_bivariate` skipped its GPU branch whenever `ridge > 0`. Silen
 | `wpli` | cupy | 2 / 0 | yes | 2.05e-15 | 1e-10 |
 | `imaginary_coherency` | cupy | 2 / 0 | yes | 1.74e-17 | 1e-10 |
 
-Every row above was re-measured for 0.2.5 by `scratchpad/parity44.py`, which wraps
+Every row above was re-measured for 0.2.5 by a script (`parity44.py`, not retained in the repository), which wraps
 `cupy.asarray`, `cupy.asnumpy` and `torch.as_tensor` with counters and calls each
 primitive once per device. Fixtures: 16384 samples at 1000 Hz with a DC offset of 3.0 for
 the pairwise spectral measures at `nperseg=1024`; a 16x5000 array for `complex_tfr` (25
