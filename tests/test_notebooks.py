@@ -54,6 +54,12 @@ def _execute(path, tmp_path, monkeypatch, kernel_argv=None):
     # kernel stops the cell timeout from ever firing and the run never returns.
     km = AsyncKernelManager(kernel_name="python3")
     km.kernel_spec.argv[0] = sys.executable
+    if sys.platform != "win32":
+        # The client probes a free TCP port and the kernel binds it later; a process that takes
+        # the port in between fails the start. ipc sockets need no TCP port. The ip is an absolute
+        # path, since the default is relative to the client's cwd and the kernel runs in tmp_path.
+        km.transport = "ipc"
+        km.ip = str(tmp_path / "kernel-ipc")
     if kernel_argv is not None:
         km.kernel_spec.argv = list(kernel_argv)
     km.shutdown_wait_time = KERNEL_SHUTDOWN_TIMEOUT_S
@@ -157,6 +163,42 @@ def test_kernel_that_never_starts_fails_within_the_start_bound(tmp_path, monkeyp
     # Under nbclient's own 60 s default, so a dropped start bound shows.
     assert time.monotonic() - began < 30
     assert _LAST_RUN["km"].shutdown_wait_time == 1
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="ipc transport is POSIX-only; Windows keeps TCP")
+def test_planted_tcp_port_collision_does_not_fail_the_kernel_start(tmp_path, monkeypatch):
+    # The client probes a free TCP port and the kernel binds it later; a process that takes the
+    # port in between fails the start. The planted listener stands in for that process.
+    import socket
+
+    from jupyter_client import connect
+
+    held = []
+    real_write = connect.write_connection_file
+
+    def planted_write(*args, **kwargs):
+        fname, cfg = real_write(*args, **kwargs)
+        if cfg["transport"] == "tcp":
+            sock = socket.socket()
+            sock.bind((cfg["ip"], cfg["shell_port"]))
+            sock.listen(1)
+            held.append(sock)
+        return fname, cfg
+
+    monkeypatch.setattr(connect, "write_connection_file", planted_write)
+    _shrink_bounds(monkeypatch, start=60, cell=60, shutdown=2)
+    path = tmp_path / "planted.ipynb"
+    nbformat.write(
+        nbformat.v4.new_notebook(cells=[nbformat.v4.new_code_cell('print("ran")')]), path
+    )
+    try:
+        nb = _execute(path, tmp_path, monkeypatch)
+    finally:
+        for sock in held:
+            sock.close()
+    text = "".join(o.get("text", "") for c in nb.cells if c.cell_type == "code" for o in c.outputs)
+    assert "ran" in text, "the cell did not run, so the check below passes on nothing"
+    assert held or _LAST_RUN["km"].transport == "ipc", "no TCP port was planted and no ipc used"
 
 
 def test_bounds_stay_finite_and_small():
