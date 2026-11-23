@@ -55,3 +55,8 @@ Verified lessons the code and git do not show. This project only. No state, secr
   repair: before stopping a suite, list processes whose command line carries its `--basetemp`; a `python -m pytest` child means it is running
   evidence: `taskkill` output of 2026-11-22 listing pytest pid 36128 and 12 worker children under the lock pid 53872
   scope: any queued-or-running suite judgement on this workstation
+- trigger: a lane adds or edits a file under `artifacts/changelog.d/`
+  cause: two reviews checked fragment line length by `awk` but not the entry template, and the doc-form pre-run of the suite at `683db26e` failed: three lines named no file, and the assembled line is longer than the fragment line
+  repair: run `tests/test_changelog_fragments.py` in the lane and in every review of it
+  evidence: the suite at `683db26e` stopped at "doc-form tests failed; the full suite did not run" on `test_every_committed_fragment_line_meets_the_entry_template`; repaired at `90e501ef`
+  scope: every change that writes a changelog fragment
