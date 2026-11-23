@@ -32,6 +32,13 @@ Role: jnwb-developer. Skill: none. Blocked by: none (merge 7bc91d79 adds `-o fau
 Writes: `scripts/jnwb_suite.sh`, `tests/test_*.py`.
 - 17-154: from open row `17-147-hang` (ruled 2026-11-22, A6 modified): two stalls at about 99% with 12 idle workers (9479505e on 2026-11-18, 9ad92d4b on 2026-11-19), stuck test unidentified; suspects by file time only: the wheel and foreign-NWB tests. Check: two clean full-suite runs under the dump configuration, each log and SHA cited; or a dump names the stalled test and a verified repair removes the stall. A dump alone is diagnosis and closes nothing. Evidence awaiting a verifier (2026-11-22): full runs under the flag at `c53c78fe` (11092 passed), `8d5fb637` and `68995c90` (11093 passed each), 0 failed, no stall; logs `D:/tmp/jnwb_int/suite_<sha>.log`.
 
+### 17-158 A notebook test fails when its kernel loses a port race
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `tests/test_notebooks.py`.
+- 17-158: CI push run 45083350199 (attempt 1) at `68995c90`: `tests/test_notebooks.py::test_stalled_cell_fails_within_the_cell_bound` failed in the installed-wheel leg, the kernel never started (`zmq.error.ZMQError: Address already in use (addr='tcp://127.0.0.1:34637')`, then "Kernel didn't respond in 120 seconds"); the pull-request run at the same SHA passed it (wheel leg 11079 passed). Log kept at `D:/tmp/jnwb_int/ci_689_failed.log`. Check: a kernel start that loses a port bind is retried or uses a transport without TCP ports (e.g. `ipc` on POSIX), so the test fails only on its own bound; a planted port collision no longer fails the test.
+
 ### 17-157 ruff C901 runs on a CI leg
 
 Release: deferred-0.2.17.

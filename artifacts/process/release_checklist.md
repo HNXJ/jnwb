@@ -14,7 +14,7 @@ is authorized). Open stack: one row (`17-144-src`). Owner questions: section 9.
 | Field | Value |
 |---|---|
 | Target | `0.2.17rc1`: a commit on `dev` at which gates A1 to A6 pass and every 0.2.17 scope item is closed or ruled out of scope. Whether the RC is also tagged (`v0.2.17rc1`, which the workflow publishes to TestPyPI only, `.github/workflows/workflow.yml:579-595`) is question Q2 |
-| Scope | The six scope lines of `release_plan.json` 0.2.17 (rows S1 to S6, section 6), plus the cycle-required items no scope line names: 17-147, 17-150, 17-153, 17-154, 17-157 (question Q3) |
+| Scope | The six scope lines of `release_plan.json` 0.2.17 (rows S1 to S6, section 6), plus the cycle-required items no scope line names: 17-147, 17-150, 17-153, 17-154, 17-157, 17-158 (question Q3) |
 | Acceptance | `AGENTS.md` §11 (full text `artifacts/rulings/standing.md`); gates A1 to A6 below, each with a receipt at the RC SHA |
 | Excluded | Everything in `artifacts/roadmap.md` (0.2.18 and later, including 17-102, 17-151, 17-155, 17-156 moved there 2026-11-22); Python 3.15 on Windows (goal 12); GPU paths, which CI cannot run (declared unverified, goal 11; tiered CI is 0.2.19) |
 | Owner-gated, never by an agent | version bump and CHANGELOG assembly (the release step, `AUTONOMY: none`), any push to `main`, any tag, TestPyPI or PyPI publication, GitHub release, a scope change (goal 9) |
@@ -24,7 +24,7 @@ is authorized). Open stack: one row (`17-144-src`). Owner questions: section 9.
 | # | Gate | Pts | Requirements (all) | State |
 |---|---|---|---|---|
 | A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | blocked: `17-144-src` (outside input, Q1) |
-| A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | pending: suite 0 failed at `68995c90` (11093 passed); CI pending there. CI failed at `c53c78fe` (shallow checkouts: gate 15 found no tag) and at `8d5fb637` (Windows: `git clone --local` across drives); both repaired, section 8 |
+| A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | pending: suite 0 failed at `68995c90` (11093 passed). CI there: every test job green on both runs; pull-request run 45083354762 success; push run 45083350199 attempt 1 failed in the build job's installed-wheel leg on one test (a Jupyter kernel port race, 17-158; the pull-request wheel leg passed the same 11079 tests); attempt 2 (failed job rerun) pending. CI failed at `c53c78fe` (shallow checkouts: gate 15 found no tag) and at `8d5fb637` (Windows: `git clone --local` across drives); both repaired, section 8 |
 | A3 | Documentation low-verbosity and consistently formed | 5 | `harness_gate.py` 22 of 22; `docs_build.py` strict passes; docs-form tests pass; the §11 verbosity review | incomplete: harness 22 of 22 at `68995c90`; docs build passed at `c24898eb`; verbosity review not run (task R2) |
 | A4 | Code low-complexity | 5 | no function above 40 by ruff C901 (`max-complexity = 40`, `pyproject.toml`) over `jnwb/` (ruled 2026-11-22; McCabe, not a maintainability measure; distinct from the AST counter) | incomplete: none above 40 locally (largest `cluster_permutation_test` 39, margin 1); not run in CI (ruff in no dependency or workflow; `tests/test_complexity_ceiling.py` skips there): item 17-157 |
 | A5 | `scripts/release_gate.py` STEP 0 passes | 5 | `PYTHONPATH=<tree> python scripts/release_gate.py` (the installed jnwb 0.2.11 shadows the tree otherwise; ruled workaround) | incomplete: STEP 0a failed at `c24898eb` on open rows, a stale closure receipt (`16233114982d`), 3 unassembled `changelog.d` fragments (assembled only at the release step) and `main` not resolving in that clone |
@@ -63,6 +63,7 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | 6 | Tracked rules cite tracked roles | 17-101 (S4) | `jnwb-actor-fast` | 0 | `git grep` Check from the item |
 | 7 | Gate-15 follow-ups and tests-4 | 17-147 | `jnwb-actor-haiku` | 0 | D1 prose narrowed to what `obligation_losses` checks; D2 ancestor-tag test; `_refusal` |
 | 8 | ruff C901 on a CI leg | 17-157 (A4) | `jnwb-actor-haiku` | 0 | pinned ruff in the build job; the C901 test runs there |
+| 8b | Kernel start survives a port race | 17-158 | `jnwb-actor-haiku` | 0 | retry or `ipc` transport; planted collision |
 | 9 | The fact gate reads each cited line | 17-153 | `jnwb-actor` | 0 | planted stale cite turns it red |
 | 10 | One home per helper in `jnwb/` | 17-94 (S2) | `jnwb-actor` | 4 (file overlap) | after 17-96 lands |
 | 11 | Docstrings and tolerance constants | 17-128 (S5) | `jnwb-actor` | 10 | narrowed Check (ruled) |
@@ -119,6 +120,7 @@ the plan's `items` list until Hamm changes it (17-102 stays counted in S4 until 
 |---|---|---|---|
 | CI red at `c53c78fe`: gate 15 found no `v*` tag in shallow test checkouts | runs 45066157361, 45066162229 | all test legs | repaired `8d5fb637`, guard test added |
 | CI red at `8d5fb637`: explicit `git clone --local` dies on a failed cross-drive hardlink | run 45073612887 | Windows legs | repaired `68995c90`; CI pending |
+| Notebook kernel lost a port race in the wheel leg | push run 45083350199 attempt 1, `ZMQError: Address already in use`; the pull-request run at the same SHA passed | `tests/test_notebooks.py`, any leg | 17-158; failed job rerun once, result read before any push |
 | C901 margin 1 and not in CI | `ruff check --select C901 jnwb/`: max 39 | A4 | 17-157 |
 | Gate 15 matches clauses by word overlap: a deleted clause passes when another keeps its obligation word | verifier, merge `3f6f7e86` | gate 15 | 17-147 (D1) |
 | Installed jnwb 0.2.11 shadows the tree for `release_gate.py` run as a script | `ImportError: _declarations` | local A5 runs | ruled workaround `PYTHONPATH` |
