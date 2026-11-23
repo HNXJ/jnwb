@@ -58,7 +58,7 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | 2 | Resume the 17-95 remainder | 17-95 (S2) | `jnwb-actor-haiku` | 0 | lane `_temp_17-95-left` (`a01f06c8`, WIP, 8 files, on `origin`): merge `dev`, finish, verify |
 | 3 | `Union` in `scripts/gates/boundary.py:432` | 17-142 (S2) | `jnwb-actor-haiku` | 2 | after 17-95 merges |
 | 4 | Deprecate the three public names | 17-96 (S2) | `jnwb-actor` | 0 | warning and retained behaviour by test; changelog fragment; two reviews |
-| 6 | Tracked rules cite tracked roles | 17-101 (S4) | `jnwb-actor-fast` | 0 | `git grep` Check from the item |
+| 6 | Tracked rules cite tracked roles | 17-101 (S4) | integrator | D4 | merged 22eca3d2; two live hits left, both owner-gated |
 | 7 | Gate-15 follow-ups and tests-4 | 17-147 | `jnwb-actor-haiku` | 0 | D1 prose narrowed to what `obligation_losses` checks; D2 ancestor-tag test; `_refusal` |
 | 8 | ruff C901 on a CI leg | 17-157 (A4) | `jnwb-actor-haiku` | 0 | pinned ruff in the build job; the C901 test runs there |
 | 8b | Kernel start survives a port race | 17-158 | `jnwb-actor-haiku` | 0 | retry or `ipc` transport; planted collision |
@@ -139,6 +139,7 @@ blocks the critical path.
 | D1 | S6 inputs (17-144 commits from jaxfne; Bastos lab simulation; broadband jaxfne field) and who sends the requests | S6, R3 | S6 is the only work left before R3 |
 | D2 | The spikes-and-LFP fact-row wording for 17-99 | 17-99 | 17-99 is on the critical path |
 | D3 | Tag, `main` merge and publication of the verified RC | R4 | R3 passes |
+| D4 | 17-101 remainder: roadmap 17-138 (vendor `suite_lock.py` or name the dependency, `memory.md:7`); rewording "the scratchpad" in the corpus-access ruling (`standing.md:20`) | 17-101, S4 | 17-101 is the last open S4 item besides 17-99 |
 
 ## Update log
 
