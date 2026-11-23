@@ -460,7 +460,8 @@ def test_growth_rows_count_the_scripts_and_each_process_test(generated: str):
     assert "## Growth" in generated, "the state file records no line counts"
     from scripts.reconstruct_state import PROCESS_TESTS
 
-    scripts = sorted((REPO_ROOT / "scripts").glob("*.py"))
+    scripts = sorted((REPO_ROOT / "scripts").glob("*.py")) + sorted(
+        (REPO_ROOT / "scripts" / "fact_graph").glob("*.py"))
     total = sum(len(p.read_text(encoding="utf-8").splitlines()) for p in scripts)
     assert f"`scripts/` {total};" in generated, total
     for rel in PROCESS_TESTS:
