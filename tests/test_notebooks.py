@@ -44,7 +44,7 @@ _LAST_RUN = {}  # the manager and budget of the latest _execute, for the tests b
 
 def _execute(path, tmp_path, monkeypatch, kernel_argv=None):
     """Run the notebook top to bottom in a kernel on this tree; return it with its outputs."""
-    nb =nbformat.read(path, as_version=4)
+    nb = nbformat.read(path, as_version=4)
     repo_root = str(NOTEBOOK_DIR.parent.parent)
     # The kernel inherits this environment and runs in tmp_path, so without the repo root on
     # PYTHONPATH it would import whatever jnwb is installed for this interpreter instead of
