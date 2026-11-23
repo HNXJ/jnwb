@@ -6,6 +6,7 @@ so. The configured ceiling is read too, so raising it is a visible change rather
 
 from __future__ import annotations
 
+import os
 import pathlib
 import shutil
 import subprocess
@@ -25,7 +26,10 @@ def _ruff() -> list:
     probe = subprocess.run([sys.executable, "-m", "ruff", "--version"], capture_output=True)
     if probe.returncode == 0:
         return [sys.executable, "-m", "ruff"]
-    pytest.skip("ruff is not installed, so the C901 ceiling over jnwb/ cannot be checked here")
+    message = "ruff is not installed, so the C901 ceiling over jnwb/ cannot be checked here"
+    if os.environ.get("CI"):  # GitHub Actions sets CI; a missing ruff there is a failure, not a skip
+        pytest.fail(message)
+    pytest.skip(message)
 
 
 def test_pyproject_adds_c901_at_the_ceiling_without_narrowing_the_default_rules():
