@@ -39,6 +39,23 @@ def __getattr__(name):
         return _DEPRECATED_PALETTE[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+
+def __dir__():
+    return sorted(set(globals()) | set(_DEPRECATED_PALETTE))
+
+
+# The public names before 0.2.17, so a star-import still binds the deprecated palette members.
+__all__ = [
+    "log",
+    "MADELANE_GOLD",
+    *_DEPRECATED_PALETTE,
+    "UNKNOWN_COLOR",
+    "plot_unit_waveforms",
+    "plot_unit_quality_distribution",
+    "plot_noise_vs_signal",
+    "compare_session_quality",
+]
+
 # A value that is NaN is drawn in this colour and marked "unknown", never as failing.
 UNKNOWN_COLOR = "lightgray"
 

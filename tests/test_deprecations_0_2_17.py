@@ -190,6 +190,16 @@ class TestUnusedPalette:
             assert visual_qc.MADELANE_GOLD == "#CFB87C"
         assert not _only_deprecations(record)
 
+    def test_star_import_and_dir_still_list_the_palette(self):
+        import jnwb.visual_qc as visual_qc
+
+        namespace = {}
+        with pytest.warns(DeprecationWarning, match=REMOVAL):
+            exec("from jnwb.visual_qc import *", namespace)
+        for name, value in OLD_PALETTE.items():
+            assert namespace[name] == value
+        assert set(OLD_PALETTE) <= set(dir(visual_qc))
+
 
 class TestNwbReadIoMode:
     def test_mode_r_warns_and_reads_the_same_file(self, nwb_path):
