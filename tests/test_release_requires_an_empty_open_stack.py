@@ -613,7 +613,7 @@ def test_a_git_status_that_fails_is_not_read_as_a_clean_tree(tmp_path, monkeypat
     root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
     real = subprocess.run
 
-    def status_fails(cmd, *args, **kwargs):
+    def status_fails(cmd, *args, **kwargs):  # mock: fakes git status, passes other calls through
         if list(cmd[:2]) == ["git", "status"]:
             return subprocess.CompletedProcess(cmd, 128, "", "fatal: index file corrupt")
         return real(cmd, *args, **kwargs)
@@ -1049,8 +1049,7 @@ def test_a_previous_tag_without_the_record_fails_closed(tmp_path):
     from scripts.release_gate import PEAK_MEMORY_PATH
     root = _growth_tree(tmp_path, before=None, after={KEY: 20.0})
     assert _git(root, "tag", "--list") == f"v{PREVIOUS_CYCLE}", "the fixture must be tagged"
-    absent = subprocess.run(["git", "-C", str(root), "cat-file", "-e",
-                             f"v{PREVIOUS_CYCLE}:{PEAK_MEMORY_PATH}"], capture_output=True)
+    absent = git("-C", str(root), "cat-file", "-e", f"v{PREVIOUS_CYCLE}:{PEAK_MEMORY_PATH}")
     assert absent.returncode != 0, "the fixture must leave the record out of the tag"
     v = _growth(root)
     assert len(v) == 1 and f"v{PREVIOUS_CYCLE}" in v[0] and "absent" in v[0], v
@@ -1061,8 +1060,8 @@ def test_a_previous_release_with_the_record_at_its_old_path_is_compared(tmp_path
     from scripts.release_gate import PEAK_MEMORY_PATH_BEFORE_0_2_13
     root = _growth_tree(tmp_path, before={KEY: 20.0}, after={KEY: 26.0},
                         before_dir="artifacts/benchmarks")
-    kept = subprocess.run(["git", "-C", str(root), "cat-file", "-e",
-                           f"v{PREVIOUS_CYCLE}:{PEAK_MEMORY_PATH_BEFORE_0_2_13}"], capture_output=True)
+    kept = git("-C", str(root), "cat-file", "-e",
+               f"v{PREVIOUS_CYCLE}:{PEAK_MEMORY_PATH_BEFORE_0_2_13}")
     assert kept.returncode == 0, "the fixture must hold the record at the old path"
     v = _growth(root)
     assert len(v) == 1 and KEY in v[0] and "30.0%" in v[0], v

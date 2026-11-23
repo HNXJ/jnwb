@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import inspect
 import pathlib
+import sys
 import types
 from dataclasses import FrozenInstanceError
 from typing import Optional, Tuple
@@ -14,6 +15,10 @@ import pytest
 import jnwb
 import jnwb.testing
 from jnwb.laminar import VFlipResult, vflip, vflip_from_lfp, label_layers
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 #: Derived from the signature so the threshold cannot go stale in these tests.
 DEFAULT_MIN_SUPPORT_SCORE = float(

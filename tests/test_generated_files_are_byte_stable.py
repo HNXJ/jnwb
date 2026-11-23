@@ -182,6 +182,7 @@ class TestTheApiDocIsByteIdenticalToItsGenerator:
         from scripts.generate_api_md import generate_api_markdown
 
         generated = generate_api_markdown(REPO_ROOT).encode("utf-8")
+        # Raw call: the comparison needs the stored bytes, which the text-mode helper decodes.
         stored = subprocess.run(
             ["git", "show", ":docs/api.md"], cwd=REPO_ROOT,
             capture_output=True, check=True).stdout

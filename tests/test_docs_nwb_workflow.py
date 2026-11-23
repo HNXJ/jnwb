@@ -12,6 +12,8 @@ import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 README = REPO_ROOT / "README.md"
 MKDOCS = REPO_ROOT / "mkdocs.yml"
 SKILL = REPO_ROOT / "skills" / "jnwb-nwb-data" / "SKILL.md"

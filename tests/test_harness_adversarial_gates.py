@@ -22,6 +22,7 @@ if str(REPO_ROOT) not in sys.path:
 import pytest
 
 from scripts import harness_gate
+from scripts.gates.boundary import git
 from scripts.harness_gate import (
     GENERATED_FROM,
     INTERNAL_PROCESS_TERMS,
@@ -1940,20 +1941,18 @@ def _tracked_tree(tmp_path: Path, files: "dict[str, bytes]") -> Path:
     "sweep is broken" violation a seeded defect does -- so the seed would appear to be caught
     while nothing was ever read.
     """
-    import subprocess
-
     root = tmp_path / "tree"
     root.mkdir()
-    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    git("init", "-q", cwd=root).check_returncode()
     for relative, data in files.items():
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
     if files:
-        subprocess.run(["git", "add", "--", *files], cwd=root, check=True)
-    listed = subprocess.run(
-        ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
-    ).stdout.split()
+        git("add", "--", *files, cwd=root).check_returncode()
+    done = git("ls-files", cwd=root)
+    done.check_returncode()
+    listed = done.stdout.split()
     assert sorted(listed) == sorted(files), f"fixture tracks {listed}, not {sorted(files)}"
     return root
 
@@ -2379,18 +2378,17 @@ class TestGate20StateFileHead:
 
     @staticmethod
     def _repo(tmp_path: Path) -> "tuple[Path, str]":
-        import subprocess
-
         root = tmp_path / "tree"
         (root / "artifacts").mkdir(parents=True)
-        git = ["git", "-c", "user.name=gate fixture", "-c", "user.email=fixture@example.invalid",
-               "-c", "commit.gpgsign=false"]
-        subprocess.run([*git, "init", "-q"], cwd=root, check=True)
+        config = ("-c", "user.name=gate fixture", "-c", "user.email=fixture@example.invalid",
+                  "-c", "commit.gpgsign=false")
+        git(*config, "init", "-q", cwd=root).check_returncode()
         (root / "README").write_text("fixture\n", encoding="utf-8", newline="\n")
-        subprocess.run([*git, "add", "README"], cwd=root, check=True)
-        subprocess.run([*git, "commit", "-qm", "fixture"], cwd=root, check=True)
-        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True,
-                              text=True, check=True).stdout.strip()
+        git(*config, "add", "README", cwd=root).check_returncode()
+        git(*config, "commit", "-qm", "fixture", cwd=root).check_returncode()
+        done = git("rev-parse", "HEAD", cwd=root)
+        done.check_returncode()
+        head = done.stdout.strip()
         assert re.fullmatch(r"[0-9a-f]{40}", head) and head != TestGate20StateFileHead.ZERO
         return root, head
 

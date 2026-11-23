@@ -286,6 +286,7 @@ def push_check(item: str, target: str, *, cwd: Path | None = None) -> tuple[list
             writes += item_writes(todo, one)
         except ValueError as exc:
             return [f"{exc} at {target}. Nothing is pushed."], 0
+    # Raw call: the error path reads stderr apart from stdout, which _git merges.
     diff = subprocess.run(
         ["git", "diff", "--name-only", f"{target}...HEAD"],
         cwd=str(cwd) if cwd else None, capture_output=True, text=True,

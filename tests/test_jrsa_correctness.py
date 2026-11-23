@@ -1,7 +1,14 @@
+import pathlib
+import sys
+
 import numpy as np
 import pytest
 import warnings
 import jnwb as oa
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 def test_jrsa_nan_omission_paired():
     """Verify that nan_policy='omit' performs joint listwise exclusion of NaNs."""

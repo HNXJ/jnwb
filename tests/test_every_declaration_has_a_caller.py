@@ -14,13 +14,17 @@ having been removed from the root.
 
 from __future__ import annotations
 
-import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
 
 #: What makes each declared test dependency true, as something a reader can check. The value
 #: is the token that must appear in the repository for the declaration to have a caller --
@@ -49,11 +53,10 @@ def _tracked_text(exclude: tuple = ()) -> str:
     Tracked rather than walked: a working checkout has a `.venv` with thousands of files that
     mention every one of these packages, and a caller inside one is not this repository's.
     """
+    listing = git("ls-files", cwd=ROOT)
+    listing.check_returncode()
     names = [
-        name for name in subprocess.run(
-            ["git", "ls-files"],
-            cwd=ROOT, capture_output=True, text=True, check=True,
-        ).stdout.split()
+        name for name in listing.stdout.split()
         if not name.startswith(NOT_A_CALLER) and name not in exclude
     ]
     assert len(names) > 100, f"git ls-files returned {len(names)} files; the search is empty"
@@ -137,10 +140,6 @@ def test_every_script_has_a_caller() -> None:
 def test_the_root_allowlist_holds_no_exemption_for_a_deleted_artifact() -> None:
     """`jnwb-unified-rev.md` outlived the script that wrote it."""
     # The live set, not the file's text: the comment explaining the removal names the file.
-    import sys
-
-    if str(ROOT) not in sys.path:
-        sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
     from scripts.harness_gate import ALLOWED_ROOT_FILES
 
     assert "jnwb-unified-rev.md" not in ALLOWED_ROOT_FILES, (

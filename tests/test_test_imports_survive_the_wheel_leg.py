@@ -174,13 +174,12 @@ def _deferred_imports(tree: ast.Module) -> list[tuple[str, int]]:
 
 
 def _deferred_offenders() -> list[tuple[str, int, str]]:
-    """Imports of ``scripts`` inside a function, in a module that never reaches for it.
+    """Imports of ``scripts`` or ``tests`` inside a function, in a module that never reaches for it.
 
     Such an import passes in the wheel leg only when an earlier module happened to append the
-    root, so it fails when its module runs alone or the file order changes. ``scripts`` only:
-    the function-scope imports of ``tests`` are a separate question.
+    root, so it fails when its module runs alone or the file order changes.
     """
-    unshipped = _unshipped_repo_paths() & {"scripts"}
+    unshipped = _unshipped_repo_paths() & {"scripts", "tests"}
     rows: list[tuple[str, int, str]] = []
     for path in sorted(TESTS_DIR.glob("test_*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -285,8 +284,9 @@ def test_no_test_module_imports_an_unshipped_path_without_reaching_for_it():
 
 def test_the_deferred_import_walk_finds_an_import_inside_a_function():
     """A walk that saw no function-scope import would pass the check below vacuously."""
-    tree = ast.parse("import os\n\ndef f():\n    from scripts import stack_parse\n")
-    assert _deferred_imports(tree) == [("scripts", 4)]
+    tree = ast.parse("import os\n\ndef f():\n    from scripts import stack_parse\n"
+                     "    from tests._sources import read_sources\n")
+    assert _deferred_imports(tree) == [("scripts", 4), ("tests", 5)]
 
 
 def test_no_test_module_imports_an_unshipped_path_inside_a_function_without_reaching_for_it():

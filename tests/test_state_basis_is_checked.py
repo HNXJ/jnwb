@@ -224,9 +224,7 @@ def test_a_state_file_in_this_tree_is_current() -> None:
         "artifacts/state.md records no HEAD, so nothing can say whether it is current; "
         "run python scripts/reconstruct_state.py"
     )
-    live = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, timeout=60
-    )
+    live = git("rev-parse", "HEAD", cwd=ROOT, timeout=60)
     assert live.returncode == 0, live.stderr
     assert recorded.group(1) == live.stdout.strip(), (
         f"artifacts/state.md was generated at {recorded.group(1)[:12]} and HEAD is now "

@@ -492,6 +492,7 @@ def _decision(guard: Path, command: str, cwd: Path) -> str:
 
 
 def _old_guard(tmp_path: Path) -> Path:
+    # Raw call: the old guard is written back byte for byte, which the text-mode helper decodes.
     shown = subprocess.run(["git", "-C", str(REPO_ROOT), "show", f"{OLD_GUARD_SHA}:scripts/push_guard.py"],
                            capture_output=True)
     if shown.returncode != 0:
@@ -910,6 +911,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 from tests.test_jnwb_push import OLDER_SHA, _body, _git, _run, ci_api  # noqa: E402, F401  (fixture)
+from scripts.gates.boundary import git  # noqa: E402
 
 PUSH_SH = Path(__file__).resolve().parents[1] / "scripts" / "jnwb_push.sh"
 VERIFY_LANE = Path(__file__).resolve().parents[1] / "scripts" / "verify_lane.py"
@@ -938,8 +940,7 @@ def _bash_path() -> str:
 
 
 def _remote_ref(bare: Path, ref: str):
-    proc = subprocess.run(["git", "rev-parse", "-q", "--verify", ref], cwd=str(bare),
-                          capture_output=True, text=True)
+    proc = git("rev-parse", "-q", "--verify", ref, cwd=bare)
     return proc.stdout.strip() if proc.returncode == 0 else None
 
 

@@ -47,8 +47,7 @@ def _git(cwd: pathlib.Path, *args: str) -> str:
 
 def _ref(bare: pathlib.Path):
     """The sha of dev in the bare remote, or None when the remote has no dev."""
-    proc = subprocess.run(("git", "rev-parse", "-q", "--verify", "refs/heads/dev"), cwd=str(bare),
-                          capture_output=True, text=True)
+    proc = git("rev-parse", "-q", "--verify", "refs/heads/dev", cwd=bare)
     return proc.stdout.strip() if proc.returncode == 0 else None
 
 

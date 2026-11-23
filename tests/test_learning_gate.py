@@ -19,6 +19,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts import learning_gate as lg  # noqa: E402
+from scripts.gates.boundary import git  # noqa: E402
 
 # The row as it stood before the recount landed (314d7329^): two instances joined by a comma.
 LEDGER_ROW_BEFORE_RECOUNT = (
@@ -158,12 +159,12 @@ def test_gate_20_runs_the_state_row_check(monkeypatch):
 
 def _need_commit(rev: str) -> None:
     """Skip where a shallow clone (CI's checkout) lacks the commit the test replays."""
-    if subprocess.run(["git", "-C", str(REPO_ROOT), "cat-file", "-e", f"{rev}^{{commit}}"],
-                      capture_output=True).returncode:
+    if git("-C", str(REPO_ROOT), "cat-file", "-e", f"{rev}^{{commit}}").returncode:
         pytest.skip(f"commit {rev} is not in this clone's history")
 
 
 def _git_text(rev: str, path: str) -> str:
+    # Raw call: decoded from bytes so CRLF survives; the text-mode helper would fold it.
     done = subprocess.run(["git", "-C", str(REPO_ROOT), "show", f"{rev}:{path}"],
                           capture_output=True, check=True)
     return done.stdout.decode("utf-8")
@@ -270,9 +271,8 @@ def test_a_reworded_clause_sharing_half_its_words_and_its_obligation_word_is_kep
 
 def _git_at(repo: pathlib.Path, date: str, *args: str) -> None:
     env = {**os.environ, "GIT_COMMITTER_DATE": date, "GIT_AUTHOR_DATE": date}
-    subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
-                    "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false", *args],
-                   check=True, capture_output=True, env=env)
+    git("-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
+        "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false", *args, env=env).check_returncode()
 
 
 def test_the_base_tag_is_the_newest_ancestor_not_a_newer_tag_on_another_branch(tmp_path,
@@ -289,8 +289,9 @@ def test_the_base_tag_is_the_newest_ancestor_not_a_newer_tag_on_another_branch(t
     _git_at(repo, "2026-02-01T00:00:00Z", "checkout", "-q", "trunk")
     _git_at(repo, "2026-02-01T00:00:00Z", "commit", "-q", "--allow-empty", "-m", "head")
     # Precondition: the off-ancestry tag is the newest by creation date.
-    newest = subprocess.run(["git", "-C", str(repo), "tag", "-l", "v*", "--sort=-creatordate"],
-                            capture_output=True, text=True, check=True).stdout.split()
+    listed = git("-C", str(repo), "tag", "-l", "v*", "--sort=-creatordate")
+    listed.check_returncode()
+    newest = listed.stdout.split()
     assert newest[0] == "v0.0.9", newest
     monkeypatch.setattr(lg, "REPO_ROOT", repo)
     assert lg.newest_release_tag() == "v0.0.1"
@@ -337,10 +338,10 @@ def test_a_pooling_phrase_named_by_a_row_is_red_on_commit_b0119d07():
 
 def test_a_forbidden_phrase_in_a_tracked_file_is_red_and_an_archived_one_is_not(tmp_path):
     phrase = "pool across them without namespacing"
-    subprocess.run(["git", "-C", str(tmp_path), "init", "-q"], check=True)
+    git("-C", str(tmp_path), "init", "-q").check_returncode()
     _tree(tmp_path, {"docs/page.md": f"Do {phrase}.\n",
                      "artifacts/archive/0.2.5/old.md": f"{phrase}\n"})
-    subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], check=True)
+    git("-C", str(tmp_path), "add", "-A").check_returncode()
     found = lg.forbidden_violations([("artifacts/rulings/fixture.md", phrase)], root=tmp_path)
     assert len(found) == 1 and found[0].startswith("docs/page.md:"), found
 

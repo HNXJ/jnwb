@@ -5,6 +5,8 @@ arrays and boolean pairs in; no session or condition semantics.
 from __future__ import annotations
 
 import inspect
+import pathlib
+import sys
 
 import numpy as np
 import pytest
@@ -23,6 +25,10 @@ from jnwb.statistics import (
     StatisticalAnalysis,
 )
 from jnwb.statistics import (cluster_permutation_test)
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 
 class TestFiresInWindow:

@@ -132,7 +132,7 @@ class TestTheFixIsNotOverbroad:
         # NUL-separated, in bytes, both directions. Not decoration: with `text=True` the
         # subprocess stdin wrapper translates each "\n" to "\r\n" on Windows, git then sees
         # each path with a trailing "\r", which no longer matches a "!" re-inclusion rule,
-        # and this check reports tracked files as ignored that are not.
+        # and this check reports tracked files as ignored that are not. So both calls stay raw.
         listing = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "ls-files", "-z"], capture_output=True
         )
@@ -183,11 +183,8 @@ class TestGitStatusCannotSeeTheCache:
         repo = tmp_path / "throwaway"
         repo.mkdir()
         # A global core.excludesFile would otherwise decide part of the answer.
-        subprocess.run(
-            ["git", "-c", f"core.excludesFile={tmp_path / 'no-such-global-ignore'}",
-             "init", "-q", str(repo)],
-            capture_output=True, text=True, check=True,
-        )
+        git("-c", f"core.excludesFile={tmp_path / 'no-such-global-ignore'}",
+            "init", "-q", str(repo)).check_returncode()
         (repo / ".gitignore").write_bytes((REPO_ROOT / ".gitignore").read_bytes())
         return repo
 

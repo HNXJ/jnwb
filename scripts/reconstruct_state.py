@@ -221,6 +221,7 @@ def open_defect_classes(path: pathlib.Path | None = None) -> str:
         return "UNRESOLVED (file absent)"
     found = []
     for line in path.read_text(encoding="utf-8").splitlines():
+        # Split inline: tests copy this script alone into fixture repositories without stack_parse.
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
         if len(cells) < 6 or not cells[1].isdigit() or ":" not in cells[0]:
             continue
