@@ -122,8 +122,8 @@ Writes: `artifacts/process/cooperation.md`, `artifacts/rulings/standing.md`, `ar
 
 Release: deferred-0.2.17.
 Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `scripts/build_fact_graph.py`, `jnwb/__init__.py`.
-- 17-104: script half landed 2026-11-21 (merge 2a1814a0): `scripts/fact_graph/` and a 442-line driver; graph differs only in head, python list and claim labels 393 to 392 (a false `set(RNG_KEYS)` site). Left: `jnwb/__init__.py` imports submodules eagerly beside `_lazy_exports` (import at 0.2.16: 11775 ms warm median, 70076 ms cold, 1381 modules, `artifacts/benchmarks/performance/import_breakdown.json`); `scripts/fact_graph/__init__.py` is committed with CRLF (the EOL guard restores it; needs Hamm's word); `reconstruct_state.growth_rows` globs `scripts/*.py` only. Check: the script splits into a module and a driver with the harness gate unchanged; the import receipt (`scripts/benchmark_import.py`) records the change.
+Writes: `scripts/reconstruct_state.py`, `tests/test_*.py`.
+- 17-104: script half landed 2026-11-21 (merge 2a1814a0): `scripts/fact_graph/` and a 442-line driver. Ruled 2026-11-22 (Q6): `jnwb/__init__.py` imports stay eager and `scripts/fact_graph/__init__.py` keeps CRLF; both parts dropped. Left: `reconstruct_state.growth_rows` globs `scripts/*.py` only, so `scripts/fact_graph/` is uncounted. Check: `growth_rows` counts `scripts/fact_graph/*.py`, by a test red on the old glob; the harness gate passes.
 
 ### 17-127 The fact graph build takes four minutes
 
@@ -149,6 +149,6 @@ Writes: `scripts/gates/boundary.py`.
 ### 17-129 Prose against the writing style
 
 Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: 17-99 and 17-100 (shared files); Hamm's word for `skills/`, `AGENTS.md` and the spelling.
+Role: docs-harness. Skill: none. Blocked by: 17-99 and 17-100 (shared files); Hamm's word for `skills/` and `AGENTS.md`. Ruled 2026-11-22 (Q5): American English for new prose; no repository-wide conversion.
 Writes: `.github/CONTRIBUTING.md`, `README.md`, `docs/quickstart.md`.
-- 17-129: from P-216-26. The 2026-11-07 match pass adds: `docs/agents.md:79-94` repeats `skills/jnwb/SKILL.md:13-25`; `CONTRIBUTING.md:39` repeats `:36` and `:64`. Sentences over 40 words in 8 of 12 skills, `AGENTS.md` (:85, :105), `CONTRIBUTING.md` (:111, :179, :185, :379; em dashes on 17 lines); "behaviour" (113 lines) and "behavior" (105) both occur (`git grep -icw`, tracked tree). Check: no sentence over 40 words in the listed files and one spelling, by grep.
+- 17-129: from P-216-26. The 2026-11-07 match pass adds: `docs/agents.md:79-94` repeats `skills/jnwb/SKILL.md:13-25`; `CONTRIBUTING.md:39` repeats `:36` and `:64`. Sentences over 40 words in 8 of 12 skills, `AGENTS.md` (:85, :105), `CONTRIBUTING.md` (:111, :179, :185, :379; em dashes on 17 lines); "behaviour" (113 lines) and "behavior" (105) both occur (`git grep -icw`, tracked tree). Check: no sentence over 40 words in the listed files, by grep; prose added in this cycle uses American spelling.

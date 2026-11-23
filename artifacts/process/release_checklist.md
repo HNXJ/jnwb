@@ -5,16 +5,16 @@ file tracks them and is the work plan toward the RC. Scope source: `artifacts/pr
 item text and Checks: `artifacts/todo_stack.md`; rulings: `artifacts/rulings/2026-11-22.md` and
 `artifacts/rulings/standing.md`. Update a row in the commit that changes it; the update log holds history.
 
-Current (2026-11-22): **17/100 verified**, no scope item closed; gates 0 of 6 complete. `origin/dev` =
+Current (2026-11-22): **17.5/100, diagnostic** (Q3; the 0.5 is the S4 denominator after 17-102 left the plan, not a closure); gates 0 of 6 complete. `origin/dev` =
 `68995c90` (pushed under Hamm's one-time override; **CI/CD pending, not verified**; no further override
-is authorized). Open stack: one row (`17-144-src`). Owner questions: section 9.
+is authorized). Open stack: one row (`17-144-src`). Owner decisions: section 9.
 
 ## 1. RC target
 
 | Field | Value |
 |---|---|
-| Target | `0.2.17rc1`: a commit on `dev` at which gates A1 to A6 pass and every 0.2.17 scope item is closed or ruled out of scope. Whether the RC is also tagged (`v0.2.17rc1`, which the workflow publishes to TestPyPI only, `.github/workflows/workflow.yml:579-595`) is question Q2 |
-| Scope | The six scope lines of `release_plan.json` 0.2.17 (rows S1 to S6, section 6), plus the cycle-required items no scope line names: 17-147, 17-150, 17-153, 17-154, 17-157, 17-158 (question Q3) |
+| Target | `0.2.17rc1`: an untagged commit on `dev` at which gates A1 to A6 pass, CI is green and every 0.2.17 scope item is closed or ruled out of scope, independently verified (Q2, ruled 2026-11-22). A tag (`v0.2.17rc1` publishes to TestPyPI only, `.github/workflows/workflow.yml:579-595`), a `main` merge and publication are Hamm's (D3) |
+| Scope | The six scope lines of `release_plan.json` 0.2.17 (rows S1 to S6, section 6), plus the cycle-required items no scope line names: 17-147, 17-150, 17-153, 17-154, 17-157, 17-158 (in the plan's `items` since Q3, 2026-11-22; 17-154 closed) |
 | Acceptance | `AGENTS.md` §11 (full text `artifacts/rulings/standing.md`); gates A1 to A6 below, each with a receipt at the RC SHA |
 | Excluded | Everything in `artifacts/roadmap.md` (0.2.18 and later, including 17-102, 17-151, 17-155, 17-156 moved there 2026-11-22); Python 3.15 on Windows (goal 12); GPU paths, which CI cannot run (declared unverified, goal 11; tiered CI is 0.2.19) |
 | Owner-gated, never by an agent | version bump and CHANGELOG assembly (the release step, `AUTONOMY: none`), any push to `main`, any tag, TestPyPI or PyPI publication, GitHub release, a scope change (goal 9) |
@@ -23,7 +23,7 @@ is authorized). Open stack: one row (`17-144-src`). Owner questions: section 9.
 
 | # | Gate | Pts | Requirements (all) | State |
 |---|---|---|---|---|
-| A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | blocked: `17-144-src` (outside input, Q1) |
+| A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | blocked: `17-144-src` (outside input, D1) |
 | A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | pending: suite 0 failed at `68995c90` (11093 passed). CI there: every test job green on both runs; pull-request run 45083354762 success; push run 45083350199 attempt 1 failed in the build job's installed-wheel leg on one test (a Jupyter kernel port race, 17-158; the pull-request wheel leg passed the same 11079 tests); attempt 2 (failed job rerun) pending. CI failed at `c53c78fe` (shallow checkouts: gate 15 found no tag) and at `8d5fb637` (Windows: `git clone --local` across drives); both repaired, section 8 |
 | A3 | Documentation low-verbosity and consistently formed | 5 | `harness_gate.py` 22 of 22; `docs_build.py` strict passes; docs-form tests pass; the §11 verbosity review | incomplete: harness 22 of 22 at `68995c90`; docs build passed at `c24898eb`; verbosity review not run (task R2) |
 | A4 | Code low-complexity | 5 | no function above 40 by ruff C901 (`max-complexity = 40`, `pyproject.toml`) over `jnwb/` (ruled 2026-11-22; McCabe, not a maintainability measure; distinct from the AST counter) | incomplete: none above 40 locally (largest `cluster_permutation_test` 39, margin 1); not run in CI (ruff in no dependency or workflow; `tests/test_complexity_ceiling.py` skips there): item 17-157 |
@@ -68,15 +68,15 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | 11 | Docstrings and tolerance constants | 17-128 (S5) | `jnwb-actor` | 10 | narrowed Check (ruled) |
 | 12 | Docs thinning remainder | 17-100 (S4) | `docs-harness` | 0 | widen Writes to the named blocking tests |
 | 13 | Fact graph build under 60 s | 17-127 (S5) | `jnwb-actor` | 0 | profile first; graph byte-identical |
-| 14 | `jnwb/__init__.py` imports, CRLF, `growth_rows` | 17-104 (S5) | `jnwb-actor` | Q6 for two parts | `growth_rows` part now |
+| 14 | `growth_rows` counts `scripts/fact_graph/` | 17-104 (S5) | `jnwb-actor-haiku` | 0 | imports and CRLF parts dropped (Q6) |
 | 15 | NaN-passing sign guard scan | 17-150 | `jnwb-actor-haiku` | 7 (shared file) | |
-| 16 | One home per invariant | 17-99 (S4) | `jnwb-developer` | Q4 | |
-| 17 | Prose against the writing style | 17-129 (S5) | `docs-harness` | 12, 16, Q5 | |
-| 18 | External ground truth | 17-144, 15-11, 12-21, 16-12 (S6) | human input | Q1 | |
+| 16 | One home per invariant | 17-99 (S4) | `jnwb-developer` | D2 | |
+| 17 | Prose against the writing style | 17-129 (S5) | `docs-harness` | 12, 16 | spelling clause narrowed to new prose (Q5) |
+| 18 | External ground truth | 17-144, 15-11, 12-21, 16-12 (S6) | human input | D1 | in scope (Q1); raise D1 when it is the critical path |
 | R1 | Refresh peak memory and import receipts | release | `jnwb-actor-haiku` | 1 to 18 | `scripts/measure_peak_memory.py`, `scripts/benchmark_import.py --write` |
 | R2 | §11 verbosity review | A3 | `reviewer` | 12, 17 | report under `artifacts/evidence/0.2.17/` |
 | R3 | Closure pass and receipt | A6, A5 | `reviewer` + `jnwb-critic-sonnet` | everything above | `blocker_fixpoint_receipt.md` at the RC SHA; then A5 |
-| R4 | Release step | release | Hamm | R3, Q2 | version, `scripts/assemble_changelog.py`, merge to `main`, tag: owner only |
+| R4 | Release step | release | Hamm | R3, D3 | version, `scripts/assemble_changelog.py`, merge to `main`, tag: owner only |
 
 Stop and report when: a gate fails for a reason no task above covers; two repair attempts fail; a
 surprising number appears; a task needs a reserved action (section 1) or a ruling not in the rulings files;
@@ -89,21 +89,21 @@ or only tasks blocked on section 9 remain.
 | Verified closed (receipts in the update log) | 17-79, 17-98, 17-103, 17-154 (section 7); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
 | Landed, item still open | 17-94, 17-95, 17-100, 17-104, 17-128, 17-142, 17-147 (partials 2026-11-21 and 2026-11-22), 17-97 slice 1 |
 | Pending verification | CI at `68995c90` |
-| Blocked on owner | Q1 (S6, `17-144-src`), Q4 (17-99), Q5 (17-129 spelling clause), Q6 (two 17-104 parts), Q2 (R4) |
+| Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4) |
 | Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
 
-## 6. Weighted progress (60): provisional weights (scoring contract: Q3)
+## 6. Weighted progress (60): diagnostic, not a gate (Q3, ruled 2026-11-22)
 
 An item counts as closed only when its todo heading and its id in the plan's `items` list are gone, its
 change is merged on `dev` with the suite green, and an independent reviewer accepted it. Denominators follow
-the plan's `items` list until Hamm changes it (17-102 stays counted in S4 until then).
+the plan's `items` list; 17-102 left it on 2026-11-22 (Q3), so S4 counts four items. That moves S4 from 2 to 2.5 points with no new closure.
 
 | # | Plan scope row | Pts | Items | Closed | Earned |
 |---|---|---|---|---|---|
 | S1 | The largest functions split below a stated complexity | 10 | ~~17-79~~ | 1 of 1 | 10 |
 | S2 | One home per helper in jnwb, scripts and tests; dead code and unused constants removed | 10 | 17-94, 17-95, 17-96, 17-142 | 0 of 4 | 0 |
 | S3 | Tests named by subject, not by the event that produced them | 10 | 17-97, ~~17-98~~ | 1 of 2 | 5 |
-| S4 | Docs and examples thinned; one home per invariant | 10 | 17-99, 17-100, 17-101, 17-102 (roadmap since 2026-11-22), ~~17-103~~ | 1 of 5 | 2 |
+| S4 | Docs and examples thinned; one home per invariant | 10 | 17-99, 17-100, 17-101, ~~17-103~~ | 1 of 4 | 2.5 |
 | S5 | Code and prose matched to the style standards; the fact graph build made faster | 10 | 17-104, 17-127, 17-128, 17-129 | 0 of 4 | 0 |
 | S6 | Validations on external ground truth | 10 | 17-144, roadmap 15-11, 12-21, 16-12 | 0 of 4 | 0 |
 
@@ -127,16 +127,19 @@ the plan's `items` list until Hamm changes it (17-102 stays counted in S4 until 
 | Superseded unmerged lanes | `_temp_17-103-contributing`, `_temp_17-143-tag-push` on `origin` (items closed by other commits) | none | kept; deleting an unmerged branch is Hamm's |
 | Uncommitted work in `D:/repos/_wt/jnwb/17-104` | 3 tracked files modified, branch merged | 17-104 | read before any reuse; never discarded without a look |
 
-## 9. Owner questions (open until ruled; each blocks only the tasks named)
+## 9. Owner decisions
 
-| Id | Question | Blocks | Default without an answer |
+Q1 to Q6 ruled 2026-11-22 (`artifacts/rulings/2026-11-22.md`, "RC owner questions and goal mode"):
+S6 stays in scope; the RC is an untagged verified `dev` SHA; the plan is reconciled and the score is
+diagnostic; 17-99 waits on Hamm's fact wording; American English for new prose only; 17-104's
+imports and CRLF parts dropped. Decision policy: interrupt only when an owner-reserved decision
+blocks the critical path.
+
+| Id | Pending owner decision | Blocks | Raised when |
 |---|---|---|---|
-| Q1 | S6 and `17-144-src`: defer the external-ground-truth rows to 0.2.18, or keep them and wait for the inputs; and who sends the requests (jaxfne for 17-144, the Bastos lab code) | A1, S6, RC | keep in scope (goal 9); RC blocked; all other work continues |
-| Q2 | What the RC is: tag `v0.2.17rc1` on `main` (TestPyPI only) or an untagged `dev` commit | R4 | prepare to R3; no tag, no `main` push |
-| Q3 | Scoring and plan: is the 100-point score RC-binding; update `release_plan.json` 0.2.17 items to the 2026-11-22 rulings | score, plan | score is tracking only; plan unchanged; mismatch recorded here |
-| Q4 | The spikes-and-LFP fact row for 17-99 | 17-99 | blocked |
-| Q5 | American English for existing prose (17-129's "one spelling" Check) and edits to `skills/` and `AGENTS.md` | 17-129 | new text American; existing spelling kept; 17-129 stays open |
-| Q6 | 17-104: normalise `scripts/fact_graph/__init__.py` to LF; lazy imports in `jnwb/__init__.py` in 0.2.17 | two 17-104 parts | CRLF kept; imports unchanged; `growth_rows` part done |
+| D1 | S6 inputs (17-144 commits from jaxfne; Bastos lab simulation; broadband jaxfne field) and who sends the requests | S6, R3 | S6 is the only work left before R3 |
+| D2 | The spikes-and-LFP fact-row wording for 17-99 | 17-99 | 17-99 is on the critical path |
+| D3 | Tag, `main` merge and publication of the verified RC | R4 | R3 passes |
 
 ## Update log
 
@@ -151,3 +154,4 @@ the plan's `items` list until Hamm changes it (17-102 stays counted in S4 until 
 | 2026-11-22 | `81e36e3e`, `7ecaf327` | Partial landings of 17-142 and 17-97 slice 1; provisional rulings; ruling packet; A3 docs build at `c24898eb`; A4 and A5 measured. |
 | 2026-11-22 | `e3af6db8`, `c53c78fe` | Consolidated ruling recorded; open rows 8 to 1; A3 push override, A6 dump flag, A2 gate 15, ruff C901 merged, each verified; suite 11092 passed at `c53c78fe`; CI red there. |
 | 2026-11-22 | `8d5fb637`, `68995c90` | Two CI repairs pushed under Hamm's one-time authorizations; suite 11093 passed at each; CI at `68995c90` pending. Checklist rewritten as the RC plan (target, environments, ordered tasks, status, risks, owner questions); the 2026-11-19 snapshot and the 2026-11-18 mapping audit retired into sections 4 and 9. Score 17/100. |
+| 2026-11-22 | this commit | Hamm ruled Q1 to Q6 and goal mode; `release_plan.json` reconciled (17-102 to 0.2.20; 17-153, 17-157, 17-158 into 0.2.17); 17-104 and 17-129 Checks narrowed as ruled; 17-154 closed (verifier ACCEPT). Score 17.5/100 diagnostic, the change from the S4 denominator only. |
