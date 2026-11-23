@@ -13,6 +13,7 @@ from ..permutation import _count_at_least_as_extreme, _p_from_count
 #: reordered sums derived in :func:`_tie_tolerance`'s docstring.
 _TIE_TOL_ULPS = 8.0
 
+
 def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
     """Exact (Clopper-Pearson) binomial confidence interval via the Beta-quantile form.
 

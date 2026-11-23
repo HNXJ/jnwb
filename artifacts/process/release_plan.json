@@ -18,7 +18,7 @@
         "decisions on public names that dead-code removal touches",
         "the Bastos lab simulation code and a broadband jaxfne field"
       ],
-      "items": ["15-11", "12-21", "16-12", "17-99", "17-100", "17-101", "17-128", "17-129", "17-144"]
+      "items": ["15-11", "12-21", "16-12", "17-99", "17-100", "17-101", "17-129", "17-144"]
     },
     {
       "version": "0.2.18",
@@ -33,7 +33,7 @@
       "needs": [
         "a decision on each estimand choice and on the public parameter names"
       ],
-      "items": ["17-132", "17-131", "17-130", "17-151", "17-155", "17-159", "17-160"]
+      "items": ["17-132", "17-131", "17-130", "17-151", "17-155", "17-159", "17-160", "17-161"]
     },
     {
       "version": "0.2.19",

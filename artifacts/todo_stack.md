@@ -55,13 +55,6 @@ Role: jnwb-developer. Skill: none. Blocked by: Hamm's word on the roadmap row th
 Writes: `artifacts/memory.md`, `artifacts/rulings/standing.md`.
 - 17-101: merge 22eca3d2 (lane `7ef15176`, verifier ACCEPT): rules cite `artifacts/agents/` roles, each tier bound to one; five live "scratchpad" concept uses reworded; `parity44.py` marked not retained. Left, live non-record hits: `memory.md:7` (roadmap 17-138) cites `C:/Users/nejath/.claude/bin/suite_lock.py`; `standing.md:20` (corpus-access ruling) says "the scratchpad", no path. Check: `git grep -lE 'scratchpad|C:/Users/nejath'` over tracked rules returns only records.
 
-### 17-128 Docstrings and constants against the code style
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/**/*.py`.
-- 17-128: landed 2026-11-21 (merge c8bbee69): Raises sections on 24 public functions, filtering Args with units, 20 tolerance literals named in 13 modules (values equal, signatures unchanged). Left: Raises for `inspect`, `bipolar_reference`, `granger`, `assert_mergeable` (an INTERNAL name in `tests/test_skill_symbol_coverage.py`; documenting it needs a skill row), helper-raised exceptions and `FileNotFoundError` not listed; the `_vflip2` band literals and the `_vflip.py`, `_xflip.py`, `_bins.py` sites, whose code the curation, vflip and xflip calibration receipts hash (a change needs the calibrate script rerun); `harmonic_analysis` (frozen); the 96 float defaults in the signatures of the 163 functions in `jnwb.__all__` keep their text (ruled 2026-11-22: the Check covers tolerance literals and raise sites only). From P-216-25 (the names went to roadmap 17-130): 23 of those 163 functions raise in their own body without a Raises section (AST count, 2026-11-21); unnamed band constants in `_vflip2.py`; 98 uncited float defaults and 43 tolerance literals at P-216-25 (`_psd.py:217` `fundamental_freq * 0.1`). Check: each public raise site has a Raises entry, each tolerance literal is a named constant with its source, the suite passes.
-
 ### 17-129 Prose against the writing style
 
 Release: deferred-0.2.17.
