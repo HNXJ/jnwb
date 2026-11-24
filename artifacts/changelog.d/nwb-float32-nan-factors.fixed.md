@@ -1,0 +1,2 @@
+- `jnwb/nwb_inspect.py`: a float32 NaN `conversion` or `offset` is skipped; before, every sample was NaN.
+- `jnwb/nwb_events.py`: a float32 NaN `conversion` or `offset` is skipped; before, every sample was NaN.

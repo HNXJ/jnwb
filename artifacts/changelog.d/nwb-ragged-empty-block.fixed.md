@@ -1,0 +1,1 @@
+- `jnwb/nwb_integrity.py`: `check_waveform_blocks` reads a zero-sample ragged block as `unknown`, not a numpy error.

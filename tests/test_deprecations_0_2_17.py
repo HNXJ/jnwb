@@ -239,6 +239,16 @@ class TestNwbReadIoMode:
                 io.read()
         assert not _only_deprecations(record)
 
+    def test_mode_none_is_accepted_without_warning_or_error(self, nwb_path):
+        # The default is the value None; an explicit mode=None must take the same path.
+        expected = read_nwb(str(nwb_path)).identifier
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            with nwb_read_io(str(nwb_path), mode=None) as io:
+                got = io.read().identifier
+        assert got == expected
+        assert not _only_deprecations(record)
+
     def test_read_nwb_does_not_warn(self, nwb_path):
         with warnings.catch_warnings(record=True) as record:
             warnings.simplefilter("always")

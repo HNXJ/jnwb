@@ -1,0 +1,1 @@
+- `jnwb/nwb_validate.py`: `validate_nwb` integrity layer checks all `electrodes` regions; out-of-table ones now fail.
