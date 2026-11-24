@@ -1,0 +1,1 @@
+- `jnwb/nwb_events.py`: a file with no interval table gets an error that lists processing tables and suggests `table=`.

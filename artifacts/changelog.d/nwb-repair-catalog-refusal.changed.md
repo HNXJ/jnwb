@@ -1,1 +1,1 @@
-- `jnwb/nwb_write.py`: `repair_nwb` raises `UnidentifiableRepairError` for a catalog failure other than a missing spec.
+- `jnwb/nwb_write.py`: `repair_nwb` refusal names the failed schema lookup for a catalog failure, not a missing spec.

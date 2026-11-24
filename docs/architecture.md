@@ -151,7 +151,7 @@ its own row:
 | Claim | What it states | What jnwb estimates it with | What it does not license |
 |---|---|---|---|
 | Magnitude | how strongly two signals are coupled, without a sign | correlation, mutual information, `cross_area_coherence`, `wpli` | a direction: unsigned coupling does not determine which signal leads |
-| Direction | which signal leads, as a lag asymmetry | `granger`, `phase_slope_index`, `transfer_entropy`, the sign of `imaginary_coherency` (positive when the first signal leads wherever the lag's phase is below pi; beyond it the sign reverses) | a delay in seconds, or that one site drives another |
+| Direction | which signal leads, as a lag asymmetry | `granger`, `phase_slope_index`, `transfer_entropy`, the sign of `imaginary_coherency` (positive means `x` leads when the wrapped lag phase is in (0, pi); in (pi, 2pi) the sign reverses) | a delay in seconds, or that one site drives another |
 | Delay | a time offset in seconds, and with contact spacing an apparent velocity | `zflip`, only when the phase is linear and unwrapped across the fitted band and each identifiability criterion passes; `NaN` otherwise | a conduction velocity: two sources with a fixed phase offset, a traveling wave or volume conduction give the same gradient |
 | Inference | a physical cause, or an effect across a population | none for a cause, which takes a perturbation; a population effect takes its declared unit of inference and a valid null, below | a cause from any row above |
 
