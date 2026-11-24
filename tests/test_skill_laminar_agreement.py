@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 
 import jnwb
@@ -32,3 +34,15 @@ def test_agreement_reads_agree_disagree_or_unresolved_and_caps_a_unless_agree():
     seen = {agree["agreement"], disagree["agreement"], one_landmark["agreement"],
             no_spacing["agreement"]}
     assert "unavailable" not in seen
+
+
+def test_laminar_reference_states_the_same_vocabulary_and_cap():
+    path = Path(__file__).resolve().parents[1] / "skills/jnwb-laminar/references/motif_crossover_and_layers.md"
+    text = " ".join(path.read_text(encoding="utf-8").split())
+    assert ("reads `'agree'` when the two crossovers are at most "
+            "`laminar_curation.VFLIP2_VFLIP_AGREEMENT_T_CONTACTS` (a module constant, not in "
+            "`__all__`) contact spacings") in text
+    assert "`'disagree'` above that, and `'unresolved'` when either is absent" in text
+    assert "an `'A'` grade is capped at `'B'` unless agreement is `'agree'`" in text
+    assert "'unavailable'" not in text
+    assert "returns a result with `accepted=False`" not in text

@@ -125,18 +125,40 @@ def test_measured_quality_failure_is_poor_even_when_another_metric_is_undefined(
     assert list(out["quality_class"]) == ["Poor", "Unknown", "Good"]
 
 
+def _motif_lfp(n: int, xo: float, n_t: int = 8000, fs: float = 1000.0, seed: int = 0) -> np.ndarray:
+    """LFP whose PSD carries a low-band-to-high-band motif crossing at contact xo."""
+    rng = np.random.default_rng(seed)
+    t = np.arange(n_t) / fs
+
+    def weights(ch: int) -> tuple[float, float]:
+        if ch <= xo:
+            return max(0.0, 1.0 - (ch / xo) * 0.5), max(0.0, (ch / xo) * 0.5)
+        return (max(0.0, 0.5 * (1.0 - (ch - xo) / (n - xo))),
+                min(1.0, 0.5 + 0.5 * (ch - xo) / (n - xo)))
+
+    out = np.zeros((n, n_t))
+    for ch in range(n):
+        g, a = weights(ch)
+        sig = sum(np.sqrt(a) * np.sin(2 * np.pi * f * t + rng.uniform(0, 6.28)) for f in (14, 18, 22))
+        sig += sum(np.sqrt(g) * np.sin(2 * np.pi * f * t + rng.uniform(0, 6.28)) for f in (60, 75, 90, 110))
+        out[ch] = sig + 0.05 * rng.normal(size=n_t)
+    return out
+
+
 def test_nan_input_makes_compute_psd_raise_while_vflip_from_lfp_masks_the_row():
-    rng = np.random.default_rng(0)
-    lfp = rng.normal(size=(24, 2000))
-    lfp[3, 10] = np.nan
+    lfp = _motif_lfp(24, 10.5)
+    clean = vflip_from_lfp(lfp.copy(), 1000.0)
+    assert clean.accepted is True, "fixture must be an accepted fit before the NaN is added"
+
+    lfp[3, 100] = np.nan
     assert np.isnan(lfp).any()
 
     with pytest.raises(ValueError):
         compute_psd(lfp, 1000.0, axis=-1)
 
     fit = vflip_from_lfp(lfp, 1000.0)
+    assert fit.accepted is True
     assert fit.n_missing == 1
-    assert fit.rejection_reason != "insufficient_channels"
 
 
 def test_nan_row_rejects_when_finite_channels_fall_below_min_channels():
