@@ -6,14 +6,14 @@ item text and Checks: `artifacts/todo_stack.md`; rulings: `artifacts/rulings/202
 `artifacts/rulings/standing.md`. Update a row in the commit that changes it; the update log holds history.
 
 Current (2026-11-23): **50/100, diagnostic** (Q3; 0.5 of it is the S4 denominator after 17-102 left the plan, not a closure; A3 and A4 counted, each at the SHA it names); gates 2 of 6 complete. `origin/dev` =
-`a3467084` (suite 11171 passed there; CI green at `27985e03`). Checkpoints on `_temp_rc-integration` when the tip leads `dev`. Open stack: one row (`17-144-src`). Owner decisions: section 9.
+`a3467084` (suite 11171 passed there; CI green at `27985e03`). Checkpoints on `_temp_rc-integration` when the tip leads `dev`. Open stack: empty (2026-11-24). Owner decisions: section 9.
 
 ## 1. RC target
 
 | Field | Value |
 |---|---|
 | Target | `0.2.17rc1`: an untagged commit on `dev` at which gates A1 to A6 pass, CI is green and every 0.2.17 scope item is closed or ruled out of scope, independently verified (Q2, ruled 2026-11-22). A tag (`v0.2.17rc1` publishes to TestPyPI only, `.github/workflows/workflow.yml:579-595`), a `main` merge and publication are Hamm's (D3) |
-| Scope | The six scope lines of `release_plan.json` 0.2.17 (rows S1 to S6, section 6), plus the cycle-required items no scope line names: 17-147, 17-150, 17-153, 17-154, 17-157, 17-158 (in the plan's `items` since Q3, 2026-11-22; 17-147, 17-150, 17-153, 17-154, 17-157, 17-158 closed) |
+| Scope | The five scope lines of `release_plan.json` 0.2.17 (rows S1 to S5, section 6; S6 deferred to 0.2.18, D1 ruled 2026-11-24), plus the cycle-required items no scope line names: 17-147, 17-150, 17-153, 17-154, 17-157, 17-158 (in the plan's `items` since Q3, 2026-11-22; 17-147, 17-150, 17-153, 17-154, 17-157, 17-158 closed) |
 | Acceptance | `AGENTS.md` §11 (full text `artifacts/rulings/standing.md`); gates A1 to A6 below, each with a receipt at the RC SHA |
 | Excluded | Everything in `artifacts/roadmap.md` (0.2.18 and later, including 17-102, 17-151, 17-155, 17-156 moved there 2026-11-22); Python 3.15 on Windows (goal 12); GPU paths, which CI cannot run (declared unverified, goal 11; tiered CI is 0.2.19) |
 | Owner-gated, never by an agent | version bump and CHANGELOG assembly (the release step, `AUTONOMY: none`), any push to `main`, any tag, TestPyPI or PyPI publication, GitHub release, a scope change (goal 9) |
@@ -22,7 +22,7 @@ Current (2026-11-23): **50/100, diagnostic** (Q3; 0.5 of it is the S4 denominato
 
 | # | Gate | Pts | Requirements (all) | State |
 |---|---|---|---|---|
-| A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | blocked: `17-144-src` (outside input, D1) |
+| A1 | The open stack holds no row | 10 | `artifacts/open_stack.md` empty; `tests/test_release_requires_an_empty_open_stack.py` | met at `0dad9a40` (open stack empty; rerun at the RC SHA): `17-144-src` folded into roadmap 17-144 by D1 (ruled 2026-11-24) |
 | A2 | Suite and CI green at the tip | 10 | `jnwb_suite.sh` 0 failed at the tip SHA; every `CI/CD` run at that SHA completed and succeeded | pending: suite 0 failed at `68995c90` (11093 passed). CI there: every test job green on both runs; pull-request run 45083354762 success; push run 45083350199 attempt 1 failed in the build job's installed-wheel leg on one test (a Jupyter kernel port race, 17-158; the pull-request wheel leg passed the same 11079 tests); attempt 2 (failed job rerun) pending. CI failed at `c53c78fe` (shallow checkouts: gate 15 found no tag) and at `8d5fb637` (Windows: `git clone --local` across drives); both repaired, section 8 |
 | A3 | Documentation low-verbosity and consistently formed | 5 | `harness_gate.py` 22 of 22; `docs_build.py` strict passes; docs-form tests pass; the §11 verbosity review | met at `a3467084` (rerun at the RC SHA if docs change): harness 22 of 22; `docs_build.py` strict rc 0, 0 warnings; `docs_form_gate.py` 12 of 12; docs-form tests pass; R2 review PASS, 8 non-blocking findings to roadmap 17-162 (`artifacts/evidence/0.2.17/r2_documentation_review.md`) |
 | A4 | Code low-complexity | 5 | no function above 40 by ruff C901 (`max-complexity = 40`, `pyproject.toml`) over `jnwb/` (ruled 2026-11-22; McCabe, not a maintainability measure; distinct from the AST counter) | met at `bb41333d` (`jnwb/` as at `a3467084`): `ruff check --select C901 jnwb/` (ruff 0.16.10) "All checks passed"; largest `cluster_permutation_test` 39, margin 1; the same step runs on the ubuntu 3.12 CI leg (`workflow.yml:175-182`, 17-157) |
@@ -58,7 +58,6 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | 12 | Docs thinning remainder | 17-100 (S4) | `docs-harness` | D5 | fig14/fig18 merged `6a7baf41`; three parts kept, Check narrowing is Hamm's |
 | 16 | One home per invariant | 17-99 (S4) | `jnwb-developer` | D2 | |
 | 17 | Prose against the writing style | 17-129 (S5) | `docs-harness` | D6 | Writes files merged `0621da87`; left: `skills/` and `AGENTS.md` sentences (Hamm's files), `docs/agents.md` routing-table copy |
-| 18 | External ground truth | 17-144, 15-11, 12-21, 16-12 (S6) | human input | D1 | in scope (Q1); raise D1 when it is the critical path |
 | R1 | Refresh peak memory and import receipts | release | `jnwb-actor-haiku` | 1 to 18 | `scripts/measure_peak_memory.py`, `scripts/benchmark_import.py --write` |
 | R3 | Closure pass and receipt | A6, A5 | `reviewer` + `jnwb-critic-sonnet` | everything above | `blocker_fixpoint_receipt.md` at the RC SHA; then A5 |
 | R4 | Release step | release | Hamm | R3, D3 | version, `scripts/assemble_changelog.py`, merge to `main`, tag: owner only; with the bump, refresh the records it makes stale (as at 0.2.16 `cb781455`, `16233114`): figure registry `jnwb_version`, the curation calibration at the declared version, the released row of `release_plan.json`, the changelog archive, R1 |
@@ -75,7 +74,7 @@ or only tasks blocked on section 9 remain.
 | Landed, item still open | 17-100 (partials 2026-11-21 to 2026-11-23) |
 | In a lane | D7 skill lines on `_temp_claims-skills` at `73e5dd1d`, verifier ACCEPT, merge on Hamm's yes |
 | Pending verification | full suite and CI at the merged tip |
-| Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4), D4 (17-101), D5 (17-100), D6 (17-129), D7 (skill lines) |
+| Blocked on owner | D2 (17-99), D3 (R4), D4 (17-101), D5 (17-100), D6 (17-129), D7 (skill lines) |
 | Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
 
 ## 6. Weighted progress (60): diagnostic, not a gate (Q3, ruled 2026-11-22)
@@ -91,7 +90,7 @@ the plan's `items` list; 17-102 left it on 2026-11-22 (Q3), so S4 counts four it
 | S3 | Tests named by subject, not by the event that produced them | 10 | ~~17-97~~, ~~17-98~~ | 2 of 2 | 10 |
 | S4 | Docs and examples thinned; one home per invariant | 10 | 17-99, 17-100, 17-101, ~~17-103~~ | 1 of 4 | 2.5 |
 | S5 | Code and prose matched to the style standards; the fact graph build made faster | 10 | ~~17-104~~, ~~17-127~~, ~~17-128~~, 17-129 | 3 of 4 | 7.5 |
-| S6 | Validations on external ground truth | 10 | 17-144, roadmap 15-11, 12-21, 16-12 | 0 of 4 | 0 |
+| S6 | Validations on external ground truth | 10 | deferred to 0.2.18 (D1, ruled 2026-11-24); points kept in the denominator, not rescaled | 0 of 0 | 0 |
 
 ## 7. Closure receipts awaiting the update log
 
@@ -118,12 +117,12 @@ the plan's `items` list; 17-102 left it on 2026-11-22 (Q3), so S4 counts four it
 Q1 to Q6 ruled 2026-11-22 (`artifacts/rulings/2026-11-22.md`, "RC owner questions and goal mode"):
 S6 stays in scope; the RC is an untagged verified `dev` SHA; the plan is reconciled and the score is
 diagnostic; 17-99 waits on Hamm's fact wording; American English for new prose only; 17-104's
-imports and CRLF parts dropped. Decision policy: interrupt only when an owner-reserved decision
+imports and CRLF parts dropped. D1 ruled 2026-11-24 (`artifacts/rulings/2026-11-24.md`): S6 deferred
+to 0.2.18. Decision policy: interrupt only when an owner-reserved decision
 blocks the critical path.
 
 | Id | Pending owner decision | Blocks | Raised when |
 |---|---|---|---|
-| D1 | S6 inputs (17-144 commits from jaxfne; Bastos lab simulation; broadband jaxfne field) and who sends the requests | S6, R3 | S6 is the only work left before R3 |
 | D2 | The spikes-and-LFP fact-row wording for 17-99 | 17-99 | 17-99 is on the critical path |
 | D3 | Tag, `main` merge and publication of the verified RC | R4 | R3 passes |
 | D4 | 17-101 remainder: roadmap 17-138 (vendor `suite_lock.py` or name the dependency, `memory.md:7`); rewording "the scratchpad" in the corpus-access ruling (`standing.md:20`) | 17-101, S4 | 17-101 is the last open S4 item besides 17-99 |
@@ -166,3 +165,4 @@ all 11 continuation cites the strict form fails; each points at reason code and 
 | 2026-11-23 | `dbea39d8` | CI green at `a3467084`; `dbea39d8` pushed. Provisional closure pass (Sonnet critic, `artifacts/evidence/0.2.17/r3_provisional_closure.md`): 1 new blocker, four behaviour changes from `59c2858d` and `dc2ea6f0` with no changelog line; F2 to F6 recorded (fragment repair, 17-155 widened, 17-164, R4). A Haiku swarm checked 753 advertised claims (`claim_swarm_findings.md`); independent Sonnet critics classified the 64 survivors: 8 required-0.2.17 (4 docs, repaired in a lane; 6 skill lines, D7), 38 deferred (17-163), 18 not defects. |
 | 2026-11-24 | merge `6db9f465` | `_temp_claims-docs` merged: the 4 required doc claims (findings 4, 29, 36, 51) and the closure blocker B1 (changelog lines for the four behaviour changes) repaired, each pinned by a test the verifier's mutants turn red; verifier REJECTs at `bc9cc346`, `e30937e2`, `c37cb33f` repaired, ACCEPT at `d3f240c0` (lane suite 11179 passed at `e30937e2`, the only later change one changelog fragment). `edb749de` (JN-1) merged from `dev`. Found in passing: `intervals-inmem`, classified required-0.2.17 by an independent critic, now todo 17-165 in a lane. D7 lane ACCEPT at `73e5dd1d` (PSI sign bound `nperseg / (2 fs)` measured). Score unchanged. |
 | 2026-11-24 | `cf428f7e`, merge `26d96cf9` | `cf428f7e` pushed to `dev` (suite 11184 passed there). 17-165 closed: in-memory `trials`, `epochs` and `invalid_times` resolve as on disk through one helper shared with `inspect`; red on `8f71c695`, verifier ACCEPT at `72bc4036` (184 disk-read fields unchanged over 8 layouts; mutants M1 to M3 killed), M4 and M5 closed by tests at `25f367f3`. Found in passing, pre-existing: `mcp_server/event_tools.py:91` reports no tables for a file whose only tables are under processing (inferred from the code, not run). |
+| 2026-11-24 | the commit that records D1 | D1 ruled: S6 (15-11, 12-21, 16-12, 17-144) deferred to 0.2.18; `17-144-src` folded into roadmap 17-144; the open stack is empty, so A1 holds at the tip. Score unchanged (S6 kept in the denominator). |

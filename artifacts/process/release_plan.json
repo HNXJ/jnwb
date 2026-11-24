@@ -11,14 +11,12 @@
         "One home per helper in jnwb, scripts and tests; dead code and unused constants removed",
         "Tests named by subject, not by the event that produced them",
         "Docs and examples thinned; one home per invariant across the rule and doc files",
-        "Code and prose matched to the style standards; the fact graph build made faster",
-        "Validations on external ground truth, deferred from 0.2.16 (ruled 2026-11-06): vflip2 on the Bastos lab simulation, delay and direction from a broadband jaxfne field, real-data cards with independent receipts"
+        "Code and prose matched to the style standards; the fact graph build made faster"
       ],
       "needs": [
-        "decisions on public names that dead-code removal touches",
-        "the Bastos lab simulation code and a broadband jaxfne field"
+        "decisions on public names that dead-code removal touches"
       ],
-      "items": ["15-11", "12-21", "16-12", "17-99", "17-100", "17-101", "17-129", "17-144"]
+      "items": ["17-99", "17-100", "17-101", "17-129"]
     },
     {
       "version": "0.2.18",
@@ -28,12 +26,14 @@
       "scope": [
         "Response z-score standard deviation (ddof), trial-cycle gap threshold, reference row order: one decision each, then code",
         "gaussian_smooth_rate NaN handling",
-        "Time and frequency parameters carry unit suffixes; one name per concept (window, bin, sampling rate)"
+        "Time and frequency parameters carry unit suffixes; one name per concept (window, bin, sampling rate)",
+        "Validations on external ground truth, deferred from 0.2.17 (D1, ruled 2026-11-24): vflip2 on the Bastos lab simulation, delay and direction from a broadband jaxfne field, real-data cards with independent receipts, the jaxfne isi_cv commits"
       ],
       "needs": [
-        "a decision on each estimand choice and on the public parameter names"
+        "a decision on each estimand choice and on the public parameter names",
+        "the Bastos lab simulation code, a broadband jaxfne field and the three isi_cv commits from jaxfne"
       ],
-      "items": ["17-132", "17-131", "17-130", "17-151", "17-155", "17-159", "17-160", "17-161", "17-162", "17-163", "17-164"]
+      "items": ["15-11", "12-21", "16-12", "17-144", "17-132", "17-131", "17-130", "17-151", "17-155", "17-159", "17-160", "17-161", "17-162", "17-163", "17-164"]
     },
     {
       "version": "0.2.19",

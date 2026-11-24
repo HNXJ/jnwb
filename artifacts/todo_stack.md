@@ -25,15 +25,6 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
-### 17-144 The jaxfne isi_cv commits
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-144-src (open stack; `E:/cl-jnwb16e` gone, SHAs absent from origin).
-Writes: `artifacts/benchmarks/realdata/isi_cv_recompute.py`, `artifacts/benchmarks/realdata/isi_cv_recompute_receipt.json`, `artifacts/benchmarks/realdata/build_isi_cv_fixture.py`, `tests/fixtures/isi_cv_realdata_subsample.json`, `tests/test_isi_cv_realdata.py`.
-- 17-144: three 16-12 commits on `E:/cl-jnwb16e` (0e06993c, 9980f58d, 5fa63dd3) for jaxfne-orchestrator.
-  Observed 2026-11-12: path missing; SHAs absent from this clone and `origin`. Check: each on `dev` in that
-  order, suite passes, jaxfne-orchestrator told.
-
 ### 17-99 One home per invariant across rule and doc files
 
 Release: deferred-0.2.17.
