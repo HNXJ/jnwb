@@ -344,7 +344,9 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
     Map peak channel ID to brain area location.
 
     Args:
-        peak_channel_id: Channel identifier
+        peak_channel_id: Channel identifier. Matched on the ``hardware_channel`` column when the
+            table has one (-1 is no channel; a value on electrodes of more than one probe is
+            unresolved when the table names probes), otherwise on the first of ``channel_id``, ``id`` and ``electrode_id``.
         electrodes_df: NWB electrodes DataFrame
 
     Returns:

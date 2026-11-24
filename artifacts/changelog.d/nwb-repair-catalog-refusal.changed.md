@@ -1,0 +1,1 @@
+- `jnwb/nwb_write.py`: `repair_nwb` raises `UnidentifiableRepairError` for a catalog failure other than a missing spec.

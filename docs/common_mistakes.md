@@ -141,7 +141,7 @@ location = electrodes_df.loc[10, "location"]
 In high-density probes where noisy or non-connected channels are removed, `electrodes_df` has non-contiguous channel IDs or a standard `0..N-1` `RangeIndex`. Looking up by integer index returns the wrong contact or throws a `KeyError`.
 
 ### The Correct Pattern
-Use `jnwb`'s channel resolution functions. They search one identifier column, the first of `channel_id`, `id` and `electrode_id` present, and a channel missing from it resolves to `None`; the row index is read only when the table has none of the three:
+Use `jnwb`'s channel resolution functions. They search `hardware_channel` when the table has that column (a peak channel names a hardware channel; -1 is no channel; a value found on electrodes of more than one probe, when the table names probes, resolves to `None`). Otherwise they search one identifier column, the first of `channel_id`, `id` and `electrode_id` present. A channel missing from the searched column resolves to `None`; the row index is read only when the table has none of these columns:
 
 ```python
 # CORRECT: Robust addressing handles filtered, non-contiguous, or multi-area probes

@@ -89,7 +89,7 @@ Synthetic probe: `jnwb.channel_correlation_matrix` and `jnwb.bad_channels_from_c
 ## 3. Trial Repair (`jnwb.artifact_repair`)
 
 ### Synchrony Detection and Median Substitution (`repair_lfp_trials`)
-Performs time-resolved cross-channel synchrony detection on trial-segmented LFP tensors, replacing flagged artifact intervals with the condition-matched cross-trial median:
+Performs time-resolved cross-channel synchrony detection on trial-segmented LFP tensors, replacing flagged artifact intervals with the median over all trials passed in, per channel and time sample. There is no condition matching: call once per condition to substitute within a condition:
 
 ```python
 import jnwb
