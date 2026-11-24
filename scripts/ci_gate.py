@@ -11,10 +11,11 @@ run at that SHA must have concluded success.
 With --require-name, at least one run at the deciding SHA must be a successful run named NAME (the
 tag push needs the CI/CD run, not any run).
 Exit codes: 0 pass (prints "pass <sha8> ..."); 3 refuse on a completed run that did not conclude
-success (the only refusal JNWB_PUSH_OVER_RED may override); 1 refuse for any other reason (a run not
-completed, no run listed or at the tip, a missing required name); 2 unreadable (network, HTTP
-status, bad JSON, a response without workflow_runs, such as a rate-limit body, a --tip that is not
-a full SHA, or, with --tip, a total_count that is missing or exceeds the runs of the one page read).
+success, the line ending "; run ids: <id> ..." (the only refusal JNWB_PUSH_OVER_RED may
+override); 1 refuse for any other reason (a run not completed, no run listed or at the tip, a
+missing required name); 2 unreadable (network, HTTP status, bad JSON, a response without
+workflow_runs, such as a rate-limit body, a --tip that is not a full SHA, or, with --tip, a
+total_count that is missing or exceeds the runs of the one page read).
 JNWB_CI_API overrides the API base; the tests point it at a local server.
 """
 import json
@@ -57,10 +58,11 @@ def decide(runs, require_name=None, tip=None):
                    if run.get("status") != "completed"]
         if pending:
             return 1, f"refuse: {sha[:8]} has run(s) not completed: " + "; ".join(pending)
-    bad = [f"{run.get('name')}: {run.get('conclusion')}" for run in at_sha
-           if run.get("conclusion") != "success"]
-    if bad:
-        return 3, f"refuse: {sha[:8]} has completed run(s) not successful: " + "; ".join(bad)
+    red = [run for run in at_sha if run.get("conclusion") != "success"]
+    if red:
+        bad = "; ".join(f"{run.get('name')}: {run.get('conclusion')}" for run in red)
+        ids = " ".join(str(run.get("id")) for run in red)
+        return 3, f"refuse: {sha[:8]} has completed run(s) not successful: {bad}; run ids: {ids}"
     if require_name and not any(run.get("name") == require_name for run in at_sha):
         return 1, f"refuse: no successful '{require_name}' run at {sha[:8]}"
     return 0, f"pass {sha[:8]}: {len(at_sha)} completed run(s) succeeded"
