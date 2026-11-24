@@ -61,7 +61,7 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | 18 | External ground truth | 17-144, 15-11, 12-21, 16-12 (S6) | human input | D1 | in scope (Q1); raise D1 when it is the critical path |
 | R1 | Refresh peak memory and import receipts | release | `jnwb-actor-haiku` | 1 to 18 | `scripts/measure_peak_memory.py`, `scripts/benchmark_import.py --write` |
 | R3 | Closure pass and receipt | A6, A5 | `reviewer` + `jnwb-critic-sonnet` | everything above | `blocker_fixpoint_receipt.md` at the RC SHA; then A5 |
-| R4 | Release step | release | Hamm | R3, D3 | version, `scripts/assemble_changelog.py`, merge to `main`, tag: owner only |
+| R4 | Release step | release | Hamm | R3, D3 | version, `scripts/assemble_changelog.py`, merge to `main`, tag: owner only; with the bump, refresh the records it makes stale (as at 0.2.16 `cb781455`, `16233114`): figure registry `jnwb_version`, the curation calibration at the declared version, the released row of `release_plan.json`, the changelog archive, R1 |
 
 Stop and report when: a gate fails for a reason no task above covers; two repair attempts fail; a
 surprising number appears; a task needs a reserved action (section 1) or a ruling not in the rulings files;
@@ -74,7 +74,7 @@ or only tasks blocked on section 9 remain.
 | Verified closed (receipts in the update log) | 17-79, 17-97, 17-98, 17-103, 17-154 (section 7), 17-157, 17-96, 17-142, 17-147, 17-153 (suite 11147 passed at `d918bf46`), 17-150 (pending the suite at the integration tip); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
 | Landed, item still open | 17-100 (partials 2026-11-21 to 2026-11-23) |
 | Pending verification | full suite and CI at the merged tip |
-| Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4), D4 (17-101), D5 (17-100), D6 (17-129) |
+| Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4), D4 (17-101), D5 (17-100), D6 (17-129), D7 (skill lines) |
 | Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
 
 ## 6. Weighted progress (60): diagnostic, not a gate (Q3, ruled 2026-11-22)
@@ -128,6 +128,7 @@ blocks the critical path.
 | D4 | 17-101 remainder: roadmap 17-138 (vendor `suite_lock.py` or name the dependency, `memory.md:7`); rewording "the scratchpad" in the corpus-access ruling (`standing.md:20`) | 17-101, S4 | 17-101 is the last open S4 item besides 17-99 |
 | D5 | 17-100 Check: accept three parts as kept (the stub serving a published readthedocs URL; the inline `sys.path` guard an installed-copy test requires; the fig22/fig23 id gap), or rule a change (a redirect plugin or dashboard redirect; moving the guard by changing that test and the docs gate; renumbering figure files) | 17-100, S4 | now: 17-100 has no other work left |
 | D6 | 17-129 remainder: rewrite the sentences over 40 words in 8 of 12 `skills/` files and `AGENTS.md` (:85, :105), or narrow the Check to the Writes files | 17-129, S5 | now: the Writes files are done (merge `0621da87`) |
+| D7 | Six skill-line corrections an independent critic classified required-0.2.17 (findings 4, 5, 17, 23, 25, 29 of `artifacts/evidence/0.2.17/claim_swarm_findings.md`): each makes a skill line agree with the code; prepared on `_temp_claims-skills` for approval, not merged | R3 | now: they block the closure pass |
 
 Recorded for review, not blocking: 17-153's check tests the first `path:line` cite of each B3 exception
 row; a continuation cite after `;` (reason code, not the default) is exempt. The independent verifier read
@@ -161,3 +162,4 @@ all 11 continuation cites the strict form fails; each points at reason code and 
 | 2026-11-23 | `27985e03`, merge `6a7baf41` | Suite 11166 passed at `27985e03`, pushed to `dev`. 17-100 part 1 merged: fig14 and fig18 have one home, `common_mistakes.md` (verifier ACCEPT on `ac2c02ee`, six mutants red, full suite 11158 passed there); the stub, the inline guard and the id gap are kept for reasons the verifier confirmed; closing as kept narrows the Check, raised as D5. |
 | 2026-11-23 | merge `0621da87` | 17-129 Writes files done: no sentence over 40 words in `CONTRIBUTING.md`, `README.md`, `docs/quickstart.md` (`tests/test_prose_sentence_length.py`, red on baseline; 16 to 0); verifier REJECT on a suite failure (echoed AGENTS.md claim), a code-span undercount and two weakened rule scopes, repaired, ACCEPT on `368df360` with a full suite 11170 passed there. The skills and AGENTS.md remainder raised as D6. Score unchanged. |
 | 2026-11-23 | `a3467084` | Suite 11171 passed, pushed to `dev`. R2 run by an independent reviewer at `a3467084`: §11 item 1 PASS (docs build strict, form gate 12 of 12, every embed light and dark but `docs/vis.md`, ruled light-only); 8 non-blocking findings to roadmap 17-162. A3 met at that SHA; score 45/100 diagnostic. R1 left to the release step (the import profile is regenerated at the version bump, as at 0.2.16 `3942738c`). A4 met (C901 max 39); A5 STEP 0a run: fails only on D1, R3 and R4 conditions; score 50/100 diagnostic. |
+| 2026-11-23 | `dbea39d8` | CI green at `a3467084`; `dbea39d8` pushed. Provisional closure pass (Sonnet critic, `artifacts/evidence/0.2.17/r3_provisional_closure.md`): 1 new blocker, four behaviour changes from `59c2858d` and `dc2ea6f0` with no changelog line; F2 to F6 recorded (fragment repair, 17-155 widened, 17-164, R4). A Haiku swarm checked 753 advertised claims (`claim_swarm_findings.md`); independent Sonnet critics classified the 64 survivors: 8 required-0.2.17 (4 docs, repaired in a lane; 6 skill lines, D7), 38 deferred (17-163), 18 not defects. |
