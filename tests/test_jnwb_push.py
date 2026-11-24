@@ -45,9 +45,9 @@ def _git(cwd: pathlib.Path, *args: str) -> str:
     return (proc.stdout or "").strip()
 
 
-def _ref(bare: pathlib.Path):
-    """The sha of dev in the bare remote, or None when the remote has no dev."""
-    proc = git("rev-parse", "-q", "--verify", "refs/heads/dev", cwd=bare)
+def _ref(bare: pathlib.Path, branch: str = "dev"):
+    """The sha of the branch in the bare remote, or None when the remote lacks it."""
+    proc = git("rev-parse", "-q", "--verify", f"refs/heads/{branch}", cwd=bare)
     return proc.stdout.strip() if proc.returncode == 0 else None
 
 
@@ -76,12 +76,13 @@ def ci_api():
         server.server_close()
 
 
-def _repo(tmp_path: pathlib.Path, *, remote_has_dev: bool = True):
-    """A jnwb-style clone on dev, one commit ahead of origin's dev, with the suite stamp at HEAD.
+def _repo(tmp_path: pathlib.Path, *, remote_has_dev: bool = True, branch: str = "dev",
+          message: str = "two"):
+    """A jnwb-style clone on ``branch``, one commit ahead of origin's, with the suite stamp at HEAD.
 
-    The remote's dev holds the first commit, the tip CI must have run on, unless ``remote_has_dev``
-    is false. The local origin/dev ref names that commit either way, so the wrapper has a diff to read.
-    Returns (repo, bare, tip, head).
+    The remote's branch holds the first commit, the tip CI must have run on, unless ``remote_has_dev``
+    is false. The local origin ref names that commit either way, so the wrapper has a diff to read.
+    HEAD's commit message is ``message``. Returns (repo, bare, tip, head).
     """
     bin_dir = tmp_path / "home" / ".claude" / "bin"
     bin_dir.mkdir(parents=True)
@@ -91,7 +92,7 @@ def _repo(tmp_path: pathlib.Path, *, remote_has_dev: bool = True):
     repo = tmp_path / "_temp_ci"
     repo.mkdir()
     _git(repo, "init", "-q")
-    _git(repo, "symbolic-ref", "HEAD", "refs/heads/dev")
+    _git(repo, "symbolic-ref", "HEAD", f"refs/heads/{branch}")
     _git(repo, "config", "user.email", "t@example.com")
     _git(repo, "config", "user.name", "t")
     (repo / "README.md").write_text("x\n", encoding="utf-8")
@@ -100,26 +101,29 @@ def _repo(tmp_path: pathlib.Path, *, remote_has_dev: bool = True):
     tip = _git(repo, "rev-parse", "HEAD")
     _git(repo, "remote", "add", "origin", bare.as_posix())
     if remote_has_dev:
-        _git(repo, "push", "-q", bare.as_posix(), "HEAD:refs/heads/dev")
-    _git(repo, "update-ref", "refs/remotes/origin/dev", tip)
+        _git(repo, "push", "-q", bare.as_posix(), f"HEAD:refs/heads/{branch}")
+    _git(repo, "update-ref", f"refs/remotes/origin/{branch}", tip)
     (repo / "README.md").write_text("y\n", encoding="utf-8")
-    _git(repo, "commit", "-q", "-am", "two")
+    _git(repo, "commit", "-q", "-am", message)
     head = _git(repo, "rev-parse", "HEAD")
     assert head != tip, "the fixture must leave HEAD ahead of origin's dev"
     (repo / ".git" / "jnwb_suite_ok").write_text(head + "\n", encoding="utf-8")
     return repo, bare, tip, head
 
 
-def _run(name: str, sha: str, conclusion, status: str = "completed") -> dict:
-    return {"name": name, "head_sha": sha, "conclusion": conclusion, "status": status,
-            "created_at": "2026-11-02T18:56:16Z"}
+def _run(name: str, sha: str, conclusion, status: str = "completed", run_id=None) -> dict:
+    run = {"name": name, "head_sha": sha, "conclusion": conclusion, "status": status,
+           "created_at": "2026-11-02T18:56:16Z"}
+    if run_id is not None:
+        run["id"] = run_id
+    return run
 
 
 def _body(runs: list) -> bytes:
     return json.dumps({"total_count": len(runs), "workflow_runs": runs}).encode("utf-8")
 
 
-def _run_push(tmp_path, repo, api_url, *, override: bool = False):
+def _run_push(tmp_path, repo, api_url, *, override: bool = False, branch: str = "dev"):
     env = dict(os.environ)
     env["HOME"] = (tmp_path / "home").as_posix()
     env["PATH"] = os.pathsep.join([str(pathlib.Path(sys.executable).parent), env.get("PATH", "")])
@@ -129,7 +133,7 @@ def _run_push(tmp_path, repo, api_url, *, override: bool = False):
     if override:
         env["JNWB_PUSH_OVER_RED"] = "1"
     return subprocess.run(
-        [_bash(), PUSH.as_posix(), repo.as_posix(), "dev"], cwd=str(repo), env=env,
+        [_bash(), PUSH.as_posix(), repo.as_posix(), branch], cwd=str(repo), env=env,
         capture_output=True, text=True, encoding="utf-8", errors="replace",
         stdin=subprocess.DEVNULL, timeout=300,
     )
@@ -277,15 +281,56 @@ def test_a_list_of_runs_not_known_to_be_complete_refuses(tmp_path, ci_api, count
     assert _ref(bare) == tip, "a partly read list of runs let a push through"
 
 
-def test_the_override_pushes_over_a_red_run(tmp_path, ci_api):
+def test_the_override_pushes_a_fix_whose_message_names_the_red_run(tmp_path, ci_api):
+    """The override carries the push that fixes the failing run, its message naming that run."""
     state, url = ci_api
-    repo, bare, tip, head = _repo(tmp_path)
-    state["body"] = _body([_run("CI/CD", tip, "failure"), _run("dashboard", tip, "success")])
+    repo, bare, tip, head = _repo(tmp_path, message="fix: repairs CI run 43990836160")
+    state["body"] = _body([_run("CI/CD", tip, "failure", run_id=43990836160),
+                           _run("dashboard", tip, "success", run_id=43990836161)])
     proc = _run_push(tmp_path, repo, url, override=True)
     out = proc.stdout + proc.stderr
     assert proc.returncode == 0, out
     assert "pushing anyway (JNWB_PUSH_OVER_RED=1)" in out, out
     assert _ref(bare) == head
+
+
+@pytest.mark.parametrize("message", ["two", "fix: repairs CI run 4399083616", "fix: run 143990836160"],
+                         ids=["no_run", "id_prefix", "id_inside_longer_number"])
+def test_the_override_refuses_a_push_whose_message_names_no_red_run(tmp_path, ci_api, message):
+    """The variable alone cannot bypass a failed gate; HEAD's message must name the red run."""
+    state, url = ci_api
+    repo, bare, tip, _head = _repo(tmp_path, message=message)
+    state["body"] = _body([_run("CI/CD", tip, "failure", run_id=43990836160)])
+    proc = _run_push(tmp_path, repo, url, override=True)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode == 1, out
+    assert "pushing anyway" not in out, out
+    assert "43990836160" in out, out
+    assert _ref(bare) == tip, "JNWB_PUSH_OVER_RED pushed over a failed gate without naming the run"
+
+
+def test_the_override_refuses_a_red_run_without_an_id(tmp_path, ci_api):
+    """A red run the answer gives no id for cannot be named, so the override cannot apply."""
+    state, url = ci_api
+    repo, bare, tip, _head = _repo(tmp_path, message="fix: repairs CI run None")
+    state["body"] = _body([_run("CI/CD", tip, "failure")])
+    proc = _run_push(tmp_path, repo, url, override=True)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode == 1, out
+    assert "pushing anyway" not in out, out
+    assert _ref(bare) == tip, "the override pushed over a red run it could not name"
+
+
+def test_the_override_refuses_on_main(tmp_path, ci_api):
+    """Main never takes a push over red, even one whose message names the run."""
+    state, url = ci_api
+    repo, bare, tip, _head = _repo(tmp_path, branch="main", message="fix: repairs CI run 43990836160")
+    state["body"] = _body([_run("CI/CD", tip, "failure", run_id=43990836160)])
+    proc = _run_push(tmp_path, repo, url, override=True, branch="main")
+    out = proc.stdout + proc.stderr
+    assert proc.returncode == 1, out
+    assert "pushing anyway" not in out, out
+    assert _ref(bare, "main") == tip, "JNWB_PUSH_OVER_RED pushed over a failed gate on main"
 
 
 def test_the_override_refuses_a_tip_with_no_run(tmp_path, ci_api):
