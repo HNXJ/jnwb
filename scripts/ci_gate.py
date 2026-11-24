@@ -11,10 +11,11 @@ run at that SHA must have concluded success.
 With --require-name, at least one run at the deciding SHA must be a successful run named NAME (the
 tag push needs the CI/CD run, not any run).
 Exit codes: 0 pass (prints "pass <sha8> ..."); 3 refuse on a completed run that did not conclude
-success, the line ending "; run ids: <id> ..." (the only refusal JNWB_PUSH_OVER_RED may override); 1 refuse for any other reason (a run not
-completed, no run listed or at the tip, a missing required name); 2 unreadable (network, HTTP
-status, bad JSON, a response without workflow_runs, such as a rate-limit body, a --tip that is not
-a full SHA, or, with --tip, a total_count that is missing or exceeds the runs of the one page read).
+success, the line ending "; run ids: <id> ..." (the only refusal JNWB_PUSH_OVER_RED may
+override); 1 refuse for any other reason (a run not completed, no run listed or at the tip, a
+missing required name); 2 unreadable (network, HTTP status, bad JSON, a response without
+workflow_runs, such as a rate-limit body, a --tip that is not a full SHA, or, with --tip, a
+total_count that is missing or exceeds the runs of the one page read).
 JNWB_CI_API overrides the API base; the tests point it at a local server.
 """
 import json

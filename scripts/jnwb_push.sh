@@ -8,9 +8,8 @@
 #     listed at that SHA and every run there completed and succeeded; a run at an earlier SHA does
 #     not count (scripts/ci_gate.py --tip). Override: JNWB_PUSH_OVER_RED=1 pushes over one case only,
 #     a completed run at the tip that did not succeed (ci_gate exit 3), for the push that carries the
-#     fix: never to main, and only when HEAD's message names the id of every red run at the tip
-#     (rulings 2026-10-10, 2026-11-23). Every other refusal, a tip with no run or a pending run
-#     among them, stays a refusal.
+#     fix: never to main, and only when HEAD's message names the id of every red run at the tip.
+#     Every other refusal, a tip with no run or a pending run among them, stays a refusal.
 # An artifacts-only push first runs the stack checks: scripts/harness_gate.py (gate 15 among them)
 # and tests/test_stack_item_length.py.
 # Usage: jnwb_push.sh <dir> [branch=dev] [--item <id>]

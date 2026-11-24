@@ -282,7 +282,7 @@ def test_a_list_of_runs_not_known_to_be_complete_refuses(tmp_path, ci_api, count
 
 
 def test_the_override_pushes_a_fix_whose_message_names_the_red_run(tmp_path, ci_api):
-    """2026-10-10, kept by 2026-11-23: the override carries the push that fixes the failing run."""
+    """The override carries the push that fixes the failing run, its message naming that run."""
     state, url = ci_api
     repo, bare, tip, head = _repo(tmp_path, message="fix: repairs CI run 43990836160")
     state["body"] = _body([_run("CI/CD", tip, "failure", run_id=43990836160),
@@ -297,7 +297,7 @@ def test_the_override_pushes_a_fix_whose_message_names_the_red_run(tmp_path, ci_
 @pytest.mark.parametrize("message", ["two", "fix: repairs CI run 4399083616", "fix: run 143990836160"],
                          ids=["no_run", "id_prefix", "id_inside_longer_number"])
 def test_the_override_refuses_a_push_whose_message_names_no_red_run(tmp_path, ci_api, message):
-    """JN-1: the variable alone cannot bypass a failed gate; HEAD's message must name the red run."""
+    """The variable alone cannot bypass a failed gate; HEAD's message must name the red run."""
     state, url = ci_api
     repo, bare, tip, _head = _repo(tmp_path, message=message)
     state["body"] = _body([_run("CI/CD", tip, "failure", run_id=43990836160)])
@@ -322,7 +322,7 @@ def test_the_override_refuses_a_red_run_without_an_id(tmp_path, ci_api):
 
 
 def test_the_override_refuses_on_main(tmp_path, ci_api):
-    """JN-1: main never takes a push over red, even one whose message names the run."""
+    """Main never takes a push over red, even one whose message names the run."""
     state, url = ci_api
     repo, bare, tip, _head = _repo(tmp_path, branch="main", message="fix: repairs CI run 43990836160")
     state["body"] = _body([_run("CI/CD", tip, "failure", run_id=43990836160)])
