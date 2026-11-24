@@ -1,0 +1,1 @@
+- `jnwb/nwb_events.py`: an in-memory `NWBFile` resolves `trials`, `epochs` and `invalid_times` as the file on disk does.

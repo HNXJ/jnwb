@@ -1194,6 +1194,21 @@ def _table_columns_pynwb(table: Any, with_shape: bool, with_samples: bool) -> li
     return out
 
 
+def _interval_tables(nwb: NWBFile) -> dict[str, Any]:
+    """Every interval table of `nwb` by name, in memory as after a read from disk.
+
+    In memory, `add_trial`, `add_epoch` and `add_invalid_time_interval` populate
+    `nwb.trials`, `nwb.epochs` and `nwb.invalid_times` and leave `nwb.intervals`
+    without them; once written and read back, `nwb.intervals` holds them too.
+    """
+    tables: dict[str, Any] = dict(nwb.intervals or {})
+    for attr in ("trials", "epochs", "invalid_times"):
+        table = getattr(nwb, attr, None)
+        if table is not None and attr not in tables:
+            tables[attr] = table
+    return tables
+
+
 def _inspect_object(nwb: NWBFile) -> dict[str, Any]:
     """`inspect` for an NWB object with no file behind it.
 
@@ -1201,14 +1216,7 @@ def _inspect_object(nwb: NWBFile) -> dict[str, Any]:
     that exist only on disk -- a dtype chosen at write time, for instance -- and those
     come from the in-memory arrays instead.
     """
-    # `nwb.intervals` is empty until the file is written and read back: in memory
-    # `add_trial` populates `nwb.trials` and nothing else, so the object form used to
-    # report no interval tables at all for a file that plainly has one.
-    tables: dict[str, Any] = dict(nwb.intervals or {})
-    for attr in ("trials", "epochs", "invalid_times"):
-        table = getattr(nwb, attr, None)
-        if table is not None and attr not in tables:
-            tables[attr] = table
+    tables = _interval_tables(nwb)
 
     interval_tables: list[dict[str, Any]] = []
     for name in sorted(tables):
