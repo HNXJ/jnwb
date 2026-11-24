@@ -43,6 +43,12 @@ def test_a_41_word_sentence_is_flagged_and_a_40_word_one_is_not(tmp_path):
     assert [(ln, n) for ln, n, _ in SL.long_sentences(page)] == [(3, 41)]
 
 
+def test_each_code_span_counts_as_one_word(tmp_path):
+    page = tmp_path / "page.md"
+    page.write_text(" ".join(["word"] * 38) + " `a.b` `c d e` `f`.\n", encoding="utf-8")
+    assert [(ln, n) for ln, n, _ in SL.long_sentences(page)] == [(1, 41)]
+
+
 def test_a_sentence_across_wrapped_lines_is_one_sentence(tmp_path):
     page = tmp_path / "page.md"
     page.write_text("- " + " ".join(["a"] * 30) + "\n  " + " ".join(["b"] * 15) + ".\n",

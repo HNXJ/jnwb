@@ -16,13 +16,13 @@ remaining lines form paragraphs; a blank line, a dropped line or a list marker
 (``-``, ``*``, ``+``, ``1.``) starts a new one.
 
 Each paragraph is joined into one string, so a code span or link may cross a
-line break. In it, an inline code span becomes one mark that counts as no word
-but can start a sentence, ``[text](url)`` keeps only ``text``, a bare URL is
+line break. In it, an inline code span becomes one mark that counts as one
+word and can start a sentence, ``[text](url)`` keeps only ``text``, a bare URL is
 deleted, and emphasis markers are deleted. A sentence ends at ``.``, ``!`` or
 ``?`` (an optional closing bracket or quote after it) followed by whitespace,
 except after an abbreviation (``e.g.``, ``i.e.``, ``etc.``, ``vs.``, ``cf.``,
 ``al.``) or before a lowercase letter that follows a single-letter token. A
-word is a whitespace token holding an ASCII letter or digit. Each sentence is
+word is a whitespace token holding an ASCII letter, a digit or a code mark. Each sentence is
 reported at the line it starts on.
 """
 from __future__ import annotations
@@ -141,7 +141,7 @@ def sentences(text: str) -> list[tuple[int, str]]:
 
 
 def word_count(sentence: str) -> int:
-    return sum(1 for tok in sentence.split() if _WORD.search(tok))
+    return sum(1 for tok in sentence.split() if _WORD.search(tok) or CODE in tok)
 
 
 def long_sentences(path: Path, limit: int = LIMIT) -> list[tuple[int, int, str]]:

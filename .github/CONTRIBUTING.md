@@ -64,8 +64,8 @@ python scripts/harness_gate.py
 python scripts/docs_build.py
 ```
 
-- **The suite**: run `python -m pytest tests/ -q` before pushing; every test should pass on
-  the interpreter you ran. Run it on 3.12 as well if your
+- **The suite**: run `python -m pytest tests/ -q` before pushing; all tests should pass on your
+  interpreter. Run it on 3.12 as well if your
   change touches anything version-sensitive. It needs pytest-xdist, from the `test` extra:
   `pyproject.toml` passes `--dist=loadgroup`, so `-p no:xdist` is a usage error.
 - **`harness_gate.py`**: 22 repository gates. They check the project boundary, skill-tree
@@ -107,16 +107,16 @@ python scripts/release_gate.py
 ```
 
 - **`release_gate.py`**: first refuses the release while `artifacts/state.md` is present and
-  records another HEAD, the working tree has an uncommitted
-  change, or the open stack holds a row. It refuses while a todo item is still required for this
+  records another HEAD, or the working tree has an uncommitted
+  change. It refuses while the open stack holds a row, a todo item is still required for this
   cycle, or the closure receipt is missing or nonzero (`AGENTS.md` §11, condition 3). It refuses
   while the committed `artifacts/benchmarks/performance/peak_memory.json` names a version other
   than the one the tree declares. It refuses while an operation in that record grew more than 20%
   and at least 5 MiB over the previous release, unless the declared version's `CHANGELOG.md`
   section names it (`peak_memory_growth_violations` in `scripts/release_gate.py`).
   It then runs every check that takes minutes, and the suite last, so a failure costs minutes
-  rather than a full run. Those checks run the harness gate, build the wheel, install it in a clean
-  venv, smoke-test the installed package and run the tutorials against it. It catches packaging
+  rather than a full run. It runs the harness gate, builds the wheel, installs it in a clean venv,
+  smoke-tests the installed package and runs the tutorials against it. These checks catch packaging
   mistakes (a module missing from the wheel, a broken extra) that the suite cannot see. Last it
   runs the suite in parallel and prints its wall time and ten slowest tests. It also prints the
   peak memory of a fixed set of operations with `scripts/measure_peak_memory.py`, which writes
@@ -124,8 +124,8 @@ python scripts/release_gate.py
   its peak resident size above its resident size before it. The value is exact on Linux, where
   the peak is reset first. On Windows it is labeled exact or an upper bound, since
   its peak cannot be reset; the script's docstring tables each platform. It also resolves the **CI conclusion for the exact
-  commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
-  in aggregate, because a job with `needs:` reports `skipped` rather than `failure` when its
+  commit you are qualifying** and refuses to pass when CI is not green. It judges each matrix
+  leg, not the aggregate, because a job with `needs:` reports `skipped` rather than `failure` when its
   dependency fails. Run it before tagging, not before pushing. It needs network access to
   build an environment and an authenticated `gh` to read the pipeline. No CI job executes
   it: the workflow imports `forbidden_entries` from it to check the built artifacts and never
@@ -182,7 +182,7 @@ All code in `jnwb` must satisfy the following implementation standards:
 2. **Explicit Dimensions, Units & Coordinates**: Always specify physical units (e.g. `fs: float` in Hz, time in seconds, frequencies in Hz). Never confuse array indices with physical coordinate values.
 3. **Stable Terminology**: Use standardized parameter names across modules (`fs` or `sampling_rate`, `time_window`, `freq_range`, `alpha`, `rng`).
 4. **Typed Public Signatures**: Type-annotate public function arguments and return types.
-5. **Deterministic Behavior & Explicit RNG**: Functions requiring stochasticity (permutation, bootstrap, cross-validation) accept `rng: RNGLike` (`jnwb._rng`, an `int` seed, a `np.random.Generator`, or `None`) and resolve it through `resolve_rng`. **The default in the signature is the seed the function will use** — `DEFAULT_SEED` (42), or the literal that function has always used, or no default where the caller must choose — so `inspect.signature` and `help()` report the stream a bare call draws. Wrap it in `_rng.Default(...)` when the parameter carries a deprecated alias and "not supplied" must stay distinguishable from an explicit `None`. `None` means fresh OS entropy, and a body must never resolve it to a fixed seed: five functions declared `rng=None` and then ran `np.random.default_rng(42)`, so two calls a caller believed were independent shared one null and agreed exactly. `jnwb/_rng.py` records that repair (05-35). Default to `None` only where fresh entropy per call is the intended contract. `tests/test_rng_control.py` holds the live signatures against this paragraph, so the two cannot drift apart. **Never mutate global state** (`np.random.seed()`).
+5. **Deterministic Behavior & Explicit RNG**: Functions requiring stochasticity (permutation, bootstrap, cross-validation) accept `rng: RNGLike` (`jnwb._rng`, an `int` seed, a `np.random.Generator`, or `None`) and resolve it through `resolve_rng`. **The default in the signature is the seed the function will use**: `DEFAULT_SEED` (42), or the literal that function has always used, or no default where the caller must choose. So `inspect.signature` and `help()` report the stream a bare call draws. Wrap it in `_rng.Default(...)` when the parameter carries a deprecated alias and "not supplied" must stay distinguishable from an explicit `None`. `None` means fresh OS entropy, and a body must never resolve it to a fixed seed: five functions declared `rng=None` and then ran `np.random.default_rng(42)`, so two calls a caller believed were independent shared one null and agreed exactly. `jnwb/_rng.py` records that repair (05-35). Default to `None` only where fresh entropy per call is the intended contract. `tests/test_rng_control.py` holds the live signatures against this paragraph, so the two cannot drift apart. **Never mutate global state** (`np.random.seed()`).
 6. **No Hidden Filesystem Assumptions**: Never hardcode relative paths, machine-specific drive letters, or external network dependencies in library functions.
 7. **No Silent Numerical Clipping / Censoring**: Never silently clamp, filter, or discard invalid values unless explicitly requested by a parameter.
 8. **Explicit Boundary / Failure States**: When a fit hits parameter bounds or optimization fails, return explicit status flags (e.g. `bound_status: "lower" | "upper" | None`) rather than masking errors as valid interior solutions.
@@ -382,7 +382,12 @@ Every contributor adheres to these scientific invariants:
 5. **Unit of Inference**: Always declare whether statistical degrees of freedom reside at the unit, channel, trial, or session level.
 6. **Valid Nulls**: A valid null is an empirical finding. Never alter test windows or parameters to artificially force statistical significance.
 7. **No Synthetic Science**: Never present synthetic or dummy data as real electrophysiological observations.
-8. **Scientific Vocabulary & Methodological Distinctions**: Prefer direct, compact, quantitative scientific terminology (`result`, `test`, `analysis`, `table`, `figure`, `method`, `limit`, `condition`) over process jargon. Preserve critical distinctions. Response magnitude does not imply temporal precision. Detecting an effect does not by itself establish precise timing or an admissible latency. Distinguish measurement precision, latency, estimator disagreement, and boundary censoring. Descriptive lower-level percentages do not substitute for hypothesis tests at the declared higher-level inferential unit. Association or directionality metrics do not establish physical causality.
+8. **Scientific Vocabulary & Methodological Distinctions**: Prefer direct, compact, quantitative scientific terminology (`result`, `test`, `analysis`, `table`, `figure`, `method`, `limit`, `condition`) over process jargon. Preserve critical distinctions:
+   - response magnitude does not imply temporal precision;
+   - detecting an effect does not by itself establish precise timing or an admissible latency;
+   - distinguish measurement precision, latency, estimator disagreement, and boundary censoring;
+   - descriptive lower-level percentages do not substitute for hypothesis tests at the declared higher-level inferential unit;
+   - association or directionality metrics do not establish physical causality.
 
 ## Standard development flow
 
