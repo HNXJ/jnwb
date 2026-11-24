@@ -9,9 +9,9 @@ documentation, in
 
 ## Setup
 
-Python 3.12 or newer. CI runs every declared version on Ubuntu and every one but 3.15 on Windows,
-which has no h5py wheel for it yet — seven legs, and `pyproject.toml` is where the declared set
-lives — so a change must work across the whole range, not only at its ends.
+Python 3.12 or newer. `pyproject.toml` declares the supported versions. CI runs every declared
+version on Ubuntu and every one but 3.15 on Windows, which has no h5py wheel for it yet: seven legs.
+So a change must work across the whole range, not only at its ends.
 
 ```bash
 git clone https://github.com/HNXJ/jnwb.git     # with a GitHub SSH key: git@github.com:HNXJ/jnwb.git
@@ -36,7 +36,6 @@ Verify the install:
 python -m pytest tests/ -q
 ```
 
-Run `python -m pytest tests/ -q` before pushing; all tests should pass on your interpreter.
 CI exercises every version `pyproject.toml` declares, so a version the package claims is a
 version CI runs. On Windows, pytest's temporary directory must sit outside the repo, passed as
 an explicit `--basetemp` argument; on the checkout's drive the tests that clone the tree
@@ -65,29 +64,30 @@ python scripts/harness_gate.py
 python scripts/docs_build.py
 ```
 
-- **The suite** — every test, on the interpreter you ran. Run it on 3.12 as well if your
+- **The suite**: run `python -m pytest tests/ -q` before pushing; all tests should pass on your
+  interpreter. Run it on 3.12 as well if your
   change touches anything version-sensitive. It needs pytest-xdist, from the `test` extra:
   `pyproject.toml` passes `--dist=loadgroup`, so `-p no:xdist` is a usage error.
-- **`harness_gate.py`** — 22 repository gates: the project boundary, skill-tree uniqueness,
-  machine-local paths in tests, the root allowlist, public symbols documented, forbidden study
-  tokens on the Gate 6 scan surface, package/`pyproject.toml` version agreement, the Python
-  floor and its agreement across classifiers, the CI matrix, `.readthedocs.yaml`, `README.md`
-  and `docs/install.md`, `docs/api.md` against `__all__` and the generator,
-  docs versions derived from `__version__`, no unowned importable package at the root, project
-  identifiers in code, NWB onboarding alignment, repository-process vocabulary in `docs/`
-  and stack identifiers in `jnwb/`, `docs/` and the files its pages include,
-  stack form and the process records (with no mapping table, `AGENTS.md` and
+- **`harness_gate.py`**: 22 repository gates. They check the project boundary, skill-tree
+  uniqueness, machine-local paths in tests, the root allowlist, public symbols documented, and
+  forbidden study tokens on the Gate 6 scan surface. They check package/`pyproject.toml` version
+  agreement, the Python floor and its agreement across classifiers, the CI matrix,
+  `.readthedocs.yaml`, `README.md` and `docs/install.md`, `docs/api.md` against `__all__` and the
+  generator, and docs versions derived from `__version__`. They check for an unowned importable
+  package at the root, project identifiers in code, NWB onboarding alignment, repository-process
+  vocabulary in `docs/`, and stack identifiers in `jnwb/`, `docs/` and the files its pages include.
+  They check stack form and the process records. With no mapping table, `AGENTS.md` and
   `.github/CONTRIBUTING.md` keep every obligation clause of the newest `v*` tag HEAD descends
-  from, verbatim or reworded with half its words and all its obligation words; no such tag
-  fails), line-ending consistency, stack pointers that resolve, the `docs/api.md` Type
-  column and parameter kinds against the runtime object, frozen-validated functions against
-  their verified bodies, the HEAD recorded in `artifacts/state.md` against the live one when
-  that generated file is present (Gate 20 only reads it; regenerate with
-  `python scripts/reconstruct_state.py`), the computational contract of
-  `scripts/computational_contract_gate.py`, and the typed facts of `scripts/fact_gate.py`,
-  each HELD, VIOLATED or UNHELD on the fact graph `scripts/build_fact_graph.py` generates
-  (VIOLATED fails; `artifacts/fact_graph.json` is that graph written out, and is never
-  committed). It fails on structure, not behaviour.
+  from, verbatim or reworded with half its words and all its obligation words; with no such tag,
+  the gate fails. They check line-ending consistency, stack pointers that resolve, the
+  `docs/api.md` Type column and parameter kinds against the runtime object, and frozen-validated
+  functions against their verified bodies. They check the HEAD recorded in `artifacts/state.md`
+  against the live one when that generated file is present. Gate 20 only reads it; regenerate with
+  `python scripts/reconstruct_state.py`. They check the computational contract of
+  `scripts/computational_contract_gate.py` and the typed facts of `scripts/fact_gate.py`. Each fact
+  is HELD, VIOLATED or UNHELD on the fact graph `scripts/build_fact_graph.py` generates, and
+  VIOLATED fails. `artifacts/fact_graph.json` is that graph written out, and is never committed.
+  The gates fail on structure, not behavior.
 
 **Frozen-validated functions.** `artifacts/process/frozen_validated.json` lists functions whose body
 was verified by someone other than its author and had a mutant killed by the tests it names.
@@ -106,25 +106,29 @@ A fourth check exists and is **not** part of this sequence:
 python scripts/release_gate.py
 ```
 
-- **`release_gate.py`** — first refuses the release while `artifacts/state.md` is present and
-  records another HEAD, the working tree has an uncommitted
-  change, the open stack holds a row, a todo item is still required for this cycle, or the
-  closure receipt is missing or nonzero (`AGENTS.md` §11, condition 3), or while the committed
-  `artifacts/benchmarks/performance/peak_memory.json` names a version other than the one the tree declares, or while an operation in that record grew more than 20% and at least 5 MiB over the previous release, unless the declared version's `CHANGELOG.md` section names it (`peak_memory_growth_violations` in `scripts/release_gate.py`).
+- **`release_gate.py`**: first refuses the release while `artifacts/state.md` is present and
+  records another HEAD, or the working tree has an uncommitted
+  change. It refuses while the open stack holds a row, a todo item is still required for this
+  cycle, or the closure receipt is missing or nonzero (`AGENTS.md` §11, condition 3). It refuses
+  while the committed `artifacts/benchmarks/performance/peak_memory.json` names a version other
+  than the one the tree declares. It refuses while an operation in that record grew more than 20%
+  and at least 5 MiB over the previous release, unless the declared version's `CHANGELOG.md`
+  section names it (`peak_memory_growth_violations` in `scripts/release_gate.py`).
   It then runs every check that takes minutes, and the suite last, so a failure costs minutes
-  rather than a full run: the harness gate, builds the wheel, installs it in a clean venv,
-  smoke-tests the installed package and runs the tutorials against it. It catches packaging
+  rather than a full run. It runs the harness gate, builds the wheel, installs it in a clean venv,
+  smoke-tests the installed package and runs the tutorials against it. These checks catch packaging
   mistakes (a module missing from the wheel, a broken extra) that the suite cannot see. Last it
-  runs the suite in parallel and prints its wall time and ten slowest tests, and prints the peak
-  memory of a fixed set of operations (`scripts/measure_peak_memory.py`, failing above `PEAK_THRESHOLD_MIB`, the 0.2.7 peak plus 25%,
-  nothing written: each operation's peak resident size above its resident size before it, exact
-  on Linux, where the peak is reset first, and on Windows labelled exact or an upper bound, since
-  its peak cannot be reset; the script's docstring tables each platform). It also resolves the **CI conclusion for the exact
-  commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
-  in aggregate, because a job with `needs:` reports `skipped` rather than `failure` when its
-  dependency fails. Run it before tagging, not before pushing: it needs network access to
-  build an environment and an authenticated `gh` to read the pipeline, and no CI job executes
-  it — the workflow imports `forbidden_entries` from it to check the built artifacts and never
+  runs the suite in parallel and prints its wall time and ten slowest tests. It also prints the
+  peak memory of a fixed set of operations with `scripts/measure_peak_memory.py`, which writes
+  nothing and fails above `PEAK_THRESHOLD_MIB`, the 0.2.7 peak plus 25%. An operation's peak is
+  its peak resident size above its resident size before it. The value is exact on Linux, where
+  the peak is reset first. On Windows it is labeled exact or an upper bound, since
+  its peak cannot be reset; the script's docstring tables each platform. It also resolves the **CI conclusion for the exact
+  commit you are qualifying** and refuses to pass when CI is not green. It judges each matrix
+  leg, not the aggregate, because a job with `needs:` reports `skipped` rather than `failure` when its
+  dependency fails. Run it before tagging, not before pushing. It needs network access to
+  build an environment and an authenticated `gh` to read the pipeline. No CI job executes
+  it: the workflow imports `forbidden_entries` from it to check the built artifacts and never
   calls its `main`. The script's module docstring lists every step in the order it runs, and
   `tests/test_module_docstrings_match_their_code.py` holds that list to the steps.
 
@@ -178,13 +182,13 @@ All code in `jnwb` must satisfy the following implementation standards:
 2. **Explicit Dimensions, Units & Coordinates**: Always specify physical units (e.g. `fs: float` in Hz, time in seconds, frequencies in Hz). Never confuse array indices with physical coordinate values.
 3. **Stable Terminology**: Use standardized parameter names across modules (`fs` or `sampling_rate`, `time_window`, `freq_range`, `alpha`, `rng`).
 4. **Typed Public Signatures**: Type-annotate public function arguments and return types.
-5. **Deterministic Behavior & Explicit RNG**: Functions requiring stochasticity (permutation, bootstrap, cross-validation) accept `rng: RNGLike` (`jnwb._rng`, an `int` seed, a `np.random.Generator`, or `None`) and resolve it through `resolve_rng`. **The default in the signature is the seed the function will use** — `DEFAULT_SEED` (42), or the literal that function has always used, or no default where the caller must choose — so `inspect.signature` and `help()` report the stream a bare call draws. Wrap it in `_rng.Default(...)` when the parameter carries a deprecated alias and "not supplied" must stay distinguishable from an explicit `None`. `None` means fresh OS entropy, and a body must never resolve it to a fixed seed: five functions declared `rng=None` and then ran `np.random.default_rng(42)`, so two calls a caller believed were independent shared one null and agreed exactly. `jnwb/_rng.py` records that repair (05-35). Default to `None` only where fresh entropy per call is the intended contract. `tests/test_rng_control.py` holds the live signatures against this paragraph, so the two cannot drift apart. **Never mutate global state** (`np.random.seed()`).
+5. **Deterministic Behavior & Explicit RNG**: Functions requiring stochasticity (permutation, bootstrap, cross-validation) accept `rng: RNGLike` (`jnwb._rng`, an `int` seed, a `np.random.Generator`, or `None`) and resolve it through `resolve_rng`. **The default in the signature is the seed the function will use**: `DEFAULT_SEED` (42), or the literal that function has always used, or no default where the caller must choose. So `inspect.signature` and `help()` report the stream a bare call draws. Wrap it in `_rng.Default(...)` when the parameter carries a deprecated alias and "not supplied" must stay distinguishable from an explicit `None`. `None` means fresh OS entropy, and a body must never resolve it to a fixed seed: five functions declared `rng=None` and then ran `np.random.default_rng(42)`, so two calls a caller believed were independent shared one null and agreed exactly. `jnwb/_rng.py` records that repair (05-35). Default to `None` only where fresh entropy per call is the intended contract. `tests/test_rng_control.py` holds the live signatures against this paragraph, so the two cannot drift apart. **Never mutate global state** (`np.random.seed()`).
 6. **No Hidden Filesystem Assumptions**: Never hardcode relative paths, machine-specific drive letters, or external network dependencies in library functions.
 7. **No Silent Numerical Clipping / Censoring**: Never silently clamp, filter, or discard invalid values unless explicitly requested by a parameter.
 8. **Explicit Boundary / Failure States**: When a fit hits parameter bounds or optimization fails, return explicit status flags (e.g. `bound_status: "lower" | "upper" | None`) rather than masking errors as valid interior solutions.
 9. **Cost-Justified Vectorization & Streaming**: Vectorize NumPy/SciPy operations where profiling shows a bottleneck; use streaming accumulators (`TFRAccumulator`) for memory-intensive multi-trial arrays.
 10. **Behavior-Preservation Optimization**: Never refactor or optimize code without existing behavioral tests passing before and after.
-11. **Computational Order From a Measurement or a Reference**: Record an operation's order from its runtime measured across input sizes or from its published reference, never from the shape of its loops: a reading of the loops was wrong on six operations, in both directions.
+11. **Computational Order From a Measurement or a Reference**: Record an operation's order from its runtime measured across input sizes or from its published reference, never from the shape of its loops. A reading of the loops was wrong on six operations, in both directions.
 
 ## Public API rule
 
@@ -218,21 +222,21 @@ A mutation run — editing the tree to check that a test can fail, then restorin
 
 The harness derives its state directory from the worktree being operated on, refuses to touch a
 path outside that worktree, and admits one session per worktree under an OS-level lock. A worktree isolates the repository and **not** the session's scratch directory, so two
-lanes writing a file called `mutate.py` into the shared scratch directory collide — measured three
+lanes writing a file called `mutate.py` into the shared scratch directory collide. This was measured three
 times across two batches, once between a live mutation harness and another lane's harness
 pointing at a third worktree.
 
 The danger is not the lost file, it is the **restore**. A write-restore harness reads its own
-script to know what to put back; if that script is replaced between mutate and restore, the
-restore targets a tree the session does not own, and leaves a live mutant in a tree nobody is
+script to know what to put back. If that script is replaced between mutate and restore, the
+restore targets a tree the session does not own and leaves a live mutant in a tree nobody is
 looking at. Every collision so far was benign and visible, caught by hash. The same race with a
 restore in flight would not be.
 
-The harness also refuses to report a kill it has not earned: it proves each selector collects
-and passes on the pristine tree first, verifies every restore by sha256 per mutant rather than
-once at the end, and requires the specific node id to appear as `FAILED` rather than accepting
+The harness also refuses to report a kill it has not earned. It proves each selector collects
+and passes on the pristine tree first. It verifies every restore by sha256 per mutant rather than
+once at the end. It requires the specific node id to appear as `FAILED` rather than accepting
 that the run merely went red. A selector naming a bare test method where the test is a class
-method collects nothing and exits non-zero, which is indistinguishable from a kill — that
+method collects nothing and exits non-zero, which is indistinguishable from a kill. That
 produced six false kills in 0.2.5 and hid a real gap behind them.
 
 ## Documentation rule
@@ -378,7 +382,12 @@ Every contributor adheres to these scientific invariants:
 5. **Unit of Inference**: Always declare whether statistical degrees of freedom reside at the unit, channel, trial, or session level.
 6. **Valid Nulls**: A valid null is an empirical finding. Never alter test windows or parameters to artificially force statistical significance.
 7. **No Synthetic Science**: Never present synthetic or dummy data as real electrophysiological observations.
-8. **Scientific Vocabulary & Methodological Distinctions**: Prefer direct, compact, quantitative scientific terminology (`result`, `test`, `analysis`, `table`, `figure`, `method`, `limit`, `condition`) over process jargon. Preserve critical distinctions: response magnitude does not imply temporal precision; detecting an effect does not by itself establish precise timing or an admissible latency; distinguish measurement precision, latency, estimator disagreement, and boundary censoring; descriptive lower-level percentages do not substitute for hypothesis tests at the declared higher-level inferential unit; association or directionality metrics do not establish physical causality.
+8. **Scientific Vocabulary & Methodological Distinctions**: Prefer direct, compact, quantitative scientific terminology (`result`, `test`, `analysis`, `table`, `figure`, `method`, `limit`, `condition`) over process jargon. Preserve critical distinctions:
+   - response magnitude does not imply temporal precision;
+   - detecting an effect does not by itself establish precise timing or an admissible latency;
+   - distinguish measurement precision, latency, estimator disagreement, and boundary censoring;
+   - descriptive lower-level percentages do not substitute for hypothesis tests at the declared higher-level inferential unit;
+   - association or directionality metrics do not establish physical causality.
 
 ## Standard development flow
 
@@ -452,17 +461,17 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    delete-merged-branch setting still deletes a merged feature branch's head.
 4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build); when a `main` push run
    of the same commit passed, the test matrix and the floors leg skip their steps and name that
-   run, and the build still runs in full. Then the `publish-testpypi` job uploads to TestPyPI,
-   and the `verify-testpypi` job downloads only the `jnwb==X.Y.Z` wheel from TestPyPI, installs
-   that file into a fresh environment with every dependency from PyPI, runs `pip check`, runs
-   `scripts/smoke_installed.py` against it from outside the checkout, and, for a final version,
+   run, and the build still runs in full. Then the `publish-testpypi` job uploads to TestPyPI.
+   The `verify-testpypi` job downloads only the `jnwb==X.Y.Z` wheel from TestPyPI and installs
+   that file into a fresh environment with every dependency from PyPI. It runs `pip check` and
+   `scripts/smoke_installed.py` against it from outside the checkout. For a final version, it
    runs `scripts/release_body.py` so notes the body check refuses stop the run before PyPI.
 5. In the same run, for a final version only, `publish-pypi` needs `verify-testpypi`: it
-   downloads this run's distribution artifact, requires each file's sha256 to equal the one
-   TestPyPI records for it, and uploads those files to production PyPI via trusted publishing
+   downloads this run's distribution artifact and requires each file's sha256 to equal the one
+   TestPyPI records for it. It uploads those files to production PyPI via trusted publishing
    in the `pypi` environment, whose approval rule applies. Then `verify-pypi` downloads the
    `jnwb==X.Y.Z` wheel from PyPI, requires its sha256 to equal this run's build artifact, and
-   runs `pip check` and `scripts/smoke_installed.py`; after it, `github-release` writes the
+   runs `pip check` and `scripts/smoke_installed.py`. After it, `github-release` writes the
    notes with `scripts/release_body.py` (a fenced `pip install jnwb==X.Y.Z`, the supported
    Python range and the version's `CHANGELOG.md` section), fails if
    `check_release_body_claims` reports a violation, and otherwise runs `gh release create`.
