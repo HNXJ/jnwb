@@ -41,7 +41,13 @@ def test_coupling_sign_condition_and_psi_clause_match_the_docstring():
     text = _text("jnwb-lfp-spectral/references/coupling.md")
     assert ("`icoh_mean` is signed: positive means `x` leads when the wrapped lag phase is in "
             "(0, pi); in (pi, 2pi) the sign reverses") in text
-    assert "`phase_slope_index` is positive when `x` leads, with no such reversal." in text
+    assert ("`phase_slope_index` is positive when `x` leads while the delay stays below "
+            "`nperseg / (2 fs)` (`nperseg` and `fs` as `phase_slope_index` takes them), where "
+            "`icoh_mean` may already have reversed.") in text
+    assert "with no such reversal" not in text
     assert "positive means `x` leads wherever" not in text
+    import jnwb.connectivity._psi as psi
+    params = inspect.signature(psi.phase_slope_index).parameters
+    assert "nperseg" in params and "fs" in params
     doc = " ".join(inspect.getdoc(jnwb.imaginary_coherency).split())
     assert "wherever the lag's phase is below pi" in doc
