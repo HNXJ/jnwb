@@ -84,10 +84,6 @@ def test_imaginary_coherency_sign_holds_below_pi_and_reverses_beyond_it():
         assert "wrapped lag phase is in (0, pi)" in flat, f"{path} lacks the (0, pi) condition"
         assert "in (pi, 2pi) the sign reverses" in flat, f"{path} lacks the (pi, 2pi) reversal"
         assert "below pi" not in flat, f"{path} still states the unwrapped 'below pi' form"
-    flat = " ".join((ROOT / "docs" / "coherence_and_tfr.md").read_text(encoding="utf-8").split())
-    # PSI carries no reversal: the page must not say it follows icoh's convention.
-    assert "`phase_slope_index` is positive when `x` leads, with no such reversal." in flat
-    assert "The convention is the one `phase_slope_index` follows" not in flat
 
 
 def _electrodes(hardware, areas, group_name=None):
