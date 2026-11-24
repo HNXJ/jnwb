@@ -13,7 +13,7 @@ import pandas as pd
 from pynwb import NWBFile, TimeSeries
 from pynwb.epoch import TimeIntervals
 
-from jnwb.nwb_inspect import _to_physical
+from jnwb.nwb_inspect import _interval_tables, _to_physical
 from jnwb.nwb_io import NWBInput, _with_nwb
 CodeValue = Union[str, int, float]
 CodeSequence = Union[CodeValue, Sequence[CodeValue]]
@@ -123,7 +123,7 @@ def resolve_interval_table(path_or_nwb: NWBInput, table: str | None = None) -> s
 
 
 def _resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
-    names = sorted(nwb.intervals.keys()) if nwb.intervals else []
+    names = sorted(_interval_tables(nwb))
     processing = _processing_names(nwb)
     if not names and not processing:
         raise IntervalTableNotFoundError("No interval tables found in NWB file")
@@ -151,8 +151,9 @@ def _resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
 
 def _interval_table_object(nwb: NWBFile, name: str) -> TimeIntervals:
     """The table `_resolve_interval_table` returned: a bare intervals name, or a processing path."""
-    if name in (nwb.intervals or {}):
-        return nwb.intervals[name]
+    tables = _interval_tables(nwb)
+    if name in tables:
+        return tables[name]
     return _processing_table(nwb, name)
 
 
