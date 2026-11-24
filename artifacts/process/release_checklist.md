@@ -57,7 +57,7 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | 6 | Tracked rules cite tracked roles | 17-101 (S4) | integrator | D4 | merged 22eca3d2; two live hits left, both owner-gated |
 | 12 | Docs thinning remainder | 17-100 (S4) | `docs-harness` | D5 | fig14/fig18 merged `6a7baf41`; three parts kept, Check narrowing is Hamm's |
 | 16 | One home per invariant | 17-99 (S4) | `jnwb-developer` | D2 | |
-| 17 | Prose against the writing style | 17-129 (S5) | `docs-harness` | 0 | spelling clause narrowed to new prose (Q5); runs on its Writes while 12 and 16 wait on D5 and D2 |
+| 17 | Prose against the writing style | 17-129 (S5) | `docs-harness` | D6 | Writes files merged `0621da87`; left: `skills/` and `AGENTS.md` sentences (Hamm's files), `docs/agents.md` routing-table copy |
 | 18 | External ground truth | 17-144, 15-11, 12-21, 16-12 (S6) | human input | D1 | in scope (Q1); raise D1 when it is the critical path |
 | R1 | Refresh peak memory and import receipts | release | `jnwb-actor-haiku` | 1 to 18 | `scripts/measure_peak_memory.py`, `scripts/benchmark_import.py --write` |
 | R2 | §11 verbosity review | A3 | `reviewer` | 12, 17 | report under `artifacts/evidence/0.2.17/` |
@@ -75,7 +75,7 @@ or only tasks blocked on section 9 remain.
 | Verified closed (receipts in the update log) | 17-79, 17-97, 17-98, 17-103, 17-154 (section 7), 17-157, 17-96, 17-142, 17-147, 17-153 (suite 11147 passed at `d918bf46`), 17-150 (pending the suite at the integration tip); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
 | Landed, item still open | 17-100 (partials 2026-11-21 to 2026-11-23) |
 | Pending verification | full suite and CI at the merged tip |
-| Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4), D4 (17-101), D5 (17-100) |
+| Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4), D4 (17-101), D5 (17-100), D6 (17-129) |
 | Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
 
 ## 6. Weighted progress (60): diagnostic, not a gate (Q3, ruled 2026-11-22)
@@ -128,6 +128,7 @@ blocks the critical path.
 | D3 | Tag, `main` merge and publication of the verified RC | R4 | R3 passes |
 | D4 | 17-101 remainder: roadmap 17-138 (vendor `suite_lock.py` or name the dependency, `memory.md:7`); rewording "the scratchpad" in the corpus-access ruling (`standing.md:20`) | 17-101, S4 | 17-101 is the last open S4 item besides 17-99 |
 | D5 | 17-100 Check: accept three parts as kept (the stub serving a published readthedocs URL; the inline `sys.path` guard an installed-copy test requires; the fig22/fig23 id gap), or rule a change (a redirect plugin or dashboard redirect; moving the guard by changing that test and the docs gate; renumbering figure files) | 17-100, S4 | now: 17-100 has no other work left |
+| D6 | 17-129 remainder: rewrite the sentences over 40 words in 8 of 12 `skills/` files and `AGENTS.md` (:85, :105), or narrow the Check to the Writes files | 17-129, S5 | now: the Writes files are done (merge `0621da87`) |
 
 Recorded for review, not blocking: 17-153's check tests the first `path:line` cite of each B3 exception
 row; a continuation cite after `;` (reason code, not the default) is exempt. The independent verifier read
@@ -159,3 +160,4 @@ all 11 continuation cites the strict form fails; each points at reason code and 
 | 2026-11-23 | merge `8c383df7` | 17-127 closed: one read and parse per file per build (`scripts/fact_graph/_sources.py`), `ast.parse` calls 6266 to 1270; verifier ACCEPT on `8b8cd3e0`: graph identical apart from the change's own entries, three idle builds by the verifier 17.5 to 20.5 s, three mutants caught, full suite 11162 passed at `8b8cd3e0`. S5 2 of 4; score 37.5/100 diagnostic. |
 | 2026-11-23 | merge `ee50004a` | 17-128 closed: `tests/test_public_raises_documented.py` checks each of the 163 public functions' own and nested-helper raises against its Raises section (red on baseline and on a planted raise); 38 tolerance literals named, AST-equal with the constants inlined; curation and xflip receipts regenerated, result numbers identical. Verifier REJECT twice (unnamed literals, nested-def blind spot, ulp multipliers), repaired, ACCEPT on `e0bc166e`. Left: `assert_mergeable` (skill row, Hamm's), two frozen literals, signature defaults (ruled), `0.05` levels (roadmap 17-130), wider raise coverage (roadmap 17-161). S5 3 of 4; score 40/100 diagnostic. |
 | 2026-11-23 | `27985e03`, merge `6a7baf41` | Suite 11166 passed at `27985e03`, pushed to `dev`. 17-100 part 1 merged: fig14 and fig18 have one home, `common_mistakes.md` (verifier ACCEPT on `ac2c02ee`, six mutants red, full suite 11158 passed there); the stub, the inline guard and the id gap are kept for reasons the verifier confirmed; closing as kept narrows the Check, raised as D5. |
+| 2026-11-23 | merge `0621da87` | 17-129 Writes files done: no sentence over 40 words in `CONTRIBUTING.md`, `README.md`, `docs/quickstart.md` (`tests/test_prose_sentence_length.py`, red on baseline; 16 to 0); verifier REJECT on a suite failure (echoed AGENTS.md claim), a code-span undercount and two weakened rule scopes, repaired, ACCEPT on `368df360` with a full suite 11170 passed there. The skills and AGENTS.md remainder raised as D6. Score unchanged. |

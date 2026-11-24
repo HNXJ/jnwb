@@ -58,6 +58,6 @@ Writes: `artifacts/memory.md`, `artifacts/rulings/standing.md`.
 ### 17-129 Prose against the writing style
 
 Release: deferred-0.2.17.
-Role: docs-harness. Skill: none. Blocked by: 17-99 and 17-100 (shared files); Hamm's word for `skills/` and `AGENTS.md`. Ruled 2026-11-22 (Q5): American English for new prose; no repository-wide conversion.
+Role: docs-harness. Skill: none. Blocked by: Hamm's word for `skills/` and `AGENTS.md` (D6, release checklist section 9). Ruled 2026-11-22 (Q5): American English for new prose; no repository-wide conversion.
 Writes: `.github/CONTRIBUTING.md`, `README.md`, `docs/quickstart.md`.
-- 17-129: from P-216-26. The 2026-11-07 match pass adds: `docs/agents.md:79-94` repeats `skills/jnwb/SKILL.md:13-25`; `CONTRIBUTING.md:39` repeats `:36` and `:64`. Sentences over 40 words in 8 of 12 skills, `AGENTS.md` (:85, :105), `CONTRIBUTING.md` (:111, :179, :185, :379; em dashes on 17 lines); "behaviour" (113 lines) and "behavior" (105) both occur (`git grep -icw`, tracked tree). Check: no sentence over 40 words in the listed files, by grep; prose added in this cycle uses American spelling.
+- 17-129: from P-216-26. Landed 2026-11-23 (merge 0621da87, verifier ACCEPT on 368df360): `CONTRIBUTING.md`, `README.md`, `docs/quickstart.md` hold no sentence over 40 words by `tests/test_prose_sentence_length.py` (code span = one word; 16 to 0 in CONTRIBUTING); the `:39` repeat has one home. Left: sentences over 40 words in 8 of 12 skills and `AGENTS.md` (:85, :105), Hamm's files; `docs/agents.md:82-94` repeats `skills/jnwb/SKILL.md:13-25`. Check: no sentence over 40 words in the listed files, by grep; prose added in this cycle uses American spelling.
