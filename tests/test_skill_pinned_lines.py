@@ -43,3 +43,5 @@ def test_coupling_sign_condition_and_psi_clause_match_the_docstring():
             "(0, pi); in (pi, 2pi) the sign reverses") in text
     assert "`phase_slope_index` is positive when `x` leads, with no such reversal." in text
     assert "positive means `x` leads wherever" not in text
+    doc = " ".join(inspect.getdoc(jnwb.imaginary_coherency).split())
+    assert "wherever the lag's phase is below pi" in doc

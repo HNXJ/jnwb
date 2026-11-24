@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 
 import jnwb
+import jnwb.laminar_curation
 
 WINDOWS = np.array([100.0, 101.0, 102.0, 101.5])
 STABLE = dict(window_um=WINDOWS, consistency_deep=1.0, consistency_superficial=1.0)
@@ -40,8 +41,8 @@ def test_laminar_reference_states_the_same_vocabulary_and_cap():
     path = Path(__file__).resolve().parents[1] / "skills/jnwb-laminar/references/motif_crossover_and_layers.md"
     text = " ".join(path.read_text(encoding="utf-8").split())
     assert ("reads `'agree'` when the two crossovers are at most "
-            "`laminar_curation.VFLIP2_VFLIP_AGREEMENT_T_CONTACTS` (a module constant, not in "
-            "`__all__`) contact spacings") in text
+            "22.8 contact spacings (the calibrated agreement threshold) apart") in text
+    assert round(jnwb.laminar_curation.VFLIP2_VFLIP_AGREEMENT_T_CONTACTS, 1) == 22.8
     assert "`'disagree'` above that, and `'unresolved'` when either is absent" in text
     assert "an `'A'` grade is capped at `'B'` unless agreement is `'agree'`" in text
     assert "'unavailable'" not in text
