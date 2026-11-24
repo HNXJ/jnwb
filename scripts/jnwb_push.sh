@@ -8,7 +8,9 @@
 #     listed at that SHA and every run there completed and succeeded; a run at an earlier SHA does
 #     not count (scripts/ci_gate.py --tip). Override: JNWB_PUSH_OVER_RED=1 pushes over one case only,
 #     a completed run at the tip that did not succeed (ci_gate exit 3), for the push that carries the
-#     fix. Every other refusal, a tip with no run or a pending run among them, stays a refusal.
+#     fix: never to main, and only when HEAD's message names the id of every red run at the tip
+#     (rulings 2026-10-10, 2026-11-23). Every other refusal, a tip with no run or a pending run
+#     among them, stays a refusal.
 # An artifacts-only push first runs the stack checks: scripts/harness_gate.py (gate 15 among them)
 # and tests/test_stack_item_length.py.
 # Usage: jnwb_push.sh <dir> [branch=dev] [--item <id>]
@@ -109,12 +111,21 @@ fi
 case "$gate_rc" in
   0) ;;
   2) echo "CI conclusion unreadable: $gate_out"; exit 1 ;;
-  3) if [ "${JNWB_PUSH_OVER_RED:-}" = "1" ]; then
-       echo "CI gate on $branch: $gate_out; pushing anyway (JNWB_PUSH_OVER_RED=1)"
-     else
-       echo "CI gate on $branch: $gate_out; refusing. Read its failure; to push the fix, set JNWB_PUSH_OVER_RED=1"
+  3) [ "${JNWB_PUSH_OVER_RED:-}" = "1" ] || {
+       echo "CI gate on $branch: $gate_out; refusing. Read its failure; to push the fix, name its run id in HEAD's message and set JNWB_PUSH_OVER_RED=1"
        exit 1
-     fi ;;
+     }
+     [ "$branch" != "main" ] || { echo "CI gate on main: $gate_out; refusing: main takes no push over red"; exit 1; }
+     # The fix push names every red run at the tip in HEAD's message, as a whole number.
+     ids=${gate_out##*; run ids: }
+     msg=$(git log -1 --format=%B HEAD) || { echo "refusing: HEAD's message is unreadable"; exit 1; }
+     for id in $ids; do
+       [[ "$id" =~ ^[0-9]+$ ]] && [[ "$msg" =~ (^|[^0-9])$id([^0-9]|$) ]] || {
+         echo "CI gate on $branch: $gate_out; refusing: HEAD's message does not name red run $id"
+         exit 1
+       }
+     done
+     echo "CI gate on $branch: $gate_out; pushing anyway (JNWB_PUSH_OVER_RED=1)" ;;
   *) echo "CI gate on $branch: $gate_out; refusing"; exit 1 ;;
 esac
 git push origin "$branch" </dev/null
