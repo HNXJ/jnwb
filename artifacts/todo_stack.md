@@ -25,6 +25,15 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
+### 17-165 Interval tables on an unwritten NWBFile
+
+Release: required-0.2.17 (classified by an independent critic 2026-11-24: shipped behaviour can be wrong).
+Role: jnwb-developer. Skill: none. Blocked by: none. Lane: `_temp_intervals-inmem`.
+Writes: `jnwb/nwb_events.py`, `tests/test_nwb_events*.py`, `artifacts/changelog.d/nwb-*.md`.
+- 17-165: `_resolve_interval_table` reads only `nwb.intervals`; on an in-memory file trials-only raises, and trials plus one
+  other table silently resolves to the other (events, event_onsets, edges_near_events read it). Check: in-memory resolution
+  and onsets equal the written file's for trials-only, trials plus `custom`, and `table='epochs'`; tests red on `8f71c695`.
+
 ### 17-144 The jaxfne isi_cv commits
 
 Release: deferred-0.2.17.
