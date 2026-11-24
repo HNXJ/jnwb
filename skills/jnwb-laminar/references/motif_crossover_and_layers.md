@@ -1,7 +1,7 @@
 ### Motif, crossover and layers
 - `jnwb.vflip(psd, freqs, *, band_low=(8.0, 30.0), band_high=(50.0, 150.0), min_support_score=3.75, device="cpu", depth_axis=None, shallow_end=None)` and `jnwb.vflip_from_lfp(lfp, fs, *, band_low=(8.0, 30.0), band_high=(50.0, 150.0), depth_axis=None, shallow_end=None)`: the frequency-layer inversion depth, from a channels-by-frequency PSD or from a channels-by-time LFP.
   - For finite input, `vflip_from_lfp(lfp, fs)` equals `vflip(psd, freqs)` with `freqs, psd = compute_psd(lfp, fs, axis=-1)`. Note the reversed order and the `axis`.
-  - For NaN or Inf input, `compute_psd` raises, while `vflip_from_lfp` returns a result with `accepted=False`.
+  - For NaN or Inf input, `compute_psd` raises; `vflip_from_lfp` marks each non-finite contact a bad channel and fits the rest, so `accepted=False` follows only when fewer than `min_channels` (8) finite contacts remain or the fit fails its tests. Screen non-finite contacts first if they should refuse the probe.
   - Returns `VFlipResult`. Below the support threshold it returns `accepted=False` and `crossover_contact=None`.
   - `crossover_depth_um` is `crossover_contact` times the contact spacing, the frame `label_layers(depth_range_um=)` uses. With a `probe_geometry`, a `contact_spacing` that disagrees with its `nominal_pitch` raises.
   - `crossover_z_um` is the geometry's absolute z. It is `None` without a geometry whose z varies along the shaft.
@@ -28,6 +28,7 @@
   - `jnwb.interpolate_channel_runs(data, bad_mask)`;
   - `jnwb.evoked_csd_sink(erp, times_ms, *, pitch_um)`; the `erp` must be aligned to the stimulus itself;
   - `jnwb.fuse_laminar_anchors()`, which grades an anchor from per-window estimates; `vflip2_um` (um from row 0,
-    an accepted `VFlip2Result`'s `crossover_channel * contact_spacing`) anchors before `vflip_um`; an accepted fit is not by itself evidence of a crossover: `omega_cut` 6 accepts 18 of 100 noise-only probes. With both
-    crossovers present the agreement reads `'unresolved'` and an `'A'` grade is capped at `'B'`; otherwise it
-    reads `'unavailable'`. `contact_spacing_um` reads their separation in contact spacings.
+    an accepted `VFlip2Result`'s `crossover_channel * contact_spacing`) anchors before `vflip_um`; an accepted fit is not by itself evidence of a crossover: `omega_cut` 6 accepts 18 of 100 noise-only probes. Agreement
+    reads `'agree'` when the two crossovers are at most `VFLIP2_VFLIP_AGREEMENT_T_CONTACTS` contact spacings
+    apart, `'disagree'` above that, and `'unresolved'` when either is absent or no `contact_spacing_um` is
+    given. With both crossovers present, an `'A'` grade is capped at `'B'` unless agreement is `'agree'`. `contact_spacing_um` reads their separation in contact spacings.

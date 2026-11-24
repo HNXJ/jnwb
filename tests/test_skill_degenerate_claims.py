@@ -125,9 +125,9 @@ def test_measured_quality_failure_is_poor_even_when_another_metric_is_undefined(
     assert list(out["quality_class"]) == ["Poor", "Unknown", "Good"]
 
 
-def test_nan_input_makes_compute_psd_raise_while_vflip_from_lfp_rejects():
+def test_nan_input_makes_compute_psd_raise_while_vflip_from_lfp_masks_the_row():
     rng = np.random.default_rng(0)
-    lfp = rng.normal(size=(8, 2000))
+    lfp = rng.normal(size=(24, 2000))
     lfp[3, 10] = np.nan
     assert np.isnan(lfp).any()
 
@@ -135,5 +135,18 @@ def test_nan_input_makes_compute_psd_raise_while_vflip_from_lfp_rejects():
         compute_psd(lfp, 1000.0, axis=-1)
 
     fit = vflip_from_lfp(lfp, 1000.0)
+    assert fit.n_missing == 1
+    assert fit.rejection_reason != "insufficient_channels"
+
+
+def test_nan_row_rejects_when_finite_channels_fall_below_min_channels():
+    rng = np.random.default_rng(0)
+    lfp = rng.normal(size=(8, 2000))
+    lfp[3, 10] = np.nan
+    assert np.isnan(lfp).any()
+
+    fit = vflip_from_lfp(lfp, 1000.0)
+    assert fit.n_missing == 1
+    assert fit.rejection_reason == "insufficient_channels"
     assert fit.accepted is False
     assert fit.crossover_contact is None
