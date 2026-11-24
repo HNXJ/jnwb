@@ -45,8 +45,8 @@ Measures based on the imaginary cross-spectrum reduce sensitivity specifically t
 coupling (instantaneous volume conduction, shared reference contamination). They do not confer
 immunity to non-zero-lag common inputs, source mixing, or reference-induced phase structure.
 `icoh_mean` is signed: positive means `x` leads when the wrapped lag phase is in (0, pi); in
-(pi, 2pi) the sign reverses, and the band mean can cancel across frequencies. The convention
-is the one `phase_slope_index` follows. `wpli` is unsigned.
+(pi, 2pi) the sign reverses, and the band mean can cancel across frequencies. `phase_slope_index` is
+positive when `x` leads, with no such reversal. `wpli` is unsigned.
 
 ```python
 # Imaginary coherency (Nolte et al. 2004)
