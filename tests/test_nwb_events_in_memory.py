@@ -87,3 +87,53 @@ def test_named_epochs_resolve_in_memory(tmp_path):
     np.testing.assert_array_equal(
         event_onsets(nwb, table="epochs", code_column=None), np.asarray(EPOCH_STARTS)
     )
+
+
+def _bare() -> NWBFile:
+    return NWBFile(
+        session_description="in-memory intervals",
+        identifier="IN_MEMORY_INTERVALS",
+        session_start_time=datetime(2020, 1, 1, tzinfo=tzutc()),
+    )
+
+
+def _write(tmp_path, nwb: NWBFile):
+    path = tmp_path / "written.nwb"
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    return path
+
+
+def _invalid_times_only() -> NWBFile:
+    nwb = _bare()
+    for start in EPOCH_STARTS:
+        nwb.add_invalid_time_interval(start_time=start, stop_time=start + 0.1)
+    return nwb
+
+
+def _trials_beside_an_intervals_entry_named_trials() -> NWBFile:
+    nwb = _bare()
+    nwb.add_trial(start_time=1.0, stop_time=1.5)
+    table = TimeIntervals(name="trials", description="added with add_time_intervals")
+    table.add_interval(start_time=50.0, stop_time=51.0)
+    nwb.add_time_intervals(table)
+    return nwb
+
+
+def test_invalid_times_only_resolves_in_memory(tmp_path):
+    nwb = _invalid_times_only()
+    assert nwb.invalid_times is not None and not nwb.intervals, "fixture must hold invalid_times outside nwb.intervals"
+    path = _write(tmp_path, _invalid_times_only())
+    assert resolve_interval_table(path) == "invalid_times"
+    assert resolve_interval_table(nwb) == "invalid_times"
+    np.testing.assert_array_equal(event_onsets(nwb, code_column=None), event_onsets(path, code_column=None))
+    np.testing.assert_array_equal(event_onsets(nwb, code_column=None), np.asarray(EPOCH_STARTS))
+
+
+def test_an_intervals_entry_named_trials_wins_as_on_disk(tmp_path):
+    nwb = _trials_beside_an_intervals_entry_named_trials()
+    assert nwb.trials is not nwb.intervals["trials"], "fixture must hold two distinct tables named trials"
+    path = _write(tmp_path, _trials_beside_an_intervals_entry_named_trials())
+    assert resolve_interval_table(path) == resolve_interval_table(nwb) == "trials"
+    np.testing.assert_array_equal(event_onsets(path, code_column=None), [50.0])
+    np.testing.assert_array_equal(event_onsets(nwb, code_column=None), event_onsets(path, code_column=None))
