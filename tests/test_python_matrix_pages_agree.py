@@ -21,6 +21,7 @@ from scripts.harness_gate import check_python_floor_consistency  # noqa: E402
 
 PAGES = ("README.md", "docs/install.md", "docs/index.md")
 FLOOR = re.compile(r"Requires Python \**(\d+\.\d+) or newer")
+FLOOR_CLAUSE = re.compile(r"Requires Python \**\d+\.\d+ or newer\**")
 # The canonical tested-interpreter sentence as a whole: the declared versions, then the Windows exclusion
 # (3.15 is excluded on Windows: workflow.yml, goal row 12).
 CANON = re.compile(
@@ -67,7 +68,10 @@ def disagreements(rel: str, text: str) -> list[str]:
             out.append(f"{rel} states a tested-interpreter claim other than the canonical sentence "
                        f"at offset {m.start()}")
     for sentence in sentences(text):
-        if WINDOWS.search(sentence) and TESTING.search(sentence) and not CANON.search(sentence):
+        # What is left once the canonical clause and the floor clause are removed: a Windows testing claim beside
+        # the canonical clause in the same sentence is still read.
+        rest = FLOOR_CLAUSE.sub("", CANON.sub("", sentence))
+        if WINDOWS.search(rest) and TESTING.search(rest):
             out.append(f"{rel} states a Windows testing claim outside the canonical sentence: "
                        f"{sentence.strip()[:120]!r}")
     return out
@@ -165,3 +169,12 @@ def test_a_python_version_with_a_comparison_operator_is_reported():
     altered = text + "\n\nPython>=3.10 works.\n"
     assert altered != text, "fixture must alter the page"
     assert any("3.10" in p for p in disagreements("README.md", altered)), "'Python>=3.10' passed"
+
+
+def test_a_windows_claim_beside_the_canonical_clause_is_reported():
+    text = (ROOT / "docs" / "index.md").read_text(encoding="utf-8")
+    old = "Requires Python 3.12 or newer; CI tests"
+    assert old in text, "fixture must start from the real sentence"
+    altered = text.replace(old, "Requires Python 3.12 or newer, and Windows 3.15 is tested too; CI tests")
+    assert any("Windows testing claim" in p for p in disagreements("docs/index.md", altered)), \
+        "a Windows claim beside the canonical clause passed"
