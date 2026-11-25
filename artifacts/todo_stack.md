@@ -25,15 +25,6 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then one bullet
 `ID: defect with numbers. Check: a predicate naming the file and the asserted value.`
 At most eight lines per item.
 
-### 17-165 Interval tables on an unwritten NWBFile
-
-Release: required-0.2.17 (classified by an independent critic 2026-11-24: shipped behaviour can be wrong).
-Role: jnwb-developer. Skill: none. Blocked by: none. Lane: `_temp_intervals-inmem`.
-Writes: `jnwb/nwb_events.py`, `tests/test_nwb_events*.py`, `artifacts/changelog.d/nwb-*.md`.
-- 17-165: `_resolve_interval_table` reads only `nwb.intervals`; on an in-memory file trials-only raises, and trials plus one
-  other table silently resolves to the other (events, event_onsets, edges_near_events read it). Check: in-memory resolution
-  and onsets equal the written file's for trials-only, trials plus `custom`, and `table='epochs'`; tests red on `8f71c695`.
-
 ### 17-144 The jaxfne isi_cv commits
 
 Release: deferred-0.2.17.
@@ -70,3 +61,11 @@ Release: deferred-0.2.17.
 Role: docs-harness. Skill: none. Blocked by: Hamm's word for `skills/` and `AGENTS.md` (D6, release checklist section 9). Ruled 2026-11-22 (Q5): American English for new prose; no repository-wide conversion.
 Writes: `.github/CONTRIBUTING.md`, `README.md`, `docs/quickstart.md`.
 - 17-129: from P-216-26. Landed 2026-11-23 (merge 0621da87, verifier ACCEPT on 368df360): `CONTRIBUTING.md`, `README.md`, `docs/quickstart.md` hold no sentence over 40 words by `tests/test_prose_sentence_length.py` (code span = one word; 16 to 0 in CONTRIBUTING); the `:39` repeat has one home. Left: sentences over 40 words in 8 of 12 skills and `AGENTS.md` (:85, :105), Hamm's files; `docs/agents.md:82-94` repeats `skills/jnwb/SKILL.md:13-25`. Check: no sentence over 40 words in the listed files, by grep; prose added in this cycle uses American spelling.
+
+### 17-166 Interval-table fallback duplicated in two modules
+
+Release: deferred-0.2.17 (found by the 17-165 reviewer, 2026-11-24; does not block).
+Role: jnwb-developer. Skill: none. Blocked by: none. Lane: new `_temp_` lane from `dev`.
+Writes: `jnwb/nwb_events.py`, `jnwb/nwb_inspect.py`.
+- 17-166: the `("trials", "epochs", "invalid_times")` attribute fallback is written twice, `_interval_tables` in `nwb_events.py` and the loop at `nwb_inspect.py:1204-1210`. Check: `grep -n '"invalid_times"' jnwb/*.py` returns one site, and `nwb_inspect` imports the shared helper; the 55 tests in `tests/test_nwb_events.py` and the inspect tests stay green.
+
