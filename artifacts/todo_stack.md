@@ -28,7 +28,7 @@ At most eight lines per item.
 ### 17-144 The jaxfne isi_cv commits
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: 17-144-src (open stack; `E:/cl-jnwb16e` gone, SHAs absent from origin).
+Role: jnwb-developer. Skill: none. Blocked by: 17-144-src (open stack). Provenance UNKNOWN, not verified absent (2026-11-25): absent in this machine's clones and bundle tips, in the Windows user tree (13 repositories readable; `C:/Windows`, `AppData/Local/Temp`, the recycle bin and system volume information not read), in `/mnt/h,i,k` to depth 6 only, and on `main-vmac` (its checked scope); origin has none. `E:/cl-jnwb16e` is absent from every `/mnt` drive.
 Writes: `artifacts/benchmarks/realdata/isi_cv_recompute.py`, `artifacts/benchmarks/realdata/isi_cv_recompute_receipt.json`, `artifacts/benchmarks/realdata/build_isi_cv_fixture.py`, `tests/fixtures/isi_cv_realdata_subsample.json`, `tests/test_isi_cv_realdata.py`.
 - 17-144: three 16-12 commits on `E:/cl-jnwb16e` (0e06993c, 9980f58d, 5fa63dd3) for jaxfne-orchestrator.
   Observed 2026-11-12: path missing; SHAs absent from this clone and `origin`. Check: each on `dev` in that
@@ -37,7 +37,7 @@ Writes: `artifacts/benchmarks/realdata/isi_cv_recompute.py`, `artifacts/benchmar
 ### 17-99 One home per invariant across rule and doc files
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: owner decision on link targets (public docs cannot link to the internal `AGENTS.md` §5 home; see release checklist section 9). The spikes-and-LFP fact row is added (S16, 2026-11-25, D2); shared `README.md`.
+Role: jnwb-developer. Skill: none. Blocked by: none for the spikes-and-LFP rule, which is covered by `tests/test_spikes_lfp_restatements.py` (meaning-consistency check against the canonical fact row, owner ruling 2026-11-25). The four-outcomes and Python-matrix duplicates below still need an owner ruling for their check; shared `README.md`.
 Writes: `.github/CONTRIBUTING.md`, `docs/architecture.md`, `README.md`, `docs/index.md`, `docs/glossary.md`, `artifacts/agents.md`.
 - 17-99: `CONTRIBUTING.md:368-380` and `docs/architecture.md:128-171` restate the invariants AGENTS.md §4 keeps in the fact stack; the spikes-and-LFP rule ("never pool") is in 17 tracked files (`git grep -il 'never pool'`) and no fact row; "four outcomes" in three of the Writes files; the Python matrix on four pages. Check: each fact has one home and the others link to it.
 
