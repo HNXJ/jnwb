@@ -2,8 +2,8 @@
 
 The canonical record is the fact row named S16 in ``artifacts/fact_stack.md``; the internal authority is
 ``AGENTS.md`` section 5. The public restatements may keep their own sentences. Sentences are read across line breaks. A sentence
-that pools spikes or LFP must state the prohibition, and no sentence that uses a pooling word may grant a
-permission or an exception. The record itself must pass the same test. Whether a sentence says exactly
+that pools spikes or LFP must state the prohibition on the pooling verb, and no sentence that uses a
+pooling word may grant a permission, an exception or a contrast. The record itself must pass the same test. Whether a sentence says exactly
 what the record says is a review question; this test catches a contradiction or a dropped prohibition,
 not every wording that could be wrong.
 """
@@ -20,8 +20,13 @@ RESTATEMENTS = (".github/CONTRIBUTING.md", "docs/architecture.md", "skills/jnwb/
 _POOL = re.compile(r"\bpool(?:s|ed|ing)?\b", re.IGNORECASE)
 _SIGNAL = re.compile(r"\b(?:spikes?|SUA|MUA|LFP|them|both|across|modalit(?:y|ies)|observables?)\b", re.IGNORECASE)
 _PROHIBITION = re.compile(
-    r"\b(?:never|must not|must never|shall not|do not|cannot|forbidden|prohibited)\b"
-    r"|\bnot (?:allowed|permitted)\b", re.IGNORECASE)
+    r"\b(?:never|must not|must never|shall not|do not|does not|cannot|can not|not to|not allowed to|"
+    r"not permitted to)\s+(?:be\s+)?pool"
+    r"|(?<!not )\b(?:forbidden|prohibited|disallowed)\b", re.IGNORECASE)
+_CONTRAST = re.compile(
+    r"\bnot (?:true|required|necessary|needed)\b|\bnever\s+not\b|\bnot\s+never\b"
+    r"|\b(?:avoid|avoids|avoiding|refuse|refuses|refusing|but|yet|however|although|though|"
+    r"nevertheless|anyway|regardless|despite|instead|only|sometimes)\b", re.IGNORECASE)
 _PERMISSION = re.compile(
     r"\b(?:may|can|could|might)\b(?:\s+\w+){0,2}\s+pool"
     r"|(?<!not )\b(?:okay|ok|fine|acceptable|allowed|permitted|freely|optional)\b"
@@ -43,8 +48,10 @@ def sentences(text: str) -> list[str]:
 def problems(text: str) -> list[str]:
     """Why ``text`` does not state the rule consistently: a missing prohibition, or a permission or exception.
 
-    A sentence that pools signals (a spike, LFP, modality or signal-pair word) must state the prohibition.
-    Any sentence that uses a pooling word must grant no permission and no exception.
+    A sentence that pools signals (a spike, LFP, modality or signal-pair word) must state the prohibition
+    on the pooling verb itself ("never pool", "must not be pooled", "forbidden"). Any sentence that uses a
+    pooling word must grant no permission, no exception and no contrast (a negated rule, "but", "avoid").
+    This is a fixed word list, not a parse: a contradiction phrased outside it passes.
     """
     pooled = [s for s in sentences(text) if _POOL.search(s)]
     signal = [s for s in pooled if _SIGNAL.search(s)]
@@ -55,8 +62,8 @@ def problems(text: str) -> list[str]:
         if not _PROHIBITION.search(s):
             found.append(f"a sentence pools signals without the prohibition: {s[:120]}")
     for s in pooled:
-        if _PERMISSION.search(s) or _EXCEPTION.search(s):
-            found.append(f"a sentence grants a permission or an exception: {s[:120]}")
+        if _PERMISSION.search(s) or _EXCEPTION.search(s) or _CONTRAST.search(s):
+            found.append(f"a sentence grants a permission, an exception or a contrast: {s[:120]}")
     return found
 
 
@@ -132,6 +139,15 @@ REPORTED = (
     "Spikes and LFP: pooling them is not forbidden.",
     "Never pool spikes and LFP.\nPool\nspikes and LFP freely.",
     "Spikes and LFP can be pooled with a namespace.",
+    "Never pool spikes and LFP, but pool them in the report.",
+    "It is not true that spikes and LFP are never pooled.",
+    "Spikes and LFP are never not pooled.",
+    "Do not avoid pooling spikes and LFP.",
+    "We never refuse to pool spikes and LFP.",
+    "Never pool spikes and LFP.\nPool them, never separately.",
+    "Never pool spikes and LFP.\nNOT pooling is not required.",
+    "Never pool spikes and LFP.\nPool them anyway.",
+    "Pool them nevertheless.",
 )
 PASSED = (
     "Never pool spikes and LFP.",
@@ -141,6 +157,9 @@ PASSED = (
     "Spikes and LFP are not allowed to be pooled.",
     "Spikes and LFP are distinct observables and must not be pooled.",
     "Implementation internals (pool mechanics, accumulator algorithms).\nNever pool spikes and LFP.",
+    "Spikes and LFP are never pooled, namespaced or not.",
+    "Spikes and LFP are not to be pooled.",
+    "Pooling spikes and LFP is forbidden.",
 )
 
 
