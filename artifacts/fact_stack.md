@@ -86,6 +86,7 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 | S13 | delay and velocity claims | a physical latency or conduction velocity is claimed only under a verified linear unwrapped phase-frequency relation and predeclared identifiability criteria, and is reported unavailable otherwise | `todo:12-21` | `AGENTS.md` §4.8; moved 2026-09-29 (Q3) |
 | S14 | every text | no vocabulary of `immunity vocabulary` is used of volume conduction or reference contamination; the claim is reduced sensitivity to zero-phase-lag coupling | `computed:immunity_vocabulary` | `AGENTS.md` §4.8; Q12 2026-09-29 |
 | S15 | routed exports | every routed export cites a source or is on the recorded exclusion list (narrowed 2026-11-09; whether a method cites the paper it implements is not checked) | `computed:routed_citations` | 2026-11-09 |
+| S16 | every operation with a `signal_class` argument, or a spike input and an LFP input | Spikes and LFP are never pooled, namespaced or not | `test:tests/test_signal_class.py` | `AGENTS.md` §5; ruled 2026-09-29 (Q-2); owner ruling D2, 2026-11-25 |
 
 ## Skills
 
