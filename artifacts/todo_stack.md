@@ -69,3 +69,10 @@ Role: jnwb-developer. Skill: none. Blocked by: none. Lane: new `_temp_` lane fro
 Writes: `jnwb/nwb_events.py`, `jnwb/nwb_inspect.py`.
 - 17-166: the `("trials", "epochs", "invalid_times")` attribute fallback is written twice, `_interval_tables` in `nwb_events.py` and the loop at `nwb_inspect.py:1204-1210`. Check: `grep -n '"invalid_times"' jnwb/*.py` returns one site, and `nwb_inspect` imports the shared helper; the 55 tests in `tests/test_nwb_events.py` and the inspect tests stay green.
 
+### 17-167 Non-blocking findings of the 22a2aa68 closure pass
+
+Release: deferred-0.2.18 (non-blocking; `artifacts/evidence/0.2.17/closure_22a2aa68.md`, rows N1 to N4).
+Role: docs-harness. Skill: none. Blocked by: N1 waits on Hamm's wording decision. Lane: new `_temp_` lane from `dev`.
+Writes: `README.md`, `artifacts/changelog.d/nwb-float32-nan-factors.fixed.md`, `artifacts/changelog.d/*.changed.md` (one new fragment for N2).
+- 17-167: N1 README.md:22 states "label permutation requires an exchangeability scheme"; `cluster_permutation_test` defaults `scheme` (`jnwb/statistics/_cluster.py:130-131`). N2 `python -m` self-tests removed in 8af1c58d (`jnwb/artifact_repair.py`, `jnwb/visual_qc.py`) have no fragment. N3 `jnwb.statistics` no longer exposes `np`, `pd`, `log`, `resolve_rng`, `parallel_map` (none in `__all__`). N4 the float32 fragment names `nwb_events.py` but the fix is in `nwb_inspect._to_physical`. Check: N1 resolved by Hamm's wording or the one-clause repair (`grep -n "exchangeability" README.md`); N2 has a fragment naming both files; N4 fragment names `nwb_inspect.py`.
+

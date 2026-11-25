@@ -73,7 +73,7 @@ or only tasks blocked on section 9 remain.
 | Verified closed (receipts in the update log) | 17-165 (required-0.2.17; reviewer ACCEPT at `cbd6a198`; suite 11105 passed and CI pass at `ad611ea3`), 17-79, 17-97, 17-98, 17-103, 17-154 (section 7), 17-157, 17-96, 17-142, 17-147, 17-153 (suite 11147 passed at `d918bf46`), 17-150 (pending the suite at the integration tip); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
 | Landed, item still open | 17-100 (partials 2026-11-21 to 2026-11-23) |
 | In a lane | D7 skill lines on `_temp_claims-skills` at `73e5dd1d`, verifier ACCEPT, merge on Hamm's yes |
-| Pending verification | closure pass (A6) at the RC SHA; release-gate STEP 0 after it |
+| Pending verification | closure pass (A6) at `22a2aa68`: REVISE, one blocker group (D7: six skill lines on `_temp_claims-skills` at `73e5dd1d`, not merged; they clear on a merge Hamm approves, then a new pass at the new SHA). Report: `artifacts/evidence/0.2.17/closure_22a2aa68.md`. Suite 11106 passed, 0 failed, at `22a2aa68`. |
 | Blocked on owner | D1 (S6, `17-144-src`), D2 (17-99), D3 (R4), D4 (17-101), D5 (17-100), D6 (17-129), D7 (skill lines) |
 | Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
 
