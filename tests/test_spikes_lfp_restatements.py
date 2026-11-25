@@ -36,13 +36,19 @@ _EXCEPTION = re.compile(
     r"|\bwith namespac", re.IGNORECASE)
 _SPIKE = re.compile(r"\b(?:spikes?|SUA|MUA)\b", re.IGNORECASE)
 _LFP = re.compile(r"\bLFP\b", re.IGNORECASE)
+_PRONOUN = re.compile(r"\b(?:them|both|these)\b", re.IGNORECASE)
+
+
+def blocks(text: str) -> list[str]:
+    """Blocks of ``text``: paragraphs and list items, with their line breaks folded to spaces."""
+    parts = re.split(r"\n\s*\n|\n(?=\s*(?:[-*+]|\d+\.)\s)", text)
+    return [" ".join(part.split()) for part in parts if part.strip()]
 
 
 def sentences(text: str) -> list[str]:
-    """Sentences of ``text``: paragraphs with their line breaks folded to spaces, split after . ; ! or ?."""
+    """Sentences of ``text``, split after . ; ! or ? within each block."""
     out = []
-    for paragraph in re.split(r"\n\s*\n", text):
-        flat = " ".join(paragraph.split())
+    for flat in blocks(text):
         out.extend(part for part in re.split(r"(?<=[.;!?])\s+", flat) if part)
     return out
 
@@ -53,8 +59,9 @@ def problems(text: str) -> list[str]:
     A sentence that pools signals (a spike, LFP, modality or signal-pair word) must state the prohibition
     on the pooling verb itself ("never pool", "must not be pooled", "forbidden"). Any sentence that uses a
     pooling word must grant no permission, no exception and no contrast (a negated rule, "but", "avoid").
-    A block (paragraph or list item) that pools signals must name both spikes and LFP, so a dropped
-    obligation (for example "Never pool spikes and EEG.") is reported.
+    A block (paragraph or list item) that pools signals must name both spikes and LFP in its pooling
+    sentences, so a dropped obligation (for example "Never pool spikes and EEG.") is reported. A pronoun
+    ("them", "both") in a pooling sentence takes the block's own signal words.
     This is a fixed word list, not a parse: a contradiction phrased outside it passes.
     """
     pooled = [s for s in sentences(text) if _POOL.search(s)]
@@ -68,11 +75,21 @@ def problems(text: str) -> list[str]:
     for s in pooled:
         if _PERMISSION.search(s) or _EXCEPTION.search(s) or _CONTRAST.search(s):
             found.append(f"a sentence grants a permission, an exception or a contrast: {s[:120]}")
-    for block in re.split(r"\n\s*\n", text):
-        flat = " ".join(block.split())
-        pools = any(_POOL.search(s) and _SIGNAL.search(s) for s in sentences(flat))
-        if pools and not (_SPIKE.search(flat) and _LFP.search(flat)):
-            found.append(f"a block pools signals but does not name both spikes and LFP: {flat[:120]}")
+    for flat in blocks(text):
+        pooling = [s for s in sentences(flat) if _POOL.search(s) and _SIGNAL.search(s)]
+        if not pooling:
+            continue
+        spike_named = lfp_named = False
+        for s in pooling:
+            if _PRONOUN.search(s):  # "them" and "both" take the block's signal words
+                spike_named = spike_named or bool(_SPIKE.search(flat))
+                lfp_named = lfp_named or bool(_LFP.search(flat))
+            else:
+                spike_named = spike_named or bool(_SPIKE.search(s))
+                lfp_named = lfp_named or bool(_LFP.search(s))
+        if not (spike_named and lfp_named):
+            found.append("a block pools signals but its pooling sentences do not name both spikes and LFP: "
+                         f"{flat[:120]}")
     return found
 
 
@@ -159,6 +176,8 @@ REPORTED = (
     "Pool them nevertheless.",
     "Never pool spikes and EEG.",
     "Never pool LFP and EEG.",
+    "- Never pool spikes and LFP.\n- Never pool LFP and EEG.",
+    "SUA/SPK, MUA, and LFP represent physically distinct observables. Never pool spikes and EEG.",
 )
 PASSED = (
     "Never pool spikes and LFP.",
@@ -167,6 +186,7 @@ PASSED = (
     "Never pool spikes and LFP, which can be confusing.",
     "Spikes and LFP are not allowed to be pooled.",
     "Spikes and LFP are distinct observables and must not be pooled.",
+    "Spikes and LFP are distinct. Never pool them.",
     "Implementation internals (pool mechanics, accumulator algorithms).\nNever pool spikes and LFP.",
     "Spikes and LFP are never pooled, namespaced or not.",
     "Spikes and LFP are not to be pooled.",
@@ -177,6 +197,21 @@ PASSED = (
 def test_a_sentence_that_grants_a_permission_is_reported():
     for text in REPORTED:
         assert problems(text), f"not reported: {text!r}"
+
+
+def test_a_real_restatement_with_a_dropped_obligation_is_reported(tmp_path):
+    for rel in RESTATEMENTS:
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text((ROOT / rel).read_text(encoding="utf-8"), encoding="utf-8")
+    contributing = tmp_path / ".github" / "CONTRIBUTING.md"
+    original = contributing.read_text(encoding="utf-8")
+    assert "Never pool spikes and LFP." in original, "fixture must start from the real restatement"
+    altered = original.replace("Never pool spikes and LFP.", "Never pool spikes and EEG.")
+    assert altered != original, "fixture must alter the restatement"
+    contributing.write_text(altered, encoding="utf-8")
+    reported = findings(tmp_path)
+    assert any(rel == ".github/CONTRIBUTING.md" for rel, _ in reported), reported
 
 
 def test_a_consistent_sentence_is_not_reported():
