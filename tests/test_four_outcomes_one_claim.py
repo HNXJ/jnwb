@@ -48,6 +48,10 @@ PERMISSION = re.compile(
     r"|\bdeclin\w*\b[^.;]{0,30}\b(?:optional|not required|not necessary)\b", re.I)
 
 
+# Any other count of outcomes ("three outcomes", "5 outcomes") beside the four.
+COUNT = re.compile(r"\b(?:one|two|three|five|six|seven|eight|nine|ten|\d+) outcomes\b", re.I)
+
+
 def _flat(text: str) -> str:
     return " ".join(text.split())
 
@@ -57,6 +61,7 @@ def missing(rel: str, text: str) -> list[str]:
     flat = _flat(text)
     out = [f"{rel} lacks: {phrase}" for phrase in REQUIRED[rel] if not re.search(phrase, flat, re.I)]
     out += [f"{rel} grants a permission: {m.group(0)}" for m in PERMISSION.finditer(flat)]
+    out += [f"{rel} states a different outcome count: {m.group(0)}" for m in COUNT.finditer(flat)]
     return out
 
 
@@ -117,6 +122,13 @@ def test_a_sentence_that_weakens_the_decline_outcome_is_reported():
     for probe in WEAKENERS:
         problems = missing(".github/CONTRIBUTING.md", CANON_SENTENCE + " " + probe)
         assert any("permission" in p for p in problems), f"not reported: {probe!r} -> {problems}"
+
+
+def test_a_second_outcome_count_beside_the_real_sentence_is_reported():
+    text = (ROOT / ".github" / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    altered = text + "\n\nEvery task ends in three outcomes.\n"
+    assert altered != text, "fixture must alter the restatement"
+    assert any("three outcomes" in p for p in missing(".github/CONTRIBUTING.md", altered)), "a count of three passed"
 
 
 def test_a_reworded_restatement_with_the_same_outcomes_passes():

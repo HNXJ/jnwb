@@ -49,6 +49,11 @@ def disagreements(rel: str, text: str) -> list[str]:
     if not floors:
         out.append(f"{rel} states no floor 'Requires Python X.Y or newer'")
     out += [f"{rel} states floor {f}, declared {PYTHON_FLOOR}" for f in floors if f != PYTHON_FLOOR]
+    if len(floors) > 1:
+        out.append(f"{rel} states {len(floors)} floor sentences; one is required")
+    allowed = set(PYTHON_CI_REQUIRED) | {PYTHON_FLOOR}
+    out += [f"{rel} names Python {v}, outside the declared set"
+            for v in re.findall(r"Python \**(\d+\.\d+)", text) if v not in allowed]
     canonical = list(CANON.finditer(text))
     if not canonical:
         out.append(f"{rel} states no canonical tested-interpreter sentence")
@@ -125,6 +130,20 @@ def test_each_review_probe_on_the_index_page_is_reported():
             altered = text.replace(old, new)
             assert altered != text, f"fixture must alter the page: {old!r}"
         assert disagreements("docs/index.md", altered), f"not reported: {change!r}"
+
+
+def test_a_second_floor_sentence_is_reported():
+    text = (ROOT / "docs" / "index.md").read_text(encoding="utf-8")
+    altered = text + "\n\nRequires Python 3.12 or newer on Windows only.\n"
+    assert altered != text, "fixture must alter the page"
+    assert any("floor sentences" in p for p in disagreements("docs/index.md", altered)), "a second floor passed"
+
+
+def test_a_python_version_outside_the_declared_set_is_reported():
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    altered = text + "\n\nPython 3.16 is also supported.\n"
+    assert altered != text, "fixture must alter the page"
+    assert any("3.16" in p for p in disagreements("README.md", altered)), "a 3.16 claim passed"
 
 
 def test_a_second_tested_sentence_that_drifts_is_reported():
