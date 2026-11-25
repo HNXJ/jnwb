@@ -56,6 +56,8 @@ CLAIMS = [
      NO_DEFAULT),
     ("jnwb-statistics", "the default runs two and spends two", S.exploratory_compare, "test",
      "both"),
+    ("jnwb-statistics", "for the default `\"two-sided\"`", jnwb.shuffle_pvalue_paired,
+     "alternative", "two-sided"),
     ("jnwb-statistics", "By default it performs two tests", S.exploratory_compare, "test", "both"),
     ("jnwb", "The default is 1 everywhere", None, "n_jobs", 1),
     ("jnwb-spiking", "`bin_ms` sets the timescale and has no default",
