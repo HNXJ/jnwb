@@ -64,7 +64,7 @@ Writes: `.github/CONTRIBUTING.md`, `README.md`, `docs/quickstart.md`.
 
 ### 17-166 Interval-table fallback duplicated in two modules
 
-Release: deferred-0.2.17 (found by the 17-165 reviewer, 2026-11-24; does not block).
+Release: deferred-0.2.18 (found by the 17-165 reviewer, 2026-11-24; does not block 0.2.17; relabelled 2026-11-25, the 0.2.17 gate counts deferred-0.2.17 as required).
 Role: jnwb-developer. Skill: none. Blocked by: none. Lane: new `_temp_` lane from `dev`.
 Writes: `jnwb/nwb_events.py`, `jnwb/nwb_inspect.py`.
 - 17-166: the `("trials", "epochs", "invalid_times")` attribute fallback is written twice, `_interval_tables` in `nwb_events.py` and the loop at `nwb_inspect.py:1204-1210`. Check: `grep -n '"invalid_times"' jnwb/*.py` returns one site, and `nwb_inspect` imports the shared helper; the 55 tests in `tests/test_nwb_events.py` and the inspect tests stay green.
