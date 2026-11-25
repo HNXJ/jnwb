@@ -34,6 +34,8 @@ _PERMISSION = re.compile(
 _EXCEPTION = re.compile(
     r"\b(?:when|if|provided|unless|except|once|as long as)\b|\bwith (?:a|an|the) namespace\b"
     r"|\bwith namespac", re.IGNORECASE)
+_SPIKE = re.compile(r"\b(?:spikes?|SUA|MUA)\b", re.IGNORECASE)
+_LFP = re.compile(r"\bLFP\b", re.IGNORECASE)
 
 
 def sentences(text: str) -> list[str]:
@@ -51,6 +53,8 @@ def problems(text: str) -> list[str]:
     A sentence that pools signals (a spike, LFP, modality or signal-pair word) must state the prohibition
     on the pooling verb itself ("never pool", "must not be pooled", "forbidden"). Any sentence that uses a
     pooling word must grant no permission, no exception and no contrast (a negated rule, "but", "avoid").
+    A block (paragraph or list item) that pools signals must name both spikes and LFP, so a dropped
+    obligation (for example "Never pool spikes and EEG.") is reported.
     This is a fixed word list, not a parse: a contradiction phrased outside it passes.
     """
     pooled = [s for s in sentences(text) if _POOL.search(s)]
@@ -64,6 +68,11 @@ def problems(text: str) -> list[str]:
     for s in pooled:
         if _PERMISSION.search(s) or _EXCEPTION.search(s) or _CONTRAST.search(s):
             found.append(f"a sentence grants a permission, an exception or a contrast: {s[:120]}")
+    for block in re.split(r"\n\s*\n", text):
+        flat = " ".join(block.split())
+        pools = any(_POOL.search(s) and _SIGNAL.search(s) for s in sentences(flat))
+        if pools and not (_SPIKE.search(flat) and _LFP.search(flat)):
+            found.append(f"a block pools signals but does not name both spikes and LFP: {flat[:120]}")
     return found
 
 
@@ -148,6 +157,8 @@ REPORTED = (
     "Never pool spikes and LFP.\nNOT pooling is not required.",
     "Never pool spikes and LFP.\nPool them anyway.",
     "Pool them nevertheless.",
+    "Never pool spikes and EEG.",
+    "Never pool LFP and EEG.",
 )
 PASSED = (
     "Never pool spikes and LFP.",
