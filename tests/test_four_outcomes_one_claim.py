@@ -43,13 +43,16 @@ REQUIRED = {
 
 # A permission that weakens the rule: a task "may" decline, or declining is "optional".
 PERMISSION = re.compile(
-    r"\b(?:may|can|could|might|never|need not|does not|do not|should not|not required to|is not required to|"
-    r"is optional)\b[^.;]{0,30}\bdeclin"
+    r"\b(?:may|can|could|might|never|need not|does not|do not|should not|must not|will not|not allowed to|"
+    r"don'?t|not required to|is not required to|is optional)\b[^.;]{0,30}\bdeclin"
     r"|\bdeclin\w*\b[^.;]{0,30}\b(?:optional|not required|not necessary)\b", re.I)
 
 
-# Any other count of outcomes ("three outcomes", "5 outcomes") beside the four.
-COUNT = re.compile(r"\b(?:one|two|three|five|six|seven|eight|nine|ten|\d+) outcomes\b", re.I)
+# Any other count of outcomes ("three outcomes", "5 outcomes", "five possible outcomes") beside the four. A count
+# word followed by "of", "or", "and" or "plus" is not a count, so "one of four outcomes" is not read as "one".
+COUNT = re.compile(
+    r"\b(?:one|two|three|five|six|seven|eight|nine|ten|\d+)\b(?!\s+(?:of|or|and|plus)\b)"
+    r"(?:\s+(?!(?:of|or|and|plus)\b)[a-z]+){0,2}\s+outcomes\b", re.I)
 
 
 def _flat(text: str) -> str:
@@ -127,6 +130,31 @@ def test_a_sentence_that_weakens_the_decline_outcome_is_reported():
 def test_a_skill_that_never_declines_is_reported():
     problems = missing(".github/CONTRIBUTING.md", CANON_SENTENCE + " Skills never decline.")
     assert any("permission" in p for p in problems), f"not reported: {problems}"
+
+
+MODAL_PROHIBITIONS = (
+    "A skill must not decline an unsupported inference.",
+    "A skill will not decline an unsupported inference.",
+    "A skill is not allowed to decline an unsupported inference.",
+    "Skills don't decline unsupported inference.",
+)
+
+
+def test_a_prohibition_on_declining_is_reported():
+    for probe in MODAL_PROHIBITIONS:
+        problems = missing(".github/CONTRIBUTING.md", CANON_SENTENCE + " " + probe)
+        assert any("permission" in p for p in problems), f"not reported: {probe!r} -> {problems}"
+
+
+def test_a_count_with_a_modifier_is_reported():
+    for probe in ("Every task ends in five possible outcomes.", "Every task ends in five distinct outcomes."):
+        problems = missing(".github/CONTRIBUTING.md", CANON_SENTENCE + " " + probe)
+        assert any("different outcome count" in p for p in problems), f"not reported: {probe!r} -> {problems}"
+
+
+def test_a_count_of_four_with_a_modifier_is_not_reported():
+    problems = missing(".github/CONTRIBUTING.md", CANON_SENTENCE + " Every task ends in four possible outcomes.")
+    assert problems == [], problems
 
 
 def test_a_second_outcome_count_beside_the_real_sentence_is_reported():

@@ -18,7 +18,7 @@ that report and are not re-derived.
 |---|---|---|---|
 | `/mnt/c/Windows` (depth 40) | yes, no denied path | 0 git stores; 24 bundle-named files (21 not bundles; 3 directories) | not found |
 | `/mnt/c/Users/*/AppData/Local/Temp` and `Packages` (depth 4) | yes | 391 `.git`: 340 valid, 51 invalid; 1 bundle (2 heads, no match) | not found |
-| 166 directories named `jaxfne` under `/mnt` (depth 8); `/mnt/c/$Recycle.Bin` | yes | 140 rows: 131 `.git` (106 valid, 25 invalid); 9 bundles (5 usable, 4 stubs) | not found |
+| 166 directories named `jaxfne` under `/mnt` (depth 8); `/mnt/c/$Recycle.Bin` | yes | 140 rows: 131 `.git` (106 valid, 25 invalid; not reproduced, see section 5); 9 bundles (5 usable, 4 stubs) | not found |
 | System Volume Information on `/mnt/c`, `/mnt/d`, `/mnt/e`, `/mnt/f` | existence only; contents not read | not read | not checked |
 | `$RECYCLE.BIN` on `/mnt/d`, `/mnt/e`, `/mnt/f` | present: one SID directory each, holding only `desktop.ini` | no `.git` or bundle found | not found |
 | `/mnt/h`, `/mnt/i`, `/mnt/k` (depth 7 to 12) | yes | 0 | not found |
@@ -63,3 +63,14 @@ bundle, and two `.lmstudio` bundles.
 
 Either jaxfne-orchestrator returns the three commits, or a check of the jaxfne repository (or a re-created bundle)
 finds them. Until one of those, the item stays UNKNOWN and blocks 0.2.17.
+
+## 5. Independent re-scan of the counts (4ef9c443 review, 2026-11-25)
+
+The independent reviewer re-ran the counts and did not reproduce the worker's figures:
+
+- Directories named `jaxfne` under `/mnt` at depth 8: 163 (section 1 says 166).
+- `.git` in those directories: 32, of which 11 valid (section 1 says 131, of which 106 valid). Under `-path '*jaxfne*'` the same scan gives 27, of which 15 valid.
+
+The scope that yields 131 and 106 is not stated in the worker's report, so those figures are not quoted as observed; they stand only as the worker's count. The result does not change: no valid store scanned holds `0e06993c`, `9980f58d` or `5fa63dd3`, and neither does `/mnt/e/repos/jnwb`.
+
+The reviewer re-checked the rest of section 1: the `$RECYCLE.BIN` directories on `/mnt/d`, `/mnt/e` and `/mnt/f` (one SID directory each, `desktop.ini` only, no `.git` or bundle); System Volume Information (existence only, contents not read); Temp and Packages (391 `.git`, 340 valid, 51 invalid, 1 bundle); `/mnt/c/Windows` (0 `.git`, 24 bundle-named, 3 of them directories); the directories named `vlix`, `vwin-pc`, `cl-jnwb16e` and `cl-jnwb` under `/mnt`; and the 9 bundles in scope. It did not re-derive the 22 fetched bundles or `/mnt/h`, `/mnt/i`, `/mnt/k`.
