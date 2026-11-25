@@ -55,7 +55,7 @@ A closing condition is always: Check met, verifier ACCEPT, merged, suite and CI 
 | 0 | Suite at the merged tip, push, CI | integration | integrator | none | `86f2e3c7` pushed; next tip carries 17-94's close; if red: logs, diagnose, repair, normal gates, no override |
 | 6 | Tracked rules cite tracked roles | 17-101 (S4) | integrator | D4 | merged 22eca3d2; two live hits left, both owner-gated |
 | 12 | Docs thinning remainder | 17-100 (S4) | `docs-harness` | D5 | fig14/fig18 merged `6a7baf41`; three parts kept, Check narrowing is Hamm's |
-| 16 | One home per invariant | 17-99 (S4) | `jnwb-developer` | D2 | |
+| 16 | One home per invariant | 17-99 (S4) | `jnwb-developer` | D2 | D2 applied 2026-11-25 (S16); the spikes-and-LFP part is covered by the sentence check; the four-outcomes and Python-matrix duplicates still need a ruling (§5) |
 | 17 | Prose against the writing style | 17-129 (S5) | `docs-harness` | D6 | Writes files merged `0621da87`; left: `skills/` and `AGENTS.md` sentences (Hamm's files), `docs/agents.md` routing-table copy |
 | 18 | External ground truth | 17-144, 15-11, 12-21, 16-12 (S6) | human input | D1 | in scope (Q1); raise D1 when it is the critical path |
 | R1 | Refresh peak memory and import receipts | release | `jnwb-actor-haiku` | 1 to 18 | `scripts/measure_peak_memory.py`, `scripts/benchmark_import.py --write` |
@@ -71,7 +71,7 @@ or only tasks blocked on section 9 remain.
 | Class | Items |
 |---|---|
 | Verified closed (receipts in the update log) | 17-100, 17-101, 17-129 (closed by owner rulings D5, D4, D6, 2026-11-25; the 17-129 remainder is 17-168), 17-165 (required-0.2.17; reviewer ACCEPT at `cbd6a198`; suite 11105 passed and CI pass at `ad611ea3`), 17-79, 17-97, 17-98, 17-103, 17-154 (section 7), 17-157, 17-96, 17-142, 17-147, 17-153 (suite 11147 passed at `d918bf46`), 17-150 (pending the suite at the integration tip); open rows cleared 2026-11-22 (fact cites, gate 15, push override, guard, hang moved, OCMA-5 moved) |
-| Landed, item still open | 17-099 (the spikes-and-LFP rule is covered by the meaning check in `tests/test_spikes_lfp_restatements.py`; the four-outcomes and Python-matrix duplicates still need an owner ruling for their check) |
+| Landed, item still open | 17-099 (the spikes-and-LFP rule is covered by the sentence check in `tests/test_spikes_lfp_restatements.py`, which reads only sentences that use a pooling word; the four-outcomes and Python-matrix duplicates still need an owner ruling for their check) |
 | In a lane | none |
 | Pending verification | the final candidate SHA: full suite, CI on the pushed tip, A3 and A4 re-run, release-gate STEP 0, closure pass (A6). `12c9fa43` (D7 merge) and `d84577ea` (stack rulings) are on `origin/dev`; the meaning-check commit `915cd91a` is local until verified |
 | Blocked on owner | D1 (`17-144-src`: UNKNOWN, not verified absent; its todo section lists the searched and unread locations); the four-outcomes and Python-matrix duplicates of 17-099 (ruling needed); S6 external inputs (12-21, 15-11, 16-12); D3 (R4) |

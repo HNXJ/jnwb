@@ -1,10 +1,11 @@
 """Restatements of the spikes-and-LFP rule agree with it in meaning, not in wording.
 
 The canonical record is the fact row named S16 in ``artifacts/fact_stack.md``; the internal authority is
-``AGENTS.md`` section 5. The public restatements may keep their own sentences. A restatement passes when some
-line that pairs pooling with spikes or LFP states the prohibition, and when no such line grants a
+``AGENTS.md`` section 5. The public restatements may keep their own sentences. Sentences are read across line breaks. A sentence
+that pools spikes or LFP must state the prohibition, and no sentence that uses a pooling word may grant a
 permission or an exception. The record itself must pass the same test. Whether a sentence says exactly
-what the record says is a review question; this test catches a contradiction or a dropped prohibition.
+what the record says is a review question; this test catches a contradiction or a dropped prohibition,
+not every wording that could be wrong.
 """
 
 from __future__ import annotations
@@ -17,28 +18,45 @@ FACT_STACK = ROOT / "artifacts" / "fact_stack.md"
 RESTATEMENTS = (".github/CONTRIBUTING.md", "docs/architecture.md", "skills/jnwb/SKILL.md", "AGENTS.md")
 
 _POOL = re.compile(r"\bpool(?:s|ed|ing)?\b", re.IGNORECASE)
-_SUBJECT = re.compile(r"\b(?:spikes?|SUA|MUA|LFP)\b", re.IGNORECASE)
-_PROHIBITION = re.compile(r"\b(?:never|must not|not)\b", re.IGNORECASE)
-_PERMISSION = re.compile(r"\b(?:may|can|could|might|allowed|permitted)\b", re.IGNORECASE)
+_SIGNAL = re.compile(r"\b(?:spikes?|SUA|MUA|LFP|them|both|across|modalit(?:y|ies)|observables?)\b", re.IGNORECASE)
+_PROHIBITION = re.compile(
+    r"\b(?:never|must not|must never|shall not|do not|cannot|forbidden|prohibited)\b"
+    r"|\bnot (?:allowed|permitted)\b", re.IGNORECASE)
+_PERMISSION = re.compile(
+    r"\b(?:may|can|could|might)\b(?:\s+\w+){0,2}\s+pool"
+    r"|(?<!not )\b(?:okay|ok|fine|acceptable|allowed|permitted|freely|optional)\b"
+    r"|\bnot (?:forbidden|prohibited|disallowed)\b|\bby default\b", re.IGNORECASE)
 _EXCEPTION = re.compile(
     r"\b(?:when|if|provided|unless|except|once|as long as)\b|\bwith (?:a|an|the) namespace\b"
     r"|\bwith namespac", re.IGNORECASE)
 
 
-def pooling_lines(text: str) -> list[str]:
-    """Lines that pair pooling with spikes or LFP: the lines that can state the rule."""
-    return [line for line in text.splitlines() if _POOL.search(line) and _SUBJECT.search(line)]
+def sentences(text: str) -> list[str]:
+    """Sentences of ``text``: paragraphs with their line breaks folded to spaces, split after . ; ! or ?."""
+    out = []
+    for paragraph in re.split(r"\n\s*\n", text):
+        flat = " ".join(paragraph.split())
+        out.extend(part for part in re.split(r"(?<=[.;!?])\s+", flat) if part)
+    return out
 
 
 def problems(text: str) -> list[str]:
-    """Why ``text`` does not state the rule consistently: a missing prohibition or a contradiction."""
-    lines = pooling_lines(text)
+    """Why ``text`` does not state the rule consistently: a missing prohibition, or a permission or exception.
+
+    A sentence that pools signals (a spike, LFP, modality or signal-pair word) must state the prohibition.
+    Any sentence that uses a pooling word must grant no permission and no exception.
+    """
+    pooled = [s for s in sentences(text) if _POOL.search(s)]
+    signal = [s for s in pooled if _SIGNAL.search(s)]
     found = []
-    if not any(_PROHIBITION.search(line) for line in lines):
-        found.append("no line states the prohibition on pooling spikes with LFP")
-    for line in lines:
-        if _PERMISSION.search(line) or _EXCEPTION.search(line):
-            found.append(f"a line grants a permission or an exception: {line.strip()[:120]}")
+    if not any(_PROHIBITION.search(s) for s in signal):
+        found.append("no sentence states the prohibition on pooling spikes with LFP")
+    for s in signal:
+        if not _PROHIBITION.search(s):
+            found.append(f"a sentence pools signals without the prohibition: {s[:120]}")
+    for s in pooled:
+        if _PERMISSION.search(s) or _EXCEPTION.search(s):
+            found.append(f"a sentence grants a permission or an exception: {s[:120]}")
     return found
 
 
@@ -101,3 +119,36 @@ def test_a_dropped_prohibition_is_reported(tmp_path):
     reported = findings(tmp_path)
     assert any(rel == "docs/architecture.md" and "prohibition" in problem
                for rel, problem in reported), reported
+
+
+# Probes from the independent review of 915cd91a (REVISE, 2026-11-25). Each REPORTED text grants a
+# permission or states a pooling sentence without the prohibition; each PASSED text is consistent.
+REPORTED = (
+    "Never pool spikes and LFP.\nPool them freely.",
+    "Never pool spikes and LFP.\nSpikes and LFP are pooled in the summary step.",
+    "Never pool spikes and LFP; pooling is okay for a namespaced pair.",
+    "LFP and spike data are never pooled, i.e. they remain separate; it is ok to pool them.",
+    "Pooling spikes and LFP is acceptable, never mind.",
+    "Spikes and LFP: pooling them is not forbidden.",
+    "Never pool spikes and LFP.\nPool\nspikes and LFP freely.",
+    "Spikes and LFP can be pooled with a namespace.",
+)
+PASSED = (
+    "Never pool spikes and LFP.",
+    "Never pool\nspikes and LFP.",
+    "LFP and spike data must never be pooled with each other.",
+    "Never pool spikes and LFP, which can be confusing.",
+    "Spikes and LFP are not allowed to be pooled.",
+    "Spikes and LFP are distinct observables and must not be pooled.",
+    "Implementation internals (pool mechanics, accumulator algorithms).\nNever pool spikes and LFP.",
+)
+
+
+def test_a_sentence_that_grants_a_permission_is_reported():
+    for text in REPORTED:
+        assert problems(text), f"not reported: {text!r}"
+
+
+def test_a_consistent_sentence_is_not_reported():
+    for text in PASSED:
+        assert problems(text) == [], f"wrongly reported: {text!r}"

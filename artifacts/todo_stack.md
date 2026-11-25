@@ -37,7 +37,7 @@ Writes: `artifacts/benchmarks/realdata/isi_cv_recompute.py`, `artifacts/benchmar
 ### 17-99 One home per invariant across rule and doc files
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none for the spikes-and-LFP rule, which is covered by `tests/test_spikes_lfp_restatements.py` (meaning-consistency check against the canonical fact row, owner ruling 2026-11-25). The four-outcomes and Python-matrix duplicates below still need an owner ruling for their check; shared `README.md`.
+Role: jnwb-developer. Skill: none. Blocked by: none for the spikes-and-LFP rule. `tests/test_spikes_lfp_restatements.py` checks each sentence that uses a pooling word against the canonical fact row (S16, owner ruling 2026-11-25): it requires the prohibition and rejects a permission or an exception. It does not read a sentence that states the rule without a pooling word (for example "combine" or "merge"). The four-outcomes and Python-matrix duplicates below still need an owner ruling for their check; shared `README.md`.
 Writes: `.github/CONTRIBUTING.md`, `docs/architecture.md`, `README.md`, `docs/index.md`, `docs/glossary.md`, `artifacts/agents.md`.
 - 17-99: `CONTRIBUTING.md:368-380` and `docs/architecture.md:128-171` restate the invariants AGENTS.md §4 keeps in the fact stack; the spikes-and-LFP rule ("never pool") is in 17 tracked files (`git grep -il 'never pool'`) and no fact row; "four outcomes" in three of the Writes files; the Python matrix on four pages. Check: each fact has one home and the others link to it.
 
