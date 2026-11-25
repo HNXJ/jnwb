@@ -96,6 +96,20 @@ def _processing_names(nwb: NWBFile) -> list[str]:
     ]
 
 
+def _interval_tables(nwb: NWBFile) -> dict[str, TimeIntervals]:
+    """The bare-named interval tables a written file holds under ``/intervals``.
+
+    Before a write, pynwb keeps ``trials``, ``epochs`` and ``invalid_times`` on their own
+    attributes and ``nwb.intervals`` lacks them; read back, they are in ``nwb.intervals``.
+    """
+    tables: dict[str, TimeIntervals] = dict(nwb.intervals or {})
+    for attr in ("trials", "epochs", "invalid_times"):
+        table = getattr(nwb, attr, None)
+        if table is not None and attr not in tables:
+            tables[attr] = table
+    return tables
+
+
 def resolve_interval_table(path_or_nwb: NWBInput, table: str | None = None) -> str:
     """Resolve an interval table name using jnwb addressing rules.
 
@@ -123,7 +137,7 @@ def resolve_interval_table(path_or_nwb: NWBInput, table: str | None = None) -> s
 
 
 def _resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
-    names = sorted(nwb.intervals.keys()) if nwb.intervals else []
+    names = sorted(_interval_tables(nwb))
     processing = _processing_names(nwb)
     if not names and not processing:
         raise IntervalTableNotFoundError("No interval tables found in NWB file")
@@ -151,8 +165,9 @@ def _resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
 
 def _interval_table_object(nwb: NWBFile, name: str) -> TimeIntervals:
     """The table `_resolve_interval_table` returned: a bare intervals name, or a processing path."""
-    if name in (nwb.intervals or {}):
-        return nwb.intervals[name]
+    tables = _interval_tables(nwb)
+    if name in tables:
+        return tables[name]
     return _processing_table(nwb, name)
 
 

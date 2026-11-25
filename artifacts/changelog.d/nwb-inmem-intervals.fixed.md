@@ -1,0 +1,1 @@
+- `jnwb/nwb_events.py`: `events`, `event_onsets` and `resolve_interval_table` read `trials`, `epochs` and `invalid_times` from an unwritten in-memory `NWBFile`, as a written file does; before, trials-only raised "No interval tables found" and trials plus another table resolved to the other table.
