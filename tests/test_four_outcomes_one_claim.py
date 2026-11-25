@@ -44,7 +44,7 @@ REQUIRED = {
 # A permission that weakens the rule: a task "may" decline, or declining is "optional".
 PERMISSION = re.compile(
     r"\b(?:may|can|could|might|never|need not|does not|do not|should not|must not|will not|not allowed to|"
-    r"don'?t|not required to|is not required to|is optional)\b[^.;]{0,30}\bdeclin"
+    r"don'?t|doesn'?t|won'?t|shouldn'?t|mustn'?t|not required to|is not required to|is optional)\b[^.;]{0,30}\bdeclin"
     r"|\bdeclin\w*\b[^.;]{0,30}\b(?:optional|not required|not necessary)\b", re.I)
 
 
@@ -137,6 +137,10 @@ MODAL_PROHIBITIONS = (
     "A skill will not decline an unsupported inference.",
     "A skill is not allowed to decline an unsupported inference.",
     "Skills don't decline unsupported inference.",
+    "A skill doesn't decline an unsupported inference.",
+    "A skill won't decline an unsupported inference.",
+    "A skill shouldn't decline an unsupported inference.",
+    "A skill mustn't decline an unsupported inference.",
 )
 
 

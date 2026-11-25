@@ -69,7 +69,7 @@ finds them. Until one of those, the item stays UNKNOWN and blocks 0.2.17.
 The independent reviewer re-ran the counts and did not reproduce the worker's figures:
 
 - Directories named `jaxfne` under `/mnt` at depth 8: 163 (section 1 says 166).
-- `.git` in those directories: 32, of which 11 valid (section 1 says 131, of which 106 valid). Under `-path '*jaxfne*'` the same scan gives 27, of which 15 valid.
+- `.git` in those directories: 32, of which 11 valid (section 1 says 131, of which 106 valid). Under `-path '*jaxfne*'` the same scan gives 27, of which 15 valid. A second review, in the ce738cd2 round, got 26, of which 14 valid, for that scope. The two reviews disagree, and the scope that yields 131 and 106 is still unresolved.
 
 The scope that yields 131 and 106 is not stated in the worker's report, so those figures are not quoted as observed; they stand only as the worker's count. The result does not change: no valid store scanned holds `0e06993c`, `9980f58d` or `5fa63dd3`, and neither does `/mnt/e/repos/jnwb`.
 

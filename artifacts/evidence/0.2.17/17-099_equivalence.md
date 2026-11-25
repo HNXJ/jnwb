@@ -23,6 +23,7 @@ Precedence: K3 names the rule. The code names the API values: `jnwb.ontology.Pre
 | `docs/architecture.md:46` | "Every task a skill receives ends in one of four outcomes:" and a diagram with Decline, Request the input, Report the failure, Compose and execute the operations, Return the verified result | equivalent; the labels are the four outcomes, and "Return the verified result" is the compose-and-execute leg |
 | `docs/api.md:277` | `jnwb.preflight` "return one of the four outcomes" | equivalent to the code values in `Preflight.OUTCOMES` |
 | `jnwb/ontology.py:374-380` | "One of four outcomes": `"supported"` compose and execute; `"request"` missing input; `"failure"` not identifiable; `"decline"` no operation supports the inference | equivalent by reading; no test reads it (section 4) |
+| `docs/unit_quality_example.md:4` | names the four outcomes | equivalent by reading; no checker reads it |
 
 Observable behaviour: `Preflight.OUTCOMES` has exactly the four values; the docs' count and names agree with it
 (`test_the_code_names_the_four_outcomes_the_docs_name`). The routing behaviour behind K3 is tested by its holder.
@@ -51,6 +52,19 @@ Gate coverage (observed, `scripts/gates/versions.py` block 4, line 272): gate 8 
 | `.github/CONTRIBUTING.md:12-13` | no test or gate | agrees by reading: "Python 3.12 or newer"; every declared version on Ubuntu and every one but 3.15 on Windows ("seven legs") |
 | `artifacts/goal.md` row 12 | read by the stack reviewer, not by a test | agrees with the constants |
 
+## 2a. Spikes and LFP
+
+Canonical: fact row S16 (`artifacts/fact_stack.md`): spikes and LFP are never pooled, namespaced or not (ruled
+2026-09-29; `AGENTS.md` section 5).
+
+| Location | Text | Compared with S16 |
+|---|---|---|
+| `AGENTS.md:74` | the S16 wording | equivalent (verbatim, by reading) |
+| `.github/CONTRIBUTING.md:378` | "Never pool spikes and LFP." | equivalent; drops "namespaced or not", so the prohibition stays unconditional |
+| `skills/jnwb/SKILL.md:58` | "Never pool across them." | equivalent |
+| `docs/architecture.md:132` | the spikes and LFP half | equivalent; the modality clause "Signals of distinct modalities are never pooled" is wider than S16 (section 4) |
+| `jnwb/_units.py:136,185`, `jnwb/_declarations.py:7`, `jnwb/spectral/_coupling.py:955`, `jnwb/connectivity/_network.py:150` | "never pooled" in docstrings and comments | equivalent by reading; no checker reads them |
+
 ## 3. Tests (all pass at the candidate SHA)
 
 `tests/test_four_outcomes_one_claim.py` (13 tests): the code values equal the mapping; K3 is one row naming all four;
@@ -78,8 +92,8 @@ not tests.
 
 - Decline weakeners that avoid the listed verbs: "The decline outcome is a choice.", "Declining is not compulsory.",
   "Where the caller prefers, a skill answers instead of declining.", "Decline is not the usual outcome.", "A skill
-  that cannot decline is complete.", "Skills decline ... only on request.", "Skills decline only when the user asks them to.", "Declining is a last resort.", "Unsupported inferences are answered with a best guess." The verb list now has "never", "must not", "will not", "not allowed to" and "don't", so those sentences are reported; the forms above pass, and so does "cannot" (below).
-- Counts that pass: an ordinal ("A fifth outcome is to guess.", "A sixth outcome is to guess."), a range ("Every task ends in three or four outcomes."), and an addition ("Every task ends in four outcomes plus a fallback."). A count reads a number word or digit with up to two modifier words before "outcomes"; a count word followed by "of", "or", "and" or "plus" is not read, so the real "one of four outcomes" is not a count. The digit form "4 outcomes" and "4 possible outcomes" are reported as a different count, a false positive that is harmless.
+  that cannot decline is complete.", "Skills decline ... only on request.", "Skills decline only when the user asks them to.", "Declining is a last resort.", "Unsupported inferences are answered with a best guess." The verb list now has "never", "must not", "will not", "not allowed to", "don't", "doesn't", "won't", "shouldn't" and "mustn't", so those sentences are reported; the forms above pass, and so does "cannot" (below).
+- Counts that pass: an ordinal ("A fifth outcome is to guess.", "A sixth outcome is to guess."), a range ("Every task ends in three or four outcomes."), and an addition ("Every task ends in four outcomes plus a fallback."). A count reads a number word from one to ten, or a digit, with up to two modifier words before "outcomes"; a count word followed by "of", "or", "and" or "plus" is not read, so the real "one of four outcomes" is not a count. The digit form "4 outcomes" and "4 possible outcomes" are reported as a different count, a false positive that is harmless.
 - Modal "cannot", and an inversion: "A skill cannot decline unsupported inference." passes. Adding "cannot" to the verb list would flag `.github/CONTRIBUTING.md:296` ("A skill that cannot decline is incomplete."), which states the rule correctly, so the modal stays unlisted. "A skill that declines is incomplete." passes: a sentence that makes declining the fault is not read.
 - An edit to an existing sentence outside the required phrases (found by the 6ee80610 review): "Declining is a correct outcome." changed to "a wrong outcome." and "never turned" changed to "sometimes turned" in `docs/architecture.md`; "four outcomes" extended to "four outcomes or None" in `docs/api.md`. The checks read the phrases and counts, not the sentence around them.
 - A floor qualified after the floor: "Requires Python 3.12 only." is now reported (a second floor sentence). A version claim after the floor, "3.12 or newer, and 3.11 with patches" on `docs/index.md`, passes, because the version check reads only "Python X.Y".
@@ -102,7 +116,13 @@ not tests.
   "namespaced or not" from S16 is dropped by three restatements, which keeps the prohibition unconditional.
 - Version claim with a range word and no number: "Python versions older than 3.12 may work." passes (checked in the 4ef9c443 round). The version check reads "Python" followed by a number, so a range word escapes it.
 - Restatements that no checker reads: `jnwb/ontology.py:374-380` (docstring), `skills/jnwb/SKILL.md:36` (routing prose on the outcomes), and `.github/CONTRIBUTING.md:12-13` (the Python floor and "seven legs"). Their equivalence rests on the review alone.
-- False positives, harmless: "should not be pooled" and "never get pooled" are reported by the spikes/LFP check (review observation, 4ef9c443 round).
+- Count qualifier before the number: "at least four outcomes" and "more than four outcomes" pass. The count reads the number and the words after it, not a qualifier before it.
+- Other count nouns: "three outcome classes", "three result categories" and "4 end states" pass. The count reads the noun "outcomes" only.
+- Number words outside one to ten: "eleven", "zero", "several" and "a dozen" outcomes pass.
+- A second floor in other words: "Needs Python 3.13 or later." passes. The floor check reads "Requires Python" and "or newer" only.
+- Version spellings the version regex misses: lowercase "python 3.9", "python3.9", "Python 3" with no minor, and "PyPy 3.10" pass. The regex reads a capital "Python", optional spaces or a comparison operator, then a minor version (review observations, ce738cd2 round).
+- A spikes and LFP premise contradicted with no pooling word: "Spikes and LFP are the same observable." passes. Changing "distinct physical observables" to "the same physical observable" in `skills/jnwb/SKILL.md` also passes. The spikes check reads pooling words, not the premise (review observation, ce738cd2 round).
+- False positives, harmless: "should not be pooled", "shouldn't be pooled", "never get pooled", "Don't pool spikes and LFP." and "Never fully pool spikes and LFP." are reported by the spikes/LFP check. Rewordings of `.github/CONTRIBUTING.md:296` that state the rule correctly, such as "can't decline", "does not decline", "never declines" and "Declining is not optional", are reported by the decline check, and "One test checks outcomes." is reported by the count check (review observations, 4ef9c443 and ce738cd2 rounds).
 - Gate coverage: gate 8 reads two pages; the index page is covered by its test only. No gate was changed.
 - The page tests require the canonical sentence in full, so a page reworded to another true sentence fails loudly.
   That is intended, and a person must re-approve the sentence.
@@ -116,4 +136,5 @@ not tests.
 | `fff7a1b3` | fresh reviewer, 2026-11-25 | REVISE | 18 misses among 29 scored probes (probe 9 void, probe 20 no verdict; 10 correct): 3 fixed by the count, floor-count and version-set checks (probes 7, 16, 21), 15 are the residual classes in section 4. Also: the checklist rows 58 and 74 were stale; the candidate SHA was not recorded here; a duplicate sentence in the 17-144 provenance |
 | `6ee80610` | fresh reviewer, 2026-11-25 | REVISE | Equivalence by reading holds for every restatement; 26 tests passed. Blocking: the 17-144 provenance rows (Recycle Bin said absent, System Volume said readable) and the unrecorded residuals in section 4 (owner condition d). Fixed at the next candidate. 30 probes: 10 correct, 1 false positive, 19 misses. Three cheap misses (never decline, a floor written "only", "Python>=3.10") are now reported, with red tests first; the rest are section 4 residuals |
 | `4ef9c443` | fresh reviewer, 2026-11-25 | REVISE | No blockers. Equivalence by reading holds for every restatement, with none contradicting its record. Major: section 4 was incomplete (owner condition d); the classes it named are recorded above at the next candidate. 67 probes: one void, 66 scored; every miss outside the new classes falls in a class section 4 already records. The 17-144 counts were not reproduced (17-144 evidence, section 5). |
+| `ce738cd2` | fresh reviewer, 2026-11-25 | REVISE | No blockers. Major M1: section 4 incomplete (owner condition d). Seven classes passed the checks and were not recorded: contraction negatives, a qualifier before the number, other count nouns, number words outside one to ten, a second floor in other words, version spellings, and a spikes and LFP premise with no pooling word. Minors: restatements outside sections 1 and 2 (now in section 1 and section 2a), extra false positives, and the 17-144 `-path` count. 96 probes: 31 reported, 65 pass. Red and green confirmed for the two new tests. The contraction class is fixed at the next candidate; the rest are recorded in section 4 |
 | next candidate | recorded after commit | pending | the next review verdict, and its SHA, are added here |
