@@ -74,3 +74,13 @@ The independent reviewer re-ran the counts and did not reproduce the worker's fi
 The scope that yields 131 and 106 is not stated in the worker's report, so those figures are not quoted as observed; they stand only as the worker's count. The result does not change: no valid store scanned holds `0e06993c`, `9980f58d` or `5fa63dd3`, and neither does `/mnt/e/repos/jnwb`.
 
 The reviewer re-checked the rest of section 1: the `$RECYCLE.BIN` directories on `/mnt/d`, `/mnt/e` and `/mnt/f` (one SID directory each, `desktop.ini` only, no `.git` or bundle); System Volume Information (existence only, contents not read); Temp and Packages (391 `.git`, 340 valid, 51 invalid, 1 bundle); `/mnt/c/Windows` (0 `.git`, 24 bundle-named, 3 of them directories); the directories named `vlix`, `vwin-pc`, `cl-jnwb16e` and `cl-jnwb` under `/mnt`; and the 9 bundles in scope. It did not re-derive the 22 fetched bundles or `/mnt/h`, `/mnt/i`, `/mnt/k`.
+
+## 6. GitHub check of the jnwb origin (2026-11-25)
+
+Read-only: the public REST API and `git ls-remote`.
+
+- `GET /repos/HNXJ/jnwb/commits/<prefix>` returns 422 for `0e06993c`, `9980f58d` and `5fa63dd3`. The same call returns 200 for `88a6eeec`, so short SHAs resolve (calibration).
+- `git ls-remote origin` (94 refs) has no ref tip with any of the three prefixes.
+- `HNXJ/jaxfne` ref tips (292 refs) have none either. Its commit lookup also returns 422 for the three prefixes, but that lookup is not calibrated. The three commits are jnwb commits on `E:/cl-jnwb16e`, so jaxfne is not their expected home.
+
+Result: the three commits are not on the jnwb origin. 17-144 stays UNKNOWN. This does not show they are absent from the orchestrator's copy, which this machine cannot read.

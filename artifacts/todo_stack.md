@@ -34,13 +34,6 @@ Writes: `artifacts/benchmarks/realdata/isi_cv_recompute.py`, `artifacts/benchmar
   Observed 2026-11-12: path missing; SHAs absent from this clone and `origin`. Check: each on `dev` in that
   order, suite passes, jaxfne-orchestrator told.
 
-### 17-99 One home per invariant across rule and doc files
-
-Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: none for the spikes-and-LFP rule. `tests/test_spikes_lfp_restatements.py` is a lexical check (S16, owner ruling 2026-11-25): a sentence that pools signals must state the prohibition on the pooling verb ("never pool", "must not be pooled", "forbidden"), and no sentence with a pooling word may grant a permission, an exception or a contrast (fixed word lists); a paragraph or list item that pools signals must name both spikes and LFP in its pooling sentences ("them" and "both" take the block's words). It does not read a rule stated without a pooling word ("combine", "merge"), a pooling sentence without a spike, LFP, modality or pair word, or a contradiction phrased outside the lists; it reads no meaning. Equivalence of each restatement rests on the independent review at the candidate SHA. Four-outcomes and Python-matrix duplicates: owner decision 2026-11-25 accepts review-based equivalence with the lexical checks as smoke tests; checked by `tests/test_four_outcomes_one_claim.py` and `tests/test_python_matrix_pages_agree.py` (residual classes listed in the evidence, section 4), evidence `artifacts/evidence/0.2.17/17-099_equivalence.md`. Closes when the independent review at the candidate SHA accepts; shared `README.md`.
-Writes: `.github/CONTRIBUTING.md`, `docs/architecture.md`, `README.md`, `docs/index.md`, `docs/glossary.md`, `artifacts/agents.md`.
-- 17-99: `CONTRIBUTING.md:368-380` and `docs/architecture.md:128-171` restate the invariants AGENTS.md §4 keeps in the fact stack; the spikes-and-LFP rule ("never pool") is in 17 tracked files (`git grep -il 'never pool'`) and no fact row; "four outcomes" in three of the Writes files; the Python matrix on four pages. Check: each fact has one home and the others link to it.
-
 ### 17-166 Interval-table fallback duplicated in two modules
 
 Release: deferred-0.2.18 (found by the 17-165 reviewer, 2026-11-24; does not block 0.2.17; relabelled 2026-11-25, the 0.2.17 gate counts deferred-0.2.17 as required).

@@ -6,6 +6,13 @@ exact candidate SHA, an explicit comparison of duplicate cases, precedence and o
 negative and adversarial regression tests, and recorded residual limits. This file records the comparison,
 the tests, the residual limits (section 4) and the review record (section 5).
 
+Status (2026-11-25): **ACCEPTED**, by owner decision, under review-based equivalence. Section 4 is the recorded
+residual list and is explicitly non-exhaustive: the lexical checks are smoke tests, and the residual classes they
+pass are named there. The 11,145 passing tests support regression coverage, not exhaustive semantic equivalence.
+Acceptance applies to 17-099 only, not to release 0.2.17. The accepted check is review-based equivalence; the
+original todo Check ("each fact has one home and the others link to it") was not the one ruled. The link-target
+question recorded in the release checklist's update log (2026-11-25, `12c9fa43`) is not ruled by this decision.
+
 ## 1. Four outcomes
 
 Canonical home: fact row K3 (`artifacts/fact_stack.md`): "a task ends in one of four outcomes: compose and
