@@ -42,7 +42,10 @@ REQUIRED = {
 }
 
 # A permission that weakens the rule: a task "may" decline, or declining is "optional".
-PERMISSION = re.compile(r"\b(?:may|can|could|might) (?:decline|refuse)\b|\boptional(?:ly)? decline", re.I)
+PERMISSION = re.compile(
+    r"\b(?:may|can|could|might|need not|does not|do not|should not|not required to|is not required to|"
+    r"is optional)\b[^.;]{0,30}\bdeclin"
+    r"|\bdeclin\w*\b[^.;]{0,30}\b(?:optional|not required|not necessary)\b", re.I)
 
 
 def _flat(text: str) -> str:
@@ -96,6 +99,24 @@ def test_a_permission_to_decline_is_reported():
                            "may decline an unsupported inference, and ends every task in one of four outcomes")
     assert altered != text, "fixture must alter the restatement"
     assert any("permission" in p for p in missing("artifacts/agents.md", altered)), "a permission to decline passed"
+
+
+CANON_SENTENCE = ("Every task a skill handles ends in one of four outcomes: compose and execute, request missing "
+                  "information, report non-identifiability or failure, or decline unsupported inference.")
+# Sentences that keep every phrase and weaken the decline outcome (the review's probes F1, F2, F5, F6, and one more).
+WEAKENERS = (
+    "Declining is optional.",
+    "A skill need not decline an unsupported inference.",
+    "A skill does not decline unsupported inference.",
+    "A skill should not decline unsupported inference.",
+    "A skill is not required to decline an unsupported inference.",
+)
+
+
+def test_a_sentence_that_weakens_the_decline_outcome_is_reported():
+    for probe in WEAKENERS:
+        problems = missing(".github/CONTRIBUTING.md", CANON_SENTENCE + " " + probe)
+        assert any("permission" in p for p in problems), f"not reported: {probe!r} -> {problems}"
 
 
 def test_a_reworded_restatement_with_the_same_outcomes_passes():

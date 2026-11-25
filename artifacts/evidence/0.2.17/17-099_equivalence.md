@@ -51,15 +51,19 @@ only. No gate reads `docs/index.md`. Before this change a drifted index sentence
 
 ## 3. Tests added (all pass at this SHA)
 
-`tests/test_four_outcomes_one_claim.py` (6 tests): the code values equal the mapping; K3 is one row naming all four;
+`tests/test_four_outcomes_one_claim.py` (8 tests): the code values equal the mapping; K3 is one row naming all four;
 each restatement carries its phrases (positive, the real files); a dropped outcome is reported (negative); a count
-of three is reported (negative); a permission to decline is reported (adversarial); a reworded restatement with the
-same four outcomes passes (adversarial positive).
+of three is reported (negative); a permission to decline is reported (adversarial); five sentences that keep the four
+phrases and weaken the decline outcome are reported ("Declining is optional.", "need not decline", "does not decline",
+"should not decline", "not required to decline") (adversarial); a reworded restatement with the same four outcomes
+passes (adversarial positive).
 
-`tests/test_python_matrix_pages_agree.py` (6 tests): every page states the declared floor and the tested set and
+`tests/test_python_matrix_pages_agree.py` (7 tests): every page states the declared floor and the tested set and
 the Windows clause (positive); gate 8 agrees with the pages it reads (positive); a page that drops 3.15 is reported
-(negative); a drifted floor is reported (negative); a Windows claim that includes 3.15 is reported (adversarial); a
-second drifted "Tested in CI on" sentence is reported (adversarial; gate 8 reads every sentence too).
+(negative); a drifted floor is reported (negative); a Windows clause that drops the exclusion is reported
+(adversarial); a second drifted "Tested in CI on" sentence is reported (adversarial; gate 8 reads every sentence too);
+six review probes on `docs/index.md` are reported (a Windows testing sentence, a 3.15 claim on Windows, a flipped
+Windows clause, a second floor, a negated clause, a clause that calls the exclusion outdated) (adversarial).
 
 `tests/test_spikes_lfp_restatements.py` (8 tests, 17-099 spikes part, see `915cd91a`..`88a6eeec`).
 
@@ -77,3 +81,9 @@ second drifted "Tested in CI on" sentence is reported (adversarial; gate 8 reads
 - The Python-matrix tests read the three pages with one sentence pattern each. A page reworded to another
   sentence shape will be reported as not stating the matrix, which fails loudly rather than passing.
 - No change to any gate. Gate 8 still reads two pages; the index page is covered by its test only.
+- Four outcomes: a weakening that avoids the listed verbs (for example "the decline branch is a choice") passes;
+  the decline weakening is matched by verb and a window of 30 characters, not by parse.
+- Python matrix: a tested claim must be the canonical sentence in full. A page reworded to another true sentence
+  fails loudly, which is intended, but it also needs a human to re-approve the sentence.
+- Review of `05c88a78` (REVISE, 2026-11-25) found eight weakening or Windows probes passing; they are now tests
+  (see section 3). The residual classes above are the ones the review and the tests do not reach.

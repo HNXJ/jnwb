@@ -74,7 +74,7 @@ or only tasks blocked on section 9 remain.
 | Landed, item still open | 17-099 (the spikes-and-LFP rule is covered by a lexical sentence check in `tests/test_spikes_lfp_restatements.py` (limits in 17-099; equivalence rests on the independent review); the four-outcomes and Python-matrix duplicates still need an owner ruling for their check) |
 | In a lane | none |
 | Pending verification | the final candidate SHA: full suite, CI on the pushed tip, A3 and A4 re-run, release-gate STEP 0, closure pass (A6). `12c9fa43` (D7 merge) and `d84577ea` (stack rulings) are on `origin/dev`; `88a6eeec` (the meaning check after five review rounds) is on `origin/dev`: suite 11120 passed, 0 failed; CI on that tip and A3, A4, STEP 0 and A6 at this SHA are pending |
-| Blocked on owner | D1 (`17-144-src`: UNKNOWN, not verified absent; its todo section lists the searched and unread locations); S6 external inputs (12-21, 15-11, 16-12); D3 (R4) |
+| Blocked on owner | D1 (`17-144-src`: UNKNOWN, not verified absent; its todo section lists the searched and unread locations); 17-099 duplicates (conditional owner decision 2026-11-25; open until the review verdict at the candidate SHA); S6 external inputs (12-21, 15-11, 16-12); D3 (R4) |
 | Unknown | whether the pull-request merge-commit run differs from the push run at `68995c90` (no run read yet); suite stall cause (none since the dump flag; a stall in the controller or between tests would fire no dump, inferred) |
 
 ## 6. Weighted progress (60): diagnostic, not a gate (Q3, ruled 2026-11-22)
