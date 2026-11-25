@@ -43,7 +43,7 @@ REQUIRED = {
 
 # A permission that weakens the rule: a task "may" decline, or declining is "optional".
 PERMISSION = re.compile(
-    r"\b(?:may|can|could|might|need not|does not|do not|should not|not required to|is not required to|"
+    r"\b(?:may|can|could|might|never|need not|does not|do not|should not|not required to|is not required to|"
     r"is optional)\b[^.;]{0,30}\bdeclin"
     r"|\bdeclin\w*\b[^.;]{0,30}\b(?:optional|not required|not necessary)\b", re.I)
 
@@ -122,6 +122,11 @@ def test_a_sentence_that_weakens_the_decline_outcome_is_reported():
     for probe in WEAKENERS:
         problems = missing(".github/CONTRIBUTING.md", CANON_SENTENCE + " " + probe)
         assert any("permission" in p for p in problems), f"not reported: {probe!r} -> {problems}"
+
+
+def test_a_skill_that_never_declines_is_reported():
+    problems = missing(".github/CONTRIBUTING.md", CANON_SENTENCE + " Skills never decline.")
+    assert any("permission" in p for p in problems), f"not reported: {problems}"
 
 
 def test_a_second_outcome_count_beside_the_real_sentence_is_reported():

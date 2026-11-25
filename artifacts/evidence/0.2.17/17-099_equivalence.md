@@ -32,7 +32,7 @@ Observable behaviour: `Preflight.OUTCOMES` has exactly the four values; the docs
 Canonical: goal row 12 (`artifacts/goal.md`): Python 3.12, 3.13, 3.14 and 3.15, with 3.15 excluded on Windows
 until h5py ships cp315 wheels. Enforced by `scripts/gates/versions.py` (`PYTHON_FLOOR = "3.12"`,
 `PYTHON_CI_REQUIRED = ("3.12", "3.13", "3.14", "3.15")`) and by the CI matrix in
-`.github/workflows/workflow.yml` (`exclude: windows-latest / 3.15`; an `include` adds Windows 3.14 for the figures
+`.github/workflows/workflow.yml` (`exclude: windows-latest / 3.15`; an `include` annotates the existing Windows 3.14 cell with `figures`
 leg, which does not change the claim).
 
 The prose restatements: three pages, not the four that 17-099 once named. `README.md:43`, `docs/install.md:9`
@@ -52,20 +52,20 @@ Gate coverage (observed, `scripts/gates/versions.py` block 4, line 272): gate 8 
 
 ## 3. Tests (all pass at the candidate SHA)
 
-`tests/test_four_outcomes_one_claim.py` (9 tests): the code values equal the mapping; K3 is one row naming all four;
+`tests/test_four_outcomes_one_claim.py` (10 tests): the code values equal the mapping; K3 is one row naming all four;
 each restatement carries its phrases (positive, the real files); a dropped outcome is reported (negative); a count of
 three is reported (negative); a count of three beside the real sentence is reported (negative); a permission to decline
 is reported (adversarial); five sentences that keep the four phrases and weaken the decline outcome are reported
 ("Declining is optional.", "need not decline", "does not decline", "should not decline", "not required to decline")
-(adversarial); a reworded restatement with the same four outcomes passes (adversarial positive).
+(adversarial); a reworded restatement with the same four outcomes passes (adversarial positive); "Skills never decline." is reported (adversarial, added after the 6ee80610 review).
 
-`tests/test_python_matrix_pages_agree.py` (9 tests): every page states the declared floor and the tested set and the
+`tests/test_python_matrix_pages_agree.py` (11 tests): every page states the declared floor and the tested set and the
 Windows clause (positive); gate 8 agrees with the pages it reads (positive); a page that drops 3.15 is reported
 (negative); a drifted floor is reported (negative); a Windows clause that drops the exclusion is reported
 (adversarial); a second drifted "Tested in CI on" sentence is reported (adversarial); six probes on `docs/index.md`
 are reported: a Windows testing sentence, a 3.15 claim on Windows, a flipped Windows clause, a second floor, a negated
 clause, a clause that calls the exclusion outdated (adversarial); a second floor sentence is reported (adversarial);
-a version outside the declared set named as "Python 3.16" is reported (adversarial).
+a version outside the declared set named as "Python 3.16" is reported (adversarial); a second floor written "Requires Python 3.12 only." is reported and "Python>=3.10 works." is reported (adversarial, added after the 6ee80610 review).
 
 `tests/test_spikes_lfp_restatements.py` (8 tests; the 17-099 spikes part, commits `915cd91a` to `88a6eeec`).
 
@@ -77,7 +77,14 @@ not tests.
 
 - Decline weakeners that avoid the listed verbs: "The decline outcome is a choice.", "Declining is not compulsory.",
   "Where the caller prefers, a skill answers instead of declining.", "Decline is not the usual outcome.", "A skill
-  that cannot decline is complete.", "Skills decline ... only on request." (review probes 1 to 6).
+  that cannot decline is complete.", "Skills decline ... only on request.", "Skills decline only when the user asks them to.", "Declining is a last resort.", "Unsupported inferences are answered with a best guess." The verb list now has "never", so "Skills never decline." is reported; the forms above pass.
+- An ordinal count: "A fifth outcome is to guess." passes, because the count reads digits and cardinal words only. The digit form "4 outcomes" is reported as a different count, a false positive that is harmless.
+- An edit to an existing sentence outside the required phrases (found by the 6ee80610 review): "Declining is a correct outcome." changed to "a wrong outcome." and "never turned" changed to "sometimes turned" in `docs/architecture.md`; "four outcomes" extended to "four outcomes or None" in `docs/api.md`. The checks read the phrases and counts, not the sentence around them.
+- A floor qualified after the floor: "Requires Python 3.12 only." is now reported (a second floor sentence). A version claim after the floor, "3.12 or newer, and 3.11 with patches" on `docs/index.md`, passes, because the version check reads only "Python X.Y".
+- A Windows claim with no testing word: "Windows users need 3.14 or older." passes. The Windows check needs a testing word beside Windows.
+- A qualifier on a prohibition: "Never pool across them in the same trial." (`skills/jnwb/SKILL.md`) reads as a prohibition; "in the same trial" is not in the exception list.
+- Diagram order (non-blocking): the architecture diagram puts failure after execution, while `preflight` decides failure before execution from a caller declaration. The text says "in the order drawn above". No check reads the order.
+- Modality clause (owner decision): `docs/architecture.md:132` says "Signals of distinct modalities are never pooled". It is wider than S16, which names spikes and LFP, and no fact row holds the wider claim. It is not a contradiction. The owner decides whether S16 widens or the sentence narrows.
 - Count and edge: the required phrases are matched anywhere in a file. A contradicting sentence beside the real one
   passes, unless it carries a count of outcomes other than four. The diagram's arrows are not read; a flipped edge
   (`S -->|yes| DC[Decline]`) passes (probe 12). The labels are compared by exact text.
@@ -102,4 +109,5 @@ not tests.
 | `05c88a78` | fresh reviewer, 2026-11-25 | REVISE | eight weakening and Windows probes passed; fixed at `b380fb15` (decline verbs widened; the page check requires the canonical sentence in full; tests added) |
 | `b380fb15` | not completed | none | the suite and the review were stopped after a wrong provenance line in 17-144 was found; corrected at `fff7a1b3` |
 | `fff7a1b3` | fresh reviewer, 2026-11-25 | REVISE | 18 misses among 29 scored probes (probe 9 void, probe 20 no verdict; 10 correct): 3 fixed by the count, floor-count and version-set checks (probes 7, 16, 21), 15 are the residual classes in section 4. Also: the checklist rows 58 and 74 were stale; the candidate SHA was not recorded here; a duplicate sentence in the 17-144 provenance |
+| `6ee80610` | fresh reviewer, 2026-11-25 | REVISE | Equivalence by reading holds for every restatement; 26 tests passed. Blocking: the 17-144 provenance rows (Recycle Bin said absent, System Volume said readable) and the unrecorded residuals in section 4 (owner condition d). Fixed at the next candidate. 30 probes: 10 correct, 1 false positive, 19 misses. Three cheap misses (never decline, a floor written "only", "Python>=3.10") are now reported, with red tests first; the rest are section 4 residuals |
 | next candidate | recorded after commit | pending | the next review verdict, and its SHA, are added here |

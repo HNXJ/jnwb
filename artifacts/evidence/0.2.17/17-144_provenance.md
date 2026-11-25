@@ -19,8 +19,8 @@ that report and are not re-derived.
 | `/mnt/c/Windows` (depth 40) | yes, no denied path | 0 git stores; 24 bundle-named files (21 not bundles; 3 directories) | not found |
 | `/mnt/c/Users/*/AppData/Local/Temp` and `Packages` (depth 4) | yes | 391 `.git`: 340 valid, 51 invalid; 1 bundle (2 heads, no match) | not found |
 | 166 directories named `jaxfne` under `/mnt` (depth 8); `/mnt/c/$Recycle.Bin` | yes | 140 rows: 131 `.git` (106 valid, 25 invalid); 9 bundles (5 usable, 4 stubs) | not found |
-| System Volume Information on `/mnt/c`, `/mnt/d`, `/mnt/e`, `/mnt/f` | readable | 0 git stores or bundles | not found |
-| `$Recycle.Bin` on `/mnt/d`, `/mnt/e`, `/mnt/f` | absent | none | none |
+| System Volume Information on `/mnt/c`, `/mnt/d`, `/mnt/e`, `/mnt/f` | existence only; contents not read | not read | not checked |
+| `$RECYCLE.BIN` on `/mnt/d`, `/mnt/e`, `/mnt/f` | present: one SID directory each, holding only `desktop.ini` | no `.git` or bundle found | not found |
 | `/mnt/h`, `/mnt/i`, `/mnt/k` (depth 7 to 12) | yes | 0 | not found |
 | directories named `vlix`, `vwin-pc`, `cl-jnwb16e`, `cl-jnwb` under `/mnt` | none exists | none | none |
 
