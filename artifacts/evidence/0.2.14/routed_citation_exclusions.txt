@@ -37,6 +37,7 @@ cross_modal_comparison
 detect_trial_cycles
 directed_connectivity
 electrode_inventory
+effective_sample_size
 enrich_units_dataframe
 epoch_continuous
 events

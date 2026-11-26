@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -12,6 +12,11 @@ import pytest
 import jnwb
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
+
 MANIFEST = REPO_ROOT / "artifacts" / "process" / "public_surface.json"
 
 
@@ -27,12 +32,9 @@ def live_symbols() -> list[str]:
 
 def live_modules() -> list[str]:
     """Return the names of tracked .py files and packages directly under jnwb/."""
-    listed = subprocess.run(
-        ["git", "-C", str(REPO_ROOT), "ls-files", "jnwb"],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
+    done = git("-C", str(REPO_ROOT), "ls-files", "jnwb")
+    done.check_returncode()
+    listed = done.stdout
     modules: set[str] = set()
     for path in listed.splitlines():
         parts = path.split("/")[1:]

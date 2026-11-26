@@ -87,7 +87,7 @@ class TestTFRAnalyzerBandExtraction(unittest.TestCase):
         mutations that change every returned number while preserving shape passed this
         whole file: dropping the band's upper bound, and replacing the frequency-axis
         mean with a sum. Measured, the suite does catch both -- through
-        `tests/test_audit_reproducers.py`, and for the sum also through
+        `tests/test_tfr_extract_band_regressions.py`, and for the sum also through
         `tests/test_jnwb_core.py` -- so the file was blind, not the suite. Core
         arithmetic should not depend on an audit probe for its only oracle.
 
@@ -454,7 +454,7 @@ class TestTFRAnalyzerBandNames(unittest.TestCase):
 
 class TestPsthCountsSpikesInARightOpenWindow(unittest.TestCase):
     """A spike is selected when spike - onset lies in [pre, post), as ``bin_spikes`` bins
-    (17-70, ruled 2026-10-31), and every selected spike is counted. ``onset + pre`` rounds
+    (17-70), and every selected spike is counted. ``onset + pre`` rounds
     differently from ``spike - onset``: on these onsets, 114 of the 405 spikes at
     ``onset - 0.1`` are below -0.1 s after their onset and 147 of those at ``onset + 0.2`` are
     above 0.2 s, so neither is selected."""

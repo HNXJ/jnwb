@@ -12,6 +12,8 @@ import numpy as np
 import pytest
 
 from jnwb.permutation import permute_labels, build_permutation_plan
+import jnwb
+from jnwb.statistics import (StatisticalAnalysis, shuffle_r2_ci)
 
 
 class TestPublicImport:
@@ -350,3 +352,87 @@ class TestBlockConstantPermutation:
         param = inspect.signature(build_permutation_plan).parameters["blocks"]
         assert param.kind is inspect.Parameter.KEYWORD_ONLY
         assert param.default is None
+
+
+class TestMonteCarloPValueConvention:
+    def test_permutation_test_uses_one_plus_k_over_b_plus_one(self):
+        rng = np.random.default_rng(0)
+        g1 = np.array([0.0, 0.1, 0.2, 0.3])
+        g2 = np.array([1.0, 1.1, 1.2, 1.3])
+        res = StatisticalAnalysis.permutation_test(g1, g2, n_permutations=99, rng=rng)
+        # Exact rational arithmetic: a float recomputation of a split in shuffled order can
+        # land an ulp either side of the observed statistic and miscount the extreme draws.
+        from fractions import Fraction
+
+        combined = [Fraction(float(v)) for v in np.concatenate([g1, g2])]
+        n_x = len(g1)
+
+        def diff(idx):
+            left = [combined[i] for i in idx[:n_x]]
+            right = [combined[i] for i in idx[n_x:]]
+            return sum(left) / len(left) - sum(right) / len(right)
+
+        obs = diff(np.arange(len(combined)))
+        local_rng = np.random.default_rng(0)
+        draws = [diff(local_rng.permutation(len(combined))) for _ in range(99)]
+        # Two-sided: twice the smaller tail's (1 + k) / (B + 1), capped at 1.
+        k = min(sum(d >= obs for d in draws), sum(d <= obs for d in draws))
+        expected = min(1.0, 2 * (1 + k) / (99 + 1))
+        assert res["pval"] == pytest.approx(expected)
+
+    def test_shuffle_r2_ci_uses_one_plus_k_over_b_plus_one(self):
+        y_true = np.array([0, 1, 0, 1, 0, 1, 0, 1])
+        y_score = np.linspace(0.0, 1.0, len(y_true))
+        n_shuffle = 99
+        out = shuffle_r2_ci(y_true, y_score, n_shuffle=n_shuffle, random_state=0)
+        r2_obs = out["r2_observed"]
+        rng = np.random.default_rng(0)
+        null = []
+        for _ in range(n_shuffle):
+            y_perm = jnwb.permute_labels(y_true, scheme="global", rng=rng)
+            r = np.corrcoef(y_perm, y_score)[0, 1]
+            null.append(float(r ** 2))
+        # Binary labels: a draw can reproduce r2_obs in another summation order, so a draw
+        # counts within 100 eps of it, as scipy.stats.permutation_test counts.
+        tol = 100 * np.finfo(float).eps * abs(r2_obs)
+        k = int(np.sum(np.asarray(null) >= r2_obs - tol))
+        assert out["p_val"] == pytest.approx((1 + k) / (n_shuffle + 1))
+
+    def test_jrsa_p_from_null_uses_one_plus_k_over_b_plus_one(self):
+        from jnwb.jrsa import _p_from_null
+
+        p = _p_from_null(0.5, np.array([0.0, 0.0, 0.0, 0.0, 1.0]), "two-sided")
+        # `float(p)`, not `float(p[0])`. `_p_from_null` returns a 0-d array, matching
+        # `value`, `statistic` and `effect`; it used to return shape ``(1,)`` and the
+        # subscript was unwrapping that stray axis. The assertion is about the
+        # Monte-Carlo convention, not about `p` being indexable -- the sibling test
+        # above asserts the same convention on a plain scalar.
+        # Two-sided: the upper tail holds 1 of the 5 draws, the lower tail 4; the smaller
+        # tail gives 2 (1 + 1) / (5 + 1).
+        assert float(p) == pytest.approx(2.0 * (1 + 1) / (5 + 1))
+
+
+class TestSchemeNamedInResult:
+    """Fact S10: a result names the exchangeability scheme of the null it drew."""
+
+    def test_permutation_test_names_its_flat_scheme(self):
+        g1 = np.array([0.0, 0.1, 0.2, 0.3])
+        g2 = np.array([1.0, 1.1, 1.2, 1.3])
+        res = StatisticalAnalysis.permutation_test(g1, g2, n_permutations=50, rng=1)
+        assert np.isfinite(res["pval"]), "the fixture must draw a null"
+        assert res["scheme"] == "global"
+
+    def test_permutation_test_names_its_scheme_when_no_null_is_drawn(self):
+        res = StatisticalAnalysis.permutation_test(np.array([1.0]), np.array([2.0, 3.0]), rng=1)
+        assert np.isnan(res["pval"]), "the fixture must return before the null"
+        assert res["scheme"] == "global"
+
+    def test_shuffle_r2_ci_names_the_scheme_it_shuffled_under(self):
+        rng = np.random.default_rng(3)
+        y = np.repeat([0.0, 1.0], 20)
+        score = y + rng.normal(scale=0.8, size=40)
+        flat = shuffle_r2_ci(y, score, n_shuffle=20, rng=1)
+        grouped = shuffle_r2_ci(y, score, groups=np.tile([0, 1], 20), n_shuffle=20, rng=1)
+        assert np.isfinite(flat["p_val"]), "the fixture must draw a null"
+        assert flat["scheme"] == "global"
+        assert grouped["scheme"] == "within_group"

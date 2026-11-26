@@ -26,6 +26,12 @@ import pytest
 
 import jnwb
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts import stack_parse  # noqa: E402
+
 FS = 500.0
 N_TIMES = 4000
 SEED = 7
@@ -1594,7 +1600,7 @@ class TestEveryPitfallRowIsHeldOrNamesItsGap:
                 if rows:
                     break
                 continue
-            cells = [cell.strip() for cell in line.strip("|").split("|")]
+            cells = stack_parse.cells(line)
             if (
                 len(cells) == 3
                 and cells[0] not in ("Pitfall",)

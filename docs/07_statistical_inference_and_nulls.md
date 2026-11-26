@@ -263,6 +263,16 @@ white noise over 101 lags it falls below 0.05 in 99.5% of runs. The inputs here 
 independent white noise, and the corrected p is 0.892: the right answer, from the right
 field.
 
+## 6. Effective sample size (`jnwb.effective_sample_size`)
+
+For autocorrelated LFP (or other series) passed to `xflip` as `n_samples`,
+`jnwb.effective_sample_size(x)` returns an effective independent-sample count. It averages
+lag-$k$ autocorrelation over channels and sums from $k = 1$ until that mean first falls to
+0 or below (lag-by-lag truncation; ruled 2026-10-19). The count is $n / (1 + 2 \sum \rho_k)$,
+clipped to $[2, n]$. On an AR(2) series the lag-1 mean can go non-positive while later lags
+stay positive, so this rule overestimates relative to a pair-sum truncation. No published
+paper is credited for the truncation choice.
+
 ## References
 
 The methods on this page are cited in [References](references.md).

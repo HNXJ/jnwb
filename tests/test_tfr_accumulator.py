@@ -418,7 +418,6 @@ class TestNumericalStability:
     on large-mean/small-variance power, which is the typical TFR profile."""
 
     def test_small_variance_large_mean_no_cancellation(self):
-        shape = (1,)
         rng = np.random.default_rng(99)
         true_mean = 1e6
         true_std = 1.0  # variance is ~1e-12 relative to mean^2

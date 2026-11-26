@@ -9,6 +9,7 @@ import ast
 import re
 import sys
 from pathlib import Path
+from typing import Tuple, Union
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 #: The contributor-process skill. It is not part of the shipped `skills/` tree.
@@ -21,6 +22,7 @@ if str(REPO_ROOT) not in sys.path:
 import pytest
 
 from scripts import harness_gate
+from scripts.gates.boundary import git
 from scripts.harness_gate import (
     GENERATED_FROM,
     INTERNAL_PROCESS_TERMS,
@@ -39,8 +41,28 @@ from scripts.harness_gate import (
     check_stack_form_consistency,
     check_stack_pointers_resolve,
     check_state_file_head,
-    validate_receipt_provenance,
 )
+
+
+def validate_receipt_provenance(claim_name: str, receipt_path: Union[str, Path]) -> Tuple[bool, str]:
+    """Receipt provenance check (not a numbered preflight gate; argument-driven).
+
+    Verifies that an empirical receipt exists on disk, is readable, and is non-empty.
+    IMPORTANT EPISTEMIC DISTINCTION: Receipt existence is provenance/artifact validation,
+    NOT empirical scientific verification. True scientific verification requires verified code,
+    valid nulls, and exact claim-to-estimator linkage.
+    """
+    path = Path(receipt_path)
+    if not path.is_absolute():
+        path = REPO_ROOT / path
+
+    if not path.exists():
+        return False, f"MISSING_RECEIPT: Claim '{claim_name}' references non-existent receipt artifact: {path}"
+
+    if path.stat().st_size == 0:
+        return False, f"EMPTY_RECEIPT: Claim '{claim_name}' references zero-byte artifact: {path}"
+
+    return True, f"PROVENANCE_VALID: Claim '{claim_name}' artifact exists: {path} ({path.stat().st_size} bytes)"
 
 
 class TestHarnessAdversarialProbes:
@@ -1919,20 +1941,18 @@ def _tracked_tree(tmp_path: Path, files: "dict[str, bytes]") -> Path:
     "sweep is broken" violation a seeded defect does -- so the seed would appear to be caught
     while nothing was ever read.
     """
-    import subprocess
-
     root = tmp_path / "tree"
     root.mkdir()
-    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    git("init", "-q", cwd=root).check_returncode()
     for relative, data in files.items():
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
     if files:
-        subprocess.run(["git", "add", "--", *files], cwd=root, check=True)
-    listed = subprocess.run(
-        ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
-    ).stdout.split()
+        git("add", "--", *files, cwd=root).check_returncode()
+    done = git("ls-files", cwd=root)
+    done.check_returncode()
+    listed = done.stdout.split()
     assert sorted(listed) == sorted(files), f"fixture tracks {listed}, not {sorted(files)}"
     return root
 
@@ -2358,18 +2378,17 @@ class TestGate20StateFileHead:
 
     @staticmethod
     def _repo(tmp_path: Path) -> "tuple[Path, str]":
-        import subprocess
-
         root = tmp_path / "tree"
         (root / "artifacts").mkdir(parents=True)
-        git = ["git", "-c", "user.name=gate fixture", "-c", "user.email=fixture@example.invalid",
-               "-c", "commit.gpgsign=false"]
-        subprocess.run([*git, "init", "-q"], cwd=root, check=True)
+        config = ("-c", "user.name=gate fixture", "-c", "user.email=fixture@example.invalid",
+                  "-c", "commit.gpgsign=false")
+        git(*config, "init", "-q", cwd=root).check_returncode()
         (root / "README").write_text("fixture\n", encoding="utf-8", newline="\n")
-        subprocess.run([*git, "add", "README"], cwd=root, check=True)
-        subprocess.run([*git, "commit", "-qm", "fixture"], cwd=root, check=True)
-        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True,
-                              text=True, check=True).stdout.strip()
+        git(*config, "add", "README", cwd=root).check_returncode()
+        git(*config, "commit", "-qm", "fixture", cwd=root).check_returncode()
+        done = git("rev-parse", "HEAD", cwd=root)
+        done.check_returncode()
+        head = done.stdout.strip()
         assert re.fullmatch(r"[0-9a-f]{40}", head) and head != TestGate20StateFileHead.ZERO
         return root, head
 

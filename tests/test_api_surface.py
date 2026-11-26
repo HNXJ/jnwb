@@ -18,6 +18,7 @@ if str(Path(__file__).resolve().parents[1]) not in sys.path:
 
 from tests._api_surface import MODULE_DISPOSITION, NON_PUBLIC_MODULES  # noqa: E402
 from jnwb._lazy_exports import EXPORT_MODULES, SUBMODULES  # noqa: E402
+from scripts import stack_parse  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 JNWB_DIR = REPO_ROOT / "jnwb"
@@ -104,7 +105,7 @@ def _module_map_rows() -> dict[str, list[str]]:
     for line in section.splitlines():
         if not line.startswith("| `"):
             continue
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        cells = stack_parse.cells(line)
         rows[cells[0].strip("`")] = re.findall(r"`([A-Za-z_]\w*)`", cells[-1])
     return rows
 
@@ -235,3 +236,23 @@ def test_the_scan_reports_a_planted_generator_import(tmp_path):
     violations = _synthetic_violations(package)
     assert len(violations) == 1, violations
     assert violations[0].startswith("jnwb/sub/leak.py imports ['jnwb.testing.synth'"), violations
+
+
+class TestIntegration021:
+
+    def test_all_five_primitives_exported_at_top_level(self):
+        """Verify export and availability of all new 0.2.1 symbols."""
+        expected_symbols = [
+            "aperiodic_fit",
+            "AperiodicFitResult",
+            "relative_power",
+            "exact_sign_flip",
+            "mann_whitney_p_floor",
+            "clopper_pearson",
+            "stream_npz_array",
+            "probe_geometry",
+            "ProbeGeometry",
+        ]
+        for sym in expected_symbols:
+            assert sym in jnwb.__all__, f"{sym} missing from jnwb.__all__"
+            assert hasattr(jnwb, sym), f"{sym} missing from jnwb module namespace"

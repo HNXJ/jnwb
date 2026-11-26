@@ -135,10 +135,7 @@ surrogate p, up to 0.46. The default `nperseg` leaves at least 20 segments.
 Panel A is `jnwb.granger` at order 15 on a synthetic pair with a known lead; panel B is
 `jnwb.phase_slope_index` on the same pair.
 
-![Phase slope index over a narrowband and a broadband band of one delayed pair](assets/figures/fig18_psi_narrowband_trap.png#only-light)
-![Phase slope index over a narrowband and a broadband band of one delayed pair](assets/figures/fig18_psi_narrowband_trap.dark.png#only-dark)
-
-The figure is synthetic: one seeded pair of 2000 samples at 1 kHz, with Y equal to X delayed 10 ms plus noise. `jnwb.phase_slope_index` over 18–24 Hz holds one bin, so its net is `nan`; over 15–30 Hz the net is 0.641 (z = 7.91), positive, so X leads Y.
+The figure of the phase slope index over a one-bin band is in [Common Mistakes, section 7](common_mistakes.md#7-misinterpreting-phase-slope-index-on-narrowband-signals).
 
 ---
 

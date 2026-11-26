@@ -7,6 +7,8 @@ import numpy as np
 from .._spread import is_constant
 from ._backends import _ensure_np
 
+_MI_DENOM_FLOOR = 1e-12  # keeps the mutual-information ratio finite; numerical guard, no source
+
 
 # INTENTIONAL BREAK (0.2.10): the CuPy branches of _pearson, _spearman, _cosine,
 # `_permutation_test` and `_bootstrap` are removed. `_to_backend` converts every input to a
@@ -276,7 +278,7 @@ def _mutual_information(x1, x2, axis=-1, bins=32, **kwargs):
     c_y = c_xy.sum(axis=0)
     outer = np.outer(c_x, c_y)
     mask = c_xy > 0
-    mi = np.sum(c_xy[mask] * np.log(c_xy[mask] / (outer[mask] + 1e-12)))
+    mi = np.sum(c_xy[mask] * np.log(c_xy[mask] / (outer[mask] + _MI_DENOM_FLOOR)))
     return np.float64(mi), np.float64(mi), np.float64(mi), None, None
 
 

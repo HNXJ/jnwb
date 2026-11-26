@@ -39,6 +39,7 @@ import subprocess
 import sys
 import warnings
 from dataclasses import fields, is_dataclass
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -52,6 +53,12 @@ from jnwb import tfr as tfr_module
 from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 from jnwb._parallel import parallel_map
 from jnwb.trajectory import compute_population_trajectory
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts import stack_parse  # noqa: E402
 
 CUDA_RTOL = 1e-9
 METAL_RTOL = 1e-5
@@ -159,7 +166,7 @@ def _exports_with(param):
     for name, obj in _public_callables():
         try:
             params = inspect.signature(obj).parameters
-        except (TypeError, ValueError):
+        except ValueError:
             continue
         if param in params:
             found.add(name)
@@ -539,7 +546,7 @@ class TestTheDeviceDocumentationMatchesTheCode:
 
         text = (_DOCS / "10_operation_specifications.md").read_text(encoding="utf-8")
         table = text.split("## 2. Operation Specifications", 1)[1]
-        rows = [[c.strip() for c in line.strip().strip("|").split("|")]
+        rows = [stack_parse.cells(line)
                 for line in table.splitlines() if line.startswith("|")]
         header, body = rows[0], [r for r in rows[2:] if len(r) == len(rows[0])]
         assert len(body) == len(rows) - 2, "a row has a different cell count from the header"

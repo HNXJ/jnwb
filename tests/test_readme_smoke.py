@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import tomllib
+import warnings
 from pathlib import Path
 
 import jnwb
@@ -80,16 +81,23 @@ def test_readme_arrays_quickstart_recovers_the_onset_it_prints():
 def test_readme_more_examples_recover_the_effects_they_plant():
     """Each "More examples" block names a planted effect; executing it does not check it.
 
-    Held to the effect, not to the printed digits, which can move with the BLAS build.
+    Held to the effect, and to the digits each block prints: a printed value must lie
+    within half a unit of the last place of the README figure (abs tolerance).
+    The granger block must run without a FutureWarning.
     """
     text = README.read_text(encoding="utf-8")
     section = text.split("## More examples", 1)[1].split("\n## ", 1)[0]
     blocks = _self_contained_python_blocks(section)
     assert len(blocks) == 3, f"expected the three planted-effect blocks, found {len(blocks)}"
     spaces = []
-    for block in blocks:
+    for index, block in enumerate(blocks):
         namespace = {"__name__": "__readme__"}
-        exec(compile(block, "README.md", "exec"), namespace)  # noqa: S102 - the point
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            exec(compile(block, "README.md", "exec"), namespace)  # noqa: S102 - the point
+        if index == 0:
+            future = [str(w.message) for w in caught if issubclass(w.category, FutureWarning)]
+            assert not future, f"the granger example warns: {future}"
         spaces.append(namespace)
 
     gc = spaces[0]["gc"]
@@ -104,6 +112,24 @@ def test_readme_more_examples_recover_the_effects_they_plant():
     dec, null = spaces[2]["dec"], spaces[2]["null"]
     assert dec["accuracy"] > null["accuracy"] + 0.2
     assert dec["accuracy"] > dec["majority_baseline_accuracy"] + 0.2
+
+    # The printed outputs, as the README comments show them (granger, cluster, decoding).
+    def printed(value, digits, expected):
+        tol = 0.5 * 10 ** (-digits) + 1e-12
+        assert abs(float(value) - float(expected)) <= tol, (
+            f"the block value {value} is not within {tol} of the README's {expected}"
+        )
+
+    printed(gc.x_to_y, 3, "0.311")
+    printed(gc.p_x_to_y, 3, "0.000")
+    printed(gc.y_to_x, 3, "0.001")
+    printed(gc.p_y_to_x, 3, "0.452")
+    on = [i for i, m in enumerate(mask) if m]
+    assert (on[0], on[-1]) == (39, 59), f"the README shows cluster 39-59, found {on[0]}-{on[-1]}"
+    printed(spaces[1]["best"]["p_value"], 3, "0.002")
+    printed(dec["accuracy"], 2, "0.88")
+    printed(null["accuracy"], 2, "0.42")
+    printed(dec["majority_baseline_accuracy"], 2, "0.50")
 
 
 def test_readme_links_resolve_from_the_page_that_renders_it():

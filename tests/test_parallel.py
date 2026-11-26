@@ -293,7 +293,7 @@ class TestTheDefaultIsSerialEverywhere:
                 continue
             try:
                 sig = inspect.signature(obj)
-            except (TypeError, ValueError):
+            except ValueError:
                 continue
             param = sig.parameters.get("n_jobs")
             if param is not None and param.default is not inspect.Parameter.empty:

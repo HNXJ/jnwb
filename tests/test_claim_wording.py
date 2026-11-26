@@ -55,6 +55,7 @@ ALLOWED: tuple[tuple[str, str, str], ...] = (
     ("docs/06_spikes_psth_and_onset_dynamics.md", "belong to a latency read", ONSET),
     ("docs/06_spikes_psth_and_onset_dynamics.md", "only such a latency is corrected", ONSET),
     ("docs/06_spikes_psth_and_onset_dynamics.md", "Onset Latency Fit]", ONSET),
+    ("docs/06_spikes_psth_and_onset_dynamics.md", "group-delay-in-onset-latency)", ONSET),
     ("docs/07_statistical_inference_and_nulls.md", "false discoveries caused by", METHOD),
     ("docs/09_decoding_and_visual_qc.md", "in only one group always causes", METHOD),
     ("docs/agents.md", "asymmetry a cause", CAVEAT),

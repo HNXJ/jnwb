@@ -25,10 +25,16 @@ from __future__ import annotations
 
 import pathlib
 import subprocess
+import sys
 
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+# Appended, not prepended: prepending would put the checkout's jnwb/ ahead of an installed copy.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
 
 # The cache directory. A git pathspec, so forward slashes on every platform.
 CACHE_DIR = "artifacts/developer/.cache"
@@ -45,11 +51,7 @@ ESCAPING_NAMES = [
 
 
 def _git(*args: str, repo: pathlib.Path | None = None) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["git", "-C", str(repo or REPO_ROOT), *args],
-        capture_output=True,
-        text=True,
-    )
+    return git("-C", str(repo or REPO_ROOT), *args)
 
 
 def _check_ignore(path: str) -> tuple[bool, str]:
@@ -130,7 +132,7 @@ class TestTheFixIsNotOverbroad:
         # NUL-separated, in bytes, both directions. Not decoration: with `text=True` the
         # subprocess stdin wrapper translates each "\n" to "\r\n" on Windows, git then sees
         # each path with a trailing "\r", which no longer matches a "!" re-inclusion rule,
-        # and this check reports tracked files as ignored that are not.
+        # and this check reports tracked files as ignored that are not. So both calls stay raw.
         listing = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "ls-files", "-z"], capture_output=True
         )
@@ -181,11 +183,8 @@ class TestGitStatusCannotSeeTheCache:
         repo = tmp_path / "throwaway"
         repo.mkdir()
         # A global core.excludesFile would otherwise decide part of the answer.
-        subprocess.run(
-            ["git", "-c", f"core.excludesFile={tmp_path / 'no-such-global-ignore'}",
-             "init", "-q", str(repo)],
-            capture_output=True, text=True, check=True,
-        )
+        git("-c", f"core.excludesFile={tmp_path / 'no-such-global-ignore'}",
+            "init", "-q", str(repo)).check_returncode()
         (repo / ".gitignore").write_bytes((REPO_ROOT / ".gitignore").read_bytes())
         return repo
 

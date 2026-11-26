@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from .._bins import refuse_nonfinite_times
-from .._rng import RNGLike, recorded_rng, resolve_rng, Default, resolve_seed_alias, surrogate_rng
+from .._rng import RNGLike, recorded_rng, Default, resolve_seed_alias, surrogate_rng
 from .._spread import is_constant as _is_constant
 from ..permutation import _count_at_least_as_extreme, permute_labels
 from ._tests import _require_shuffle_inputs
@@ -203,6 +203,11 @@ def cross_modal_comparison(
         i.e. the TFR/LFP signal is shifted earlier than spikes), surrogate_seed_entropy,
         surrogate_scheme (``'circular_shift'`` when the null ran), interpretation -- or
         {'error': ...} when inputs are missing or too short.
+
+    Raises:
+        ValueError: `tfr_data` or `spike_data` is empty or holds NaN or Inf; `tfr_data` is 3-D and
+            `spike_data` 2-D with mismatched time and trial lengths; `n_permutations` is negative;
+            or `bin_ms` is not a positive finite width.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='cross_modal_comparison')
     if tfr_data is None or spike_data is None:

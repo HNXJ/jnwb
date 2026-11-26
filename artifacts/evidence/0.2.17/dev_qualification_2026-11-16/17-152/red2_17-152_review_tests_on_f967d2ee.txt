@@ -1,0 +1,51 @@
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_____________ test_a_second_ref_matching_the_branch_name_refuses ______________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_17152_red2/test_a_second_ref_matching_the0')
+ci_api = ({'body': b'{"total_count": 1, "workflow_runs": [{"name": "CI/CD", "head_sha": "6b4d282b6de73667425914b75be9e0d4c689b1...?branch=dev&head_sha=6b4d282b6de73667425914b75be9e0d4c689b1a3&per_page=100'], 'status': 200}, 'http://127.0.0.1:57620')
+
+    def test_a_second_ref_matching_the_branch_name_refuses(tmp_path, ci_api):
+        """`git ls-remote origin refs/heads/dev` also lists refs/heads/a/refs/heads/dev, and lists it
+        first; taking the first line would read CI at that ref's commit instead of dev's tip."""
+        state, url = ci_api
+        repo, bare, tip, head = _repo(tmp_path)
+        _git(repo, "push", "-q", bare.as_posix(), "HEAD:refs/heads/a/refs/heads/dev")
+        listed = _git(repo, "ls-remote", "origin", "refs/heads/dev").splitlines()
+        assert len(listed) == 2 and listed[0].startswith(head), "the fixture must list the decoy ref first"
+        state["body"] = _body([_run("CI/CD", head, "success")])
+        proc = _run_push(tmp_path, repo, url)
+        out = proc.stdout + proc.stderr
+>       assert proc.returncode == 1, out
+E       AssertionError: To D:/pytest_temp/jnwb_17152_red2/test_a_second_ref_matching_the0/origin.git
+E            52c9cc2..6b4d282  dev -> dev
+E         
+E       assert 0 == 1
+E        +  where 0 = CompletedProcess(args=['C:/Program Files/Git/usr/bin/bash.exe', 'D:/repos/_work/_temp_jnwb_lane_17152/scripts/jnwb_pus...derr='To D:/pytest_temp/jnwb_17152_red2/test_a_second_ref_matching_the0/origin.git\n   52c9cc2..6b4d282  dev -> dev\n').returncode
+
+tests\test_jnwb_push.py:254: AssertionError
+______________ test_more_runs_at_the_tip_than_were_read_refuses _______________
+
+tmp_path = WindowsPath('D:/pytest_temp/jnwb_17152_red2/test_more_runs_at_the_tip_than0')
+ci_api = ({'body': b'{"total_count": 101, "workflow_runs": [{"name": "CI/CD", "head_sha": "1c5e72d91bea5bc41b7312af50a407acc9bc...?branch=dev&head_sha=1c5e72d91bea5bc41b7312af50a407acc9bc6a1f&per_page=100'], 'status': 200}, 'http://127.0.0.1:57623')
+
+    def test_more_runs_at_the_tip_than_were_read_refuses(tmp_path, ci_api):
+        """A failed run past the first page would be invisible; the gate answers unreadable."""
+        state, url = ci_api
+        repo, bare, tip, _head = _repo(tmp_path)
+        state["body"] = json.dumps({"total_count": 101,
+                                    "workflow_runs": [_run("CI/CD", tip, "success")]}).encode("utf-8")
+        proc = _run_push(tmp_path, repo, url, override=True)
+        out = proc.stdout + proc.stderr
+>       assert proc.returncode == 1, out
+E       AssertionError: To D:/pytest_temp/jnwb_17152_red2/test_more_runs_at_the_tip_than0/origin.git
+E            1c5e72d..ad52c12  dev -> dev
+E         
+E       assert 0 == 1
+E        +  where 0 = CompletedProcess(args=['C:/Program Files/Git/usr/bin/bash.exe', 'D:/repos/_work/_temp_jnwb_lane_17152/scripts/jnwb_pus...derr='To D:/pytest_temp/jnwb_17152_red2/test_more_runs_at_the_tip_than0/origin.git\n   1c5e72d..ad52c12  dev -> dev\n').returncode
+
+tests\test_jnwb_push.py:267: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_jnwb_push.py::test_a_second_ref_matching_the_branch_name_refuses
+FAILED tests/test_jnwb_push.py::test_more_runs_at_the_tip_than_were_read_refuses
+2 failed, 21 deselected in 7.92s

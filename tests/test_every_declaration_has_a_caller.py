@@ -14,13 +14,17 @@ having been removed from the root.
 
 from __future__ import annotations
 
-import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
 
 #: What makes each declared test dependency true, as something a reader can check. The value
 #: is the token that must appear in the repository for the declaration to have a caller --
@@ -43,18 +47,17 @@ TEST_EXTRA_CALLERS = {
 NOT_A_CALLER = ("CHANGELOG.md", "artifacts/")
 
 
-def _tracked_text() -> str:
-    """Every tracked text file's contents, concatenated once.
+def _tracked_text(exclude: tuple = ()) -> str:
+    """Every tracked text file's contents, concatenated once, except the named ``exclude`` paths.
 
     Tracked rather than walked: a working checkout has a `.venv` with thousands of files that
     mention every one of these packages, and a caller inside one is not this repository's.
     """
+    listing = git("ls-files", cwd=ROOT)
+    listing.check_returncode()
     names = [
-        name for name in subprocess.run(
-            ["git", "ls-files"],
-            cwd=ROOT, capture_output=True, text=True, check=True,
-        ).stdout.split()
-        if not name.startswith(NOT_A_CALLER)
+        name for name in listing.stdout.split()
+        if not name.startswith(NOT_A_CALLER) and name not in exclude
     ]
     assert len(names) > 100, f"git ls-files returned {len(names)} files; the search is empty"
     chunks = []
@@ -100,14 +103,20 @@ def test_the_caller_table_has_no_stale_entries() -> None:
 
 
 def test_coverage_is_not_declared_while_nothing_measures_it() -> None:
-    """The specific defect. If coverage comes back, it comes back with an invocation."""
+    """The specific defect. If coverage comes back, it comes back with an invocation.
+
+    This file names the flag it searches for, so it is left out of the corpus it searches.
+    """
     declared = _declared("test")
-    if "pytest-cov" not in declared:
-        return
-    corpus = _tracked_text()
-    assert "--cov" in corpus or "addopts" in corpus, (
-        "pytest-cov is declared again with nothing invoking it"
-    )
+    corpus = _tracked_text(exclude=(Path(__file__).resolve().relative_to(ROOT).as_posix(),))
+    if "pytest-cov" in declared:
+        assert "--cov" in corpus or "addopts" in corpus, (
+            "pytest-cov is declared again with nothing invoking it"
+        )
+    else:
+        assert "--cov" not in corpus, (
+            "--cov is invoked, but pytest-cov is not in the test extra"
+        )
 
 
 @pytest.mark.requires_git_checkout
@@ -131,10 +140,6 @@ def test_every_script_has_a_caller() -> None:
 def test_the_root_allowlist_holds_no_exemption_for_a_deleted_artifact() -> None:
     """`jnwb-unified-rev.md` outlived the script that wrote it."""
     # The live set, not the file's text: the comment explaining the removal names the file.
-    import sys
-
-    if str(ROOT) not in sys.path:
-        sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
     from scripts.harness_gate import ALLOWED_ROOT_FILES
 
     assert "jnwb-unified-rev.md" not in ALLOWED_ROOT_FILES, (

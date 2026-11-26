@@ -16,7 +16,6 @@ from ._psd import _welch_csd_gpu
 log = logging.getLogger(__package__)
 
 
-#: Default band edges (Hz) -- standard neuroscience convention; overridable per call.
 def _require_equal_lengths(x: np.ndarray, y: np.ndarray, func_name: str) -> None:
     """Reject unpaired traces instead of truncating to the shorter one.
 
@@ -33,21 +32,22 @@ def _require_equal_lengths(x: np.ndarray, y: np.ndarray, func_name: str) -> None
         )
 
 
-def _require_1d_pair(x, y, func_name: str) -> None:
-    """Both traces are 1-D. `.ravel()` accepted a 2-D array and concatenated its channels
-    end to end: `imaginary_coherency(np.stack([x, y]), np.stack([y, x]), fs=1000.)`
-    returned a complete result computed across a discontinuity that is not in the data.
-    `cross_area_coherence` refuses the same input with the same reasoning.
-    """
-    for name, trace in ((f"{func_name} x", x), (f"{func_name} y", y)):
+def _require_1d_traces(func_name: str, **traces) -> None:
+    """Every named trace is 1-D: `.ravel()` joined a 2-D array's channels end to end, and
+    `imaginary_coherency(np.stack([x, y]), np.stack([y, x]), fs=1000.)` estimated across the joins."""
+    for name, trace in traces.items():
         arr = np.asarray(trace)
         if arr.ndim != 1:
             raise ValueError(
-                f"{name} must be a 1-D time series, got shape {arr.shape}. This function "
-                "compares two traces; to work channel-by-channel, call it per channel "
-                "pair. A 2-D array was previously flattened, which joined the channels "
-                "end to end and estimated across the joins."
+                f"{func_name} {name} must be a 1-D time series, got shape {arr.shape}. Each "
+                "argument is one recording; to work channel-by-channel, call it per channel. "
+                "A 2-D array is refused, not flattened: flattening joins the channels end "
+                "to end and estimates across the joins."
             )
+
+
+def _require_1d_pair(x, y, func_name: str) -> None:
+    _require_1d_traces(func_name, x=x, y=y)
 
 
 def _require_finite_nonempty_pair(x: np.ndarray, y: np.ndarray, func_name: str) -> None:
@@ -307,7 +307,8 @@ def cross_area_coherence(
                 surrogates take more than about a second in total, since the process
                 pool costs a few seconds to start.
         nperseg: Welch segment length in samples. Default ``min(max(N // 8, 8), 4096)``,
-                 which yields 15 segments for any N up to 32768 and more beyond it.
+                 which yields ``1 + (N - nperseg) // (nperseg - noverlap)`` segments: 14 or 15
+                 for 1024 <= N <= 32768.
                  INTENTIONAL BREAK (0.2.4): the previous default ``min(N, 4096)`` put
                  every input up to ~8192 samples into a single segment, where
                  magnitude-squared coherence is identically 1.0 for ANY two signals --
@@ -457,14 +458,13 @@ def cross_area_coherence(
 
     n_segments = welch_segment_count(n_samples, nperseg, noverlap)
     if n_segments < MIN_IDENTIFIABLE_SEGMENTS:
-        step = nperseg - noverlap
         raise ValueError(
             f"coherence is not identifiable from {n_segments} Welch segment(s): "
             f"{n_samples} samples with nperseg={nperseg}, noverlap={noverlap}. "
             "With a single segment the cross-spectrum is the exact geometric mean of "
             "the auto-spectra, so magnitude-squared coherence is identically 1.0 at "
             "every frequency for ANY two signals, coupled or independent. Supply a "
-            f"smaller nperseg (<= {max(2, (n_samples + step) // 2)} keeps at least "
+            f"smaller nperseg (<= {max(2, (n_samples + noverlap) // 2)} keeps at least "
             f"{MIN_IDENTIFIABLE_SEGMENTS} segments here), a smaller noverlap, or a "
             "longer recording."
         )
@@ -674,12 +674,7 @@ def partial_coherence(
         raise ValueError(f"n_surrogates must be >= 1, got {n_surrogates}")
 
     x, y, z = np.asarray(X), np.asarray(Y), np.asarray(Z)
-    for name, trace in (("X", x), ("Y", y), ("Z", z)):
-        if trace.ndim != 1:
-            raise ValueError(
-                f"partial_coherence {name} must be a 1-D time series, got shape {trace.shape}. "
-                "The three traces are one recording each; a 2-D array is refused, not flattened."
-            )
+    _require_1d_traces("partial_coherence", X=x, Y=y, Z=z)
     _require_finite_nonempty_pair(x, y, "partial_coherence")
     _require_finite_nonempty_pair(x, z, "partial_coherence")
     _require_equal_lengths(x, y, "partial_coherence")

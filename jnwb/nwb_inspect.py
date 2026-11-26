@@ -729,6 +729,13 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
     When ``name`` is omitted:
     - use the sole continuous series when exactly one exists (in acquisitions or processing modules);
     - otherwise raise :class:`AmbiguousAcquisitionError`.
+
+    Raises:
+        AcquisitionNotFoundError: the file holds no acquisition or processing continuous series, or
+            `name` names none of them.
+        AmbiguousAcquisitionError: `name` is omitted and several continuous series exist; `name`
+            names a series in more than one container, or names both an acquisition and a processing
+            series; or a bare processing name is shared by several processing entries.
     """
     def _resolve(nwb: NWBFile) -> str:
         acq_names = sorted(nwb.acquisition.keys()) if nwb.acquisition else []
@@ -821,6 +828,12 @@ def unit_spike_times(path_or_nwb: InspectInput, unit_index: int = 0) -> np.ndarr
         NWB path or in-memory :class:`pynwb.NWBFile`.
     unit_index:
         Row index in the units table (0-based).
+
+    Raises
+    ------
+    UnitNotFoundError
+        the file has no units table, `unit_index` is outside `0..n_units - 1`, or the units table
+        has no `spike_times` column.
     """
 
     def _read(nwb: NWBFile) -> np.ndarray:
@@ -910,7 +923,7 @@ def _to_physical(
     is not ``n_channels`` raises ``ValueError``.
     """
     conversion = getattr(series, "conversion", None)
-    if conversion is not None and not (isinstance(conversion, float) and np.isnan(conversion)):
+    if conversion is not None and not np.isnan(float(conversion)):
         c_val = float(conversion)
         if c_val != 1.0:
             data = data * c_val
@@ -928,7 +941,7 @@ def _to_physical(
         if factors[channel] != 1.0:
             data = data * factors[channel]
     offset = getattr(series, "offset", None)
-    if offset is not None and not (isinstance(offset, float) and np.isnan(offset)):
+    if offset is not None and not np.isnan(float(offset)):
         o_val = float(offset)
         if o_val != 0.0:
             data = data + o_val
@@ -984,6 +997,18 @@ def acquisition_channel(
         When the series' ``starting_time`` is not 0. Sample 0 is at ``starting_time`` in
         session time, so subtract it from session-time event onsets before
         :func:`epoch_continuous`. :func:`inspect` reports it per series as ``starting_time``.
+
+    Raises
+    ------
+    AcquisitionNotFoundError
+        The series has no readable data array, stores timestamps instead of a rate, or has a
+        rate that is not finite and positive.
+    ChannelIndexError
+        ``channel`` is out of range, or not 0 for a 1D series.
+    AmbiguousLayoutError
+        The electrode count matches neither dimension of a 2D array, or both.
+    ValueError
+        The data array is neither 1D nor 2D.
     """
 
     def _read(nwb: NWBFile) -> tuple[np.ndarray, float]:
@@ -1309,6 +1334,9 @@ def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
     a file is now described by that file, which is what makes passing an open handle --
     the documented way to avoid reopening -- give the same answer as passing the path.
     An `NWBFile` with no file behind it is described from its arrays, in the same schema.
+
+    Raises:
+        FileNotFoundError: If ``path_or_nwb`` is a path and no file exists there.
     """
     if isinstance(path_or_nwb, NWBFile):
         source = getattr(path_or_nwb, "container_source", None)

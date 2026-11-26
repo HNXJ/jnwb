@@ -3,7 +3,7 @@
 A time parameter whose name carries no unit puts a 1000x error one keystroke away. The
 package already has the divergence: 23 parameters end in ``_ms`` and 7 in ``_s``, and
 ``examples/tutorials/03_spiking.py`` calls ``raster_psth(..., win_ms=(-100., 400.))`` at
-line 38 and ``compute_response_metrics(..., baseline_window=(-0.2, 0.0))`` at line 61 in
+line 56 and ``compute_response_metrics(..., baseline_window_s=(-0.2, 0.0))`` at line 82 in
 the same body -- both take a float 2-tuple, and only one says what a float means.
 
 The remedy is the one ``band_power(fs=, sampling_rate=)`` already implements: the canonical
@@ -16,7 +16,36 @@ from __future__ import annotations
 import warnings
 from typing import Any
 
+import numpy as np
+
 __all__ = ["resolve_unit_alias"]
+
+
+def require_positive_fs(fs, func_name: str) -> float:
+    """A sampling rate is strictly positive and finite, everywhere in this package.
+
+    This check used to be absent, so each caller failed in its own way further down --
+    or not at all. `wpli(x, y, fs=0.0)` raised `ZeroDivisionError`; `fs=-1000.0` raised a
+    ValueError describing a frequency grid running "0 to -500 Hz in steps of -3.90625
+    Hz"; `imaginary_coherency` got a clean message only because it reached scipy's own
+    guard, which names scipy's parameter rather than this contract. A NaN or Inf `fs`
+    passes `fs <= 0` and reached scipy's "Wn[0] must be less than Wn[1]" in the filters.
+    A string is refused even when it spells a number: callers that keep the original ``fs``
+    would carry the string into arithmetic below the check.
+    """
+    try:
+        if isinstance(fs, (str, bytes)):
+            raise TypeError(fs)
+        value = float(fs)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"{func_name}: fs must be a number in Hz; got {fs!r}."
+        ) from None
+    if not np.isfinite(value) or value <= 0.0:
+        raise ValueError(
+            f"{func_name}: fs must be finite and strictly positive (Hz); got {fs!r}."
+        )
+    return value
 
 
 _MISSING = object()

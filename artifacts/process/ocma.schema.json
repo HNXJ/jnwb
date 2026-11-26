@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hnxj/jnwb/artifacts/process/ocma.schema.json",
+  "title": "OCMA task, result and score objects (jnwb case)",
+  "description": "From artifacts/process/ocma_plan.md Ontology O. Enums reuse scripts/dashboard/data.schema.json where listed.",
+  "$defs": {
+    "signal_class": {"type": "string", "enum": ["spikes", "LFP"]},
+    "claim_class": {
+      "type": "string",
+      "enum": ["magnitude", "prevalence", "lag_asymmetry", "delay", "inference"]
+    },
+    "control": {
+      "type": "string",
+      "enum": ["known_positive", "known_negative", "null", "shuffle"]
+    },
+    "verdict": {"type": "string", "enum": ["reproduces", "partial", "does_not"]},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "evidence_locator": {
+      "type": "string",
+      "description": "path:line from the jnwb repo root, a DANDI locator, or a receipt path"
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind", "id", "objective", "reference", "observable", "signal_class",
+        "claim_class", "dataset", "operations", "estimand", "controls",
+        "tolerance", "verdict_rule", "writes"
+      ],
+      "properties": {
+        "kind": {"const": "task"},
+        "id": {"type": "string", "minLength": 1},
+        "objective": {"type": "string", "minLength": 1},
+        "reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "doi": {"type": "string"},
+            "figure": {"type": "string"},
+            "panel": {"type": "string"}
+          }
+        },
+        "observable": {
+          "type": "object",
+          "required": ["name", "unit", "axis"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {"type": "string"},
+            "unit": {"type": "string"},
+            "axis": {"type": "string"}
+          }
+        },
+        "signal_class": {"$ref": "#/$defs/signal_class"},
+        "claim_class": {"$ref": "#/$defs/claim_class"},
+        "dataset": {"type": "object"},
+        "operations": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "symbols in jnwb.__all__"
+        },
+        "estimand": {"type": "string"},
+        "controls": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/control"},
+          "minItems": 1
+        },
+        "tolerance": {"type": "string"},
+        "verdict_rule": {"type": "string"},
+        "writes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind", "task_id", "commit", "receipt", "values", "controls_run",
+        "verdict", "limitations"
+      ],
+      "properties": {
+        "kind": {"const": "result"},
+        "task_id": {"type": "string"},
+        "commit": {"$ref": "#/$defs/commit"},
+        "receipt": {
+          "type": "object",
+          "required": ["path", "sha256"],
+          "additionalProperties": false,
+          "properties": {
+            "path": {"type": "string"},
+            "sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "values": {"type": "object"},
+        "controls_run": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/control"}
+        },
+        "verdict": {"$ref": "#/$defs/verdict"},
+        "limitations": {"type": "string"}
+      }
+    },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind", "task_id", "scorer", "criteria", "total", "feedback", "evidence"
+      ],
+      "properties": {
+        "kind": {"const": "score"},
+        "task_id": {"type": "string"},
+        "scorer": {"type": "string"},
+        "criteria": {
+          "type": "object",
+          "description": "one key per rubric row; null only when the task lacks that criterion",
+          "additionalProperties": {
+            "type": ["number", "null"],
+            "minimum": 0
+          }
+        },
+        "total": {"type": "number", "minimum": 0, "maximum": 100},
+        "feedback": {"type": "string"},
+        "evidence": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidence_locator"},
+          "minItems": 1
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {"$ref": "#/$defs/task"},
+    {"$ref": "#/$defs/result"},
+    {"$ref": "#/$defs/score"}
+  ]
+}

@@ -56,7 +56,7 @@ class TestProcrustesDoesNotSwallowExceptions:
         # caught and silently rewritten to disparity=1.0 (sim=0.0).
         X = np.zeros((5, 3))
         Y = np.random.default_rng(1).normal(size=(5, 3))
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="unique points"):
             _procrustes(X, Y)
 
     def test_procrustes_still_works_on_valid_data(self):

@@ -18,7 +18,6 @@ from pynwb.ecephys import ElectricalSeries
 import jnwb
 from jnwb.nwb_io import MissingRequiredNWBFieldError
 from jnwb.nwb_write import (
-    AmbiguousMappingError,
     AppliedOperation,
     MutationCheck,
     MutationIssue,
@@ -26,7 +25,6 @@ from jnwb.nwb_write import (
     NWBMutationError,
     NWBVerificationError,
     REPAIRS,
-    UndeclaredUnitError,
     UnidentifiableRepairError,
     _attr_scalar_equal,
     _is_null,
@@ -1001,6 +999,32 @@ def test_repair_undeclared_squeeze_attribute_refuses(tmp_path):
         assert np.asarray(f["units"].attrs["custom"]).shape == (1,)
     with pytest.raises(UnidentifiableRepairError, match="cannot identify"):
         repair_nwb(src, dst=dst, repairs=["squeeze_scalar_attributes"])
+    assert not dst.exists(), "a refused repair must leave no file behind"
+
+
+def test_repair_squeeze_names_a_broken_schema_lookup(tmp_path, monkeypatch):
+    """A catalog failure is a refusal that names the cause, not a silent undeclared."""
+    src = tmp_path / "src.nwb"
+    dst = tmp_path / "never.nwb"
+    _make_nwb(src)
+    with h5py.File(src, "r+") as f:
+        f["units"].attrs["custom"] = np.array(["x"], dtype=object)
+    with h5py.File(src, "r") as f:
+        assert np.asarray(f["units"].attrs["custom"]).shape == (1,), \
+            "the fixture must hold a length-1 squeeze candidate"
+
+    class _BrokenNamespaceCatalog:
+        def get_namespace(self, name):
+            raise RuntimeError("planted catalog break")
+
+    class _BrokenTypeMap:
+        namespace_catalog = _BrokenNamespaceCatalog()
+
+    monkeypatch.setattr("pynwb.get_type_map", lambda: _BrokenTypeMap())
+    with pytest.raises(UnidentifiableRepairError, match="planted catalog break") as caught:
+        repair_nwb(src, dst=dst, repairs=["squeeze_scalar_attributes"])
+    assert "RuntimeError" in str(caught.value), \
+        "the refusal must name the exception class, not only its text"
     assert not dst.exists(), "a refused repair must leave no file behind"
 
 

@@ -225,7 +225,7 @@ def stream_npz_array(
 
     Streams chunked array slices directly from the underlying archive without loading
     the full array into RAM. Supports both standard uncompressed archives (ZIP_STORED)
-    and compressed archives ZIP_DEFLATED). Preserves exact dtype, shape, and Fortran/C
+    and compressed archives (ZIP_DEFLATED). Preserves exact dtype, shape, and Fortran/C
     memory order.
 
     Time depends on the compression. A stored archive (``np.savez``) seeks past what the slice

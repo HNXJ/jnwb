@@ -1,6 +1,6 @@
 """The read path refuses by default, tolerates on request, and says what it repaired.
 
-Two rulings, 2026-09-19.
+Two contracts, 2026-09-19.
 
 ``allow_missing`` exists because a consumer's 9 of 22 files lack ``session_description`` on disk.
 jnwb refused them at ``nwb_io.py``, and so does bare pynwb. ``artifacts/goal.md`` section 4 was
@@ -23,6 +23,7 @@ absent, crossed with a device attribute scalar or a length-1 object array.
 from __future__ import annotations
 
 import os
+import pathlib
 import shutil
 import warnings
 
@@ -138,7 +139,9 @@ def test_a_mode_other_than_read_is_refused_before_the_file_opens(
     shutil.copy(base_file, path)
     os.utime(path, ns=(10**18, 10**18))
     before, mtime = path.read_bytes(), path.stat().st_mtime_ns
-    with pytest.raises(ValueError, match=r"pynwb\.NWBHDF5IO"):
+    # Passing mode is deprecated (0.2.17); the refusal is kept and asserted alongside the warning.
+    with pytest.warns(DeprecationWarning, match="mode"), \
+            pytest.raises(ValueError, match=r"pynwb\.NWBHDF5IO"):
         with nwb_read_io(str(path), mode, allow_missing=allow_missing):
             pass  # pragma: no cover - the raise happens before the body
     assert path.read_bytes() == before
@@ -222,11 +225,14 @@ def _read(path, allow_missing=None):
     return nwbfile, {type(w.message).__name__ for w in caught}
 
 
-def _refusal(path, allow_missing=None):
-    """The exception the read raised and the names of the warning classes raised with it."""
+def _refusal(path, allow_missing=None, error=MissingRequiredNWBFieldError):
+    """The exception the read raised and the names of the warning classes raised with it.
+
+    ``error`` is the class the caller expects; a different error is a failure here, not a refusal.
+    """
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        with pytest.raises(Exception) as info:
+        with pytest.raises(error) as info:
             read_nwb(str(path), allow_missing=allow_missing)
     return info.value, {type(w.message).__name__ for w in caught}
 
@@ -240,8 +246,9 @@ def _assert_opens_both_ways_waiving_nothing(path, expected):
 
 def _assert_refused_both_ways_by_the_same_error(path):
     """The field is on disk, so the waiver has nothing to waive and cannot change the outcome."""
-    default, _ = _refusal(path)
-    waived, _ = _refusal(path, _WAIVE)
+    # These encodings fail in pynwb, not as a missing field, so any exception is the outcome.
+    default, _ = _refusal(path, error=Exception)
+    waived, _ = _refusal(path, _WAIVE, error=Exception)
     assert not isinstance(default, MissingRequiredNWBFieldError)
     assert type(waived) is type(default)
     return default

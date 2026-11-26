@@ -104,6 +104,9 @@ def cache_key(name: str, inputs: Any, params: dict) -> str:
     JSON with sorted keys, so mapping order never moves the key. The jnwb version is
     mixed in, so a key from one version never reads a value another version wrote.
     A value with no canonical form raises ``TypeError`` naming its type.
+
+    Raises:
+        ValueError: `name` is not a non-empty string, or `params` is not a dict.
     """
     # top-level `from jnwb import __version__` would be a circular import.
     from jnwb import __version__ as _jnwb_version

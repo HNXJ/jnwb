@@ -110,10 +110,7 @@ To determine response onset latency accurately, smoothing must be strictly **cau
 smoothed_rate = jnwb.causal_exp_smooth(rate_hz, bin_ms=5.0, tau_ms=30.0)
 ```
 
-![A noiseless rate step smoothed causally and with a Gaussian kernel](assets/figures/fig14_causal_vs_gaussian_step.png#only-light)
-![A noiseless rate step smoothed causally and with a Gaussian kernel](assets/figures/fig14_causal_vs_gaussian_step.dark.png#only-dark)
-
-The figure is synthetic: a noiseless step from 5 to 40 Hz at 100 ms, smoothed at 1 ms bins with `jnwb.causal_exp_smooth` (tau = 50 ms) and `jnwb.gaussian_smooth_rate` (sigma = 20 ms). The causal 50% crossing falls 33.3 ms after the onset, and the Gaussian's 10% rise comes 26.1 ms before it, so the Gaussian curve rises before the true onset.
+The figure of a rate step smoothed both ways is in [Common Mistakes, section 8](common_mistakes.md#8-ignoring-causal-filter-group-delay-in-onset-latency).
 
 ### Mathematical Latency Properties & Hazards
 A causal filter introduces an inherent, deterministic time delay:

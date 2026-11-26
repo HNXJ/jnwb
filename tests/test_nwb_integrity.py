@@ -774,6 +774,32 @@ class TestCheckWaveformBlocks:
         assert rep.units[0].matched_row == 0
         assert rep.ok
 
+    def test_a_ragged_block_with_no_samples_reads_as_unknown(self, tmp_path):
+        """The ragged twin of the dense no-samples case: a zero-sample block is `unknown` for
+        every unit, not a numpy reduction error."""
+        from datetime import datetime, timezone
+
+        import pynwb
+
+        from jnwb import check_waveform_blocks
+
+        path = tmp_path / "ragged_no_samples.nwb"
+        nwb = pynwb.NWBFile(session_description="w", identifier="w27z",
+                            session_start_time=datetime.now(timezone.utc))
+        nwb.add_unit_column(name="waveform_mean", description="mean waveform", index=True)
+        nwb.add_unit_column(name="amplitude", description="spike amplitude")
+        for i, amp in enumerate(_W27_AMPS):
+            nwb.add_unit(spike_times=[0.1 * (i + 1)], waveform_mean=np.zeros((_W27_ROWS[i], 0)),
+                         amplitude=amp)
+        with pynwb.NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        with h5py.File(path, "r") as handle:
+            assert "waveform_mean_index" in handle["units"]  # ragged, not dense
+            assert handle["units/waveform_mean"].shape == (sum(_W27_ROWS), 0)
+        rep = check_waveform_blocks(path, rtol=1e-9)
+        assert [u.status for u in rep.units] == ["unknown"] * 4
+        assert all(u.n_rows == 0 for u in rep.units)
+
 
 _DENSE_AMPS = (25.0, 40.0, 55.0, 70.0)
 _DENSE_CHANNEL = (0, 2, 1, 2)  # the channel that carries each unit's peak-to-peak

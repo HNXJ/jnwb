@@ -12,6 +12,8 @@ import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 README = REPO_ROOT / "README.md"
 MKDOCS = REPO_ROOT / "mkdocs.yml"
 SKILL = REPO_ROOT / "skills" / "jnwb-nwb-data" / "SKILL.md"
@@ -193,7 +195,6 @@ def test_mkdocs_tutorials_nav_order():
 
 def test_tutorial_docs_include_executable_sources():
     for n in ("01", "02", "03", "04", "05", "06", "07", "08"):
-        md = (REPO_ROOT / "docs" / "tutorials" / f"{n}_*.md")
         matches = list(REPO_ROOT.glob(f"docs/tutorials/{n}_*.md"))
         assert len(matches) == 1
         text = matches[0].read_text(encoding="utf-8")

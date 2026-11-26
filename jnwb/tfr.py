@@ -16,6 +16,7 @@ from scipy import signal
 
 from . import _backend
 from ._backend import CPU, CUDA, METAL, resolve_device, warn_device_fallback
+from ._units import require_positive_fs
 
 
 @dataclass(frozen=True)
@@ -122,21 +123,28 @@ def morlet_wavelet(
         ``sigma_t = n_cycles / (2 pi f0)``. ``normalization='energy'`` is the paper's
         unit-energy normalization (section 3c, eq. 6); the default ``'amplitude'`` is
         this function's own, chosen so a unit cosine reads as amplitude 1.
+
+    Raises:
+        ValueError: `f0` or `fs` is not finite, or `f0` is not positive, or `f0` is at or above
+            `fs / 2`; `fs` is not positive; `n_cycles` is not finite or not positive; `cutoff_sigma`
+            is not finite or is negative; or `normalization` is neither `'amplitude'` nor
+            `'energy'`.
     """
     if not np.isfinite(f0):
         raise ValueError(f"f0 must be finite, got {f0}")
     if f0 <= 0:
         raise ValueError(f"f0 must be positive, got {f0}")
-    if not np.isfinite(fs):
-        raise ValueError(f"fs must be finite, got {fs}")
-    if fs <= 0:
-        raise ValueError(f"fs must be positive, got {fs}")
+    require_positive_fs(fs, "morlet_wavelet")
     if f0 >= fs / 2.0:
         raise ValueError(f"f0 ({f0} Hz) must be below Nyquist limit ({fs / 2.0} Hz)")
     if not np.isfinite(n_cycles):
         raise ValueError(f"n_cycles must be finite, got {n_cycles}")
     if n_cycles <= 0:
         raise ValueError(f"n_cycles must be positive, got {n_cycles}")
+    if not np.isfinite(cutoff_sigma):
+        raise ValueError(f"cutoff_sigma must be finite, got {cutoff_sigma}")
+    if cutoff_sigma < 0:
+        raise ValueError(f"cutoff_sigma must be non-negative, got {cutoff_sigma}")
 
     sigma_t = n_cycles / (2.0 * np.pi * f0)
     K = int(np.ceil(cutoff_sigma * sigma_t * fs))
@@ -242,14 +250,23 @@ def complex_tfr(
         paper draws the cone at the e-folding time sqrt(2) s of the Morlet wavelet
         (Table 1), which is ``coi_sigma=np.sqrt(2)`` here. The default masks every sample
         the kernel's zero padding reaches, 4 sigma_t by default, which is wider.
+
+    Raises:
+        TypeError: `data` is not numeric.
+        ValueError: `data` holds NaN or Inf; `fs` is not positive; `coi_sigma` is negative; `dtype`
+            is not complex; `freqs` is not a non-empty 1-D array, holds a non-positive value, is not
+            strictly increasing, or reaches `fs / 2`; `n_cycles` is not positive, or is an array
+            whose shape differs from `freqs` or holds a non-positive value.
+        IndexError: `time_axis` is out of bounds for `data`.
     """
     arr = np.asarray(data)
     if not np.issubdtype(arr.dtype, np.number):
         raise TypeError(f"data must be numeric, got dtype {arr.dtype}")
     if not np.all(np.isfinite(arr)):
         raise ValueError("data contains NaN or Inf values")
-    if fs <= 0:
-        raise ValueError(f"fs must be positive, got {fs}")
+    require_positive_fs(fs, "complex_tfr")
+    if coi_sigma is not None and coi_sigma < 0:
+        raise ValueError(f"complex_tfr: coi_sigma must be non-negative, got {coi_sigma}")
     if not np.issubdtype(np.dtype(dtype), np.complexfloating):
         raise ValueError(
             f"complex_tfr: dtype must be a complex dtype (np.complex128 or np.complex64), "

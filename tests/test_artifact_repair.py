@@ -16,7 +16,7 @@ from jnwb.artifact_repair import (
     repair_band_artifacts,
     flagged_to_intervals,
     interpolate_intervals,
-    DEFAULT_BANDS,
+    _REPAIR_BANDS,
 )
 
 
@@ -96,14 +96,14 @@ class TestRepairBandArtifacts:
     def test_band_confined_spike_is_flagged_and_substituted(self):
         power, freqs, alpha_sel = self._synthetic()
         power[3, :, alpha_sel, 30] += 30.0
-        repaired, frac = repair_band_artifacts(power, freqs, band_ranges=DEFAULT_BANDS)
+        repaired, frac = repair_band_artifacts(power, freqs, band_ranges=_REPAIR_BANDS)
         assert frac.get("Alpha(8-14Hz)", 0.0) > 0
         assert np.abs(repaired[3, :, alpha_sel, 30] - power[3, :, alpha_sel, 30]).max() > 1.0
 
     def test_other_trials_and_bands_untouched(self):
         power, freqs, alpha_sel = self._synthetic()
         power[3, :, alpha_sel, 30] += 30.0
-        repaired, _ = repair_band_artifacts(power, freqs, band_ranges=DEFAULT_BANDS)
+        repaired, _ = repair_band_artifacts(power, freqs, band_ranges=_REPAIR_BANDS)
         assert np.allclose(repaired[0], power[0])
         assert np.allclose(repaired[3, :, ~alpha_sel, :], power[3, :, ~alpha_sel, :])
 
@@ -116,7 +116,7 @@ class TestRepairBandArtifacts:
         power, freqs, alpha_sel = self._synthetic()
         power = power[:5]
         power[3, :, alpha_sel, 30] += 30.0
-        repaired, frac = repair_band_artifacts(power, freqs, band_ranges=DEFAULT_BANDS)
+        repaired, frac = repair_band_artifacts(power, freqs, band_ranges=_REPAIR_BANDS)
         assert frac.get("Alpha(8-14Hz)", 0.0) > 0
         assert np.abs(repaired[3, :, alpha_sel, 30] - power[3, :, alpha_sel, 30]).max() > 1.0
 

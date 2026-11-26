@@ -1,6 +1,18 @@
-# Open stack (jnwb, 2026-11-06)
+# Open stack (jnwb, 2026-11-26)
 
-Open rows: none (emptied 2026-11-06; see the end). A row leaves by being repaired, shown false, or moved into the todo stack (`AGENTS.md` §11); `git log -- artifacts/open_stack.md` holds the rows of earlier dates.
+`origin/dev` at `84a896cb` (2026-11-26): hosted CI green at that SHA (runs `45751174676` and `45751180546`, read through the public API 2026-11-26); CI state per SHA in `artifacts/process/release_checklist.md` section 2. Hamm's consolidated ruling of 2026-11-22 (`artifacts/rulings/2026-11-22.md`) ruled every row of the ruling packet.
+
+Open rows: one (2026-11-24). `intervals-inmem` (opened 2026-11-24) moved to the todo stack as 17-165, required-0.2.17, on an independent critic's classification. A row leaves by being repaired, shown false, or moved into the todo stack (`AGENTS.md` §11); `git log -- artifacts/open_stack.md` holds earlier rows.
+
+| Id | Open item | Evidence | Owner | Next step |
+|---|---|---|---|---|
+| 17-144-src | The three isi_cv SHAs for todo 17-144 are not found in any searched location (provenance UNKNOWN, not verified absent; searched and unread locations in `artifacts/evidence/0.2.17/17-144_provenance.md`) | `E:/cl-jnwb16e` missing; `0e06993c`, `9980f58d`, `5fa63dd3` absent from `D:/repos/jnwb` and from `origin` (`gh api` 422 / fetch couldn't find remote ref), 2026-11-12. 2026-11-18, reported by main-vwin and not re-run by main-jnwb: `git cat-file -e` in every clone and mirror on D: and E: and a read of all 96 `.bundle` files on F:, D: and E: found none of the three; not readable: 2 bundles under `D:/cowork/jaxfne/scratch` (0 refs) and 58 pytest-fixture bundles; not checked: `F:/warehouse` bare repos other than jaxfne's, and any copy outside D:, E: and F:. Later sweeps (2026-11-25 to 2026-11-26, `artifacts/evidence/0.2.17/17-144_provenance.md` sections 1 to 7) fetched 22 bundles, checked the stores and their alternate closure, and found no receipt file by name | Hamm / jaxfne-orchestrator | restore the clone or re-push the three commits so they can be picked onto `dev`. Ruled 2026-11-22 (A5, option 1) and 2026-11-25: request recovery from jaxfne, which Hamm posts (not yet sent; no jchat identity or route on this machine); the row blocks until the commits or equivalent verified results exist; nothing synthetic substitutes |
+
+Cleared 2026-11-22 by Hamm's consolidated ruling (`artifacts/rulings/2026-11-22.md`): repaired `fact-zflip-cite` and `fact-cites-1121` (six fact rows re-cited, each line read at `7ecaf327`); moved to the todo stack `17-147-gate15` (17-147 scripts-2, option 2) and `17-147-hang` (17-154); `17-147-guard` closed on its bounded requirement, the other spellings a known limit in 17-147; moved to the roadmap `OCMA-5` (17-156, `deferred-0.2.20`). Repaired `17-152-over` (merge 7bc91d79 of 140c0766: `ci_gate.py` exits 3 on a completed red run and `jnwb_push.sh` overrides only that; `test_the_override_refuses_a_tip_with_no_run`, a pending run and a branch origin lacks each refuse with the variable set, all four new tests red on the old scripts; independent verification ACCEPT).
+
+Cleared 2026-11-20: `vflip2-receipt` (`vflip2_separation_0.2.14` regenerated at 0.2.16 with all 400 draws and threshold 22.800214862368193 identical; hash-currency tests added in `tests/test_fusion_agreement.py` and `tests/test_calibration_hash_walker.py`).
+
+Cleared 2026-11-09, the seven rows of the audit of 2026-11-08 at `5bfee7b0` (`artifacts/rulings/2026-11-09.md`): repaired P-217-03 (goal row 12) and P-217-05 (fact S15 narrowed); moved to the todo stack P-217-01 (17-145), P-217-02 and -06 (17-146), P-217-04 and -07 (17-148).
 
 Cleared 2026-10-25, the 40 rows of the audit of ac8736ff (`git show e00e8664:artifacts/open_stack.md`):
 

@@ -9,6 +9,10 @@ from .._rng import DEFAULT_SEED, RNGLike, resolve_rng
 from scipy import stats
 from ..permutation import _count_at_least_as_extreme, _p_from_count
 
+#: Ulps of ``sum(|v|)`` in the tie width of a permutation statistic: twice the 4-ulp bound on
+#: reordered sums derived in :func:`_tie_tolerance`'s docstring.
+_TIE_TOL_ULPS = 8.0
+
 
 def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
     """Exact (Clopper-Pearson) binomial confidence interval via the Beta-quantile form.
@@ -165,12 +169,10 @@ def exact_sign_flip(
     obs_mean = float(np.mean(arr))
 
     # Attainable non-zero p-value floor
-    if n <= 60:
+    if n <= 20:
         total_flips = 1 << n
         one_sided_floor = 1.0 / float(total_flips)
         p_floor = min(1.0, 2.0 * one_sided_floor) if alt == "two-sided" else one_sided_floor
-    else:
-        p_floor = 0.0
 
     tol = _tie_tolerance(arr)
 
@@ -244,7 +246,7 @@ def _tie_tolerance(values: np.ndarray) -> float:
     and this width. Uncentred, n = 1000 per group at an offset of 1e10 times the spread
     counted every split as a tie and returned p 1.0 where the exact rank was 0.487.
     """
-    return 8.0 * float(np.finfo(float).eps) * float(np.sum(np.abs(values)))
+    return _TIE_TOL_ULPS * float(np.finfo(float).eps) * float(np.sum(np.abs(values)))
 
 
 def _zero_spread_t(a: float, b: float) -> Tuple[float, float]:

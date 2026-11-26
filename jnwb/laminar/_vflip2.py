@@ -11,6 +11,7 @@ from scipy import stats
 
 from .._dictlike import DictAccessMixin
 from .._spread import r_squared
+from .._units import require_positive_fs
 
 #: Layer IVA, IVB and IVC of macaque area 17 in mm (O'Kusky and Colonnier 1982), summed by
 #: vFLIP2.m into the shortest channel window it searches. Summed as vFLIP2.m sums them, each
@@ -22,6 +23,19 @@ LAYER4_THICKNESS_MM = 127.1 / 1000 + 211.4 / 1000 + 247.5 / 1000
 OMEGA_CUT = 6.0
 
 _ORIENTATIONS = {"both": 0, "upright": 1, "inverted": -1}
+
+#: vFLIP2's band limits, exclusive, in Hz: the low band lies strictly between the first pair, the
+#: high band between the second. Source: `vflip2` docstring, step 4 (vFLIP2.m get_freqbands).
+_LOW_BAND_HZ = (4, 70)
+_HIGH_BAND_HZ = (40, 150)
+#: Fewest bins a low-band run needs, for either sign of S1 - S2 (`vflip2` docstring, step 4).
+_MIN_LOW_BAND_BINS = 5
+#: Fewest bins a high band needs (`vflip2` docstring, step 4).
+_MIN_HIGH_BAND_BINS = 20
+#: A high band must end at or above this frequency (`vflip2` docstring, step 4; vFLIP2.m line 264).
+_HIGH_BAND_TOP_MIN_HZ = 70
+#: Relative tolerance on the uniform spacing of `freqs`; a numerical guard, no external source.
+_FREQ_GRID_RTOL = 1e-9
 
 
 @dataclass(frozen=True)
@@ -107,23 +121,23 @@ def _longest_true_run(mask: np.ndarray) -> np.ndarray:
 
 def _freqbands(freqs: np.ndarray, s1: np.ndarray, s2: np.ndarray):
     """vFLIP2.m's get_freqbands: (deep band, superficial band, orientation)."""
-    low = (freqs > 4) & (freqs < 70)
-    high = (freqs > 40) & (freqs < 150)
+    low = (freqs > _LOW_BAND_HZ[0]) & (freqs < _LOW_BAND_HZ[1])
+    high = (freqs > _HIGH_BAND_HZ[0]) & (freqs < _HIGH_BAND_HZ[1])
     run1 = _longest_true_run((s1 > s2) & low)
     run2 = _longest_true_run((s1 < s2) & low)
     deep, sup, orientation = np.array([]), np.array([]), 0
-    if run1.size >= 5 and run2.size >= 5:
+    if run1.size >= _MIN_LOW_BAND_BINS and run2.size >= _MIN_LOW_BAND_BINS:
         if freqs[run1].min() < freqs[run2].min():
             deep, orientation, ind_high = freqs[run1], -1, (s1 < s2) & high
         else:
             deep, orientation, ind_high = freqs[run2], 1, (s1 > s2) & high
-    elif run1.size >= 5:
+    elif run1.size >= _MIN_LOW_BAND_BINS:
         deep, orientation, ind_high = freqs[run1], -1, (s1 < s2) & high
-    elif run2.size >= 5:
+    elif run2.size >= _MIN_LOW_BAND_BINS:
         deep, orientation, ind_high = freqs[run2], 1, (s1 > s2) & high
     if orientation != 0:
         sup = freqs[_longest_true_run(ind_high)]
-        if sup.size < 20 or sup[-1] < 70:
+        if sup.size < _MIN_HIGH_BAND_BINS or sup[-1] < _HIGH_BAND_TOP_MIN_HZ:
             sup = np.array([])
     return deep, sup, orientation
 
@@ -301,7 +315,7 @@ def vflip2(
     if freqs.ndim != 1 or freqs.size != psd.shape[1] or freqs.size < 2:
         raise ValueError(f"freqs must be 1-D with {psd.shape[1]} entries, got shape {freqs.shape}")
     binsize = float(freqs[1] - freqs[0])
-    if not (binsize > 0 and np.allclose(np.diff(freqs), binsize, rtol=1e-9, atol=0)):
+    if not (binsize > 0 and np.allclose(np.diff(freqs), binsize, rtol=_FREQ_GRID_RTOL, atol=0)):
         raise ValueError("freqs must be uniformly spaced and increasing")
     if not (np.isfinite(contact_spacing) and contact_spacing > 0):
         raise ValueError(f"contact_spacing must be finite and positive, got {contact_spacing}")
@@ -524,10 +538,8 @@ def vflip2_from_lfp(
     """
     if isinstance(fs, bool) or not isinstance(fs, (int, float, np.integer, np.floating)):
         raise ValueError(f"fs must be a real number, got {fs!r}")
-    fs = float(fs)
-    if not (np.isfinite(fs) and fs > 0):
-        raise ValueError(f"fs must be finite and positive, got {fs}")
-    if fs / 2 < 150:
+    fs = require_positive_fs(fs, "vflip2_from_lfp")
+    if fs / 2 < _HIGH_BAND_HZ[1]:
         raise ValueError(
             f"vflip2_from_lfp: fs must be at least 300 Hz, so that the Nyquist frequency fs / 2 "
             f"reaches the 150 Hz band edge; got fs={fs:g}")

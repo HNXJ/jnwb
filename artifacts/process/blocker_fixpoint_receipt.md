@@ -1,29 +1,50 @@
-# Blocker fixpoint receipt, 0.2.16
+# Blocker fixpoint receipt, 0.2.17 candidate
 
 | Field | Value |
 |---|---|
-| commit | `16233114982df88d46789de09d1ed6ff2f7eea90` |
+| commit | `6481d40dec888f6aa6a591d2c3b3275aae739b1d` |
 | new release-blocking problems found | 0 |
-| ruling | `AGENTS.md` section 11 condition 3: the terminating condition is an independent blocker-focused pass that finds no new release-blocking problem; G-04 (2026-10-19): each advertised scientific claim is checked against the deferred rows |
-| pass | Independent reviewers, none of whom wrote what they reviewed: two closure passes over the repository at `7d11325b` (Sonnet 5.5; Muse Spark 1.3 through opencode, read-only, no shell), then Sonnet 5.5 over the repairs `7d11325b..cb781455` and `484bca40..16233114` |
+| ruling | `AGENTS.md` section 11 condition 3: an independent blocker-focused pass finds no new release-blocking problem; G-04 (2026-10-19): each advertised scientific claim is checked against the deferred rows |
+| scope | One full pass at `88bbc699262c5b82b0a2ec755d5952513aa8ffab`, then a delta review of each later commit up to `6481d40d`. Every change since `88bbc699` is under `artifacts/` (checked by `git diff --name-only`); no code, test, script or docs file changed |
 
 ## Verification
 
 | Scope | Verified at | Verdict | New blockers |
 |---|---|---|---|
-| Closure pass (Sonnet 5.5): `[0.2.16]` lines against `jnwb/`; added and removed public names (`git diff v0.2.15..HEAD -- jnwb/__init__.py`, `public_surface.json`) each with a changelog line; version surfaces; roadmap rows deferred past 0.2.16 (15-11, 12-21, 16-12, 17-130 to 17-141) and the 0.2.17 items against README, `docs/`, the skills and the changelog; the open stack holds no row; no `required-0.2.16` or `deferred-0.2.16` item | `7d11325b` | NO NEW BLOCKER | 0 |
-| Closure pass (Muse, read-only) over the same scope | `7d11325b` | NO NEW BLOCKER; about 20 of the changelog lines opened, the rest by pattern; `git diff` and the suite not run (no shell) | 0 |
-| Repair (Sonnet 5.5): the suite at `7d11325b` failed on three records the bump made stale; `cb781455` drops the released 0.2.16 row from `release_plan.json`, moves `[0.2.11]` to `artifacts/archive/changelog_0.1.0-0.2.9.md` (byte-identical block, 36 lines) and reruns the curation calibration at 0.2.16 (only version stamps change) | `cb781455` | NO NEW BLOCKER; 176 tests over the changelog, calibration and ontology readers passed | 0 |
-| Repair (Sonnet 5.5): `release_gate.py` STEP 0a refused `484bca40` (origin/main not an ancestor; 35 figures recorded 0.2.15). `fa2de104` merges main (`5822c3e9`) into dev with an empty content diff; `16233114` changes only the 35 `jnwb_version` fields of `scripts/figures/figure_registry.toml` (figures rerendered, no image changed) | `16233114` | NO NEW BLOCKER | 0 |
+| Full closure pass: advertised claims in README, `docs/` and the changelog checked against the deferred rows (15-11, 12-21, 16-12); stack consistency; changelog entries spot-checked against the code. Not run: float32 NaN conversion, ragged empty block, repair catalog refusal, electrodes-region integrity, processing-table hint, 1-D refusal text | `88bbc699` | CLEAN | 0 |
+| Delta review, independent reviewer: open-stack header, A5 row and 12-21 status reconciled | `ad4e68c1` | CLEAN | 0 |
+| Delta review: update-log row recording the gate receipts | `d784399` | ACCEPT | 0 |
+| Delta review: 17-166 and 17-167 moved from the todo stack to the roadmap as `deferred-0.2.18`; the gate was not changed | `dcfd839` | ACCEPT | 0 |
+| Delta review: roadmap wording restored after the move | `4dd60b8e` | ACCEPT | 0 |
+| Delta review: 17-144 provenance record (section 7), the 16-12 wording and the store-count corrections: `3b475620`, `8a2d45eb`, `345f139`, `7605b3b3`, `18eb8af9` (artifacts only). Earlier versions were rejected for wording and fixed; the final versions were accepted | `18eb8af9` | ACCEPT | 0 |
+| Delta review, independent reviewer (a fresh pass on the uncommitted set, then a delta on its three findings): reopened 17-100, 17-101 and 17-129 (todo sections restored from `d84577ea^`); 17-168 roadmap row removed; 17-99 closed on Hamm's ACCEPT and its plan items entry removed; rulings file `2026-11-25.md`; checklist and open-stack reconciled. First pass REVISE: one major (17-101 text still cited a `memory.md:7` path removed by `d84577ea`), two minor (D4 row; a rulings-file pointer to a non-existent checklist section). All three fixed; delta ACCEPT | `aa5c1083` | ACCEPT after REVISE | 0 release-blocking |
+| Delta reviews, agy Neon (read-only), three rounds on the uncommitted set of this commit: 6, 3 and 2 findings. Each finding was checked against the file text before it was applied. The two final wording edits (the A5 cell and the Target cite) were checked by the dispatcher against their cited lines and were not re-reviewed | `6481d40d` | REJECT rounds, fixed; last two edits not re-reviewed | 0 release-blocking |
+
+## Stale statements found by the full pass
+
+| Statement | Status |
+|---|---|
+| `artifacts/process/release_checklist.md` A5 row: "six todo items labelled deferred-0.2.17 ... 7 violations" | repaired at `ad4e68c1` |
+| `artifacts/roadmap.md` row 12-21: delay and direction "wait for a broadband jaxfne field" | repaired at `ad4e68c1`; the row stays open for the delay estimand |
+| `artifacts/open_stack.md` header: `dev` at `68995c90` | repaired at `ad4e68c1` |
+| `README.md:50` and `jnwb/__init__.py:14` read 0.2.16 | open: the version bump is R4, owner only |
+| `README.md:22` (roadmap 17-167, N1) | open: `deferred-0.2.18`, waits on Hamm's wording |
+
+## Open at this commit
+
+| Item | State |
+|---|---|
+| 17-144-src, the jaxfne isi_cv commits | UNKNOWN; blocks 0.2.17. Own content and reachable alternates of the 322 stores with an unresolvable alternate were checked: none holds the three SHAs; 125 alternate targets are absent here (17-144 evidence, section 7). No recovery route on this machine (no jchat identity; Hamm decides the channel, 2026-11-25); roadmap 16-12 depends on it |
+| 13 changelog fragments in `artifacts/changelog.d/` | unassembled; assembly is the release step (`scripts/assemble_changelog.py`, R4) |
+| Version | declared 0.2.16; the bump is R4, owner only |
 
 ## Receipts
 
 | Check | Result |
 |---|---|
-| Harness gates | 22 of 22 passed at `cb781455` and `484bca40` |
-| Full suite | 10817 passed, 83 skipped, 38 xfailed, 0 failed at `cb781455` and again at `484bca40` (`jnwb_suite.sh`, stamp equal to the commit); `484bca40..16233114` changes no file the suite runs but the registry's version fields |
-| CI on `dev` | `484bca40`: CI/CD run 42360755696 and dashboard run 42360755686 concluded success; the run on the commit recording this receipt follows it |
-| Curation calibration | rerun at the declared 0.2.16; 2784 trials, table unchanged from 0.2.14; estimator `5a8c30c542be7772` |
-| Peak-memory record | `jnwb_version` 0.2.16, recorded in `7d11325b`; every operation under 505.875 MiB |
-| Frozen-validated | gate 19 passes |
-| Release gate | not yet run; it follows this receipt |
+| Harness gates | 22 of 22 at `6481d40d` (`_temp_harness_X.log`, outside the repository); the commits since `ad4e68c1` change artifacts only |
+| Full suite | 11145 passed, 163 skipped, 36 xfailed, 0 failed at `ad4e68c1` (`jnwb_suite.sh`; stamp equal to that commit) |
+| Complexity gate (A4) | `ruff check --select C901 jnwb/`: all checks passed at `ad4e68c1` |
+| Docs | `docs_build.py` strict: exit 0, no WARNING line, at `ad4e68c1` |
+| CI on `dev` | `ad4e68c1`: runs 45727251686 and 45727243852 concluded success. `4dd60b8e`: runs 45736611170 and 45736607156 concluded success (read through the public API 2026-11-25) |
+| STEP 0 | Run on a clean tree at `6481d40d` (`step0_6481d40dec888f6aa6a591d2c3b3275aae739b1d.log`, outside the repository): exit 1 at 0a, with three errors. `17-144-src` is an open row. The committed receipt named `aa5c1083`, with five files changed since, so the binding failed; this commit names `6481d40d`, and it is the only receipt change after that commit. 13 changelog fragments are unassembled (R4). Steps 0b to 8 and the suite did not run |

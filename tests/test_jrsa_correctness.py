@@ -1,7 +1,14 @@
+import pathlib
+import sys
+
 import numpy as np
 import pytest
 import warnings
 import jnwb as oa
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 def test_jrsa_nan_omission_paired():
     """Verify that nan_policy='omit' performs joint listwise exclusion of NaNs."""
@@ -285,7 +292,7 @@ class TestANumpyIntegerAdimIsTheSameAxis:
 
 
 class TestARowMetricWindowsTheObservationsByDefault:
-    """IB-58 (ruled 2026-10-06): with `adim` not passed the six axis-0 metrics window axis 0,
+    """IB-58: with `adim` not passed the six axis-0 metrics window axis 0,
     the observations `lag` and the null act on. They windowed the last axis, the features.
     A passed ``adim=-1`` still windows the features, and ``adim=0`` the observations."""
 

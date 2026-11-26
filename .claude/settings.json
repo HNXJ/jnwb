@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"$CLAUDE_PROJECT_DIR/scripts/push_guard.py\""
+            "command": "python \"D:/repos/jnwb/scripts/push_guard.py\""
           }
         ]
       }

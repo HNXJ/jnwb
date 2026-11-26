@@ -1,0 +1,8 @@
+- `jnwb/nwb_validate.py`: `validate_nwb(layers=[])` raises `ValueError` instead of reporting a clean file.
+- `jnwb/nwb_events.py`: `edges_near_events` refuses a non-finite `threshold` by name.
+- `jnwb/spectral/_reference.py`: `bipolar_reference` refuses one channel instead of returning zero rows.
+- `jnwb/spectral/_psd.py`: `spectral_tilt` refuses a one-sample trace by name.
+- `jnwb/tfr.py`: `morlet_wavelet` refuses a non-finite or negative `cutoff_sigma` by name.
+- `jnwb/tfr.py`: `complex_tfr` refuses a negative `coi_sigma` by name.
+- `jnwb/decoding.py`: `nested_cv_linear_svm` refuses `n_splits < 2` by name.
+- `jnwb/spectral/_coupling.py`: the too-few-segments error advises an `nperseg` that gives two segments.

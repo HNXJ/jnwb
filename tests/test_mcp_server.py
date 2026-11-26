@@ -8,6 +8,7 @@ the live registry are the same set, which is the thing that was actually wrong.
 import importlib
 import pathlib
 import re
+import sys
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -24,6 +25,8 @@ from jnwb.mcp_server import (  # noqa: E402
 )
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
 
 #: The tool source every `add_tool` success path in this file registers.
 DUMMY_TOOL_CODE = '''

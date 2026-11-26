@@ -15,6 +15,7 @@ import jnwb
 import jnwb.testing as jt
 from jnwb import _backend, spectral
 from jnwb.artifact_detection import bad_trials_single_channel
+import pandas as pd
 
 FS = 1000.0
 TRACE = np.random.default_rng(915).normal(size=8192)
@@ -313,3 +314,29 @@ def test_vflip_does_not_depend_on_amplitude_units(scale):
     assert ref.accepted and got.accepted
     assert got.crossover_contact == pytest.approx(ref.crossover_contact, rel=1e-9)
     assert got.support_score == pytest.approx(ref.support_score, rel=1e-9)
+
+
+class TestIntegration021:
+
+    def test_invalid_input_fail_loud_across_all_primitives(self, tmp_path):
+        """Verify strict fail-loud behavior for invalid inputs across all five primitives."""
+        # 1. aperiodic_fit: invalid freq_range minimum <= 0
+        with pytest.raises(ValueError, match="freq_range minimum must be strictly positive"):
+            jnwb.aperiodic_fit(np.array([1.0, 2.0, 3.0, 4.0]), np.ones(4), freq_range=(0.0, 3.0))
+
+        # 2. relative_power: negative power input
+        with pytest.raises(ValueError, match="power contains negative values"):
+            jnwb.relative_power(np.array([-1.0, 2.0]), np.array([1.0, 2.0]))
+
+        # 3. exact_sign_flip: non-finite diffs
+        with pytest.raises(ValueError, match="finite numerical values"):
+            jnwb.exact_sign_flip([1.0, np.nan, 3.0])
+
+        # 4. stream_npz_array: missing file
+        with pytest.raises(FileNotFoundError, match="NPZ archive not found"):
+            jnwb.stream_npz_array(tmp_path / "nonexistent.npz", "key")
+
+        # 5. probe_geometry: duplicate coordinates
+        dup_df = pd.DataFrame({"x": [0, 0], "y": [0, 0], "z": [10, 10]})
+        with pytest.raises(ValueError, match="Duplicate contact coordinates"):
+            jnwb.probe_geometry(dup_df, units="um")

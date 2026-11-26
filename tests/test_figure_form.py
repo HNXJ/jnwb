@@ -778,14 +778,14 @@ STYLE_NAMES = NAMES
 AWAITING: dict[tuple[str, str], str] = {}
 
 #: Every embed fails the mobile-width check for one reason: the shared style sets the smallest
-#: text at 8 pt in a 7.2 in figure, and a figure scaled to 343 px renders it at 5.3 px. The ruled
+#: text at 8 pt in a 7.2 in figure, and a figure scaled to 343 px renders it at 5.3 px. The style
 #: text range tops out at 11 pt, which renders at 7.3 px there, so the range cannot reach 9 px
 #: at that width: the figure width would have to fall below 5.8 in. The embeds are listed one
 #: by one so that a new embed is judged and not waved through.
 _MOBILE_TEXT_TOO_SMALL = (
     f"smallest text renders at {_displayed_px(STYLE.SMALL, STYLE.WIDTH, MOBILE_WIDTH_PX):.1f} px "
     f"at {MOBILE_WIDTH_PX} px ({STYLE.SMALL:.0f} pt, {STYLE.WIDTH:.1f} in figure); the largest "
-    f"ruled size, {STYLE.TEXT_RANGE_PT[1]:.0f} pt, renders at "
+    f"style size, {STYLE.TEXT_RANGE_PT[1]:.0f} pt, renders at "
     f"{_displayed_px(STYLE.TEXT_RANGE_PT[1], STYLE.WIDTH, MOBILE_WIDTH_PX):.1f} px")
 AWAITING.update({("displayed size at the mobile width", embed): _MOBILE_TEXT_TOO_SMALL for embed in (
     "02_paths_addressing_metadata.md:fig01_addressing_laminar.png",
@@ -798,13 +798,11 @@ AWAITING.update({("displayed size at the mobile width", embed): _MOBILE_TEXT_TOO
     "05_artifact_detection_and_repair.md:fig20_bad_channels_and_trials.png",
     "06_spikes_psth_and_onset_dynamics.md:fig02_raster_psth.png",
     "06_spikes_psth_and_onset_dynamics.md:fig03_onset_fitting.png",
-    "06_spikes_psth_and_onset_dynamics.md:fig14_causal_vs_gaussian_step.png",
     "06_spikes_psth_and_onset_dynamics.md:fig15_spike_phase_locking.png",
     "07_statistical_inference_and_nulls.md:fig08_permutation_null.png",
     "07_statistical_inference_and_nulls.md:fig16_cluster_permutation.png",
     "08_directed_connectivity_and_information.md:fig09_directed_connectivity.png",
     "08_directed_connectivity_and_information.md:fig17_spectral_granger.png",
-    "08_directed_connectivity_and_information.md:fig18_psi_narrowband_trap.png",
     "09_decoding_and_visual_qc.md:fig07_population_decoding.png",
     "09_open_data.md:fig21_open_data_psth_db.png",
     "03_spiking.md:fig27_spiking_psth_onset.png",
@@ -1482,12 +1480,12 @@ from matplotlib.font_manager import weight_dict  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 from matplotlib.patches import Patch  # noqa: E402
 
-#: The ruled values. `figure_style.py` is the one place a figure takes them from, and this is
+#: The style values. `figure_style.py` is the one place a figure takes them from, and this is
 #: the one place the suite spells them out.
-RULED_SERIES = ("#1565c0", "#ff9800", "#00acc1", "#e53935")
-RULED_HIGHLIGHT_DARK = "#cfb87c"
-RULED_TEXT_PT = (8.0, 11.0)
-RULED_LINE_PT = (1.2, 1.8)
+STYLE_SERIES = ("#1565c0", "#ff9800", "#00acc1", "#e53935")
+STYLE_HIGHLIGHT_DARK = "#cfb87c"
+STYLE_TEXT_PT = (8.0, 11.0)
+STYLE_LINE_PT = (1.2, 1.8)
 TRUE_MINUS = "−"
 #: An ASCII hyphen where a minus belongs: before a digit, and not after a character that makes it
 #: a range ("0-7") or a compound.
@@ -1633,7 +1631,7 @@ def _cvd_failures(colours, marks=(*STYLE.SERIES, *STYLE.HIGHLIGHT.values())) -> 
     return hits
 
 
-def _text_size_failures(fig, bounds=RULED_TEXT_PT) -> list[str]:
+def _text_size_failures(fig, bounds=STYLE_TEXT_PT) -> list[str]:
     _renderer(fig)
     return [f"{t.get_text()!r} is {t.get_fontsize():g} pt" for t in _drawn_texts(fig)
             if not bounds[0] <= t.get_fontsize() <= bounds[1]]
@@ -1691,7 +1689,7 @@ def _panel_letter_failures(fig) -> list[str]:
     return hits
 
 
-def _line_width_failures(fig, bounds=RULED_LINE_PT) -> list[str]:
+def _line_width_failures(fig, bounds=STYLE_LINE_PT) -> list[str]:
     hits = []
     for i, ax in enumerate(fig.axes):
         if ax not in _panel_axes(fig):
@@ -1755,16 +1753,16 @@ def test_no_figure_source_types_a_colour(source):
     assert not hits, f"{source.name}: {hits}"
 
 
-def test_the_style_module_holds_the_ruled_palette():
-    assert tuple(STYLE.SERIES) == RULED_SERIES, STYLE.SERIES
-    assert STYLE.HIGHLIGHT["dark"] == RULED_HIGHLIGHT_DARK, STYLE.HIGHLIGHT
-    assert tuple(STYLE.TEXT_RANGE_PT) == RULED_TEXT_PT and tuple(STYLE.LINE_RANGE_PT) == RULED_LINE_PT
+def test_the_style_module_holds_the_expected_palette():
+    assert tuple(STYLE.SERIES) == STYLE_SERIES, STYLE.SERIES
+    assert STYLE.HIGHLIGHT["dark"] == STYLE_HIGHLIGHT_DARK, STYLE.HIGHLIGHT
+    assert tuple(STYLE.TEXT_RANGE_PT) == STYLE_TEXT_PT and tuple(STYLE.LINE_RANGE_PT) == STYLE_LINE_PT
     assert set(STYLE.VARIABLE) == set(VARIABLE_LABELS), "a named variable has no legend pattern"
     assert set(STYLE.VARIABLE.values()) <= {*STYLE.SERIES, STYLE.NEUTRAL}
     sizes = (STYLE.SMALL, STYLE.LABEL, STYLE.TITLE, STYLE.LETTER)
-    assert all(RULED_TEXT_PT[0] <= s <= RULED_TEXT_PT[1] for s in sizes), sizes
+    assert all(STYLE_TEXT_PT[0] <= s <= STYLE_TEXT_PT[1] for s in sizes), sizes
     widths = (STYLE.LW_THIN, STYLE.LW, STYLE.LW_THICK)
-    assert all(RULED_LINE_PT[0] <= w <= RULED_LINE_PT[1] for w in widths), widths
+    assert all(STYLE_LINE_PT[0] <= w <= STYLE_LINE_PT[1] for w in widths), widths
 
 
 @pytest.mark.parametrize("name", STYLE_NAMES)
@@ -1859,7 +1857,7 @@ def test_the_open_data_script_draws_no_figure_and_its_figure_has_two_variants(dr
 
 
 def test_the_style_checks_catch_their_cases():
-    # Each departure the ruling names, built under the plain defaults, is flagged; the same
+    # Each departure the style specification names, built under the plain defaults, is flagged; the same
     # figure under the style module is not.
     with matplotlib.rc_context():
         matplotlib.rcdefaults()

@@ -9,6 +9,7 @@ from jnwb.artifact_detection import (
     consensus_bad_trials,
     trial_correlation_matrix,
 )
+import jnwb
 
 
 def test_bad_channels_detected_from_low_correlation():
@@ -163,3 +164,41 @@ if __name__ == "__main__":
     test_trial_correlation_matrix_shape_and_symmetry()
     test_determinism()
     print("\nAll artifact_detection self-tests PASSED")
+
+
+class TestArtifactDetectionPublicAPI:
+    def test_artifact_functions_in_jnwb_all(self):
+        expected_exports = [
+            "channel_correlation_matrix",
+            "bad_channels_from_correlation",
+            "trial_correlation_matrix",
+            "bad_trials_single_channel",
+            "consensus_bad_trials",
+        ]
+        for name in expected_exports:
+            assert name in jnwb.__all__, f"{name} not in jnwb.__all__"
+            assert hasattr(jnwb, name), f"jnwb has no attribute {name}"
+
+    def test_artifact_functions_smoke_run(self):
+        rng = np.random.default_rng(0)
+        data = rng.standard_normal((4, 100))
+        data[3] = data[0] * 0.01 + rng.standard_normal(100) * 10.0
+
+        corr = jnwb.channel_correlation_matrix(data)
+        assert corr.shape == (4, 4)
+        assert np.allclose(np.diag(corr), 1.0)
+
+        bad, summary, z = jnwb.bad_channels_from_correlation(corr, z_thresh=2.0)
+        assert bad.shape == (4,)
+        assert summary.shape == (4,)
+
+        trials = rng.standard_normal((5, 50))
+        t_corr = jnwb.trial_correlation_matrix(trials)
+        assert t_corr.shape == (5, 5)
+
+        t_bad, t_z, a_z = jnwb.bad_trials_single_channel(trials)
+        assert t_bad.shape == (5,)
+
+        flags = np.array([[True, False], [True, True], [False, False]])
+        cons_bad, frac = jnwb.consensus_bad_trials(flags, min_frac_channels=0.5)
+        assert cons_bad.shape == (2,)

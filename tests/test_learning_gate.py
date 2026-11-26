@@ -7,6 +7,7 @@ tree. A check that reads nothing must not pass, so the examined set is asserted 
 
 from __future__ import annotations
 
+import os
 import pathlib
 import subprocess
 import sys
@@ -18,6 +19,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 from scripts import learning_gate as lg  # noqa: E402
+from scripts.gates.boundary import git  # noqa: E402
 
 # The row as it stood before the recount landed (314d7329^): two instances joined by a comma.
 LEDGER_ROW_BEFORE_RECOUNT = (
@@ -157,12 +159,12 @@ def test_gate_20_runs_the_state_row_check(monkeypatch):
 
 def _need_commit(rev: str) -> None:
     """Skip where a shallow clone (CI's checkout) lacks the commit the test replays."""
-    if subprocess.run(["git", "-C", str(REPO_ROOT), "cat-file", "-e", f"{rev}^{{commit}}"],
-                      capture_output=True).returncode:
+    if git("-C", str(REPO_ROOT), "cat-file", "-e", f"{rev}^{{commit}}").returncode:
         pytest.skip(f"commit {rev} is not in this clone's history")
 
 
 def _git_text(rev: str, path: str) -> str:
+    # Raw call: decoded from bytes so CRLF survives; the text-mode helper would fold it.
     done = subprocess.run(["git", "-C", str(REPO_ROOT), "show", f"{rev}:{path}"],
                           capture_output=True, check=True)
     return done.stdout.decode("utf-8")
@@ -209,9 +211,102 @@ def test_a_mapping_table_that_names_no_draft_is_red_not_passed(tmp_path):
     assert found and "names no draft" in found[0], found
 
 
-def test_a_tree_with_no_mapping_table_examines_none_and_says_so(tmp_path):
-    root = _tree(tmp_path, {"artifacts/a.md": "No table here.\n"})
-    assert lg.mapping_check(root, read_old=lambda rev, path: "") == (0, 0, [])
+AGENTS_AT_BASE = "## 1. Loop\n\nRun the check before its first write.\n"
+CONTRIBUTING_AT_BASE = "## Push\n\nPush only after the suite passes.\n"
+
+
+def _rule_files(agents_at_head):
+    """read_old over the rule files: base holds both obligations; HEAD's AGENTS.md is given."""
+    def read(rev, path):
+        if path == "AGENTS.md":
+            return AGENTS_AT_BASE if rev == "v0.0.1" else agents_at_head
+        return CONTRIBUTING_AT_BASE
+    return read
+
+
+def _no_table(tmp_path):
+    return _tree(tmp_path, {"artifacts/a.md": "No table here.\n"})
+
+
+def test_no_mapping_table_and_unchanged_rule_files_pass_and_read_both(tmp_path):
+    tables, read, found = lg.mapping_check(_no_table(tmp_path), read_old=_rule_files(
+        AGENTS_AT_BASE), base=lambda: "v0.0.1")
+    assert (tables, read, found) == (0, 2, []), (tables, read, found)
+
+
+def test_no_mapping_table_and_a_lost_obligation_clause_is_red(tmp_path):
+    found = lg.mapping_check(_no_table(tmp_path), read_old=_rule_files(
+        "## 1. Loop\n\nRun the check first.\n"), base=lambda: "v0.0.1")[2]
+    assert len(found) == 1, found
+    assert "AGENTS.md" in found[0] and "before its first write" in found[0], found
+    assert "v0.0.1" in found[0], found
+
+
+def test_no_mapping_table_and_a_deleted_rule_file_loses_every_clause(tmp_path):
+    found = lg.mapping_check(_no_table(tmp_path), read_old=_rule_files(None),
+                             base=lambda: "v0.0.1")[2]
+    assert len(found) == 1 and "before its first write" in found[0], found
+
+
+POOLED = "Spikes and LFP are never pooled, namespaced or not."
+DOCTRINE = 'Say "policy" or "rule", never "doctrine" or "governance".'
+
+
+def test_a_deleted_clause_is_lost_although_another_clause_carries_its_obligation_word():
+    """A word-only match fails here: "never doctrine" deleted while "never pooled" stays (Jaccard 0.11)."""
+    read, lost = lg.obligation_losses(f"{POOLED}\n{DOCTRINE}\n", f"{POOLED}\n")
+    # Precondition: the surviving clause carries "never", so a word-only match would pass.
+    kept, deleted = (set(lg.WORD.findall(lg.clauses(t)[0])) for t in (POOLED, DOCTRINE))
+    assert "never" in kept and len(kept & deleted) / len(kept | deleted) < lg.KEPT
+    assert read == 2 and len(lost) == 1, (read, lost)
+    assert lost[0][0] == ["never"] and "doctrine" in lost[0][1], lost
+
+
+def test_a_reworded_clause_sharing_half_its_words_and_its_obligation_word_is_kept():
+    reworded = 'Say "policy" or "rule", never "doctrine".'
+    old, new = (set(lg.WORD.findall(lg.clauses(t)[0])) for t in (DOCTRINE, reworded))
+    assert len(old & new) / len(old | new) >= lg.KEPT and old != new
+    assert lg.obligation_losses(f"{POOLED}\n{DOCTRINE}\n", f"{POOLED}\n{reworded}\n") == (2, [])
+
+
+def _git_at(repo: pathlib.Path, date: str, *args: str) -> None:
+    env = {**os.environ, "GIT_COMMITTER_DATE": date, "GIT_AUTHOR_DATE": date}
+    git("-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
+        "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false", *args, env=env).check_returncode()
+
+
+def test_the_base_tag_is_the_newest_ancestor_not_a_newer_tag_on_another_branch(tmp_path,
+                                                                                 monkeypatch):
+    """v0.0.9 is newer by date and by version but sits off HEAD's ancestry; v0.0.1 is the base."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git_at(repo, "2026-01-01T00:00:00Z", "init", "-q", "-b", "trunk")
+    _git_at(repo, "2026-01-01T00:00:00Z", "commit", "-q", "--allow-empty", "-m", "base")
+    _git_at(repo, "2026-01-01T00:00:00Z", "tag", "-a", "v0.0.1", "-m", "v0.0.1")
+    _git_at(repo, "2026-01-02T00:00:00Z", "checkout", "-q", "-b", "side")
+    _git_at(repo, "2026-03-01T00:00:00Z", "commit", "-q", "--allow-empty", "-m", "side")
+    _git_at(repo, "2026-03-01T00:00:00Z", "tag", "-a", "v0.0.9", "-m", "v0.0.9")
+    _git_at(repo, "2026-02-01T00:00:00Z", "checkout", "-q", "trunk")
+    _git_at(repo, "2026-02-01T00:00:00Z", "commit", "-q", "--allow-empty", "-m", "head")
+    # Precondition: the off-ancestry tag is the newest by creation date.
+    listed = git("-C", str(repo), "tag", "-l", "v*", "--sort=-creatordate")
+    listed.check_returncode()
+    newest = listed.stdout.split()
+    assert newest[0] == "v0.0.9", newest
+    monkeypatch.setattr(lg, "REPO_ROOT", repo)
+    assert lg.newest_release_tag() == "v0.0.1"
+
+
+def test_no_mapping_table_and_no_base_tag_is_red_not_passed(tmp_path):
+    found = lg.mapping_check(_no_table(tmp_path), read_old=_rule_files(AGENTS_AT_BASE),
+                             base=lambda: None)[2]
+    assert found and "no v* tag is an ancestor of HEAD" in found[0], found
+
+
+def test_no_mapping_table_and_a_rule_file_unreadable_at_base_is_red(tmp_path):
+    found = lg.mapping_check(_no_table(tmp_path), read_old=lambda rev, path: None,
+                             base=lambda: "v0.0.1")[2]
+    assert len(found) == 2 and all("cannot be read" in v for v in found), found
 
 
 @pytest.mark.requires_git_checkout
@@ -243,10 +338,10 @@ def test_a_pooling_phrase_named_by_a_row_is_red_on_commit_b0119d07():
 
 def test_a_forbidden_phrase_in_a_tracked_file_is_red_and_an_archived_one_is_not(tmp_path):
     phrase = "pool across them without namespacing"
-    subprocess.run(["git", "-C", str(tmp_path), "init", "-q"], check=True)
+    git("-C", str(tmp_path), "init", "-q").check_returncode()
     _tree(tmp_path, {"docs/page.md": f"Do {phrase}.\n",
                      "artifacts/archive/0.2.5/old.md": f"{phrase}\n"})
-    subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], check=True)
+    git("-C", str(tmp_path), "add", "-A").check_returncode()
     found = lg.forbidden_violations([("artifacts/rulings/fixture.md", phrase)], root=tmp_path)
     assert len(found) == 1 and found[0].startswith("docs/page.md:"), found
 
@@ -254,16 +349,29 @@ def test_a_forbidden_phrase_in_a_tracked_file_is_red_and_an_archived_one_is_not(
 @pytest.mark.requires_git_checkout
 def test_the_live_tree_holds_no_forbidden_phrase_and_no_mapping_drop():
     assert lg.forbidden_violations(lg.forbidden_sources(REPO_ROOT)) == []
+    if not lg.mapping_tables(REPO_ROOT) and lg.newest_release_tag() is None:
+        pytest.skip("no v* tag is an ancestor of HEAD in this clone (CI's shallow checkout); "
+                    "the build job runs gate 15 on a full clone")
     assert lg.mapping_check(REPO_ROOT)[2] == []
 
 
 def test_gate_15_pass_line_names_what_it_examined(monkeypatch):
     from scripts import harness_gate
 
-    monkeypatch.setattr(harness_gate, "examined_counts", lambda: (3, 41, 2))
+    monkeypatch.setattr(harness_gate, "examined_counts", lambda: (3, 41, 2, None))
     line = harness_gate._stack_and_record_pass_line()
     assert line.startswith("PASS:") and "3 mapping tables" in line, line
     assert "2 forbidden phrases" in line, line
+    assert "with no mapping table" not in line, line
+
+
+def test_gate_15_pass_line_names_the_base_and_rule_files_when_no_table_exists(monkeypatch):
+    from scripts import harness_gate
+
+    monkeypatch.setattr(harness_gate, "examined_counts", lambda: (0, 85, 2, "v9.9.9"))
+    line = harness_gate._stack_and_record_pass_line()
+    assert "0 mapping tables (85 obligation clauses" in line, line
+    assert "AGENTS.md and .github/CONTRIBUTING.md against v9.9.9" in line, line
 
 
 @pytest.mark.requires_git_checkout

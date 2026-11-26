@@ -33,7 +33,7 @@ class Declaration:
     Signal operations declare their input class, estimator, output estimand, unit, and
     time or index base. Side-effecting operations (a file write, transform or repair, or
     a cache write) declare none of those and carry ``category`` instead: the one entry
-    of the fact stack's ``mutation categories`` or ``cache categories`` the operation
+    of the declared ``mutation categories`` or ``cache categories`` the operation
     records on its report.
     """
 

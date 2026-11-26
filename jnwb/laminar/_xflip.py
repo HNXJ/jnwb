@@ -193,7 +193,7 @@ def _compute_correlation_matrix(data: np.ndarray, method: str,
         why = None
         try:
             cond = np.linalg.cond(cov)
-            if cond > 1e12 or not np.isfinite(cond):
+            if cond > _COV_COND_MAX or not np.isfinite(cond):
                 why = f"condition number {cond:.3g}"
             else:
                 theta = np.linalg.inv(cov)
@@ -211,7 +211,7 @@ def _compute_correlation_matrix(data: np.ndarray, method: str,
             theta = np.linalg.pinv(cov)
 
         d = np.diag(theta)
-        d_pos = np.maximum(d, 1e-12)
+        d_pos = np.maximum(d, _PRECISION_DIAG_FLOOR)
         denom = np.sqrt(np.outer(d_pos, d_pos))
         p_corr = -theta / denom
         np.fill_diagonal(p_corr, 1.0)
@@ -254,7 +254,7 @@ def _homogeneous_factor(corr: np.ndarray) -> np.ndarray:
     psd = (vectors * np.maximum(values, 0.0)) @ vectors.T
     scale = np.sqrt(np.diag(psd))
     unit = psd / np.outer(scale, scale)
-    for jitter in (1e-10, 1e-9, 1e-8, 1e-7):
+    for jitter in _CHOLESKY_JITTERS:
         try:
             return np.linalg.cholesky(unit + jitter * np.eye(n))
         except np.linalg.LinAlgError:
@@ -514,6 +514,404 @@ def _unrestricted_partition(
     return tuple(bounds), (), modularity, labels
 
 
+def _check_layer4_and_spacing(
+    contact_spacing: Optional[float], layer4_thickness_mm: Optional[float]
+) -> float:
+    """The contact-spacing and layer 4 checks xflip makes before its default block size; returns layer 4."""
+    if contact_spacing is not None and not (
+        np.isfinite(contact_spacing) and contact_spacing > 0
+    ):
+        raise ValueError(f"contact_spacing must be finite and positive, got {contact_spacing}")
+    layer4 = LAYER4_THICKNESS_MM if layer4_thickness_mm is None else float(layer4_thickness_mm)
+    if not (np.isfinite(layer4) and layer4 > 0):
+        raise ValueError(f"layer4_thickness_mm must be finite and positive, got {layer4}")
+    return layer4
+
+
+def _check_run_parameters(
+    min_block_size: int,
+    n_blocks: Optional[int],
+    n_surrogates: int,
+    n_samples: Optional[int],
+    alpha: float,
+    min_contrast: float,
+    min_boundary_drop: float,
+) -> int:
+    """The block-size, block-count, surrogate, sample and threshold checks; returns `n_surrogates` as an int."""
+    if min_block_size < 1:
+        raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
+    if n_blocks is not None and n_blocks < 1:
+        raise ValueError(f"n_blocks must be >= 1, got {n_blocks}")
+    # NaN compared false against `< 0`, so it reached the surrogate loop. Non-finite is tested
+    # first because int() of NaN or Inf raises a different error.
+    if not np.isfinite(n_surrogates) or int(n_surrogates) != n_surrogates or n_surrogates < 0:
+        raise ValueError(f"n_surrogates must be an integer >= 0, got {n_surrogates}")
+    n_surrogates = int(n_surrogates)
+    if n_samples is not None and n_samples < 2:
+        raise ValueError(f"n_samples must be >= 2, got {n_samples}")
+    # `is_sig = p <= alpha` is vacuously true for alpha >= 1, and the two thresholds were
+    # equally unchecked: alpha=5.0 with min_boundary_drop=0.0 accepted a smooth spatial
+    # gradient in 15 of 15 seeds. `zflip` already range-checks the identical parameter.
+    if not (np.isfinite(alpha) and 0.0 < alpha < 1.0):
+        raise ValueError(f"alpha must lie in (0, 1); got {alpha}.")
+    if not (np.isfinite(min_contrast) and min_contrast >= 0.0):
+        raise ValueError(f"min_contrast must be a finite value >= 0; got {min_contrast}.")
+    if not (np.isfinite(min_boundary_drop) and min_boundary_drop >= 0.0):
+        raise ValueError(
+            f"min_boundary_drop must be a finite value >= 0; got {min_boundary_drop}."
+        )
+    return n_surrogates
+
+
+def _is_correlation_matrix(
+    arr: np.ndarray, is_corr_matrix: Optional[bool], n_samples: Optional[int]
+) -> bool:
+    """Whether `arr` is a precomputed correlation matrix, after the checks xflip makes on it."""
+    # Determine whether input is a precomputed correlation matrix
+    if is_corr_matrix is True:
+        if arr.shape[0] != arr.shape[1]:
+            raise ValueError(f"is_corr_matrix=True requires a square (n_channels, n_channels) matrix, got {arr.shape}")
+        if not np.allclose(arr, arr.T, atol=_CORR_ATOL):
+            raise ValueError("Precomputed correlation matrix must be symmetric.")
+        if not np.allclose(np.diag(arr), 1.0, atol=_CORR_DIAG_ATOL):
+            raise ValueError("Precomputed correlation matrix diagonal elements must be 1.0.")
+        if np.any(arr < -1.0 - _CORR_ATOL) or np.any(arr > 1.0 + _CORR_ATOL):
+            raise ValueError("Precomputed correlation matrix elements must be in [-1, 1].")
+        is_corr = True
+    elif is_corr_matrix is False:
+        is_corr = False
+    else:
+        # Auto-detect
+        if (
+            arr.shape[0] == arr.shape[1]
+            and np.allclose(arr, arr.T, atol=_CORR_ATOL)
+            and np.allclose(np.diag(arr), 1.0, atol=_CORR_DIAG_ATOL)
+            and np.all(arr >= -1.0 - _CORR_ATOL)
+            and np.all(arr <= 1.0 + _CORR_ATOL)
+        ):
+            is_corr = True
+        else:
+            is_corr = False
+
+    if not is_corr and n_samples is not None:
+        raise ValueError(
+            "n_samples is the sample count of a correlation matrix; raw time series carry their "
+            "own sample count, so pass the data without n_samples."
+        )
+    return is_corr
+
+
+def _raw_probe(
+    arr: np.ndarray, channel_axis: int, window: Any
+) -> Tuple[np.ndarray, Optional[Tuple[int, int]]]:
+    """The raw time series as (channels, samples), cut to the window, and the window's rows."""
+    if channel_axis == 1:
+        raw_data = arr.T
+    elif channel_axis == 0:
+        raw_data = arr
+    else:
+        raise ValueError(f"channel_axis must be 0 or 1, got {channel_axis}")
+    rows = None
+    if window is not None:
+        rows = _window_rows(window, raw_data.shape[0])
+        raw_data = raw_data[rows[0]:rows[1] + 1]
+    n_samples = raw_data.shape[1]
+    if n_samples <= 1:
+        raise ValueError(f"Raw time-series must have at least 2 samples, got {n_samples}")
+    return raw_data, rows
+
+
+def _matrix_probe(
+    arr: np.ndarray, window: Any, min_block_size: int
+) -> Tuple[np.ndarray, Optional[Tuple[int, int]]]:
+    """The precomputed matrix, clipped to [-1, 1] and cut to the window's rows, and those rows."""
+    corr = np.clip(arr.copy(), -1.0, 1.0)
+    rows = None
+    if window is not None:
+        rows = _window_rows(window, corr.shape[0])
+        corr = corr[rows[0]:rows[1] + 1, rows[0]:rows[1] + 1]
+        _refuse_short_window(rows, min_block_size)
+    return corr, rows
+
+
+def _flat_channel_refusal(
+    raw_data: np.ndarray,
+    corr: np.ndarray,
+    rows: Optional[Tuple[int, int]],
+    contact_spacing: Optional[float],
+    method: str,
+) -> Optional[XFlipResult]:
+    """The refusal when a channel has zero variance, or None when every channel varies."""
+    flat = np.flatnonzero(np.ptp(raw_data, axis=1) == 0)
+    if flat.size == 0:
+        return None
+    n_channels = raw_data.shape[0]
+    # A zero-variance channel has no correlation with any other. Its entries were set to
+    # 0, "uncorrelated", which the partition search reads as a block boundary.
+    corr = corr.copy()
+    corr[flat, :] = np.nan
+    corr[:, flat] = np.nan
+    return _in_probe_rows(XFlipResult(
+        corr_matrix=corr,
+        block_bounds=((0, n_channels),),
+        boundaries=(),
+        labels=np.zeros(n_channels, dtype=int),
+        modularity=np.nan,
+        p_values={"omnibus": np.nan},
+        accepted=False,
+        rejection_reason=(
+            f"Zero-variance channel(s) {(flat + (0 if rows is None else rows[0])).tolist()} "
+            "have undefined correlation; mask or remove them before partitioning."
+        ),
+        method=method,
+        n_channels=n_channels,
+        n_blocks=1,
+        null_method=None,
+    ), rows, contact_spacing)
+
+
+def _resolve_surrogate_method(
+    surrogate_method: str, raw_data: Optional[np.ndarray], n_samples: Optional[int]
+) -> str:
+    """The surrogate null xflip runs, and the warning when a matrix comes with no sample count."""
+    if surrogate_method == "auto":
+        if raw_data is not None or n_samples is not None:
+            return "homogeneous"
+        warnings.warn(
+            "xflip was given a correlation matrix without n_samples, so its surrogates permute "
+            "channels and the p tests independent channels, not a boundary beyond smooth spatial "
+            "decay. Pass n_samples, the number of samples the matrix was estimated from, for the "
+            "homogeneous null.",
+            UserWarning,
+            # This helper is one frame below xflip, so xflip's caller is three frames up.
+            stacklevel=3,
+        )
+        return "permute_channels"
+    if surrogate_method == "homogeneous":
+        if raw_data is None and n_samples is None:
+            raise ValueError(
+                "surrogate_method='homogeneous' on a precomputed correlation matrix requires "
+                "n_samples, the number of samples the matrix was estimated from."
+            )
+        return "homogeneous"
+    if surrogate_method in ("autocorr_preserving", "phase_randomize"):
+        if raw_data is None:
+            raise ValueError(
+                "surrogate_method='autocorr_preserving' requires raw time-series data to evaluate "
+                "temporal autocorrelation; got a precomputed correlation matrix. "
+                "Pass raw data or use surrogate_method='permute_channels'."
+            )
+        return "autocorr_preserving"
+    if surrogate_method in ("permute_channels", "channel_permute"):
+        return "permute_channels"
+    raise ValueError(
+        f"Unknown surrogate_method '{surrogate_method}'. "
+        "Supported: 'auto', 'homogeneous', 'autocorr_preserving', 'permute_channels'."
+    )
+
+
+def _too_few_channels(
+    corr: np.ndarray, n_channels: int, target_k: int, min_block_size: int, method: str
+) -> XFlipResult:
+    """The refusal when the probe has fewer channels than its blocks need."""
+    return XFlipResult(
+        corr_matrix=corr,
+        block_bounds=((0, n_channels),),
+        boundaries=(),
+        labels=np.zeros(n_channels, dtype=int),
+        modularity=0.0,
+        p_values={"omnibus": np.nan},
+        accepted=False,
+        rejection_reason=(
+            f"Total channels ({n_channels}) insufficient for {target_k} blocks "
+            f"with min_block_size {min_block_size} (requires >= {target_k * min_block_size})."
+        ),
+        method=method,
+        n_channels=n_channels,
+        n_blocks=1,
+        null_method=None,
+    )
+
+
+def _candidate_counts(
+    n_blocks: Optional[int], target_k: int, n_channels: int, min_block_size: int
+) -> Tuple[int, ...]:
+    """The block counts xflip partitions with: the one requested, or 2 to 4 when `n_blocks` is None."""
+    if n_blocks is not None:
+        return (target_k,)
+    return tuple(range(2, min(4, n_channels // min_block_size) + 1))
+
+
+def _partition_of(
+    matrix: np.ndarray, k: int, contiguous: bool, min_block_size: int
+) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[int, ...], float, np.ndarray]:
+    """The partition of `matrix` into `k` blocks: contiguous by dynamic programming, or unrestricted."""
+    if contiguous:
+        return _optimal_contiguous_partition(matrix, k, min_block_size)
+    return _unrestricted_partition(matrix, k)
+
+
+def _partitions(
+    corr: np.ndarray, candidates: Tuple[int, ...], contiguous: bool, min_block_size: int
+) -> list:
+    """The partition of `corr` at each candidate count, in candidate order."""
+    return [_partition_of(corr, k, contiguous, min_block_size) for k in candidates]
+
+
+def _local_labels(bounds, b, n_channels: int):
+    """The two blocks either side of boundary `b`, as (start, end, labels)."""
+    left_st = 0
+    right_en = n_channels
+    for bb_st, bb_en in bounds:
+        if bb_en == b:
+            left_st = bb_st
+        elif bb_st == b:
+            right_en = bb_en
+            break
+    lbl = np.zeros(right_en - left_st, dtype=int)
+    lbl[b - left_st:] = 1
+    return left_st, right_en, lbl
+
+
+def _local_contrasts(corr: np.ndarray, observed: list, n_channels: int) -> list:
+    """Per candidate count, the contrast of the two blocks either side of each boundary."""
+    return [
+        {b: _compute_contrast(corr[st:en, st:en], lbl)
+         for b in bnd for st, en, lbl in [_local_labels(bb, b, n_channels)]}
+        for bb, bnd, _, _ in observed
+    ]
+
+
+def _permuted_correlation(
+    corr: np.ndarray, n_channels: int, contiguous: bool, gen: np.random.Generator
+) -> np.ndarray:
+    """A channel-permutation surrogate: rows and columns permuted, or the pairs permuted."""
+    if contiguous:
+        perm = gen.permutation(n_channels)
+        return corr[perm, :][:, perm]
+    triu_idx = np.triu_indices(n_channels, k=1)
+    perm_vals = gen.permutation(corr[triu_idx])
+    surr_corr = np.eye(n_channels, dtype=float)
+    surr_corr[triu_idx] = perm_vals
+    surr_corr[triu_idx[1], triu_idx[0]] = perm_vals
+    return surr_corr
+
+
+def _surrogate_raw(
+    eff_surrogate_method: str, raw_data: np.ndarray, null_factor, gen: np.random.Generator
+) -> np.ndarray:
+    """A surrogate raw series: the homogeneous null, else the autocorrelation-preserving one."""
+    if eff_surrogate_method == "homogeneous":
+        return _surrogate_homogeneous(raw_data, null_factor, gen)
+    return _surrogate_phase_randomize(raw_data, gen)
+
+
+def _null_tallies(observed: list, n_surrogates: int, n_candidates: int):
+    """Empty tallies: each surrogate's contrast at each count, and each boundary's exceedances."""
+    surr_q_all = np.empty((n_surrogates, n_candidates), dtype=float)
+    boundary_exceed = [{b: 0 for b in part[1]} for part in observed]
+    return surr_q_all, boundary_exceed
+
+
+def _surrogate_p_values(
+    observed: list, surr_q_all: np.ndarray, boundary_exceed: list, n_surrogates: int
+) -> Tuple[int, Dict[str, float]]:
+    """The count the surrogates choose, and its p-values: the omnibus, then one per boundary."""
+    p_values: Dict[str, float] = {}
+    obs_q_all = np.array([part[2] for part in observed], dtype=float)
+    chosen, p_omnibus = _select_count_by_min_p(obs_q_all, surr_q_all)
+    p_values["omnibus"] = p_omnibus
+    for b in observed[chosen][1]:
+        p_values[f"boundary_{b}"] = float(
+            (1 + boundary_exceed[chosen][b]) / (1 + n_surrogates)
+        )
+    return chosen, p_values
+
+
+def _tally_surrogate(
+    surr_corr: np.ndarray,
+    s_idx: int,
+    candidates: Tuple[int, ...],
+    observed: list,
+    local_obs: list,
+    surr_q_all: np.ndarray,
+    boundary_exceed: list,
+    contiguous: bool,
+    min_block_size: int,
+    n_channels: int,
+) -> None:
+    """Record one surrogate: its contrast at each candidate count, and its exceedance per boundary."""
+    for i, k in enumerate(candidates):
+        surr_q_all[s_idx, i] = _partition_of(surr_corr, k, contiguous, min_block_size)[2]
+        bb = observed[i][0]
+        for b in observed[i][1]:
+            st, en, lbl = _local_labels(bb, b, n_channels)
+            boundary_exceed[i][b] += _count_at_least_as_extreme(
+                [_compute_contrast(surr_corr[st:en, st:en], lbl)], local_obs[i][b],
+                "greater", atol=_TIE_RTOL,
+            )
+
+
+def _decide_acceptance(
+    obs_q: float,
+    target_k: int,
+    p_values: Dict[str, float],
+    surrogates_run: bool,
+    alpha: float,
+    min_contrast: float,
+    min_boundary_drop: float,
+    boundary_drops: Dict[int, float],
+) -> Tuple[bool, Optional[str]]:
+    """Whether the partition is accepted, and the reasons it is not when it is not."""
+    # Acceptance determination
+    # `n_surrogates=0` means the significance test was not performed, which is not the
+    # same as passing it. Assuming True here accepted pure noise in 119 of 120 seeds
+    # (contrast and boundary-drop gates opened), and the surrogate test would have rejected
+    # 113 of those, with omnibus p running as high as 0.87 -- while `p_values['omnibus']`
+    # was reported as NaN. `zflip` already documents the opposite contract: accepted only
+    # if the surrogate test was performed AND significant. This now matches it.
+    is_sig = bool(p_values["omnibus"] <= alpha) if surrogates_run else False
+    has_contrast = (obs_q >= min_contrast)
+    has_blocks = (target_k >= 2)
+    # The gradient gate. It used to run only under `contiguous`, while `has_drop` was
+    # initialised True, so the unrestricted path silently *skipped* it rather than failing
+    # it -- the same "not tested is not passed" error the `n_surrogates=0` contract above
+    # exists to prevent. A smooth spatial gradient was accepted in 15 of 15 seeds there
+    # where the contiguous path accepted 0 of 15.
+    #
+    # The statistic is a *local* discontinuity, and locality is the point: a smooth
+    # exponential decay separates perfectly well at the cluster level (within-minus-between
+    # is 0.3285 on the gradient null), so only the drop across the cut distinguishes a real
+    # boundary from a gradient. It is therefore applied exactly when a gradient could have
+    # produced the partition -- that is, when the partition is contiguous. A genuinely
+    # interleaved partition cannot come from a spatial gradient, so the gate does not apply
+    # and `unrestricted_partition_is_interleaved` records that it did not.
+    has_drop = True
+    if min_boundary_drop > 0.0 and len(boundary_drops) > 0:
+        for b, drop_val in boundary_drops.items():
+            if drop_val < min_boundary_drop:
+                has_drop = False
+                break
+
+    if is_sig and has_contrast and has_blocks and has_drop:
+        return True, None
+    reasons = []
+    if not surrogates_run:
+        reasons.append(
+            "Surrogate significance test not performed (n_surrogates=0); acceptance "
+            "requires the test to run"
+        )
+    elif not is_sig:
+        reasons.append(f"Non-significant modularity vs surrogates (p = {p_values['omnibus']:.4f} > {alpha})")
+    if not has_contrast:
+        reasons.append(f"Modularity contrast ({obs_q:.4f}) below min_contrast ({min_contrast})")
+    if not has_blocks:
+        reasons.append(f"Fewer than 2 blocks detected (k = {target_k})")
+    if not has_drop:
+        reasons.append(f"Boundary drop below min_boundary_drop ({min_boundary_drop})")
+    return False, "; ".join(reasons)
+
+
 def xflip(
     data: np.ndarray,
     *,
@@ -667,43 +1065,17 @@ def xflip(
         raise ValueError(
             f"Unknown correlation method '{method}'. Supported methods: 'pearson', 'spearman', 'partial'."
         )
-    if contact_spacing is not None and not (
-        np.isfinite(contact_spacing) and contact_spacing > 0
-    ):
-        raise ValueError(f"contact_spacing must be finite and positive, got {contact_spacing}")
-    layer4 = LAYER4_THICKNESS_MM if layer4_thickness_mm is None else float(layer4_thickness_mm)
-    if not (np.isfinite(layer4) and layer4 > 0):
-        raise ValueError(f"layer4_thickness_mm must be finite and positive, got {layer4}")
+    layer4 = _check_layer4_and_spacing(contact_spacing, layer4_thickness_mm)
     if min_block_size is None:
         # vflip2's arithmetic for its least proximal-to-distal distance, so the two agree to the last bit.
+        # Kept in this body, not a helper: the unit-factor scan of the fact graph reads it here.
         min_block_size = (
             2 if contact_spacing is None
             else int(math.ceil(layer4 / (contact_spacing / 1000.0)))
         )
-    if min_block_size < 1:
-        raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
-    if n_blocks is not None and n_blocks < 1:
-        raise ValueError(f"n_blocks must be >= 1, got {n_blocks}")
-    # NaN compared false against `< 0`, so it reached the surrogate loop. Non-finite is tested
-    # first because int() of NaN or Inf raises a different error.
-    if not np.isfinite(n_surrogates) or int(n_surrogates) != n_surrogates or n_surrogates < 0:
-        raise ValueError(f"n_surrogates must be an integer >= 0, got {n_surrogates}")
-    n_surrogates = int(n_surrogates)
-    if n_samples is not None and n_samples < 2:
-        raise ValueError(f"n_samples must be >= 2, got {n_samples}")
-    # `is_sig = p <= alpha` is vacuously true for alpha >= 1, and the two thresholds were
-    # equally unchecked: alpha=5.0 with min_boundary_drop=0.0 accepted a smooth spatial
-    # gradient in 15 of 15 seeds. `zflip` already range-checks the identical parameter.
-    if not (np.isfinite(alpha) and 0.0 < alpha < 1.0):
-        raise ValueError(f"alpha must lie in (0, 1); got {alpha}.")
-    if not (np.isfinite(min_contrast) and min_contrast >= 0.0):
-        raise ValueError(f"min_contrast must be a finite value >= 0; got {min_contrast}.")
-    if not (np.isfinite(min_boundary_drop) and min_boundary_drop >= 0.0):
-        raise ValueError(
-            f"min_boundary_drop must be a finite value >= 0; got {min_boundary_drop}."
-        )
-    if min_block_size < 1:
-        raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
+    n_surrogates = _check_run_parameters(
+        min_block_size, n_blocks, n_surrogates, n_samples, alpha, min_contrast, min_boundary_drop
+    )
     gen, seed_entropy = recorded_rng(rng, "xflip")
 
     arr = np.asarray(data)
@@ -711,167 +1083,38 @@ def xflip(
         raise ValueError(f"data must be a 2D array, got shape {arr.shape}")
     if not np.all(np.isfinite(arr)):
         raise ValueError("Input data contains non-finite values (NaN or Inf).")
+    is_corr = _is_correlation_matrix(arr, is_corr_matrix, n_samples)
 
-    # Determine whether input is a precomputed correlation matrix
-    if is_corr_matrix is True:
-        if arr.shape[0] != arr.shape[1]:
-            raise ValueError(f"is_corr_matrix=True requires a square (n_channels, n_channels) matrix, got {arr.shape}")
-        if not np.allclose(arr, arr.T, atol=1e-4):
-            raise ValueError("Precomputed correlation matrix must be symmetric.")
-        if not np.allclose(np.diag(arr), 1.0, atol=1e-3):
-            raise ValueError("Precomputed correlation matrix diagonal elements must be 1.0.")
-        if np.any(arr < -1.0 - 1e-4) or np.any(arr > 1.0 + 1e-4):
-            raise ValueError("Precomputed correlation matrix elements must be in [-1, 1].")
-        is_corr = True
-    elif is_corr_matrix is False:
-        is_corr = False
-    else:
-        # Auto-detect
-        if (
-            arr.shape[0] == arr.shape[1]
-            and np.allclose(arr, arr.T, atol=1e-4)
-            and np.allclose(np.diag(arr), 1.0, atol=1e-3)
-            and np.all(arr >= -1.0 - 1e-4)
-            and np.all(arr <= 1.0 + 1e-4)
-        ):
-            is_corr = True
-        else:
-            is_corr = False
-
-    if not is_corr and n_samples is not None:
-        raise ValueError(
-            "n_samples is the sample count of a correlation matrix; raw time series carry their "
-            "own sample count, so pass the data without n_samples."
-        )
     rows = None
     if not is_corr:
-        if channel_axis == 1:
-            raw_data = arr.T
-        elif channel_axis == 0:
-            raw_data = arr
-        else:
-            raise ValueError(f"channel_axis must be 0 or 1, got {channel_axis}")
-        if window is not None:
-            rows = _window_rows(window, raw_data.shape[0])
-            raw_data = raw_data[rows[0]:rows[1] + 1]
+        raw_data, rows = _raw_probe(arr, channel_axis, window)
         n_channels, n_samples = raw_data.shape
-        if n_samples <= 1:
-            raise ValueError(f"Raw time-series must have at least 2 samples, got {n_samples}")
         _refuse_short_window(rows, min_block_size)
+        # The partial-correlation warning of _compute_correlation_matrix (stacklevel=2) reports
+        # this frame, xflip, not xflip's caller. That off-by-one predates the split and is kept:
+        # the call stays here.
         with np.errstate(invalid="ignore", divide="ignore"):
             corr = _compute_correlation_matrix(raw_data, method, window=rows)
         resolved_method = method
-        flat = np.flatnonzero(np.ptp(raw_data, axis=1) == 0)
-        if flat.size > 0:
-            # A zero-variance channel has no correlation with any other. Its entries were set to
-            # 0, "uncorrelated", which the partition search reads as a block boundary.
-            corr = corr.copy()
-            corr[flat, :] = np.nan
-            corr[:, flat] = np.nan
-            return _in_probe_rows(XFlipResult(
-                corr_matrix=corr,
-                block_bounds=((0, n_channels),),
-                boundaries=(),
-                labels=np.zeros(n_channels, dtype=int),
-                modularity=np.nan,
-                p_values={"omnibus": np.nan},
-                accepted=False,
-                rejection_reason=(
-                    f"Zero-variance channel(s) {(flat + (0 if rows is None else rows[0])).tolist()} "
-                    "have undefined correlation; mask or remove them before partitioning."
-                ),
-                method=resolved_method,
-                n_channels=n_channels,
-                n_blocks=1,
-                null_method=None,
-            ), rows, contact_spacing)
+        refusal = _flat_channel_refusal(raw_data, corr, rows, contact_spacing, method)
+        if refusal is not None:
+            return refusal
     else:
         raw_data = None
-        corr = np.clip(arr.copy(), -1.0, 1.0)
-        if window is not None:
-            rows = _window_rows(window, corr.shape[0])
-            corr = corr[rows[0]:rows[1] + 1, rows[0]:rows[1] + 1]
-            _refuse_short_window(rows, min_block_size)
+        corr, rows = _matrix_probe(arr, window, min_block_size)
         n_channels = corr.shape[0]
         resolved_method = "precomputed"
 
     # Resolve surrogate method
-    if surrogate_method == "auto":
-        if raw_data is not None or n_samples is not None:
-            eff_surrogate_method = "homogeneous"
-        else:
-            eff_surrogate_method = "permute_channels"
-            warnings.warn(
-                "xflip was given a correlation matrix without n_samples, so its surrogates permute "
-                "channels and the p tests independent channels, not a boundary beyond smooth spatial "
-                "decay. Pass n_samples, the number of samples the matrix was estimated from, for the "
-                "homogeneous null.",
-                UserWarning,
-                stacklevel=2,
-            )
-    elif surrogate_method == "homogeneous":
-        if raw_data is None and n_samples is None:
-            raise ValueError(
-                "surrogate_method='homogeneous' on a precomputed correlation matrix requires "
-                "n_samples, the number of samples the matrix was estimated from."
-            )
-        eff_surrogate_method = "homogeneous"
-    elif surrogate_method in ("autocorr_preserving", "phase_randomize"):
-        if raw_data is None:
-            raise ValueError(
-                "surrogate_method='autocorr_preserving' requires raw time-series data to evaluate "
-                "temporal autocorrelation; got a precomputed correlation matrix. "
-                "Pass raw data or use surrogate_method='permute_channels'."
-            )
-        eff_surrogate_method = "autocorr_preserving"
-    elif surrogate_method in ("permute_channels", "channel_permute"):
-        eff_surrogate_method = "permute_channels"
-    else:
-        raise ValueError(
-            f"Unknown surrogate_method '{surrogate_method}'. "
-            "Supported: 'auto', 'homogeneous', 'autocorr_preserving', 'permute_channels'."
-        )
+    eff_surrogate_method = _resolve_surrogate_method(surrogate_method, raw_data, n_samples)
 
     # Check structural feasibility
     target_k = 2 if n_blocks is None else n_blocks
     if n_channels < target_k * min_block_size:
-        labels = np.zeros(n_channels, dtype=int)
-        return _in_probe_rows(XFlipResult(
-            corr_matrix=corr,
-            block_bounds=((0, n_channels),),
-            boundaries=(),
-            labels=labels,
-            modularity=0.0,
-            p_values={"omnibus": np.nan},
-            accepted=False,
-            rejection_reason=(
-                f"Total channels ({n_channels}) insufficient for {target_k} blocks "
-                f"with min_block_size {min_block_size} (requires >= {target_k * min_block_size})."
-            ),
-            method=resolved_method,
-            n_channels=n_channels,
-            n_blocks=1,
-            null_method=None,
-        ), rows, contact_spacing)
-
-    def partition(matrix: np.ndarray, k: int):
-        if contiguous:
-            return _optimal_contiguous_partition(matrix, k, min_block_size)
-        return _unrestricted_partition(matrix, k)
-
-    def local_labels(bounds, b):
-        """The two blocks either side of boundary `b`, as (start, end, labels)."""
-        left_st = 0
-        right_en = n_channels
-        for bb_st, bb_en in bounds:
-            if bb_en == b:
-                left_st = bb_st
-            elif bb_st == b:
-                right_en = bb_en
-                break
-        lbl = np.zeros(right_en - left_st, dtype=int)
-        lbl[b - left_st:] = 1
-        return left_st, right_en, lbl
+        return _in_probe_rows(
+            _too_few_channels(corr, n_channels, target_k, min_block_size, resolved_method),
+            rows, contact_spacing,
+        )
 
     # INTENTIONAL BREAK (0.2.7): under `n_blocks=None` the count is the candidate with the
     # smallest surrogate p, and the same choice is repeated on every surrogate, so the
@@ -879,67 +1122,36 @@ def xflip(
     # ignored the choice: on an AR(1) null it fell at or below 0.05 about twice as often as
     # at a fixed count.
     # Counts and p can change on existing data.
-    if n_blocks is not None:
-        candidates: Tuple[int, ...] = (target_k,)
-    else:
-        candidates = tuple(range(2, min(4, n_channels // min_block_size) + 1))
-    observed = [partition(corr, k) for k in candidates]
-    local_obs = [
-        {b: _compute_contrast(corr[st:en, st:en], lbl)
-         for b in bnd for st, en, lbl in [local_labels(bb, b)]}
-        for bb, bnd, _, _ in observed
-    ]
+    candidates = _candidate_counts(n_blocks, target_k, n_channels, min_block_size)
+    observed = _partitions(corr, candidates, contiguous, min_block_size)
+    local_obs = _local_contrasts(corr, observed, n_channels)
 
     # Monte Carlo surrogate null testing
     p_values: Dict[str, float] = {}
     chosen = 0
 
     if n_surrogates > 0:
-        surr_q_all = np.empty((n_surrogates, len(candidates)), dtype=float)
-        boundary_exceed = [{b: 0 for b in part[1]} for part in observed]
-
+        surr_q_all, boundary_exceed = _null_tallies(observed, n_surrogates, len(candidates))
+        null_factor = None
         if eff_surrogate_method == "homogeneous":
             null_factor = _homogeneous_factor(corr if raw_data is None else np.corrcoef(raw_data))
         for s_idx in range(n_surrogates):
-            if eff_surrogate_method == "homogeneous":
-                if raw_data is None:
-                    surr_corr = _surrogate_wishart(null_factor, n_samples, gen)
-                else:
-                    surr_raw = _surrogate_homogeneous(raw_data, null_factor, gen)
-                    surr_corr = _compute_correlation_matrix(surr_raw, method, window=rows)
-            elif eff_surrogate_method == "autocorr_preserving":
-                surr_raw = _surrogate_phase_randomize(raw_data, gen)
+            if eff_surrogate_method == "permute_channels":
+                surr_corr = _permuted_correlation(corr, n_channels, contiguous, gen)
+            elif eff_surrogate_method == "homogeneous" and raw_data is None:
+                surr_corr = _surrogate_wishart(null_factor, n_samples, gen)
+            elif eff_surrogate_method in ("homogeneous", "autocorr_preserving"):
+                surr_raw = _surrogate_raw(eff_surrogate_method, raw_data, null_factor, gen)
+                # Same frame as the observed call above, which carries the off-by-one note.
                 surr_corr = _compute_correlation_matrix(surr_raw, method, window=rows)
-            elif eff_surrogate_method == "permute_channels":
-                if contiguous:
-                    perm = gen.permutation(n_channels)
-                    surr_corr = corr[perm, :][:, perm]
-                else:
-                    triu_idx = np.triu_indices(n_channels, k=1)
-                    perm_vals = gen.permutation(corr[triu_idx])
-                    surr_corr = np.eye(n_channels, dtype=float)
-                    surr_corr[triu_idx] = perm_vals
-                    surr_corr[triu_idx[1], triu_idx[0]] = perm_vals
             else:
                 raise ValueError(f"No surrogate generator for surrogate_method '{eff_surrogate_method}'.")
 
-            for i, k in enumerate(candidates):
-                surr_q_all[s_idx, i] = partition(surr_corr, k)[2]
-                bb = observed[i][0]
-                for b in observed[i][1]:
-                    st, en, lbl = local_labels(bb, b)
-                    boundary_exceed[i][b] += _count_at_least_as_extreme(
-                        [_compute_contrast(surr_corr[st:en, st:en], lbl)], local_obs[i][b],
-                        "greater", atol=_TIE_RTOL,
-                    )
-
-        obs_q_all = np.array([part[2] for part in observed], dtype=float)
-        chosen, p_omnibus = _select_count_by_min_p(obs_q_all, surr_q_all)
-        p_values["omnibus"] = p_omnibus
-        for b in observed[chosen][1]:
-            p_values[f"boundary_{b}"] = float(
-                (1 + boundary_exceed[chosen][b]) / (1 + n_surrogates)
+            _tally_surrogate(
+                surr_corr, s_idx, candidates, observed, local_obs, surr_q_all, boundary_exceed,
+                contiguous, min_block_size, n_channels,
             )
+        chosen, p_values = _surrogate_p_values(observed, surr_q_all, boundary_exceed, n_surrogates)
     else:
         p_values["omnibus"] = np.nan
 
@@ -950,6 +1162,7 @@ def xflip(
     # Evaluate boundary drops (local discontinuity across candidate cuts)
     # On the unrestricted path the partition carries no boundaries of its own, but a
     # partition that happens to be contiguous has the same cuts the DP would have produced.
+    # Kept in this body: the complex-input ComplexWarning of the casts below reports this frame.
     drop_boundaries = boundaries
     if not contiguous and _partition_is_contiguous(labels):
         drop_boundaries = _label_change_boundaries(labels)
@@ -966,57 +1179,11 @@ def xflip(
             cross_val = float(corr[b - 1, b])
             boundary_drops[b] = float(mean_near - cross_val)
 
-    # Acceptance determination
-    # `n_surrogates=0` means the significance test was not performed, which is not the
-    # same as passing it. Assuming True here accepted pure noise in 119 of 120 seeds
-    # (contrast and boundary-drop gates opened), and the surrogate test would have rejected
-    # 113 of those, with omnibus p running as high as 0.87 -- while `p_values['omnibus']`
-    # was reported as NaN. `zflip` already documents the opposite contract: accepted only
-    # if the surrogate test was performed AND significant. This now matches it.
     surrogates_run = n_surrogates > 0
-    is_sig = bool(p_values["omnibus"] <= alpha) if surrogates_run else False
-    has_contrast = (obs_q >= min_contrast)
-    has_blocks = (target_k >= 2)
-    # The gradient gate. It used to run only under `contiguous`, while `has_drop` was
-    # initialised True, so the unrestricted path silently *skipped* it rather than failing
-    # it -- the same "not tested is not passed" error the `n_surrogates=0` contract above
-    # exists to prevent. A smooth spatial gradient was accepted in 15 of 15 seeds there
-    # where the contiguous path accepted 0 of 15.
-    #
-    # The statistic is a *local* discontinuity, and locality is the point: a smooth
-    # exponential decay separates perfectly well at the cluster level (within-minus-between
-    # is 0.3285 on the gradient null), so only the drop across the cut distinguishes a real
-    # boundary from a gradient. It is therefore applied exactly when a gradient could have
-    # produced the partition -- that is, when the partition is contiguous. A genuinely
-    # interleaved partition cannot come from a spatial gradient, so the gate does not apply
-    # and `unrestricted_partition_is_interleaved` records that it did not.
-    has_drop = True
-    if min_boundary_drop > 0.0 and len(drop_boundaries) > 0:
-        for b, drop_val in boundary_drops.items():
-            if drop_val < min_boundary_drop:
-                has_drop = False
-                break
-
-    if is_sig and has_contrast and has_blocks and has_drop:
-        accepted = True
-        rejection_reason = None
-    else:
-        accepted = False
-        reasons = []
-        if not surrogates_run:
-            reasons.append(
-                "Surrogate significance test not performed (n_surrogates=0); acceptance "
-                "requires the test to run"
-            )
-        elif not is_sig:
-            reasons.append(f"Non-significant modularity vs surrogates (p = {p_values['omnibus']:.4f} > {alpha})")
-        if not has_contrast:
-            reasons.append(f"Modularity contrast ({obs_q:.4f}) below min_contrast ({min_contrast})")
-        if not has_blocks:
-            reasons.append(f"Fewer than 2 blocks detected (k = {target_k})")
-        if not has_drop:
-            reasons.append(f"Boundary drop below min_boundary_drop ({min_boundary_drop})")
-        rejection_reason = "; ".join(reasons)
+    accepted, rejection_reason = _decide_acceptance(
+        obs_q, target_k, p_values, surrogates_run, alpha, min_contrast, min_boundary_drop,
+        boundary_drops,
+    )
 
     return _in_probe_rows(XFlipResult(
         corr_matrix=corr,
@@ -1034,3 +1201,23 @@ def xflip(
         surrogate_seed_entropy=seed_entropy if surrogates_run else None,
         null_method=eff_surrogate_method if surrogates_run else None,
     ), rows, contact_spacing)
+
+
+# Tolerances the functions above read at call time. They sit at the end of the module so that
+# line references into it stay valid.
+
+#: Floor on the precision-matrix diagonal before partial correlations divide by its square
+#: root; a numerical guard, no external source.
+_PRECISION_DIAG_FLOOR = 1e-12
+#: Absolute tolerance on a precomputed correlation matrix's symmetry and its [-1, 1] range;
+#: a numerical guard, no external source.
+_CORR_ATOL = 1e-4
+#: Absolute tolerance on a precomputed correlation matrix's unit diagonal; a numerical guard,
+#: no external source.
+_CORR_DIAG_ATOL = 1e-3
+#: Condition number above which the covariance counts as singular and partial correlations use
+#: its pseudo-inverse; a numerical guard, no external source.
+_COV_COND_MAX = 1e12
+#: Diagonal jitters tried, smallest first, to factor the homogeneous null's correlation, as
+#: :func:`_homogeneous_factor` states; a numerical guard, no external source.
+_CHOLESKY_JITTERS = (1e-10, 1e-9, 1e-8, 1e-7)

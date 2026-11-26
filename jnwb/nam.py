@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import numpy as np
 
+_EARLY_STOP_MIN_DELTA = 1e-5  # loss gain that resets early stopping; training choice, no source
+
 try:
     import torch
     import torch.nn as nn
@@ -150,7 +152,7 @@ def _train_nam(model, X_tr, y_tr, X_val, y_val, device, max_epochs, patience, lr
         model.eval()
         with torch.no_grad():
             val_loss = float(F.cross_entropy(model(Xva)[0], yva, weight=cw))
-        if val_loss < best - 1e-5:
+        if val_loss < best - _EARLY_STOP_MIN_DELTA:
             best, bad, best_epoch = val_loss, 0, epoch
             best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
         else:

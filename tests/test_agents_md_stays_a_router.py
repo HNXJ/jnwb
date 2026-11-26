@@ -22,6 +22,11 @@ import pytest
 pytestmark = pytest.mark.requires_git_checkout
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
+
 SCRIPT = REPO_ROOT / "scripts" / "measure_agents_md_duplication.py"
 
 #: Measured on 2026-09-20, recorded in `artifacts/evidence/0.2.6/agents_md_duplication.md`.
@@ -101,8 +106,9 @@ def test_the_corpus_is_tracked_files_and_includes_the_published_agent_page():
     second home for the skill table went unseen.
     """
     module = _loaded_script()
-    tracked = set(subprocess.run(["git", "ls-files"], cwd=REPO_ROOT, capture_output=True,
-                                 text=True, check=True).stdout.splitlines())
+    listing = git("ls-files", cwd=REPO_ROOT)
+    listing.check_returncode()
+    tracked = set(listing.stdout.splitlines())
     corpus = [path.relative_to(REPO_ROOT).as_posix() for path in module.OTHERS]
     assert len(corpus) >= 15, f"only {len(corpus)} files in the corpus: {corpus}"
     assert "docs/agents.md" in corpus, "the published agent page is not measured"

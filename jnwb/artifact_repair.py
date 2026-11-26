@@ -37,8 +37,8 @@ METHOD (cross-trial-median substitution on trial segments)
     Operates on the (n_trials, n_channels, n_times) contract directly. n_trials < 5 is
     refused (cross-trial median undefined at low replicate count).
 
-UNIT TEST: see `if __name__ == "__main__"` below -- synthetic array with an injected cross-channel
-spike, checked before trusting on real data.
+TESTS: `tests/test_artifact_repair.py` -- synthetic arrays with an injected cross-channel spike,
+checked before trusting on real data.
 """
 from __future__ import annotations
 
@@ -46,6 +46,15 @@ import warnings
 import numpy as np
 
 from ._bins import refuse_nonfinite_times
+
+# DEFAULT_BANDS is deprecated (module __getattr__); listed so a star-import still binds it.
+__all__ = [
+    "Z_THRESH", "flagged_to_intervals", "interpolate_intervals", "repair_lfp_trials",
+    "DEFAULT_BANDS", "TFR_Z_THRESH", "DETECTION_TAILS", "detect_band_outliers",
+    "repair_band_artifacts",
+]
+
+_MAD_FLOOR = 1e-9  # floor for a zero median absolute deviation; numerical guard, no external source
 
 Z_THRESH = 6.0                       # cross-channel-synchrony threshold, see docstring above
 
@@ -136,7 +145,7 @@ def _floored_robust_z(values, centre):
     """Robust z over the last axis: (values - centre) / (1.4826 * MAD), with the MAD floored at
     1e-9 so a constant channel gives z = 0, not NaN."""
     mad = np.median(np.abs(values - centre), axis=2, keepdims=True) * 1.4826
-    mad = np.where(mad < 1e-9, 1e-9, mad)
+    mad = np.where(mad < _MAD_FLOOR, _MAD_FLOOR, mad)
     return (values - centre) / mad
 
 
@@ -303,9 +312,28 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
     return repaired, frac_flagged, diagnostics
 
 
-DEFAULT_BANDS = {"Theta(4-8Hz)": (4, 8), "Alpha(8-14Hz)": (8, 14), "Beta(14-30Hz)": (14, 30),
-                  "Gamma(Low,30-50Hz)": (30, 50), "Gamma(High,50-80Hz)": (50, 80)}
+#: The bands :func:`repair_band_artifacts` uses when ``band_ranges`` is None.
+_REPAIR_BANDS = {"Theta(4-8Hz)": (4, 8), "Alpha(8-14Hz)": (8, 14), "Beta(14-30Hz)": (14, 30),
+                 "Gamma(Low,30-50Hz)": (30, 50), "Gamma(High,50-80Hz)": (50, 80)}
 TFR_Z_THRESH = 6.0
+
+
+def __getattr__(name):
+    # DEFAULT_BANDS is deprecated in 0.2.17. It returns the live default object, so an in-place
+    # edit still changes what band_ranges=None reads, as it did before.
+    if name == "DEFAULT_BANDS":
+        warnings.warn(
+            "jnwb.artifact_repair.DEFAULT_BANDS is deprecated and will be removed in 0.2.18; "
+            "no replacement: repair_band_artifacts(band_ranges=None) uses the same bands",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _REPAIR_BANDS
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted([*globals(), "DEFAULT_BANDS"])
 
 
 #: Accepted tails for :func:`detect_band_outliers`. ``"upper"`` is the default because the
@@ -411,7 +439,7 @@ def repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=TFR_Z_THRESH,
         :func:`detect_band_outliers`. The cross-trial median substitution of
         flagged cells is jnwb's, not the paper's.
     """
-    band_ranges = DEFAULT_BANDS if band_ranges is None else band_ranges
+    band_ranges = _REPAIR_BANDS if band_ranges is None else band_ranges
     refuse_nonfinite_times(freqs, "repair_band_artifacts", "freqs")
     # A NaN cell hid its trial's artifact and, with no band matching, passed through silently.
     refuse_nonfinite_times(power, "repair_band_artifacts", "power")
@@ -461,58 +489,3 @@ def repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=TFR_Z_THRESH,
     if channel_axis_added:
         repaired = repaired[:, 0]
     return repaired, frac_flagged
-
-
-if __name__ == "__main__":
-    # Synthetic self-test: 20 trials, 8 channels, 200 samples (1kHz => 200ms), all channels
-    # sharing a common slow evoked shape (so the detector must not simply flag "any deviation
-    # from flat"), one trial (index 7) with a large, cross-channel-synchronous spike injected at
-    # sample 100 -- the textbook movement-artifact signature this detector targets.
-    rng = np.random.default_rng(0)
-    n_trials, n_channels, n_times = 20, 8, 200
-    t = np.arange(n_times)
-    evoked = 5.0 * np.exp(-((t - 60) ** 2) / (2 * 15.0 ** 2))               # shared shape, uV
-    base = evoked[None, None, :] + rng.normal(0, 1.0, size=(n_trials, n_channels, n_times))
-    base[7, :, 100] += 40.0   # cross-channel synchronous spike, ~40x the noise SD, all channels
-
-    repaired, frac, diag = repair_lfp_trials(base, times_ms=None, reward_window_ms=None)
-    assert diag["n_flagged_cells"] >= 1, "self-test FAILED: injected spike not flagged"
-    flagged_here = np.abs(repaired[7, :, 100] - base[7, :, 100]).max() > 1.0
-    assert flagged_here, "self-test FAILED: flagged cell was not substituted"
-    untouched = np.allclose(repaired[0], base[0])
-    assert untouched, "self-test FAILED: an unflagged trial was modified"
-    print("jnwb.artifact_repair self-test PASSED:", diag)
-
-    # Reward-window exclusion self-test: same spike, but now placed inside a declared reward
-    # window -- must NOT be repaired.
-    times_ms = np.linspace(0, 199, n_times)  # 0..199 ms
-    base2 = evoked[None, None, :] + rng.normal(0, 1.0, size=(n_trials, n_channels, n_times))
-    base2[7, :, 100] += 40.0
-    repaired2, frac2, diag2 = repair_lfp_trials(
-        base2, times_ms=times_ms, reward_window_ms=(90.0, 110.0), z_thresh=Z_THRESH)
-    assert np.allclose(repaired2[7, :, 100], base2[7, :, 100]), \
-        "self-test FAILED: reward-window sample was repaired despite exclusion"
-    print("jnwb.artifact_repair reward-exclusion self-test PASSED:", diag2)
-
-    # repair_band_artifacts self-test: 20 trials, 4 channels, 99 freq rows (3-201Hz step 2),
-    # 50 time samples, all trials sharing a common band-power evoked shape in Alpha; one trial
-    # gets a sharp Alpha-only power spike absent from the other 19 trials of the same condition
-    # -- a sharp increase across trials, not present in the rest, which the repair exists to
-    # exclude.
-    freqs = np.arange(3, 201, 2, dtype=float)
-    n_trials, n_channels, n_freqs, n_times = 20, 4, freqs.size, 50
-    alpha_sel = (freqs >= 8) & (freqs < 14)
-    evoked_t = 2.0 + 1.0 * np.exp(-((np.arange(n_times) - 25) ** 2) / (2 * 6.0 ** 2))
-    power = 5.0 + rng.normal(0, 0.3, size=(n_trials, n_channels, n_freqs, n_times))
-    power[:, :, alpha_sel, :] += evoked_t[None, None, None, :]
-    power[3, :, alpha_sel, 30] += 30.0   # single-trial, single-band, single-timepoint spike
-
-    repaired3, frac3 = repair_band_artifacts(power, freqs, band_ranges=DEFAULT_BANDS)
-    assert frac3.get("Alpha(8-14Hz)", 0.0) > 0, "self-test FAILED: band spike not flagged"
-    assert np.abs(repaired3[3, :, alpha_sel, 30] - power[3, :, alpha_sel, 30]).max() > 1.0, \
-        "self-test FAILED: flagged band cell was not substituted"
-    assert np.allclose(repaired3[0], power[0]), \
-        "self-test FAILED: an unflagged trial/band was modified"
-    assert np.allclose(repaired3[3, :, ~alpha_sel, :], power[3, :, ~alpha_sel, :]), \
-        "self-test FAILED: a different band on the flagged trial was modified"
-    print("jnwb.artifact_repair.repair_band_artifacts self-test PASSED:", frac3)

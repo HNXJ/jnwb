@@ -90,6 +90,8 @@ def label_layers(
             are invalid, `vflip_result.index_space` is not the shaft rank this geometry
             requires, the depth declaration is invalid (as in :func:`vflip`), or it differs
             from the one `vflip_result` records.
+        TypeError: If `vflip_result` lacks a field of a vflip-style result (`accepted`,
+            `crossover_contact`, `n_channels`, `index_space`).
 
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field

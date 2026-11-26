@@ -137,15 +137,18 @@ class TestTFRExtractBandRegressions:
     def test_legacy_viz_bands_available_by_name(self):
         """Verify historical 7-band table is accessible explicitly via LEGACY_VIZ_BANDS."""
         assert "LEGACY_VIZ_BANDS" in dir(TFRAnalyzer)
-        assert TFRAnalyzer.LEGACY_VIZ_BANDS["alpha"] == (8.0, 15.0)
-        assert TFRAnalyzer.LEGACY_VIZ_BANDS["low_gamma"] == (30.0, 60.0)
-        
+        # Deprecated in 0.2.17; each access warns.
+        with pytest.warns(DeprecationWarning, match="LEGACY_VIZ_BANDS"):
+            legacy = TFRAnalyzer.LEGACY_VIZ_BANDS
+        assert legacy["alpha"] == (8.0, 15.0)
+        assert legacy["low_gamma"] == (30.0, 60.0)
+
         # Caller can explicitly use legacy definitions
         freqs = np.array([8.0, 12.0, 14.5, 16.0])
         tfr_data = np.ones((1, 4, 2, 1))
         # 14.5 Hz is inside legacy alpha (8-15)
         res_legacy = TFRAnalyzer.extract_band(
-            tfr_data, "alpha", freqs=freqs, band_defs=TFRAnalyzer.LEGACY_VIZ_BANDS
+            tfr_data, "alpha", freqs=freqs, band_defs=legacy
         )
         assert res_legacy.shape == (1, 2, 1)
 
@@ -160,3 +163,28 @@ class TestTFRExtractBandRegressions:
         assert "correlation" in res
         assert "band" in res
         assert res["band"] == "alpha"
+
+
+class TestResolvedJnwbDefects:
+
+    def test_f1_extract_band_requires_explicit_freqs(self):
+        """F1: Calling extract_band without freqs must raise TypeError."""
+        tfr_data = np.zeros((1, 30, 10, 1))
+        with pytest.raises(TypeError):
+            TFRAnalyzer.extract_band(tfr_data, "theta")  # type: ignore
+
+    def test_f1_extract_band_resolves_true_physical_coordinates(self):
+        """F1: With true frequencies supplied, a 13.1 Hz signal is recognized as Alpha, not Theta."""
+        true_freqs = np.linspace(10.0, 100.0, 30)
+        tfr_data = np.zeros((1, 30, 10, 1))
+        # Power at all bins in Alpha range [8, 14] Hz (bins 0 and 1: 10.0 and 13.1 Hz)
+        alpha_mask = (true_freqs >= 8.0) & (true_freqs <= 14.0)
+        tfr_data[0, alpha_mask, :, :] = 100.0
+
+        # Theta (4-8 Hz) has no samples in true_freqs [10, 100], so it must fail fast
+        with pytest.raises(ValueError, match="No sampled frequencies fall within requested band 'theta'"):
+            TFRAnalyzer.extract_band(tfr_data, "theta", freqs=true_freqs)
+
+        # Alpha (8-14 Hz) captures bins 0 and 1 correctly with 100.0 mean power
+        extracted_alpha = TFRAnalyzer.extract_band(tfr_data, "alpha", freqs=true_freqs)
+        assert extracted_alpha.mean() == 100.0

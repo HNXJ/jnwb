@@ -280,6 +280,11 @@ def transfer_entropy(
         the surrogate mean, reported as ``bias_corrected_*``. The surrogates here permute
         trials (7 or more) or circularly shift the source (fewer), which keeps its
         autocorrelation; ``params['surrogate_scheme']`` records which.
+
+    Raises:
+        ValueError: `estimator='symbolic'` (refused: its surrogate null is not calibrated under
+            zero-lag mixing); `estimator` is not `'quantile'`, `'uniform'` or `'discrete'`; `k`, `l`
+            or `delay` is below 1; or `bias_correction` is neither `'mm'` nor `None`.
     """
     _check_signal_class("transfer_entropy", signal_class, 2)
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='transfer_entropy')

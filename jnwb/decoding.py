@@ -337,6 +337,8 @@ def nested_cv_linear_svm(
             f"nested_cv_linear_svm: labels has {len(classes)} classes "
             f"({classes.tolist()}); it decodes two."
         )
+    if n_splits < 2:
+        raise ValueError(f"nested_cv_linear_svm: n_splits must be at least 2, got {n_splits}.")
 
     # The partition was fixed at `random_state=42` in four places with no way to
     # vary it, so partition sensitivity could not be assessed at all. An int `rng` is
@@ -445,6 +447,9 @@ def assign_outer_folds(
         A copy of ``trials`` with added ``outer_fold`` (int, -1 if unassigned),
         ``outer_group`` (the group id), and ``outer_fold_status`` (``"valid"`` or
         ``"insufficient_groups"`` when a stratum has fewer than 2 distinct groups).
+
+    Raises:
+        ValueError: the trial table lacks the fold columns.
     """
     required = set(analysis_cols) | {group_col, "trial_id"}
     missing = required.difference(trials.columns)
@@ -563,6 +568,11 @@ def build_representation_ladder(
     Returns:
         dict with X_rate, X_vec, X_structured, and a ``contract`` sub-dict documenting the
         R0/R1/R2 semantics and space-axis topology.
+
+    Raises:
+        ValueError: `raster` is not 3-D `(n_trials, n_space, n_time)`; `raster` holds NaN or Inf;
+            `modality` is neither `'SPK'` nor `'LFP'`; or `modality='LFP'` without
+            `spatial_axis_metadata`.
     """
     x = np.asarray(raster)
     if x.ndim != 3:

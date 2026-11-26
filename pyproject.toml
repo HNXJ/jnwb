@@ -126,3 +126,11 @@ testpaths = ["tests"]
 # Under `-n`, tests marked with one `xdist_group` run on one worker; plain `load` ignores the
 # marker. The browser-backed export tests share a group. Without `-n` this option does nothing.
 addopts = ["--dist=loadgroup"]
+
+# C901 (McCabe complexity) is added to ruff's default rules, which stay as they are;
+# tests/test_complexity_ceiling.py holds jnwb/ under the ceiling.
+[tool.ruff.lint]
+extend-select = ["C901"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 40

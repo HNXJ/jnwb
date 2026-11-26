@@ -6,7 +6,11 @@ cross_area_coherence started requiring freq_bands.
 from __future__ import annotations
 
 import atexit
+import os
+import shutil
+import socket
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -29,16 +33,17 @@ KERNEL_START_TIMEOUT_S = 180  # a kernel under 24 busy processes needed over 60 
 CELL_TIMEOUT_S = 300  # per cell; the first import cell took 120 s under 24 busy processes
 KERNEL_SHUTDOWN_TIMEOUT_S = 15  # graceful stop, then the manager kills the process
 
+# A TCP kernel that loses a port to another process dies at start; it is started again on fresh
+# ports, within the same summed bounds. zmq words the bind failure differently per platform.
+KERNEL_START_ATTEMPTS = 3
+PORT_TAKEN = ("Address in use", "Address already in use")
+
 
 _LAST_RUN = {}  # the manager and budget of the latest _execute, for the tests below
 
 
 def _execute(path, tmp_path, monkeypatch, kernel_argv=None):
     """Run the notebook top to bottom in a kernel on this tree; return it with its outputs."""
-    import os
-
-    from jupyter_client.manager import AsyncKernelManager
-
     nb = nbformat.read(path, as_version=4)
     repo_root = str(NOTEBOOK_DIR.parent.parent)
     # The kernel inherits this environment and runs in tmp_path, so without the repo root on
@@ -52,41 +57,81 @@ def _execute(path, tmp_path, monkeypatch, kernel_argv=None):
     # machine with several interpreters is a different jnwb than the one under test.
     # The async manager keeps nbclient's event loop free: with a blocking KernelManager a busy
     # kernel stops the cell timeout from ever firing and the run never returns.
-    km = AsyncKernelManager(kernel_name="python3")
-    km.kernel_spec.argv[0] = sys.executable
-    if kernel_argv is not None:
-        km.kernel_spec.argv = list(kernel_argv)
-    km.shutdown_wait_time = KERNEL_SHUTDOWN_TIMEOUT_S
-    client = nbclient.NotebookClient(
-        nb,
-        timeout=CELL_TIMEOUT_S,
-        startup_timeout=KERNEL_START_TIMEOUT_S,
-        km=km,
-        resources={"metadata": {"path": str(tmp_path)}},
-    )
+    # Over TCP the manager picks free ports and the kernel binds them later, so a parallel
+    # worker can take one in between and the kernel never answers. IPC has no ports; its socket
+    # paths need an absolute prefix, since the kernel runs in tmp_path and the client does not.
+    ipc = {}
+    if os.name == "posix":
+        ipc_dir = tempfile.mkdtemp(prefix="jnwb-kernel-")
+        ipc = {"transport": "ipc", "ip": os.path.join(ipc_dir, "k")}
+    try:
+        return _run_bounded(path, nb, tmp_path, ipc, kernel_argv)
+    finally:
+        if ipc:
+            shutil.rmtree(ipc_dir, ignore_errors=True)
+
+
+def _run_bounded(path, nb, tmp_path, ipc, kernel_argv):
+    from jupyter_client.manager import AsyncKernelManager
+
+    def new_client():
+        km = AsyncKernelManager(kernel_name="python3", **ipc)
+        km.kernel_spec.argv[0] = sys.executable
+        if kernel_argv is not None:
+            km.kernel_spec.argv = list(kernel_argv)
+        km.shutdown_wait_time = KERNEL_SHUTDOWN_TIMEOUT_S
+        _LAST_RUN.update(km=km)
+        return nbclient.NotebookClient(
+            nb,
+            timeout=CELL_TIMEOUT_S,
+            startup_timeout=KERNEL_START_TIMEOUT_S,
+            km=km,
+            resources={"metadata": {"path": str(tmp_path)}},
+        )
+
     # Backstop for a stall the bounds above do not reach: the run goes to a worker thread, and a
     # kernel that outlives the summed bounds is killed and fails this test by name.
     budget = KERNEL_START_TIMEOUT_S + CELL_TIMEOUT_S * len(nb.cells) + KERNEL_SHUTDOWN_TIMEOUT_S
-    _LAST_RUN.update(km=km, budget=budget)
-    outcome = {}
+    _LAST_RUN.update(budget=budget, starts=0)
+    outcome, clients = {}, []
+    abandoned = threading.Event()
 
     def run():
-        try:
-            outcome["nb"] = client.execute()
-        except BaseException as exc:
-            outcome["error"] = exc
+        # The kernel's stderr goes to a file so a lost port bind can be told from other failures;
+        # it is echoed to this process's stderr whenever the run fails.
+        for attempt in range(KERNEL_START_ATTEMPTS):
+            log = tmp_path / f"kernel_stderr_{attempt}.txt"
+            try:
+                clients.append(new_client())
+                _LAST_RUN["starts"] = attempt + 1
+                with open(log, "w") as stderr:
+                    outcome["nb"] = clients[-1].execute(stderr=stderr)
+                outcome.pop("error", None)
+                return
+            except BaseException as exc:
+                outcome["error"] = exc
+            text = log.read_text(errors="replace") if log.exists() else ""
+            sys.stderr.write(text)
+            lost_port = isinstance(outcome["error"], RuntimeError) and any(
+                s in text for s in PORT_TAKEN
+            )
+            if not lost_port or abandoned.is_set():
+                return
 
     worker = threading.Thread(target=run, daemon=True)
     worker.start()
     worker.join(budget)
+    if worker.is_alive():
+        abandoned.set()
     # A failed start leaves nbclient's exit hook behind, which then asserts on a dead manager.
     # The hook is a private attribute of nbclient 0.11; without it there is nothing to remove.
-    hook = getattr(client, "_cleanup_kernel", None)
-    if hook is not None:
-        atexit.unregister(hook)
+    for client in list(clients):
+        hook = getattr(client, "_cleanup_kernel", None)
+        if hook is not None:
+            atexit.unregister(hook)
     if worker.is_alive():
         try:
-            km.provisioner.process.kill()
+            _LAST_RUN["km"].provisioner.process.kill()
         except Exception:
             pass
         pytest.fail(f"{path.name}: kernel did not finish within {budget} s", pytrace=False)
@@ -140,6 +185,42 @@ def test_stalled_cell_fails_within_the_cell_bound(tmp_path, monkeypatch):
     assert time.monotonic() - began < 120 + 3 + 2 + 30
 
 
+def test_kernel_starts_when_another_process_holds_its_chosen_port(tmp_path, monkeypatch):
+    # The race a parallel worker causes: the manager's first port choice lands on a port that
+    # is already bound and listening by the time the kernel binds it.
+    from jupyter_client.connect import LocalPortCache
+
+    held = socket.socket()
+    held.bind(("127.0.0.1", 0))
+    held.listen()
+    port = held.getsockname()[1]
+    real = LocalPortCache.find_available_port
+    chosen = []
+
+    def choose(self, ip):
+        chosen.append(ip)
+        return port if len(chosen) == 1 else real(self, ip)
+
+    monkeypatch.setattr(LocalPortCache, "find_available_port", choose)
+    _shrink_bounds(monkeypatch, start=120, cell=60, shutdown=2)
+    nb = nbformat.v4.new_notebook(cells=[nbformat.v4.new_code_cell("print(6 * 7)")])
+    path = tmp_path / "held_port.ipynb"
+    nbformat.write(nb, path)
+    try:
+        out = _execute(path, tmp_path, monkeypatch)
+    finally:
+        held.close()
+    assert out.cells[0].outputs[0]["text"].strip() == "42"
+    if os.name == "posix":
+        # IPC takes no port, so the held one never reaches the kernel.
+        assert _LAST_RUN["km"].transport == "ipc"
+    else:
+        # TCP: the first kernel was handed the held port and lost it; a second start on fresh
+        # ports ran the cell.
+        assert chosen, "the held port was never handed out, so the check below passes on nothing"
+        assert _LAST_RUN["starts"] == 2
+
+
 def _silent_kernel_argv(tmp_path):
     """A kernel process that never answers and ignores the stop request."""
     stub = tmp_path / "silent_kernel.py"
@@ -157,6 +238,7 @@ def test_kernel_that_never_starts_fails_within_the_start_bound(tmp_path, monkeyp
     # Under nbclient's own 60 s default, so a dropped start bound shows.
     assert time.monotonic() - began < 30
     assert _LAST_RUN["km"].shutdown_wait_time == 1
+    assert _LAST_RUN["starts"] == 1  # only a lost port bind starts the kernel again
 
 
 def test_bounds_stay_finite_and_small():

@@ -16,10 +16,10 @@
   `MissingRequiredNWBFieldError`; `allow_missing=("session_description",)` opens it with the field
   `""`, and `nwbfile.jnwb_waived_requirements` is `("session_description",)` only when the waiver
   was used.
-- `jnwb.nwb_read_io(path, mode="r", allow_missing=None)`: Context manager yielding the open
+- `jnwb.nwb_read_io(path, allow_missing=None)`: Context manager yielding the open
   `NWBHDF5IO`; call `io.read()` and read data inside the block. Same `allow_missing` and waiver
-  record as `read_nwb`. Read-only: any other `mode` raises `ValueError`; write with
-  `pynwb.NWBHDF5IO`.
+  record as `read_nwb`. Read-only; `mode` is deprecated (0.2.17, removed in 0.2.18): passing it
+  warns, and a mode other than `"r"` raises `ValueError`; write with `pynwb.NWBHDF5IO`.
 - `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalizes any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
 
 - `jnwb.check_ragged_indices(path, *, table="units", probe_starts=None, probe_column=None)`: Read-only integrity check of every `<column>_index` of one table, returning a `RaggedIndexReport` with one `RaggedIndexCheck` per column: `monotonic`, `nonnegative`, `ends_at_data_len`, `length_fits`, and `offset_bug` (the multi-probe offset defect). The defect test needs `probe_starts` or `probe_column`; without one `offset_bug` is `"not_tested"`. Writes nothing.

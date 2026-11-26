@@ -96,6 +96,20 @@ def _processing_names(nwb: NWBFile) -> list[str]:
     ]
 
 
+def _interval_tables(nwb: NWBFile) -> dict[str, TimeIntervals]:
+    """The bare-named interval tables a written file holds under ``/intervals``.
+
+    Before a write, pynwb keeps ``trials``, ``epochs`` and ``invalid_times`` on their own
+    attributes and ``nwb.intervals`` lacks them; read back, they are in ``nwb.intervals``.
+    """
+    tables: dict[str, TimeIntervals] = dict(nwb.intervals or {})
+    for attr in ("trials", "epochs", "invalid_times"):
+        table = getattr(nwb, attr, None)
+        if table is not None and attr not in tables:
+            tables[attr] = table
+    return tables
+
+
 def resolve_interval_table(path_or_nwb: NWBInput, table: str | None = None) -> str:
     """Resolve an interval table name using jnwb addressing rules.
 
@@ -110,6 +124,9 @@ def resolve_interval_table(path_or_nwb: NWBInput, table: str | None = None) -> s
     * use ``trials`` if present;
     * else use the sole interval table when exactly one exists;
     * else raise :class:`AmbiguousIntervalTableError`.
+
+    Raises:
+        TypeError: `path_or_nwb` is neither a path (`str` or `Path`) nor an open `pynwb.NWBFile`.
     """
     if not isinstance(path_or_nwb, (NWBFile, str, Path)):
         raise TypeError(
@@ -120,7 +137,7 @@ def resolve_interval_table(path_or_nwb: NWBInput, table: str | None = None) -> s
 
 
 def _resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
-    names = sorted(nwb.intervals.keys()) if nwb.intervals else []
+    names = sorted(_interval_tables(nwb))
     processing = _processing_names(nwb)
     if not names and not processing:
         raise IntervalTableNotFoundError("No interval tables found in NWB file")
@@ -132,7 +149,10 @@ def _resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
             f"Interval table '{name}' not found. Available: {names + processing}"
         )
     if not names:
-        raise IntervalTableNotFoundError("No interval tables found in NWB file")
+        raise IntervalTableNotFoundError(
+            "No interval tables found in NWB file; "
+            f"processing tables found: {processing}. Pass table=<name>."
+        )
     if "trials" in names:
         return "trials"
     if len(names) == 1:
@@ -145,8 +165,9 @@ def _resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
 
 def _interval_table_object(nwb: NWBFile, name: str) -> TimeIntervals:
     """The table `_resolve_interval_table` returned: a bare intervals name, or a processing path."""
-    if name in (nwb.intervals or {}):
-        return nwb.intervals[name]
+    tables = _interval_tables(nwb)
+    if name in tables:
+        return tables[name]
     return _processing_table(nwb, name)
 
 
@@ -154,7 +175,7 @@ def _table_path(name: str) -> str:
     return f"/{name}" if name.startswith("processing/") else f"/intervals/{name}"
 
 
-def _read_interval_dataframe(nwb: NWBFile, table: str) -> pd.DataFrame:
+def _read_interval_dataframe(nwb: NWBFile, table: str) -> tuple[str, pd.DataFrame]:
     name = _resolve_interval_table(nwb, table)
     return name, _interval_table_object(nwb, name).to_dataframe()
 
@@ -323,6 +344,12 @@ def events(
     -------
     EventTable
         All rows from the selected table in original order. Onsets are in seconds.
+
+    Raises
+    ------
+    ColumnNotFoundError
+        `code_column` is given explicitly and is not a column of the table; the message lists the
+        columns. The default `codes` name only warns.
     """
     def _build(nwb: NWBFile) -> EventTable:
         name, df = _read_interval_dataframe(nwb, table)
@@ -537,7 +564,7 @@ def edges_near_events(
         In the series' unit after its ``channel_conversion``, ``conversion`` and ``offset`` (its
         ``unit`` attribute, e.g. volts). A sample at or above ``threshold`` is high. A rising edge
         is the first high sample after a low one; a falling edge the first low sample after a high
-        one. Each edge is stamped with its sample's time.
+        one. Each edge is stamped with its sample's time. Must be finite.
     window_s:
         ``(before_s, after_s)``: edges within ``before_s`` before and ``after_s`` after each event
         are candidates. Both must be finite and non-negative.
@@ -549,8 +576,15 @@ def edges_near_events(
         ``rising_lag_s``, ``falling_edge_s`` and ``falling_lag_s``. The edge is the candidate
         nearest the event (ties to the earlier one); a lag is ``edge_s - event_s``, so negative
         means the edge came first. NaN where the window holds no edge of that kind.
+
+    Raises
+    ------
+    ValueError
+        `threshold` is not finite.
     """
     before_s, after_s = _window_bounds(window_s)
+    if not np.isfinite(float(threshold)):
+        raise ValueError(f"edges_near_events: threshold must be finite; got {threshold!r}")
     centers = np.asarray(events, dtype=np.float64).ravel()
 
     def _build(nwb: NWBFile) -> pd.DataFrame:

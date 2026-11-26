@@ -8,19 +8,20 @@ first case, and one that always returned a violation would pass the second, so b
 from __future__ import annotations
 
 import pathlib
-import subprocess
 import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
+from scripts.gates.boundary import git  # noqa: E402
 from scripts.release_gate import main_ancestry_violations  # noqa: E402
 
 
-def _git(root: pathlib.Path, *args: str) -> None:
-    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
-                   cwd=root, check=True, capture_output=True)
+def _git(root: pathlib.Path, *args: str) -> str:
+    done = git("-c", "user.name=t", "-c", "user.email=t@example.com", *args, cwd=root)
+    done.check_returncode()
+    return done.stdout.strip()
 
 
 def _commit(root: pathlib.Path, name: str) -> None:
@@ -70,8 +71,7 @@ def test_an_unpushed_release_merge_whose_dev_lacks_the_old_main_fails(tmp_path):
     _git(root, "checkout", "main")
     _git(root, "update-ref", "refs/remotes/origin/main", "HEAD")
     _git(root, "merge", "--no-ff", "-m", "release", "dev")
-    rev = lambda name: subprocess.run(["git", "rev-parse", name], cwd=root, check=True,  # noqa: E731
-                                      capture_output=True, text=True).stdout.strip()
+    rev = lambda name: _git(root, "rev-parse", name)  # noqa: E731
     assert rev("origin/main") == rev("HEAD^1") and rev("origin/main") != rev("HEAD")
     violations = main_ancestry_violations(root)
     assert len(violations) == 1 and "old main" in violations[0]

@@ -12,7 +12,6 @@ Shingled Jaccard on 4-grams of words, which survives rewording better than a lit
 import fnmatch
 import pathlib
 import re
-import subprocess
 import sys
 import unicodedata
 
@@ -32,9 +31,13 @@ AGENTS = ROOT / "AGENTS.md"
 
 #: Tracked files only. A git-ignored file is present on one machine and absent on the next, so
 #: measuring it made the counts, and the ratchet over them, a property of whichever checkout ran.
-TRACKED = set(subprocess.run(
-    ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True,
-).stdout.splitlines())
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # run by path, so `scripts` is not importable without it
+from scripts.gates.boundary import git  # noqa: E402
+
+_LISTED = git("ls-files", cwd=ROOT)
+_LISTED.check_returncode()
+TRACKED = set(_LISTED.stdout.splitlines())
 if not TRACKED:
     sys.exit("git ls-files listed nothing; the corpus cannot be read")
 
@@ -146,7 +149,7 @@ print(f"{'section':44} {'sent':>5} {'dup':>4} {'echo':>5}")
 for sec, (n, h, m) in sorted(by_section.items(), key=lambda kv: -kv[1][1]):
     print(f"{sec[:44]:44} {n:5} {h:4} {m:5}")
 
-print(f"\nTOP DUPLICATES — each is one claim with two homes:")
+print("\nTOP DUPLICATES — each is one claim with two homes:")
 for score, sec, s, where, other in high[:20]:
     print(f"\n  {score:.2f}  {sec[:52]}")
     print(f"        AGENTS.md: {s[:130]}")
@@ -155,7 +158,7 @@ for score, sec, s, where, other in high[:20]:
 # The echo band is tested with its own baseline, so it has to be readable too. Listing only the
 # duplicates left `test_echoed_claims_do_not_increase` able to fail while the script it names as
 # the diagnostic printed nothing about the sentence that moved the count.
-print(f"\nECHOES — each is a claim that reads like one elsewhere:")
+print("\nECHOES — each is a claim that reads like one elsewhere:")
 for score, sec, s, where, other in med:
     print(f"\n  {score:.2f}  {sec[:52]}")
     print(f"        AGENTS.md: {s[:130]}")

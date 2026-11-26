@@ -78,18 +78,15 @@ class TestWorkflowReleasePolicy:
             assert bool(matched) <= (not Version(version).is_prerelease), version
             if "!" not in version:
                 assert bool(matched) == (not Version(version).is_prerelease), version
-        # The same pattern as bash reads it, off Windows, where `bash` can be the WSL launcher.
-        import sys
-
-        if sys.platform == "win32":
-            return
-        try:
-            out = subprocess.run(
-                ["bash", "-c",
-                 f'for v in "$@"; do if [[ "$v" =~ {pattern} ]]; then echo "$v"; fi; done',
-                 "_", *cases], capture_output=True, text=True, timeout=30)
-        except (FileNotFoundError, OSError):
-            return
+        # The same pattern as bash reads it. `_bash` finds Git's bash, so a WSL launcher in System32
+        # cannot stand in for it; with no Git bash the half is skipped with a record, not passed.
+        bash = self._bash()
+        if bash is None:
+            pytest.skip("no Git bash on this machine")
+        out = subprocess.run(
+            [bash, "-c",
+             f'for v in "$@"; do if [[ "$v" =~ {pattern} ]]; then echo "$v"; fi; done',
+             "_", *cases], capture_output=True, text=True, timeout=30)
         assert out.returncode == 0, out.stderr
         assert out.stdout.split() == ["0.2.9", "1.0", "10.20.30", "0.2.9.post1"], out.stdout
 
@@ -1099,7 +1096,8 @@ class TestPandas3LegIsNonBlocking:
 
 #: The release gate's required jobs at baseline 0d6b9d63, read from that commit's
 #: workflow.yml by `required_ci_jobs(workflow=...)`. Ten names, before the pandas 3 leg existed;
-#: the lookup job has read `main` runs since 0.2.14.
+#: the lookup job has read `main` runs since 0.2.14. The floors leg moved to ubuntu-24.04 on
+#: 2026-11-08 (no Python 3.12.0 on Ubuntu 26.04), which renamed it; no other job moved.
 BASELINE_REQUIRED_JOBS = sorted([
     "Build & Validate Distribution",
     "Find a passed main run of this commit",
@@ -1110,7 +1108,7 @@ BASELINE_REQUIRED_JOBS = sorted([
     "Test (Python 3.14 on ubuntu-latest)",
     "Test (Python 3.14 on windows-latest)",
     "Test (Python 3.15 on ubuntu-latest)",
-    "Test (dependency floors, Python 3.12.0 on ubuntu-latest)",
+    "Test (dependency floors, Python 3.12.0 on ubuntu-24.04)",
 ])
 
 
@@ -1379,3 +1377,50 @@ class TestTheUploadToPyPIIsVerifiedAfterIt:
         problem = wheel_problem(built, fetched)
         assert hashlib.sha256(b"the build artifact").hexdigest() in problem, problem
         assert hashlib.sha256(b"a different wheel").hexdigest() in problem, problem
+
+
+def test_every_job_that_runs_the_gates_checks_out_the_tags():
+    """Gate 15 resolves the newest v* tag HEAD descends from and fails in a clone with none, so
+    a job that runs pytest (tests/test_every_gate_runs.py runs every gate) or harness_gate.py
+    must check out full history: a shallow checkout turned every test leg red at c53c78fe."""
+    examined, shallow = [], []
+    for name, job in _load_workflow()["jobs"].items():
+        steps = job.get("steps", [])
+        runs = " ".join(str(step.get("run", "")) for step in steps)
+        if "pytest" not in runs and "harness_gate.py" not in runs:
+            continue
+        examined.append(name)
+        for step in steps:
+            if str(step.get("uses", "")).startswith("actions/checkout@"):
+                if (step.get("with") or {}).get("fetch-depth") != 0:
+                    shallow.append(name)
+    assert len(examined) >= 3, examined  # test, test-floors, the pandas leg and build at least
+    assert not shallow, f"jobs that run the gates from a shallow checkout: {shallow}"
+
+
+RUFF_PINNED_INSTALL = re.compile(r"pip install.*\bruff==\d+\.\d+\.\d+")
+RUFF_C901_COMMAND = "ruff check --select C901 jnwb/"
+
+
+def test_one_ci_job_installs_a_pinned_ruff_and_runs_the_c901_ceiling():
+    """tests/test_complexity_ceiling.py skips wherever ruff is absent, and no CI job installed it,
+    so the A4 ceiling never ran in CI. One job installs a pinned ruff, then runs the C901 check."""
+    # Positions are (step index, line index in the step's run block): the install comes first
+    # when it is an earlier step, or an earlier line of the same run block.
+    installs, checks = [], []
+    for name, job in _load_workflow()["jobs"].items():
+        for index, step in enumerate(job.get("steps", [])):
+            lines = [line.strip() for line in str(step.get("run", "")).splitlines()]
+            for line_no, line in enumerate(lines):
+                if RUFF_PINNED_INSTALL.search(line):
+                    installs.append((name, index, line_no))
+                if line == RUFF_C901_COMMAND:
+                    checks.append((name, index, line_no))
+                    guard = str(step.get("if", ""))
+    assert len(installs) == 1, f"lines that install a pinned ruff: {installs}"
+    # One leg: the step's condition pins both matrix axes, so it neither runs everywhere nor nowhere.
+    assert checks and "matrix.os == 'ubuntu-latest'" in guard, f"ruff step condition: {checks and guard!r}"
+    assert "matrix.python-version == '3.12'" in guard, f"ruff step condition: {guard!r}"
+    assert len(checks) == 1, f"lines that run `{RUFF_C901_COMMAND}`: {checks}"
+    assert installs[0][0] == checks[0][0], f"install and check in different jobs: {installs} {checks}"
+    assert installs[0][1:] < checks[0][1:], f"the check runs before ruff is installed: {installs} {checks}"

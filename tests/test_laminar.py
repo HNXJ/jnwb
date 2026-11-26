@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import inspect
 import pathlib
+import sys
 import types
+from dataclasses import FrozenInstanceError
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -12,6 +15,10 @@ import pytest
 import jnwb
 import jnwb.testing
 from jnwb.laminar import VFlipResult, vflip, vflip_from_lfp, label_layers
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
 #: Derived from the signature so the threshold cannot go stale in these tests.
 DEFAULT_MIN_SUPPORT_SCORE = float(
@@ -299,7 +306,7 @@ class TestVFlipResultInterface:
         psd = np.ones((16, 50))
         res = vflip(psd, freqs)
 
-        with pytest.raises(Exception):  # FrozenInstanceError
+        with pytest.raises(FrozenInstanceError):
             res.accepted = True  # type: ignore
 
 
@@ -453,10 +460,10 @@ class TestVFlipFromLFP:
         with pytest.raises(ValueError, match="2D array"):
             vflip_from_lfp(np.ones((2, 10, 100)), fs=1000.0)
 
-        with pytest.raises(ValueError, match="fs must be strictly positive"):
+        with pytest.raises(ValueError, match="vflip_from_lfp: fs must be finite and strictly positive"):
             vflip_from_lfp(np.ones((10, 1000)), fs=-100.0)
 
-        with pytest.raises(ValueError, match="fs must be strictly positive"):
+        with pytest.raises(ValueError, match="vflip_from_lfp: fs must be finite and strictly positive"):
             vflip_from_lfp(np.ones((10, 1000)), fs=np.nan)
 
     @pytest.mark.parametrize("fs", [0.5, 1.0])
@@ -1563,3 +1570,62 @@ class TestVFlipEdges:
         res = vflip(psd, freqs, probe_geometry=self._staggered_geometry(),
                     depth_axis="z", shallow_end="min")
         assert res.accepted and res.depth_anchor == "shallowest"
+
+
+class TestIntegration021:
+
+    def test_probe_geometry_vflip_readiness(self):
+        """Verify probe_geometry outputs satisfy all structural preconditions for vFLIP."""
+        # Create a 16-channel linear silicon probe with 20 um pitch along Z axis (0, 0, z)
+        n_ch = 16
+        pitch_um = 20.0
+        # Channels intentionally shuffled in the table to test ordering recovery
+        shuffled_idx = np.array([5, 2, 9, 0, 15, 7, 1, 14, 8, 3, 11, 4, 13, 6, 12, 10])
+        z_coords = shuffled_idx * pitch_um
+
+        df = pd.DataFrame({
+            "x": np.zeros(n_ch),
+            "y": np.zeros(n_ch),
+            "z": z_coords,
+            "group_name": ["shank0"] * n_ch,
+        }, index=shuffled_idx)
+
+        geom = jnwb.probe_geometry(df, units="um", nominal_pitch=20.0, strict_linear=True)
+
+        assert isinstance(geom, jnwb.ProbeGeometry)
+        assert geom.is_linear is True
+        assert geom.is_uniform is True
+        assert geom.nominal_pitch == pytest.approx(20.0)
+        assert geom.units == "um"
+        assert geom.orientation is not None
+        # Orientation must be along Z axis: (0, 0, 1)
+        assert np.allclose(np.abs(geom.orientation), [0.0, 0.0, 1.0], atol=1e-5)
+
+        # Sorted channels along probe shaft: must reconstruct 0..15 monotonic order
+        sorted_pos = geom.contact_positions[geom.linear_order]
+        sorted_ch = geom.channel_ids[geom.linear_order]
+        assert np.array_equal(sorted_ch, np.arange(n_ch))
+        # Differences in z must strictly equal pitch_um
+        diffs = np.diff(sorted_pos[:, 2])
+        assert np.allclose(diffs, pitch_um)
+
+    def test_probe_geometry_composition_with_layer_classification(self):
+        """Verify probe_geometry coordinates directly feed depth classification."""
+        # Contact depths from 100 to 1600 um
+        n_contacts = 16
+        z_um = np.linspace(100.0, 1600.0, n_contacts)
+        df = pd.DataFrame({"x": np.zeros(n_contacts), "y": np.zeros(n_contacts), "z": z_um})
+
+        geom = jnwb.probe_geometry(df, units="um", nominal_pitch=100.0, strict_linear=True)
+        assert geom.is_linear is True
+
+        # Classify each channel using jnwb.classify_layer_from_depth
+        layers = [
+            jnwb.classify_layer_from_depth(ch, df, depth_unit=geom.units, threshold=1000.0)
+            for ch in geom.channel_ids
+        ]
+        assert len(layers) == n_contacts
+        assert all(l in ("Superficial", "Deep") for l in layers)
+        # Channel 0 (z=100 um) is Superficial, channel 15 (z=1600 um) is Deep
+        assert layers[0] == "Superficial"
+        assert layers[-1] == "Deep"

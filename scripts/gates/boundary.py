@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, FrozenSet, List, Optional, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Union
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 JNWB_DIR = REPO_ROOT / "jnwb"
@@ -87,14 +87,25 @@ def _canonical(path: Path) -> str:
     return os.path.normcase(str(Path(path).resolve()))
 
 
+def git(*args: str, cwd: Optional[Path | str] = None, timeout: Optional[float] = None,
+        env: Optional[Dict[str, str]] = None, encoding: Optional[str] = None,
+        errors: Optional[str] = None) -> subprocess.CompletedProcess:
+    """``git *args`` run in ``cwd`` and captured as text; the caller reads the return code.
+
+    With no options this is ``subprocess.run(["git", ...], capture_output=True, text=True)``: the
+    locale encoding, no timeout, the inherited environment. Scripts that read git share it.
+    """
+    return subprocess.run(["git", *args], cwd=None if cwd is None else str(cwd),
+                          capture_output=True, text=True, encoding=encoding, errors=errors,
+                          env=env, timeout=timeout)
+
+
 def _run_git(directory: Path, *args: str) -> subprocess.CompletedProcess:
     """``git -C directory *args`` with discovery redirection stripped; GitUnavailable if git cannot run."""
     env = {k: v for k, v in os.environ.items() if k not in _GIT_DISCOVERY_ENV}
     try:
-        return subprocess.run(
-            ["git", "-C", str(directory), *args],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=60,
-        )
+        return git("-C", str(directory), *args, encoding="utf-8", errors="replace", env=env,
+                   timeout=60)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise GitUnavailable(f"git could not be run in {directory}: {exc}") from exc
 
@@ -571,10 +582,9 @@ def _wholesale_conversions(root: Path) -> List[str]:
     ).returncode != 0:
         return []
     try:
-        changed = subprocess.run(
-            ["git", "diff", "--name-only", "-z", "HEAD"],
-            cwd=root, capture_output=True, text=True, check=True,
-        ).stdout.split("\0")
+        done = git("diff", "--name-only", "-z", "HEAD", cwd=root)
+        done.check_returncode()
+        changed = done.stdout.split("\0")
     except Exception as exc:
         return [f"LINE_ENDINGS: could not compare against HEAD under {root} ({exc})"]
 
@@ -622,13 +632,9 @@ def check_line_ending_consistency(repo_root: Optional[Path] = None) -> List[str]
     """
     root = repo_root or REPO_ROOT
     try:
-        tracked = subprocess.run(
-            ["git", "ls-files", "-z"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.split("\0")
+        done = git("ls-files", "-z", cwd=root)
+        done.check_returncode()
+        tracked = done.stdout.split("\0")
     except Exception as exc:  # no git, or not a checkout: say so rather than passing
         return [f"LINE_ENDINGS: could not list tracked files under {root} ({exc})"]
 

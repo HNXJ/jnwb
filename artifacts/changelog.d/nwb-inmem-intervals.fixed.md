@@ -1,0 +1,1 @@
+- `jnwb/nwb_events.py`: unwritten in-memory NWBFiles resolve trials, epochs and invalid_times.

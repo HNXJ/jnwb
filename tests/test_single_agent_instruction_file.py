@@ -11,12 +11,16 @@ state, not about what sits in a working directory.
 
 from __future__ import annotations
 
-import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
 
 #: Root-level filenames that assistants and agent harnesses read as instructions.
 ASSISTANT_INSTRUCTION_FILES = [
@@ -29,10 +33,7 @@ ASSISTANT_INSTRUCTION_FILES = [
 
 
 def _tracked_root_files() -> set[str]:
-    result = subprocess.run(
-        ["git", "ls-files", "--", ":(top)*"],
-        cwd=ROOT, capture_output=True, text=True, timeout=120,
-    )
+    result = git("ls-files", "--", ":(top)*", cwd=ROOT, timeout=120)
     assert result.returncode == 0, result.stderr[-2000:]
     names = {line for line in result.stdout.splitlines() if "/" not in line}
     assert "AGENTS.md" in names, (
@@ -56,10 +57,7 @@ def test_agents_md_is_the_only_tracked_root_instruction_file() -> None:
 @pytest.mark.requires_git_checkout
 def test_a_local_claude_md_is_ignored_rather_than_forbidden() -> None:
     """Ignored, so a contributor's own copy neither lands in the repository nor trips a gate."""
-    result = subprocess.run(
-        ["git", "check-ignore", "-v", "CLAUDE.md"],
-        cwd=ROOT, capture_output=True, text=True, timeout=120,
-    )
+    result = git("check-ignore", "-v", "CLAUDE.md", cwd=ROOT, timeout=120)
     assert result.returncode == 0, (
         "CLAUDE.md is not git-ignored, so a local copy can be committed by accident: "
         f"{result.stderr.strip() or result.stdout.strip()}"

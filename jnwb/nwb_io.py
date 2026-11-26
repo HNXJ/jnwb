@@ -1,9 +1,10 @@
 """NWB file I/O with scoped HDMF builder repairs for malformed files.
 
-The module is not exported. Four of its names are, because a caller meets them without asking:
+The module is not exported. Five of its names are, because a caller meets them without asking:
 ``MissingRequiredNWBFieldError``, which a read raises; ``read_nwb`` and ``nwb_read_io``, whose
-``allow_missing`` waives that refusal; and ``SqueezedAttributeWarning``, which a read of a
-repaired file emits. Each is reachable as ``jnwb.<name>`` with nothing but ``import jnwb``.
+``allow_missing`` waives that refusal; ``SqueezedAttributeWarning``, which a read of a
+repaired file emits; and ``ContainerTypeContradictionWarning``, which ``inspect`` emits on a
+contradicted type. Each is reachable as ``jnwb.<name>`` with nothing but ``import jnwb``.
 
 Repairs apply only while a jnwb-owned read is active. ``import jnwb`` does not alter
 HDMF global state.
@@ -37,7 +38,7 @@ _saved_construct: Any = None
 #: per-read state cannot ride on a parameter: a ContextVar keeps it scoped to the calling context
 #: and out of the way of another thread reading a different file through the same patched method.
 _ALLOW_MISSING: ContextVar[frozenset] = ContextVar("_ALLOW_MISSING", default=frozenset())
-_SQUEEZED: ContextVar[list] = ContextVar("_SQUEEZED", default=[])
+_SQUEEZED: ContextVar[Union[list, None]] = ContextVar("_SQUEEZED", default=None)  # None outside a read
 
 #: Attribute recording which required fields a read actually waived, as opposed to the fields the
 #: caller offered to waive. Set on the ``NWBFile`` when the root builder is constructed, which is
@@ -116,7 +117,14 @@ def _is_nwbfile_root(builder: Any) -> bool:
     return hasattr(builder, "attributes") and builder.attributes.get("neurodata_type") == "NWBFile"
 
 
-def _repair_builder(builder: Any, orig_construct: Any) -> Tuple[str, ...]:
+def _note_squeezed(name: str) -> None:
+    """Record one squeezed attribute for the active read. Outside a read there is none to record."""
+    squeezed = _SQUEEZED.get()
+    if squeezed is not None:
+        squeezed.append(name)
+
+
+def _repair_builder(builder: Any) -> Tuple[str, ...]:
     """Repair ``builder`` in place and return the required fields a waiver filled on it."""
     b_name = getattr(builder, "name", None)
     waived: Tuple[str, ...] = ()
@@ -129,10 +137,10 @@ def _repair_builder(builder: Any, orig_construct: Any) -> Tuple[str, ...]:
                 element = value[0]
                 if isinstance(element, bytes):
                     builder.attributes[key] = element.decode("utf-8", errors="replace")
-                    _SQUEEZED.get().append(f"{b_name or '?'}.{key}")
+                    _note_squeezed(f"{b_name or '?'}.{key}")
                 elif isinstance(element, str):
                     builder.attributes[key] = str(element)
-                    _SQUEEZED.get().append(f"{b_name or '?'}.{key}")
+                    _note_squeezed(f"{b_name or '?'}.{key}")
 
     if (
         _is_nwbfile_root(builder)
@@ -221,7 +229,7 @@ def _make_patched_construct(orig_construct: Any) -> Any:
             builder = kwargs.get("builder")
         waived: Tuple[str, ...] = ()
         if builder is not None:
-            waived = _repair_builder(builder, orig_construct)
+            waived = _repair_builder(builder)
         container = orig_construct(self, *args, **kwargs)
         if builder is not None and _is_nwbfile_root(builder):
             _record_waived(container, waived)
@@ -315,7 +323,7 @@ def _refuse_nonfinite_path(path: Any, func_name: str) -> None:
 
 def nwb_read_io(
     path: Any,
-    mode: str = "r",
+    mode: Union[str, None] = None,
     allow_missing: Union[Sequence[str], str, None] = None,
     **kwargs: Any,
 ) -> ContextManager[NWBHDF5IO]:
@@ -332,18 +340,30 @@ def nwb_read_io(
     ``""``, and ``jnwb_waived_requirements`` on the object ``io.read()`` returns records the
     waivers the read used.
 
-    ``mode`` must be ``"r"``. Any other mode raises ``ValueError`` before the file is opened, so
-    ``"w"`` cannot truncate it; write with ``pynwb.NWBHDF5IO``.
+    ``mode`` is deprecated since 0.2.17 and will be removed in 0.2.18: passing it warns
+    ``DeprecationWarning``. The file always opens with mode ``"r"``; any other mode raises
+    ``ValueError`` before the file is opened, so ``"w"`` cannot truncate it; write with
+    ``pynwb.NWBHDF5IO``.
 
     A non-finite ``path`` (NaN or infinite) is refused with ``ValueError`` naming it.
+
+    Raises:
+        ValueError: `mode` is given and is not `'r'`. Write NWB files with `pynwb.NWBHDF5IO`.
     """
     _refuse_nonfinite_path(path, "nwb_read_io")
-    if mode != "r":
-        raise ValueError(
-            f"nwb_read_io is a reader and mode is {mode!r}; it opens files with mode='r' only. "
-            "Write NWB files with pynwb.NWBHDF5IO."
+    if mode is not None:
+        warnings.warn(
+            "nwb_read_io(mode=) is deprecated and will be removed in 0.2.18; no replacement: "
+            "nwb_read_io only reads, so omit mode",
+            DeprecationWarning,
+            stacklevel=2,
         )
-    return _nwb_read_io_open(path, mode, allow_missing=allow_missing, **kwargs)
+        if mode != "r":
+            raise ValueError(
+                f"nwb_read_io is a reader and mode is {mode!r}; it opens files with mode='r' "
+                "only. Write NWB files with pynwb.NWBHDF5IO."
+            )
+    return _nwb_read_io_open(path, "r", allow_missing=allow_missing, **kwargs)
 
 
 @contextmanager
@@ -380,7 +400,7 @@ def read_nwb(
     ``session_description``, are readable and HDF5-backed datasets are not. Read those inside
     :func:`nwb_read_io`, which takes the same ``allow_missing``.
     """
-    with nwb_read_io(path, "r", allow_missing=allow_missing, **kwargs) as io:
+    with nwb_read_io(path, allow_missing=allow_missing, **kwargs) as io:
         return io.read()
 
 

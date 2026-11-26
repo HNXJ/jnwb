@@ -9,7 +9,7 @@ environment, which yields `jnwb/` and `jnwb-0.2.4.dist-info/` and nothing else. 
 unpacks the tarball by hand receives them, and 11 of the skills' 12 repository-relative links
 point into `docs/`, which the sdist prunes.
 
-Ruled 2026-09-16: one canonical tree, skills in the sdist, no duplicate tree under `jnwb/` to
+One canonical tree, skills in the sdist, no duplicate tree under `jnwb/` to
 force them into the wheel, and the discovery gap closed with a machine-readable pointer. These
 tests hold the pointer honest and keep the second tree from appearing.
 """
@@ -17,7 +17,7 @@ tests hold the pointer honest and keep the second tree from appearing.
 from __future__ import annotations
 
 import re
-import subprocess
+import sys
 import tarfile
 from pathlib import Path
 
@@ -26,6 +26,11 @@ import pytest
 import jnwb
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
+
 SKILLS = ROOT / "skills"
 
 
@@ -114,15 +119,14 @@ def test_the_manifest_comment_describes_what_the_manifest_does() -> None:
 
 @pytest.mark.requires_git_checkout
 def test_there_is_exactly_one_skill_tree() -> None:
-    """The ruling's hard constraint, and harness gate 2's: no copy under jnwb/.
+    """The single-tree constraint, and harness gate 2's: no copy under jnwb/.
 
     Scanned over tracked files rather than the working directory: a local `.venv` carries
     other packages' skill trees, and those are not this repository's problem.
     """
-    tracked = subprocess.run(
-        ["git", "ls-files", "*SKILL.md"],
-        cwd=ROOT, capture_output=True, text=True, check=True,
-    ).stdout.split()
+    done = git("ls-files", "*SKILL.md", cwd=ROOT)
+    done.check_returncode()
+    tracked = done.stdout.split()
     assert tracked, "git ls-files found no SKILL.md at all; this test would pass vacuously"
     # `artifacts/skills/` holds the skills about working on this repository; `artifacts/` is
     # pruned from the sdist, and no name may appear in both places.
@@ -137,7 +141,7 @@ def test_there_is_exactly_one_skill_tree() -> None:
 
 
 def test_nothing_in_the_runtime_reads_a_skill() -> None:
-    """The reason the wheel does not need them; if this changes, the ruling has to be revisited."""
+    """The reason the wheel does not need them; if this changes, the design has to be revisited."""
     readers = [
         path.relative_to(ROOT).as_posix()
         for path in (ROOT / "jnwb").rglob("*.py")

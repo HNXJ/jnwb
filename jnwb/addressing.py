@@ -344,7 +344,10 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
     Map peak channel ID to brain area location.
 
     Args:
-        peak_channel_id: Channel identifier
+        peak_channel_id: Channel identifier. Matched on the ``hardware_channel`` column when the
+            table has one (-1 is no channel; a value on electrodes of more than one probe is
+            unresolved when the table names probes). Otherwise matched on the first of
+            ``channel_id``, ``id`` and ``electrode_id``; with none of these, on the DataFrame index.
         electrodes_df: NWB electrodes DataFrame
 
     Returns:
@@ -651,7 +654,7 @@ def _depth_from_shallow_contact(row, electrodes_df: pd.DataFrame, depth_axis: st
 
 
 def _refuse_bad_depth_arguments(depth_unit: Optional[str], threshold: Optional[float]) -> None:
-    """Refuse an explicit ``depth_unit`` that names no length unit, or a negative ``threshold``.
+    """Refuse an explicit ``depth_unit`` that names no length unit, or a negative or non-finite ``threshold``.
 
     Only the arguments are checked. Data the table cannot place still gives 'Unknown'.
     """
@@ -662,9 +665,10 @@ def _refuse_bad_depth_arguments(depth_unit: Optional[str], threshold: Optional[f
                 f"or a spelling of one) or None, got {depth_unit!r}"
             )
     if threshold is not None and isinstance(threshold, (int, float, np.integer, np.floating)):
-        if threshold < 0:
+        if not np.isfinite(threshold) or threshold < 0:
             raise ValueError(
-                f"classify_layer_from_depth: threshold must not be negative, got {threshold!r}"
+                "classify_layer_from_depth: threshold must be finite and not negative, "
+                f"got {threshold!r}"
             )
 
 
@@ -724,7 +728,7 @@ def classify_layer_from_depth(
 
     Raises:
         ValueError: ``depth_unit`` is not a length unit or a spelling of one, or ``threshold`` is
-            negative. Data the table cannot place (an unsupported unit declared in the table, a
+            negative, NaN or infinite. Data the table cannot place (an unsupported unit declared in the table, a
             missing, NaN or infinite coordinate) still gives 'Unknown'.
     """
     _declared_depth_axis(depth_axis, shallow_end, electrodes_df, "classify_layer_from_depth")
@@ -1000,6 +1004,12 @@ def enrich_units_dataframe(
 # counts as two contacts sitting at distinct depths. Contacts that share a depth (a planar
 # grid, a paired ladder) fall far below this and do not describe a shaft.
 _MIN_AXIAL_STEP_FRACTION = 0.2
+# Floor, in um, on the lateral extent a shaft may have and still count as collinear; a
+# numerical guard, no external source.
+_COLLINEAR_TOL_FLOOR_UM = 1e-4
+# Slack, in um, added to the pitch tolerance when testing axial steps for uniformity; a
+# numerical guard, no external source.
+_PITCH_SLACK_UM = 1e-6
 
 
 @dataclass(frozen=True)
@@ -1118,6 +1128,9 @@ def probe_geometry(
         duplicate coordinates are detected, table is empty, multiple probes are present
         without specifying ``probe_name``, the specified probe is not found, or
         ``strict_linear=True`` on non-linear geometry.
+    TypeError
+        If ``electrodes_table`` is not an NWB electrodes table, a pandas DataFrame or an
+        ``(n_channels, 3)`` coordinate array.
     """
     if pitch_tolerance < 0.0 or not np.isfinite(pitch_tolerance):
         raise ValueError(f"pitch_tolerance must be a non-negative finite float, got {pitch_tolerance}")
@@ -1391,12 +1404,13 @@ def probe_geometry(
         raise ValueError(f"Probe geometry is non-linear: {reason}")
 
     # A shaft is staggered when its lateral extent puts it outside collinearity.
-    collinear_tol = max(pitch_tolerance * nom_pitch_um, 1e-4) if nom_pitch_um > 0 else 1e-4
+    collinear_tol = (max(pitch_tolerance * nom_pitch_um, _COLLINEAR_TOL_FLOOR_UM)
+                     if nom_pitch_um > 0 else _COLLINEAR_TOL_FLOOR_UM)
     is_staggered = bool(stagger_um > collinear_tol)
 
     # Uniformity condition: axial steps within pitch_tolerance of nominal pitch
     pitch_err = np.abs(axial_steps - nom_pitch_um)
-    is_uniform = bool(is_linear and np.all(pitch_err <= (pitch_tolerance * nom_pitch_um + 1e-6)))
+    is_uniform = bool(is_linear and np.all(pitch_err <= (pitch_tolerance * nom_pitch_um + _PITCH_SLACK_UM)))
 
     return ProbeGeometry(
         contact_positions=coords_um,

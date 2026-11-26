@@ -38,6 +38,7 @@ import builtins
 import importlib
 import inspect
 import re
+import sys
 import tomllib
 import types
 import typing
@@ -61,6 +62,11 @@ pytest.importorskip("plotly", reason="the vis extra is not installed")
 import jnwb
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts import stack_parse  # noqa: E402
+
 PAGES = sorted((ROOT / "docs").rglob("*.md")) + [ROOT / "README.md"]
 BLOCK = re.compile(r"^```python\n(.*?)^```", re.M | re.S)
 
@@ -252,7 +258,7 @@ def _walk_page(rel, trees):
                 continue
             try:
                 sig = inspect.signature(obj)
-            except (TypeError, ValueError):
+            except ValueError:
                 continue
             if next(iter(sig.parameters), None) in ("self", "cls"):
                 # An unbound method reached through its class. The documented call is on
@@ -415,7 +421,7 @@ def _spec_table_rows():
         body = line.strip().strip("|")
         if set(body) <= set("-| "):
             continue  # the |---|---| separator
-        cells = [c.strip() for c in body.split("|")]
+        cells = stack_parse.cells(line)
         if cells[0] == "Operation":
             continue  # the header
         rows.append((cells[0], cells[1], cells[2]))
@@ -436,7 +442,7 @@ def _module_union(module):
             continue
         try:
             names |= set(inspect.signature(obj).parameters)
-        except (TypeError, ValueError):
+        except ValueError:
             continue
     return names
 
@@ -458,7 +464,7 @@ def _resolve_spec_row(operation, module_cell, input_cell):
     if callable(target):
         try:
             sig = inspect.signature(target)
-        except (TypeError, ValueError):
+        except ValueError:
             sig = None
         if sig is not None:
             return STRATEGY_SIGNATURE, set(sig.parameters), sig, []
@@ -712,7 +718,7 @@ _MAX_DEPTH = 8
 _LITERAL_TYPES = {ast.Tuple: tuple, ast.List: list, ast.Dict: dict, ast.Set: set}
 #: PEP 484's numeric tower: an int stands for a float, and an int or a float for a complex.
 _NUMERIC_TOWER = {float: (int,), complex: (int, float)}
-#: Types of names a page passes but never assigns, read from the name (ruled 2026-10-04: annotations
+#: Types of names a page passes but never assigns, read from the name (annotations
 #: plus a small table). A name absent here and unassigned stays unchecked.
 _NAME_TYPES = {"lfp_segments": np.ndarray, "spike_trains": list, "session_qc_list": list}
 

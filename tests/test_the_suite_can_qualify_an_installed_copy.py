@@ -849,7 +849,7 @@ def _checkout_provenance_asserts(source: str, name: str) -> list[str]:
 def test_no_test_module_rebinds_the_front_of_sys_path() -> None:
     """`sys.path.insert(0, ...)` is one spelling of forcing the import; these are the others.
 
-    Ruled 2026-09-19. The rule is not "append rather than prepend" -- that is a proxy. The
+    The rule is not "append rather than prepend" -- that is a proxy. The
     invariant is that a test inspects the installation it was pointed at and does not choose one:
 
         tests inspect the selected installation; tests do not select the installation

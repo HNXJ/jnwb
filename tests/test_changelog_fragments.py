@@ -38,6 +38,7 @@ from scripts.assemble_changelog import (  # noqa: E402
     main,
     read_fragments,
 )
+from scripts.gates.boundary import git  # noqa: E402
 from scripts.release_gate import unreleased_entry_lines  # noqa: E402
 
 CHANGELOG_TEXT = (ROOT / "CHANGELOG.md").read_bytes().decode("utf-8")
@@ -118,11 +119,9 @@ _GIT_ENV = {k: v for k, v in os.environ.items()
 
 
 def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["git", "-C", str(cwd), "-c", "user.name=jnwb-test", "-c", "user.email=test@example.invalid",
-         "-c", "commit.gpgsign=false", "-c", "core.hooksPath=", "-c", "core.autocrlf=false", *args],
-        capture_output=True, text=True, env=_GIT_ENV,
-    )
+    return git("-C", str(cwd), "-c", "user.name=jnwb-test", "-c", "user.email=test@example.invalid",
+               "-c", "commit.gpgsign=false", "-c", "core.hooksPath=", "-c", "core.autocrlf=false",
+               *args, env=_GIT_ENV)
 
 
 def _two_branches(repo: Path, change_a, change_b) -> subprocess.CompletedProcess:

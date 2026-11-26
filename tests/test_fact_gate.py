@@ -7,6 +7,8 @@ into this tree's graph fails it.
 
 from __future__ import annotations
 
+import ast
+import collections
 import copy
 import functools
 import hashlib
@@ -24,7 +26,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
+from jnwb._rng import recorded_rng, resolve_rng  # noqa: E402  (names the planted callables use)
 from scripts import build_fact_graph, fact_gate, harness_gate, release_gate  # noqa: E402
+from scripts.fact_graph import scheme_rng, signatures, source_scans  # noqa: E402
 from scripts.gates import boundary  # noqa: E402
 
 BUILDER = REPO_ROOT / "scripts" / "build_fact_graph.py"
@@ -77,7 +81,7 @@ def test_two_builds_in_separate_processes_are_byte_identical(tmp_path):
         # The builder run by path imports this checkout, whichever copy the suite is testing.
         env = {k: v for k, v in os.environ.items() if k != "JNWB_EXPECTED_PACKAGE_ROOT"}
         env["PYTHONHASHSEED"] = seed
-        # One build takes 217 to 264 s alone on the Windows host and more under a full suite;
+        # One build takes about 20 s alone on the Windows host (17-127) and minutes under load;
         # the timeout guards a hang, not the speed.
         done = subprocess.run([sys.executable, str(BUILDER), "--out", str(out)], cwd=REPO_ROOT,
                               env=env, capture_output=True, text=True, timeout=900)
@@ -192,9 +196,9 @@ def test_a_routed_export_on_the_exclusion_list_is_held_without_a_citation(monkey
     assert status(g, "computed:routed_citations") == ("HELD", [])
 
 
-def test_the_exclusion_list_holds_78_names_beside_its_header():
+def test_the_exclusion_list_holds_79_names_beside_its_header():
     excluded = build_fact_graph.routed_citation_exclusions()
-    assert len(excluded) == 78, sorted(excluded)
+    assert len(excluded) == 79, sorted(excluded)
     assert all(name and not name.startswith("#") for name in excluded)
 
 
@@ -365,9 +369,37 @@ def test_a_malformed_fact_source_is_refused(tmp_path, text, message):
 
 
 @pytest.fixture(scope="module")
-def live():
+def live_build():
+    """The live graph, built once for the module, and how often the build parsed each text."""
     source = build_fact_graph.FACT_STACK
-    return source, build_fact_graph.build(None, REPO_ROOT, source)
+    parses = collections.Counter()
+    parse = ast.parse
+
+    def counted(text, *args, **kwargs):
+        parses[text] += 1
+        return parse(text, *args, **kwargs)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(ast, "parse", counted)
+        graph = build_fact_graph.build(None, REPO_ROOT, source)
+    return source, graph, parses
+
+
+@pytest.fixture(scope="module")
+def live(live_build):
+    source, graph, _ = live_build
+    return source, graph
+
+
+def test_the_live_build_parses_each_python_file_once(live_build):
+    """Every scan shares one parse of a file: a file text parsed twice is a scan that parsed
+    its file afresh."""
+    _, g, parses = live_build
+    python = g["entities"]["python"]
+    counts = {rel: parses[(REPO_ROOT / rel).read_text(encoding="utf-8")] for rel in python}
+    package = [rel for rel in python if rel.startswith("jnwb/")]
+    assert package and all(counts[rel] for rel in package), "the build must parse every jnwb file"
+    assert {rel: n for rel, n in counts.items() if n > 1} == {}
 
 
 def test_the_live_tree_has_no_violated_fact_and_counts_the_unheld(live, capsys):
@@ -997,7 +1029,7 @@ def test_the_two_rule_files_are_exempt_but_a_sibling_rule_file_is_still_scanned(
 def test_the_gate_prints_the_examined_count_and_the_exempt_trees():
     assert fact_gate.scope_line(text_scanned()) == (
         "immunity_vocabulary examined 2 text files; exempt: tests/, artifacts/, "
-        "scripts/build_fact_graph.py, scripts/fact_gate.py")
+        "scripts/build_fact_graph.py, scripts/fact_gate.py, scripts/fact_graph/")
 
 
 @pytest.mark.parametrize("text, expected", [
@@ -1206,26 +1238,26 @@ def test_a_silent_handler_is_named_by_its_qualified_function():
 
 
 def test_a_handler_whose_function_is_listed_is_skipped(tmp_path, monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S9_EXCUSED", {("jnwb/pkg/a.py", "f"): "probe: a test"})
+    monkeypatch.setattr(source_scans, "S9_EXCUSED", {("jnwb/pkg/a.py", "f"): "probe: a test"})
     assert scanned_silent(tmp_path, S9_SILENT_F) == []
 
 
 def test_a_listed_function_does_not_excuse_a_sibling_handler(tmp_path, monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S9_EXCUSED", {("jnwb/pkg/a.py", "f"): "probe: a test"})
+    monkeypatch.setattr(source_scans, "S9_EXCUSED", {("jnwb/pkg/a.py", "f"): "probe: a test"})
     found = scanned_silent(tmp_path, S9_SILENT_F + S9_SILENT_G)
     assert [path for path, _ in found] == ["jnwb/pkg/a.py"]
     assert found[0][1].startswith("line 10: except ValueError")
 
 
 def test_a_listed_key_that_matches_no_flagged_handler_is_stale(tmp_path, monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S9_EXCUSED", {("jnwb/pkg/a.py", "gone"): "probe: a test"})
+    monkeypatch.setattr(source_scans, "S9_EXCUSED", {("jnwb/pkg/a.py", "gone"): "probe: a test"})
     found = scanned_silent(tmp_path, S9_SILENT_F)
     assert ["jnwb/pkg/a.py", "S9_EXCUSED lists gone, which no flagged handler matches: stale"] in found
     assert len(found) == 2, "the unlisted handler in f stays flagged beside the stale key"
 
 
 def test_a_listed_key_in_a_module_with_no_handler_is_stale(tmp_path, monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S9_EXCUSED", {("jnwb/pkg/a.py", "f"): "probe: a test"})
+    monkeypatch.setattr(source_scans, "S9_EXCUSED", {("jnwb/pkg/a.py", "f"): "probe: a test"})
     assert scanned_silent(tmp_path, "def f(p):\n    return p\n") == [
         ["jnwb/pkg/a.py", "S9_EXCUSED lists f, which no flagged handler matches: stale"]]
 
@@ -1301,13 +1333,13 @@ def reported(found):
 
 
 def test_a_planted_unnamed_null_is_reported_and_a_named_one_is_not(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {})
+    monkeypatch.setattr(scheme_rng, "S10_EXCUSED", {})
     examined, found = build_fact_graph.scheme_scan(planted_package(*PLANTED_SCHEMES))
     assert set(reported(found)) == {"planted_draws_unnamed", "planted_sign_flip"}
 
 
 def test_the_scheme_scan_examines_every_planted_callable_and_names_what_it_drew(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {})
+    monkeypatch.setattr(scheme_rng, "S10_EXCUSED", {})
     examined, found = build_fact_graph.scheme_scan(planted_package(*PLANTED_SCHEMES))
     assert examined == len(PLANTED_SCHEMES) == 5, "the scan must examine every planted callable"
     names = reported(found)
@@ -1316,7 +1348,7 @@ def test_the_scheme_scan_examines_every_planted_callable_and_names_what_it_drew(
 
 
 def test_a_bootstrap_or_a_draw_free_or_named_callable_is_not_reported(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {})
+    monkeypatch.setattr(scheme_rng, "S10_EXCUSED", {})
     examined, found = build_fact_graph.scheme_scan(
         planted_package(planted_bootstrap, planted_no_draw, planted_draws_named))
     assert examined == 3
@@ -1325,7 +1357,7 @@ def test_a_bootstrap_or_a_draw_free_or_named_callable_is_not_reported(monkeypatc
 
 def test_a_planted_excuse_skips_its_callable_and_a_stale_one_is_reported(monkeypatch):
     module = planted_draws_unnamed.__module__
-    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {
+    monkeypatch.setattr(scheme_rng, "S10_EXCUSED", {
         (module, "planted_draws_unnamed"): "planted: excused for the test",
         (module, "planted_no_draw"): "planted: once drew a null",
     })
@@ -1338,7 +1370,7 @@ def test_a_planted_excuse_skips_its_callable_and_a_stale_one_is_reported(monkeyp
 
 
 def test_a_callable_whose_source_cannot_be_read_is_a_finding_not_a_pass(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {})
+    monkeypatch.setattr(scheme_rng, "S10_EXCUSED", {})
     namespace = {}
     exec("def drawn_without_source(x, rng):\n    return rng.permutation(x)\n", namespace)
     examined, found = build_fact_graph.scheme_scan(
@@ -1348,7 +1380,7 @@ def test_a_callable_whose_source_cannot_be_read_is_a_finding_not_a_pass(monkeypa
 
 
 def test_the_permutation_schemes_predicate_is_violated_by_a_planted_unnamed_null(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {})
+    monkeypatch.setattr(scheme_rng, "S10_EXCUSED", {})
     examined, found = build_fact_graph.scheme_scan(planted_package(*PLANTED_SCHEMES))
     g = {"entities": {"scheme_examined": examined}, "relations": {"permutation_schemes": found}}
     found_status, reasons = status(g, "computed:permutation_schemes")
@@ -1357,7 +1389,7 @@ def test_the_permutation_schemes_predicate_is_violated_by_a_planted_unnamed_null
 
 
 def test_the_permutation_schemes_predicate_holds_when_every_planted_null_is_named(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S10_EXCUSED", {})
+    monkeypatch.setattr(scheme_rng, "S10_EXCUSED", {})
     examined, found = build_fact_graph.scheme_scan(
         planted_package(planted_draws_named, planted_no_draw, planted_bootstrap))
     g = {"entities": {"scheme_examined": examined}, "relations": {"permutation_schemes": found}}
@@ -1426,13 +1458,13 @@ PLANTED_RNG = (planted_consumes_unnamed, planted_reports_entropy, planted_report
 
 
 def test_a_planted_unnamed_consumption_is_reported_and_a_named_one_is_not(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    monkeypatch.setattr(signatures, "S11_EXCUSED", {})
     examined, found = build_fact_graph.rng_scan(planted_package(*PLANTED_RNG))
     assert set(reported(found)) == {"planted_consumes_unnamed"}
 
 
 def test_the_rng_scan_examines_every_planted_callable_and_names_what_it_consumed(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    monkeypatch.setattr(signatures, "S11_EXCUSED", {})
     examined, found = build_fact_graph.rng_scan(planted_package(*PLANTED_RNG))
     assert examined == len(PLANTED_RNG) == 4, "the scan must examine every planted callable"
     names = reported(found)
@@ -1441,7 +1473,7 @@ def test_the_rng_scan_examines_every_planted_callable_and_names_what_it_consumed
 
 
 def test_a_consumption_free_or_named_callable_is_not_reported(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    monkeypatch.setattr(signatures, "S11_EXCUSED", {})
     examined, found = build_fact_graph.rng_scan(
         planted_package(planted_reports_entropy, planted_reports_seed, planted_consumes_nothing))
     assert examined == 3
@@ -1450,7 +1482,7 @@ def test_a_consumption_free_or_named_callable_is_not_reported(monkeypatch):
 
 def test_a_planted_rng_excuse_skips_its_callable_and_a_stale_one_is_reported(monkeypatch):
     module = planted_consumes_unnamed.__module__
-    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {
+    monkeypatch.setattr(signatures, "S11_EXCUSED", {
         (module, "planted_consumes_unnamed"): "planted: excused for the test",
         (module, "planted_consumes_nothing"): "planted: once consumed randomness",
     })
@@ -1463,7 +1495,7 @@ def test_a_planted_rng_excuse_skips_its_callable_and_a_stale_one_is_reported(mon
 
 
 def test_a_callable_whose_source_cannot_be_read_is_an_rng_finding_not_a_pass(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    monkeypatch.setattr(signatures, "S11_EXCUSED", {})
     namespace = {}
     exec("def consumed_without_source(x, rng):\n"
          "    return resolve_rng(rng, func_name=\"planted\")\n", namespace)
@@ -1474,7 +1506,7 @@ def test_a_callable_whose_source_cannot_be_read_is_an_rng_finding_not_a_pass(mon
 
 
 def test_the_rng_reports_predicate_is_violated_by_a_planted_unnamed_consumption(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    monkeypatch.setattr(signatures, "S11_EXCUSED", {})
     examined, found = build_fact_graph.rng_scan(planted_package(*PLANTED_RNG))
     g = {"entities": {"rng_examined": examined}, "relations": {"rng_reports": found}}
     found_status, reasons = status(g, "computed:rng_reports")
@@ -1483,7 +1515,7 @@ def test_the_rng_reports_predicate_is_violated_by_a_planted_unnamed_consumption(
 
 
 def test_the_rng_reports_predicate_holds_when_every_planted_consumption_is_named(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "S11_EXCUSED", {})
+    monkeypatch.setattr(signatures, "S11_EXCUSED", {})
     examined, found = build_fact_graph.rng_scan(
         planted_package(planted_reports_entropy, planted_reports_seed, planted_consumes_nothing))
     g = {"entities": {"rng_examined": examined}, "relations": {"rng_reports": found}}
@@ -1607,7 +1639,7 @@ def signature_declarations(monkeypatch, declared, extra=()):
 
 
 def test_a_planted_silent_scaling_is_reported_and_named_ones_are_not(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "I2_UNIT_EXCUSED", {})
+    monkeypatch.setattr(signatures, "I2_UNIT_EXCUSED", {})
     examined, found = build_fact_graph.unit_scan(planted_package(*PLANTED_RATES))
     assert examined == len(PLANTED_RATES) == 3, "the scan must examine every planted callable"
     assert set(reported(found)) == {"planted_rate_silent"}
@@ -1617,7 +1649,7 @@ def test_a_planted_silent_scaling_is_reported_and_named_ones_are_not(monkeypatch
 
 def test_a_planted_unit_excuse_skips_its_callable_and_a_stale_one_is_reported(monkeypatch):
     module = planted_rate_silent.__module__
-    monkeypatch.setattr(build_fact_graph, "I2_UNIT_EXCUSED", {
+    monkeypatch.setattr(signatures, "I2_UNIT_EXCUSED", {
         (module, "planted_rate_silent"): "planted: excused for the test",
         (module, "planted_rate_suffixed"): "planted: once scaled a parameter",
     })
@@ -1630,7 +1662,7 @@ def test_a_planted_unit_excuse_skips_its_callable_and_a_stale_one_is_reported(mo
 
 
 def test_a_callable_whose_source_cannot_be_read_is_a_unit_finding_not_a_pass(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "I2_UNIT_EXCUSED", {})
+    monkeypatch.setattr(signatures, "I2_UNIT_EXCUSED", {})
     namespace = {}
     exec("def scaled_without_source(x):\n    return x * 1000\n", namespace)
     examined, found = build_fact_graph.unit_scan(
@@ -1640,7 +1672,7 @@ def test_a_callable_whose_source_cannot_be_read_is_a_unit_finding_not_a_pass(mon
 
 
 def test_the_unit_conversions_predicate_is_violated_by_a_planted_silent_scaling(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "I2_UNIT_EXCUSED", {})
+    monkeypatch.setattr(signatures, "I2_UNIT_EXCUSED", {})
     examined, found = build_fact_graph.unit_scan(planted_package(*PLANTED_RATES))
     g = {"entities": {"unit_examined": examined}, "relations": {"unit_conversions": found}}
     found_status, reasons = status(g, "computed:unit_conversions")
@@ -1649,7 +1681,7 @@ def test_the_unit_conversions_predicate_is_violated_by_a_planted_silent_scaling(
 
 
 def test_the_unit_conversions_predicate_holds_when_every_planted_scaling_is_named(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "I2_UNIT_EXCUSED", {})
+    monkeypatch.setattr(signatures, "I2_UNIT_EXCUSED", {})
     examined, found = build_fact_graph.unit_scan(
         planted_package(planted_rate_suffixed, planted_rate_declared))
     g = {"entities": {"unit_examined": examined}, "relations": {"unit_conversions": found}}
@@ -1665,7 +1697,7 @@ def test_a_unit_scan_that_examines_nothing_is_a_failure():
 
 
 def test_a_planted_silent_default_change_is_reported_and_named_ones_are_not(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "I2_WRAPPER_EXCUSED", {})
+    monkeypatch.setattr(signatures, "I2_WRAPPER_EXCUSED", {})
     examined, found = build_fact_graph.wrapper_scan(planted_package(*PLANTED_MODES))
     assert examined == len(PLANTED_MODES) == 4, "the scan must examine every planted callable"
     assert set(reported(found)) == {"planted_mode_silent"}
@@ -1675,7 +1707,7 @@ def test_a_planted_silent_default_change_is_reported_and_named_ones_are_not(monk
 
 def test_a_planted_wrapper_excuse_skips_its_callable_and_a_stale_one_is_reported(monkeypatch):
     module = planted_mode_silent.__module__
-    monkeypatch.setattr(build_fact_graph, "I2_WRAPPER_EXCUSED", {
+    monkeypatch.setattr(signatures, "I2_WRAPPER_EXCUSED", {
         (module, "planted_mode_silent"): "planted: excused for the test",
         (module, "planted_mode_default"): "planted: once changed a default",
     })
@@ -1688,7 +1720,7 @@ def test_a_planted_wrapper_excuse_skips_its_callable_and_a_stale_one_is_reported
 
 
 def test_a_callable_whose_source_cannot_be_read_is_a_wrapper_finding_not_a_pass(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "I2_WRAPPER_EXCUSED", {})
+    monkeypatch.setattr(signatures, "I2_WRAPPER_EXCUSED", {})
     namespace = {}
     exec("def wrapped_without_source(a):\n"
          "    return planted_mode_target(a, mode=\"median\")\n", namespace)
@@ -1699,7 +1731,7 @@ def test_a_callable_whose_source_cannot_be_read_is_a_wrapper_finding_not_a_pass(
 
 
 def test_the_wrapper_defaults_predicate_is_violated_by_a_planted_silent_change(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "I2_WRAPPER_EXCUSED", {})
+    monkeypatch.setattr(signatures, "I2_WRAPPER_EXCUSED", {})
     examined, found = build_fact_graph.wrapper_scan(planted_package(*PLANTED_MODES))
     g = {"entities": {"wrapper_examined": examined}, "relations": {"wrapper_defaults": found}}
     found_status, reasons = status(g, "computed:wrapper_defaults")
@@ -1708,7 +1740,7 @@ def test_the_wrapper_defaults_predicate_is_violated_by_a_planted_silent_change(m
 
 
 def test_the_wrapper_defaults_predicate_holds_when_every_planted_default_is_named(monkeypatch):
-    monkeypatch.setattr(build_fact_graph, "I2_WRAPPER_EXCUSED", {})
+    monkeypatch.setattr(signatures, "I2_WRAPPER_EXCUSED", {})
     examined, found = build_fact_graph.wrapper_scan(
         planted_package(planted_mode_target, planted_mode_passthrough, planted_mode_default))
     g = {"entities": {"wrapper_examined": examined}, "relations": {"wrapper_defaults": found}}
@@ -2609,3 +2641,89 @@ def test_the_k5_line_reports_the_examined_planned_skill_count(monkeypatch):
     monkeypatch.setitem(fact_gate.PLANNED_SKILLS, "jnwb-new",
                         {"K1": "HELD", "K5": "HELD", "reason": "reviewed"})
     assert fact_gate.planned_scope_line() == "planned_skills examined 1 planned skills"
+
+
+# ------------------------------------------------------------------------ B3 exception cites
+
+PLANTED_SOURCE = ("def planted(\n"
+                  "    x,\n"
+                  "    n_surrogates: int = 200,\n"
+                  "    method: str = \"pearson\",\n"
+                  "    n_shuffle: int = 2000,\n"
+                  "):\n"
+                  "    return x\n")
+
+
+def cite_run(tmp_path, evidence, parameter="n_surrogates", default="`200`"):
+    """The VIOLATED rows of the gate's own ``run`` over a fact source whose one B3 exceptions
+    row cites ``evidence`` into ``jnwb/planted.py`` under ``tmp_path``."""
+    (tmp_path / "jnwb").mkdir(exist_ok=True)
+    (tmp_path / "jnwb" / "planted.py").write_bytes(PLANTED_SOURCE.encode("utf-8"))
+    source = tmp_path / "facts.md"
+    source.write_bytes((fact_source() + CONSTANTS_SECTION + "\n## B3 exceptions\n\n"
+                        "| Operation | Parameter | Default | Reason | Evidence |\n"
+                        "|---|---|---|---|---|\n"
+                        f"| `planted` | `{parameter}` | {default} | planted | {evidence} |\n"
+                        ).encode("utf-8"))
+    _, results = fact_gate.run(root=tmp_path, facts_path=source, graph=graph(),
+                               roadmap_path=tmp_path / "no_roadmap.md")
+    return {fact: reasons for fact, state, reasons in results if state == fact_gate.VIOLATED}
+
+
+def test_a_cite_on_the_line_of_the_default_holds(tmp_path):
+    assert cite_run(tmp_path, "`jnwb/planted.py:3`") == {}
+    assert fact_gate.CITE_REPORT["examined"] == 1
+    assert fact_gate.cite_scope_line() == "b3_exception_cites examined 1 line cites"
+
+
+def test_a_stale_cite_fails_the_gate(tmp_path):
+    """The line moved: line 4 holds another parameter, not ``n_surrogates = 200``."""
+    assert "n_surrogates: int = 200" not in PLANTED_SOURCE.splitlines()[3], "line 4 must be stale"
+    assert cite_run(tmp_path, "`jnwb/planted.py:4`") == {"B3 exceptions": [
+        "planted n_surrogates: `jnwb/planted.py:4` holds no line with n_surrogates "
+        "and the default `200`"]}
+
+
+def test_a_range_holds_when_one_of_its_lines_carries_the_default(tmp_path):
+    """The default sits on the range's last line, so a check of its first line alone fails."""
+    assert cite_run(tmp_path, "`jnwb/planted.py:2-3`") == {}
+    assert set(cite_run(tmp_path, "`jnwb/planted.py:4-6`")) == {"B3 exceptions"}
+
+
+def test_one_stale_cite_among_several_fails_the_row(tmp_path):
+    found = cite_run(tmp_path, "`jnwb/planted.py:3`; `jnwb/planted.py:6`")
+    assert fact_gate.CITE_REPORT["examined"] == 2
+    assert found == {"B3 exceptions": [
+        "planted n_surrogates: `jnwb/planted.py:6` holds no line with n_surrogates "
+        "and the default `200`"]}
+
+
+def test_a_line_naming_the_parameter_without_its_default_is_stale(tmp_path):
+    """``2000`` is not the token ``200``, and the parameter name alone is not the default."""
+    assert set(cite_run(tmp_path, "`jnwb/planted.py:5`", parameter="n_shuffle")) == {
+        "B3 exceptions"}
+    assert cite_run(tmp_path, "`jnwb/planted.py:5`", parameter="n_shuffle",
+                    default="`2000`") == {}
+
+
+def test_a_string_default_matches_either_quote_style(tmp_path):
+    assert cite_run(tmp_path, "`jnwb/planted.py:4`", parameter="method",
+                    default="`'pearson'`") == {}
+
+
+def test_a_continuation_cite_needs_only_its_lines_to_exist(tmp_path):
+    assert cite_run(tmp_path, "`jnwb/planted.py:3`; `:6-7`") == {}
+    found = cite_run(tmp_path, "`jnwb/planted.py:3`; `:6-9`")["B3 exceptions"]
+    assert found == ["planted n_surrogates: `:6-9` cites lines past 7 or runs backwards"]
+    assert cite_run(tmp_path, "`:3`")["B3 exceptions"] == [
+        "planted n_surrogates: `:3` continues no path cite"]
+
+
+def test_a_cite_into_a_missing_file_fails(tmp_path):
+    assert cite_run(tmp_path, "`jnwb/gone.py:3`")["B3 exceptions"] == [
+        "planted n_surrogates: `jnwb/gone.py:3` names no file"]
+
+
+def test_a_table_with_no_line_cite_is_no_pass(tmp_path):
+    assert cite_run(tmp_path, "`jnwb.planted(n_surrogates)`")["B3 exceptions"] == [
+        "the table holds no line cite, so no cite could be checked"]

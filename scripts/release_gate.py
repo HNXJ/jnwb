@@ -55,11 +55,13 @@ if str(REPO_ROOT) not in sys.path:
 # The one stack reader, shared with gates 15 and 17 (scripts/stack_parse.py). The names keep the
 # spelling this module used, so its call sites read the shared parser unchanged.
 from scripts.stack_parse import (  # noqa: E402
+    cells as _split_cells,
     ITEM_HEADING as _ITEM_HEADING,
     ITEM_SHAPED as _ITEM_SHAPED,
     parse_todo_stack as _parse_todo_stack,
     sections as _todo_sections,
 )
+from scripts.gates.boundary import git  # noqa: E402
 
 
 #: Extras whose tooling must be present for release qualification to mean anything: every extra
@@ -1290,7 +1292,7 @@ def _cells(line: str) -> Optional[List[str]]:
     stripped = line.strip()
     if not stripped.startswith("|"):
         return None
-    return [cell.strip() for cell in stripped.strip("|").split("|")]
+    return _split_cells(stripped)
 
 
 def _table_cells(line: str) -> Optional[List[str]]:
@@ -1298,7 +1300,7 @@ def _table_cells(line: str) -> Optional[List[str]]:
     body = line.lstrip(" \t>").strip()
     if not body.startswith("|"):
         return None
-    return [cell.strip() for cell in body.strip("|").split("|")]
+    return _split_cells(body)
 
 
 def _is_separator(cells: Optional[List[str]]) -> bool:
@@ -1504,20 +1506,17 @@ def receipt_commit_violation(root: pathlib.Path, commit: str,
     if commit == head:
         return None
 
-    def git(*args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
-
-    if git("cat-file", "-e", f"{commit}^{{commit}}").returncode != 0:
+    if git("cat-file", "-e", f"{commit}^{{commit}}", cwd=root).returncode != 0:
         return (f"{RECEIPT_PATH} records commit {commit[:12]}, which this repository does not "
                 "know, so the closure pass cannot be tied to the tree being released")
-    ancestry = git("merge-base", "--is-ancestor", commit, head)
+    ancestry = git("merge-base", "--is-ancestor", commit, head, cwd=root)
     if ancestry.returncode == 1:
         return (f"{RECEIPT_PATH} records commit {commit[:12]}, which is not an ancestor of HEAD "
                 f"{head[:12]}: the closure pass ran against a different history")
     if ancestry.returncode != 0:
         return (f"whether {RECEIPT_PATH}'s commit {commit[:12]} is an ancestor of HEAD "
                 f"{head[:12]} could not be determined: {ancestry.stderr.strip()[:120]}")
-    diff = git("diff", "--name-only", "-z", commit, head)
+    diff = git("diff", "--name-only", "-z", commit, head, cwd=root)
     if diff.returncode != 0:
         return (f"the files changed between {RECEIPT_PATH}'s commit {commit[:12]} and HEAD "
                 f"{head[:12]} could not be listed: {diff.stderr.strip()[:120]}")
@@ -1614,8 +1613,7 @@ _RELEASE_TAG_RE = re.compile(r"^v\d+\.\d+\.\d+$")
 def _previous_release_tag(root: pathlib.Path, rev: str, version: str) -> Optional[str]:
     """The newest ``vX.Y.Z`` tag that is an ancestor of ``rev`` and names a version other than
     ``version``, or ``None``."""
-    listed = subprocess.run(["git", "tag", "--list", "v*"], cwd=root, capture_output=True,
-                            text=True)
+    listed = git("tag", "--list", "v*", cwd=root)
     if listed.returncode != 0:
         return None
     candidates = sorted(
@@ -1703,9 +1701,7 @@ def uncommitted_paths(root: pathlib.Path) -> Optional[List[str]]:
     The whole tree, not only :data:`STEP_0A_PATHS`: the build in STEP 3 packages the working
     copy, so uncommitted code would ship under a receipt that names a commit without it.
     """
-    status = subprocess.run(
-        ["git", "status", "--porcelain", "-z", "--untracked-files=all"],
-        cwd=root, capture_output=True, text=True)
+    status = git("status", "--porcelain", "-z", "--untracked-files=all", cwd=root)
     if status.returncode != 0:
         return None
     named = set()
@@ -1718,8 +1714,7 @@ def uncommitted_paths(root: pathlib.Path) -> Optional[List[str]]:
     # `git status` does not report a file marked assume-unchanged or skip-worktree, however it was
     # edited. `ls-files -v` tags such a file with a lowercase letter or `S`, and every other
     # tracked file with `H`, so any other tag names the file.
-    tags = subprocess.run(["git", "ls-files", "-v", "-z"], cwd=root, capture_output=True,
-                          text=True)
+    tags = git("ls-files", "-v", "-z", cwd=root)
     if tags.returncode != 0:
         return None
     for entry in filter(None, tags.stdout.split("\0")):
@@ -1783,9 +1778,8 @@ def _finished_row_history(root: pathlib.Path, commit: str, head: str, finished: 
     # `--full-history`, then kept only where the receipt differs from every parent. The default
     # simplification follows one side of a merge, so a receipt written on both sides counted as
     # one write; and a merge that only takes one side's receipt is not a write of its own.
-    listed = subprocess.run(["git", "rev-list", "--full-history", f"{commit}..{head}", "--",
-                             *RECEIPT_PATHS],
-                            cwd=root, capture_output=True, text=True)
+    listed = git("rev-list", "--full-history", f"{commit}..{head}", "--", *RECEIPT_PATHS,
+                 cwd=root)
     if listed.returncode != 0:
         return [f"the commits that changed {RECEIPT_PATH} after {commit[:12]} could not be "
                 f"listed: {listed.stderr.strip()[:120]}"]
@@ -1794,8 +1788,7 @@ def _finished_row_history(root: pathlib.Path, commit: str, head: str, finished: 
         # The receipt's content at a commit, under whichever of its two paths holds it there. A
         # move commit carries the same blob at the new path, so it is not a write.
         for path in RECEIPT_PATHS:
-            shown = subprocess.run(["git", "rev-parse", "-q", "--verify", f"{rev}:{path}"],
-                                   cwd=root, capture_output=True, text=True)
+            shown = git("rev-parse", "-q", "--verify", f"{rev}:{path}", cwd=root)
             if shown.returncode == 0:
                 return shown.stdout.strip()
         return ""
@@ -1803,8 +1796,7 @@ def _finished_row_history(root: pathlib.Path, commit: str, head: str, finished: 
     writes, parents_of = [], {}
     for rev in listed.stdout.split():
         # The commit's own parents; `--parents` on a path-limited walk prints rewritten ones.
-        parents = subprocess.run(["git", "rev-list", "--no-walk", "--parents", rev], cwd=root,
-                                 capture_output=True, text=True).stdout.split()[1:]
+        parents = git("rev-list", "--no-walk", "--parents", rev, cwd=root).stdout.split()[1:]
         if all(blob(rev) != blob(p) for p in parents):
             writes.append(rev)
             parents_of[rev] = parents
@@ -2053,22 +2045,20 @@ def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
     ``origin/main`` (else ``main``) must be an ancestor of it; with neither, the answer is
     unknown and refused. Nothing here fetches.
     """
-    def git(*args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
-
     target = head or "HEAD"
-    listed = git("rev-list", "--parents", "-n", "1", target)
+    listed = git("rev-list", "--parents", "-n", "1", target, cwd=root)
     words = listed.stdout.split()
     if listed.returncode != 0 or not words:
         return [f"{target[:12]} does not resolve, so whether it contains main is unknown"]
     full, parents = words[0], words[1:]
     ref = next((r for r in ("origin/main", "main")
-                if git("rev-parse", "--verify", "--quiet", f"{r}^{{commit}}").returncode == 0),
+                if git("rev-parse", "--verify", "--quiet", f"{r}^{{commit}}",
+                       cwd=root).returncode == 0),
                None)
     if ref is None:
         return ["neither origin/main nor main resolves, so whether main is an ancestor of "
                 "the commit being released is unknown"]
-    main_sha = git("rev-parse", f"{ref}^{{commit}}").stdout.strip()
+    main_sha = git("rev-parse", f"{ref}^{{commit}}", cwd=root).stdout.strip()
     # A merge commit is a release merge only when it is main or merges onto main; any other
     # two-parent commit (a branch merged into dev) is read as a plain commit.
     if len(parents) == 2 and main_sha in (full, parents[0]):
@@ -2078,7 +2068,7 @@ def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
     else:
         contained, container = ref, target
         what, where = ref, target[:12]
-    ancestry = git("merge-base", "--is-ancestor", contained, container)
+    ancestry = git("merge-base", "--is-ancestor", contained, container, cwd=root)
     if ancestry.returncode == 0:
         return []
     if ancestry.returncode == 1:
@@ -2099,8 +2089,7 @@ def unassembled_fragments(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]
     from scripts.assemble_changelog import FRAGMENT_DIR, NOT_FRAGMENTS
 
     fragment_path = FRAGMENT_DIR.relative_to(REPO_ROOT).as_posix()
-    listed = subprocess.run(["git", "ls-tree", "-r", "--name-only", "HEAD", "--", fragment_path],
-                            cwd=root, capture_output=True, text=True)
+    listed = git("ls-tree", "-r", "--name-only", "HEAD", "--", fragment_path, cwd=root)
     if listed.returncode != 0:
         return None
     return sorted(name for name in listed.stdout.splitlines()
@@ -2196,8 +2185,9 @@ def install_wheel_in_venv(venv_dir: pathlib.Path, whl: pathlib.Path) -> Tuple[st
 def main() -> None:
     log.info("=== STEP 0a: Checking release readiness (AGENTS.md section 11, condition 3) ===")
     try:
-        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True,
-                              text=True, check=True).stdout.strip()
+        done = git("rev-parse", "HEAD", cwd=REPO_ROOT)
+        done.check_returncode()
+        head = done.stdout.strip()
     except (subprocess.CalledProcessError, OSError):
         head = None
     stack_violations = (check_state_is_current() + check_release_readiness(head=head)

@@ -56,6 +56,10 @@ def bipolar_reference(channel_data: np.ndarray, channel_order: Optional[np.ndarr
     Returns:
         (n_channels - 1, n_samples) bipolar-referenced array.
 
+    Raises:
+        ValueError: If ``channel_data`` holds NaN or Inf, is not 2-D or has fewer than 2
+            channels, or ``channel_order`` is not a permutation of ``range(n_channels)``.
+
     References:
         Bastos, A. M., et al. (2020). Layer and rhythm specificity for predictive routing.
         PNAS. doi:10.1073/pnas.2014868117 -- Experimental Procedures, "Local Field Potential
@@ -68,6 +72,8 @@ def bipolar_reference(channel_data: np.ndarray, channel_order: Optional[np.ndarr
     refuse_nonfinite_times(channel_data, "bipolar_reference", "channel_data")
     if channel_data.ndim != 2:
         raise ValueError(f"channel_data must be 2D (n_channels, n_samples), got shape {channel_data.shape}")
+    if channel_data.shape[0] < 2:
+        raise ValueError(f"bipolar_reference needs at least 2 channels, got {channel_data.shape[0]}")
     order = (
         np.arange(channel_data.shape[0])
         if channel_order is None
@@ -153,7 +159,7 @@ def voltage_curvature_1d(
     Estimates spatial voltage curvature (Nicholson & Freeman, 1975):
         Curvature(z_i) = (V[i+1] - 2*V[i] + V[i-1]) / (pitch_um * 1e-6)^2
 
-    Important Scientific Distinction:
+    Scientific Distinction:
         Voltage curvature is the purely electrical second derivative (in V/m^2 when potential is in Volts).
         It does NOT assume a tissue conductivity tensor and is NOT physical Current Source Density (CSD).
         To compute physical CSD in A/m^3, call ``current_source_density_1d(..., conductivity_s_per_m=...)``.

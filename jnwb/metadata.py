@@ -200,6 +200,11 @@ def get_all_units_metadata(
         >>> waived = get_all_units_metadata('incomplete.nwb', allow_missing=("session_description",))
         >>> waived.attrs["jnwb_waived_requirements"]
         {'incomplete.nwb': ('session_description',)}
+
+    Raises:
+        OSError, ValueError, KeyError, TypeError, RuntimeError: a file read error, re-raised
+            unchanged when `on_read_error='raise'`.
+        RuntimeError: no units were extracted and at least one path failed to read.
     """
     _stable_label_set(stable_labels, "get_all_units_metadata")
     quality_threshold = _finite_cutoff(quality_threshold, "quality_threshold",
@@ -395,6 +400,11 @@ def filter_by_criteria(
         How to handle criteria keys absent from ``df`` columns. ``"ignore"`` (default)
         skips them so one criteria dict can be reused across schemas. ``"raise"`` fails
         on typos or stale column names.
+
+    Raises
+    ------
+    ValueError
+        `unknown='raise'` and `criteria` names a column absent from `df`.
     """
     if unknown == "raise":
         missing = [k for k in criteria if k not in df.columns]
@@ -689,6 +699,11 @@ def electrode_inventory(
     Example:
         >>> inv = electrode_inventory('/path/to/nwbs')
         >>> fef_channels = inv[inv['area'] == 'FEF']
+
+    Raises:
+        OSError, ValueError, KeyError, TypeError, RuntimeError: a file read error, re-raised
+            unchanged when `on_read_error='raise'`.
+        RuntimeError: no electrodes were extracted and at least one path failed to read.
     """
     if isinstance(nwb_paths, (str, Path)):
         nwb_paths = [nwb_paths]
@@ -998,6 +1013,11 @@ def assign_quality_tier(
 
     Returns:
         Series of {'mua', 'stable', 'unstable', 'unknown'}, same index as ``quality``.
+
+    Raises:
+        ValueError: a Series in `trial_presence_fraction` or `snr` does not cover the units of
+            `quality` (missing, duplicated or extra labels that cannot be aligned); a masked array
+            has masked entries; or an array's length differs from the number of units in `quality`.
     """
     labels = _stable_label_set(stable_labels, "assign_quality_tier")
     stable_threshold = _finite_cutoff(stable_threshold, "stable_threshold", "assign_quality_tier")

@@ -41,6 +41,7 @@ from scipy.ndimage import gaussian_filter1d
 from ._bins import refuse_infinite
 from ._dictlike import DictAccessMixin
 from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
+from ._units import require_positive_fs
 from .laminar import VFlip2Result, VFlipResult, XFlipResult, vflip, vflip2_from_lfp, xflip
 from .spectral import voltage_curvature_1d
 
@@ -67,6 +68,11 @@ POWER_BAND_HZ: Tuple[float, float] = (1.0, 150.0)
 #: both acceptance gates open; 117 draws define a gap. Calibrated, not chosen: see
 #: ``artifacts/benchmarks/calibration/vflip2_separation_0.2.14.md``.
 VFLIP2_VFLIP_AGREEMENT_T_CONTACTS: float = 22.800214862368193
+
+#: Floor on a range before a profile is rescaled to [0, 1] by it; a numerical guard, no
+#: external source.
+_RANGE_FLOOR = 1e-30
+
 
 def _robust_z_std_fallback(values: np.ndarray) -> np.ndarray:
     """Median/MAD z-score; the standard deviation stands in for a zero MAD."""
@@ -171,9 +177,7 @@ def detect_bad_channels(
         ValueError: On a non-finite input, an invalid band or fewer than 3 contacts.
     """
     arr = _check_channels_first(data, "data", (2, 3))
-    fs = float(fs)
-    if not np.isfinite(fs) or fs <= 0:
-        raise ValueError(f"fs must be positive and finite, got {fs!r}")
+    fs = require_positive_fs(fs, "detect_bad_channels")
     lo_hz, hi_hz = float(power_band_hz[0]), float(power_band_hz[1])
     if not (0 <= lo_hz < hi_hz < fs / 2):
         raise ValueError(f"power_band_hz must satisfy 0 <= low < high < fs/2, got {power_band_hz!r}")
@@ -532,9 +536,9 @@ def _band_profiles(psd: np.ndarray, freqs: np.ndarray, use: np.ndarray,
     out = []
     for a, b in (low, high):
         q = psd[:, (freqs >= a) & (freqs <= b)]
-        rel = (q - q[use].min(axis=0)) / np.maximum(np.ptp(q[use], axis=0), 1e-30)
+        rel = (q - q[use].min(axis=0)) / np.maximum(np.ptp(q[use], axis=0), _RANGE_FLOOR)
         p = rel.mean(axis=1)
-        p = (p - p[use].min()) / max(float(np.ptp(p[use])), 1e-30)
+        p = (p - p[use].min()) / max(float(np.ptp(p[use])), _RANGE_FLOOR)
         p[~use] = np.nan
         out.append(p)
     return out[0], out[1]

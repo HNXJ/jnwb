@@ -1,0 +1,7 @@
+- `jnwb/analyzers.py`: `TFRAnalyzer.LEGACY_VIZ_BANDS` warns, same values; no replacement; removed in 0.2.18.
+- `jnwb/artifact_repair.py`: `DEFAULT_BANDS` warns, same values; no replacement; removed in 0.2.18.
+- `jnwb/artifact_repair.py`: `repair_band_artifacts(band_ranges=None)` uses the same bands, without warning.
+- `jnwb/visual_qc.py`: five unused `MADELANE_*` colours warn, same values; no replacement; removed in 0.2.18.
+- `jnwb/nwb_io.py`: `nwb_read_io(mode=)` warns when given; no replacement, omit it; removed in 0.2.18.
+- `jnwb/nwb_io.py`: `nwb_read_io(mode=None)` is now accepted as the default; it used to raise `ValueError`.
+- `jnwb/nwb_io.py`: a `mode` other than `"r"` still raises `ValueError` before the file opens.

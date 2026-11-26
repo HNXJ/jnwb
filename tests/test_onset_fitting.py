@@ -1,13 +1,50 @@
 """Unit tests for jnwb.onset_fitting -- causal PSTH smoothing + causality-bounded exponential
-onset-latency fit. These mirror the module's own `if __name__ == "__main__"`
-synthetic self-tests, converted to pytest so they run under the standard suite.
+onset-latency fit. They include the synthetic self-tests the module once ran under
+`if __name__ == "__main__"`, converted to pytest so they run under the standard suite.
 """
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset, onset_model
+from jnwb.onset_fitting import (DEFAULT_TAU_MS, causal_exp_smooth, fit_exponential_onset,
+                                onset_model)
+
+#: The module self-test's recovery grid, (t0, tau, amplitude, baseline, n_trials), in its order.
+#: The last case is a broad rise (tau 120 ms), where t0 and tau trade off most.
+SELF_TEST_CASES = [
+    (50.0, 20.0, 30.0, 5.0, 60),
+    (150.0, 40.0, 15.0, 8.0, 40),
+    (40.0, 15.0, 50.0, 3.0, 80),
+    (300.0, 60.0, 10.0, 6.0, 30),
+    (45.0, 120.0, 12.0, 4.0, 60),
+]
+
+
+@pytest.fixture(scope="module")
+def self_test_fits():
+    """The five fits as the removed self-test made them: one Generator(0) drawn in case order."""
+    rng = np.random.default_rng(0)
+    bin_ms = 5.0
+    t_ms = np.arange(-100.0, 600.0, bin_ms)[:-1] + bin_ms / 2.0
+    fits = []
+    for t0, tau, amp, base, n_trials in SELF_TEST_CASES:
+        true_rate = np.clip(onset_model(t_ms, t0, tau, amp, base), 0.0, None)
+        counts = rng.poisson(true_rate * (bin_ms / 1000.0) * n_trials)
+        noisy_rate = counts / (n_trials * (bin_ms / 1000.0))
+        smoothed = causal_exp_smooth(noisy_rate, bin_ms, tau_ms=30.0)
+        fits.append(fit_exponential_onset(t_ms, smoothed, t0_bounds=(0.0, 600.0),
+                                          baseline_window=(-100.0, 0.0)))
+    return fits
+
+
+@pytest.mark.parametrize("index", range(len(SELF_TEST_CASES)),
+                         ids=[f"t0={c[0]:g},tau={c[1]:g}" for c in SELF_TEST_CASES])
+def test_the_self_test_grid_recovers_each_onset(self_test_fits, index):
+    """Within two smoothing constants of the true onset, the self-test's own bound: the causal
+    smoother delays a step by about tau, so exact recovery is not the bar."""
+    fit = self_test_fits[index]
+    assert abs(fit["t0"] - SELF_TEST_CASES[index][0]) < 2 * DEFAULT_TAU_MS
 
 
 class TestCausalExpSmooth:
@@ -295,3 +332,84 @@ class TestCausalGaussianSmooth:
         assert np.ones(shape).ndim == 2, "fixture must be two-dimensional"
         with pytest.raises(ValueError, match="causal_gaussian_smooth: rate must be one-dimensional"):
             causal_gaussian_smooth(np.ones(shape), 3.0)
+
+
+class TestOnsetBoundStatus:
+    @pytest.mark.parametrize("t0,status,expected_t0,atol", [
+        pytest.param(-50.0, "lower", 0.0, 1e-3, id="test_onset_lower_bound_censored"),
+        pytest.param(450.0, "upper", 400.0, 1e-3, id="test_onset_upper_bound_censored"),
+        pytest.param(100.0, None, 100.0, 1e-1, id="test_onset_interior_unconstrained"),
+        pytest.param(0.0, "lower", 0.0, 1e-3, id="test_onset_exactly_at_lower_bound"),
+        pytest.param(400.0, "upper", 400.0, 1e-3, id="test_onset_exactly_at_upper_bound"),
+        pytest.param(25.0, None, 25.0, 1e-1, id="test_onset_just_above_lower_bound"),
+    ])
+    def test_onset_bound_status(self, t0, status, expected_t0, atol):
+        t = np.arange(-100.0, 500.0, 5.0)
+        rate = onset_model(t, t0=t0, tau=30.0, amplitude=20.0, baseline=5.0)
+        fit = fit_exponential_onset(t, rate, t0_bounds=(0.0, 400.0))
+        assert fit["converged"] is True
+        if status is None:
+            assert fit["bound_status"] is None
+        else:
+            assert fit["bound_status"] == status
+        assert np.isclose(fit["t0"], expected_t0, atol=atol)
+
+    def test_fitted_keys_and_values_preserved(self):
+        t = np.arange(-100.0, 500.0, 5.0)
+        rate = onset_model(t, t0=50.0, tau=25.0, amplitude=15.0, baseline=2.0)
+        fit = fit_exponential_onset(t, rate, t0_bounds=(0.0, 400.0))
+        expected_keys = {"t0", "tau", "amplitude", "baseline", "r2", "converged", "cost", "bound_status"}
+        assert set(fit.keys()) == expected_keys
+        assert isinstance(fit["t0"], float)
+        assert isinstance(fit["tau"], float)
+        assert isinstance(fit["amplitude"], float)
+        assert isinstance(fit["baseline"], float)
+        assert isinstance(fit["r2"], float)
+        assert isinstance(fit["converged"], bool)
+        assert isinstance(fit["cost"], float)
+
+
+class TestCausalExpSmoothLatency:
+    def test_impulse_centroid_delay_scales_with_tau(self):
+        bin_ms = 1.0
+        n_pts = 1000
+        impulse = np.zeros(n_pts)
+        impulse[100] = 1.0
+
+        for tau in [20.0, 40.0, 60.0]:
+            smoothed = causal_exp_smooth(impulse, bin_ms=bin_ms, tau_ms=tau)
+            t_axis = np.arange(n_pts) * bin_ms
+            com = np.sum(t_axis * smoothed) / np.sum(smoothed)
+            com_delay = com - 100.0 * bin_ms
+            # Compare with exact discrete kernel centroid
+            t_filter = np.arange(0, 5 * tau, bin_ms)
+            h = np.exp(-t_filter / tau)
+            h /= h.sum()
+            expected_com = np.sum(t_filter * h)
+            assert np.isclose(com_delay, expected_com, atol=1e-5)
+            assert np.isclose(com_delay, tau, rtol=0.10)
+
+    def test_step_response_50_pct_rise_scales_with_tau(self):
+        bin_ms = 0.5
+        n_pts = 2000
+        step = np.zeros(n_pts)
+        step_onset = 200
+        step[step_onset:] = 1.0
+
+        for tau in [30.0, 50.0]:
+            smoothed = causal_exp_smooth(step, bin_ms=bin_ms, tau_ms=tau)
+            idx_50 = np.where(smoothed >= 0.5)[0][0]
+            delay_50 = (idx_50 - step_onset) * bin_ms
+            expected_50 = tau * np.log(2.0)
+            assert np.isclose(delay_50, expected_50, atol=bin_ms * 2)
+
+    def test_sampling_interval_invariance(self):
+        tau = 30.0
+        for bin_ms in [1.0, 2.0, 5.0]:
+            step = np.zeros(int(1000 / bin_ms))
+            onset_idx = int(200 / bin_ms)
+            step[onset_idx:] = 1.0
+            smoothed = causal_exp_smooth(step, bin_ms=bin_ms, tau_ms=tau)
+            idx_50 = np.where(smoothed >= 0.5)[0][0]
+            delay_50 = (idx_50 - onset_idx) * bin_ms
+            assert abs(delay_50 - tau * np.log(2.0)) <= bin_ms * 1.5

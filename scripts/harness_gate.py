@@ -43,14 +43,11 @@ Returns exit code 0 on PASS, 1 on FAIL.
 """
 from __future__ import annotations
 
-import ast
-import itertools
 import os
-import re
-import subprocess
+import subprocess  # noqa: F401  # read by tests/test_gate2_ignores_nested_checkouts.py
 import sys
 from pathlib import Path
-from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Union
+from typing import Any, List, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 # Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
@@ -61,43 +58,32 @@ elif str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 # The one stack reader, shared with STEP 0a (scripts/stack_parse.py): gates 15 and 17 read the
 # same items, at any heading depth, that STEP 0a reads.
-from scripts.stack_parse import item_spans, stack_items as _stack_items  # noqa: E402
+from scripts.stack_parse import stack_items as _stack_items  # noqa: E402,F401  # read by tests/test_stack_item_length.py, tests/test_stack_metadata_contradictions.py
 JNWB_DIR = REPO_ROOT / "jnwb"
 OMISSION_DIR = REPO_ROOT / "omission"
 
 from scripts.gates.boundary import (
-    AUTHORIZED_JNWB_EXCEPTIONS,
     check_frozen_boundary,
-    _is_inside_nested_checkout,
-    _GIT_DISCOVERY_ENV,
-    GitUnavailable,
-    _canonical,
-    _run_git,
-    _registered_worktrees,
-    _git_identity,
-    _is_checkout_of,
-    _skill_frontmatter_name,
+    _canonical,  # noqa: F401  # read by tests/test_gate2_ignores_nested_checkouts.py
+    _git_identity,  # noqa: F401  # read by tests/test_gate2_ignores_nested_checkouts.py
+    _is_checkout_of,  # noqa: F401  # read by tests/test_gate2_ignores_nested_checkouts.py
     check_skill_tree_uniqueness,
     check_no_hardcoded_test_paths,
-    OWNED_ROOT_PACKAGES,
-    INTERNAL_ROOT_PACKAGES,
-    SOURCE_ROOT_DIRS,
-    EPHEMERAL_ROOT_DIRS,
-    TOOL_ROOT_DIRS,
-    ALLOWED_ROOT_DIRS,
-    ALLOWED_ROOT_FILES,
+    INTERNAL_ROOT_PACKAGES,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py, tests/test_gates_reject_the_trees_they_passed.py
+    EPHEMERAL_ROOT_DIRS,  # noqa: F401  # read by tests/test_gate2_ignores_nested_checkouts.py, tests/test_gates_reject_the_trees_they_passed.py
+    TOOL_ROOT_DIRS,  # noqa: F401  # read by tests/test_gate2_ignores_nested_checkouts.py
+    ALLOWED_ROOT_FILES,  # noqa: F401  # read by tests/test_every_declaration_has_a_caller.py, tests/test_gates_reject_the_trees_they_passed.py, tests/test_harness_adversarial_gates.py, tests/test_single_agent_instruction_file.py
     check_root_allowlist,
     check_no_shadow_packages,
     check_logarithm_last_in_package,
-    check_logarithm_last_rule,
+    check_logarithm_last_rule,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py
     count_declared_raw_power_estimands,
-    _convention,
-    _wholesale_conversions,
+    _convention,  # noqa: F401  # read by tests/test_line_endings_survive_an_edit.py
+    _wholesale_conversions,  # noqa: F401  # read by tests/test_line_endings_survive_an_edit.py
     check_line_ending_consistency,
 )
 
 from scripts.gates.versions import (
-    _test_job_matrix,
     PYTHON_FLOOR,
     PYTHON_SUPPORTED,
     PYTHON_CI_REQUIRED,
@@ -106,111 +92,66 @@ from scripts.gates.versions import (
 )
 
 from scripts.gates.docs import (
-    GENERATED_REFERENCE,
+    GENERATED_REFERENCE,  # noqa: F401  # read by scripts/fact_graph/entities.py
     check_public_symbols_documented,
     check_documented_api_matches_all,
     check_docs_version_matches_package,
-    DATASET_SCAN_ROOT_DOCS,
-    DATASET_SCAN_EXEMPT,
+    DATASET_SCAN_ROOT_DOCS,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py
+    DATASET_SCAN_EXEMPT,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py
     check_dataset_leakage,
-    NWB_ONBOARDING_SYMBOLS,
+    NWB_ONBOARDING_SYMBOLS,  # noqa: F401  # read by tests/test_gates_reject_the_trees_they_passed.py
     check_nwb_onboarding_alignment,
 )
 
 from scripts.gates.vocabulary import (
-    PROJECT_IDENTIFIERS,
     check_no_project_identifiers_in_code,
     INTERNAL_PROCESS_TERMS,
-    _internal_term_pattern,
+    _internal_term_pattern,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py
     check_internal_process_vocabulary,
-    CHANGELOG_KINDS,
+    CHANGELOG_KINDS,  # noqa: F401  # read by tests/test_changelog_fragments.py, tests/test_harness_gate.py
     CHANGELOG_RELEASES_KEPT,
     CHANGELOG_ENTRY_LIMIT,
-    CHANGELOG_PROCESS_TERMS,
-    CHANGELOG_NAME,
-    CHANGELOG_SEED_KINDS,
-    CHANGELOG_TEMPLATE_FROM,
-    CHANGELOG_CASE_SENSITIVE,
-    CHANGELOG_PACKAGE_SCOPED,
-    CHANGELOG_PACKAGE_CONTENT,
-    _held_to_template,
-    _changelog_term_pattern,
-    _changelog_entry_violations,
-    _bullet_scopes,
+    _changelog_entry_violations,  # noqa: F401  # read by tests/test_changelog_fragments.py
     check_changelog_form,
-    PROCESS_IDENTIFIER,
-    SNIPPET_INLINE,
-    SNIPPET_BLOCK,
-    _snippet_base_paths,
-    _snippet_names,
-    _resolve_snippet,
-    _included_sources,
-    _rel,
     check_no_process_identifiers_in_library,
 )
 
 from scripts.gates.stacks_form import (
-    TODO_STACK,
-    OPEN_STACK,
-    _code_span_mask,
-    _writes_fields,
-    _writes_field_spans,
-    _CONTINUES_AS_PATHS,
-    _suspected_truncated_writes,
-    _BLOCK_ASSERTIONS,
-    _ANY_BLOCK_ASSERTION,
-    _ITEM_ID,
-    _FIELD_LABEL,
-    _unwrapped_spans,
-    _stop_clause_spans,
-    _unwrapped_sentences,
-    _excise_blocked_by,
-    _blocked_by_none_contradictions,
-    _ITEM_COUNT,
-    _COUNT_VALUE,
-    _CLAUSE_BREAK,
-    _summary_regions,
-    _miscounted_summaries,
-    _NUMERAL_ITEMS,
-    _TOTAL_BEFORE,
-    _TOTAL_AFTER,
-    _inside_quotation,
-    _stale_item_totals,
+    TODO_STACK,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py
+    _writes_fields,  # noqa: F401  # read by tests/test_generation_closure_is_declared.py, tests/test_harness_adversarial_gates.py, tests/test_stack_metadata_contradictions.py
+    _writes_field_spans,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _suspected_truncated_writes,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _BLOCK_ASSERTIONS,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _ANY_BLOCK_ASSERTION,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _ITEM_ID,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _unwrapped_spans,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _stop_clause_spans,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _unwrapped_sentences,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _blocked_by_none_contradictions,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _miscounted_summaries,  # noqa: F401  # read by tests/test_stack_metadata_contradictions.py
+    _stale_item_totals,  # noqa: F401  # read by tests/test_harness_adversarial_gates.py
 )
 
 from scripts.gates.stacks_closure import (
-    _ESCAPED_PIPE,
-    GENERATED_FROM,
-    _row_delimiters,
+    GENERATED_FROM,  # noqa: F401  # read by tests/test_generation_closure_is_declared.py, tests/test_harness_adversarial_gates.py
     check_stack_form_consistency,
 )
 
-from scripts.gates.stacks_pointers import (
-    SKILL_PLACEHOLDERS,
-    ROLE_PLACEHOLDERS,
-    _RESOLVED_FIELDS,
-    _field_value,
-    _declared_name,
-    check_stack_pointers_resolve,
-)
+from scripts.gates.stacks_pointers import check_stack_pointers_resolve
 
 from scripts.gates.api_types import (
-    API_MD_ROW,
-    api_member_kind,
-    api_md_parameter_kinds,
+    API_MD_ROW,  # noqa: F401  # read by tests/test_api_md_member_types.py
+    api_member_kind,  # noqa: F401  # read by tests/test_api_md_member_types.py
+    api_md_parameter_kinds,  # noqa: F401  # read by tests/test_api_md_member_types.py
     check_api_md_member_types,
 )
 
 from scripts.gates.frozen import (
-    FROZEN_REGISTER,
-    _canonical_ast,
-    _strip_docstrings,
-    frozen_body_hash,
+    frozen_body_hash,  # noqa: F401  # read by tests/test_frozen_validated.py
     check_frozen_validated,
 )
 
 from scripts.gates.state import (
-    validate_receipt_provenance,
     check_state_file_head,
     check_computational_contract,
     _FACT_REPORT,
@@ -218,6 +159,7 @@ from scripts.gates.state import (
 )
 
 from scripts.learning_gate import (
+    RULE_FILES,
     awareness_violations,
     citation_violations,
     examined_counts,
@@ -325,7 +267,9 @@ def _stack_and_record_checks() -> List[Tuple[str, List[str]]]:
 
 def _stack_and_record_pass_line() -> str:
     """The stack and record checks' PASS line, naming what they read; nothing read says 0."""
-    tables, read, phrases = examined_counts()
+    tables, read, phrases, base = examined_counts()
+    rule_files = (f", with no mapping table, {' and '.join(RULE_FILES)} against {base}"
+                  if base else "")
     return ("PASS: Stack form consistent (every declared write set names comparable paths and "
             "is not truncated by a stray full stop; no 'Blocked by: none' is contradicted by "
             "its own item's text; every summary count agrees with the items it names; "
@@ -334,7 +278,7 @@ def _stack_and_record_pass_line() -> str:
             "every GENERATED_FROM entry resolves against the tree); every defect-class count "
             "matches its instances, and every date a file cites has a dated record; examined: "
             f"{tables} mapping tables ({read} obligation clauses; before, after, never, must, "
-            f"only) and {phrases} forbidden phrases.")
+            f"only{rule_files}) and {phrases} forbidden phrases.")
 
 
 def _state_file_checks() -> List[Tuple[str, List[str]]]:

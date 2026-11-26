@@ -46,6 +46,9 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 
+_STD_FLOOR = 1e-9  # std floor before scaling; numerical guard, no external source
+_PROB_CLIP = 1e-9  # keeps probabilities off 0 and 1 for log loss; numerical guard, no source
+
 
 class BilinearLogisticRegression:
     """Rank-K bilinear logistic regression on (n_trials, N, T) inputs.
@@ -75,7 +78,7 @@ class BilinearLogisticRegression:
             return X
         self.mean_ = X.mean(axis=0)
         self.std_ = X.std(axis=0)
-        self.std_[self.std_ < 1e-9] = 1.0
+        self.std_[self.std_ < _STD_FLOOR] = 1.0
         return (X - self.mean_) / self.std_
 
     def _scale(self, X):
@@ -109,7 +112,7 @@ class BilinearLogisticRegression:
 
             iters = it + 1
             p = _sigmoid(_bilinear_score(X, U, V, b))
-            loss = log_loss(y, np.clip(p, 1e-9, 1 - 1e-9), labels=[0, 1])
+            loss = log_loss(y, np.clip(p, _PROB_CLIP, 1 - _PROB_CLIP), labels=[0, 1])
             if prev_loss - loss < self.tol:
                 break
             prev_loss = loss

@@ -5,7 +5,7 @@ All functions take plain (t, rate) arrays. ``causal_exp_smooth`` applies a forwa
 exponential kernel so post-onset activity cannot leak into pre-onset bins. ``fit_exponential_onset``
 constrains onset time t0 inside caller-supplied bounds during the fit (not as a post-hoc filter).
 
-See ``if __name__ == "__main__"`` for synthetic recovery checks before trusting on real data.
+See ``tests/test_onset_fitting.py`` for synthetic recovery checks before trusting on real data.
 """
 from __future__ import annotations
 
@@ -16,6 +16,10 @@ from ._bins import refuse_nonfinite_times
 from ._spread import is_constant, r_squared
 from ._units import resolve_unit_alias
 from .unit_quality import _positive_finite
+
+_MIN_AMPLITUDE = 1e-6  # floor on the initial amplitude guess; numerical guard, no external source
+_BOUNDARY_TOL_FLOOR = 1e-9  # t0-boundary tolerance floor; numerical guard, no external source
+_BOUNDARY_TOL_ULPS = 100.0  # t0-boundary tolerance in ulps of the bounds' span; numerical guard, no external source
 
 DEFAULT_TAU_MS = 30.0
 
@@ -58,8 +62,10 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
 
     rate: (n_times,) binned rate (Hz or counts, either works -- only smoothing, no rescaling).
     Returns smoothed rate, same shape as input.
-    Raises ValueError if ``rate`` is not one-dimensional or ``bin_ms`` or ``tau_ms``
-    is not finite and positive.
+
+    Raises:
+        ValueError: If ``rate`` is not one-dimensional or ``bin_ms`` or ``tau_ms`` is not
+            finite and positive.
 
     References:
         Nawrot, M. P., Aertsen, A., & Rotter, S. (1999). Single-trial estimation
@@ -106,7 +112,10 @@ def causal_gaussian_smooth(rate: np.ndarray, sigma_bins: float) -> tuple[np.ndar
     rate: (n_times,) binned rate, in any units (only smoothing, no rescaling).
     sigma_bins: Gaussian standard deviation, in bins.
     Returns (smoothed, mean_lag_bins): the smoothed rate, same shape as the input, and the lag.
-    Raises ValueError if ``rate`` is not one-dimensional or ``sigma_bins`` is not finite and positive.
+
+    Raises:
+        ValueError: If ``rate`` is not one-dimensional or ``sigma_bins`` is not finite and
+            positive.
 
     References:
         Nawrot, M. P., Aertsen, A., & Rotter, S. (1999). Single-trial estimation
@@ -247,7 +256,7 @@ def fit_exponential_onset(
         n0 = max(1, t_ms.size // 10)
         baseline0 = float(np.mean(rate[:n0]))
 
-    amp0 = float(max(rate.max() - baseline0, 1e-6))
+    amp0 = float(max(rate.max() - baseline0, _MIN_AMPLITUDE))
     t0_lo = t0_bounds_ms[0] if t0_bounds_ms[0] is not None else float(t_ms.min())
     t0_hi = t0_bounds_ms[1] if t0_bounds_ms[1] is not None else float(t_ms.max())
     if t0_hi <= t0_lo:
@@ -306,7 +315,7 @@ def fit_exponential_onset(
     # Boundary constraint status on outer t0_bounds:
     # "lower" | "upper" means the optimizer solution is constrained against outer bounds.
     span = max(t0_hi - t0_lo, 1.0)
-    tol = max(np.finfo(float).eps * span * 100.0, 1e-9)
+    tol = max(np.finfo(float).eps * span * _BOUNDARY_TOL_ULPS, _BOUNDARY_TOL_FLOOR)
     if (res.active_mask[0] == -1 and refine_lo == t0_lo) or (t0 <= t0_lo + tol):
         bound_status = "lower"
     elif (res.active_mask[0] == 1 and refine_hi == t0_hi) or (t0 >= t0_hi - tol):
@@ -319,67 +328,3 @@ def fit_exponential_onset(
         "r2": r2, "converged": bool(res.success), "cost": float(res.cost),
         "bound_status": bound_status,
     }
-
-
-if __name__ == "__main__":
-    # Synthetic self-test: recover a known injected t0 across a grid of amplitude/tau/noise
-    # combinations, on a causally-smoothed noisy rate trace built the same way a real PSTH
-    # would be (Poisson-like counts, binned, then causal_exp_smooth) -- not a bare noiseless
-    # sanity check. Must pass before trusting this on any real PSTH (module docstring).
-    rng = np.random.default_rng(0)
-    bin_ms = 5.0
-    t_edges = np.arange(-100.0, 600.0, bin_ms)
-    t_ms = t_edges[:-1] + bin_ms / 2.0
-
-    cases = [
-        {"t0_true": 50.0, "tau_true": 20.0, "amp_true": 30.0, "baseline_true": 5.0, "n_trials": 60},
-        {"t0_true": 150.0, "tau_true": 40.0, "amp_true": 15.0, "baseline_true": 8.0, "n_trials": 40},
-        {"t0_true": 40.0, "tau_true": 15.0, "amp_true": 50.0, "baseline_true": 3.0, "n_trials": 80},
-        {"t0_true": 300.0, "tau_true": 60.0, "amp_true": 10.0, "baseline_true": 6.0, "n_trials": 30},
-        # Broad/gradual rise, large tau -- the failure mode seen on real PSTHs:
-        # a joint (t0,tau) fit could reproduce this curve almost as well with t0 near 0 and a
-        # larger tau, so this case specifically stress-tests the t0-grid-search fix rather than
-        # the original identifiability-friendly small-tau cases above. tau_true=120 sits near
-        # the top of DEFAULT_TAU_BOUNDS' upper edge (150ms) -- deliberately tightened from an
-        # initial 300ms after discovering that a tau this large (200ms) over a 700ms window is
-        # information-theoretically near-unidentifiable (the rise barely leaves its linear-
-        # onset regime before the window ends, so t0 and tau trade off almost losslessly no
-        # matter how the optimizer is structured); 300ms was never a physiologically motivated
-        # bound to begin with.
-        {"t0_true": 45.0, "tau_true": 120.0, "amp_true": 12.0, "baseline_true": 4.0, "n_trials": 60},
-    ]
-
-    max_abs_err = 0.0
-    for i, c in enumerate(cases):
-        true_rate = onset_model(t_ms, c["t0_true"], c["tau_true"], c["amp_true"], c["baseline_true"])
-        true_rate = np.clip(true_rate, 0.0, None)
-        # Poisson-noisy counts per bin across n_trials, converted back to a rate (Hz).
-        lam = true_rate * (bin_ms / 1000.0) * c["n_trials"]
-        counts = rng.poisson(lam)
-        noisy_rate = counts / (c["n_trials"] * (bin_ms / 1000.0))
-        smoothed = causal_exp_smooth(noisy_rate, bin_ms, tau_ms=30.0)
-
-        fit = fit_exponential_onset(t_ms, smoothed, t0_bounds=(0.0, 600.0), baseline_window=(-100.0, 0.0))
-        err = abs(fit["t0"] - c["t0_true"])
-        max_abs_err = max(max_abs_err, err)
-        print(f"case {i}: true_t0={c['t0_true']:.1f} fit_t0={fit['t0']:.1f} err={err:.1f}ms "
-              f"r2={fit['r2']:.3f} converged={fit['converged']}")
-        # Tolerance: within 2 smoothing time-constants (tau_ms=30) of the true onset -- a
-        # causal exponential smoother intrinsically delays/blurs a sharp step by ~tau, so exact
-        # recovery is not the right bar; recovering within a couple of smoothing constants is.
-        assert err < 2 * DEFAULT_TAU_MS, f"case {i} FAILED: onset recovery error {err:.1f}ms too large"
-
-    # Causality-bound self-test: inject a true onset OUTSIDE the allowed t0 window and confirm
-    # the fit cannot report a t0 outside bounds even though the data would otherwise support it.
-    true_rate = onset_model(t_ms, -50.0, 20.0, 30.0, 5.0)  # onset before window start
-    true_rate = np.clip(true_rate, 0.0, None)
-    lam = true_rate * (bin_ms / 1000.0) * 60
-    counts = rng.poisson(lam)
-    noisy_rate = counts / (60 * (bin_ms / 1000.0))
-    smoothed = causal_exp_smooth(noisy_rate, bin_ms, tau_ms=30.0)
-    fit_bounded = fit_exponential_onset(t_ms, smoothed, t0_bounds=(0.0, 600.0), baseline_window=(-100.0, -20.0))
-    assert fit_bounded["t0"] >= 0.0, "self-test FAILED: causality bound violated"
-    print(f"causality-bound case: pre-window true onset -> bounded fit_t0={fit_bounded['t0']:.1f} "
-          f"(correctly clamped to >=0)")
-
-    print(f"jnwb.onset_fitting self-test PASSED (max onset recovery error {max_abs_err:.1f}ms)")

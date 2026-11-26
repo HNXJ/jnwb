@@ -1,0 +1,227 @@
+{
+  "arrays": {
+    "forward_x_to_y": {
+      "dtype": "float64",
+      "sha256_of_bytes": "c87ae39e3d013e14cd355baa0b2f4b3fc7eb10ccbaa3c02edb48a43a4e607b7e",
+      "shape": [
+        16,
+        1000,
+        2
+      ]
+    },
+    "reverse_y_to_x": {
+      "dtype": "float64",
+      "sha256_of_bytes": "87debac80518aa3974ba78d2a6316e37502ea16b73f48b2795fe54b3e3fd8c51",
+      "shape": [
+        16,
+        1000,
+        2
+      ]
+    },
+    "site_names": {
+      "dtype": "<U6",
+      "sha256_of_bytes": "519cd276eca4132a170c6db4f85b9464dc5ab991dea952ff112404ff271b9105",
+      "shape": [
+        2
+      ]
+    },
+    "time_s": {
+      "dtype": "float64",
+      "sha256_of_bytes": "574f0acebe7606f944e8664db703a3ab8dce5c1be71b5d11fcdf803d5a03b926",
+      "shape": [
+        1000
+      ]
+    },
+    "uncoupled_null": {
+      "dtype": "float64",
+      "sha256_of_bytes": "34aaaf2fe4db8b6d3cf8e7e7be48c38d09ec2844c8a445d01b5c0b10dc26cd7c",
+      "shape": [
+        16,
+        1000,
+        2
+      ]
+    },
+    "zero_lag_common_source": {
+      "dtype": "float64",
+      "sha256_of_bytes": "7e64873963814624e5a712e24093c9f65cdfdb3cb883e1104f817ec7826ce548",
+      "shape": [
+        16,
+        1000,
+        2
+      ]
+    }
+  },
+  "description": "Synthetic broadband coupled two-site rate simulation from jaxfne's NeuronalTensor + construct(emitter='rate') + run_trials + to_jnwb_trials pipeline across forward, reverse, uncoupled, and zero-lag common-source conditions.",
+  "file_bytes": {
+    "npz": 527523
+  },
+  "generator_configuration": {
+    "burn_in_ms": 200.0,
+    "burn_in_steps": 200,
+    "common_source_mixture": {
+      "common_weight": 0.7,
+      "independent_weight": 0.3,
+      "note": "Instantaneous linear mixture of three uncoupled jaxfne rate simulations (common Z, independent Nx, independent Ny); zero planted lag."
+    },
+    "dt_ms": 1.0,
+    "duration_ms": 1200.0,
+    "emitter": "rate",
+    "gain": 1.0,
+    "n_samples_kept": 1000,
+    "n_steps_simulated": 1200,
+    "n_trials": 16,
+    "r0": 1.0,
+    "sigma": 0.2,
+    "static_synaptic_dt_ms": 2.0,
+    "tau_ms": 5.0,
+    "time_convention": "time_s = arange(n_samples_kept) * dt_ms / 1000",
+    "transfer": "threshold_linear",
+    "w_mech": 0.848528137423857
+  },
+  "ground_truth": {
+    "discrete_arrival_lag_steps": 6,
+    "forward_direction": "site_0 -> site_1",
+    "planted_synaptic_delay_ms": 6.0,
+    "rate_filter_tau_ms": 5.0,
+    "realized_edge_weight": 0.6,
+    "reverse_direction": "site_1 -> site_0",
+    "spectral_family": "discrete AR(1) broadband low-pass (Wilson-Cowan rate unit)"
+  },
+  "item": "12-21",
+  "sampling": {
+    "dt_ms": 1.0,
+    "fs_hz": 1000.0,
+    "n_samples": 1000,
+    "n_sites": 2,
+    "n_trials": 16
+  },
+  "seeds": {
+    "common_nx_seeds": [
+      316,
+      317,
+      318,
+      319,
+      320,
+      321,
+      322,
+      323,
+      324,
+      325,
+      326,
+      327,
+      328,
+      329,
+      330,
+      331
+    ],
+    "common_ny_seeds": [
+      332,
+      333,
+      334,
+      335,
+      336,
+      337,
+      338,
+      339,
+      340,
+      341,
+      342,
+      343,
+      344,
+      345,
+      346,
+      347
+    ],
+    "common_z_seeds": [
+      300,
+      301,
+      302,
+      303,
+      304,
+      305,
+      306,
+      307,
+      308,
+      309,
+      310,
+      311,
+      312,
+      313,
+      314,
+      315
+    ],
+    "forward_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "reverse_seeds": [
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115
+    ],
+    "uncoupled_seeds": [
+      200,
+      201,
+      202,
+      203,
+      204,
+      205,
+      206,
+      207,
+      208,
+      209,
+      210,
+      211,
+      212,
+      213,
+      214,
+      215
+    ]
+  },
+  "source": {
+    "commit": "022da7a0aab37c8ecac3adab78940057a795eac4",
+    "generator_file": "artifacts/evidence/0.2.17/generate_jaxfne_delayed_broadband.py",
+    "generator_sha256": "2b4c284e5e1fe8da5b5e4eafe8e17f324f02b64611cf04756bbf633f4696eeb7",
+    "git_status_short_clean": true,
+    "jaxfne_version": "0.5.9"
+  },
+  "theoretical_model": {
+    "alpha": 0.2,
+    "coupled_difference_equation": "r_post[t] = (1 - alpha) * r_post[t-1] + alpha * (1 + gain * weight * r_pre[t - d]) + noise_post[t]",
+    "transfer_function": "H(f) = alpha * gain * weight * exp(-i*2*pi*f*d*dt_s) / (1 - (1 - alpha) * exp(-i*2*pi*f*dt_s))",
+    "uncoupled_one_sided_psd_formula": "S(f) = 2 * dt_s * sigma^2 * alpha / (1 + (1 - alpha)^2 - 2 * (1 - alpha) * cos(2*pi*f*dt_s))",
+    "uncoupled_stationary_variance": 0.022222222222222227
+  },
+  "units": {
+    "rates": "relative rate (threshold_linear, phi(0)=1), not volts",
+    "time": "s"
+  },
+  "validation_scope": "synthetic ground-truth recovery only; not empirical validation"
+}

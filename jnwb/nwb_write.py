@@ -17,7 +17,6 @@ the destination's dtype.
 
 from __future__ import annotations
 
-import hashlib
 import os
 import posixpath
 import tempfile
@@ -28,9 +27,11 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+from pynwb import NWBFile
 
 from jnwb.nwb_io import MissingRequiredNWBFieldError
 from jnwb.ontology import Lineage, Provenance
+from jnwb.paths import sha256_file as _sha256
 
 #: The mutation category ``verify_nwb`` records on its report.
 CATEGORY = "verify written output"
@@ -105,14 +106,6 @@ class MutationReport:
 def _norm(path: str) -> str:
     """One spelling for a dataset path: no leading, trailing or doubled separators."""
     return posixpath.normpath(path.strip()).lstrip("/")
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _version(dist: str) -> str | None:
@@ -613,7 +606,6 @@ def write_nwb(nwbfile: NWBFile, *, dst: str | Path,
         -- the NWB format this operation writes.
     """
     import jnwb
-    from pynwb import NWBFile
 
     if not isinstance(nwbfile, NWBFile):
         raise TypeError(f"nwbfile must be a pynwb.NWBFile, got {type(nwbfile).__name__}")
@@ -1166,20 +1158,32 @@ def _stored_ndt(obj) -> str | None:
     return str(raw)
 
 
+def _schema_lookup_refusal(exc: Exception) -> UnidentifiableRepairError:
+    """Refusal for a catalog failure that is not a missing-spec miss."""
+    return UnidentifiableRepairError(
+        f"repair_nwb: squeeze_scalar_attributes schema lookup failed: "
+        f"{type(exc).__name__}: {exc}; nothing written"
+    )
+
+
 def _spec_chain(catalog, ndt: str) -> list:
     """The spec for ``ndt`` plus every type it extends, core namespace first."""
     for namespace in ("core", "hdmf-common"):
         try:
             spec = catalog.get_namespace(namespace).get_spec(ndt)
-        except Exception:
+        except (KeyError, ValueError):
             continue
+        except Exception as exc:
+            raise _schema_lookup_refusal(exc) from exc
         chain = [spec]
         node = spec
         while isinstance(getattr(node, "data_type_inc", None), str):
             try:
                 node = catalog.get_namespace(namespace).get_spec(node.data_type_inc)
-            except Exception:
+            except (KeyError, ValueError):
                 break
+            except Exception as exc:
+                raise _schema_lookup_refusal(exc) from exc
             chain.append(node)
         return chain
     return []
@@ -1200,8 +1204,10 @@ def _declared_scalar(catalog, ndt: str, obj_is_dataset: bool, obj_name: str,
                 found = entry.get_attribute(attr) if entry is not None else None
             else:
                 found = node.get_attribute(attr)
-        except Exception:
+        except (KeyError, ValueError):
             continue
+        except Exception as exc:
+            raise _schema_lookup_refusal(exc) from exc
         if found is None:
             continue
         return found.shape is None and found.dims is None
@@ -1496,7 +1502,7 @@ def repair_nwb(src: str | Path, *, dst: str | Path, repairs,
     Raises
     ------
     TypeError
-        ``repairs`` is None.
+        ``repairs`` is None or a single string.
     ValueError
         A name not in ``jnwb.REPAIRS``; an empty ``repairs``; ``dst``
         resolving to ``src``.
@@ -1508,6 +1514,8 @@ def repair_nwb(src: str | Path, *, dst: str | Path, repairs,
         is unknown.
     FileExistsError
         ``dst`` exists and ``overwrite`` is False.
+    NWBMutationError
+        The repaired copy fails NWB schema validation; nothing is written.
     NWBVerificationError
         ``verify`` is True and a post-write check failed; ``dst`` is left in place
         for inspection.

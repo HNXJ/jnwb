@@ -15,11 +15,16 @@ from __future__ import annotations
 
 import ast
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
+
+from scripts.gates.boundary import git  # noqa: E402
 
 # The tracked files a script in this repository regenerates, and the scripts that write them.
 # TestTheTwoListsDescribeEachOther keeps the pair honest: a new generated file that no listed
@@ -148,9 +153,9 @@ class TestGeneratedFilesAreLf:
         stored, so that the two halves of the matrix agree on the bytes and a regeneration
         on either one is a no-op.
         """
-        eol = subprocess.run(
-            ["git", "ls-files", "--eol", "--", rel], cwd=REPO_ROOT,
-            capture_output=True, text=True, check=True).stdout
+        listed = git("ls-files", "--eol", "--", rel, cwd=REPO_ROOT)
+        listed.check_returncode()
+        eol = listed.stdout
         assert eol.strip(), f"{rel} is not tracked, so it has no stored bytes"
         index_eol = eol.split()[0]
         assert index_eol in ("i/lf", "i/none"), (
@@ -161,9 +166,7 @@ class TestGeneratedFilesAreLf:
     @pytest.mark.parametrize("rel", GENERATED_FILES)
     def test_the_file_is_tracked(self, rel: str):
         """An untracked file would satisfy the byte check while being local residue."""
-        tracked = subprocess.run(
-            ["git", "ls-files", "--error-unmatch", rel], cwd=REPO_ROOT,
-            capture_output=True, text=True)
+        tracked = git("ls-files", "--error-unmatch", rel, cwd=REPO_ROOT)
         assert tracked.returncode == 0, f"{rel} is not tracked: {tracked.stderr.strip()}"
 
 
@@ -179,6 +182,7 @@ class TestTheApiDocIsByteIdenticalToItsGenerator:
         from scripts.generate_api_md import generate_api_markdown
 
         generated = generate_api_markdown(REPO_ROOT).encode("utf-8")
+        # Raw call: the comparison needs the stored bytes, which the text-mode helper decodes.
         stored = subprocess.run(
             ["git", "show", ":docs/api.md"], cwd=REPO_ROOT,
             capture_output=True, check=True).stdout

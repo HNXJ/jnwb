@@ -42,13 +42,13 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))  # needed: the installed-wheel run clears pythonpath
 
+from scripts.gates.boundary import git  # noqa: E402
 from scripts.verify_lane import check, in_linked_worktree  # noqa: E402
 
 
 def _git(cwd: pathlib.Path, *args: str) -> str:
-    proc = subprocess.run(
-        ("git",) + args, cwd=str(cwd), capture_output=True, text=True, check=True
-    )
+    proc = git(*args, cwd=str(cwd))
+    proc.check_returncode()
     return (proc.stdout or "").strip()
 
 
@@ -194,6 +194,7 @@ PUSH = REPO_ROOT / "scripts" / "jnwb_push.sh"
 
 #: Stands in for scripts/reconstruct_state.py where a test must regenerate: the real script runs
 #: the harness and reads the network. Its --check reads the HEAD row the same way the real one does.
+#: Its git call stays raw: the stub runs alone in a fixture repository that holds no scripts/gates.
 STATE_STUB = '''\
 import os, pathlib, re, subprocess, sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -374,11 +375,11 @@ def _push_lane(tmp_path, change):
 
 
 @contextlib.contextmanager
-def _green_ci():
-    """A local stand-in for the Actions API that lists one successful run, so the wrapper's CI
-    check passes without reading the live repository."""
-    body = json.dumps({"workflow_runs": [
-        {"name": "CI/CD", "head_sha": "0" * 40, "conclusion": "success"}]}).encode("utf-8")
+def _green_ci(tip):
+    """A local stand-in for the Actions API that lists one successful run at ``tip``, origin's tip
+    of dev, so the wrapper's CI check passes without reading the live repository."""
+    body = json.dumps({"total_count": 1, "workflow_runs": [
+        {"name": "CI/CD", "head_sha": tip, "status": "completed", "conclusion": "success"}]}).encode("utf-8")
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -404,7 +405,8 @@ def _run_push(tmp_path, repo, *args):
     env["HOME"] = (tmp_path / "home").as_posix()
     env["PATH"] = os.pathsep.join([str(pathlib.Path(sys.executable).parent), env.get("PATH", "")])
     env.pop("JNWB_PUSH_OVER_RED", None)
-    with _green_ci() as api:
+    tip = _git(repo, "ls-remote", "origin", "refs/heads/dev").split()[0]
+    with _green_ci(tip) as api:
         env["JNWB_CI_API"] = api
         return subprocess.run(
             [_bash(), PUSH.as_posix(), repo.as_posix(), "dev", *args], cwd=str(repo), env=env,

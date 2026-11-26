@@ -6,7 +6,7 @@ import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from .._rng import Default, RNGLike, resolve_seed_alias
-from .._units import _OMITTED, _check_signal_class
+from .._units import _OMITTED, _check_signal_class, require_positive_fs
 from scipy import stats
 from ..spectral import CANONICAL_BANDS
 from ._common import DirectedResult, _surrogate_p, _surrogate_rng, _surrogate_scheme, _surrogate_source
@@ -55,16 +55,25 @@ def _default_nperseg(n_trials: int, n_times: int) -> int:
     return length
 
 
-def _psi_from_spectra(
-    fx: np.ndarray, fy: np.ndarray, idx: np.ndarray, weights: Optional[np.ndarray] = None
-) -> float:
-    """PSI over the frequency indices ``idx`` from per-segment FFTs."""
+def _coherency(fx: np.ndarray, fy: np.ndarray) -> np.ndarray:
+    """Coherency in every frequency bin, from per-segment FFTs averaged over segments."""
     sxy = np.mean(fx * np.conj(fy), axis=0)
     sxx = np.mean(np.abs(fx) ** 2, axis=0)
     syy = np.mean(np.abs(fy) ** 2, axis=0)
     denom = np.sqrt(sxx * syy)
-    coh = np.divide(sxy, denom, out=np.zeros_like(sxy), where=denom > 0)
-    c = coh[idx]
+    return np.divide(sxy, denom, out=np.zeros_like(sxy), where=denom > 0)
+
+
+def _bins_in_band(freqs: np.ndarray, f_lo: float, f_hi: float) -> np.ndarray:
+    """Indices of the frequency bins in ``[f_lo, f_hi]``."""
+    return np.flatnonzero((freqs >= f_lo) & (freqs <= f_hi))
+
+
+def _psi_from_spectra(
+    fx: np.ndarray, fy: np.ndarray, idx: np.ndarray, weights: Optional[np.ndarray] = None
+) -> float:
+    """PSI over the frequency indices ``idx`` from per-segment FFTs."""
+    c = _coherency(fx, fy)[idx]
     return float(np.sum(np.imag(np.conj(c[:-1]) * c[1:])))
 
 
@@ -130,7 +139,8 @@ def _psi_round_off(n_seg: int, n_pairs: int, n_units: int) -> float:
     return _PSI_ROUND_OFF_K * n_seg * eps * float(scale)
 
 
-def _warn_psi_zero_spread(name: str, sd: float, warnings_all: List[str]) -> None:
+def _warn_psi_zero_spread(name: str, sd: float, warnings_all: List[str], stacklevel: int) -> None:
+    # stacklevel: frames from this call up to the caller of phase_slope_index.
     warnings_all.append(f"band_{name}_jackknife_spread_is_round_off_z_undefined")
     warnings.warn(
         f"phase_slope_index: the jackknife replicates of band {name!r} agree to "
@@ -138,8 +148,237 @@ def _warn_psi_zero_spread(name: str, sd: float, warnings_all: List[str]) -> None
         "NaN/None. The segments carry no variation to test against: identical segments, "
         "such as a periodic signal, or Y equal to X.",
         RuntimeWarning,
-        stacklevel=3,
+        stacklevel=stacklevel,
     )
+
+
+def _resolve_nperseg(n_trials: int, n_times: int, nperseg: Optional[int]) -> int:
+    if nperseg is None:
+        nperseg = _default_nperseg(n_trials, n_times)
+    elif nperseg > n_times:
+        raise ValueError(
+            f"phase_slope_index: nperseg must be at most the {n_times} samples of a trial; "
+            f"got {nperseg}."
+        )
+    nperseg = int(min(nperseg, n_times))
+    if nperseg < 8:
+        raise ValueError(f"nperseg={nperseg} too small for a usable spectrum")
+    return nperseg
+
+
+def _resolve_noverlap(noverlap: Optional[int], nperseg: int) -> int:
+    if noverlap is None:
+        return nperseg // 2
+    if not 0 <= noverlap < nperseg:
+        raise ValueError(
+            f"phase_slope_index: noverlap must be in [0, nperseg={nperseg}); got {noverlap!r}")
+    return int(noverlap)
+
+
+def _resolve_taper(window: str, nperseg: int) -> np.ndarray:
+    win_fn = {"hann": np.hanning, "hamming": np.hamming, "boxcar": np.ones}
+    if window not in win_fn:
+        raise ValueError(f"window must be one of {sorted(win_fn)}; got {window!r}")
+    return win_fn[window](nperseg)
+
+
+def _welch_spectra(
+    x: np.ndarray, y: np.ndarray, nperseg: int, noverlap: int, taper: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Per-segment FFTs of X and Y: segments pooled across trials, demeaned and tapered."""
+    seg_x = _welch_segments(x, nperseg, noverlap)
+    seg_y = _welch_segments(y, nperseg, noverlap)
+    seg_x = (seg_x - seg_x.mean(axis=1, keepdims=True)) * taper
+    seg_y = (seg_y - seg_y.mean(axis=1, keepdims=True)) * taper
+    return np.fft.rfft(seg_x, axis=1), np.fft.rfft(seg_y, axis=1)
+
+
+def _band_map(bands, df: float, fs: float) -> Dict[str, Tuple[float, float]]:
+    """The requested bands as ``{name: (fmin, fmax)}``."""
+    if bands is None:
+        # everything except DC. A hard-coded lower edge in Hz would silently
+        # empty the band for slowly sampled series (band-power time courses,
+        # normalized-frequency use with fs=2).
+        return {"full": (df, fs / 2.0)}
+    if isinstance(bands, str):
+        if bands != "canonical":
+            raise ValueError(f"bands string must be 'canonical'; got {bands!r}")
+        return dict(CANONICAL_BANDS)
+    if isinstance(bands, dict):
+        return {k: (float(v[0]), float(v[1])) for k, v in bands.items()}
+    return {"band": (float(bands[0]), float(bands[1]))}
+
+
+def _overlapping_bands(band_bins: Dict[str, np.ndarray]) -> List[Tuple[str, str]]:
+    """Sorted name pairs of bands that share a frequency bin."""
+    return sorted(
+        {
+            tuple(sorted((_a, _b)))
+            for _a in band_bins
+            for _b in band_bins
+            if _a != _b and np.intersect1d(band_bins[_a], band_bins[_b]).size
+        }
+    )
+
+
+def _band_result(
+    name: str, f_lo: float, f_hi: float, fx: np.ndarray, fy: np.ndarray, freqs: np.ndarray,
+    df: float, n_seg: int, n_units: int, jackknife: bool, jackknife_unit: str,
+    warnings_all: List[str],
+) -> Tuple[Dict[str, Any], Optional[np.ndarray]]:
+    """One band's ``per_band`` entry, and its jackknife replicates when they were computed."""
+    idx = _bins_in_band(freqs, f_lo, f_hi)
+    if idx.size < 2:
+        warnings_all.append(f"band_{name}_has_{idx.size}_bins_at_df={df:.3g}Hz_psi_undefined")
+        entry = {
+            "value": float("nan"),
+            "z": float("nan"),
+            "sd": float("nan"),
+            "n_freq_bins": int(idx.size),
+            "band_hz": (f_lo, f_hi),
+            "p_surrogate": None,
+        }
+        return entry, None
+
+    value = _psi_from_spectra(fx, fy, idx)
+    sd = float("nan")
+    jk = None
+    if jackknife and n_units >= 3:
+        jk = _psi_leave_one_out(fx, fy, idx, n_units)
+        sd = float(np.sqrt((n_units - 1) / n_units * np.sum((jk - jk.mean()) ** 2)))
+        if sd <= _psi_round_off(n_seg, idx.size - 1, n_units):
+            # frames: _warn_psi_zero_spread, _band_result, phase_slope_index, caller
+            _warn_psi_zero_spread(name, sd, warnings_all, stacklevel=4)
+            sd = float("nan")
+    elif jackknife:
+        warnings_all.append(f"jackknife_needs_at_least_3_{jackknife_unit}s")
+    entry = {
+        "value": value,
+        "z": float(value / sd) if sd and np.isfinite(sd) and sd > 0 else float("nan"),
+        "sd": sd,
+        "n_freq_bins": int(idx.size),
+        "band_hz": (f_lo, f_hi),
+        "p_surrogate": None,
+    }
+    return entry, jk
+
+
+def _surrogate_null(
+    y: np.ndarray, rng: np.random.Generator, n_surrogates: int,
+    band_map: Dict[str, Tuple[float, float]], fx: np.ndarray, freqs: np.ndarray,
+    nperseg: int, noverlap: int, taper: np.ndarray,
+) -> Dict[str, np.ndarray]:
+    """Per-band null PSI over ``n_surrogates`` surrogates of Y, drawn in order from ``rng``."""
+    null = {name: np.empty(int(n_surrogates)) for name in band_map}
+    for i in range(int(n_surrogates)):
+        y_s = _surrogate_source(y, rng)
+        seg_ys = _welch_segments(y_s, nperseg, noverlap)
+        seg_ys = (seg_ys - seg_ys.mean(axis=1, keepdims=True)) * taper
+        fys = np.fft.rfft(seg_ys, axis=1)
+        for name, (f_lo, f_hi) in band_map.items():
+            idx = _bins_in_band(freqs, f_lo, f_hi)
+            null[name][i] = _psi_from_spectra(fx, fys, idx) if idx.size >= 2 else np.nan
+    return null
+
+
+def _attach_surrogate_p(per_band: Dict[str, Dict[str, Any]], null: Dict[str, np.ndarray]) -> None:
+    for name, vals in per_band.items():
+        obs = vals["value"]
+        nl = null[name]
+        nl = nl[np.isfinite(nl)]
+        # Each of the band's n_freq_bins - 1 terms is at most 1, and they can cancel.
+        vals["p_surrogate"] = (
+            _surrogate_p(nl, obs, "two-sided", scale=vals["n_freq_bins"] - 1)
+            if nl.size and np.isfinite(obs) else None
+        )
+
+
+def _single_band_p(single: Dict[str, Any], n_units: int) -> Tuple[Optional[float], Any]:
+    """Lead p and coupling p of a one-band result: the lead p is that band's jackknife z."""
+    p_coupling = single.get("p_surrogate")
+    p_top = None
+    if np.isfinite(single.get("z", np.nan)):
+        # Student t, not a standard normal: the delete-one jackknife z is built from
+        # `n_units` leave-one-out replicates and carries about `n_units - 1` degrees of
+        # freedom. The Gaussian tail reported p = 0.0 from 10 segments, and
+        # overstated moderate evidence by an order of magnitude (z = 3.29 gave
+        # 0.001 against 0.0094 under t(9)).
+        p_top = float(2 * stats.t.sf(abs(single["z"]), df=max(n_units - 1, 1)))
+    return p_top, p_coupling
+
+
+def _multi_band_coupling_p(
+    per_band: Dict[str, Dict[str, Any]], total: float, null: Optional[Dict[str, np.ndarray]]
+) -> Optional[float]:
+    if not null:
+        return None
+    valid = [k for k in null if np.all(np.isfinite(null[k]))]
+    if valid and np.isfinite(total):
+        null_tot = np.sum([null[k] for k in valid], axis=0)
+        n_pairs = sum(int(per_band[k]["n_freq_bins"]) - 1 for k in valid)
+        return _surrogate_p(null_tot, total, "two-sided", scale=n_pairs)
+    return None
+
+
+def _multi_band_lead_p(
+    per_band: Dict[str, Dict[str, Any]], total: float, jackknife: bool,
+    jk_per_band: Dict[str, np.ndarray], n_units: int, n_seg: int, warnings_all: List[str],
+) -> Optional[float]:
+    """Lead p of the total over several bands: the jackknife z of the summed replicates."""
+    if not (jackknife and n_units >= 3 and jk_per_band):
+        return None
+    jk_tot = np.sum(list(jk_per_band.values()), axis=0)
+    sd_tot = float(np.sqrt((n_units - 1) / n_units * np.sum((jk_tot - jk_tot.mean()) ** 2)))
+    n_pairs = sum(int(v["n_freq_bins"]) - 1 for k, v in per_band.items() if k in jk_per_band)
+    if sd_tot <= _psi_round_off(n_seg, n_pairs, n_units):
+        # frames: _warn_psi_zero_spread, _multi_band_lead_p, _lead_p, phase_slope_index, caller
+        _warn_psi_zero_spread("total", sd_tot, warnings_all, stacklevel=5)
+        return None
+    if np.isfinite(sd_tot) and np.isfinite(total):
+        z_tot = float(total / sd_tot)
+        return float(2 * stats.t.sf(abs(z_tot), df=max(n_units - 1, 1)))
+    return None
+
+
+def _lead_p(
+    per_band: Dict[str, Dict[str, Any]], total: float, null: Optional[Dict[str, np.ndarray]],
+    jackknife: bool, jk_per_band: Dict[str, np.ndarray], n_units: int, n_seg: int,
+    warnings_all: List[str],
+) -> Tuple[Optional[float], Any]:
+    """``(p_top, p_coupling)``: one band tests that band's jackknife z; several test the total."""
+    if len(per_band) == 1:
+        return _single_band_p(next(iter(per_band.values())), n_units)
+    p_coupling = _multi_band_coupling_p(per_band, total, null)
+    p_top = _multi_band_lead_p(
+        per_band, total, jackknife, jk_per_band, n_units, n_seg, warnings_all
+    )
+    return p_top, p_coupling
+
+
+def _jackknife_unit(n_trials: int, n_seg: int) -> Tuple[str, int]:
+    """The unit the jackknife leaves out, and how many units there are."""
+    unit = "trial" if n_trials >= _MIN_TRIALS_FOR_TRIAL_JACKKNIFE else "segment"
+    return unit, (n_trials if unit == "trial" else n_seg)
+
+
+def _warn_overlapping_bands(
+    freqs: np.ndarray, band_map: Dict[str, Tuple[float, float]], warnings_all: List[str]
+) -> None:
+    """Record and warn when two bands share a frequency bin, so ``net`` counts it twice."""
+    _band_bins: Dict[str, np.ndarray] = {
+        _n: _bins_in_band(freqs, _lo, _hi) for _n, (_lo, _hi) in band_map.items()
+    }
+    _overlaps = _overlapping_bands(_band_bins)
+    if _overlaps:
+        _pairs = ", ".join(f"{_a}/{_b}" for _a, _b in _overlaps)
+        warnings_all.append(f"overlapping_bands_counted_more_than_once:{_pairs}")
+        warnings.warn(
+            "phase_slope_index: bands overlap on the frequency grid "
+            f"({_pairs}); `net` sums the bands, so the shared bins are counted once per "
+            "band. Use disjoint bands, or read `per_band` instead of `net`.",
+            RuntimeWarning,
+            stacklevel=3,  # frames: this function, phase_slope_index, caller
+        )
 
 
 def phase_slope_index(
@@ -252,64 +491,30 @@ def phase_slope_index(
         jackknife leaves out one epoch, a block of several segments, at a time; this one
         does so from three trials on, a trial being the epoch, and below that leaves out
         one Welch segment, adjacent segments overlapping by ``noverlap``.
+
+    Raises:
+        ValueError: `fs` is None, not finite, or not positive.
     """
     _check_signal_class("phase_slope_index", signal_class, 2)
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='phase_slope_index')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "phase_slope_index")
-    if fs is None or not np.isfinite(fs) or fs <= 0:
-        raise ValueError(f"phase_slope_index requires a positive fs; got {fs!r}")
+    require_positive_fs(fs, "phase_slope_index")
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
     x = _detrend_trials(x, detrend)
     y = _detrend_trials(y, detrend)
     n_trials, n_times = x.shape
 
-    if nperseg is None:
-        nperseg = _default_nperseg(n_trials, n_times)
-    elif nperseg > n_times:
-        raise ValueError(
-            f"phase_slope_index: nperseg must be at most the {n_times} samples of a trial; "
-            f"got {nperseg}."
-        )
-    nperseg = int(min(nperseg, n_times))
-    if nperseg < 8:
-        raise ValueError(f"nperseg={nperseg} too small for a usable spectrum")
-    if noverlap is None:
-        noverlap = nperseg // 2
-    elif not 0 <= noverlap < nperseg:
-        raise ValueError(
-            f"phase_slope_index: noverlap must be in [0, nperseg={nperseg}); got {noverlap!r}")
-    noverlap = int(noverlap)
+    nperseg = _resolve_nperseg(n_trials, n_times, nperseg)
+    noverlap = _resolve_noverlap(noverlap, nperseg)
+    taper = _resolve_taper(window, nperseg)
 
-    win_fn = {"hann": np.hanning, "hamming": np.hamming, "boxcar": np.ones}
-    if window not in win_fn:
-        raise ValueError(f"window must be one of {sorted(win_fn)}; got {window!r}")
-    taper = win_fn[window](nperseg)
-
-    seg_x = _welch_segments(x, nperseg, noverlap)
-    seg_y = _welch_segments(y, nperseg, noverlap)
-    seg_x = (seg_x - seg_x.mean(axis=1, keepdims=True)) * taper
-    seg_y = (seg_y - seg_y.mean(axis=1, keepdims=True)) * taper
-    fx = np.fft.rfft(seg_x, axis=1)
-    fy = np.fft.rfft(seg_y, axis=1)
+    fx, fy = _welch_spectra(x, y, nperseg, noverlap, taper)
     freqs = np.fft.rfftfreq(nperseg, d=1.0 / fs)
     n_seg = fx.shape[0]
     df = fs / nperseg
 
-    # resolve band specification
-    if bands is None:
-        # everything except DC. A hard-coded lower edge in Hz would silently
-        # empty the band for slowly sampled series (band-power time courses,
-        # normalized-frequency use with fs=2).
-        band_map = {"full": (df, fs / 2.0)}
-    elif isinstance(bands, str):
-        if bands != "canonical":
-            raise ValueError(f"bands string must be 'canonical'; got {bands!r}")
-        band_map = dict(CANONICAL_BANDS)
-    elif isinstance(bands, dict):
-        band_map = {k: (float(v[0]), float(v[1])) for k, v in bands.items()}
-    else:
-        band_map = {"band": (float(bands[0]), float(bands[1]))}
+    band_map = _band_map(bands, df, fs)
 
     warnings_all: List[str] = []
     if n_seg < 8:
@@ -320,8 +525,7 @@ def phase_slope_index(
     # segment jackknife rejected in 0.068 on 10 trials of 400 at the default nperseg (70
     # segments; 2000 seeds, se 0.006). It leaves out one
     # trial from three trials on (Nolte et al.'s epoch), and one segment below that.
-    jackknife_unit = "trial" if n_trials >= _MIN_TRIALS_FOR_TRIAL_JACKKNIFE else "segment"
-    n_units = n_trials if jackknife_unit == "trial" else n_seg
+    jackknife_unit, n_units = _jackknife_unit(n_trials, n_seg)
     if jackknife and jackknife_unit == "segment":
         warnings.warn(
             f"phase_slope_index: {n_trials} trial(s), so the jackknife leaves out one Welch "
@@ -333,101 +537,30 @@ def phase_slope_index(
         )
 
     # full-spectrum PSI per frequency (for the returned spectrum)
-    sxy = np.mean(fx * np.conj(fy), axis=0)
-    sxx = np.mean(np.abs(fx) ** 2, axis=0)
-    syy = np.mean(np.abs(fy) ** 2, axis=0)
-    denom = np.sqrt(sxx * syy)
-    coh_full = np.divide(sxy, denom, out=np.zeros_like(sxy), where=denom > 0)
+    coh_full = _coherency(fx, fy)
     psi_per_freq = np.imag(np.conj(coh_full[:-1]) * coh_full[1:])
 
     # The headline `net` is a raw sum over whatever band table the caller passed, so two
     # bands covering the same bins contribute that band twice: {'a': (14, 30), 'b':
     # (14, 30)} returned exactly 2x the estimate of {'beta': (14, 30)} on the same data.
-    _band_bins: Dict[str, np.ndarray] = {
-        _n: np.flatnonzero((freqs >= _lo) & (freqs <= _hi))
-        for _n, (_lo, _hi) in band_map.items()
-    }
-    _overlaps = sorted(
-        {
-            tuple(sorted((_a, _b)))
-            for _a in _band_bins
-            for _b in _band_bins
-            if _a != _b and np.intersect1d(_band_bins[_a], _band_bins[_b]).size
-        }
-    )
-    if _overlaps:
-        _pairs = ", ".join(f"{_a}/{_b}" for _a, _b in _overlaps)
-        warnings_all.append(f"overlapping_bands_counted_more_than_once:{_pairs}")
-        warnings.warn(
-            "phase_slope_index: bands overlap on the frequency grid "
-            f"({_pairs}); `net` sums the bands, so the shared bins are counted once per "
-            "band. Use disjoint bands, or read `per_band` instead of `net`.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
+    _warn_overlapping_bands(freqs, band_map, warnings_all)
 
     per_band: Dict[str, Dict[str, Any]] = {}
     jk_per_band: Dict[str, np.ndarray] = {}
     for name, (f_lo, f_hi) in band_map.items():
-        idx = np.flatnonzero((freqs >= f_lo) & (freqs <= f_hi))
-        if idx.size < 2:
-            warnings_all.append(
-                f"band_{name}_has_{idx.size}_bins_at_df={df:.3g}Hz_psi_undefined"
-            )
-            per_band[name] = {
-                "value": float("nan"),
-                "z": float("nan"),
-                "sd": float("nan"),
-                "n_freq_bins": int(idx.size),
-                "band_hz": (f_lo, f_hi),
-                "p_surrogate": None,
-            }
-            continue
-
-        value = _psi_from_spectra(fx, fy, idx)
-
-        sd = float("nan")
-        if jackknife and n_units >= 3:
-            jk = _psi_leave_one_out(fx, fy, idx, n_units)
-            sd = float(np.sqrt((n_units - 1) / n_units * np.sum((jk - jk.mean()) ** 2)))
+        per_band[name], jk = _band_result(
+            name, f_lo, f_hi, fx, fy, freqs, df, n_seg, n_units, jackknife, jackknife_unit,
+            warnings_all,
+        )
+        if jk is not None:
             jk_per_band[name] = jk
-            if sd <= _psi_round_off(n_seg, idx.size - 1, n_units):
-                _warn_psi_zero_spread(name, sd, warnings_all)
-                sd = float("nan")
-        elif jackknife:
-            warnings_all.append(f"jackknife_needs_at_least_3_{jackknife_unit}s")
 
-        per_band[name] = {
-            "value": value,
-            "z": float(value / sd) if sd and np.isfinite(sd) and sd > 0 else float("nan"),
-            "sd": sd,
-            "n_freq_bins": int(idx.size),
-            "band_hz": (f_lo, f_hi),
-            "p_surrogate": None,
-        }
-
+    null = None
     if n_surrogates > 0:
-        null = {name: np.empty(int(n_surrogates)) for name in per_band}
-        for i in range(int(n_surrogates)):
-            y_s = _surrogate_source(y, surrogate_rng)
-            seg_ys = _welch_segments(y_s, nperseg, noverlap)
-            seg_ys = (seg_ys - seg_ys.mean(axis=1, keepdims=True)) * taper
-            fys = np.fft.rfft(seg_ys, axis=1)
-            for name, vals in per_band.items():
-                f_lo, f_hi = vals["band_hz"]
-                idx = np.flatnonzero((freqs >= f_lo) & (freqs <= f_hi))
-                null[name][i] = (
-                    _psi_from_spectra(fx, fys, idx) if idx.size >= 2 else np.nan
-                )
-        for name, vals in per_band.items():
-            obs = vals["value"]
-            nl = null[name]
-            nl = nl[np.isfinite(nl)]
-            # Each of the band's n_freq_bins - 1 terms is at most 1, and they can cancel.
-            vals["p_surrogate"] = (
-                _surrogate_p(nl, obs, "two-sided", scale=vals["n_freq_bins"] - 1)
-                if nl.size and np.isfinite(obs) else None
-            )
+        null = _surrogate_null(
+            y, surrogate_rng, n_surrogates, band_map, fx, freqs, nperseg, noverlap, taper
+        )
+        _attach_surrogate_p(per_band, null)
 
     band_values = np.array([v["value"] for v in per_band.values()], dtype=float)
     # np.nansum of an all-NaN array is 0.0, which reads as "no lead" when no band had a slope.
@@ -439,35 +572,9 @@ def phase_slope_index(
     # zero-lag mixing (a common white source, no lead) it rejected at 0.05 in 0.00-0.46 of
     # cases depending on segment length and band. The surrogate p is now reported as
     # diagnostics['p_coupling_surrogate'].
-    p_top = None
-    p_coupling = None
-    if len(per_band) == 1:
-        single = next(iter(per_band.values()))
-        p_coupling = single.get("p_surrogate")
-        if np.isfinite(single.get("z", np.nan)):
-            # Student t, not a standard normal: the delete-one jackknife z is built from
-            # `n_units` leave-one-out replicates and carries about `n_units - 1` degrees of
-            # freedom. The Gaussian tail reported p = 0.0 from 10 segments, and
-            # overstated moderate evidence by an order of magnitude (z = 3.29 gave
-            # 0.001 against 0.0094 under t(9)).
-            p_top = float(2 * stats.t.sf(abs(single["z"]), df=max(n_units - 1, 1)))
-    else:
-        if n_surrogates > 0 and null:
-            valid = [k for k in null if np.all(np.isfinite(null[k]))]
-            if valid and np.isfinite(total):
-                null_tot = np.sum([null[k] for k in valid], axis=0)
-                n_pairs = sum(int(per_band[k]["n_freq_bins"]) - 1 for k in valid)
-                p_coupling = _surrogate_p(null_tot, total, "two-sided", scale=n_pairs)
-        if jackknife and n_units >= 3 and jk_per_band:
-            jk_tot = np.sum(list(jk_per_band.values()), axis=0)
-            sd_tot = float(np.sqrt((n_units - 1) / n_units
-                                   * np.sum((jk_tot - jk_tot.mean()) ** 2)))
-            n_pairs = sum(int(v["n_freq_bins"]) - 1 for k, v in per_band.items() if k in jk_per_band)
-            if sd_tot <= _psi_round_off(n_seg, n_pairs, n_units):
-                _warn_psi_zero_spread("total", sd_tot, warnings_all)
-            elif np.isfinite(sd_tot) and np.isfinite(total):
-                z_tot = float(total / sd_tot)
-                p_top = float(2 * stats.t.sf(abs(z_tot), df=max(n_units - 1, 1)))
+    p_top, p_coupling = _lead_p(
+        per_band, total, null, jackknife, jk_per_band, n_units, n_seg, warnings_all
+    )
 
     return DirectedResult(
         method="psi",

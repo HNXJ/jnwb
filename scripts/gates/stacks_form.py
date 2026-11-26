@@ -261,8 +261,8 @@ def _blocked_by_none_contradictions(
 
     06-31 recorded `Blocked by: none` and was in fact blocked on data-access authority; a second
     case inherited that block through `Blocked by: 06-31`, unrecorded too. A third case read
-    `Blocked by: none` while its body said "Blocked on one ruling" and its Accept clause said
-    the problem closes only once that ruling is recorded -- and the scheduler offered it as
+    `Blocked by: none` while its body said "Blocked on one decision" and its Accept clause said
+    the problem closes only once that decision is recorded -- and the scheduler offered it as
     dispatchable, twice. The metadata is *confidently wrong rather than absent*, which
     is why every reader trusts it.
 
@@ -355,7 +355,7 @@ def _summary_regions(text: str) -> List[Tuple[int, int]]:
 def _miscounted_summaries(text: str) -> List[Tuple[int, str, int, List[str], str]]:
     """Summary sentences whose stated item count disagrees with the ids they enumerate.
 
-    Batch 0 opened with "Six items wait on a human ruling ... 06-13, 06-18, NN-NN,
+    Batch 0 opened with "Six items wait on a human decision ... 06-13, 06-18, NN-NN,
     NN-NN, NN-NN and NN-NN". Four waited, not six; three of the six named had closed earlier
     the same day; and none of the four gated more than one item, so the sentence named a
     binding constraint that no longer bound. Every number in it is recomputable from the
@@ -370,13 +370,13 @@ def _miscounted_summaries(text: str) -> List[Tuple[int, str, int, List[str], str
     the earlier instance had: a count, then the ids, within one clause.
 
     Measured on the live stack: 1 flagged, and it was real -- "three more are blocked on
-    authority Hamm holds: 06-31 and NN-NN on the corpus grant, NN-NN and NN-NN on a ruling
+    maintainer authority: 06-31 and NN-NN on the corpus grant, NN-NN and NN-NN on a decision
     and that grant respectively" names four. A stricter variant requiring the ids to form a
     contiguous run flagged exactly the same sentence, so it buys no separation and is not
     used.
 
     The corollary is that a summary asserting a count **without** naming the items cannot be
-    checked at all. Batch 0's "three items Hamm must decide" was such a claim, and was two.
+    checked at all. Batch 0's "three items the maintainer must decide" was such a claim, and was two.
     It was rewritten to name them rather than checked by a second mechanism, so the prose is
     now in a form this one rule covers.
     """

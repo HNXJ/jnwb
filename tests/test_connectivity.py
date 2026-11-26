@@ -619,7 +619,7 @@ class TestDirectedConnectivityAndNetwork:
 
     @pytest.mark.parametrize("given, parent", [({"rng": 7}, 7), ({"seed": 7}, 7), ({}, 0)])
     def test_an_int_seed_gives_each_pair_its_own_child_seed(self, given, parent):
-        """IB-45, ruled 2026-10-06: an int seed, the default 0 included, reached every pair
+        """IB-45: an int seed, the default 0 included, reached every pair
         unchanged, so every pair drew the same surrogate stream."""
         rng = np.random.default_rng(8)
         signals = {k: rng.standard_normal((3, 120)) for k in "ABC"}
@@ -641,7 +641,7 @@ class TestDirectedConnectivityAndNetwork:
 
 
 class TestConditionalDirectedNetwork:
-    """Ruled 2026-10-06: Granger conditions each pair on every other node through `Z`; the
+    """Granger conditions each pair on every other node through `Z`; the
     other methods stay pairwise."""
 
     @staticmethod
@@ -1232,7 +1232,7 @@ class TestDirectedEstimatorEdges:
         ((100,), 16, 11),         # the 16-sample floor wins over the segment count
     ])
     def test_the_default_segment_count(self, shape, nperseg, n_segments):
-        """D10(c), ruled 2026-09-29: the default leaves at least about 20 segments."""
+        """D10(c): the default leaves at least about 20 segments."""
         rng = np.random.default_rng(0)
         res = phase_slope_index(rng.normal(size=shape), rng.normal(size=shape), fs=1000.0)
         assert (res.params["nperseg"], res.params["n_segments"]) == (nperseg, n_segments)
@@ -1603,7 +1603,9 @@ class TestNonparametricRefusals:
     @pytest.mark.parametrize("fs", [0.0, -1.0, float("nan"), float("inf")])
     def test_a_non_positive_or_non_finite_fs_is_refused(self, fs):
         x, y = _var2_x_to_y(0)
-        with pytest.raises(ValueError, match="positive fs"):
+        with pytest.raises(
+            ValueError, match="granger_nonparametric: fs must be finite and strictly positive"
+        ):
             jnwb.granger_nonparametric(x, y, fs=fs, bands=(0.0, 250.0))
 
     @pytest.mark.parametrize("n_freqs", [1, 2.5, True])
@@ -1858,3 +1860,56 @@ def test_directed_network_keeps_its_q_values_on_a_fixed_input():
         [0.9662791037032177, 0.5622007263736049, 0.35949900918963834,
          0.9662791037032177, 0.5622007263736049, 0.9662791037032177],
         rtol=1e-12)
+
+
+class TestGrangerSpectralBandPValues:
+    def test_per_band_surrogate_p_not_identical_when_bands_differ(self):
+        from scipy import signal
+
+        rng = np.random.default_rng(42)
+        fs = 1000.0
+        n = 512
+        t = np.arange(n) / fs
+        carrier = np.sin(2 * np.pi * 12.0 * t)
+        x = carrier + 0.05 * rng.normal(size=n)
+        y = np.roll(carrier, 8) + 0.05 * rng.normal(size=n)
+        # High band is uncoupled broadband noise only
+        x += signal.filtfilt(*signal.butter(4, [40 / (fs / 2), 70 / (fs / 2)], btype="band"), rng.normal(size=n))
+        y += signal.filtfilt(*signal.butter(4, [40 / (fs / 2), 70 / (fs / 2)], btype="band"), rng.normal(size=n))
+        res = jnwb.granger_spectral(
+            x, y, fs=fs, order=4, n_surrogates=60, seed=0,
+            bands={"low": (8.0, 16.0), "high": (40.0, 70.0)},
+        )
+        p_low = res.per_band["low"]["p_surrogate"]
+        p_high = res.per_band["high"]["p_surrogate"]
+        assert p_low is not None and p_high is not None
+        assert p_low < p_high
+
+
+class TestJrsaMetricIdentity:
+    def test_renamed_granger_metric_rejects_legacy_alias(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=(3, 80))
+        with pytest.raises(ValueError, match="granger_ssr_ftest"):
+            jnwb.jrsa(x, x, metric="granger", stats=False)
+
+    def test_granger_ssr_ftest_returns_f_statistic(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=(80,))
+        y = np.roll(x, 2) + 0.1 * rng.normal(size=(80,))
+        res = jnwb.jrsa(x, y, metric="granger_ssr_ftest", stats=False)
+        assert res.value > 0
+
+    def test_renamed_te_metric_rejects_legacy_alias(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=(3, 80))
+        with pytest.raises(ValueError, match="transfer_entropy_histogram_nats"):
+            jnwb.jrsa(x, x, metric="transfer_entropy", stats=False)
+
+    def test_transfer_entropy_histogram_nats_differs_from_connectivity_bits(self):
+        rng = np.random.default_rng(42)
+        x = rng.normal(size=150)
+        y = rng.normal(size=150)
+        jr = jnwb.jrsa(x, y, metric="transfer_entropy_histogram_nats", stats=False)
+        te = jnwb.transfer_entropy(x, y, n_surrogates=0)
+        assert not np.isclose(float(jr.value), float(te.x_to_y), rtol=0.05, atol=0.05)

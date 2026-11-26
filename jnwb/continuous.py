@@ -10,6 +10,9 @@ import numpy as np
 from scipy import signal
 
 from ._bins import refuse_infinite
+from ._units import require_positive_fs
+
+_CONTAINMENT_EPS = 1e-9  # relative containment tolerance floor; numerical guard, no external source
 
 
 BoundaryPolicy = Literal["nan", "error", "drop"]
@@ -23,7 +26,7 @@ def _containment_sample(t_s: float, fs: float) -> int:
     0.07 * 100 is 7.000000000000001, and the window (0, 0.07) s at 100 Hz holds 7 samples.
     """
     x = t_s * fs
-    eps = 1e-9 * max(1.0, abs(x))
+    eps = _CONTAINMENT_EPS * max(1.0, abs(x))
     return int(np.ceil(x - eps))
 
 
@@ -126,15 +129,19 @@ def epoch_continuous(
     Raises
     ------
     ValueError
-        If ``start_s`` is not finite, or is non-zero with ``onset_unit="samples"``.
+        If ``data`` is not 1D or 2D; ``start_s`` is not finite, or is non-zero with
+        ``onset_unit="samples"``; ``win_s`` is not an increasing pair or spans no sample;
+        ``onset_unit`` or ``boundary_policy`` is unknown; or, with
+        ``boundary_policy="error"``, a window extends outside ``data``.
+    InvalidOnsetValueError
+        If an onset is NaN or infinite (:class:`~jnwb.nwb_events.InvalidOnsetValueError`).
     """
     arr = np.asarray(data)
     if arr.ndim not in (1, 2):
         raise ValueError(f"Continuous data must be 1D or 2D, got shape {arr.shape}")
     if arr.dtype.kind in "fciub":
         refuse_infinite(arr, "epoch_continuous", "data")
-    if fs <= 0.0:
-        raise ValueError(f"Sampling rate fs must be positive, got {fs}")
+    require_positive_fs(fs, "epoch_continuous")
     start_s = float(start_s)
     if not np.isfinite(start_s):
         raise ValueError(f"start_s must be finite, got {start_s}")

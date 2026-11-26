@@ -16,6 +16,8 @@ from scipy import stats
 from ._backend import CUDA, resolve_device, warn_no_gpu_path
 from ._spread import is_constant
 
+_RDM_SYMMETRY_TOL = 1e-8  # tolerance on RDM asymmetry; numerical, no external source
+
 log = logging.getLogger(__name__)
 
 
@@ -137,7 +139,8 @@ def _as_condensed_rdm(rdm_in: np.ndarray, name: str) -> np.ndarray:
             raise ValueError(f"{name} must be square if 2D; got shape {v.shape}.")
         if not np.all(np.isfinite(v)):
             raise ValueError(f"{name} contains non-finite values (NaN or Inf).")
-        tol = 1e-8 * max(1.0, float(np.max(np.abs(v)))) if v.size else 1e-8
+        tol = (_RDM_SYMMETRY_TOL * max(1.0, float(np.max(np.abs(v))))
+               if v.size else _RDM_SYMMETRY_TOL)
         asymmetry = float(np.max(np.abs(v - v.T))) if v.size else 0.0
         if asymmetry > tol:
             raise ValueError(
