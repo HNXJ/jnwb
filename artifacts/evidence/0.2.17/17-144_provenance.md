@@ -41,7 +41,7 @@ The scratch repository is outside every working tree. Each bundle was fetched wi
   reports a complete history. `4d049f8c` is not one of its heads, so the bundle's history references an object it does
   not contain.
 - The `dev` head of that bundle (`22adb682`) fetches on its own. None of the three commits is in its history.
-- The other 108 heads of `jaxfne.bundle` were not fetched one by one; they are unverified.
+- The other 108 heads of `jaxfne.bundle` were not fetched one by one. Their objects were checked at pack level on 2026-11-25 (section 7): none of the three SHAs is in the pack.
 
 Not fetched: 12 bundles that the `find` listed: two `/mnt/f/migrate/D/cowork/jaxfne/scratch` copies (probably copies
 of the `/mnt/d` bundles, not compared), four `/mnt/f/migrate/D/tmp/gate*.bundle`, two
@@ -84,3 +84,14 @@ Read-only: the public REST API and `git ls-remote`.
 - `HNXJ/jaxfne` ref tips (292 refs) have none either. Its commit lookup also returns 422 for the three prefixes, but that lookup is not calibrated. The three commits are jnwb commits on `E:/cl-jnwb16e`, so jaxfne is not their expected home.
 
 Result: the three commits are not on the jnwb origin. 17-144 stays UNKNOWN. This does not show they are absent from the orchestrator's copy, which this machine cannot read.
+
+## 7. Lead sweep and object-level checks (2026-11-25)
+
+Reported by the jaxfne lead session (`main-jaxfne`); jnwb re-checked the bundle and the commit.
+
+- `9b52c5e7` (`9b52c5e72adcf93940a570969ca46507a1f22d35`) is reached only by `refs/r4/heads/claude/site-overview-326890` in the scratch repositories `/mnt/d/tmp/_temp_clone_audit/isi_scratch.git` and `/mnt/f/migrate/D/tmp/_temp_clone_audit/isi_scratch.git`. No ref, reflog or stash in `/mnt/e/repos/jnwb/.git` or `/mnt/d/repos/jnwb/.git` reaches it. Bundle sha256 `aa88c08ace67a316db90808d1dbe3b2b87cdd722c765d000603a84dc5bc86148` (checked by jnwb); `git bundle verify` passes. The tree has 724 paths, none named `isi_cv*` or under `realdata`, so `artifacts/benchmarks/realdata/isi_cv_recompute_receipt.json` is absent from the commit. The commit message cites a receipt outside the repository.
+- `0e06993c`, `9980f58d`, `5fa63dd3`: not in that bundle. `git cat-file` finds none in 9187 readable stores or in the 42 alternate object directories that resolve on this machine. Scope: `find` to depth 6 under `/mnt/c` through `/mnt/k` and `/home/hamm` (14921 entries; 5734 not readable as git; stderr discarded on the `/mnt/c` to `/mnt/k` scan).
+- `jaxfne.bundle` at object level (jnwb, 2026-11-25): its pack holds 41,903 objects, and `git index-pack` verifies the pack checksum. None of the three SHAs is among them. Positive control: head `0b417733` is in the pack. Damage check: `4d049f8c` is absent, as section 2 says.
+- Not covered, so not proof of absence: 1640 stores whose alternates point to object directories this machine cannot resolve; 17 Windows or Mac targets not on this machine (among them `C:/workspace/jnwb`, `E:/repos/jynx`, and the Mac `dev/jaxfne` and `dev/jomission` workspaces); depth beyond 6; paths outside the scanned roots; `main-vmac` (offline).
+- The receipt file is not in commit `9b52c5e7` or in any jnwb ref. No store was searched for the file by name.
+- Result: the three commits stay UNKNOWN, not verified absent. 17-144 stays open, and 16-12 stays blocked.
