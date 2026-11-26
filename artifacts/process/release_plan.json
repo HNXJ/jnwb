@@ -18,7 +18,7 @@
         "decisions on public names that dead-code removal touches",
         "the Bastos lab simulation code and a broadband jaxfne field"
       ],
-      "items": ["15-11", "12-21", "16-12", "17-99", "17-100", "17-101", "17-129", "17-144"]
+      "items": ["15-11", "12-21", "16-12", "17-100", "17-101", "17-129", "17-144"]
     },
     {
       "version": "0.2.18",

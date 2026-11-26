@@ -34,4 +34,23 @@ Writes: `artifacts/benchmarks/realdata/isi_cv_recompute.py`, `artifacts/benchmar
   Observed 2026-11-12: path missing; SHAs absent from this clone and `origin`. Check: each on `dev` in that
   order, suite passes, jaxfne-orchestrator told.
 
+### 17-100 Docs and examples thinning
 
+Release: deferred-0.2.17.
+Role: docs-harness. Skill: none. Blocked by: Hamm's ruling D5 (release checklist section 9) on the three parts below; shared `docs/references.md`, `README.md` with 17-129.
+Writes: `docs/01_architecture_and_philosophy.md`, `docs/02_paths_addressing_metadata.md`, `docs/03_representational_similarity_jrsa.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/09_decoding_and_visual_qc.md`, `docs/10_operation_specifications.md`, `docs/agents.md`, `docs/architecture.md`, `docs/coherence_and_tfr.md`, `docs/common_mistakes.md`, `docs/documentation_form.md`, `docs/errors.md`, `docs/execution.md`, `docs/glossary.md`, `docs/index.md`, `docs/install.md`, `docs/laminar.md`, `docs/quickstart.md`, `docs/reading_nwb.md`, `docs/recipes.md`, `docs/references.md`, `docs/repairing_nwb.md`, `docs/unit_quality_example.md`, `docs/vis.md`, `docs/writing_nwb.md`, `docs/assets/**`, `README.md`, `examples/**/*.py`, `mkdocs.yml`.
+- 17-100: landed 2026-11-21 (merge 63b1874c): `docs/assets/jnwb_vis_sorted_heatmap.png`, the check log cut from `references.md`. 2026-11-23 (merge 6a7baf41, verifier ACCEPT on ac2c02ee): fig14 and fig18 have one home, `common_mistakes.md`; pages 06 and 08 link to it. Left, each kept for a reason the verifier confirmed: the redirect stub `docs/01_architecture_and_philosophy.md` serves a published URL (readthedocs latest and stable return 200); the 10-line `sys.path` guard in 12 example scripts is required inline by `tests/test_the_suite_can_qualify_an_installed_copy.py:347-366`; figure ids skip fig22 and fig23 (the ids are file keys in `figure_registry.toml`, AWAITING keys and committed PNGs). "labelled" stays (Q5: no conversion). Check: `docs_build.py` strict passes and each listed grep returns its one form.
+
+### 17-101 Tracked rules that depend on untracked local files
+
+Release: deferred-0.2.17.
+Role: jnwb-developer. Skill: none. Blocked by: Hamm's word on the roadmap row that vendors the lock helper or names the dependency (roadmap 17-138) and on the wording of the 2026-09-22 ruling (`artifacts/rulings/standing.md:20`).
+Writes: `artifacts/memory.md`, `artifacts/rulings/standing.md`.
+- 17-101: merge 22eca3d2 (lane `7ef15176`, verifier ACCEPT): rules cite `artifacts/agents/` roles, each tier bound to one; five live "scratchpad" concept uses reworded; `parity44.py` marked not retained. Left, live non-record hits: `standing.md:20` (corpus-access ruling) says "the scratchpad", no path. `memory.md:7` (roadmap 17-138) cited `C:/Users/nejath/.claude/bin/suite_lock.py` until `12c9fa43` removed the path (not yet ruled; checklist D4). Check: `git grep -lE 'scratchpad|C:/Users/nejath'` over tracked rules returns only records.
+
+### 17-129 Prose against the writing style
+
+Release: deferred-0.2.17.
+Role: docs-harness. Skill: none. Blocked by: Hamm's word for `skills/` and `AGENTS.md` (D6, release checklist section 9). Ruled 2026-11-22 (Q5): American English for new prose; no repository-wide conversion.
+Writes: `.github/CONTRIBUTING.md`, `README.md`, `docs/quickstart.md`.
+- 17-129: from P-216-26. Landed 2026-11-23 (merge 0621da87, verifier ACCEPT on 368df360): `CONTRIBUTING.md`, `README.md`, `docs/quickstart.md` hold no sentence over 40 words by `tests/test_prose_sentence_length.py` (code span = one word; 16 to 0 in CONTRIBUTING); the `:39` repeat has one home. Left: sentences over 40 words in 8 of 12 skills and `AGENTS.md` (:85, :105), Hamm's files; `docs/agents.md:82-94` repeats `skills/jnwb/SKILL.md:13-25`. Check: no sentence over 40 words in the listed files, by grep; prose added in this cycle uses American spelling.

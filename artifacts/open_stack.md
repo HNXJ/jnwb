@@ -1,6 +1,6 @@
 # Open stack (jnwb, 2026-11-25)
 
-`origin/dev` at `88a6eeec` (2026-11-25): hosted CI green at that SHA (runs `45692510014` and `45692497292`, read through the public API 2026-11-25); CI state per SHA in `artifacts/process/release_checklist.md` section 2. Hamm's consolidated ruling of 2026-11-22 (`artifacts/rulings/2026-11-22.md`) ruled every row of the ruling packet.
+`origin/dev` at `4dd60b8e` (2026-11-25): hosted CI green at that SHA (runs `45736611170` and `45736607156`, read through the public API 2026-11-25); CI state per SHA in `artifacts/process/release_checklist.md` section 2. Hamm's consolidated ruling of 2026-11-22 (`artifacts/rulings/2026-11-22.md`) ruled every row of the ruling packet.
 
 Open rows: one (2026-11-24). `intervals-inmem` (opened 2026-11-24) moved to the todo stack as 17-165, required-0.2.17, on an independent critic's classification. A row leaves by being repaired, shown false, or moved into the todo stack (`AGENTS.md` §11); `git log -- artifacts/open_stack.md` holds earlier rows.
 
