@@ -2,10 +2,10 @@
 
 | Field | Value |
 |---|---|
-| commit | `18eb8af9bbbe55605e1c13eb7810367d6950253b` |
+| commit | `aa5c10831c0afed9d781d346fb60de469726acd1` |
 | new release-blocking problems found | 0 |
 | ruling | `AGENTS.md` section 11 condition 3: an independent blocker-focused pass finds no new release-blocking problem; G-04 (2026-10-19): each advertised scientific claim is checked against the deferred rows |
-| scope | One full pass at `88bbc699262c5b82b0a2ec755d5952513aa8ffab`, then a delta review of each later commit up to `18eb8af9`. Every change since `88bbc699` is under `artifacts/` (checked by `git diff --name-only`); no code, test, script or docs file changed |
+| scope | One full pass at `88bbc699262c5b82b0a2ec755d5952513aa8ffab`, then a delta review of each later commit up to `aa5c1083`. Every change since `88bbc699` is under `artifacts/` (checked by `git diff --name-only`); no code, test, script or docs file changed |
 
 ## Verification
 
@@ -17,6 +17,7 @@
 | Delta review: 17-166 and 17-167 moved from the todo stack to the roadmap as `deferred-0.2.18`; the gate was not changed | `dcfd839` | ACCEPT | 0 |
 | Delta review: roadmap wording restored after the move | `4dd60b8e` | ACCEPT | 0 |
 | Delta review: 17-144 provenance record (section 7), the 16-12 wording and the store-count corrections: `3b475620`, `8a2d45eb`, `345f139`, `7605b3b3`, `18eb8af9` (artifacts only). Earlier versions were rejected for wording and fixed; the final versions were accepted | `18eb8af9` | ACCEPT | 0 |
+| Delta review, independent reviewer (a fresh pass on the uncommitted set, then a delta on its three findings): reopened 17-100, 17-101 and 17-129 (todo sections restored from `d84577ea^`); 17-168 roadmap row removed; 17-99 closed on Hamm's ACCEPT and its plan items entry removed; rulings file `2026-11-25.md`; checklist and open-stack reconciled. First pass REVISE: one major (17-101 text still cited a `memory.md:7` path removed by `12c9fa43`), two minor (D4 row; a rulings-file pointer to a non-existent checklist section). All three fixed; delta ACCEPT | `aa5c1083` | ACCEPT after REVISE | 0 release-blocking |
 
 ## Stale statements found by the full pass
 
@@ -32,7 +33,7 @@
 
 | Item | State |
 |---|---|
-| 17-144-src, the jaxfne isi_cv commits | UNKNOWN; blocks 0.2.17. Own content and reachable alternates of the 322 stores with an unresolvable alternate were checked: none holds the three SHAs; 125 alternate targets are absent here (17-144 evidence, section 7). Recovery request drafted for Hamm to post; roadmap 16-12 depends on it |
+| 17-144-src, the jaxfne isi_cv commits | UNKNOWN; blocks 0.2.17. Own content and reachable alternates of the 322 stores with an unresolvable alternate were checked: none holds the three SHAs; 125 alternate targets are absent here (17-144 evidence, section 7). No recovery route on this machine (no jchat identity; Hamm decides the channel, 2026-11-25); roadmap 16-12 depends on it |
 | 13 changelog fragments in `artifacts/changelog.d/` | unassembled; assembly is the release step (`scripts/assemble_changelog.py`, R4) |
 | Version | declared 0.2.16; the bump is R4, owner only |
 
@@ -44,5 +45,5 @@
 | Full suite | 11145 passed, 163 skipped, 36 xfailed, 0 failed at `ad4e68c1` (`jnwb_suite.sh`; stamp equal to that commit) |
 | Complexity gate (A4) | `ruff check --select C901 jnwb/`: all checks passed at `ad4e68c1` |
 | Docs | `docs_build.py` strict: exit 0, no WARNING line, at `ad4e68c1` |
-| CI on `dev` | `ad4e68c1`: runs 45727251686 and 45727243852 concluded success. `4dd60b8e`: runs 45736611170 and 45736607156 were in progress when this receipt was written; the push waits on them |
-| STEP 0 | `release_gate.py` exit 1 at 0a at `18eb8af9`, before this file was committed (`step0_18eb8af9.log`): `17-144-src` open; the receipt named `4dd60b8e` with 2 files changed since; 13 changelog fragments unassembled. Steps 0b to 8 and the suite did not run. This file is the receipt the next run reads |
+| CI on `dev` | `ad4e68c1`: runs 45727251686 and 45727243852 concluded success. `4dd60b8e`: runs 45736611170 and 45736607156 concluded success (read through the public API 2026-11-25) |
+| STEP 0 | Run at `aa5c1083` with this receipt on the working tree (`step0_aa5c1083.log`, outside the repository): exit 1 at 0a. The committed receipt still named `18eb8af9` (5 files changed since), so the commit binding failed; this commit sets it to `aa5c1083`. Open at 0a: `17-144-src`; 13 changelog fragments unassembled (R4). Steps 0b to 8 and the suite did not run |
