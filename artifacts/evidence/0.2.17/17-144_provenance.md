@@ -50,8 +50,9 @@ bundle, and two `.lmstudio` bundles.
 
 ## 3. Residual unknowns
 
-- `jaxfne.bundle`: 108 heads unverified because history object `4d049f8c` is missing from the bundle. This is the
-  largest unknown, and it is damage, not absence.
+- `jaxfne.bundle`: the 108 heads not fetched one by one were checked at pack level only (section 7: 41,903 packed
+  objects, none of the three SHAs). History object `4d049f8c` is missing from the bundle, so objects reachable only
+  through it cannot be checked from it. This is the largest unknown, and it is damage, not absence.
 - The 12 unfetched bundles above.
 - The 21 Windows bundle-named binaries were tested only as bundles, not decoded. The 25 scoped and 51 Temp `.git`
   directories that are not repositories were checked by a loose-object name scan only.
@@ -85,7 +86,7 @@ Read-only: the public REST API and `git ls-remote`.
 
 Result: the three commits are not on the jnwb origin. 17-144 stays UNKNOWN. This does not show they are absent from the orchestrator's copy, which this machine cannot read.
 
-## 7. Lead sweep and object-level checks (2026-11-25)
+## 7. Lead sweep and object-level checks (2026-11-25; filename search 2026-11-26)
 
 Reported by the jaxfne lead session (`main-jaxfne`); jnwb re-checked the bundle and the commit.
 
@@ -93,5 +94,5 @@ Reported by the jaxfne lead session (`main-jaxfne`); jnwb re-checked the bundle 
 - `0e06993c`, `9980f58d`, `5fa63dd3`: not in that bundle. `git cat-file` finds none in the 8865 stores whose alternates all resolve (the lead's report). The 322 stores with an unresolvable alternate are not counted by that batch check: per the lead's report, it prints an alternate error and still exits 0. Their own content is checked in bullet 4. The 42 alternate object directories that resolve on this machine are also checked. A closure check (`check_closure.sh`, 2026-11-25) follows alternates from the 42 resolvable targets to a fixed point. It reaches 40 object directories and finds none of the three SHAs in their own packs or loose objects; a known object is found, so the method works. Of the 42 targets, 19 hold objects in their own packs or loose directories (count on the first view set); the other 23 hold none, so their objects, if any, come through alternates, which the closure follows. Scope: `find` to depth 6 under `/mnt/c` through `/mnt/k` and `/home/hamm` (14921 entries; 5734 not readable as git; stderr discarded on the `/mnt/c` to `/mnt/k` scan).
 - `jaxfne.bundle` at object level (jnwb, 2026-11-25): its pack holds 41,903 objects, and `git index-pack` verifies the pack checksum. None of the three SHAs is among them. Positive control: head `0b417733` is in the pack. Damage check: `4d049f8c` is absent, as section 2 says.
 - Not covered, so not proof of absence: The 322 stores with an unresolvable alternate (the lead's list, `alt_unresolved_stores.txt`, all present here) were checked by their own content and by their resolvable alternates (`check_stores.sh`, 2026-11-25): 332 existing object directories, 51 with pack or loose content; none holds the three SHAs. The positive control passes. Their chains also reach 125 distinct alternate targets absent here, among them `C:/workspace/jnwb` and the Mac `dev/jaxfne` and `dev/jomission` workspaces. An object held only in an absent directory cannot be ruled out; depth beyond 6; paths outside the scanned roots; `main-vmac` (offline).
-- The receipt file is not in commit `9b52c5e7` or in any jnwb ref. No store was searched for the file by name.
+- The receipt file is not in commit `9b52c5e7` or in any jnwb ref. Filename search 2026-11-26 (read-only, pattern `isi_cv_recompute_receipt*`, depth 8 under `/mnt/c/Users`, `/mnt/d`, `/mnt/e`, `/mnt/f`, `/mnt/h`, `/mnt/i`, `/mnt/k` and `/home/hamm`): no file of that name. The search covered filenames under those roots only; `main-vmac` was not reached.
 - Result: the three commits stay UNKNOWN, not verified absent. 17-144 stays open, and 16-12 stays blocked.

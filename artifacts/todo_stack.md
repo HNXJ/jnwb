@@ -44,9 +44,9 @@ Writes: `docs/01_architecture_and_philosophy.md`, `docs/02_paths_addressing_meta
 ### 17-101 Tracked rules that depend on untracked local files
 
 Release: deferred-0.2.17.
-Role: jnwb-developer. Skill: none. Blocked by: Hamm's word on the roadmap row that vendors the lock helper or names the dependency (`artifacts/roadmap.md`, the row on tracked rules that depend on local files) and on the wording of the 2026-09-22 ruling (`artifacts/rulings/standing.md:20`).
+Role: jnwb-developer. Skill: none. Blocked by: Hamm's word on the lock-helper dependency (the roadmap row for local-file dependencies in `artifacts/roadmap.md` does not name `suite_lock.py`; vendor the helper or name the dependency) and on the wording of the 2026-09-22 ruling (`artifacts/rulings/standing.md:20`).
 Writes: `artifacts/memory.md`, `artifacts/rulings/standing.md`.
-- 17-101: merge 22eca3d2 (lane `7ef15176`, verifier ACCEPT): rules cite `artifacts/agents/` roles, each tier bound to one; five live "scratchpad" concept uses reworded; `parity44.py` marked not retained. Left, live non-record hits: `standing.md:20` (corpus-access ruling) says "the scratchpad", no path. `memory.md:7` (roadmap 17-138) cited `C:/Users/nejath/.claude/bin/suite_lock.py` until `12c9fa43` removed the path (not yet ruled; checklist D4). Check: `git grep -lE 'scratchpad|C:/Users/nejath'` over tracked rules returns only records.
+- 17-101: merge 22eca3d2 (lane `7ef15176`, verifier ACCEPT): rules cite `artifacts/agents/` roles, each tier bound to one; five live "scratchpad" concept uses reworded; `parity44.py` marked not retained. Left, live non-record hits: `standing.md:20` (corpus-access ruling) says "the scratchpad", no path. `memory.md:7` (same class as roadmap 17-138, which cites `memory.md:8`) cited `C:/Users/nejath/.claude/bin/suite_lock.py` until `d84577ea` removed the path (not yet ruled; checklist D4). Check: `git grep -lE 'scratchpad|C:/Users/nejath'` over tracked rules returns only records.
 
 ### 17-129 Prose against the writing style
 
